@@ -2,7 +2,9 @@
 
 Syntax highlighting and editor support for [Kula](https://github.com/YashBhalodi/kulalang) (`.kula`) kinship-description files.
 
-This extension lives inside the [kulalang](https://github.com/YashBhalodi/kulalang) repo. See the repo root for the language specification, examples, and roadmap.
+![Highlighting preview](images/screenshot.png)
+
+This extension lives inside the [kulalang](https://github.com/YashBhalodi/kulalang) repo. See the [language specification](https://github.com/YashBhalodi/kulalang/tree/main/spec), [examples](https://github.com/YashBhalodi/kulalang/tree/main/examples), and [roadmap](https://github.com/YashBhalodi/kulalang/tree/main/docs/roadmap).
 
 ## Features (v0.0.1)
 

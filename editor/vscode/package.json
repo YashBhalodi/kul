@@ -27,6 +27,10 @@
     "genealogy",
     "family-tree"
   ],
+  "scripts": {
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
   "contributes": {
     "languages": [
       {
