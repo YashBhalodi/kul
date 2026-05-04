@@ -36,6 +36,11 @@ impl LineIndex {
         }
     }
 
+    /// The source string this index was built from.
+    pub fn source(&self) -> &str {
+        &self.source
+    }
+
     /// Convert a UTF-8 byte offset into an LSP `Position`. Out-of-range
     /// offsets clamp to the end of the source.
     pub fn position(&self, byte_offset: usize) -> Position {

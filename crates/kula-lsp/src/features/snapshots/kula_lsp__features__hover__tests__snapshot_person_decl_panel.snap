@@ -1,0 +1,13 @@
+---
+source: crates/kula-lsp/src/features/hover.rs
+assertion_line: 486
+expression: body
+---
+**`person alice`**
+
+- name: "Alice"
+- family: "Doe"
+- given: "A."
+- gender: `female`
+- born: `1900-01-01`
+- died: `~1980`

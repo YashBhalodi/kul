@@ -1,0 +1,12 @@
+---
+source: crates/kula-lsp/src/features/hover.rs
+assertion_line: 495
+expression: body
+---
+**`marriage m`**
+
+- spouse A: `a` ("Alice Doe")
+- spouse B: `b` ("Bob Smith")
+- start: `2010-06-15`
+- end: `2020-04-01`
+- end_reason: `divorce`

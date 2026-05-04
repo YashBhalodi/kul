@@ -39,8 +39,9 @@ pub enum KeywordKind {
 /// target (or `None` if the reference is unresolved — rule 2 reports it).
 #[derive(Debug, Clone)]
 pub enum Node<'a> {
-    /// A keyword token (e.g. `person`, `birth`).
-    Keyword(KeywordKind),
+    /// A keyword token (e.g. `person`, `birth`). The span identifies the
+    /// keyword's source range so callers can highlight the right token.
+    Keyword(KeywordKind, ByteSpan),
     /// The version literal (e.g. `1`) in a `kula <v>` declaration.
     VersionLiteral(&'a VersionDecl),
     /// The id token of a `person` declaration.
@@ -94,7 +95,7 @@ impl<'a> ResolvedDocument<'a> {
     ///
     /// // Cursor on the `person` keyword.
     /// let node = resolved.node_at(0).expect("a node");
-    /// assert!(matches!(node, Node::Keyword(KeywordKind::Person)));
+    /// assert!(matches!(node, Node::Keyword(KeywordKind::Person, _)));
     ///
     /// // Cursor inside the id.
     /// let id_offset = source.find("alice").unwrap();
@@ -109,7 +110,7 @@ impl<'a> ResolvedDocument<'a> {
                 return Some(Node::VersionLiteral(version));
             }
             if contains(version.keyword_span, byte_offset) {
-                return Some(Node::Keyword(KeywordKind::Kula));
+                return Some(Node::Keyword(KeywordKind::Kula, version.keyword_span));
             }
             return None;
         }
@@ -130,7 +131,7 @@ impl<'a> ResolvedDocument<'a> {
 
     fn node_in_person(&self, p: &'a PersonStmt, offset: usize) -> Option<Node<'a>> {
         if contains(p.keyword_span, offset) {
-            return Some(Node::Keyword(KeywordKind::Person));
+            return Some(Node::Keyword(KeywordKind::Person, p.keyword_span));
         }
         if contains(p.id.span, offset) {
             return Some(Node::PersonDeclId(p));
@@ -159,7 +160,7 @@ impl<'a> ResolvedDocument<'a> {
 
     fn node_in_birth(&self, b: &'a BirthSub, offset: usize) -> Option<Node<'a>> {
         if contains(b.keyword_span, offset) {
-            return Some(Node::Keyword(KeywordKind::Birth));
+            return Some(Node::Keyword(KeywordKind::Birth, b.keyword_span));
         }
         if contains(b.marriage_ref.span, offset) {
             return Some(Node::MarriageRef {
@@ -172,7 +173,7 @@ impl<'a> ResolvedDocument<'a> {
 
     fn node_in_adoption(&self, a: &'a AdoptionSub, offset: usize) -> Option<Node<'a>> {
         if contains(a.keyword_span, offset) {
-            return Some(Node::Keyword(KeywordKind::Adoption));
+            return Some(Node::Keyword(KeywordKind::Adoption, a.keyword_span));
         }
         if contains(a.marriage_ref.span, offset) {
             return Some(Node::MarriageRef {
@@ -194,7 +195,7 @@ impl<'a> ResolvedDocument<'a> {
 
     fn node_in_marriage(&self, m: &'a MarriageStmt, offset: usize) -> Option<Node<'a>> {
         if contains(m.keyword_span, offset) {
-            return Some(Node::Keyword(KeywordKind::Marriage));
+            return Some(Node::Keyword(KeywordKind::Marriage, m.keyword_span));
         }
         if contains(m.id.span, offset) {
             return Some(Node::MarriageDeclId(m));
@@ -257,7 +258,7 @@ mod tests {
         fn from(node: Option<Node<'_>>) -> Self {
             match node {
                 None => Probe::None,
-                Some(Node::Keyword(k)) => Probe::Keyword(k),
+                Some(Node::Keyword(k, _)) => Probe::Keyword(k),
                 Some(Node::VersionLiteral(_)) => Probe::VersionLiteral,
                 Some(Node::PersonDeclId(p)) => Probe::PersonDeclId(p.id.name.clone()),
                 Some(Node::MarriageDeclId(m)) => Probe::MarriageDeclId(m.id.name.clone()),

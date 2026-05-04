@@ -5,3 +5,4 @@
 //! which makes them unit-testable without any LSP plumbing.
 
 pub mod diagnostics;
+pub mod hover;
