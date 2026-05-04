@@ -8,13 +8,13 @@ KulaLang is a domain-specific language project for describing human kinship — 
 
 **v0.1: Language design complete; reference parser not yet started.**
 
-| Deliverable | State |
-| --- | --- |
-| Vision and scope | Drafted — see [VISION.md](./VISION.md) |
-| Language specification | Drafted — see [SPEC.md](./SPEC.md) |
-| Reference parser | Not started |
-| Validator CLI (`kula validate`) | Not started |
-| VSCode extension | Stretch goal, not started |
+| Deliverable                          | State                                                  |
+| ------------------------------------ | ------------------------------------------------------ |
+| Vision and scope                     | Drafted — see [`docs/vision.md`](./docs/vision.md)     |
+| Language specification               | Drafted — see [`spec/`](./spec/README.md)              |
+| Reference parser                     | Not started                                            |
+| Validator CLI (`kula validate`)      | Not started                                            |
+| VSCode extension                     | Stretch goal, not started                              |
 
 ## A taste
 
@@ -30,16 +30,40 @@ person alice name:"Alice Sharma" born:1950-04-12 gender:female
   birth m_ramesh_sita
 ```
 
-The full feature surface — polygamy, remarriage, retroactive adoption, partial dates, circa dates — is exercised in the [`examples/`](./examples/) directory and documented section-by-section in [SPEC.md](./SPEC.md).
+The full feature surface — polygamy, remarriage, retroactive adoption, partial dates, circa dates — is exercised in the [`examples/`](./examples/) directory and documented section-by-section in [`spec/`](./spec/README.md).
 
-## Project layout
+## Repository layout
 
-| Path | Contents |
-| --- | --- |
-| [VISION.md](./VISION.md) | Why the project exists, scope, and shape |
-| [SPEC.md](./SPEC.md) | Normative language specification (Kula 0.1) |
-| [examples/](./examples/) | Worked example `.kula` documents |
-| [LICENSE](./LICENSE) | MIT license |
+```
+.
+├── README.md                # this file
+├── LICENSE                  # MIT
+├── docs/
+│   └── vision.md            # why this project exists, scope, shape
+├── spec/                    # normative Kula 0.1 specification
+│   ├── README.md            # spec index / table of contents
+│   ├── 01-introduction.md
+│   ├── 02-document-structure.md
+│   ├── 03-lexical-structure.md
+│   ├── 04-top-level-statements.md
+│   ├── 05-person-sub-statements.md
+│   ├── 06-semantics.md
+│   ├── 07-validation-rules.md
+│   ├── 08-worked-examples.md
+│   ├── 09-edge-cases.md
+│   ├── 10-file-conventions.md
+│   ├── 11-reserved-keywords.md
+│   ├── 12-formal-grammar.md
+│   ├── 13-versioning-policy.md
+│   └── grammar.ebnf         # standalone normative EBNF
+└── examples/                # worked example .kula documents
+    ├── 01-single-couple.kula
+    ├── 02-nuclear-family.kula
+    ├── 03-three-generations.kula
+    └── 04-polygamous-family.kula
+```
+
+Future components — the reference parser, the validator CLI, the editor extension — will land as sibling top-level directories (`parser/`, `cli/`, `editor/`).
 
 ## Names and conventions
 
@@ -50,9 +74,9 @@ The full feature surface — polygamy, remarriage, retroactive adoption, partial
 
 ## Roadmap
 
-The v1 deliverables defined by [VISION.md](./VISION.md) are:
+The v1 deliverables defined by [`docs/vision.md`](./docs/vision.md) are:
 
-1. **Language specification** — drafted in [SPEC.md](./SPEC.md).
+1. **Language specification** — drafted in [`spec/`](./spec/README.md).
 2. **Reference parser** — implementation language and approach TBD.
 3. **Validator surface** — CLI at minimum (`kula validate <file>`); editor integration as a stretch goal.
 

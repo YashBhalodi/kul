@@ -1,0 +1,85 @@
+(* ============================================================
+   Kula Language Grammar (EBNF) — version 0.1
+   Normative grammar for the Kula language. See spec/12-formal-grammar.md
+   for the prose introduction; see spec/ overall for full semantics.
+   ============================================================ *)
+
+document          = [ version-decl NEWLINE ] { line } ;
+
+line              = blank-line | comment-line | top-statement ;
+blank-line        = NEWLINE ;
+comment-line      = comment NEWLINE ;
+comment           = "#" { any-char-except-newline } ;
+
+version-decl      = "kula" version ;
+version           = digit { digit } "." digit { digit } ;
+
+(* --- Top-level statements --- *)
+
+top-statement     = person-stmt | marriage-stmt ;
+
+person-stmt       = "person" person-id { person-field } NEWLINE { person-sub-statement } ;
+marriage-stmt     = "marriage" marriage-id person-ref person-ref { marriage-field } NEWLINE ;
+
+(* --- Person sub-statements (only valid as indented continuation of a person-stmt) --- *)
+
+person-sub-statement = INDENT ( birth-sub | adoption-sub ) NEWLINE ;
+birth-sub            = "birth" marriage-ref ;
+adoption-sub         = "adoption" marriage-ref { adoption-field } ;
+
+(* --- Fields, enumerated per context --- *)
+
+person-field      = name-field
+                  | family-field
+                  | given-field
+                  | born-field
+                  | died-field
+                  | gender-field ;
+
+marriage-field    = start-field
+                  | end-field
+                  | end-reason-field ;
+
+adoption-field    = start-field
+                  | end-field ;
+
+name-field        = "name"       ":" string ;
+family-field      = "family"     ":" string ;
+given-field       = "given"      ":" string ;
+born-field        = "born"       ":" date ;
+died-field        = "died"       ":" date ;
+gender-field      = "gender"     ":" gender-value ;
+start-field       = "start"      ":" date ;
+end-field         = "end"        ":" date ;
+end-reason-field  = "end_reason" ":" end-reason-value ;
+
+gender-value      = "male" | "female" | "other" ;
+end-reason-value  = "divorce" ;
+
+(* --- Identifiers, role-named --- *)
+
+person-id         = identifier ;   (* declares a person; must be unique across all person-id and marriage-id *)
+marriage-id       = identifier ;   (* declares a marriage; must be unique across all person-id and marriage-id *)
+person-ref        = identifier ;   (* must resolve to a declared person-id *)
+marriage-ref      = identifier ;   (* must resolve to a declared marriage-id *)
+
+(* --- Lexical primitives --- *)
+
+string            = '"' { string-char } '"' ;
+string-char       = any-char-except-quote-or-backslash
+                  | "\\" "\\"
+                  | "\\" '"' ;
+
+date              = [ "~" ] year [ "-" month [ "-" day ] ] ;
+year              = digit digit digit digit ;
+month             = digit digit ;
+day               = digit digit ;
+
+identifier        = ( letter | "_" ) { letter | digit | "_" | "-" } ;
+                    (* Identifier MUST NOT match any reserved keyword listed in 11-reserved-keywords.md. *)
+letter            = "A" | "B" | ... | "Z" | "a" | "b" | ... | "z" ;
+digit             = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+
+NEWLINE           = "\n" | "\r\n" ;
+INDENT            = horizontal-whitespace { horizontal-whitespace } ;
+horizontal-whitespace = " " | "\t" ;
