@@ -16,3 +16,8 @@ Thumbs.db
 # VSCode extension build artifacts
 *.vsix
 node_modules/
+
+# Rust
+/target
+**/*.rs.bk
+Cargo.lock.bak

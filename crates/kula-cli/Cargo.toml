@@ -1,0 +1,27 @@
+[package]
+name = "kula-cli"
+description = "Command-line interface for the Kula language"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "kula"
+path = "src/main.rs"
+
+[dependencies]
+kula-core = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+miette = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
+insta = { workspace = true }
