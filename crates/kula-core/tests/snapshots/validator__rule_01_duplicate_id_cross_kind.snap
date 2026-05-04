@@ -1,0 +1,6 @@
+---
+source: crates/kula-core/tests/validator.rs
+expression: render_diagnostics(&result.diagnostics)
+---
+KULA-R01 [88..93]: duplicate id `alice`: this marriage re-declares an id already used by a person
+  related [7..12]: prior declaration

@@ -12,10 +12,17 @@ fn render_diagnostics(diags: &[Diagnostic]) -> String {
     diags
         .iter()
         .map(|d| {
-            format!(
+            let mut s = format!(
                 "{} [{}..{}]: {}",
                 d.code, d.primary.start, d.primary.end, d.message
-            )
+            );
+            for r in &d.related {
+                s.push_str(&format!(
+                    "\n  related [{}..{}]: {}",
+                    r.span.start, r.span.end, r.label
+                ));
+            }
+            s
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -67,4 +74,55 @@ fn valid_version_decl_is_clean() {
         "expected no diagnostics, got: {:#?}",
         result.diagnostics
     );
+}
+
+#[test]
+fn valid_couple_is_clean() {
+    let src = read_corpus("valid/03-couple.kula");
+    let result = check(&src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn valid_couple_with_divorce_is_clean() {
+    let src = read_corpus("valid/04-couple-with-divorce.kula");
+    let result = check(&src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn rule_01_duplicate_person_id() {
+    let src = read_corpus("invalid/rule-01-duplicate-id.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_01_duplicate_id_cross_kind() {
+    let src = read_corpus("invalid/rule-01-duplicate-id-cross-kind.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_04_self_marriage() {
+    let src = read_corpus("invalid/rule-04-self-marriage.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_03_marriage_missing_start() {
+    let result = check(
+        "person a name:\"A\" gender:female\nperson b name:\"B\" gender:male\nmarriage m a b\n",
+    );
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
 }

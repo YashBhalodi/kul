@@ -1,0 +1,4 @@
+person alice name:"Alice" gender:female
+person bob   name:"Bob"   gender:male
+
+marriage alice alice bob start:1972-05-12

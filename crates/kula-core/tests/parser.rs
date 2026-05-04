@@ -44,3 +44,27 @@ fn parse_unsupported_person_field_diagnoses() {
         "person alice name:\"Alice\" born:1950 gender:female\n"
     ));
 }
+
+#[test]
+fn parse_marriage_minimal() {
+    insta::assert_snapshot!(render("marriage m_a_b alice bob start:1972-05-12\n"));
+}
+
+#[test]
+fn parse_marriage_with_end() {
+    insta::assert_snapshot!(render(
+        "marriage m_a_b alice bob start:1972-05-12 end:1990-08-01 end_reason:divorce\n"
+    ));
+}
+
+#[test]
+fn parse_marriage_self_marriage_still_parses() {
+    insta::assert_snapshot!(render("marriage m alice alice start:1972-05-12\n"));
+}
+
+#[test]
+fn parse_invalid_marriage_field_recovers() {
+    insta::assert_snapshot!(render(
+        "marriage m_a_b alice bob name:\"oops\"\nperson c name:\"C\" gender:female\n"
+    ));
+}

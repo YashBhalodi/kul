@@ -63,3 +63,42 @@ fn version_flag_prints_both_versions() {
         .success()
         .stdout(contains("kula-core"));
 }
+
+#[test]
+fn validate_couple_is_clean() {
+    let path = corpus_root().join("valid/03-couple.kula");
+    Command::cargo_bin("kula")
+        .unwrap()
+        .args(["validate"])
+        .arg(&path)
+        .assert()
+        .success();
+}
+
+#[test]
+fn validate_duplicate_id_reports_rule_01() {
+    let path = corpus_root().join("invalid/rule-01-duplicate-id.kula");
+    Command::cargo_bin("kula")
+        .unwrap()
+        .args(["validate"])
+        .arg(&path)
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("KULA-R01"))
+        .stderr(contains("duplicate id"));
+}
+
+#[test]
+fn validate_self_marriage_reports_rule_04() {
+    let path = corpus_root().join("invalid/rule-04-self-marriage.kula");
+    Command::cargo_bin("kula")
+        .unwrap()
+        .args(["validate"])
+        .arg(&path)
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("KULA-R04"))
+        .stderr(contains("spouses must be distinct"));
+}

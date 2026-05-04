@@ -1,0 +1,64 @@
+---
+source: crates/kula-core/tests/parser.rs
+expression: "render(\"marriage m alice alice start:1972-05-12\\n\")"
+---
+ast: Document {
+    version: None,
+    statements: [
+        Marriage(
+            MarriageStmt {
+                span: ByteSpan {
+                    start: 0,
+                    end: 39,
+                },
+                keyword_span: ByteSpan {
+                    start: 0,
+                    end: 8,
+                },
+                id: Ident {
+                    name: "m",
+                    span: ByteSpan {
+                        start: 9,
+                        end: 10,
+                    },
+                },
+                spouse_a: Ident {
+                    name: "alice",
+                    span: ByteSpan {
+                        start: 11,
+                        end: 16,
+                    },
+                },
+                spouse_b: Ident {
+                    name: "alice",
+                    span: ByteSpan {
+                        start: 17,
+                        end: 22,
+                    },
+                },
+                fields: [
+                    MarriageField {
+                        span: ByteSpan {
+                            start: 23,
+                            end: 39,
+                        },
+                        name_span: ByteSpan {
+                            start: 23,
+                            end: 28,
+                        },
+                        kind: Start(
+                            DatePlaceholder {
+                                raw: "1972-05-12",
+                                span: ByteSpan {
+                                    start: 29,
+                                    end: 39,
+                                },
+                            },
+                        ),
+                    },
+                ],
+            },
+        ),
+    ],
+}
+diagnostics: []

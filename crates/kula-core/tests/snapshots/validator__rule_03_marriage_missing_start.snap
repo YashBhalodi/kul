@@ -1,0 +1,5 @@
+---
+source: crates/kula-core/tests/validator.rs
+expression: render_diagnostics(&result.diagnostics)
+---
+KULA-R03 [71..72]: marriage `m` is missing required field `start`

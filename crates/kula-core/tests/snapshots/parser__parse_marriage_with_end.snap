@@ -1,0 +1,102 @@
+---
+source: crates/kula-core/tests/parser.rs
+expression: "render(\"marriage m_a_b alice bob start:1972-05-12 end:1990-08-01 end_reason:divorce\\n\")"
+---
+ast: Document {
+    version: None,
+    statements: [
+        Marriage(
+            MarriageStmt {
+                span: ByteSpan {
+                    start: 0,
+                    end: 75,
+                },
+                keyword_span: ByteSpan {
+                    start: 0,
+                    end: 8,
+                },
+                id: Ident {
+                    name: "m_a_b",
+                    span: ByteSpan {
+                        start: 9,
+                        end: 14,
+                    },
+                },
+                spouse_a: Ident {
+                    name: "alice",
+                    span: ByteSpan {
+                        start: 15,
+                        end: 20,
+                    },
+                },
+                spouse_b: Ident {
+                    name: "bob",
+                    span: ByteSpan {
+                        start: 21,
+                        end: 24,
+                    },
+                },
+                fields: [
+                    MarriageField {
+                        span: ByteSpan {
+                            start: 25,
+                            end: 41,
+                        },
+                        name_span: ByteSpan {
+                            start: 25,
+                            end: 30,
+                        },
+                        kind: Start(
+                            DatePlaceholder {
+                                raw: "1972-05-12",
+                                span: ByteSpan {
+                                    start: 31,
+                                    end: 41,
+                                },
+                            },
+                        ),
+                    },
+                    MarriageField {
+                        span: ByteSpan {
+                            start: 42,
+                            end: 56,
+                        },
+                        name_span: ByteSpan {
+                            start: 42,
+                            end: 45,
+                        },
+                        kind: End(
+                            DatePlaceholder {
+                                raw: "1990-08-01",
+                                span: ByteSpan {
+                                    start: 46,
+                                    end: 56,
+                                },
+                            },
+                        ),
+                    },
+                    MarriageField {
+                        span: ByteSpan {
+                            start: 57,
+                            end: 75,
+                        },
+                        name_span: ByteSpan {
+                            start: 57,
+                            end: 67,
+                        },
+                        kind: EndReason(
+                            EndReasonValue {
+                                value: Divorce,
+                                span: ByteSpan {
+                                    start: 68,
+                                    end: 75,
+                                },
+                            },
+                        ),
+                    },
+                ],
+            },
+        ),
+    ],
+}
+diagnostics: []

@@ -1,0 +1,3 @@
+person alice name:"Alice" gender:female
+
+marriage m_alice_alice alice alice start:1972-05-12

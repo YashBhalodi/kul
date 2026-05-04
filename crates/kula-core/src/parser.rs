@@ -6,8 +6,9 @@
 //! recovery), and resumes parsing the next statement.
 
 use crate::ast::{
-    Document, Gender, GenderValue, Ident, PersonField, PersonFieldKind, PersonStmt, Statement,
-    StringValue, VersionDecl,
+    DatePlaceholder, Document, EndReason, EndReasonValue, Gender, GenderValue, Ident,
+    MarriageField, MarriageFieldKind, MarriageStmt, PersonField, PersonFieldKind, PersonStmt,
+    Statement, StringValue, VersionDecl,
 };
 use crate::diagnostic::Diagnostic;
 use crate::lexer::{EnumKw, FieldName, Token, TokenKind};
@@ -67,12 +68,17 @@ impl<'a> Parser<'a> {
                         document.statements.push(Statement::Person(stmt));
                     }
                 }
+                TokenKind::MarriageKw => {
+                    if let Some(stmt) = self.parse_marriage_stmt() {
+                        document.statements.push(Statement::Marriage(stmt));
+                    }
+                }
                 _ => {
                     let tok = self.peek();
                     self.diagnostics.push(Diagnostic::error(
                         "KULA-P01",
                         format!(
-                            "expected `person` (top-level statement), found {}",
+                            "expected `person` or `marriage` (top-level statement), found {}",
                             describe_token(&tok.kind)
                         ),
                         tok.span,
@@ -179,6 +185,190 @@ impl<'a> Parser<'a> {
             keyword_span,
             id,
             fields,
+        })
+    }
+
+    fn parse_marriage_stmt(&mut self) -> Option<MarriageStmt> {
+        let kw_tok = self.advance().clone();
+        let keyword_span = kw_tok.span;
+        let mut span = keyword_span;
+
+        let id = self.expect_ident("the marriage's id", "after `marriage`")?;
+        span = span.merge(id.span);
+        let spouse_a = self.expect_ident("the first spouse", "as the first spouse")?;
+        span = span.merge(spouse_a.span);
+        let spouse_b = self.expect_ident("the second spouse", "as the second spouse")?;
+        span = span.merge(spouse_b.span);
+
+        let mut fields = Vec::new();
+        loop {
+            match self.peek_kind() {
+                TokenKind::Newline | TokenKind::Eof => break,
+                TokenKind::FieldKw(_) => {
+                    if let Some(field) = self.parse_marriage_field() {
+                        span = span.merge(field.span);
+                        fields.push(field);
+                    } else {
+                        break;
+                    }
+                }
+                _ => {
+                    let tok = self.peek().clone();
+                    self.diagnostics.push(Diagnostic::error(
+                        "KULA-P04",
+                        format!(
+                            "expected a field (`start:`, `end:`, `end_reason:`) or end of line, found {}",
+                            describe_token(&tok.kind)
+                        ),
+                        tok.span,
+                    ));
+                    self.recover_to_newline();
+                    break;
+                }
+            }
+        }
+        self.consume_newline();
+
+        Some(MarriageStmt {
+            span,
+            keyword_span,
+            id,
+            spouse_a,
+            spouse_b,
+            fields,
+        })
+    }
+
+    fn expect_ident(&mut self, role: &str, ctx: &str) -> Option<Ident> {
+        let tok = self.peek().clone();
+        match &tok.kind {
+            TokenKind::Ident(name) => {
+                self.advance();
+                Some(Ident {
+                    name: name.clone(),
+                    span: tok.span,
+                })
+            }
+            _ => {
+                self.diagnostics.push(Diagnostic::error(
+                    "KULA-P03",
+                    format!(
+                        "expected an identifier ({role}) {ctx}, found {}",
+                        describe_token(&tok.kind)
+                    ),
+                    tok.span,
+                ));
+                self.recover_to_newline();
+                None
+            }
+        }
+    }
+
+    fn parse_marriage_field(&mut self) -> Option<MarriageField> {
+        let name_tok = self.advance().clone();
+        let TokenKind::FieldKw(field_name) = name_tok.kind else {
+            unreachable!("parse_marriage_field called with non-field token");
+        };
+        let name_span = name_tok.span;
+        let mut span = name_span;
+
+        let colon_tok = self.peek().clone();
+        if !matches!(colon_tok.kind, TokenKind::Colon) {
+            self.diagnostics.push(Diagnostic::error(
+                "KULA-P05",
+                format!(
+                    "expected `:` after `{}`, found {}",
+                    field_name.as_str(),
+                    describe_token(&colon_tok.kind)
+                ),
+                colon_tok.span,
+            ));
+            self.recover_to_newline();
+            return None;
+        }
+        self.advance();
+        span = span.merge(colon_tok.span);
+
+        let kind = match field_name {
+            FieldName::Start => MarriageFieldKind::Start(self.parse_date_placeholder(field_name)?),
+            FieldName::End => MarriageFieldKind::End(self.parse_date_placeholder(field_name)?),
+            FieldName::EndReason => MarriageFieldKind::EndReason(self.parse_end_reason_value()?),
+            FieldName::Name
+            | FieldName::Family
+            | FieldName::Given
+            | FieldName::Born
+            | FieldName::Died
+            | FieldName::Gender => {
+                self.diagnostics.push(Diagnostic::error(
+                    "KULA-P10",
+                    format!("field `{}` is not valid on `marriage`", field_name.as_str()),
+                    name_span,
+                ));
+                self.recover_to_newline();
+                return None;
+            }
+        };
+
+        let value_span = match &kind {
+            MarriageFieldKind::Start(d) | MarriageFieldKind::End(d) => d.span,
+            MarriageFieldKind::EndReason(v) => v.span,
+        };
+        span = span.merge(value_span);
+
+        Some(MarriageField {
+            span,
+            name_span,
+            kind,
+        })
+    }
+
+    fn parse_date_placeholder(&mut self, field: FieldName) -> Option<DatePlaceholder> {
+        let tok = self.peek().clone();
+        match &tok.kind {
+            TokenKind::Bare(text) | TokenKind::Ident(text) => {
+                self.advance();
+                Some(DatePlaceholder {
+                    raw: text.clone(),
+                    span: tok.span,
+                })
+            }
+            _ => {
+                self.diagnostics.push(Diagnostic::error(
+                    "KULA-P11",
+                    format!(
+                        "expected a date for `{}:`, found {}",
+                        field.as_str(),
+                        describe_token(&tok.kind)
+                    ),
+                    tok.span,
+                ));
+                self.recover_to_newline();
+                None
+            }
+        }
+    }
+
+    fn parse_end_reason_value(&mut self) -> Option<EndReasonValue> {
+        let tok = self.peek().clone();
+        let value = match &tok.kind {
+            TokenKind::EnumKw(EnumKw::Divorce) => EndReason::Divorce,
+            _ => {
+                self.diagnostics.push(Diagnostic::error(
+                    "KULA-P12",
+                    format!(
+                        "expected `divorce` for `end_reason:`, found {}",
+                        describe_token(&tok.kind)
+                    ),
+                    tok.span,
+                ));
+                self.recover_to_newline();
+                return None;
+            }
+        };
+        self.advance();
+        Some(EndReasonValue {
+            value,
+            span: tok.span,
         })
     }
 

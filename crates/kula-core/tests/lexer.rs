@@ -52,3 +52,9 @@ fn lex_invalid_escape() {
     let source = "person alice name:\"a\\nb\"\n";
     insta::assert_snapshot!(render_tokens(source));
 }
+
+#[test]
+fn lex_marriage_with_divorce() {
+    let source = "marriage m_a_b alice bob start:1972-05-12 end:1990-08-01 end_reason:divorce\n";
+    insta::assert_snapshot!(render_tokens(source));
+}

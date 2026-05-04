@@ -25,6 +25,23 @@ pub struct VersionDecl {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Statement {
     Person(PersonStmt),
+    Marriage(MarriageStmt),
+}
+
+impl Statement {
+    pub fn id(&self) -> &Ident {
+        match self {
+            Statement::Person(p) => &p.id,
+            Statement::Marriage(m) => &m.id,
+        }
+    }
+
+    pub fn kind_name(&self) -> &'static str {
+        match self {
+            Statement::Person(_) => "person",
+            Statement::Marriage(_) => "marriage",
+        }
+    }
 }
 
 /// A `person <id> <field>...` statement.
@@ -73,5 +90,50 @@ pub enum Gender {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GenderValue {
     pub value: Gender,
+    pub span: ByteSpan,
+}
+
+/// A `marriage <id> <spouse-a> <spouse-b> <field>...` statement.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MarriageStmt {
+    pub span: ByteSpan,
+    pub keyword_span: ByteSpan,
+    pub id: Ident,
+    pub spouse_a: Ident,
+    pub spouse_b: Ident,
+    pub fields: Vec<MarriageField>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MarriageField {
+    pub span: ByteSpan,
+    pub name_span: ByteSpan,
+    pub kind: MarriageFieldKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MarriageFieldKind {
+    Start(DatePlaceholder),
+    End(DatePlaceholder),
+    EndReason(EndReasonValue),
+}
+
+/// Placeholder date-literal AST until full date support lands in slice #10.
+/// Carries the raw source text exactly as written (e.g. `1972-05-12`,
+/// `~1925`, `1925-09`) plus the span.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DatePlaceholder {
+    pub raw: String,
+    pub span: ByteSpan,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EndReason {
+    Divorce,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EndReasonValue {
+    pub value: EndReason,
     pub span: ByteSpan,
 }

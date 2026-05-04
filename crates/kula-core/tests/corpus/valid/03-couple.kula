@@ -1,0 +1,4 @@
+person alice name:"Alice Sharma" gender:female
+person bob   name:"Bob Sharma"   gender:male
+
+marriage m_alice_bob alice bob start:1972-05-12
