@@ -6,24 +6,29 @@ Syntax highlighting and editor support for [Kula](https://github.com/YashBhalodi
 
 This extension lives inside the [kulalang](https://github.com/YashBhalodi/kulalang) repo. See the [language specification](https://github.com/YashBhalodi/kulalang/tree/main/spec), [examples](https://github.com/YashBhalodi/kulalang/tree/main/examples), and [roadmap](https://github.com/YashBhalodi/kulalang/tree/main/docs/roadmap).
 
-## Features (v0.0.1)
+## Features
 
 - File association and file-tree icon for `.kula`
 - Line-comment toggling (`#`) and auto-closing string quotes
 - Syntax highlighting for keywords, strings (with escapes), date literals (with `~` circa marker), field names, enum values (`male`/`female`/`other`/`divorce`), declared identifiers, and id references
 - Snippets for the common shapes: `kula`, `person`, `marriage`, `birth`, `adoption`
+- **Language-server integration** when `kula-lsp` is available (pointed at via `kula.serverPath` for development; bundled in the marketplace release): live diagnostics, hover panels, go-to-definition, basic completion
 
-Language-server support (live diagnostics, hover, go-to-definition, completion) lands in subsequent phases — see the [roadmap](https://github.com/YashBhalodi/kulalang/tree/main/docs/roadmap).
+## Settings
+
+- `kula.serverPath` — absolute path to a `kula-lsp` binary. When set, overrides the bundled binary; useful for pointing at a locally-built `target/debug/kula-lsp`. Leave empty to use the bundled binary (when the extension ships with one).
+- `kula.trace.server` — `off` / `messages` / `verbose`. Enables LSP message tracing in the `Kula LSP` output channel.
 
 ## Local development
 
 ### Option A — Dev-host (fastest iteration)
 
 1. Open this directory (`editor/vscode/`) in VSCode.
-2. Press `F5` to launch an Extension Development Host window with the extension loaded.
-3. In the dev host, open any file from the repo's [`examples/`](https://github.com/YashBhalodi/kulalang/tree/main/examples) directory.
+2. Run `npm install` once.
+3. Press `F5` to launch an Extension Development Host window with the extension loaded. The pre-launch task compiles the TypeScript bundle.
+4. In the dev host, open any file from the repo's [`examples/`](https://github.com/YashBhalodi/kulalang/tree/main/examples) directory.
 
-Closing the dev-host window unloads the extension. Best for iterating on the grammar or snippets — edits to the source files take effect when you re-launch.
+Closing the dev-host window unloads the extension. Best for iterating on the activation script — edits to `src/extension.ts` take effect on relaunch.
 
 ### Option B — Install a local `.vsix` into your real VSCode
 
@@ -33,22 +38,26 @@ Use this when you want the extension active across all your VSCode windows (not 
 
 ```sh
 npm i -g @vscode/vsce
+cd editor/vscode
+npm install
 ```
 
 **Package and install:**
 
 ```sh
 cd editor/vscode
-vsce package                                          # produces kulalang-<version>.vsix
+npm run package                                       # produces kulalang-<version>.vsix
 code --install-extension kulalang-<version>.vsix      # use --force to overwrite an existing install
 ```
+
+`npm run package` invokes `vsce package`, which runs the `vscode:prepublish` script first (typecheck + esbuild bundle).
 
 Reload VSCode (`Cmd+Shift+P` → `Developer: Reload Window`) for the change to take effect.
 
 **Re-package after edits:**
 
 ```sh
-vsce package && code --install-extension kulalang-<version>.vsix --force
+npm run package && code --install-extension kulalang-<version>.vsix --force
 ```
 
 **Uninstall:**
@@ -57,4 +66,35 @@ vsce package && code --install-extension kulalang-<version>.vsix --force
 code --uninstall-extension YashBhalodi.kulalang
 ```
 
-The generated `*.vsix` file is gitignored at the repo root.
+The generated `*.vsix` file is gitignored.
+
+### Option C — Test the language server locally
+
+The extension's LSP client looks for `kula-lsp` first via the `kula.serverPath` setting and then falls back to a bundled binary. For development you'll want to point at your locally-built binary:
+
+1. Build the language server from the repo root:
+
+   ```sh
+   cargo build -p kula-lsp
+   ```
+
+2. Note the absolute path of the produced binary (`<repo>/target/debug/kula-lsp`).
+
+3. Install the extension via Option A or Option B.
+
+4. In VSCode, open Settings (`Cmd+,`) → search `kula.serverPath` → paste the absolute path. (Or edit `settings.json` directly with `"kula.serverPath": "/absolute/path/to/target/debug/kula-lsp"`.)
+
+5. Reload the window (`Cmd+Shift+P` → `Developer: Reload Window`).
+
+6. Open any `examples/*.kula` file. You should see:
+
+   - Red squiggles under errors as you type (live diagnostics)
+   - Hover panels on keywords, identifiers, field names, and references
+   - Cmd+click on a person ref or marriage ref jumps to the declaration
+   - Autocomplete for keywords, field names, and enum values
+
+To debug the language server itself, set `kula.trace.server` to `messages` or `verbose` and watch the `Kula LSP` output channel (`View → Output → Kula LSP`).
+
+## Requirements
+
+VSCode 1.85 or later. The extension targets Node 18+ via the bundled extension host.

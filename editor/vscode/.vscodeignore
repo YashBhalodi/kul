@@ -6,3 +6,10 @@ node_modules/**
 .github/**
 **/*.bak
 *.vsix
+
+src/**
+tsconfig.json
+**/*.ts.map
+**/*.ts
+!out/**/*.js
+package-lock.json

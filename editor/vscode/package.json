@@ -27,7 +27,16 @@
     "genealogy",
     "family-tree"
   ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:kula"
+  ],
   "scripts": {
+    "typecheck": "tsc -p . --noEmit",
+    "bundle": "esbuild src/extension.ts --bundle --platform=node --target=node18 --external:vscode --outfile=out/extension.js --minify",
+    "build": "npm run typecheck && npm run bundle",
+    "watch": "esbuild src/extension.ts --bundle --platform=node --target=node18 --external:vscode --outfile=out/extension.js --sourcemap --watch",
+    "vscode:prepublish": "npm run build",
     "package": "vsce package",
     "publish": "vsce publish"
   },
@@ -68,6 +77,35 @@
         "label": "Kula File Icons",
         "path": "./icons/kula-icon-theme.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Kula",
+      "properties": {
+        "kula.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to a `kula-lsp` binary. When set, overrides the bundled binary. Use this to point at a locally-built `kula-lsp` (e.g. `target/debug/kula-lsp`) for development. Leave empty to use the bundled binary."
+        },
+        "kula.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Trace LSP messages between VSCode and the Kula language server. Output appears in the `Kula LSP` channel."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
   }
 }
