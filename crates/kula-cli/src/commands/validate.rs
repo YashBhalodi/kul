@@ -1,13 +1,25 @@
-use std::path::Path;
+use std::io::{self, Read};
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use kula_core::diagnostic::{Diagnostic, RenderableDiagnostic, Severity};
+use kula_core::diagnostic::{Diagnostic, RelatedSpan, RenderableDiagnostic, Severity};
+use kula_core::span::{ByteSpan, SourceMap};
 use miette::{GraphicalReportHandler, GraphicalTheme};
+use serde::Serialize;
 
-pub fn run(files: &[std::path::PathBuf]) -> ExitCode {
+use crate::OutputFormat;
+
+pub struct Options {
+    pub files: Vec<PathBuf>,
+    pub quiet: bool,
+    pub format: OutputFormat,
+    pub no_color: bool,
+}
+
+pub fn run(opts: Options) -> ExitCode {
     let mut had_error = false;
-    for file in files {
-        match validate_one(file) {
+    for file in &opts.files {
+        match validate_one(file, &opts) {
             Ok(file_had_error) => {
                 if file_had_error {
                     had_error = true;
@@ -26,16 +38,31 @@ pub fn run(files: &[std::path::PathBuf]) -> ExitCode {
     }
 }
 
-fn validate_one(path: &Path) -> std::io::Result<bool> {
-    let source = std::fs::read_to_string(path)?;
+fn validate_one(path: &Path, opts: &Options) -> io::Result<bool> {
+    let (source, label) = if path == Path::new("-") {
+        let mut buf = String::new();
+        io::stdin().read_to_string(&mut buf)?;
+        (buf, "<stdin>".to_string())
+    } else {
+        let source = std::fs::read_to_string(path)?;
+        (source, path.to_string_lossy().into_owned())
+    };
+
     let result = kula_core::check(&source);
-    let path_str = path.to_string_lossy();
-    render(&source, &path_str, &result.diagnostics);
-    Ok(result.has_errors())
+    match opts.format {
+        OutputFormat::Human => render_human(&source, &label, &result.diagnostics, opts),
+        OutputFormat::Json => render_json(&source, &label, &result.diagnostics)?,
+    }
+
+    let has_errors = result.has_errors();
+    if !has_errors && !opts.quiet && opts.format == OutputFormat::Human {
+        println!("{label}: ok");
+    }
+    Ok(has_errors)
 }
 
-fn render(source: &str, source_name: &str, diagnostics: &[Diagnostic]) {
-    let theme = if std::io::IsTerminal::is_terminal(&std::io::stderr()) {
+fn render_human(source: &str, label: &str, diagnostics: &[Diagnostic], opts: &Options) {
+    let theme = if !opts.no_color && std::io::IsTerminal::is_terminal(&std::io::stderr()) {
         GraphicalTheme::unicode()
     } else {
         GraphicalTheme::unicode_nocolor()
@@ -43,16 +70,87 @@ fn render(source: &str, source_name: &str, diagnostics: &[Diagnostic]) {
     let handler = GraphicalReportHandler::new_themed(theme);
     let mut buf = String::new();
     for diag in diagnostics {
-        let renderable = RenderableDiagnostic::new(source, source_name, diag);
+        let renderable = RenderableDiagnostic::new(source, label, diag);
         buf.clear();
         let _ = handler.render_report(&mut buf, &renderable);
         eprint!("{buf}");
     }
-    let errors = diagnostics
-        .iter()
-        .filter(|d| d.severity == Severity::Error)
-        .count();
-    if errors == 0 {
-        println!("{source_name}: ok");
+}
+
+fn render_json(source: &str, label: &str, diagnostics: &[Diagnostic]) -> io::Result<()> {
+    let map = SourceMap::new(source);
+    let stdout = io::stdout();
+    let mut out = stdout.lock();
+    use std::io::Write;
+    for diag in diagnostics {
+        let record = JsonDiagnostic::new(label, &map, diag);
+        let line = serde_json::to_string(&record).expect("serialize diagnostic");
+        writeln!(out, "{line}")?;
+    }
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct JsonDiagnostic<'a> {
+    code: &'a str,
+    severity: &'static str,
+    message: &'a str,
+    file: &'a str,
+    primary: JsonSpan,
+    related: Vec<JsonRelated<'a>>,
+}
+
+#[derive(Serialize)]
+struct JsonSpan {
+    byte_start: usize,
+    byte_end: usize,
+    line: usize,
+    column: usize,
+}
+
+#[derive(Serialize)]
+struct JsonRelated<'a> {
+    label: &'a str,
+    #[serde(flatten)]
+    span: JsonSpan,
+}
+
+impl<'a> JsonDiagnostic<'a> {
+    fn new(file: &'a str, map: &SourceMap, diag: &'a Diagnostic) -> Self {
+        Self {
+            code: diag.code,
+            severity: severity_str(diag.severity),
+            message: &diag.message,
+            file,
+            primary: JsonSpan::new(diag.primary, map),
+            related: diag
+                .related
+                .iter()
+                .map(|r: &RelatedSpan| JsonRelated {
+                    label: &r.label,
+                    span: JsonSpan::new(r.span, map),
+                })
+                .collect(),
+        }
+    }
+}
+
+impl JsonSpan {
+    fn new(span: ByteSpan, map: &SourceMap) -> Self {
+        let lc = map.line_col(span.start);
+        Self {
+            byte_start: span.start,
+            byte_end: span.end,
+            line: lc.line,
+            column: lc.column,
+        }
+    }
+}
+
+fn severity_str(s: Severity) -> &'static str {
+    match s {
+        Severity::Error => "error",
+        Severity::Warning => "warning",
+        Severity::Note => "note",
     }
 }

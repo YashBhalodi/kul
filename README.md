@@ -6,15 +6,34 @@ KulaLang is a domain-specific language project for describing human kinship — 
 
 ## Status
 
-**v0.1: Language design complete; reference parser not yet started.**
+**v0.1: Language design complete; reference parser, validator, and CLI shipped.**
 
 | Deliverable                          | State                                                  |
 | ------------------------------------ | ------------------------------------------------------ |
 | Vision and scope                     | Drafted — see [`docs/vision.md`](./docs/vision.md)     |
 | Language specification               | Drafted — see [`spec/`](./spec/README.md)              |
-| Reference parser                     | Not started                                            |
-| Validator CLI (`kula validate`)      | Not started                                            |
-| VSCode extension                     | Stretch goal, not started                              |
+| Reference parser (`kula-core`)       | Shipped — see [`crates/kula-core`](./crates/kula-core) |
+| Validator CLI (`kula validate`)      | Shipped — see [`crates/kula-cli`](./crates/kula-cli)   |
+| VSCode extension (Phase 1)           | Shipped — see [`editor/vscode`](./editor/vscode)       |
+| Language server                      | Phase 3 — not started                                  |
+
+## Install
+
+Pre-built binaries for Linux, macOS, and Windows are attached to each release on the [GitHub Releases page](https://github.com/YashBhalodi/kulalang/releases). Download the archive for your platform and extract the `kula` binary onto your `$PATH`.
+
+To build from source:
+
+```sh
+git clone https://github.com/YashBhalodi/kulalang.git
+cd kulalang
+cargo install --path crates/kula-cli
+```
+
+Then:
+
+```sh
+kula validate examples/03-three-generations.kula
+```
 
 ## A taste
 
@@ -38,32 +57,18 @@ The full feature surface — polygamy, remarriage, retroactive adoption, partial
 .
 ├── README.md                # this file
 ├── LICENSE                  # MIT
-├── docs/
-│   └── vision.md            # why this project exists, scope, shape
+├── CHANGELOG.md             # release notes per version
+├── Cargo.toml               # Rust workspace root
+├── justfile                 # `just check` runs fmt + clippy + tests
+├── crates/
+│   ├── kula-core/           # parser, AST, semantic, validator, diagnostics
+│   └── kula-cli/            # `kula` binary
+├── docs/                    # vision, roadmap PRDs, agent docs
+├── editor/vscode/           # VSCode extension (Phase 1)
 ├── spec/                    # normative Kula 0.1 specification
-│   ├── README.md            # spec index / table of contents
-│   ├── 01-introduction.md
-│   ├── 02-document-structure.md
-│   ├── 03-lexical-structure.md
-│   ├── 04-top-level-statements.md
-│   ├── 05-person-sub-statements.md
-│   ├── 06-semantics.md
-│   ├── 07-validation-rules.md
-│   ├── 08-worked-examples.md
-│   ├── 09-edge-cases.md
-│   ├── 10-file-conventions.md
-│   ├── 11-reserved-keywords.md
-│   ├── 12-formal-grammar.md
-│   ├── 13-versioning-policy.md
 │   └── grammar.ebnf         # standalone normative EBNF
 └── examples/                # worked example .kula documents
-    ├── 01-single-couple.kula
-    ├── 02-nuclear-family.kula
-    ├── 03-three-generations.kula
-    └── 04-polygamous-family.kula
 ```
-
-Future components — the reference parser, the validator CLI, the editor extension — will land as sibling top-level directories (`parser/`, `cli/`, `editor/`).
 
 ## Names and conventions
 
