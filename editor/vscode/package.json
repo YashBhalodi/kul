@@ -46,6 +46,12 @@
         "scopeName": "source.kula",
         "path": "./syntaxes/kula.tmLanguage.json"
       }
+    ],
+    "snippets": [
+      {
+        "language": "kula",
+        "path": "./snippets/kula.json"
+      }
     ]
   }
 }
