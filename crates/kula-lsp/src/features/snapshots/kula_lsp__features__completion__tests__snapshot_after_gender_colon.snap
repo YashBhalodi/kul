@@ -1,0 +1,22 @@
+---
+source: crates/kula-lsp/src/features/completion.rs
+assertion_line: 612
+expression: items
+---
+[
+  {
+    "label": "male",
+    "kind": 20,
+    "detail": "Gender"
+  },
+  {
+    "label": "female",
+    "kind": 20,
+    "detail": "Gender"
+  },
+  {
+    "label": "other",
+    "kind": 20,
+    "detail": "Gender"
+  }
+]

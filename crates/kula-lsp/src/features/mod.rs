@@ -4,6 +4,7 @@
 //! completion). They are pure functions over the cached document state,
 //! which makes them unit-testable without any LSP plumbing.
 
+pub mod completion;
 pub mod definition;
 pub mod diagnostics;
 pub mod hover;

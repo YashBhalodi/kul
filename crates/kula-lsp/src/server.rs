@@ -9,14 +9,15 @@
 
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::{
-    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, HoverProviderCapability,
-    InitializeParams, InitializeResult, InitializedParams, MessageType, OneOf, ServerCapabilities,
-    ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
+    CompletionOptions, CompletionParams, CompletionResponse, DidChangeTextDocumentParams,
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, GotoDefinitionParams,
+    GotoDefinitionResponse, Hover, HoverParams, HoverProviderCapability, InitializeParams,
+    InitializeResult, InitializedParams, MessageType, OneOf, ServerCapabilities, ServerInfo,
+    TextDocumentSyncCapability, TextDocumentSyncKind, Url,
 };
 use tower_lsp::{Client, LanguageServer};
 
-use crate::features::{definition, diagnostics, hover};
+use crate::features::{completion, definition, diagnostics, hover};
 use crate::state::Documents;
 
 /// The Kula language server.
@@ -60,6 +61,10 @@ impl LanguageServer for Backend {
                 )),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 definition_provider: Some(OneOf::Left(true)),
+                completion_provider: Some(CompletionOptions {
+                    trigger_characters: Some(vec![":".to_owned(), " ".to_owned()]),
+                    ..Default::default()
+                }),
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
@@ -138,5 +143,24 @@ impl LanguageServer for Backend {
             })
             .await;
         Ok(result.flatten().map(GotoDefinitionResponse::Scalar))
+    }
+
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        let uri = params.text_document_position.text_document.uri;
+        let position = params.text_document_position.position;
+        let items = self
+            .documents
+            .with(&uri, |doc| {
+                let offset = doc.line_index.byte_offset(position)?;
+                let (resolved, _) = kula_core::semantic::resolve(&doc.check.document);
+                Some(completion::complete(
+                    doc.line_index.source(),
+                    &resolved,
+                    offset,
+                ))
+            })
+            .await
+            .flatten();
+        Ok(items.map(CompletionResponse::Array))
     }
 }

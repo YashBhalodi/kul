@@ -1,0 +1,22 @@
+---
+source: crates/kula-lsp/src/features/completion.rs
+assertion_line: 602
+expression: items
+---
+[
+  {
+    "label": "kula",
+    "kind": 14,
+    "detail": "Version declaration"
+  },
+  {
+    "label": "person",
+    "kind": 14,
+    "detail": "Declare a person"
+  },
+  {
+    "label": "marriage",
+    "kind": 14,
+    "detail": "Declare a marriage"
+  }
+]
