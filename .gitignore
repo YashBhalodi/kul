@@ -12,3 +12,7 @@ Thumbs.db
 # Logs and temp
 *.log
 *.tmp
+
+# VSCode extension build artifacts
+*.vsix
+node_modules/
