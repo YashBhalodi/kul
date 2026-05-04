@@ -2,10 +2,11 @@
 //!
 //! Each rule is a small function `rule_NN(...) -> Vec<Diagnostic>` taking a
 //! resolved document and returning diagnostics. The top-level [`validate`]
-//! is the composition of every implemented rule. Slices ship one rule at a
-//! time across Phase 2.
+//! is the composition of every implemented rule. Rules query the document
+//! through [`ResolvedDocument`]'s typed methods — they never enumerate
+//! `document.statements` themselves.
 
-use crate::ast::{EndReason, MarriageStmt, Statement};
+use crate::ast::{EndReason, MarriageStmt};
 use crate::date::before_strict;
 use crate::diagnostic::Diagnostic;
 use crate::semantic::ResolvedDocument;
@@ -33,33 +34,29 @@ pub fn validate(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
 /// enforced by the grammar — a missing spouse is a parse error.)
 pub fn rule_03_required_fields(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for stmt in &resolved.document.statements {
-        match stmt {
-            Statement::Person(p) => {
-                if p.name().is_none() {
-                    out.push(Diagnostic::error(
-                        "KULA-R03",
-                        format!("person `{}` is missing required field `name`", p.id.name),
-                        p.id.span,
-                    ));
-                }
-                if p.gender().is_none() {
-                    out.push(Diagnostic::error(
-                        "KULA-R03",
-                        format!("person `{}` is missing required field `gender`", p.id.name),
-                        p.id.span,
-                    ));
-                }
-            }
-            Statement::Marriage(m) => {
-                if m.start().is_none() {
-                    out.push(Diagnostic::error(
-                        "KULA-R03",
-                        format!("marriage `{}` is missing required field `start`", m.id.name),
-                        m.id.span,
-                    ));
-                }
-            }
+    for p in resolved.persons() {
+        if p.name().is_none() {
+            out.push(Diagnostic::error(
+                "KULA-R03",
+                format!("person `{}` is missing required field `name`", p.id.name),
+                p.id.span,
+            ));
+        }
+        if p.gender().is_none() {
+            out.push(Diagnostic::error(
+                "KULA-R03",
+                format!("person `{}` is missing required field `gender`", p.id.name),
+                p.id.span,
+            ));
+        }
+    }
+    for m in resolved.marriages() {
+        if m.start().is_none() {
+            out.push(Diagnostic::error(
+                "KULA-R03",
+                format!("marriage `{}` is missing required field `start`", m.id.name),
+                m.id.span,
+            ));
         }
     }
     out
@@ -69,10 +66,8 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
 /// distinct.
 pub fn rule_04_self_marriage(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for stmt in &resolved.document.statements {
-        if let Statement::Marriage(m) = stmt
-            && m.spouse_a.name == m.spouse_b.name
-        {
+    for m in resolved.marriages() {
+        if m.spouse_a.name == m.spouse_b.name {
             out.push(self_marriage_diagnostic(m));
         }
     }
@@ -96,10 +91,7 @@ fn self_marriage_diagnostic(m: &MarriageStmt) -> Diagnostic {
 /// (currently just `divorce`).
 pub fn rule_05_end_consistency(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for stmt in &resolved.document.statements {
-        let Statement::Marriage(m) = stmt else {
-            continue;
-        };
+    for m in resolved.marriages() {
         match (m.end(), m.end_reason()) {
             (Some(end), None) => {
                 out.push(Diagnostic::error(
@@ -150,10 +142,7 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
 /// Rule 6 — `person.died < person.born`.
 pub fn rule_06_died_before_born(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for stmt in &resolved.document.statements {
-        let Statement::Person(p) = stmt else {
-            continue;
-        };
+    for p in resolved.persons() {
         if let (Some(born), Some(died)) = (p.born(), p.died())
             && before_strict(died, born)
         {
@@ -173,10 +162,7 @@ pub fn rule_06_died_before_born(resolved: &ResolvedDocument<'_>) -> Vec<Diagnost
 /// Rule 7 — `marriage.end < marriage.start`.
 pub fn rule_07_marriage_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for stmt in &resolved.document.statements {
-        let Statement::Marriage(m) = stmt else {
-            continue;
-        };
+    for m in resolved.marriages() {
         if let (Some(start), Some(end)) = (m.start(), m.end())
             && before_strict(end, start)
         {
@@ -196,10 +182,7 @@ pub fn rule_07_marriage_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec
 /// Rule 8 — `adoption.end < adoption.start`.
 pub fn rule_08_adoption_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for stmt in &resolved.document.statements {
-        let Statement::Person(p) = stmt else {
-            continue;
-        };
+    for p in resolved.persons() {
         for adoption in &p.adoptions {
             if let (Some(start), Some(end)) = (adoption.start(), adoption.end())
                 && before_strict(end, start)
@@ -224,15 +207,9 @@ pub fn rule_08_adoption_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec
 /// Rule 9 — `marriage.start < S.born` for either spouse `S`.
 pub fn rule_09_marriage_before_spouse_born(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for stmt in &resolved.document.statements {
-        let Statement::Marriage(m) = stmt else {
-            continue;
-        };
+    for m in resolved.marriages() {
         let Some(start) = m.start() else { continue };
-        for spouse_id in [&m.spouse_a, &m.spouse_b] {
-            let Some(spouse) = resolved.person(&spouse_id.name) else {
-                continue;
-            };
+        for spouse in resolved.spouses_of(m) {
             let Some(born) = spouse.born() else { continue };
             if before_strict(start, born) {
                 out.push(
@@ -255,15 +232,9 @@ pub fn rule_09_marriage_before_spouse_born(resolved: &ResolvedDocument<'_>) -> V
 /// Rule 10 — `marriage.start > S.died` for either spouse `S`.
 pub fn rule_10_spouse_died_before_marriage(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for stmt in &resolved.document.statements {
-        let Statement::Marriage(m) = stmt else {
-            continue;
-        };
+    for m in resolved.marriages() {
         let Some(start) = m.start() else { continue };
-        for spouse_id in [&m.spouse_a, &m.spouse_b] {
-            let Some(spouse) = resolved.person(&spouse_id.name) else {
-                continue;
-            };
+        for spouse in resolved.spouses_of(m) {
             let Some(died) = spouse.died() else { continue };
             if before_strict(died, start) {
                 out.push(
@@ -287,20 +258,18 @@ pub fn rule_10_spouse_died_before_marriage(resolved: &ResolvedDocument<'_>) -> V
 /// spouses of the marriage referenced by the child's `birth` sub-statement.
 pub fn rule_11_bio_child_born_before_parent(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for stmt in &resolved.document.statements {
-        let Statement::Person(child) = stmt else {
+    for child in resolved.persons() {
+        let Some(birth) = &child.birth else { continue };
+        let Some(child_born) = child.born() else {
             continue;
         };
-        let Some(birth) = &child.birth else { continue };
-        let Some(child_born) = child.born() else { continue };
         let Some(marriage) = resolved.marriage(&birth.marriage_ref.name) else {
             continue;
         };
-        for parent_id in [&marriage.spouse_a, &marriage.spouse_b] {
-            let Some(parent) = resolved.person(&parent_id.name) else {
+        for parent in resolved.spouses_of(marriage) {
+            let Some(parent_born) = parent.born() else {
                 continue;
             };
-            let Some(parent_born) = parent.born() else { continue };
             if before_strict(child_born, parent_born) {
                 out.push(
                     Diagnostic::error(
@@ -322,20 +291,18 @@ pub fn rule_11_bio_child_born_before_parent(resolved: &ResolvedDocument<'_>) -> 
 /// Rule 12 — `adoption.start < P.born` for either adoptive parent `P`.
 pub fn rule_12_adoption_before_adopter_born(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for stmt in &resolved.document.statements {
-        let Statement::Person(child) = stmt else {
-            continue;
-        };
+    for child in resolved.persons() {
         for adoption in &child.adoptions {
-            let Some(start) = adoption.start() else { continue };
+            let Some(start) = adoption.start() else {
+                continue;
+            };
             let Some(marriage) = resolved.marriage(&adoption.marriage_ref.name) else {
                 continue;
             };
-            for parent_id in [&marriage.spouse_a, &marriage.spouse_b] {
-                let Some(parent) = resolved.person(&parent_id.name) else {
+            for parent in resolved.spouses_of(marriage) {
+                let Some(parent_born) = parent.born() else {
                     continue;
                 };
-                let Some(parent_born) = parent.born() else { continue };
                 if before_strict(start, parent_born) {
                     out.push(
                         Diagnostic::error(
@@ -360,25 +327,25 @@ pub fn rule_12_adoption_before_adopter_born(resolved: &ResolvedDocument<'_>) -> 
 pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for cycle in crate::cycles::find_cycles(resolved) {
-        let head = cycle
+        let head = *cycle
             .members
             .first()
-            .copied()
             .expect("cycle must have at least one member");
-        let head_person = resolved
-            .person(head)
-            .expect("cycle member is a declared person");
         let chain = if cycle.members.len() == 1 {
-            format!("`{head}` is their own ancestor")
+            format!("`{}` is their own ancestor", head.id.name)
         } else {
-            let mut parts: Vec<String> = cycle.members.iter().map(|m| format!("`{m}`")).collect();
-            parts.push(format!("`{head}`"));
+            let mut parts: Vec<String> = cycle
+                .members
+                .iter()
+                .map(|m| format!("`{}`", m.id.name))
+                .collect();
+            parts.push(format!("`{}`", head.id.name));
             format!("parent cycle: {}", parts.join(" → "))
         };
         let mut diag = Diagnostic::error(
             "KULA-R13",
             format!("parenthood cycle detected — {chain}"),
-            head_person.id.span,
+            head.id.span,
         );
         for span in cycle.link_spans {
             diag = diag.with_related(span, "parent link in this cycle");
