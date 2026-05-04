@@ -164,12 +164,16 @@ fn handshake_and_did_open() {
     let _ = handle.recv_until(deadline, |msg| msg.contains("kula-lsp initialized"));
 
     write_message(&mut handle.stdin, &shutdown_request());
+    // After `did_open`, the server emits a `publishDiagnostics`
+    // notification. Drain through it to find the shutdown *response*.
     let shutdown_response = handle
-        .recv(Duration::from_secs(5))
-        .expect("shutdown response");
+        .recv_until(Instant::now() + Duration::from_secs(5), |msg| {
+            msg.contains("\"id\":2")
+        })
+        .expect("shutdown response with id:2");
     assert!(
-        shutdown_response.contains("\"id\":2"),
-        "shutdown response missing id: {shutdown_response}"
+        shutdown_response.contains("\"result\""),
+        "shutdown response missing result: {shutdown_response}"
     );
 
     write_message(&mut handle.stdin, &exit_notification());

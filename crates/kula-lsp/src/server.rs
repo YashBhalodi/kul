@@ -11,15 +11,15 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::{
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
     InitializeParams, InitializeResult, InitializedParams, MessageType, ServerCapabilities,
-    ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind,
+    ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
 };
 use tower_lsp::{Client, LanguageServer};
 
+use crate::features::diagnostics;
 use crate::state::Documents;
 
 /// The Kula language server.
 pub struct Backend {
-    #[allow(dead_code)] // used by future features (publish_diagnostics, etc.)
     client: Client,
     documents: Documents,
 }
@@ -29,6 +29,21 @@ impl Backend {
         Self {
             client,
             documents: Documents::new(),
+        }
+    }
+
+    /// Translate the cached diagnostics for `uri` and publish them.
+    /// Called after `did_open` and `did_change`. A no-op if the document
+    /// isn't in the cache.
+    async fn publish_for(&self, uri: Url, version: Option<i32>) {
+        let translated = self
+            .documents
+            .with(&uri, |doc| {
+                diagnostics::to_lsp(&uri, &doc.check.diagnostics, &doc.line_index)
+            })
+            .await;
+        if let Some(diags) = translated {
+            self.client.publish_diagnostics(uri, diags, version).await;
         }
     }
 }
@@ -64,24 +79,30 @@ impl LanguageServer for Backend {
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let uri = params.text_document.uri;
+        let version = params.text_document.version;
         let source = params.text_document.text;
         tracing::info!(uri = %uri, "document opened");
-        self.documents.open(uri, source).await;
+        self.documents.open(uri.clone(), source).await;
+        self.publish_for(uri, Some(version)).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri;
+        let version = params.text_document.version;
         // Full sync: the last content change carries the whole document.
         let Some(change) = params.content_changes.into_iter().next_back() else {
             return;
         };
         tracing::debug!(uri = %uri, "document changed");
-        self.documents.update(uri, change.text).await;
+        self.documents.update(uri.clone(), change.text).await;
+        self.publish_for(uri, Some(version)).await;
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
         let uri = params.text_document.uri;
         tracing::info!(uri = %uri, "document closed");
         self.documents.close(&uri).await;
+        // Clear the squiggles for this document.
+        self.client.publish_diagnostics(uri, Vec::new(), None).await;
     }
 }
