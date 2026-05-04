@@ -13,7 +13,7 @@ const VERSION_STRING: &str = concat!(
 );
 
 const TOP_LONG_ABOUT: &str = "\
-Kula language CLI — parse, validate, and (later) format .kula documents.
+Kula language CLI — parse and validate .kula documents.
 
 A Kula document describes a family: persons, marriages, biological births,
 and adoptions. `kula validate` parses a document and reports the 13
@@ -29,7 +29,7 @@ EXAMPLES:
 EXIT CODES:
   0  every input validated cleanly
   1  at least one input had error diagnostics
-  2  CLI usage error or stub subcommand invoked
+  2  CLI usage error (e.g. unknown flag, missing argument)
 
 SEE ALSO:
   Spec ........ https://github.com/YashBhalodi/kulalang/tree/main/spec
@@ -127,16 +127,6 @@ enum Command {
         #[arg(long)]
         no_color: bool,
     },
-
-    /// (stub — Phase 4) Format a `.kula` file in place.
-    Format {
-        /// Files to format.
-        #[arg(value_name = "FILE")]
-        files: Vec<PathBuf>,
-    },
-
-    /// (stub — Phase 3) Run the Kula language server over stdio.
-    Lsp,
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum, PartialEq, Eq)]
@@ -159,13 +149,5 @@ fn main() -> ExitCode {
             format,
             no_color,
         }),
-        Command::Format { .. } => {
-            eprintln!("kula format: not yet implemented (Phase 4)");
-            ExitCode::from(2)
-        }
-        Command::Lsp => {
-            eprintln!("kula lsp: not yet implemented (Phase 3)");
-            ExitCode::from(2)
-        }
     }
 }

@@ -158,23 +158,3 @@ fn validate_multiple_files_exits_one_if_any_fail() {
         .failure()
         .code(1);
 }
-
-#[test]
-fn format_subcommand_is_stub() {
-    Command::cargo_bin("kula")
-        .unwrap()
-        .args(["format"])
-        .assert()
-        .code(2)
-        .stderr(contains("not yet implemented"));
-}
-
-#[test]
-fn lsp_subcommand_is_stub() {
-    Command::cargo_bin("kula")
-        .unwrap()
-        .args(["lsp"])
-        .assert()
-        .code(2)
-        .stderr(contains("not yet implemented"));
-}

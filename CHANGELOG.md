@@ -36,8 +36,6 @@ First public release of `kula-cli` and `kula-core`.
   - `--format json` emits one JSON object per diagnostic (jsonl).
   - `--no-color` forces colorless output.
   - Exit code `0` on success, `1` on any error diagnostic.
-- **Stub subcommands** `kula format` (Phase 4) and `kula lsp` (Phase 3) so
-  the CLI surface is reserved without a future semver bump.
 - Cross-platform release workflow producing binaries for
   `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-apple-darwin`,
   and `x86_64-pc-windows-msvc`.
