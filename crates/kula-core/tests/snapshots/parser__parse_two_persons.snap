@@ -1,0 +1,128 @@
+---
+source: crates/kula-core/tests/parser.rs
+expression: "render(\"person alice name:\\\"Alice\\\" gender:female\\nperson bob name:\\\"Bob\\\" gender:male\\n\")"
+---
+ast: Document {
+    version: None,
+    statements: [
+        Person(
+            PersonStmt {
+                span: ByteSpan {
+                    start: 0,
+                    end: 39,
+                },
+                keyword_span: ByteSpan {
+                    start: 0,
+                    end: 6,
+                },
+                id: Ident {
+                    name: "alice",
+                    span: ByteSpan {
+                        start: 7,
+                        end: 12,
+                    },
+                },
+                fields: [
+                    PersonField {
+                        span: ByteSpan {
+                            start: 13,
+                            end: 25,
+                        },
+                        name_span: ByteSpan {
+                            start: 13,
+                            end: 17,
+                        },
+                        kind: Name(
+                            StringValue {
+                                value: "Alice",
+                                span: ByteSpan {
+                                    start: 18,
+                                    end: 25,
+                                },
+                            },
+                        ),
+                    },
+                    PersonField {
+                        span: ByteSpan {
+                            start: 26,
+                            end: 39,
+                        },
+                        name_span: ByteSpan {
+                            start: 26,
+                            end: 32,
+                        },
+                        kind: Gender(
+                            GenderValue {
+                                value: Female,
+                                span: ByteSpan {
+                                    start: 33,
+                                    end: 39,
+                                },
+                            },
+                        ),
+                    },
+                ],
+            },
+        ),
+        Person(
+            PersonStmt {
+                span: ByteSpan {
+                    start: 40,
+                    end: 73,
+                },
+                keyword_span: ByteSpan {
+                    start: 40,
+                    end: 46,
+                },
+                id: Ident {
+                    name: "bob",
+                    span: ByteSpan {
+                        start: 47,
+                        end: 50,
+                    },
+                },
+                fields: [
+                    PersonField {
+                        span: ByteSpan {
+                            start: 51,
+                            end: 61,
+                        },
+                        name_span: ByteSpan {
+                            start: 51,
+                            end: 55,
+                        },
+                        kind: Name(
+                            StringValue {
+                                value: "Bob",
+                                span: ByteSpan {
+                                    start: 56,
+                                    end: 61,
+                                },
+                            },
+                        ),
+                    },
+                    PersonField {
+                        span: ByteSpan {
+                            start: 62,
+                            end: 73,
+                        },
+                        name_span: ByteSpan {
+                            start: 62,
+                            end: 68,
+                        },
+                        kind: Gender(
+                            GenderValue {
+                                value: Male,
+                                span: ByteSpan {
+                                    start: 69,
+                                    end: 73,
+                                },
+                            },
+                        ),
+                    },
+                ],
+            },
+        ),
+    ],
+}
+diagnostics: []

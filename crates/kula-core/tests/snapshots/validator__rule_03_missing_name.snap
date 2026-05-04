@@ -1,0 +1,5 @@
+---
+source: crates/kula-core/tests/validator.rs
+expression: render_diagnostics(&result.diagnostics)
+---
+KULA-R03 [7..12]: person `alice` is missing required field `name`

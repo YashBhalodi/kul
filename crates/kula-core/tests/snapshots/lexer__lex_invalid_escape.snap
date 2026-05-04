@@ -1,0 +1,12 @@
+---
+source: crates/kula-core/tests/lexer.rs
+expression: render_tokens(source)
+---
+  0..6   PersonKw
+  7..12  Ident("alice")
+ 13..17  FieldKw(Name)
+ 17..18  Colon
+ 18..22  Error("invalid string escape `\\n`; only `\\\\` and `\\\"` are recognized")
+ 22..23  Ident("b")
+ 23..25  Error("unterminated string literal: missing closing `\"`")
+ 25..25  Eof

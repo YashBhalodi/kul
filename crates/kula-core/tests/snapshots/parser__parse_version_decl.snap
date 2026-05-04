@@ -1,0 +1,81 @@
+---
+source: crates/kula-core/tests/parser.rs
+expression: "render(\"kula 0.1\\n\\nperson alice name:\\\"Alice\\\" gender:female\\n\")"
+---
+ast: Document {
+    version: Some(
+        VersionDecl {
+            span: ByteSpan {
+                start: 0,
+                end: 8,
+            },
+            version: "0.1",
+            version_span: ByteSpan {
+                start: 5,
+                end: 8,
+            },
+        },
+    ),
+    statements: [
+        Person(
+            PersonStmt {
+                span: ByteSpan {
+                    start: 10,
+                    end: 49,
+                },
+                keyword_span: ByteSpan {
+                    start: 10,
+                    end: 16,
+                },
+                id: Ident {
+                    name: "alice",
+                    span: ByteSpan {
+                        start: 17,
+                        end: 22,
+                    },
+                },
+                fields: [
+                    PersonField {
+                        span: ByteSpan {
+                            start: 23,
+                            end: 35,
+                        },
+                        name_span: ByteSpan {
+                            start: 23,
+                            end: 27,
+                        },
+                        kind: Name(
+                            StringValue {
+                                value: "Alice",
+                                span: ByteSpan {
+                                    start: 28,
+                                    end: 35,
+                                },
+                            },
+                        ),
+                    },
+                    PersonField {
+                        span: ByteSpan {
+                            start: 36,
+                            end: 49,
+                        },
+                        name_span: ByteSpan {
+                            start: 36,
+                            end: 42,
+                        },
+                        kind: Gender(
+                            GenderValue {
+                                value: Female,
+                                span: ByteSpan {
+                                    start: 43,
+                                    end: 49,
+                                },
+                            },
+                        ),
+                    },
+                ],
+            },
+        ),
+    ],
+}
+diagnostics: []

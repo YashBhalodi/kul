@@ -1,0 +1,100 @@
+---
+source: crates/kula-core/tests/parser.rs
+expression: "render(\"person alice oops:bad gender:female\\nperson bob name:\\\"Bob\\\" gender:male\\n\")"
+---
+ast: Document {
+    version: None,
+    statements: [
+        Person(
+            PersonStmt {
+                span: ByteSpan {
+                    start: 0,
+                    end: 12,
+                },
+                keyword_span: ByteSpan {
+                    start: 0,
+                    end: 6,
+                },
+                id: Ident {
+                    name: "alice",
+                    span: ByteSpan {
+                        start: 7,
+                        end: 12,
+                    },
+                },
+                fields: [],
+            },
+        ),
+        Person(
+            PersonStmt {
+                span: ByteSpan {
+                    start: 36,
+                    end: 69,
+                },
+                keyword_span: ByteSpan {
+                    start: 36,
+                    end: 42,
+                },
+                id: Ident {
+                    name: "bob",
+                    span: ByteSpan {
+                        start: 43,
+                        end: 46,
+                    },
+                },
+                fields: [
+                    PersonField {
+                        span: ByteSpan {
+                            start: 47,
+                            end: 57,
+                        },
+                        name_span: ByteSpan {
+                            start: 47,
+                            end: 51,
+                        },
+                        kind: Name(
+                            StringValue {
+                                value: "Bob",
+                                span: ByteSpan {
+                                    start: 52,
+                                    end: 57,
+                                },
+                            },
+                        ),
+                    },
+                    PersonField {
+                        span: ByteSpan {
+                            start: 58,
+                            end: 69,
+                        },
+                        name_span: ByteSpan {
+                            start: 58,
+                            end: 64,
+                        },
+                        kind: Gender(
+                            GenderValue {
+                                value: Male,
+                                span: ByteSpan {
+                                    start: 65,
+                                    end: 69,
+                                },
+                            },
+                        ),
+                    },
+                ],
+            },
+        ),
+    ],
+}
+diagnostics: [
+    Diagnostic {
+        code: "KULA-P04",
+        severity: Error,
+        message: "expected a field (`name:`, `gender:`, …) or end of line, found identifier `oops`",
+        primary: ByteSpan {
+            start: 13,
+            end: 17,
+        },
+        related: [],
+    },
+]
