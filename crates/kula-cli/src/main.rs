@@ -17,7 +17,8 @@ Kula language CLI — parse and validate .kula documents.
 
 A Kula document describes a family: persons, marriages, biological births,
 and adoptions. `kula validate` parses a document and reports the 13
-spec-defined errors with line/column anchors.
+spec-defined errors with line/column anchors. `kula lsp` runs the language
+server over stdio for editor integrations.
 
 EXAMPLES:
   kula validate family.kula
@@ -25,6 +26,7 @@ EXAMPLES:
   cat family.kula | kula validate -
   kula validate --format json family.kula | jq .
   kula validate --quiet family.kula && echo ok
+  kula lsp                      # speak LSP over stdio (editor integrations)
 
 EXIT CODES:
   0  every input validated cleanly
@@ -95,6 +97,18 @@ JSON OUTPUT (--format json):
   }
 ";
 
+const LSP_LONG_ABOUT: &str = "\
+Run the Kula language server over stdio.
+
+This subcommand is intended for editor integrations: an editor's LSP client
+spawns `kula lsp` as a child process and exchanges JSON-RPC messages over
+stdin/stdout. Logs go to stderr.
+
+ENVIRONMENT:
+  RUST_LOG  Filter directive for tracing logs (e.g. `kula_lsp=debug`).
+            Defaults to `kula_lsp=info`.
+";
+
 #[derive(Subcommand, Debug)]
 enum Command {
     /// Validate one or more `.kula` files. Use `-` to read from stdin.
@@ -127,6 +141,10 @@ enum Command {
         #[arg(long)]
         no_color: bool,
     },
+
+    /// Run the language server over stdio.
+    #[command(long_about = LSP_LONG_ABOUT)]
+    Lsp,
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum, PartialEq, Eq)]
@@ -149,5 +167,21 @@ fn main() -> ExitCode {
             format,
             no_color,
         }),
+        Command::Lsp => run_lsp(),
     }
+}
+
+fn run_lsp() -> ExitCode {
+    let runtime = match tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+    {
+        Ok(rt) => rt,
+        Err(err) => {
+            eprintln!("kula: failed to start language server runtime: {err}");
+            return ExitCode::from(1);
+        }
+    };
+    runtime.block_on(kula_lsp::run());
+    ExitCode::SUCCESS
 }
