@@ -1,0 +1,6 @@
+person alice name:"Alice Sharma" gender:female
+person bob   name:"Bob Sharma"   gender:male
+person ravi  name:"Ravi Sharma"  gender:male
+  adoption m_alice_bob start:1985-06-01
+
+marriage m_alice_bob alice bob start:1972-05-12

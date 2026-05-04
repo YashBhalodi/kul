@@ -1,0 +1,11 @@
+person alice name:"Alice" gender:female
+person bob   name:"Bob"   gender:male
+
+marriage m_alice_bob alice bob start:1972-05-12
+
+# `birth` points at a person, not a marriage.
+person carol name:"Carol" gender:female
+  birth alice
+
+# Spouse position points at a marriage, not a person.
+marriage m_x m_alice_bob bob start:1980-01-01

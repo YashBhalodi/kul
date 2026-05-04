@@ -44,13 +44,46 @@ impl Statement {
     }
 }
 
-/// A `person <id> <field>...` statement.
+/// A `person <id> <field>...` statement, plus any indented sub-statements.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PersonStmt {
     pub span: ByteSpan,
     pub keyword_span: ByteSpan,
     pub id: Ident,
     pub fields: Vec<PersonField>,
+    /// At most one biological-birth sub-statement per spec section 5.1.
+    pub birth: Option<BirthSub>,
+    pub adoptions: Vec<AdoptionSub>,
+}
+
+/// `birth <marriage-ref>` sub-statement.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BirthSub {
+    pub span: ByteSpan,
+    pub keyword_span: ByteSpan,
+    pub marriage_ref: Ident,
+}
+
+/// `adoption <marriage-ref> start:<date> [end:<date>]` sub-statement.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdoptionSub {
+    pub span: ByteSpan,
+    pub keyword_span: ByteSpan,
+    pub marriage_ref: Ident,
+    pub fields: Vec<AdoptionField>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdoptionField {
+    pub span: ByteSpan,
+    pub name_span: ByteSpan,
+    pub kind: AdoptionFieldKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AdoptionFieldKind {
+    Start(DatePlaceholder),
+    End(DatePlaceholder),
 }
 
 /// An identifier as written in source — name plus the span of the token.

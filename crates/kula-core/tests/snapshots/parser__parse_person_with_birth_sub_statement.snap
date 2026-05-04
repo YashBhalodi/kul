@@ -1,6 +1,6 @@
 ---
 source: crates/kula-core/tests/parser.rs
-expression: "render(\"person alice name:\\\"Alice Sharma\\\" gender:female\\n\")"
+expression: "render(\"person carol name:\\\"Carol\\\" gender:female\\n  birth m_alice_bob\\n\")"
 ---
 ast: Document {
     version: None,
@@ -9,14 +9,14 @@ ast: Document {
             PersonStmt {
                 span: ByteSpan {
                     start: 0,
-                    end: 46,
+                    end: 59,
                 },
                 keyword_span: ByteSpan {
                     start: 0,
                     end: 6,
                 },
                 id: Ident {
-                    name: "alice",
+                    name: "carol",
                     span: ByteSpan {
                         start: 7,
                         end: 12,
@@ -26,7 +26,7 @@ ast: Document {
                     PersonField {
                         span: ByteSpan {
                             start: 13,
-                            end: 32,
+                            end: 25,
                         },
                         name_span: ByteSpan {
                             start: 13,
@@ -34,35 +34,53 @@ ast: Document {
                         },
                         kind: Name(
                             StringValue {
-                                value: "Alice Sharma",
+                                value: "Carol",
                                 span: ByteSpan {
                                     start: 18,
-                                    end: 32,
+                                    end: 25,
                                 },
                             },
                         ),
                     },
                     PersonField {
                         span: ByteSpan {
-                            start: 33,
-                            end: 46,
+                            start: 26,
+                            end: 39,
                         },
                         name_span: ByteSpan {
-                            start: 33,
-                            end: 39,
+                            start: 26,
+                            end: 32,
                         },
                         kind: Gender(
                             GenderValue {
                                 value: Female,
                                 span: ByteSpan {
-                                    start: 40,
-                                    end: 46,
+                                    start: 33,
+                                    end: 39,
                                 },
                             },
                         ),
                     },
                 ],
-                birth: None,
+                birth: Some(
+                    BirthSub {
+                        span: ByteSpan {
+                            start: 42,
+                            end: 59,
+                        },
+                        keyword_span: ByteSpan {
+                            start: 42,
+                            end: 47,
+                        },
+                        marriage_ref: Ident {
+                            name: "m_alice_bob",
+                            span: ByteSpan {
+                                start: 48,
+                                end: 59,
+                            },
+                        },
+                    },
+                ),
                 adoptions: [],
             },
         ),

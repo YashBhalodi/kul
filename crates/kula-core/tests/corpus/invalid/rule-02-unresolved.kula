@@ -1,0 +1,13 @@
+person alice name:"Alice" gender:female
+person bob   name:"Bob"   gender:male
+
+# Spouse `eve` is undeclared.
+marriage m_alice_eve alice eve start:1972-05-12
+
+# `birth` references a marriage that does not exist.
+person carol name:"Carol" gender:female
+  birth m_does_not_exist
+
+# `adoption` references a marriage that does not exist.
+person ravi name:"Ravi" gender:male
+  adoption m_phantom start:1985-06-01

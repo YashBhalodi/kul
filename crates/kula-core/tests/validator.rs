@@ -126,3 +126,39 @@ fn rule_03_marriage_missing_start() {
     );
     insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
 }
+
+#[test]
+fn rule_02_unresolved_references() {
+    let src = read_corpus("invalid/rule-02-unresolved.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_02_wrong_kind_references() {
+    let src = read_corpus("invalid/rule-02-wrong-kind.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn valid_nuclear_family_is_clean() {
+    let src = read_corpus("valid/05-nuclear-family.kula");
+    let result = check(&src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn valid_with_adoption_is_clean() {
+    let src = read_corpus("valid/06-with-adoption.kula");
+    let result = check(&src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}

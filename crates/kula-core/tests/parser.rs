@@ -68,3 +68,31 @@ fn parse_invalid_marriage_field_recovers() {
         "marriage m_a_b alice bob name:\"oops\"\nperson c name:\"C\" gender:female\n"
     ));
 }
+
+#[test]
+fn parse_person_with_birth_sub_statement() {
+    insta::assert_snapshot!(render(
+        "person carol name:\"Carol\" gender:female\n  birth m_alice_bob\n"
+    ));
+}
+
+#[test]
+fn parse_person_with_adoption_sub_statement() {
+    insta::assert_snapshot!(render(
+        "person ravi name:\"Ravi\" gender:male\n  adoption m_alice_bob start:1985-06-01\n"
+    ));
+}
+
+#[test]
+fn parse_person_with_birth_and_adoption() {
+    insta::assert_snapshot!(render(
+        "person ravi name:\"Ravi\" gender:male\n  birth m_x\n  adoption m_y start:1985-06-01 end:1990-12-31\n"
+    ));
+}
+
+#[test]
+fn parse_person_with_two_birth_diagnoses() {
+    insta::assert_snapshot!(render(
+        "person carol name:\"Carol\" gender:female\n  birth m_one\n  birth m_two\n"
+    ));
+}

@@ -6,9 +6,9 @@
 //! recovery), and resumes parsing the next statement.
 
 use crate::ast::{
-    DatePlaceholder, Document, EndReason, EndReasonValue, Gender, GenderValue, Ident,
-    MarriageField, MarriageFieldKind, MarriageStmt, PersonField, PersonFieldKind, PersonStmt,
-    Statement, StringValue, VersionDecl,
+    AdoptionField, AdoptionFieldKind, AdoptionSub, BirthSub, DatePlaceholder, Document, EndReason,
+    EndReasonValue, Gender, GenderValue, Ident, MarriageField, MarriageFieldKind, MarriageStmt,
+    PersonField, PersonFieldKind, PersonStmt, Statement, StringValue, VersionDecl,
 };
 use crate::diagnostic::Diagnostic;
 use crate::lexer::{EnumKw, FieldName, Token, TokenKind};
@@ -180,11 +180,194 @@ impl<'a> Parser<'a> {
         }
         self.consume_newline();
 
+        let (birth, adoptions, sub_span) = self.parse_person_sub_statements();
+        if let Some(s) = sub_span {
+            span = span.merge(s);
+        }
+
         Some(PersonStmt {
             span,
             keyword_span,
             id,
             fields,
+            birth,
+            adoptions,
+        })
+    }
+
+    /// Consume zero or more indented `birth` / `adoption` sub-statements that
+    /// follow a `person` statement. Returns the parsed sub-statements and the
+    /// span covering all of them (for use in the parent statement's span).
+    fn parse_person_sub_statements(
+        &mut self,
+    ) -> (
+        Option<BirthSub>,
+        Vec<AdoptionSub>,
+        Option<crate::span::ByteSpan>,
+    ) {
+        let mut birth: Option<BirthSub> = None;
+        let mut adoptions: Vec<AdoptionSub> = Vec::new();
+        let mut total_span: Option<crate::span::ByteSpan> = None;
+
+        loop {
+            // Skip blank lines (with or without leading indent).
+            match self.peek_kind() {
+                TokenKind::Newline => {
+                    self.advance();
+                    continue;
+                }
+                TokenKind::Indent => match self.peek_kind_at(1) {
+                    TokenKind::Newline => {
+                        // blank indented line
+                        self.advance();
+                        self.advance();
+                        continue;
+                    }
+                    TokenKind::BirthKw => {
+                        self.advance(); // Indent
+                        if let Some(b) = self.parse_birth_sub() {
+                            total_span = Some(match total_span {
+                                Some(s) => s.merge(b.span),
+                                None => b.span,
+                            });
+                            if birth.is_some() {
+                                self.diagnostics.push(Diagnostic::error(
+                                    "KULA-P13",
+                                    "a person may have at most one `birth` sub-statement",
+                                    b.span,
+                                ));
+                            } else {
+                                birth = Some(b);
+                            }
+                        }
+                    }
+                    TokenKind::AdoptionKw => {
+                        self.advance(); // Indent
+                        if let Some(a) = self.parse_adoption_sub() {
+                            total_span = Some(match total_span {
+                                Some(s) => s.merge(a.span),
+                                None => a.span,
+                            });
+                            adoptions.push(a);
+                        }
+                    }
+                    _ => break,
+                },
+                _ => break,
+            }
+        }
+
+        (birth, adoptions, total_span)
+    }
+
+    fn parse_birth_sub(&mut self) -> Option<BirthSub> {
+        let kw_tok = self.advance().clone();
+        let keyword_span = kw_tok.span;
+        let mut span = keyword_span;
+        let marriage_ref = self.expect_ident("the marriage id", "after `birth`")?;
+        span = span.merge(marriage_ref.span);
+        self.consume_newline();
+        Some(BirthSub {
+            span,
+            keyword_span,
+            marriage_ref,
+        })
+    }
+
+    fn parse_adoption_sub(&mut self) -> Option<AdoptionSub> {
+        let kw_tok = self.advance().clone();
+        let keyword_span = kw_tok.span;
+        let mut span = keyword_span;
+        let marriage_ref = self.expect_ident("the marriage id", "after `adoption`")?;
+        span = span.merge(marriage_ref.span);
+
+        let mut fields = Vec::new();
+        loop {
+            match self.peek_kind() {
+                TokenKind::Newline | TokenKind::Eof => break,
+                TokenKind::FieldKw(_) => {
+                    if let Some(f) = self.parse_adoption_field() {
+                        span = span.merge(f.span);
+                        fields.push(f);
+                    } else {
+                        break;
+                    }
+                }
+                _ => {
+                    let tok = self.peek().clone();
+                    self.diagnostics.push(Diagnostic::error(
+                        "KULA-P04",
+                        format!(
+                            "expected `start:` or `end:` on adoption, found {}",
+                            describe_token(&tok.kind)
+                        ),
+                        tok.span,
+                    ));
+                    self.recover_to_newline();
+                    break;
+                }
+            }
+        }
+        self.consume_newline();
+        Some(AdoptionSub {
+            span,
+            keyword_span,
+            marriage_ref,
+            fields,
+        })
+    }
+
+    fn parse_adoption_field(&mut self) -> Option<AdoptionField> {
+        let name_tok = self.advance().clone();
+        let TokenKind::FieldKw(field_name) = name_tok.kind else {
+            unreachable!("parse_adoption_field called with non-field token");
+        };
+        let name_span = name_tok.span;
+        let mut span = name_span;
+
+        let colon_tok = self.peek().clone();
+        if !matches!(colon_tok.kind, TokenKind::Colon) {
+            self.diagnostics.push(Diagnostic::error(
+                "KULA-P05",
+                format!(
+                    "expected `:` after `{}`, found {}",
+                    field_name.as_str(),
+                    describe_token(&colon_tok.kind)
+                ),
+                colon_tok.span,
+            ));
+            self.recover_to_newline();
+            return None;
+        }
+        self.advance();
+        span = span.merge(colon_tok.span);
+
+        let kind = match field_name {
+            FieldName::Start => AdoptionFieldKind::Start(self.parse_date_placeholder(field_name)?),
+            FieldName::End => AdoptionFieldKind::End(self.parse_date_placeholder(field_name)?),
+            _ => {
+                self.diagnostics.push(Diagnostic::error(
+                    "KULA-P14",
+                    format!(
+                        "field `{}` is not valid on `adoption`; only `start` and `end` are allowed",
+                        field_name.as_str()
+                    ),
+                    name_span,
+                ));
+                self.recover_to_newline();
+                return None;
+            }
+        };
+
+        let value_span = match &kind {
+            AdoptionFieldKind::Start(d) | AdoptionFieldKind::End(d) => d.span,
+        };
+        span = span.merge(value_span);
+
+        Some(AdoptionField {
+            span,
+            name_span,
+            kind,
         })
     }
 
@@ -541,6 +724,11 @@ impl<'a> Parser<'a> {
 
     fn peek_kind(&self) -> &TokenKind {
         &self.peek().kind
+    }
+
+    fn peek_kind_at(&self, offset: usize) -> &TokenKind {
+        let idx = (self.pos + offset).min(self.tokens.len() - 1);
+        &self.tokens[idx].kind
     }
 
     fn advance(&mut self) -> &Token {

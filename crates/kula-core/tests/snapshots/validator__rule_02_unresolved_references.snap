@@ -1,0 +1,7 @@
+---
+source: crates/kula-core/tests/validator.rs
+expression: render_diagnostics(&result.diagnostics)
+---
+KULA-R02 [136..139]: unresolved reference: spouse `eve` is not a declared person
+KULA-R02 [259..275]: unresolved reference: birth marriage `m_does_not_exist` is not a declared marriage
+KULA-R02 [380..389]: unresolved reference: adoption marriage `m_phantom` is not a declared marriage
