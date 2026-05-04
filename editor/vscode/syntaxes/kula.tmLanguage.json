@@ -6,37 +6,127 @@
   "patterns": [
     { "include": "#comment" },
     { "include": "#version-decl" },
-    { "include": "#person-stmt" },
-    { "include": "#marriage-stmt" },
-    { "include": "#sub-statement" }
+    { "include": "#person-decl" },
+    { "include": "#marriage-decl" },
+    { "include": "#sub-statement" },
+    { "include": "#string-field" },
+    { "include": "#date-field" },
+    { "include": "#gender-field" },
+    { "include": "#end-reason-field" },
+    { "include": "#string" },
+    { "include": "#date" }
   ],
   "repository": {
     "comment": {
       "name": "comment.line.number-sign.kula",
       "match": "#.*$"
     },
+
     "version-decl": {
-      "match": "^\\s*(kula)\\b",
+      "match": "^\\s*(kula)\\b\\s+(\\d+(?:\\.\\d+)?)?",
       "captures": {
-        "1": { "name": "keyword.control.kula.kula" }
+        "1": { "name": "keyword.control.kula.kula" },
+        "2": { "name": "constant.numeric.version.kula" }
       }
     },
-    "person-stmt": {
-      "match": "^\\s*(person)\\b",
+
+    "person-decl": {
+      "match": "^\\s*(person)\\s+([A-Za-z_][A-Za-z0-9_-]*)",
       "captures": {
-        "1": { "name": "keyword.control.person.kula" }
+        "1": { "name": "keyword.control.person.kula" },
+        "2": { "name": "entity.name.type.person.kula" }
       }
     },
-    "marriage-stmt": {
-      "match": "^\\s*(marriage)\\b",
+
+    "marriage-decl": {
+      "match": "^\\s*(marriage)\\s+([A-Za-z_][A-Za-z0-9_-]*)(?:\\s+([A-Za-z_][A-Za-z0-9_-]*))?(?:\\s+([A-Za-z_][A-Za-z0-9_-]*))?",
       "captures": {
-        "1": { "name": "keyword.control.marriage.kula" }
+        "1": { "name": "keyword.control.marriage.kula" },
+        "2": { "name": "entity.name.type.marriage.kula" },
+        "3": { "name": "variable.other.reference.person.kula" },
+        "4": { "name": "variable.other.reference.person.kula" }
       }
     },
+
     "sub-statement": {
-      "match": "^\\s+(birth|adoption)\\b",
+      "match": "^\\s+(birth|adoption)\\s+([A-Za-z_][A-Za-z0-9_-]*)",
       "captures": {
-        "1": { "name": "keyword.control.sub-statement.kula" }
+        "1": { "name": "keyword.control.sub-statement.kula" },
+        "2": { "name": "variable.other.reference.marriage.kula" }
+      }
+    },
+
+    "string-field": {
+      "begin": "\\b(name|family|given)(:)",
+      "end": "(?=\\s|$)",
+      "beginCaptures": {
+        "1": { "name": "variable.parameter.kula" },
+        "2": { "name": "punctuation.separator.key-value.kula" }
+      },
+      "patterns": [
+        { "include": "#string" }
+      ]
+    },
+
+    "date-field": {
+      "begin": "\\b(born|died|start|end)(:)",
+      "end": "(?=\\s|$)",
+      "beginCaptures": {
+        "1": { "name": "variable.parameter.kula" },
+        "2": { "name": "punctuation.separator.key-value.kula" }
+      },
+      "patterns": [
+        { "include": "#date" }
+      ]
+    },
+
+    "gender-field": {
+      "begin": "\\b(gender)(:)",
+      "end": "(?=\\s|$)",
+      "beginCaptures": {
+        "1": { "name": "variable.parameter.kula" },
+        "2": { "name": "punctuation.separator.key-value.kula" }
+      },
+      "patterns": [
+        {
+          "match": "\\b(male|female|other)\\b",
+          "name": "constant.language.gender.kula"
+        }
+      ]
+    },
+
+    "end-reason-field": {
+      "begin": "\\b(end_reason)(:)",
+      "end": "(?=\\s|$)",
+      "beginCaptures": {
+        "1": { "name": "variable.parameter.kula" },
+        "2": { "name": "punctuation.separator.key-value.kula" }
+      },
+      "patterns": [
+        {
+          "match": "\\b(divorce)\\b",
+          "name": "constant.language.end-reason.kula"
+        }
+      ]
+    },
+
+    "string": {
+      "name": "string.quoted.double.kula",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.kula",
+          "match": "\\\\[\\\\\"]"
+        }
+      ]
+    },
+
+    "date": {
+      "match": "(~)?(\\d{4})(?:-(\\d{2})(?:-(\\d{2}))?)?",
+      "captures": {
+        "1": { "name": "keyword.operator.circa.kula" },
+        "0": { "name": "constant.numeric.date.kula" }
       }
     }
   }
