@@ -507,25 +507,15 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_date_value(&mut self, field: FieldName) -> Option<DateLit> {
-        let tok = self.peek().clone();
-        let raw = match &tok.kind {
-            TokenKind::Bare(text) | TokenKind::Ident(text) => text.clone(),
-            _ => {
-                self.diagnostics.push(Diagnostic::error(
-                    "KULA-P11",
-                    format!(
-                        "expected a date for `{}:`, found {}",
-                        field.as_str(),
-                        describe_token(&tok.kind)
-                    ),
-                    tok.span,
-                ));
-                self.recover_to_newline();
-                return None;
-            }
-        };
-        self.advance();
-        match parse_date(&raw, tok.span) {
+        let (raw, span) = self.expect_value(
+            "KULA-P11",
+            || format!("expected a date for `{}:`", field.as_str()),
+            |tok| match &tok.kind {
+                TokenKind::Bare(text) | TokenKind::Ident(text) => Some((text.clone(), tok.span)),
+                _ => None,
+            },
+        )?;
+        match parse_date(&raw, span) {
             Ok(date) => Some(date),
             Err(err) => {
                 let code = match err {
@@ -535,7 +525,7 @@ impl<'a> Parser<'a> {
                 self.diagnostics.push(Diagnostic::error(
                     code,
                     format!("invalid date for `{}:`: {}", field.as_str(), err.message()),
-                    tok.span,
+                    span,
                 ));
                 None
             }
@@ -543,30 +533,23 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_end_reason_value(&mut self) -> Option<EndReasonValue> {
-        let tok = self.peek().clone();
-        let value = match &tok.kind {
-            TokenKind::EnumKw(EnumKw::Divorce) => EndReason::Divorce,
-            TokenKind::Ident(text) | TokenKind::Bare(text) | TokenKind::String(text) => {
-                EndReason::Unknown(text.clone())
-            }
-            _ => {
-                self.diagnostics.push(Diagnostic::error(
-                    "KULA-P12",
-                    format!(
-                        "expected an `end_reason:` value, found {}",
-                        describe_token(&tok.kind)
-                    ),
-                    tok.span,
-                ));
-                self.recover_to_newline();
-                return None;
-            }
-        };
-        self.advance();
-        Some(EndReasonValue {
-            value,
-            span: tok.span,
-        })
+        self.expect_value(
+            "KULA-P12",
+            || "expected an `end_reason:` value".into(),
+            |tok| {
+                let value = match &tok.kind {
+                    TokenKind::EnumKw(EnumKw::Divorce) => EndReason::Divorce,
+                    TokenKind::Ident(text) | TokenKind::Bare(text) | TokenKind::String(text) => {
+                        EndReason::Unknown(text.clone())
+                    }
+                    _ => return None,
+                };
+                Some(EndReasonValue {
+                    value,
+                    span: tok.span,
+                })
+            },
+        )
     }
 
     fn parse_person_field(&mut self) -> Option<PersonField> {
@@ -630,55 +613,63 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_string_value(&mut self, field: FieldName) -> Option<StringValue> {
-        let tok = self.peek().clone();
-        match tok.kind {
-            TokenKind::String(value) => {
-                self.advance();
-                Some(StringValue {
-                    value,
+        self.expect_value(
+            "KULA-P07",
+            || format!("expected a string literal for `{}:`", field.as_str()),
+            |tok| match &tok.kind {
+                TokenKind::String(value) => Some(StringValue {
+                    value: value.clone(),
                     span: tok.span,
-                })
-            }
-            _ => {
-                self.diagnostics.push(Diagnostic::error(
-                    "KULA-P07",
-                    format!(
-                        "expected a string literal for `{}:`, found {}",
-                        field.as_str(),
-                        describe_token(&tok.kind)
-                    ),
-                    tok.span,
-                ));
-                self.recover_to_newline();
-                None
-            }
-        }
+                }),
+                _ => None,
+            },
+        )
     }
 
     fn parse_gender_value(&mut self) -> Option<PersonFieldKind> {
+        let value = self.expect_value(
+            "KULA-P08",
+            || "expected one of `male`, `female`, `other` for `gender:`".into(),
+            |tok| {
+                let g = match &tok.kind {
+                    TokenKind::EnumKw(EnumKw::Male) => Gender::Male,
+                    TokenKind::EnumKw(EnumKw::Female) => Gender::Female,
+                    TokenKind::EnumKw(EnumKw::Other) => Gender::Other,
+                    _ => return None,
+                };
+                Some(GenderValue {
+                    value: g,
+                    span: tok.span,
+                })
+            },
+        )?;
+        Some(PersonFieldKind::Gender(value))
+    }
+
+    /// Peek the next token, hand it to `accept`. On `Some(value)`, advance
+    /// and return it. On `None`, push a diagnostic of the form
+    /// "<expected>, found <token>" with `code` and `recover_to_newline()`.
+    ///
+    /// Centralizes the "value expected here, recover on mismatch" pattern
+    /// shared by every field-value parser.
+    fn expect_value<T>(
+        &mut self,
+        code: &'static str,
+        expected: impl FnOnce() -> String,
+        accept: impl FnOnce(&Token) -> Option<T>,
+    ) -> Option<T> {
         let tok = self.peek().clone();
-        let value = match &tok.kind {
-            TokenKind::EnumKw(EnumKw::Male) => Gender::Male,
-            TokenKind::EnumKw(EnumKw::Female) => Gender::Female,
-            TokenKind::EnumKw(EnumKw::Other) => Gender::Other,
-            _ => {
-                self.diagnostics.push(Diagnostic::error(
-                    "KULA-P08",
-                    format!(
-                        "expected one of `male`, `female`, `other` for `gender:`, found {}",
-                        describe_token(&tok.kind)
-                    ),
-                    tok.span,
-                ));
-                self.recover_to_newline();
-                return None;
-            }
-        };
-        self.advance();
-        Some(PersonFieldKind::Gender(GenderValue {
-            value,
-            span: tok.span,
-        }))
+        if let Some(value) = accept(&tok) {
+            self.advance();
+            return Some(value);
+        }
+        self.diagnostics.push(Diagnostic::error(
+            code,
+            format!("{}, found {}", expected(), describe_token(&tok.kind)),
+            tok.span,
+        ));
+        self.recover_to_newline();
+        None
     }
 
     /// Consume a `Newline` if present. No-op at EOF or if recovery has
