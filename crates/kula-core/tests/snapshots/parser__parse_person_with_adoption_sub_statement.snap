@@ -91,12 +91,19 @@ ast: Document {
                                     end: 64,
                                 },
                                 kind: Start(
-                                    DatePlaceholder {
-                                        raw: "1985-06-01",
+                                    DateLit {
                                         span: ByteSpan {
                                             start: 65,
                                             end: 75,
                                         },
+                                        circa: false,
+                                        year: 1985,
+                                        month: Some(
+                                            6,
+                                        ),
+                                        day: Some(
+                                            1,
+                                        ),
                                     },
                                 ),
                             },

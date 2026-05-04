@@ -9,7 +9,7 @@ ast: Document {
             PersonStmt {
                 span: ByteSpan {
                     start: 0,
-                    end: 25,
+                    end: 49,
                 },
                 keyword_span: ByteSpan {
                     start: 0,
@@ -42,6 +42,47 @@ ast: Document {
                             },
                         ),
                     },
+                    PersonField {
+                        span: ByteSpan {
+                            start: 26,
+                            end: 35,
+                        },
+                        name_span: ByteSpan {
+                            start: 26,
+                            end: 30,
+                        },
+                        kind: Born(
+                            DateLit {
+                                span: ByteSpan {
+                                    start: 31,
+                                    end: 35,
+                                },
+                                circa: false,
+                                year: 1950,
+                                month: None,
+                                day: None,
+                            },
+                        ),
+                    },
+                    PersonField {
+                        span: ByteSpan {
+                            start: 36,
+                            end: 49,
+                        },
+                        name_span: ByteSpan {
+                            start: 36,
+                            end: 42,
+                        },
+                        kind: Gender(
+                            GenderValue {
+                                value: Female,
+                                span: ByteSpan {
+                                    start: 43,
+                                    end: 49,
+                                },
+                            },
+                        ),
+                    },
                 ],
                 birth: None,
                 adoptions: [],
@@ -49,15 +90,4 @@ ast: Document {
         ),
     ],
 }
-diagnostics: [
-    Diagnostic {
-        code: "KULA-P06",
-        severity: Error,
-        message: "field `born` is not yet supported on `person`; this slice handles only `name` and `gender`",
-        primary: ByteSpan {
-            start: 26,
-            end: 30,
-        },
-        related: [],
-    },
-]
+diagnostics: []

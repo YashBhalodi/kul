@@ -5,7 +5,8 @@
 //! is the composition of every implemented rule. Slices ship one rule at a
 //! time across Phase 2.
 
-use crate::ast::{MarriageFieldKind, MarriageStmt, PersonFieldKind, Statement};
+use crate::ast::{AdoptionFieldKind, MarriageFieldKind, MarriageStmt, PersonFieldKind, Statement};
+use crate::date::{DateLit, before_strict};
 use crate::diagnostic::Diagnostic;
 use crate::semantic::ResolvedDocument;
 
@@ -13,6 +14,9 @@ pub fn validate(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     diagnostics.extend(rule_03_required_fields(resolved));
     diagnostics.extend(rule_04_self_marriage(resolved));
+    diagnostics.extend(rule_06_died_before_born(resolved));
+    diagnostics.extend(rule_07_marriage_end_before_start(resolved));
+    diagnostics.extend(rule_08_adoption_end_before_start(resolved));
     diagnostics
 }
 
@@ -32,6 +36,10 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
                     match field.kind {
                         PersonFieldKind::Name(_) => has_name = true,
                         PersonFieldKind::Gender(_) => has_gender = true,
+                        PersonFieldKind::Family(_)
+                        | PersonFieldKind::Given(_)
+                        | PersonFieldKind::Born(_)
+                        | PersonFieldKind::Died(_) => {}
                     }
                 }
                 if !has_name {
@@ -91,4 +99,101 @@ fn self_marriage_diagnostic(m: &MarriageStmt) -> Diagnostic {
         m.spouse_b.span,
     )
     .with_related(m.spouse_a.span, "first spouse")
+}
+
+/// Rule 6 — `person.died < person.born`.
+pub fn rule_06_died_before_born(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    for stmt in &resolved.document.statements {
+        if let Statement::Person(p) = stmt {
+            let mut born: Option<&DateLit> = None;
+            let mut died: Option<&DateLit> = None;
+            for field in &p.fields {
+                match &field.kind {
+                    PersonFieldKind::Born(d) => born = Some(d),
+                    PersonFieldKind::Died(d) => died = Some(d),
+                    _ => {}
+                }
+            }
+            if let (Some(born), Some(died)) = (born, died)
+                && before_strict(died, born)
+            {
+                out.push(
+                    Diagnostic::error(
+                        "KULA-R06",
+                        format!("person `{}` died before they were born", p.id.name),
+                        died.span,
+                    )
+                    .with_related(born.span, "born here"),
+                );
+            }
+        }
+    }
+    out
+}
+
+/// Rule 7 — `marriage.end < marriage.start`.
+pub fn rule_07_marriage_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    for stmt in &resolved.document.statements {
+        if let Statement::Marriage(m) = stmt {
+            let mut start: Option<&DateLit> = None;
+            let mut end: Option<&DateLit> = None;
+            for field in &m.fields {
+                match &field.kind {
+                    MarriageFieldKind::Start(d) => start = Some(d),
+                    MarriageFieldKind::End(d) => end = Some(d),
+                    MarriageFieldKind::EndReason(_) => {}
+                }
+            }
+            if let (Some(start), Some(end)) = (start, end)
+                && before_strict(end, start)
+            {
+                out.push(
+                    Diagnostic::error(
+                        "KULA-R07",
+                        format!("marriage `{}` ended before it began", m.id.name),
+                        end.span,
+                    )
+                    .with_related(start.span, "started here"),
+                );
+            }
+        }
+    }
+    out
+}
+
+/// Rule 8 — `adoption.end < adoption.start`.
+pub fn rule_08_adoption_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    for stmt in &resolved.document.statements {
+        if let Statement::Person(p) = stmt {
+            for adoption in &p.adoptions {
+                let mut start: Option<&DateLit> = None;
+                let mut end: Option<&DateLit> = None;
+                for field in &adoption.fields {
+                    match &field.kind {
+                        AdoptionFieldKind::Start(d) => start = Some(d),
+                        AdoptionFieldKind::End(d) => end = Some(d),
+                    }
+                }
+                if let (Some(start), Some(end)) = (start, end)
+                    && before_strict(end, start)
+                {
+                    out.push(
+                        Diagnostic::error(
+                            "KULA-R08",
+                            format!(
+                                "adoption of `{}` (by marriage `{}`) ended before it began",
+                                p.id.name, adoption.marriage_ref.name
+                            ),
+                            end.span,
+                        )
+                        .with_related(start.span, "started here"),
+                    );
+                }
+            }
+        }
+    }
+    out
 }

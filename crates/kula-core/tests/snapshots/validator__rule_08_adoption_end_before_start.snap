@@ -1,0 +1,6 @@
+---
+source: crates/kula-core/tests/validator.rs
+expression: render_diagnostics(&result.diagnostics)
+---
+KULA-R08 [160..170]: adoption of `ravi` (by marriage `m_alice_bob`) ended before it began
+  related [145..155]: started here

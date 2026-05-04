@@ -47,12 +47,19 @@ ast: Document {
                             end: 30,
                         },
                         kind: Start(
-                            DatePlaceholder {
-                                raw: "1972-05-12",
+                            DateLit {
                                 span: ByteSpan {
                                     start: 31,
                                     end: 41,
                                 },
+                                circa: false,
+                                year: 1972,
+                                month: Some(
+                                    5,
+                                ),
+                                day: Some(
+                                    12,
+                                ),
                             },
                         ),
                     },
@@ -66,12 +73,19 @@ ast: Document {
                             end: 45,
                         },
                         kind: End(
-                            DatePlaceholder {
-                                raw: "1990-08-01",
+                            DateLit {
                                 span: ByteSpan {
                                     start: 46,
                                     end: 56,
                                 },
+                                circa: false,
+                                year: 1990,
+                                month: Some(
+                                    8,
+                                ),
+                                day: Some(
+                                    1,
+                                ),
                             },
                         ),
                     },

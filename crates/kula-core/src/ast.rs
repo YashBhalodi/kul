@@ -4,6 +4,7 @@
 //! variant lands as the corresponding rule slice does. References are stored
 //! as raw [`Ident`]s here; resolution happens in [`crate::semantic`].
 
+use crate::date::DateLit;
 use crate::span::ByteSpan;
 
 /// A `.kula` document: an optional version declaration plus a sequence of
@@ -82,8 +83,8 @@ pub struct AdoptionField {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AdoptionFieldKind {
-    Start(DatePlaceholder),
-    End(DatePlaceholder),
+    Start(DateLit),
+    End(DateLit),
 }
 
 /// An identifier as written in source — name plus the span of the token.
@@ -104,6 +105,10 @@ pub struct PersonField {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PersonFieldKind {
     Name(StringValue),
+    Family(StringValue),
+    Given(StringValue),
+    Born(DateLit),
+    Died(DateLit),
     Gender(GenderValue),
 }
 
@@ -146,18 +151,9 @@ pub struct MarriageField {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MarriageFieldKind {
-    Start(DatePlaceholder),
-    End(DatePlaceholder),
+    Start(DateLit),
+    End(DateLit),
     EndReason(EndReasonValue),
-}
-
-/// Placeholder date-literal AST until full date support lands in slice #10.
-/// Carries the raw source text exactly as written (e.g. `1972-05-12`,
-/// `~1925`, `1925-09`) plus the span.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DatePlaceholder {
-    pub raw: String,
-    pub span: ByteSpan,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

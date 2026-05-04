@@ -162,3 +162,84 @@ fn valid_with_adoption_is_clean() {
         result.diagnostics
     );
 }
+
+#[test]
+fn valid_with_dates_is_clean() {
+    let src = read_corpus("valid/07-with-dates.kula");
+    let result = check(&src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn valid_circa_and_partial_is_clean() {
+    let src = read_corpus("valid/08-circa-and-partial.kula");
+    let result = check(&src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn rule_06_died_before_born() {
+    let src = read_corpus("invalid/rule-06-died-before-born.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_07_marriage_end_before_start() {
+    let src = read_corpus("invalid/rule-07-marriage-end-before-start.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_08_adoption_end_before_start() {
+    let src = read_corpus("invalid/rule-08-adoption-end-before-start.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn date_feb_30_rejected() {
+    let src = read_corpus("invalid/date-feb-30.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn date_feb_29_non_leap_rejected() {
+    let src = read_corpus("invalid/date-feb-29-non-leap.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_06_partial_overlap_does_not_fire() {
+    // born:1925, died:1925-08 — overlap, so we should NOT fire R06.
+    let src = "person p name:\"P\" born:1925 died:1925-08 gender:other\n";
+    let result = check(src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn rule_06_circa_overlap_does_not_fire() {
+    // ~1900 covers 1895..1905; 1903 is inside — strictly-before is false.
+    let src = "person p name:\"P\" born:~1900 died:1903 gender:other\n";
+    let result = check(src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}

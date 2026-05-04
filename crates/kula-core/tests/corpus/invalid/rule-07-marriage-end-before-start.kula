@@ -1,0 +1,4 @@
+person alice name:"Alice" gender:female
+person bob   name:"Bob"   gender:male
+
+marriage m_alice_bob alice bob start:1990-06-01 end:1985-01-01 end_reason:divorce

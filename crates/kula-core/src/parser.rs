@@ -6,10 +6,11 @@
 //! recovery), and resumes parsing the next statement.
 
 use crate::ast::{
-    AdoptionField, AdoptionFieldKind, AdoptionSub, BirthSub, DatePlaceholder, Document, EndReason,
-    EndReasonValue, Gender, GenderValue, Ident, MarriageField, MarriageFieldKind, MarriageStmt,
-    PersonField, PersonFieldKind, PersonStmt, Statement, StringValue, VersionDecl,
+    AdoptionField, AdoptionFieldKind, AdoptionSub, BirthSub, Document, EndReason, EndReasonValue,
+    Gender, GenderValue, Ident, MarriageField, MarriageFieldKind, MarriageStmt, PersonField,
+    PersonFieldKind, PersonStmt, Statement, StringValue, VersionDecl,
 };
+use crate::date::{DateLit, DateParseError, parse_date};
 use crate::diagnostic::Diagnostic;
 use crate::lexer::{EnumKw, FieldName, Token, TokenKind};
 
@@ -343,8 +344,8 @@ impl<'a> Parser<'a> {
         span = span.merge(colon_tok.span);
 
         let kind = match field_name {
-            FieldName::Start => AdoptionFieldKind::Start(self.parse_date_placeholder(field_name)?),
-            FieldName::End => AdoptionFieldKind::End(self.parse_date_placeholder(field_name)?),
+            FieldName::Start => AdoptionFieldKind::Start(self.parse_date_value(field_name)?),
+            FieldName::End => AdoptionFieldKind::End(self.parse_date_value(field_name)?),
             _ => {
                 self.diagnostics.push(Diagnostic::error(
                     "KULA-P14",
@@ -473,8 +474,8 @@ impl<'a> Parser<'a> {
         span = span.merge(colon_tok.span);
 
         let kind = match field_name {
-            FieldName::Start => MarriageFieldKind::Start(self.parse_date_placeholder(field_name)?),
-            FieldName::End => MarriageFieldKind::End(self.parse_date_placeholder(field_name)?),
+            FieldName::Start => MarriageFieldKind::Start(self.parse_date_value(field_name)?),
+            FieldName::End => MarriageFieldKind::End(self.parse_date_value(field_name)?),
             FieldName::EndReason => MarriageFieldKind::EndReason(self.parse_end_reason_value()?),
             FieldName::Name
             | FieldName::Family
@@ -505,16 +506,10 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_date_placeholder(&mut self, field: FieldName) -> Option<DatePlaceholder> {
+    fn parse_date_value(&mut self, field: FieldName) -> Option<DateLit> {
         let tok = self.peek().clone();
-        match &tok.kind {
-            TokenKind::Bare(text) | TokenKind::Ident(text) => {
-                self.advance();
-                Some(DatePlaceholder {
-                    raw: text.clone(),
-                    span: tok.span,
-                })
-            }
+        let raw = match &tok.kind {
+            TokenKind::Bare(text) | TokenKind::Ident(text) => text.clone(),
             _ => {
                 self.diagnostics.push(Diagnostic::error(
                     "KULA-P11",
@@ -526,6 +521,22 @@ impl<'a> Parser<'a> {
                     tok.span,
                 ));
                 self.recover_to_newline();
+                return None;
+            }
+        };
+        self.advance();
+        match parse_date(&raw, tok.span) {
+            Ok(date) => Some(date),
+            Err(err) => {
+                let code = match err {
+                    DateParseError::Malformed(_) => "KULA-P15",
+                    DateParseError::OutOfRange(_) => "KULA-P16",
+                };
+                self.diagnostics.push(Diagnostic::error(
+                    code,
+                    format!("invalid date for `{}:`: {}", field.as_str(), err.message()),
+                    tok.span,
+                ));
                 None
             }
         }
@@ -582,24 +593,16 @@ impl<'a> Parser<'a> {
         span = span.merge(colon_tok.span);
 
         let kind = match field_name {
-            FieldName::Name => {
-                let s = self.parse_string_value(field_name)?;
-                PersonFieldKind::Name(s)
-            }
+            FieldName::Name => PersonFieldKind::Name(self.parse_string_value(field_name)?),
+            FieldName::Family => PersonFieldKind::Family(self.parse_string_value(field_name)?),
+            FieldName::Given => PersonFieldKind::Given(self.parse_string_value(field_name)?),
+            FieldName::Born => PersonFieldKind::Born(self.parse_date_value(field_name)?),
+            FieldName::Died => PersonFieldKind::Died(self.parse_date_value(field_name)?),
             FieldName::Gender => self.parse_gender_value()?,
-            FieldName::Family
-            | FieldName::Given
-            | FieldName::Born
-            | FieldName::Died
-            | FieldName::Start
-            | FieldName::End
-            | FieldName::EndReason => {
+            FieldName::Start | FieldName::End | FieldName::EndReason => {
                 self.diagnostics.push(Diagnostic::error(
-                    "KULA-P06",
-                    format!(
-                        "field `{}` is not yet supported on `person`; this slice handles only `name` and `gender`",
-                        field_name.as_str()
-                    ),
+                    "KULA-P10",
+                    format!("field `{}` is not valid on `person`", field_name.as_str()),
                     name_span,
                 ));
                 self.recover_to_newline();
@@ -608,7 +611,10 @@ impl<'a> Parser<'a> {
         };
 
         let value_span = match &kind {
-            PersonFieldKind::Name(s) => s.span,
+            PersonFieldKind::Name(s) | PersonFieldKind::Family(s) | PersonFieldKind::Given(s) => {
+                s.span
+            }
+            PersonFieldKind::Born(d) | PersonFieldKind::Died(d) => d.span,
             PersonFieldKind::Gender(g) => g.span,
         };
         span = span.merge(value_span);
