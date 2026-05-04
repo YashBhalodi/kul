@@ -243,3 +243,46 @@ fn rule_06_circa_overlap_does_not_fire() {
         result.diagnostics
     );
 }
+
+#[test]
+fn rule_09_marriage_before_spouse_born() {
+    let src = read_corpus("invalid/rule-09-marriage-before-spouse-born.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_10_spouse_died_before_marriage() {
+    let src = read_corpus("invalid/rule-10-spouse-died-before-marriage.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_11_child_born_before_parent() {
+    let src = read_corpus("invalid/rule-11-child-born-before-parent.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_12_adoption_before_adopter_born() {
+    let src = read_corpus("invalid/rule-12-adoption-before-adopter-born.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rules_9_through_12_clean_on_full_example() {
+    let src = std::fs::read_to_string(format!(
+        "{}/../../examples/03-three-generations.kula",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .expect("examples file");
+    let result = check(&src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected example to validate clean, got: {:#?}",
+        result.diagnostics
+    );
+}

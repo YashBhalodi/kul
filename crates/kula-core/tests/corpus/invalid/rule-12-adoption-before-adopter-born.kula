@@ -1,0 +1,6 @@
+person alice name:"Alice" born:1990-04-12 gender:female
+person bob   name:"Bob"   born:1988-11-30 gender:male
+person ravi  name:"Ravi"  born:1980-01-01 gender:male
+  adoption m_alice_bob start:1985-06-01
+
+marriage m_alice_bob alice bob start:2010-05-12

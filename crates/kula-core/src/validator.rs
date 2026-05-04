@@ -5,7 +5,10 @@
 //! is the composition of every implemented rule. Slices ship one rule at a
 //! time across Phase 2.
 
-use crate::ast::{AdoptionFieldKind, MarriageFieldKind, MarriageStmt, PersonFieldKind, Statement};
+use crate::ast::{
+    AdoptionFieldKind, AdoptionSub, MarriageFieldKind, MarriageStmt, PersonFieldKind, PersonStmt,
+    Statement,
+};
 use crate::date::{DateLit, before_strict};
 use crate::diagnostic::Diagnostic;
 use crate::semantic::ResolvedDocument;
@@ -17,7 +20,39 @@ pub fn validate(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     diagnostics.extend(rule_06_died_before_born(resolved));
     diagnostics.extend(rule_07_marriage_end_before_start(resolved));
     diagnostics.extend(rule_08_adoption_end_before_start(resolved));
+    diagnostics.extend(rule_09_marriage_before_spouse_born(resolved));
+    diagnostics.extend(rule_10_spouse_died_before_marriage(resolved));
+    diagnostics.extend(rule_11_bio_child_born_before_parent(resolved));
+    diagnostics.extend(rule_12_adoption_before_adopter_born(resolved));
     diagnostics
+}
+
+fn person_born(p: &PersonStmt) -> Option<&DateLit> {
+    p.fields.iter().find_map(|f| match &f.kind {
+        PersonFieldKind::Born(d) => Some(d),
+        _ => None,
+    })
+}
+
+fn person_died(p: &PersonStmt) -> Option<&DateLit> {
+    p.fields.iter().find_map(|f| match &f.kind {
+        PersonFieldKind::Died(d) => Some(d),
+        _ => None,
+    })
+}
+
+fn marriage_start(m: &MarriageStmt) -> Option<&DateLit> {
+    m.fields.iter().find_map(|f| match &f.kind {
+        MarriageFieldKind::Start(d) => Some(d),
+        _ => None,
+    })
+}
+
+fn adoption_start(a: &AdoptionSub) -> Option<&DateLit> {
+    a.fields.iter().find_map(|f| match &f.kind {
+        AdoptionFieldKind::Start(d) => Some(d),
+        _ => None,
+    })
 }
 
 /// Rule 3 — required fields missing.
@@ -157,6 +192,157 @@ pub fn rule_07_marriage_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec
                     )
                     .with_related(start.span, "started here"),
                 );
+            }
+        }
+    }
+    out
+}
+
+/// Rule 9 — `marriage.start < S.born` for either spouse `S`.
+pub fn rule_09_marriage_before_spouse_born(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    for stmt in &resolved.document.statements {
+        if let Statement::Marriage(m) = stmt {
+            let Some(start) = marriage_start(m) else {
+                continue;
+            };
+            for spouse_id in [&m.spouse_a, &m.spouse_b] {
+                let Some(spouse) = resolved.person(&spouse_id.name) else {
+                    continue;
+                };
+                let Some(born) = person_born(spouse) else {
+                    continue;
+                };
+                if before_strict(start, born) {
+                    out.push(
+                        Diagnostic::error(
+                            "KULA-R09",
+                            format!(
+                                "marriage `{}` started before spouse `{}` was born",
+                                m.id.name, spouse.id.name
+                            ),
+                            start.span,
+                        )
+                        .with_related(born.span, format!("`{}` born here", spouse.id.name)),
+                    );
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Rule 10 — `marriage.start > S.died` for either spouse `S`.
+pub fn rule_10_spouse_died_before_marriage(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    for stmt in &resolved.document.statements {
+        if let Statement::Marriage(m) = stmt {
+            let Some(start) = marriage_start(m) else {
+                continue;
+            };
+            for spouse_id in [&m.spouse_a, &m.spouse_b] {
+                let Some(spouse) = resolved.person(&spouse_id.name) else {
+                    continue;
+                };
+                let Some(died) = person_died(spouse) else {
+                    continue;
+                };
+                if before_strict(died, start) {
+                    out.push(
+                        Diagnostic::error(
+                            "KULA-R10",
+                            format!(
+                                "marriage `{}` started after spouse `{}` had already died",
+                                m.id.name, spouse.id.name
+                            ),
+                            start.span,
+                        )
+                        .with_related(died.span, format!("`{}` died here", spouse.id.name)),
+                    );
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Rule 11 — bio child born before either bio parent. Parents are the
+/// spouses of the marriage referenced by the child's `birth` sub-statement.
+pub fn rule_11_bio_child_born_before_parent(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    for stmt in &resolved.document.statements {
+        if let Statement::Person(child) = stmt {
+            let Some(birth) = &child.birth else {
+                continue;
+            };
+            let Some(child_born) = person_born(child) else {
+                continue;
+            };
+            let Some(marriage) = resolved.marriage(&birth.marriage_ref.name) else {
+                continue;
+            };
+            for parent_id in [&marriage.spouse_a, &marriage.spouse_b] {
+                let Some(parent) = resolved.person(&parent_id.name) else {
+                    continue;
+                };
+                let Some(parent_born) = person_born(parent) else {
+                    continue;
+                };
+                if before_strict(child_born, parent_born) {
+                    out.push(
+                        Diagnostic::error(
+                            "KULA-R11",
+                            format!(
+                                "bio child `{}` was born before parent `{}`",
+                                child.id.name, parent.id.name
+                            ),
+                            child_born.span,
+                        )
+                        .with_related(parent_born.span, format!("`{}` born here", parent.id.name)),
+                    );
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Rule 12 — `adoption.start < P.born` for either adoptive parent `P`.
+pub fn rule_12_adoption_before_adopter_born(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    for stmt in &resolved.document.statements {
+        if let Statement::Person(child) = stmt {
+            for adoption in &child.adoptions {
+                let Some(start) = adoption_start(adoption) else {
+                    continue;
+                };
+                let Some(marriage) = resolved.marriage(&adoption.marriage_ref.name) else {
+                    continue;
+                };
+                for parent_id in [&marriage.spouse_a, &marriage.spouse_b] {
+                    let Some(parent) = resolved.person(&parent_id.name) else {
+                        continue;
+                    };
+                    let Some(parent_born) = person_born(parent) else {
+                        continue;
+                    };
+                    if before_strict(start, parent_born) {
+                        out.push(
+                            Diagnostic::error(
+                                "KULA-R12",
+                                format!(
+                                    "adoption of `{}` started before adoptive parent `{}` was born",
+                                    child.id.name, parent.id.name
+                                ),
+                                start.span,
+                            )
+                            .with_related(
+                                parent_born.span,
+                                format!("`{}` born here", parent.id.name),
+                            ),
+                        );
+                    }
+                }
             }
         }
     }

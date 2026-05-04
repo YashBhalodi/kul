@@ -1,0 +1,4 @@
+person alice name:"Alice" born:1950-04-12 gender:female
+person bob   name:"Bob"   born:1948-11-30 gender:male
+
+marriage m_alice_bob alice bob start:1940-01-01

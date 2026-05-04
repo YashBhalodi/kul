@@ -1,0 +1,6 @@
+person alice name:"Alice" born:1980-04-12 gender:female
+person bob   name:"Bob"   born:1978-11-30 gender:male
+person carol name:"Carol" born:1970-09-03 gender:female
+  birth m_alice_bob
+
+marriage m_alice_bob alice bob start:1972-05-12

@@ -1,0 +1,4 @@
+person alice name:"Alice" born:1900-01-01 died:1950-12-31 gender:female
+person bob   name:"Bob"   born:1900-01-01 gender:male
+
+marriage m_alice_bob alice bob start:1960-06-01
