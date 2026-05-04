@@ -273,6 +273,27 @@ fn rule_12_adoption_before_adopter_born() {
 }
 
 #[test]
+fn rule_05_end_without_reason() {
+    let src = read_corpus("invalid/rule-05-end-without-reason.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_05_reason_without_end() {
+    let src = read_corpus("invalid/rule-05-reason-without-end.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_05b_unknown_end_reason() {
+    let src = read_corpus("invalid/rule-05b-unknown-end-reason.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
 fn rules_9_through_12_clean_on_full_example() {
     let src = std::fs::read_to_string(format!(
         "{}/../../examples/03-three-generations.kula",

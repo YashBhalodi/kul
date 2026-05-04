@@ -1,0 +1,5 @@
+---
+source: crates/kula-core/tests/validator.rs
+expression: render_diagnostics(&result.diagnostics)
+---
+KULA-R05b [153..162]: `end_reason:annulment` is not a recognized v1 value; the v1 vocabulary is `divorce`

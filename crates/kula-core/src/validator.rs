@@ -6,17 +6,19 @@
 //! time across Phase 2.
 
 use crate::ast::{
-    AdoptionFieldKind, AdoptionSub, MarriageFieldKind, MarriageStmt, PersonFieldKind, PersonStmt,
-    Statement,
+    AdoptionFieldKind, AdoptionSub, EndReason, MarriageFieldKind, MarriageStmt, PersonFieldKind,
+    PersonStmt, Statement,
 };
 use crate::date::{DateLit, before_strict};
 use crate::diagnostic::Diagnostic;
 use crate::semantic::ResolvedDocument;
+use crate::span::ByteSpan;
 
 pub fn validate(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     diagnostics.extend(rule_03_required_fields(resolved));
     diagnostics.extend(rule_04_self_marriage(resolved));
+    diagnostics.extend(rule_05_end_consistency(resolved));
     diagnostics.extend(rule_06_died_before_born(resolved));
     diagnostics.extend(rule_07_marriage_end_before_start(resolved));
     diagnostics.extend(rule_08_adoption_end_before_start(resolved));
@@ -118,6 +120,67 @@ pub fn rule_04_self_marriage(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic>
         if let Statement::Marriage(m) = stmt {
             if m.spouse_a.name == m.spouse_b.name {
                 out.push(self_marriage_diagnostic(m));
+            }
+        }
+    }
+    out
+}
+
+/// Rule 5 — `end` and `end_reason` must both be present or both absent.
+/// Rule 5b (KULA-R05b) — `end_reason` value must be in the v1 vocabulary
+/// (currently just `divorce`).
+pub fn rule_05_end_consistency(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    for stmt in &resolved.document.statements {
+        if let Statement::Marriage(m) = stmt {
+            let mut end_span: Option<ByteSpan> = None;
+            let mut end_reason_span: Option<ByteSpan> = None;
+            let mut end_reason_field_span: Option<ByteSpan> = None;
+            let mut end_reason_value: Option<&EndReason> = None;
+            for field in &m.fields {
+                match &field.kind {
+                    MarriageFieldKind::End(d) => end_span = Some(d.span),
+                    MarriageFieldKind::EndReason(v) => {
+                        end_reason_span = Some(v.span);
+                        end_reason_field_span = Some(field.span);
+                        end_reason_value = Some(&v.value);
+                    }
+                    MarriageFieldKind::Start(_) => {}
+                }
+            }
+            match (end_span, end_reason_span) {
+                (Some(end), None) => {
+                    out.push(Diagnostic::error(
+                        "KULA-R05",
+                        format!(
+                            "marriage `{}` has `end` without `end_reason`; add `end_reason:divorce`",
+                            m.id.name
+                        ),
+                        end,
+                    ));
+                }
+                (None, Some(_)) => {
+                    let span = end_reason_field_span.expect("set with reason span");
+                    out.push(Diagnostic::error(
+                        "KULA-R05",
+                        format!(
+                            "marriage `{}` has `end_reason` without `end`; remove this field or add a matching `end:` date",
+                            m.id.name
+                        ),
+                        span,
+                    ));
+                }
+                _ => {}
+            }
+            if let (Some(EndReason::Unknown(raw)), Some(span)) = (end_reason_value, end_reason_span)
+            {
+                out.push(Diagnostic::error(
+                    "KULA-R05b",
+                    format!(
+                        "`end_reason:{raw}` is not a recognized v1 value; the v1 vocabulary is `divorce`"
+                    ),
+                    span,
+                ));
             }
         }
     }

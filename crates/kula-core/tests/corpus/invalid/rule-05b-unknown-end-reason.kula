@@ -1,0 +1,4 @@
+person alice name:"Alice" gender:female
+person bob   name:"Bob"   gender:male
+
+marriage m_alice_bob alice bob start:1972-05-12 end:1990-08-01 end_reason:annulment

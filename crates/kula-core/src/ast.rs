@@ -156,9 +156,12 @@ pub enum MarriageFieldKind {
     EndReason(EndReasonValue),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EndReason {
     Divorce,
+    /// A value that is not in the v1 vocabulary; surfaced by the validator
+    /// as KULA-R05b. Stored verbatim so the diagnostic can quote it.
+    Unknown(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

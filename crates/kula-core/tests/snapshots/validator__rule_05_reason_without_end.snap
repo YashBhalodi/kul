@@ -1,0 +1,5 @@
+---
+source: crates/kula-core/tests/validator.rs
+expression: render_diagnostics(&result.diagnostics)
+---
+KULA-R05 [127..145]: marriage `m_alice_bob` has `end_reason` without `end`; remove this field or add a matching `end:` date

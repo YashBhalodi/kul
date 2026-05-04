@@ -546,11 +546,14 @@ impl<'a> Parser<'a> {
         let tok = self.peek().clone();
         let value = match &tok.kind {
             TokenKind::EnumKw(EnumKw::Divorce) => EndReason::Divorce,
+            TokenKind::Ident(text) | TokenKind::Bare(text) | TokenKind::String(text) => {
+                EndReason::Unknown(text.clone())
+            }
             _ => {
                 self.diagnostics.push(Diagnostic::error(
                     "KULA-P12",
                     format!(
-                        "expected `divorce` for `end_reason:`, found {}",
+                        "expected an `end_reason:` value, found {}",
                         describe_token(&tok.kind)
                     ),
                     tok.span,
