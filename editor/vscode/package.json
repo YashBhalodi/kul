@@ -19,6 +19,7 @@
   "categories": [
     "Programming Languages"
   ],
+  "icon": "images/icon.png",
   "keywords": [
     "kula",
     "kulalang",
@@ -37,7 +38,11 @@
         "extensions": [
           ".kula"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./images/kula-file-icon.svg",
+          "dark": "./images/kula-file-icon.svg"
+        }
       }
     ],
     "grammars": [
@@ -51,6 +56,13 @@
       {
         "language": "kula",
         "path": "./snippets/kula.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "kula-icons",
+        "label": "Kula File Icons",
+        "path": "./icons/kula-icon-theme.json"
       }
     ]
   }
