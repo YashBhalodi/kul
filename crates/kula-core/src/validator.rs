@@ -26,7 +26,41 @@ pub fn validate(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     diagnostics.extend(rule_10_spouse_died_before_marriage(resolved));
     diagnostics.extend(rule_11_bio_child_born_before_parent(resolved));
     diagnostics.extend(rule_12_adoption_before_adopter_born(resolved));
+    diagnostics.extend(rule_13_parenthood_cycles(resolved));
     diagnostics
+}
+
+/// Rule 13 — no person may appear as their own ancestor in the parent graph
+/// (union of bio and adoptive parent links).
+pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    for cycle in crate::cycles::find_cycles(resolved) {
+        let head = cycle
+            .members
+            .first()
+            .copied()
+            .expect("cycle must have at least one member");
+        let head_person = resolved
+            .person(head)
+            .expect("cycle member is a declared person");
+        let chain = if cycle.members.len() == 1 {
+            format!("`{head}` is their own ancestor")
+        } else {
+            let mut parts: Vec<String> = cycle.members.iter().map(|m| format!("`{m}`")).collect();
+            parts.push(format!("`{head}`"));
+            format!("parent cycle: {}", parts.join(" → "))
+        };
+        let mut diag = Diagnostic::error(
+            "KULA-R13",
+            format!("parenthood cycle detected — {chain}"),
+            head_person.id.span,
+        );
+        for span in cycle.link_spans {
+            diag = diag.with_related(span, "parent link in this cycle");
+        }
+        out.push(diag);
+    }
+    out
 }
 
 fn person_born(p: &PersonStmt) -> Option<&DateLit> {

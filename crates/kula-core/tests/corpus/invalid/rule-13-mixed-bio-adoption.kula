@@ -1,0 +1,12 @@
+# Mixed cycle:
+#   alice  ── bio child of  ──> carol (via m_carol_bob)
+#   carol  ── adopted by    ──> alice (via m_alice_dave)
+person alice name:"Alice" gender:female
+  birth m_carol_bob
+person bob   name:"Bob"   gender:male
+person carol name:"Carol" gender:female
+  adoption m_alice_dave start:1980-01-01
+person dave  name:"Dave"  gender:male
+
+marriage m_carol_bob  carol bob   start:1950-01-01
+marriage m_alice_dave alice dave  start:1972-05-12

@@ -1,0 +1,8 @@
+# A self-parent: alice is bio parent of herself via marriage where she is a spouse.
+# (Rule 4 does not fire because the spouses are distinct identifiers.)
+person alice name:"Alice" gender:female
+  birth m_alice_bob
+
+person bob name:"Bob" gender:male
+
+marriage m_alice_bob alice bob start:1972-05-12

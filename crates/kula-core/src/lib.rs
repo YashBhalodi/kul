@@ -4,6 +4,7 @@
 //! `kula` CLI and (in Phase 3) the language server.
 
 pub mod ast;
+pub mod cycles;
 pub mod date;
 pub mod diagnostic;
 pub mod lexer;

@@ -294,6 +294,27 @@ fn rule_05b_unknown_end_reason() {
 }
 
 #[test]
+fn rule_13_self_parent() {
+    let src = read_corpus("invalid/rule-13-self-parent.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_13_two_cycle() {
+    let src = read_corpus("invalid/rule-13-two-cycle.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_13_mixed_bio_adoption() {
+    let src = read_corpus("invalid/rule-13-mixed-bio-adoption.kula");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
 fn rules_9_through_12_clean_on_full_example() {
     let src = std::fs::read_to_string(format!(
         "{}/../../examples/03-three-generations.kula",
