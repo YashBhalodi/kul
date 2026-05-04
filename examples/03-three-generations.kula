@@ -1,0 +1,28 @@
+# Example 3: Three generations, with a divorce and an adoption.
+#
+# - Alice is the bio daughter of Ramesh and Sita.
+# - Alice and Bob have a bio daughter Carol and an adopted son Ravi.
+# - The Alice-Bob marriage ends in divorce; Bob later dies.
+# - Ravi's birth year is approximate (~1980).
+
+kula 0.1
+
+# ---- Generation 1 (founders) ----
+person ramesh name:"Ramesh Sharma" born:1925-03-10 died:2005-08-22 gender:male
+person sita   name:"Sita Sharma"   born:1928-07-15 died:2010-11-04 gender:female
+
+marriage m_ramesh_sita ramesh sita start:1948-06-10
+
+# ---- Generation 2 ----
+person alice name:"Alice Sharma" born:1950-04-12 gender:female
+  birth m_ramesh_sita
+person bob   name:"Bob Sharma"   born:1948-11-30 died:2020-03-15 gender:male
+
+marriage m_alice_bob alice bob start:1972-05-12 end:1990-08-01 end_reason:divorce
+
+# ---- Generation 3 ----
+person carol name:"Carol Sharma" born:1975-09-03 gender:female
+  birth m_alice_bob
+
+person ravi name:"Ravi Sharma" born:~1980 gender:male
+  adoption m_alice_bob start:1985-06-01

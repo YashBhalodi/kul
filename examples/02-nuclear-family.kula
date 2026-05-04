@@ -1,0 +1,12 @@
+# Example 2: A nuclear family — one couple, one biological child.
+# Carol's `birth` sub-statement points to the marriage; her parents
+# are derived as the spouses of that marriage.
+
+kula 0.1
+
+person alice name:"Alice Sharma" born:1950-04-12 gender:female
+person bob   name:"Bob Sharma"   born:1948-11-30 gender:male
+person carol name:"Carol Sharma" born:1975-09-03 gender:female
+  birth m_alice_bob
+
+marriage m_alice_bob alice bob start:1972-05-12

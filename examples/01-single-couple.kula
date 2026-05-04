@@ -1,0 +1,9 @@
+# Example 1: A single couple, no children, marriage ongoing.
+# Both persons are documentation roots (no `birth` sub-statement).
+
+kula 0.1
+
+person alice name:"Alice Sharma" born:1950-04-12 gender:female
+person bob   name:"Bob Sharma"   born:1948-11-30 gender:male
+
+marriage m_alice_bob alice bob start:1972-05-12
