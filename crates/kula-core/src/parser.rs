@@ -94,6 +94,7 @@ impl<'a> Parser<'a> {
 
     fn parse_version_decl(&mut self) -> Option<VersionDecl> {
         let kula_tok = self.advance().clone();
+        let keyword_span = kula_tok.span;
         let mut span = kula_tok.span;
         let version_tok = self.peek().clone();
         match &version_tok.kind {
@@ -103,6 +104,7 @@ impl<'a> Parser<'a> {
                 self.expect_newline_or_eof("after version declaration");
                 Some(VersionDecl {
                     span,
+                    keyword_span,
                     version: v.clone(),
                     version_span: version_tok.span,
                 })

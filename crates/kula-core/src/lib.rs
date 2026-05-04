@@ -8,6 +8,7 @@ pub mod cycles;
 pub mod date;
 pub mod diagnostic;
 pub mod lexer;
+pub mod node_at;
 pub mod parser;
 pub mod semantic;
 pub mod span;

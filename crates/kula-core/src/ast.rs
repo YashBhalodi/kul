@@ -18,6 +18,7 @@ pub struct Document {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VersionDecl {
     pub span: ByteSpan,
+    pub keyword_span: ByteSpan,
     /// The raw version literal, e.g. `0.1`.
     pub version: String,
     pub version_span: ByteSpan,
