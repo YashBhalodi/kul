@@ -9,14 +9,14 @@
 
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::{
-    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, Hover,
-    HoverParams, HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams,
-    MessageType, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind,
-    Url,
+    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, HoverProviderCapability,
+    InitializeParams, InitializeResult, InitializedParams, MessageType, OneOf, ServerCapabilities,
+    ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
 };
 use tower_lsp::{Client, LanguageServer};
 
-use crate::features::{diagnostics, hover};
+use crate::features::{definition, diagnostics, hover};
 use crate::state::Documents;
 
 /// The Kula language server.
@@ -59,6 +59,7 @@ impl LanguageServer for Backend {
                     TextDocumentSyncKind::FULL,
                 )),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
+                definition_provider: Some(OneOf::Left(true)),
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
@@ -120,5 +121,22 @@ impl LanguageServer for Backend {
             })
             .await;
         Ok(result.flatten())
+    }
+
+    async fn goto_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> Result<Option<GotoDefinitionResponse>> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let position = params.text_document_position_params.position;
+        let result = self
+            .documents
+            .with(&uri, |doc| {
+                let offset = doc.line_index.byte_offset(position)?;
+                let (resolved, _) = kula_core::semantic::resolve(&doc.check.document);
+                definition::definition(&resolved, &doc.line_index, &uri, offset)
+            })
+            .await;
+        Ok(result.flatten().map(GotoDefinitionResponse::Scalar))
     }
 }
