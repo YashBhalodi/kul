@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Kula",
+  "scopeName": "source.kula",
+  "fileTypes": ["kula"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#version-decl" },
+    { "include": "#person-stmt" },
+    { "include": "#marriage-stmt" },
+    { "include": "#sub-statement" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.line.number-sign.kula",
+      "match": "#.*$"
+    },
+    "version-decl": {
+      "match": "^\\s*(kula)\\b",
+      "captures": {
+        "1": { "name": "keyword.control.kula.kula" }
+      }
+    },
+    "person-stmt": {
+      "match": "^\\s*(person)\\b",
+      "captures": {
+        "1": { "name": "keyword.control.person.kula" }
+      }
+    },
+    "marriage-stmt": {
+      "match": "^\\s*(marriage)\\b",
+      "captures": {
+        "1": { "name": "keyword.control.marriage.kula" }
+      }
+    },
+    "sub-statement": {
+      "match": "^\\s+(birth|adoption)\\b",
+      "captures": {
+        "1": { "name": "keyword.control.sub-statement.kula" }
+      }
+    }
+  }
+}

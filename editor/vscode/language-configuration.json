@@ -1,0 +1,16 @@
+{
+  "comments": {
+    "lineComment": "#"
+  },
+  "brackets": [],
+  "autoClosingPairs": [
+    { "open": "\"", "close": "\"", "notIn": ["string", "comment"] }
+  ],
+  "surroundingPairs": [
+    ["\"", "\""]
+  ],
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*(person)\\s+\\S.*$",
+    "decreaseIndentPattern": "^\\s*(person|marriage|kula)\\s.*$"
+  }
+}

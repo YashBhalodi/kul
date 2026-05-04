@@ -1,0 +1,51 @@
+{
+  "name": "kulalang",
+  "displayName": "KulaLang",
+  "description": "Syntax highlighting and editor support for Kula (.kula) kinship-description files.",
+  "version": "0.0.1",
+  "publisher": "YashBhalodi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YashBhalodi/kulalang.git"
+  },
+  "homepage": "https://github.com/YashBhalodi/kulalang",
+  "bugs": {
+    "url": "https://github.com/YashBhalodi/kulalang/issues"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "kula",
+    "kulalang",
+    "kinship",
+    "genealogy",
+    "family-tree"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "kula",
+        "aliases": [
+          "Kula",
+          "KulaLang"
+        ],
+        "extensions": [
+          ".kula"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "kula",
+        "scopeName": "source.kula",
+        "path": "./syntaxes/kula.tmLanguage.json"
+      }
+    ]
+  }
+}
