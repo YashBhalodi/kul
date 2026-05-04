@@ -57,6 +57,56 @@ pub struct PersonStmt {
     pub adoptions: Vec<AdoptionSub>,
 }
 
+impl PersonStmt {
+    /// First `name:` field as written, or `None` if absent (rule 3 fires).
+    pub fn name(&self) -> Option<&StringValue> {
+        self.fields.iter().find_map(|f| match &f.kind {
+            PersonFieldKind::Name(v) => Some(v),
+            _ => None,
+        })
+    }
+
+    /// First `family:` field, or `None`.
+    pub fn family(&self) -> Option<&StringValue> {
+        self.fields.iter().find_map(|f| match &f.kind {
+            PersonFieldKind::Family(v) => Some(v),
+            _ => None,
+        })
+    }
+
+    /// First `given:` field, or `None`.
+    pub fn given(&self) -> Option<&StringValue> {
+        self.fields.iter().find_map(|f| match &f.kind {
+            PersonFieldKind::Given(v) => Some(v),
+            _ => None,
+        })
+    }
+
+    /// First `born:` date, or `None`.
+    pub fn born(&self) -> Option<&DateLit> {
+        self.fields.iter().find_map(|f| match &f.kind {
+            PersonFieldKind::Born(d) => Some(d),
+            _ => None,
+        })
+    }
+
+    /// First `died:` date, or `None` (absence means alive per spec section 4.2).
+    pub fn died(&self) -> Option<&DateLit> {
+        self.fields.iter().find_map(|f| match &f.kind {
+            PersonFieldKind::Died(d) => Some(d),
+            _ => None,
+        })
+    }
+
+    /// First `gender:` field, or `None` (rule 3 fires when absent).
+    pub fn gender(&self) -> Option<&GenderValue> {
+        self.fields.iter().find_map(|f| match &f.kind {
+            PersonFieldKind::Gender(v) => Some(v),
+            _ => None,
+        })
+    }
+}
+
 /// `birth <marriage-ref>` sub-statement.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BirthSub {
@@ -72,6 +122,24 @@ pub struct AdoptionSub {
     pub keyword_span: ByteSpan,
     pub marriage_ref: Ident,
     pub fields: Vec<AdoptionField>,
+}
+
+impl AdoptionSub {
+    /// First `start:` date, or `None` (rule 3 fires when absent).
+    pub fn start(&self) -> Option<&DateLit> {
+        self.fields.iter().find_map(|f| match &f.kind {
+            AdoptionFieldKind::Start(d) => Some(d),
+            _ => None,
+        })
+    }
+
+    /// First `end:` date, or `None` (an open-ended adoption per spec 5.2).
+    pub fn end(&self) -> Option<&DateLit> {
+        self.fields.iter().find_map(|f| match &f.kind {
+            AdoptionFieldKind::End(d) => Some(d),
+            _ => None,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -140,6 +208,33 @@ pub struct MarriageStmt {
     pub spouse_a: Ident,
     pub spouse_b: Ident,
     pub fields: Vec<MarriageField>,
+}
+
+impl MarriageStmt {
+    /// First `start:` date, or `None` (rule 3 fires when absent).
+    pub fn start(&self) -> Option<&DateLit> {
+        self.fields.iter().find_map(|f| match &f.kind {
+            MarriageFieldKind::Start(d) => Some(d),
+            _ => None,
+        })
+    }
+
+    /// First `end:` date, or `None` (an ongoing marriage).
+    pub fn end(&self) -> Option<&DateLit> {
+        self.fields.iter().find_map(|f| match &f.kind {
+            MarriageFieldKind::End(d) => Some(d),
+            _ => None,
+        })
+    }
+
+    /// First `end_reason:` field, or `None`. The validator's rule 5 requires
+    /// `end` and `end_reason` to be both present or both absent.
+    pub fn end_reason(&self) -> Option<&EndReasonValue> {
+        self.fields.iter().find_map(|f| match &f.kind {
+            MarriageFieldKind::EndReason(v) => Some(v),
+            _ => None,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
