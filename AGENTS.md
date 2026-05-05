@@ -15,6 +15,7 @@ docs/
   testing.md   — test conventions: snapshots, corpus, perf budgets
   release.md   — operational handbook for cutting a release
   adr/         — Architectural Decision Records
+  prd/         — Product Requirements Documents (transient — deleted after the epic ships; see [`prd/README.md`](./docs/prd/README.md))
   agents/      — agent-tooling docs (issue tracker, triage labels, domain-docs convention)
 spec/          — Kula 0.1 language specification (the normative source of truth)
 editor/vscode/ — VSCode extension (LSP-backed, marketplace-publishable)
@@ -30,6 +31,7 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 | Understand the codebase shape               | [`docs/architecture.md`](./docs/architecture.md) |
 | Understand the domain vocabulary            | [`CONTEXT.md`](./CONTEXT.md)           |
 | Understand a major design decision          | [`docs/adr/`](./docs/adr/)             |
+| Understand product scope of an epic         | [`docs/prd/`](./docs/prd/)             |
 | Add a test or perf budget                   | [`docs/testing.md`](./docs/testing.md) |
 | Cut a release                               | [`docs/release.md`](./docs/release.md) |
 | Triage / file an issue                      | [`docs/agents/issue-tracker.md`](./docs/agents/issue-tracker.md), [`docs/agents/triage-labels.md`](./docs/agents/triage-labels.md) |
