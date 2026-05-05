@@ -9,6 +9,4 @@ A document with `kula 0.1` MUST be parsed and validated according to this specif
 
 ---
 
-_End of Kula 0.1 specification._
-
-← [Section 12 — Formal grammar](./12-formal-grammar.md) | [Index](./README.md)
+← [Section 12 — Formal grammar](./12-formal-grammar.md) | [Section 14 — Formatter rules](./14-formatter-rules.md) | [Index](./README.md)

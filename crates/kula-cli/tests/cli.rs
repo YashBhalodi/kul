@@ -158,3 +158,112 @@ fn validate_multiple_files_exits_one_if_any_fail() {
         .failure()
         .code(1);
 }
+
+// === `kula format` ===
+
+#[test]
+fn format_stdin_writes_canonical_form_to_stdout() {
+    let out = Command::cargo_bin("kula")
+        .unwrap()
+        .args(["format", "-"])
+        .write_stdin("person alice  born:1950 name:\"Alice\" gender:female\n")
+        .output()
+        .expect("run kula format");
+    assert!(out.status.success());
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(
+        stdout,
+        "person alice  name:\"Alice\"  gender:female  born:1950\n"
+    );
+}
+
+#[test]
+fn format_check_passes_on_canonical_input() {
+    Command::cargo_bin("kula")
+        .unwrap()
+        .args(["format", "--check", "-"])
+        .write_stdin("person alice  name:\"Alice\"  gender:female\n")
+        .assert()
+        .success();
+}
+
+#[test]
+fn format_check_fails_on_non_canonical_input() {
+    Command::cargo_bin("kula")
+        .unwrap()
+        .args(["format", "--check", "-"])
+        .write_stdin("person alice name:\"Alice\" gender:female\n")
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("<stdin>: not formatted"));
+}
+
+#[test]
+fn format_check_passes_on_corpus_examples() {
+    // Every example in the workspace must be canonical at HEAD.
+    let examples_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("examples");
+    let mut entries: Vec<PathBuf> = std::fs::read_dir(&examples_dir)
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("kula"))
+        .collect();
+    entries.sort();
+    let mut cmd = Command::cargo_bin("kula").unwrap();
+    cmd.args(["format", "--check"]);
+    for p in &entries {
+        cmd.arg(p);
+    }
+    cmd.assert().success();
+}
+
+#[test]
+fn format_rewrites_file_in_place() {
+    let dir = tempfile_dir();
+    let path = dir.join("alice.kula");
+    let dirty = "person alice born:1950 name:\"Alice\" gender:female\n";
+    std::fs::write(&path, dirty).unwrap();
+    Command::cargo_bin("kula")
+        .unwrap()
+        .args(["format"])
+        .arg(&path)
+        .assert()
+        .success();
+    let after = std::fs::read_to_string(&path).unwrap();
+    assert_eq!(
+        after,
+        "person alice  name:\"Alice\"  gender:female  born:1950\n"
+    );
+}
+
+#[test]
+fn format_refuses_input_with_parse_errors() {
+    Command::cargo_bin("kula")
+        .unwrap()
+        .args(["format", "-"])
+        .write_stdin("person\n")
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("cannot format input with parse errors"));
+}
+
+fn tempfile_dir() -> PathBuf {
+    // Use the test binary's target directory to avoid colliding with global
+    // tempdir. The directory is created on demand and reused across runs.
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("target")
+        .join("kula-cli-format-tests");
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}

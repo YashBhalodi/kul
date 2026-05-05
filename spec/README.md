@@ -10,7 +10,7 @@ For background on what Kula is and why it exists, see [`../docs/vision.md`](../d
 
 ## How to read this spec
 
-The spec is split across thirteen sections plus a standalone formal grammar. Read sequentially for first-time orientation; jump by section once familiar.
+The spec is split across fourteen sections plus a standalone formal grammar. Read sequentially for first-time orientation; jump by section once familiar.
 
 | #   | Section                                                         | What it covers                                                              |
 | --- | --------------------------------------------------------------- | --------------------------------------------------------------------------- |
@@ -28,6 +28,7 @@ The spec is split across thirteen sections plus a standalone formal grammar. Rea
 | 12  | [Formal grammar (introduction)](./12-formal-grammar.md)         | EBNF intro and constraints not enforced by grammar; full grammar is below   |
 | —   | [`grammar.ebnf`](./grammar.ebnf)                                | Standalone normative EBNF                                                   |
 | 13  | [Versioning policy](./13-versioning-policy.md)                  | How future versions extend without breaking                                 |
+| 14  | [Formatter rules](./14-formatter-rules.md)                      | Canonical form a conforming `kula format` must produce                      |
 
 ## Conventions used in this spec
 

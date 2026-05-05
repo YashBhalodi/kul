@@ -12,7 +12,8 @@ This extension lives inside the [kulalang](https://github.com/YashBhalodi/kulala
 - Line-comment toggling (`#`) and auto-closing string quotes
 - Syntax highlighting for keywords, strings (with escapes), date literals (with `~` circa marker), field names, enum values (`male`/`female`/`other`/`divorce`), declared identifiers, and id references
 - Snippets for the common shapes: `kula`, `person`, `marriage`, `birth`, `adoption`
-- **Language-server integration** when `kula-lsp` is available (pointed at via `kula.serverPath` for development; bundled in the marketplace release): live diagnostics, hover panels, go-to-definition, basic completion
+- Format-on-save: `.kula` files are canonicalized via `kula format` whenever you save (override per workspace if you prefer manual formatting)
+- **Language-server integration** when `kula-lsp` is available (pointed at via `kula.serverPath` for development; bundled in the marketplace release): live diagnostics, hover panels, go-to-definition, basic completion, document outline, find-references, rename, code actions, and document formatting
 
 ## Settings
 

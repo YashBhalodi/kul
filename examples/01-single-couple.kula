@@ -3,7 +3,7 @@
 
 kula 0.1
 
-person alice name:"Alice Sharma" born:1950-04-12 gender:female
-person bob   name:"Bob Sharma"   born:1948-11-30 gender:male
+person alice  name:"Alice Sharma"  gender:female  born:1950-04-12
+person bob  name:"Bob Sharma"  gender:male  born:1948-11-30
 
-marriage m_alice_bob alice bob start:1972-05-12
+marriage m_alice_bob alice bob  start:1972-05-12

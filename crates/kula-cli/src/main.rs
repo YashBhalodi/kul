@@ -26,11 +26,14 @@ EXAMPLES:
   cat family.kula | kula validate -
   kula validate --format json family.kula | jq .
   kula validate --quiet family.kula && echo ok
+  kula format family.kula       # canonicalize the file in place
+  kula format --check family.kula  # CI gate: non-zero if not canonical
   kula lsp                      # speak LSP over stdio (editor integrations)
 
 EXIT CODES:
-  0  every input validated cleanly
-  1  at least one input had error diagnostics
+  0  every input validated/formatted cleanly
+  1  at least one input had error diagnostics, or (under --check) was not
+     in canonical form
   2  CLI usage error (e.g. unknown flag, missing argument)
 
 SEE ALSO:
@@ -97,6 +100,37 @@ JSON OUTPUT (--format json):
   }
 ";
 
+const FORMAT_LONG_ABOUT: &str = "\
+Format one or more `.kula` files in canonical form (per ADR 0004).
+
+Without `--check`, each file is rewritten in place. With `--check`, no file
+is modified — the command exits non-zero if any input is not already in
+canonical form, which is the right shape for a CI gate.
+
+Pass `-` as a filename to read from standard input. In default mode the
+formatted source is written to stdout; in `--check` mode the command is
+silent on success and prints `<stdin>: not formatted` to stderr if not.
+
+EXAMPLES:
+  # Canonicalize a file in place.
+  kula format family.kula
+
+  # Canonicalize every example.
+  kula format examples/*.kula
+
+  # CI gate: fail if anything is out of canonical form.
+  kula format --check examples/*.kula
+
+  # Read from stdin, write canonical form to stdout.
+  cat family.kula | kula format -
+
+EXIT CODES:
+  0  every file is in canonical form (or was successfully formatted)
+  1  at least one input had parse errors, or (under --check) was not in
+     canonical form
+  2  CLI usage error
+";
+
 const LSP_LONG_ABOUT: &str = "\
 Run the Kula language server over stdio.
 
@@ -142,6 +176,19 @@ enum Command {
         no_color: bool,
     },
 
+    /// Format one or more `.kula` files. Use `-` to read from stdin.
+    #[command(long_about = FORMAT_LONG_ABOUT)]
+    Format {
+        /// Files to format. Use `-` to read from standard input.
+        #[arg(value_name = "FILE", required = true)]
+        files: Vec<PathBuf>,
+
+        /// Verify formatting without modifying files. Exits non-zero if any
+        /// input is not already in canonical form. Suitable for CI.
+        #[arg(long)]
+        check: bool,
+    },
+
     /// Run the language server over stdio.
     #[command(long_about = LSP_LONG_ABOUT)]
     Lsp,
@@ -167,6 +214,9 @@ fn main() -> ExitCode {
             format,
             no_color,
         }),
+        Command::Format { files, check } => {
+            commands::format::run(commands::format::Options { files, check })
+        }
         Command::Lsp => run_lsp(),
     }
 }

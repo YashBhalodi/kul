@@ -97,6 +97,12 @@
           "description": "Trace LSP messages between VSCode and the Kula language server. Output appears in the `Kula LSP` channel."
         }
       }
+    },
+    "configurationDefaults": {
+      "[kula]": {
+        "editor.defaultFormatter": "YashBhalodi.kulalang",
+        "editor.formatOnSave": true
+      }
     }
   },
   "dependencies": {

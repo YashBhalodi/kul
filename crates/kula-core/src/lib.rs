@@ -25,6 +25,7 @@ pub mod ast;
 pub mod cycles;
 pub mod date;
 pub mod diagnostic;
+pub mod format;
 pub mod lexer;
 pub mod node_at;
 pub mod parser;
