@@ -31,6 +31,8 @@
 //! [ADR-0010](../../../docs/adr/0010-export-schema-versioning.md) for the
 //! load-bearing decisions.
 
+pub mod cytoscape;
+
 use serde::Serialize;
 
 use crate::CheckResult;
@@ -54,14 +56,19 @@ pub const SCHEMA_VERSION: u32 = 1;
 /// which is the implementation version of this crate.
 pub const LANGUAGE_VERSION: &str = "0.1";
 
-/// Output format for [`export`]. Only `Json` (the canonical kinship-native
-/// shape) ships in the foundation; secondary projections (e.g. Cytoscape)
-/// land additively as new variants.
+/// Output format for [`export`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ExportFormat {
-    /// The canonical kinship-native JSON shape.
+    /// The canonical kinship-native JSON shape — three flat collections
+    /// (`persons`, `marriages`, `parenthood_links`) mirroring the
+    /// language primitives. See [`spec/15-export-schema.md`](../../../spec/15-export-schema.md).
     #[default]
     Json,
+    /// The Cytoscape JSON shape — `nodes` + `edges`, with marriages
+    /// promoted to first-class nodes. Loadable into Cytoscape Desktop,
+    /// Cytoscape.js, Sigma.js, vis-network, and similar generic graph
+    /// tooling without modification. See [`cytoscape`].
+    Cytoscape,
 }
 
 /// Caller-tunable knobs for [`export`]. Defaults are the most common path.
@@ -99,8 +106,49 @@ pub struct SuccessEnvelope {
     /// declared by `kula <version>` at the top of the document, or
     /// [`LANGUAGE_VERSION`] if absent.
     pub kula: String,
-    /// The exported graph.
-    pub graph: ExportedGraph,
+    /// The exported graph. Either the kinship-native shape (the canonical
+    /// foundation) or a derived shape such as Cytoscape, depending on
+    /// [`ExportOptions::format`]. Untagged in the JSON: the consumer
+    /// knows which shape to expect from the format they requested.
+    pub graph: GraphPayload,
+}
+
+/// A graph payload inside a [`SuccessEnvelope`].
+///
+/// Untagged at the wire level: the JSON looks identical to whichever
+/// inner shape was chosen (kinship-native objects with `persons` /
+/// `marriages` / `parenthood_links`, or cytoscape objects with `nodes` /
+/// `edges`). Consumers know which to expect based on the `--format` they
+/// asked for; the envelope's `schema` is the same integer regardless of
+/// shape because both shapes are projections of the same underlying data.
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
+pub enum GraphPayload {
+    /// The kinship-native graph: three flat collections.
+    Native(ExportedGraph),
+    /// The Cytoscape graph: `nodes` + `edges` with marriage-as-node
+    /// modeling. Derived from [`Native`].
+    Cytoscape(cytoscape::CytoscapeGraph),
+}
+
+impl GraphPayload {
+    /// Borrow as the kinship-native graph, or `None` if this payload is
+    /// in another shape. Test helper.
+    pub fn as_native(&self) -> Option<&ExportedGraph> {
+        match self {
+            GraphPayload::Native(g) => Some(g),
+            _ => None,
+        }
+    }
+
+    /// Borrow as the Cytoscape graph, or `None` if this payload is in
+    /// another shape. Test helper.
+    pub fn as_cytoscape(&self) -> Option<&cytoscape::CytoscapeGraph> {
+        match self {
+            GraphPayload::Cytoscape(g) => Some(g),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -228,7 +276,6 @@ pub struct ExportedSpan {
 /// `source` is needed to compute line/column anchors on diagnostic spans;
 /// it must be the same source that produced `check`.
 pub fn export(source: &str, check: &CheckResult, options: ExportOptions) -> ExportEnvelope {
-    let _ = options.format;
     if check.has_errors() {
         let map = SourceMap::new(source);
         let diagnostics = check
@@ -242,7 +289,11 @@ pub fn export(source: &str, check: &CheckResult, options: ExportOptions) -> Expo
         });
     }
     let resolved = check.resolved();
-    let graph = build_graph(resolved, &options);
+    let native = build_graph(resolved, &options);
+    let graph = match options.format {
+        ExportFormat::Json => GraphPayload::Native(native),
+        ExportFormat::Cytoscape => GraphPayload::Cytoscape(cytoscape::to_cytoscape(&native)),
+    };
     let kula = resolved
         .document()
         .version
@@ -408,17 +459,28 @@ mod tests {
         export(source, &check, ExportOptions::default())
     }
 
+    fn native_graph(env: ExportEnvelope) -> ExportedGraph {
+        let ExportEnvelope::Success(s) = env else {
+            panic!("expected success envelope");
+        };
+        s.graph
+            .as_native()
+            .cloned()
+            .expect("expected native graph payload")
+    }
+
     #[test]
     fn empty_document_succeeds_with_empty_collections() {
         let env = export_source("");
-        let ExportEnvelope::Success(s) = env else {
+        let ExportEnvelope::Success(s) = env.clone() else {
             panic!("expected success");
         };
         assert_eq!(s.schema, SCHEMA_VERSION);
         assert_eq!(s.kula, LANGUAGE_VERSION);
-        assert!(s.graph.persons.is_empty());
-        assert!(s.graph.marriages.is_empty());
-        assert!(s.graph.parenthood_links.is_empty());
+        let g = native_graph(env);
+        assert!(g.persons.is_empty());
+        assert!(g.marriages.is_empty());
+        assert!(g.parenthood_links.is_empty());
     }
 
     #[test]
@@ -450,11 +512,8 @@ person carol name:\"Carol\" gender:female born:1952
 marriage m1 alice bob start:1972
 marriage m2 alice carol start:1980
 ";
-        let ExportEnvelope::Success(s) = export_source(src) else {
-            panic!("expected success");
-        };
-        let alice_marriages = s
-            .graph
+        let g = native_graph(export_source(src));
+        let alice_marriages = g
             .marriages
             .iter()
             .filter(|m| m.spouses.iter().any(|sp| sp == "alice"))
@@ -475,11 +534,8 @@ person kid name:\"K\" gender:other born:1980
 marriage m1 a b start:1972
 marriage m2 c d start:1971
 ";
-        let ExportEnvelope::Success(s) = export_source(src) else {
-            panic!("expected success");
-        };
-        let kid_links: Vec<_> = s
-            .graph
+        let g = native_graph(export_source(src));
+        let kid_links: Vec<_> = g
             .parenthood_links
             .iter()
             .filter(|l| l.child_id == "kid")
@@ -500,12 +556,9 @@ person b name:\"B\" gender:male born:1980-03
 person c name:\"C\" gender:other born:1980-03-15
 person d name:\"D\" gender:female born:~1980
 ";
-        let ExportEnvelope::Success(s) = export_source(src) else {
-            panic!("expected success");
-        };
+        let g = native_graph(export_source(src));
         let by_id = |id: &str| {
-            s.graph
-                .persons
+            g.persons
                 .iter()
                 .find(|p| p.id == id)
                 .unwrap()
@@ -522,5 +575,26 @@ person d name:\"D\" gender:female born:~1980
         assert_eq!(by_id("c").precision, "day");
         assert_eq!(by_id("d").value, "1980");
         assert!(by_id("d").circa);
+    }
+
+    #[test]
+    fn cytoscape_format_returns_cytoscape_payload() {
+        let src = "person alice name:\"A\" gender:female\n";
+        let check = crate::check(src);
+        let env = export(
+            src,
+            &check,
+            ExportOptions {
+                format: ExportFormat::Cytoscape,
+                ..ExportOptions::default()
+            },
+        );
+        let ExportEnvelope::Success(s) = env else {
+            panic!("expected success");
+        };
+        assert!(
+            s.graph.as_cytoscape().is_some(),
+            "cytoscape format should produce cytoscape payload"
+        );
     }
 }

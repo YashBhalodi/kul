@@ -14,13 +14,19 @@ use kula_core::export::{ExportFormat, ExportOptions, export};
 
 #[derive(Copy, Clone, Debug, clap::ValueEnum, PartialEq, Eq)]
 pub enum CliExportFormat {
+    /// Canonical kinship-native shape — `persons`, `marriages`,
+    /// `parenthood_links`. Spec §15.
     Json,
+    /// Cytoscape JSON — `nodes` + `edges`, marriage-as-node bipartite
+    /// modeling. Loadable into Cytoscape.js, Sigma.js, vis-network, etc.
+    Cytoscape,
 }
 
 impl From<CliExportFormat> for ExportFormat {
     fn from(value: CliExportFormat) -> Self {
         match value {
             CliExportFormat::Json => ExportFormat::Json,
+            CliExportFormat::Cytoscape => ExportFormat::Cytoscape,
         }
     }
 }

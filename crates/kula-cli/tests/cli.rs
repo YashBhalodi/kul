@@ -390,6 +390,31 @@ fn export_default_omits_span_field() {
 }
 
 #[test]
+fn export_format_cytoscape_emits_nodes_and_edges() {
+    let path = examples_dir().join("02-nuclear-family.kula");
+    let output = Command::cargo_bin("kula")
+        .unwrap()
+        .args(["export", "--format", "cytoscape"])
+        .arg(&path)
+        .output()
+        .expect("run kula export --format cytoscape");
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
+    assert_eq!(env["ok"], true);
+    let nodes = env["graph"]["nodes"].as_array().expect("nodes array");
+    let edges = env["graph"]["edges"].as_array().expect("edges array");
+    assert!(nodes.iter().any(|n| n["data"]["id"] == "p:alice"));
+    assert!(nodes.iter().any(|n| n["data"]["id"] == "m:m_alice_bob"));
+    assert!(edges.iter().any(|e| e["data"]["type"] == "spouse"));
+    assert!(
+        edges
+            .iter()
+            .any(|e| e["data"]["type"] == "biological_child")
+    );
+}
+
+#[test]
 fn export_format_json_is_default_and_explicit_flag_works() {
     let path = examples_dir().join("01-single-couple.kula");
     let with_flag = Command::cargo_bin("kula")

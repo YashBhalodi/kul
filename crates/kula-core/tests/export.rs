@@ -12,7 +12,7 @@
 
 use std::path::{Path, PathBuf};
 
-use kula_core::export::{ExportOptions, export};
+use kula_core::export::{ExportFormat, ExportOptions, export};
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -50,12 +50,22 @@ fn export_with_positions(source: &str) -> String {
     )
 }
 
-/// Generate two snapshot tests per example file — one with positions off
-/// (the default) and one with positions on. The snapshot name embeds the
-/// file stem so a missing or extra example surfaces as a clearly-named
-/// snapshot.
+fn export_cytoscape(source: &str) -> String {
+    export_with(
+        source,
+        ExportOptions {
+            format: ExportFormat::Cytoscape,
+            ..ExportOptions::default()
+        },
+    )
+}
+
+/// Generate three snapshot tests per example file — default (kinship-
+/// native, positions off), positions on, and cytoscape format. The
+/// snapshot names embed the file stem so a missing or extra example
+/// surfaces as a clearly-named snapshot.
 macro_rules! example_snapshot {
-    ($default_name:ident, $positions_name:ident, $stem:literal) => {
+    ($default_name:ident, $positions_name:ident, $cytoscape_name:ident, $stem:literal) => {
         #[test]
         fn $default_name() {
             let path = examples_dir().join(concat!($stem, ".kula"));
@@ -69,27 +79,38 @@ macro_rules! example_snapshot {
             let json = export_with_positions(&read(&path));
             insta::assert_snapshot!(json);
         }
+
+        #[test]
+        fn $cytoscape_name() {
+            let path = examples_dir().join(concat!($stem, ".kula"));
+            let json = export_cytoscape(&read(&path));
+            insta::assert_snapshot!(json);
+        }
     };
 }
 
 example_snapshot!(
     example_01_single_couple,
     example_01_single_couple_with_positions,
+    example_01_single_couple_cytoscape,
     "01-single-couple"
 );
 example_snapshot!(
     example_02_nuclear_family,
     example_02_nuclear_family_with_positions,
+    example_02_nuclear_family_cytoscape,
     "02-nuclear-family"
 );
 example_snapshot!(
     example_03_three_generations,
     example_03_three_generations_with_positions,
+    example_03_three_generations_cytoscape,
     "03-three-generations"
 );
 example_snapshot!(
     example_04_polygamous_family,
     example_04_polygamous_family_with_positions,
+    example_04_polygamous_family_cytoscape,
     "04-polygamous-family"
 );
 

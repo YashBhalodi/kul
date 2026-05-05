@@ -168,7 +168,44 @@ When positions are disabled (the default), the `span` field MUST be omitted from
 
 Source positions MUST NOT appear on date objects, on the envelope itself, or on diagnostic objects (the diagnostic shape already carries its own `byte_start` / `byte_end` per §15.7).
 
-### 15.10 Worked example
+### 15.10 Cytoscape format (opt-in)
+
+A conforming exporter MAY also emit the graph in the **Cytoscape JSON shape** when explicitly requested (the reference CLI flag is `--format cytoscape`). This shape is loadable into Cytoscape Desktop, Cytoscape.js, Sigma.js, vis-network, and other tools that consume the standard `{ nodes, edges }` graph form.
+
+The envelope structure (`ok`, `schema`, `kula`, `graph`) is unchanged. Only the `graph` field's payload differs:
+
+```json
+{
+  "ok": true,
+  "schema": 1,
+  "kula": "0.1",
+  "graph": {
+    "nodes": [
+      { "data": { "id": "p:<person-id>", "type": "person", "name": "...", "gender": "...", ... } },
+      { "data": { "id": "m:<marriage-id>", "type": "marriage", "start": {...}, "end": {...}, "end_reason": "..." } }
+    ],
+    "edges": [
+      { "data": { "source": "m:<marriage-id>", "target": "p:<person-id>", "type": "spouse" } },
+      { "data": { "source": "m:<marriage-id>", "target": "p:<person-id>", "type": "biological_child" } },
+      { "data": { "source": "m:<marriage-id>", "target": "p:<person-id>", "type": "adoptive_child", "start": {...} } }
+    ]
+  }
+}
+```
+
+Modeling rules:
+
+- Marriages MUST be promoted to first-class nodes (`type: "marriage"`), so they can carry their `start`, `end`, and `end_reason` as node `data` fields.
+- Person ids in the cytoscape graph MUST be prefixed `p:` and marriage ids MUST be prefixed `m:` to avoid collisions in the single flat node namespace.
+- Every edge MUST run from a marriage node to a person node (the graph is bipartite). Person-to-person edges MUST NOT appear.
+- Spouse edges MUST carry `type: "spouse"`, with `source` the marriage and `target` the spouse person.
+- Parenthood edges MUST carry `type: "biological_child"` for `birth` links and `type: "adoptive_child"` for `adoption` links. Adoptive edges MUST carry the adoption's `start` (and `end`, if present) as edge `data` fields. Biological edges MUST NOT carry `start` / `end`.
+
+The cytoscape format is a **derived projection** of the canonical kinship-native shape (§15.2). It contains the same data, in a different arrangement; it cannot represent anything the kinship-native shape does not.
+
+The failure envelope shape (§15.1) is unchanged in cytoscape mode — strict-on-errors applies regardless of format.
+
+### 15.11 Worked example
 
 For the source in [`examples/03-three-generations.kula`](../examples/03-three-generations.kula), a conforming exporter produces (line breaks added for readability):
 
