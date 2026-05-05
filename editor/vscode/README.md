@@ -99,18 +99,18 @@ To debug the language server itself, set `kula.trace.server` to `messages` or `v
 
 Use this to package an extension that ships pre-built `kula-lsp` binaries for all four target platforms (`linux-x64`, `darwin-x64`, `darwin-arm64`, `win32-x64`) — the form that goes to the marketplace.
 
-This requires a published `kula-lsp` GitHub Release matching the extension's `package.json` version (the marketplace publish workflow handles tag coordination automatically).
+This requires a published GitHub Release at tag `v<version>` (the unified release pipeline produces all binaries under one tag). For day-to-day development you don't need this — Option C with `kula.serverPath` is faster.
 
 ```sh
 cd editor/vscode
 npm install
-npm run package:bundled                                # downloads binaries from the matching kula-lsp-v* release, then vsce package
+npm run package:bundled                                # downloads binaries from the v<version> release, then vsce package
 code --install-extension kulalang-<version>.vsix --force
 ```
 
 End users installing the bundled `.vsix` don't need to set `kula.serverPath` — the extension auto-locates the right platform binary.
 
-Override the LSP version with `LSP_VERSION=<x.y.z> npm run fetch-server` if the extension and language-server versions have drifted.
+Override with `LSP_VERSION=<x.y.z> npm run fetch-server` if you need a release other than the one that matches `package.json`.
 
 ## Requirements
 

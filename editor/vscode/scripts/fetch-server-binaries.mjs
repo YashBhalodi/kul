@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 /**
- * Fetch matched-version `kula-lsp` binaries from the kulalang GitHub
- * Releases and stage them under `editor/vscode/server/<platform>/` so
- * `vsce package` can bundle them. Platform layout matches what the
- * extension's `bundledServerPath` lookup expects:
+ * Fetch the matched `kula-lsp` binaries from the kulalang GitHub Release
+ * (tag `v<version>` — the unified release pipeline) and stage them under
+ * `editor/vscode/server/<platform>/` so `vsce package` can bundle them.
+ *
+ * This is a *local-dev convenience* for building a fully-bundled .vsix
+ * without going through CI. The marketplace publish itself runs in
+ * `.github/workflows/release.yml`, which uses workflow artifacts directly
+ * (no HTTP fetch).
+ *
+ * Layout matches what the extension's `bundledServerPath` lookup expects:
  *
  *   editor/vscode/server/linux-x64/kula-lsp
  *   editor/vscode/server/darwin-x64/kula-lsp
@@ -12,16 +18,16 @@
  *
  * Usage (from `editor/vscode/`):
  *
- *   node scripts/fetch-server-binaries.mjs            # uses LSP_VERSION env or 0.1.0
+ *   node scripts/fetch-server-binaries.mjs            # uses package.json version
  *   LSP_VERSION=0.2.0 node scripts/fetch-server-binaries.mjs
  *
- * Or via the npm script:
+ * Or via the npm scripts:
  *
  *   npm run fetch-server
- *   npm run package:bundled                           # fetch + package together
+ *   npm run package:bundled                           # fetch + vsce package
  *
- * The script is opt-in. The default `npm run package` produces an
- * unbundled .vsix (good for local-dev install + `kula.serverPath`).
+ * The default `npm run package` is unchanged — produces an unbundled
+ * .vsix for local-dev install + `kula.serverPath`.
  */
 
 import { execFileSync } from "node:child_process";
@@ -78,7 +84,7 @@ async function main() {
         die("could not determine LSP version. Set LSP_VERSION=<x.y.z> or ensure package.json's version field is set.");
     }
 
-    const tag = `kula-lsp-v${version}`;
+    const tag = `v${version}`;
     console.log(`fetching ${REPO} release ${tag}`);
 
     const tmp = mkdtempSync(join(tmpdir(), "kula-lsp-fetch-"));

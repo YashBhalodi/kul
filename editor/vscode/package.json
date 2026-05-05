@@ -2,7 +2,7 @@
   "name": "kulalang",
   "displayName": "KulaLang",
   "description": "Syntax highlighting and editor support for Kula (.kula) kinship-description files.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "YashBhalodi",
   "license": "MIT",
   "repository": {

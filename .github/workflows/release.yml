@@ -1,13 +1,23 @@
 name: Release
 
+# One workflow, one tag. Push `v<major>.<minor>.<patch>` and the pipeline
+# releases the CLI, the language server, and the VSCode extension in
+# lockstep. The version source of truth is the workspace `Cargo.toml`'s
+# `workspace.package.version`; `editor/vscode/package.json`'s `version`
+# must match. The `verify` job fails fast if either drifts from the tag.
+#
+# Workflow_dispatch with `dry_run = true` (default) builds + smoke-tests
+# every artifact without publishing — useful for validating the pipeline
+# before bumping a version.
+
 on:
   push:
     tags:
-      - "cli-v*"
+      - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Build and smoke-test only (do not publish a Release)"
+        description: "Build and smoke-test only (skip GitHub Release + marketplace publish)"
         type: boolean
         default: true
 
@@ -15,8 +25,41 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    name: build (${{ matrix.target }})
+  verify:
+    name: Verify version coordination
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse and verify versions
+        id: parse
+        shell: bash
+        run: |
+          set -e
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag_version="${GITHUB_REF_NAME#v}"
+          else
+            tag_version=""
+          fi
+          ws_version=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          ext_version=$(python3 -c "import json; print(json.load(open('editor/vscode/package.json'))['version'])")
+          echo "workspace: $ws_version"
+          echo "extension: $ext_version"
+          echo "tag:       ${tag_version:-<workflow_dispatch>}"
+          if [[ "$ws_version" != "$ext_version" ]]; then
+            echo "::error::workspace Cargo.toml version $ws_version != extension package.json version $ext_version"
+            exit 1
+          fi
+          if [[ -n "$tag_version" && "$tag_version" != "$ws_version" ]]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match workspace/extension version $ws_version"
+            exit 1
+          fi
+          echo "version=$ws_version" >> "$GITHUB_OUTPUT"
+
+  build-cli:
+    name: build kula-cli (${{ matrix.target }})
+    needs: verify
     strategy:
       fail-fast: false
       matrix:
@@ -32,8 +75,8 @@ jobs:
           - target: x86_64-apple-darwin
             os: macos-latest
             archive: tar.gz
-            # macos-latest is now ARM-based; an x86_64 binary cannot be
-            # smoke-tested directly without Rosetta. Skip the runtime check.
+            # macos-latest is now ARM-based; skip the runtime check for the
+            # x86_64 binary (would need Rosetta).
             can_run: false
           - target: x86_64-pc-windows-msvc
             os: windows-latest
@@ -42,18 +85,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-
       - uses: Swatinem/rust-cache@v2
         with:
-          key: release-${{ matrix.target }}
-
-      - name: Build release binary
+          key: cli-release-${{ matrix.target }}
+      - name: Build
         run: cargo build -p kula-cli --release --target ${{ matrix.target }}
-
       - name: Smoke test
         if: matrix.can_run
         shell: bash
@@ -63,7 +102,6 @@ jobs:
           if [[ "${{ runner.os }}" == "Windows" ]]; then BIN="$BIN.exe"; fi
           "$BIN" --version
           "$BIN" validate examples/03-three-generations.kula
-
       - name: Package
         id: package
         shell: bash
@@ -81,35 +119,170 @@ jobs:
             tar -czf "$STAGING.tar.gz" "$STAGING"
             echo "asset=$STAGING.tar.gz" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: kula-${{ matrix.target }}
           path: ${{ steps.package.outputs.asset }}
           if-no-files-found: error
 
-  release:
-    name: publish release
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/cli-v')
+  build-lsp:
+    name: build kula-lsp (${{ matrix.target }})
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            archive: tar.gz
+            platform_dir: linux-x64
+            binary_name: kula-lsp
+            can_run: true
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            archive: tar.gz
+            platform_dir: darwin-arm64
+            binary_name: kula-lsp
+            can_run: true
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            archive: tar.gz
+            platform_dir: darwin-x64
+            binary_name: kula-lsp
+            can_run: false
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            archive: zip
+            platform_dir: win32-x64
+            binary_name: kula-lsp.exe
+            can_run: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: lsp-release-${{ matrix.target }}
+      - name: Build
+        run: cargo build -p kula-lsp --release --target ${{ matrix.target }}
+      - name: Smoke test
+        if: matrix.can_run
+        shell: bash
+        run: |
+          set -e
+          BIN="target/${{ matrix.target }}/release/kula-lsp"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then BIN="$BIN.exe"; fi
+          "$BIN" --version
+      - name: Package archive (for GitHub Release)
+        id: package
+        shell: bash
+        run: |
+          set -e
+          STAGING="kula-lsp-${{ matrix.target }}"
+          mkdir -p "$STAGING"
+          cp README.md LICENSE CHANGELOG.md "$STAGING/" 2>/dev/null || true
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            cp "target/${{ matrix.target }}/release/kula-lsp.exe" "$STAGING/"
+            7z a -tzip "$STAGING.zip" "$STAGING" >/dev/null
+            echo "asset=$STAGING.zip" >> "$GITHUB_OUTPUT"
+          else
+            cp "target/${{ matrix.target }}/release/kula-lsp" "$STAGING/"
+            tar -czf "$STAGING.tar.gz" "$STAGING"
+            echo "asset=$STAGING.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kula-lsp-${{ matrix.target }}
+          path: ${{ steps.package.outputs.asset }}
+          if-no-files-found: error
+      - name: Stage raw binary (for marketplace bundling)
+        shell: bash
+        run: |
+          set -e
+          mkdir -p "raw/${{ matrix.platform_dir }}"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            cp "target/${{ matrix.target }}/release/kula-lsp.exe" "raw/${{ matrix.platform_dir }}/${{ matrix.binary_name }}"
+          else
+            cp "target/${{ matrix.target }}/release/kula-lsp" "raw/${{ matrix.platform_dir }}/${{ matrix.binary_name }}"
+            chmod +x "raw/${{ matrix.platform_dir }}/${{ matrix.binary_name }}"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kula-lsp-raw-${{ matrix.platform_dir }}
+          path: raw/${{ matrix.platform_dir }}
+          if-no-files-found: error
+
+  github-release:
+    name: GitHub Release
+    needs: [verify, build-cli, build-lsp]
+    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.dry_run == false)
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
           path: dist
-          merge-multiple: true
-
-      - name: List artifacts
-        run: ls -la dist/
-
+          # Pull every artifact except the raw-binary ones (those are for
+          # the marketplace job's bundling step, not for the public release).
+          pattern: "kula*"
+          merge-multiple: false
+      - name: Collect release archives
+        shell: bash
+        run: |
+          set -e
+          mkdir -p release-files
+          for d in dist/kula-*; do
+            case "$d" in
+              dist/kula-lsp-raw-*) continue ;;
+            esac
+            cp "$d"/* release-files/
+          done
+          ls -la release-files/
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          name: v${{ needs.verify.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          files: release-files/*
           generate_release_notes: true
           fail_on_unmatched_files: true
+
+  marketplace-publish:
+    name: Publish VSCode extension to marketplace
+    needs: [verify, build-lsp]
+    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.dry_run == false)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Download raw kula-lsp binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: lsp-raw
+          pattern: kula-lsp-raw-*
+      - name: Stage binaries into editor/vscode/server/
+        shell: bash
+        run: |
+          set -e
+          mkdir -p editor/vscode/server
+          for d in lsp-raw/kula-lsp-raw-*; do
+            platform="${d##*kula-lsp-raw-}"
+            mv "$d" "editor/vscode/server/$platform"
+            ls -la "editor/vscode/server/$platform"
+          done
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+      - name: Install extension dependencies
+        working-directory: editor/vscode
+        run: npm ci
+      - name: Publish to marketplace
+        working-directory: editor/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: vsce publish -p "$VSCE_PAT"

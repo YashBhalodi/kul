@@ -1,9 +1,12 @@
 name: VSCode Extension
 
+# Per-PR sanity check on the extension manifest, grammar, and TypeScript
+# build. The actual marketplace publish lives in `release.yml` and runs
+# on `v*` tag push as part of the unified release pipeline.
+
 on:
   push:
     branches: [main]
-    tags: ['vscode-v*']
     paths:
       - 'editor/vscode/**'
       - '.github/workflows/vscode-extension.yml'
@@ -36,41 +39,3 @@ jobs:
       - name: Validate manifest with vsce package
         working-directory: editor/vscode
         run: vsce package --no-yarn --out /tmp/kula-test.vsix
-
-  publish:
-    name: Publish to VSCode Marketplace
-    needs: lint
-    if: startsWith(github.ref, 'refs/tags/vscode-v')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install vsce
-        run: npm install -g @vscode/vsce
-      - name: Verify tag matches package.json version
-        working-directory: editor/vscode
-        run: |
-          set -e
-          tag_version="${GITHUB_REF_NAME#vscode-v}"
-          pkg_version=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
-          echo "tag version:     $tag_version"
-          echo "package version: $pkg_version"
-          if [ "$tag_version" != "$pkg_version" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $pkg_version"
-            exit 1
-          fi
-      - name: Install dependencies
-        working-directory: editor/vscode
-        run: npm ci
-      - name: Fetch matched-version kula-lsp binaries
-        # The fetch script defaults to reading the version from package.json,
-        # which the previous step verified matches the tag.
-        working-directory: editor/vscode
-        run: npm run fetch-server
-      - name: Publish to marketplace
-        working-directory: editor/vscode
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: vsce publish -p "$VSCE_PAT"
