@@ -15,14 +15,15 @@ use tower_lsp::lsp_types::{
     DocumentSymbolResponse, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
     HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams, Location,
     MessageType, OneOf, PrepareRenameResponse, ReferenceParams, RenameOptions, RenameParams,
-    ServerCapabilities, ServerInfo, TextDocumentPositionParams, TextDocumentSyncCapability,
-    TextDocumentSyncKind, TextEdit, Url, WorkspaceEdit,
+    SemanticTokensFullOptions, SemanticTokensOptions, SemanticTokensParams, SemanticTokensResult,
+    SemanticTokensServerCapabilities, ServerCapabilities, ServerInfo, TextDocumentPositionParams,
+    TextDocumentSyncCapability, TextDocumentSyncKind, TextEdit, Url, WorkspaceEdit,
 };
 use tower_lsp::{Client, LanguageServer};
 
 use crate::features::{
     code_action, completion, definition, diagnostics, document_symbol, formatting, hover,
-    references, rename,
+    references, rename, semantic_tokens,
 };
 use crate::state::Documents;
 
@@ -79,6 +80,16 @@ impl LanguageServer for Backend {
                 })),
                 code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
                 document_formatting_provider: Some(OneOf::Left(true)),
+                semantic_tokens_provider: Some(
+                    SemanticTokensServerCapabilities::SemanticTokensOptions(
+                        SemanticTokensOptions {
+                            legend: semantic_tokens::legend(),
+                            range: Some(false),
+                            full: Some(SemanticTokensFullOptions::Bool(true)),
+                            work_done_progress_options: Default::default(),
+                        },
+                    ),
+                ),
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
@@ -249,6 +260,21 @@ impl LanguageServer for Backend {
             })
             .await;
         Ok(symbols.map(DocumentSymbolResponse::Nested))
+    }
+
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>> {
+        let uri = params.text_document.uri;
+        let tokens = self
+            .documents
+            .with(&uri, |doc| {
+                let resolved = doc.check.resolved();
+                semantic_tokens::semantic_tokens(&resolved, &doc.line_index)
+            })
+            .await;
+        Ok(tokens.map(SemanticTokensResult::Tokens))
     }
 
     async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
