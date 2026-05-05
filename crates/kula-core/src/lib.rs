@@ -34,6 +34,7 @@ pub mod validator;
 
 use crate::ast::Document;
 use crate::diagnostic::Diagnostic;
+use crate::semantic::ResolvedDocument;
 
 /// The version of `kula-core` linked into the consumer.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -52,6 +53,22 @@ impl CheckResult {
         self.diagnostics
             .iter()
             .any(|d| matches!(d.severity, diagnostic::Severity::Error))
+    }
+
+    /// Build a [`ResolvedDocument`] view over this result's document.
+    ///
+    /// The kinship-query seam (per ADR-0001) lives on `ResolvedDocument`. The
+    /// pipeline already builds one internally during validation, but it can't
+    /// be stored alongside the owned `Document` (the borrow lifetime would be
+    /// self-referential). Callers that need to issue queries — the LSP feature
+    /// modules, downstream tooling — go through this method.
+    ///
+    /// Cost: re-runs `semantic::resolve` (one pass over the AST, hashmap
+    /// insertions per statement). Cheap for editor-scale documents but not
+    /// free; cache the result if calling repeatedly in a hot path.
+    pub fn resolved(&self) -> ResolvedDocument<'_> {
+        let (resolved, _) = semantic::resolve(&self.document);
+        resolved
     }
 }
 

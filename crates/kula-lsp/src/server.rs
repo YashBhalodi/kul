@@ -121,7 +121,7 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
-                let (resolved, _) = kula_core::semantic::resolve(&doc.check.document);
+                let resolved = doc.check.resolved();
                 hover::hover(&resolved, &doc.line_index, offset)
             })
             .await;
@@ -138,7 +138,7 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
-                let (resolved, _) = kula_core::semantic::resolve(&doc.check.document);
+                let resolved = doc.check.resolved();
                 definition::definition(&resolved, &doc.line_index, &uri, offset)
             })
             .await;
@@ -152,7 +152,7 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
-                let (resolved, _) = kula_core::semantic::resolve(&doc.check.document);
+                let resolved = doc.check.resolved();
                 Some(completion::complete(
                     doc.line_index.source(),
                     &resolved,
