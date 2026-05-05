@@ -13,8 +13,7 @@
 
 use std::collections::HashMap;
 
-use kula_core::node_at::Node;
-use kula_core::semantic::{EntityKind, ResolvedDocument};
+use kula_core::semantic::ResolvedDocument;
 use kula_core::span::ByteSpan;
 use tower_lsp::lsp_types::{PrepareRenameResponse, TextEdit, Url, WorkspaceEdit};
 
@@ -66,55 +65,38 @@ impl RenameError {
 /// Indicate whether a rename is possible at the cursor, and if so, what
 /// editable range the client should show in its rename popover.
 pub fn prepare_rename(
-    resolved: &ResolvedDocument<'_>,
+    resolved: &ResolvedDocument,
     line_index: &LineIndex,
     byte_offset: usize,
 ) -> Option<PrepareRenameResponse> {
-    let node = resolved.node_at(byte_offset)?;
-    let (span, target_resolved) = match node {
-        Node::PersonDeclId(p) => (p.id.span, true),
-        Node::MarriageDeclId(m) => (m.id.span, true),
-        Node::PersonRef { ident, target } => (ident.span, target.is_some()),
-        Node::MarriageRef { ident, target } => (ident.span, target.is_some()),
-        _ => return None,
-    };
-    if !target_resolved {
-        // Don't advertise rename for an unresolved reference; the user
-        // would type a name and `rename` would have no decl to anchor on.
+    let entity = resolved.node_at(byte_offset)?.entity_reference()?;
+    // Don't advertise rename for an unresolved reference; the user would
+    // type a new name and `rename` would have no decl to anchor on.
+    if !entity.is_decl && entity.target.is_none() {
         return None;
     }
-    Some(PrepareRenameResponse::Range(line_index.range(span)))
+    Some(PrepareRenameResponse::Range(
+        line_index.range(entity.ident_span),
+    ))
 }
 
 /// Attempt to rename the id under the cursor to `new_name`. On success
 /// returns a workspace edit that updates the declaration and every
 /// reference in lock-step.
 pub fn rename(
-    resolved: &ResolvedDocument<'_>,
+    resolved: &ResolvedDocument,
     line_index: &LineIndex,
     uri: &Url,
     byte_offset: usize,
     new_name: &str,
 ) -> Result<WorkspaceEdit, RenameError> {
-    let node = resolved
+    let entity = resolved
         .node_at(byte_offset)
+        .and_then(|n| n.entity_reference())
         .ok_or(RenameError::NotRenameable)?;
-    let (current, kind, decl_span) = match node {
-        Node::PersonDeclId(p) => (p.id.name.as_str(), EntityKind::Person, p.id.span),
-        Node::MarriageDeclId(m) => (m.id.name.as_str(), EntityKind::Marriage, m.id.span),
-        Node::PersonRef {
-            ident,
-            target: Some(p),
-        } => (ident.name.as_str(), EntityKind::Person, p.id.span),
-        Node::MarriageRef {
-            ident,
-            target: Some(m),
-        } => (ident.name.as_str(), EntityKind::Marriage, m.id.span),
-        Node::PersonRef { target: None, .. } | Node::MarriageRef { target: None, .. } => {
-            return Err(RenameError::UnresolvedReference);
-        }
-        _ => return Err(RenameError::NotRenameable),
-    };
+    let decl_span = entity.decl_span().ok_or(RenameError::UnresolvedReference)?;
+    let current = entity.name;
+    let kind = entity.kind;
 
     // No-op rename: same name; return an empty workspace edit so clients
     // don't loop on the change.
@@ -204,6 +186,7 @@ mod tests {
     use kula_core::lexer::tokenize;
     use kula_core::parser::parse;
     use kula_core::semantic::resolve;
+    use std::sync::Arc;
 
     fn url() -> Url {
         Url::parse("file:///t.kula").unwrap()
@@ -220,7 +203,7 @@ mod tests {
     ) -> Result<WorkspaceEdit, RenameError> {
         let tokens = tokenize(source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let line_index = LineIndex::new(source);
         rename(&resolved, &line_index, &url(), offset, new_name)
     }
@@ -228,7 +211,7 @@ mod tests {
     fn run_prepare(source: &str, offset: usize) -> Option<PrepareRenameResponse> {
         let tokens = tokenize(source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let line_index = LineIndex::new(source);
         prepare_rename(&resolved, &line_index, offset)
     }

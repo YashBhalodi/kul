@@ -6,8 +6,7 @@
 //! points at that marriage. Per LSP `ReferenceContext.includeDeclaration`,
 //! the declaration site is included only when asked.
 
-use kula_core::node_at::Node;
-use kula_core::semantic::{EntityKind, ResolvedDocument};
+use kula_core::semantic::ResolvedDocument;
 use kula_core::span::ByteSpan;
 use tower_lsp::lsp_types::{Location, Url};
 
@@ -18,31 +17,16 @@ use crate::convert::LineIndex;
 /// (keywords, fields, whitespace, EOF). Returns `Some(empty)` when the
 /// cursor *is* on a referenceable id but nothing else uses it.
 pub fn references(
-    resolved: &ResolvedDocument<'_>,
+    resolved: &ResolvedDocument,
     line_index: &LineIndex,
     uri: &Url,
     byte_offset: usize,
     include_declaration: bool,
 ) -> Option<Vec<Location>> {
-    let node = resolved.node_at(byte_offset)?;
-    let (id, kind, decl_span) = match node {
-        Node::PersonDeclId(p) => (p.id.name.as_str(), EntityKind::Person, Some(p.id.span)),
-        Node::MarriageDeclId(m) => (m.id.name.as_str(), EntityKind::Marriage, Some(m.id.span)),
-        Node::PersonRef { ident, target } => (
-            ident.name.as_str(),
-            EntityKind::Person,
-            target.map(|p| p.id.span),
-        ),
-        Node::MarriageRef { ident, target } => (
-            ident.name.as_str(),
-            EntityKind::Marriage,
-            target.map(|m| m.id.span),
-        ),
-        _ => return None,
-    };
+    let entity = resolved.node_at(byte_offset)?.entity_reference()?;
 
-    let mut spans: Vec<ByteSpan> = resolved.references_to(id, kind);
-    if include_declaration && let Some(d) = decl_span {
+    let mut spans: Vec<ByteSpan> = resolved.references_to(entity.name, entity.kind);
+    if include_declaration && let Some(d) = entity.decl_span() {
         spans.push(d);
     }
     spans.sort_by_key(|s| s.start);
@@ -65,6 +49,7 @@ mod tests {
     use kula_core::lexer::tokenize;
     use kula_core::parser::parse;
     use kula_core::semantic::resolve;
+    use std::sync::Arc;
 
     fn url() -> Url {
         Url::parse("file:///t.kula").unwrap()
@@ -73,7 +58,7 @@ mod tests {
     fn refs_at(source: &str, offset: usize, include_decl: bool) -> Option<Vec<(u32, u32)>> {
         let tokens = tokenize(source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let line_index = LineIndex::new(source);
         references(&resolved, &line_index, &url(), offset, include_decl).map(|locs| {
             locs.into_iter()
@@ -188,7 +173,7 @@ mod tests {
                    marriage m alice bob start:1972\n";
         let tokens = tokenize(src);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let line_index = LineIndex::new(src);
         let locs = references(&resolved, &line_index, &url(), idx(src, "alice"), false).unwrap();
         assert!(locs.iter().all(|l| l.uri == url()));

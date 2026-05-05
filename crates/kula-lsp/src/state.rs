@@ -3,6 +3,9 @@
 //! Holds the source text, the cached `kula_core::CheckResult`, and a
 //! `LineIndex` for byte ↔ LSP-position conversion. All access goes through
 //! the `Documents` handle so the locking story stays in one place.
+//!
+//! The source is stored as an [`Arc<str>`] shared with the [`LineIndex`] so
+//! a single heap buffer backs both fields.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -16,14 +19,17 @@ use crate::convert::LineIndex;
 /// One open document.
 #[derive(Debug)]
 pub struct Document {
-    pub source: String,
+    pub source: Arc<str>,
     pub line_index: LineIndex,
     pub check: CheckResult,
 }
 
 impl Document {
     fn from_source(source: String) -> Self {
-        let line_index = LineIndex::new(&source);
+        let source: Arc<str> = Arc::from(source);
+        // Share the Arc with the LineIndex so the source text is held in a
+        // single heap buffer, not duplicated alongside the index.
+        let line_index = LineIndex::new(Arc::clone(&source));
         let check = kula_core::check(&source);
         Self {
             source,
@@ -93,7 +99,7 @@ mod tests {
             .with(&url("file:///a.kula"), |d| d.source.clone())
             .await
             .unwrap();
-        assert_eq!(stored_source, "kula 1\nperson alice\n");
+        assert_eq!(&*stored_source, "kula 1\nperson alice\n");
     }
 
     #[tokio::test]

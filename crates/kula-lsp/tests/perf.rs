@@ -31,7 +31,7 @@ fn one_thousand_statement_check_and_translate_under_budget() {
 
     let start = std::time::Instant::now();
     let core = kula_core::check(&source);
-    let line_index = LineIndex::new(&source);
+    let line_index = LineIndex::new(source.as_str());
     let _ = to_lsp(&url, &core.diagnostics, &line_index);
     let elapsed = start.elapsed();
 

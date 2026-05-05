@@ -20,7 +20,7 @@ use crate::convert::LineIndex;
 /// Build the document-symbol tree for the outline view. Order mirrors source
 /// order; sub-statements nest under their parent person.
 pub fn document_symbols(
-    resolved: &ResolvedDocument<'_>,
+    resolved: &ResolvedDocument,
     line_index: &LineIndex,
 ) -> Vec<DocumentSymbol> {
     resolved
@@ -62,7 +62,7 @@ fn person_symbol(line_index: &LineIndex, p: &PersonStmt) -> DocumentSymbol {
 }
 
 fn marriage_symbol(
-    resolved: &ResolvedDocument<'_>,
+    resolved: &ResolvedDocument,
     line_index: &LineIndex,
     m: &MarriageStmt,
 ) -> DocumentSymbol {
@@ -151,7 +151,7 @@ fn year_str(d: &DateLit) -> String {
     s
 }
 
-fn display_name_or(resolved: &ResolvedDocument<'_>, id: &str) -> String {
+fn display_name_or(resolved: &ResolvedDocument, id: &str) -> String {
     resolved
         .person(id)
         .and_then(|p| p.name())
@@ -165,11 +165,12 @@ mod tests {
     use kula_core::lexer::tokenize;
     use kula_core::parser::parse;
     use kula_core::semantic::resolve;
+    use std::sync::Arc;
 
     fn symbols_for(source: &str) -> Vec<DocumentSymbol> {
         let tokens = tokenize(source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let line_index = LineIndex::new(source);
         document_symbols(&resolved, &line_index)
     }

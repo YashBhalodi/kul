@@ -1,12 +1,18 @@
 //! Semantic analysis: turns a [`Document`] into a [`ResolvedDocument`].
 //!
 //! [`ResolvedDocument`] is the deep query module the validator and the
-//! cycle-detector talk to. It owns the ID index and exposes typed query
-//! methods (`persons`, `marriages`, `spouses_of`, `parents_of`); callers
-//! never touch the underlying maps. New questions about kinship belong
-//! here, not at every rule's call site.
+//! cycle-detector talk to. It owns the [`Document`] (via `Arc<Document>`) and
+//! the id index, and exposes typed query methods (`persons`, `marriages`,
+//! `spouses_of`, `parents_of`); callers never touch the underlying maps. New
+//! questions about kinship belong here, not at every rule's call site.
+//!
+//! The `Arc<Document>` shape is what lets the LSP cache a single resolved
+//! view per open document — the borrowed-lifetime alternative was
+//! self-referential and forced a re-resolve on every editor request. See
+//! [ADR-0007](../../docs/adr/0007-resolved-document-owns-document.md).
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::ast::{Document, Ident, MarriageStmt, PersonStmt, Statement};
 use crate::diagnostic::Diagnostic;
@@ -28,7 +34,10 @@ impl EntityKind {
     }
 }
 
-/// One entry in the ID index.
+/// One entry in the ID index, returned by [`ResolvedDocument::entity`].
+///
+/// Built on demand from the underlying statement when the caller asks; the
+/// `id` borrow is tied to `&self` of the resolved document.
 #[derive(Debug, Clone, Copy)]
 pub struct EntityRef<'a> {
     pub kind: EntityKind,
@@ -41,18 +50,32 @@ impl EntityRef<'_> {
     }
 }
 
+/// Stored entry in the resolved id index — `kind` plus the position of the
+/// corresponding statement in `document.statements`. Storing an index rather
+/// than a borrow is what lets `ResolvedDocument` own its `Document` instead
+/// of borrowing into it; query methods rebuild the borrowed [`EntityRef`]
+/// view on demand.
+#[derive(Debug, Clone, Copy)]
+struct ResolvedEntity {
+    kind: EntityKind,
+    statement_idx: usize,
+}
+
 /// A document with semantic information attached.
 ///
 /// Built by [`resolve`]; consumed by the validator and the cycle-detector.
 /// All cross-reference and kinship queries go through methods on this
-/// type — callers do not enumerate the underlying maps.
+/// type — callers do not enumerate the underlying maps. Owns its
+/// [`Document`] via `Arc<Document>`, so it is cheap to clone (refcount bump)
+/// and can be cached alongside other artifacts (the LSP document cache holds
+/// one per open URI).
 #[derive(Debug, Clone)]
-pub struct ResolvedDocument<'a> {
-    pub(crate) document: &'a Document,
-    /// First-seen entity per id, for unresolved-reference checks.
-    pub(crate) entities: HashMap<&'a str, EntityRef<'a>>,
-    pub(crate) persons: HashMap<&'a str, &'a PersonStmt>,
-    pub(crate) marriages: HashMap<&'a str, &'a MarriageStmt>,
+pub struct ResolvedDocument {
+    document: Arc<Document>,
+    /// First-seen entity per id, by statement index. The keys are the id
+    /// names as `String` so the map owns its data (no borrow into
+    /// `document`).
+    entities: HashMap<String, ResolvedEntity>,
 }
 
 /// One parent link: a directed edge `child → parent` with the source span
@@ -71,13 +94,20 @@ pub enum ParentLinkKind {
     Adoption,
 }
 
-impl<'a> ResolvedDocument<'a> {
+impl ResolvedDocument {
     /// The underlying parsed [`Document`]. Useful for downstream consumers
-    /// that need the raw AST (e.g. a future LSP needs span lookups by
-    /// statement); rules inside this crate go through the typed queries
-    /// below instead.
-    pub fn document(&self) -> &'a Document {
-        self.document
+    /// that need the raw AST (e.g. mapping a file offset to a statement);
+    /// rules inside this crate go through the typed queries below instead.
+    pub fn document(&self) -> &Document {
+        &self.document
+    }
+
+    /// A clone of the shared [`Arc<Document>`] backing this resolved view —
+    /// a refcount bump, no allocation. Useful for callers that want to hold
+    /// onto the document alongside the resolved view (the LSP document
+    /// cache, downstream tooling) without copying the AST.
+    pub fn document_arc(&self) -> Arc<Document> {
+        Arc::clone(&self.document)
     }
 
     /// Walk every top-level statement in source order.
@@ -85,40 +115,68 @@ impl<'a> ResolvedDocument<'a> {
     /// Use this when a caller wants to dispatch on the typed `Statement`
     /// enum (semantic tokens, the document outline). Kinship questions
     /// belong on the per-kind iterators below.
-    pub fn statements(&self) -> impl Iterator<Item = &'a Statement> + '_ {
+    pub fn statements(&self) -> impl Iterator<Item = &Statement> + '_ {
         self.document.statements.iter()
     }
 
     /// Walk every `person` statement in source order.
-    pub fn persons(&self) -> impl Iterator<Item = &'a PersonStmt> + '_ {
-        self.document.statements.iter().filter_map(|s| match s {
+    pub fn persons(&self) -> impl Iterator<Item = &PersonStmt> + '_ {
+        self.statements().filter_map(|s| match s {
             Statement::Person(p) => Some(p),
             _ => None,
         })
     }
 
     /// Walk every `marriage` statement in source order.
-    pub fn marriages(&self) -> impl Iterator<Item = &'a MarriageStmt> + '_ {
-        self.document.statements.iter().filter_map(|s| match s {
+    pub fn marriages(&self) -> impl Iterator<Item = &MarriageStmt> + '_ {
+        self.statements().filter_map(|s| match s {
             Statement::Marriage(m) => Some(m),
             _ => None,
         })
     }
 
-    /// Look up a person by id.
-    pub fn person(&self, id: &str) -> Option<&'a PersonStmt> {
-        self.persons.get(id).copied()
+    /// Look up a person by id. Returns `None` if no entity has this id, or
+    /// if an entity does but it's a marriage.
+    pub fn person(&self, id: &str) -> Option<&PersonStmt> {
+        let entity = self.entities.get(id)?;
+        if entity.kind != EntityKind::Person {
+            return None;
+        }
+        match self.statement_at(entity.statement_idx) {
+            Statement::Person(p) => Some(p),
+            Statement::Marriage(_) => unreachable!(
+                "entity index claims kind=Person but statement is a marriage; resolve() invariant broken"
+            ),
+        }
     }
 
-    /// Look up a marriage by id.
-    pub fn marriage(&self, id: &str) -> Option<&'a MarriageStmt> {
-        self.marriages.get(id).copied()
+    /// Look up a marriage by id. Returns `None` if no entity has this id, or
+    /// if an entity does but it's a person.
+    pub fn marriage(&self, id: &str) -> Option<&MarriageStmt> {
+        let entity = self.entities.get(id)?;
+        if entity.kind != EntityKind::Marriage {
+            return None;
+        }
+        match self.statement_at(entity.statement_idx) {
+            Statement::Marriage(m) => Some(m),
+            Statement::Person(_) => unreachable!(
+                "entity index claims kind=Marriage but statement is a person; resolve() invariant broken"
+            ),
+        }
     }
 
     /// Look up an entity (person or marriage) by id, regardless of kind.
     /// Used by reference-resolution checks.
-    pub fn entity(&self, id: &str) -> Option<EntityRef<'a>> {
-        self.entities.get(id).copied()
+    pub fn entity(&self, id: &str) -> Option<EntityRef<'_>> {
+        let entity = self.entities.get(id)?;
+        let ident = match self.statement_at(entity.statement_idx) {
+            Statement::Person(p) => &p.id,
+            Statement::Marriage(m) => &m.id,
+        };
+        Some(EntityRef {
+            kind: entity.kind,
+            id: ident,
+        })
     }
 
     /// The two declared spouses of a marriage, in declaration order, with
@@ -126,10 +184,10 @@ impl<'a> ResolvedDocument<'a> {
     ///
     /// Returns at most two persons; an empty iterator if both spouses are
     /// unresolved.
-    pub fn spouses_of(
-        &self,
+    pub fn spouses_of<'a>(
+        &'a self,
         marriage: &'a MarriageStmt,
-    ) -> impl Iterator<Item = &'a PersonStmt> + '_ {
+    ) -> impl Iterator<Item = &'a PersonStmt> + 'a {
         [&marriage.spouse_a, &marriage.spouse_b]
             .into_iter()
             .filter_map(|ident| self.person(&ident.name))
@@ -181,7 +239,7 @@ impl<'a> ResolvedDocument<'a> {
     /// Biological + adoptive parents of a person, in source order, each
     /// tagged with the link's source span and kind. Unresolved references
     /// are skipped (rule 2 reports them).
-    pub fn parents_of(&self, person: &'a PersonStmt) -> Vec<ParentLink<'a>> {
+    pub fn parents_of<'a>(&'a self, person: &PersonStmt) -> Vec<ParentLink<'a>> {
         let mut out = Vec::new();
         if let Some(birth) = &person.birth
             && let Some(marriage) = self.marriage(&birth.marriage_ref.name)
@@ -207,23 +265,42 @@ impl<'a> ResolvedDocument<'a> {
         }
         out
     }
+
+    /// Internal: look up the statement at a given index. Panics if the index
+    /// is out of bounds — callers (`person`/`marriage`/`entity`) only use
+    /// indices that were stored by [`resolve`], which always come from
+    /// `document.statements.iter().enumerate()`.
+    fn statement_at(&self, idx: usize) -> &Statement {
+        &self.document.statements[idx]
+    }
 }
 
-pub fn resolve(document: &Document) -> (ResolvedDocument<'_>, Vec<Diagnostic>) {
-    let mut entities: HashMap<&str, EntityRef<'_>> = HashMap::new();
-    let mut persons = HashMap::new();
-    let mut marriages = HashMap::new();
+/// Build the id index for `document` and return any diagnostics that
+/// surface during construction. Takes ownership via [`Arc<Document>`] — the
+/// returned [`ResolvedDocument`] holds a refcounted handle to the same
+/// allocation, so callers can keep their own clone for source-level work.
+///
+/// Currently emits **rule 01** (duplicate ids) inline as the entity table is
+/// populated — the duplicate check is a property of insertion order and
+/// belongs in the resolver. All other spec rules (including rule 02 —
+/// unresolved references) live in [`crate::validator`] and run as a
+/// separate pass over the [`ResolvedDocument`].
+pub fn resolve(document: Arc<Document>) -> (ResolvedDocument, Vec<Diagnostic>) {
+    let mut entities: HashMap<String, ResolvedEntity> = HashMap::new();
     let mut diagnostics = Vec::new();
 
-    for stmt in &document.statements {
+    for (statement_idx, stmt) in document.statements.iter().enumerate() {
         let (kind, id) = match stmt {
             Statement::Person(p) => (EntityKind::Person, &p.id),
             Statement::Marriage(m) => (EntityKind::Marriage, &m.id),
         };
-        let key = id.name.as_str();
-        match entities.get(key) {
+        match entities.get(id.name.as_str()) {
             Some(prior) => {
                 let prior_kind = prior.kind.as_str();
+                let prior_ident = match &document.statements[prior.statement_idx] {
+                    Statement::Person(p) => &p.id,
+                    Statement::Marriage(m) => &m.id,
+                };
                 let message = if prior.kind == kind {
                     format!(
                         "id `{}` is already used by another {prior_kind} — pick a different id (every id must be unique across all persons and marriages)",
@@ -237,137 +314,25 @@ pub fn resolve(document: &Document) -> (ResolvedDocument<'_>, Vec<Diagnostic>) {
                 };
                 diagnostics.push(
                     Diagnostic::error("KULA-R01", message, id.span).with_related(
-                        prior.span(),
+                        prior_ident.span,
                         format!("first declared here as a {prior_kind}"),
                     ),
                 );
             }
             None => {
-                entities.insert(key, EntityRef { kind, id });
-            }
-        }
-        match stmt {
-            Statement::Person(p) => {
-                persons.entry(p.id.name.as_str()).or_insert(p);
-            }
-            Statement::Marriage(m) => {
-                marriages.entry(m.id.name.as_str()).or_insert(m);
+                entities.insert(
+                    id.name.clone(),
+                    ResolvedEntity {
+                        kind,
+                        statement_idx,
+                    },
+                );
             }
         }
     }
 
-    let resolved = ResolvedDocument {
-        document,
-        entities,
-        persons,
-        marriages,
-    };
-
-    diagnostics.extend(rule_02_unresolved_references(&resolved));
-
+    let resolved = ResolvedDocument { document, entities };
     (resolved, diagnostics)
-}
-
-/// Rule 2 — every marriage spouse, `birth` ref, and `adoption` ref must
-/// resolve to a declared id of the appropriate kind.
-///
-/// Iterates the raw statement list so diagnostics are emitted in source
-/// order; this is the only check that lives inside `semantic` because it
-/// runs as part of `resolve` itself.
-fn rule_02_unresolved_references(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
-    let mut out = Vec::new();
-    for stmt in &resolved.document.statements {
-        match stmt {
-            Statement::Person(p) => {
-                if let Some(birth) = &p.birth {
-                    check_marriage_ref(resolved, &birth.marriage_ref, "birth", &mut out);
-                }
-                for adoption in &p.adoptions {
-                    check_marriage_ref(resolved, &adoption.marriage_ref, "adoption", &mut out);
-                }
-            }
-            Statement::Marriage(m) => {
-                check_person_ref(resolved, &m.spouse_a, &mut out);
-                check_person_ref(resolved, &m.spouse_b, &mut out);
-            }
-        }
-    }
-    out
-}
-
-fn check_person_ref(resolved: &ResolvedDocument<'_>, ident: &Ident, out: &mut Vec<Diagnostic>) {
-    match resolved.entity(&ident.name) {
-        None => {
-            out.push(Diagnostic::error(
-                "KULA-R02",
-                format!(
-                    "no person with id `{}` is declared in this file — check for a typo, or add a `person {} …` declaration",
-                    ident.name, ident.name
-                ),
-                ident.span,
-            ));
-        }
-        Some(EntityRef {
-            kind: EntityKind::Person,
-            ..
-        }) => {}
-        Some(EntityRef {
-            kind: EntityKind::Marriage,
-            id: prior,
-        }) => {
-            out.push(
-                Diagnostic::error(
-                    "KULA-R02",
-                    format!(
-                        "`{}` is a marriage, not a person — spouses must reference declared persons",
-                        ident.name
-                    ),
-                    ident.span,
-                )
-                .with_related(prior.span, format!("`{}` declared as a marriage here", ident.name)),
-            );
-        }
-    }
-}
-
-fn check_marriage_ref(
-    resolved: &ResolvedDocument<'_>,
-    ident: &Ident,
-    role: &str,
-    out: &mut Vec<Diagnostic>,
-) {
-    match resolved.entity(&ident.name) {
-        None => {
-            out.push(Diagnostic::error(
-                "KULA-R02",
-                format!(
-                    "no marriage with id `{}` is declared in this file — check for a typo, or add a `marriage {} …` declaration (the `{role}` link expects a marriage id)",
-                    ident.name, ident.name
-                ),
-                ident.span,
-            ));
-        }
-        Some(EntityRef {
-            kind: EntityKind::Marriage,
-            ..
-        }) => {}
-        Some(EntityRef {
-            kind: EntityKind::Person,
-            id: prior,
-        }) => {
-            out.push(
-                Diagnostic::error(
-                    "KULA-R02",
-                    format!(
-                        "`{}` is a person, not a marriage — `{role}` links must reference a marriage id",
-                        ident.name
-                    ),
-                    ident.span,
-                )
-                .with_related(prior.span, format!("`{}` declared as a person here", ident.name)),
-            );
-        }
-    }
 }
 
 #[cfg(test)]
@@ -376,19 +341,15 @@ mod tests {
     use crate::lexer::tokenize;
     use crate::parser::parse;
 
-    fn resolve_str(source: &str) -> (Document, Vec<ByteSpan>) {
+    fn resolve_source(source: &str) -> ResolvedDocument {
         let tokens = tokenize(source);
         let (document, _) = parse(&tokens);
-        // We move `document` into a slot the caller can hold; then re-resolve
-        // for queries.
-        (document, Vec::new())
+        let (resolved, _) = resolve(Arc::new(document));
+        resolved
     }
 
     fn refs(source: &str, id: &str, kind: EntityKind) -> Vec<(usize, usize)> {
-        let tokens = tokenize(source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
-        resolved
+        resolve_source(source)
             .references_to(id, kind)
             .into_iter()
             .map(|s| (s.start, s.end))
@@ -464,9 +425,41 @@ mod tests {
                    marriage m a b start:1972\n\
                    person kid name:\"K\" gender:other\n  birth m\n";
         // `m` is a marriage; querying it as a person yields no refs.
-        let _ = resolve_str(src);
         assert!(refs(src, "m", EntityKind::Person).is_empty());
         // …but as a marriage, it has one ref (the `birth`).
         assert_eq!(refs(src, "m", EntityKind::Marriage).len(), 1);
+    }
+
+    #[test]
+    fn document_arc_is_shared() {
+        let resolved = resolve_source("person alice name:\"A\" gender:female\n");
+        let a = resolved.document_arc();
+        let b = resolved.document_arc();
+        // Shared via Arc; both clones point to the same allocation.
+        assert!(Arc::ptr_eq(&a, &b));
+    }
+
+    #[test]
+    fn person_lookup_returns_none_for_marriage_id() {
+        // A marriage id should not satisfy a person lookup, even when the
+        // entities map has an entry for it.
+        let resolved = resolve_source(
+            "person a name:\"A\" gender:female\n\
+             person b name:\"B\" gender:male\n\
+             marriage m a b start:2000\n",
+        );
+        assert!(resolved.person("m").is_none());
+        assert!(resolved.marriage("m").is_some());
+    }
+
+    #[test]
+    fn marriage_lookup_returns_none_for_person_id() {
+        let resolved = resolve_source(
+            "person a name:\"A\" gender:female\n\
+             person b name:\"B\" gender:male\n\
+             marriage m a b start:2000\n",
+        );
+        assert!(resolved.marriage("a").is_none());
+        assert!(resolved.person("a").is_some());
     }
 }

@@ -147,7 +147,7 @@ impl LanguageServer for Backend {
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
                 let resolved = doc.check.resolved();
-                hover::hover(&resolved, &doc.line_index, offset)
+                hover::hover(resolved, &doc.line_index, offset)
             })
             .await;
         Ok(result.flatten())
@@ -164,7 +164,7 @@ impl LanguageServer for Backend {
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
                 let resolved = doc.check.resolved();
-                definition::definition(&resolved, &doc.line_index, &uri, offset)
+                definition::definition(resolved, &doc.line_index, &uri, offset)
             })
             .await;
         Ok(result.flatten().map(GotoDefinitionResponse::Scalar))
@@ -178,7 +178,7 @@ impl LanguageServer for Backend {
             .with(&uri, |doc| {
                 let resolved = doc.check.resolved();
                 code_action::code_actions(
-                    &resolved,
+                    resolved,
                     &doc.check.diagnostics,
                     &doc.line_index,
                     &uri,
@@ -200,7 +200,7 @@ impl LanguageServer for Backend {
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
                 let resolved = doc.check.resolved();
-                rename::prepare_rename(&resolved, &doc.line_index, offset)
+                rename::prepare_rename(resolved, &doc.line_index, offset)
             })
             .await;
         Ok(result.flatten())
@@ -218,7 +218,7 @@ impl LanguageServer for Backend {
                     .byte_offset(position)
                     .ok_or(rename::RenameError::NotRenameable)?;
                 let resolved = doc.check.resolved();
-                rename::rename(&resolved, &doc.line_index, &uri, offset, &new_name)
+                rename::rename(resolved, &doc.line_index, &uri, offset, &new_name)
             })
             .await;
         match result {
@@ -241,7 +241,7 @@ impl LanguageServer for Backend {
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
                 let resolved = doc.check.resolved();
-                references::references(&resolved, &doc.line_index, &uri, offset, include_decl)
+                references::references(resolved, &doc.line_index, &uri, offset, include_decl)
             })
             .await;
         Ok(result.flatten())
@@ -256,7 +256,7 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let resolved = doc.check.resolved();
-                document_symbol::document_symbols(&resolved, &doc.line_index)
+                document_symbol::document_symbols(resolved, &doc.line_index)
             })
             .await;
         Ok(symbols.map(DocumentSymbolResponse::Nested))
@@ -271,7 +271,7 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let resolved = doc.check.resolved();
-                semantic_tokens::semantic_tokens(&resolved, &doc.line_index)
+                semantic_tokens::semantic_tokens(resolved, &doc.line_index)
             })
             .await;
         Ok(tokens.map(SemanticTokensResult::Tokens))
@@ -298,7 +298,7 @@ impl LanguageServer for Backend {
                 let resolved = doc.check.resolved();
                 Some(completion::complete(
                     doc.line_index.source(),
-                    &resolved,
+                    resolved,
                     offset,
                 ))
             })

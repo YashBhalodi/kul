@@ -18,7 +18,7 @@ use tower_lsp::lsp_types::{CompletionItem, CompletionItemKind, InsertTextFormat}
 /// vec when the cursor lands somewhere we have nothing to offer.
 pub fn complete(
     source: &str,
-    resolved: &ResolvedDocument<'_>,
+    resolved: &ResolvedDocument,
     byte_offset: usize,
 ) -> Vec<CompletionItem> {
     let tokens = tokenize(source);
@@ -68,12 +68,7 @@ enum Context {
     None,
 }
 
-fn classify(
-    source: &str,
-    tokens: &[Token],
-    resolved: &ResolvedDocument<'_>,
-    cursor: usize,
-) -> Context {
+fn classify(source: &str, tokens: &[Token], resolved: &ResolvedDocument, cursor: usize) -> Context {
     // Skip past EOF: nothing to complete past a finished document.
     if cursor > source.len() {
         return Context::None;
@@ -349,10 +344,7 @@ enum Enclosing<'a> {
     Marriage(&'a MarriageStmt),
 }
 
-fn enclosing_statement<'a>(
-    resolved: &'a ResolvedDocument<'_>,
-    cursor: usize,
-) -> Option<Enclosing<'a>> {
+fn enclosing_statement<'a>(resolved: &'a ResolvedDocument, cursor: usize) -> Option<Enclosing<'a>> {
     // Most recent statement whose span starts at or before the cursor.
     let stmts = &resolved.document().statements;
     let mut chosen: Option<&Statement> = None;
@@ -599,7 +591,7 @@ fn quoted_value_snippet() -> Vec<CompletionItem> {
 /// Every declared marriage as a completion item — used after `birth` and
 /// `adoption`. Detail shows the spouses' display names and the date span so
 /// the user can disambiguate between marriages of the same person.
-fn marriage_id_items(resolved: &ResolvedDocument<'_>) -> Vec<CompletionItem> {
+fn marriage_id_items(resolved: &ResolvedDocument) -> Vec<CompletionItem> {
     resolved
         .marriages()
         .map(|m| CompletionItem {
@@ -614,7 +606,7 @@ fn marriage_id_items(resolved: &ResolvedDocument<'_>) -> Vec<CompletionItem> {
 /// Every declared person as a completion item — used in marriage spouse
 /// positions. `exclude` filters one id out (so spouse_b's list excludes the
 /// person already named as spouse_a, since you can't marry yourself).
-fn person_id_items(resolved: &ResolvedDocument<'_>, exclude: Option<&str>) -> Vec<CompletionItem> {
+fn person_id_items(resolved: &ResolvedDocument, exclude: Option<&str>) -> Vec<CompletionItem> {
     resolved
         .persons()
         .filter(|p| Some(p.id.name.as_str()) != exclude)
@@ -627,7 +619,7 @@ fn person_id_items(resolved: &ResolvedDocument<'_>, exclude: Option<&str>) -> Ve
         .collect()
 }
 
-fn marriage_detail(resolved: &ResolvedDocument<'_>, m: &MarriageStmt) -> String {
+fn marriage_detail(resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
     let a = resolved
         .person(&m.spouse_a.name)
         .and_then(|p| p.name())
@@ -673,6 +665,7 @@ mod tests {
     use kula_core::lexer::tokenize;
     use kula_core::parser::parse;
     use kula_core::semantic::resolve;
+    use std::sync::Arc;
 
     /// Take a fixture string with a `<CURSOR>` marker; return (source, offset).
     fn cursor_fixture(s: &str) -> (String, usize) {
@@ -685,7 +678,7 @@ mod tests {
         let (source, offset) = cursor_fixture(src_with_marker);
         let tokens = tokenize(&source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         complete(&source, &resolved, offset)
             .into_iter()
             .map(|c| c.label)
@@ -787,7 +780,7 @@ mod tests {
         let (source, offset) = cursor_fixture("person a <CURSOR>");
         let tokens = tokenize(&source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let items = complete(&source, &resolved, offset);
 
         for field in ["name:", "family:", "given:"] {
@@ -829,7 +822,7 @@ mod tests {
             let (source, offset) = cursor_fixture(&src);
             let tokens = tokenize(&source);
             let (document, _) = parse(&tokens);
-            let (resolved, _) = resolve(&document);
+            let (resolved, _) = resolve(Arc::new(document));
             let items = complete(&source, &resolved, offset);
             assert_eq!(
                 items.len(),
@@ -893,7 +886,7 @@ mod tests {
         let (source, offset) = cursor_fixture(src_with_marker);
         let tokens = tokenize(&source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         complete(&source, &resolved, offset)
             .into_iter()
             .map(|c| (c.label, c.detail))
@@ -904,7 +897,7 @@ mod tests {
         let (source, offset) = cursor_fixture(src_with_marker);
         let tokens = tokenize(&source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         complete(&source, &resolved, offset)
             .into_iter()
             .map(|c| (c.label, c.kind.unwrap()))
@@ -1047,7 +1040,7 @@ mod tests {
         );
         let tokens = tokenize(&source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let items = complete(&source, &resolved, offset);
         insta::assert_json_snapshot!(items);
     }
@@ -1061,7 +1054,7 @@ mod tests {
         );
         let tokens = tokenize(&source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let items = complete(&source, &resolved, offset);
         insta::assert_json_snapshot!(items);
     }
@@ -1076,7 +1069,7 @@ mod tests {
         );
         let tokens = tokenize(&source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let items = complete(&source, &resolved, offset);
         insta::assert_json_snapshot!(items);
     }
@@ -1086,7 +1079,7 @@ mod tests {
         let (source, offset) = cursor_fixture("<CURSOR>");
         let tokens = tokenize(&source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let items = complete(&source, &resolved, offset);
         insta::assert_json_snapshot!(items);
     }
@@ -1096,7 +1089,7 @@ mod tests {
         let (source, offset) = cursor_fixture("person a name:\"A\" gender:<CURSOR>");
         let tokens = tokenize(&source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let items = complete(&source, &resolved, offset);
         insta::assert_json_snapshot!(items);
     }

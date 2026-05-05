@@ -68,7 +68,7 @@ pub fn format(doc: &Document) -> String {
 /// [ADR 0004]: https://github.com/YashBhalodi/kulalang/blob/main/docs/adr/0004-formatter-canonical-rules.md
 pub fn format_source(source: &str) -> String {
     let result = crate::check(source);
-    SourceFormatter::new(source, &result.document).run()
+    SourceFormatter::new(source, result.document()).run()
 }
 
 // === Cells, shapes, and blocks ===
@@ -942,7 +942,7 @@ mod tests {
     #[test]
     fn format_empty_doc_is_empty_string() {
         let result = crate::check("");
-        assert_eq!(format(&result.document), "");
+        assert_eq!(format(result.document()), "");
     }
 
     #[test]

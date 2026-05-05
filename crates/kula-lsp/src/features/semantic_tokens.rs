@@ -59,7 +59,7 @@ struct RawToken {
 /// Build the semantic-token stream for the document. The result is an
 /// LSP-encoded `SemanticTokens` payload — `data` is a flat `Vec<u32>` of
 /// 5-tuples after delta encoding.
-pub fn semantic_tokens(resolved: &ResolvedDocument<'_>, line_index: &LineIndex) -> SemanticTokens {
+pub fn semantic_tokens(resolved: &ResolvedDocument, line_index: &LineIndex) -> SemanticTokens {
     let mut raw: Vec<RawToken> = Vec::new();
     if let Some(version) = &resolved.document().version {
         emit_version(&mut raw, version);
@@ -227,6 +227,7 @@ mod tests {
     use kula_core::lexer::tokenize;
     use kula_core::parser::parse;
     use kula_core::semantic::resolve;
+    use std::sync::Arc;
 
     /// Decoded view of a token: the kind name (looked up via the legend) and
     /// the literal source slice it covers. Snapshot-friendly, and a much
@@ -317,7 +318,7 @@ mod tests {
     fn tokens_for(source: &str) -> (SemanticTokens, Vec<Decoded>) {
         let tokens = tokenize(source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let line_index = LineIndex::new(source);
         let semantic = semantic_tokens(&resolved, &line_index);
         let decoded = decode(source, &semantic);

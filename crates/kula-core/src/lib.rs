@@ -3,8 +3,8 @@
 //! This crate is the reusable language-implementation library that powers the
 //! `kula` CLI and the `kula-lsp` language server. Both consumers call
 //! [`check`] once per source string; everything else hangs off the resulting
-//! `CheckResult` (an AST and a diagnostic list) or the `ResolvedDocument`
-//! query surface in [`semantic`].
+//! `CheckResult`. The [`ResolvedDocument`] inside the result is the kinship-
+//! query seam ([ADR-0001](../../docs/adr/0001-resolved-document-as-query-seam.md)).
 //!
 //! # Pipeline
 //!
@@ -34,6 +34,8 @@ pub mod semantic;
 pub mod span;
 pub mod validator;
 
+use std::sync::Arc;
+
 use crate::ast::Document;
 use crate::diagnostic::Diagnostic;
 use crate::semantic::ResolvedDocument;
@@ -42,11 +44,17 @@ use crate::semantic::ResolvedDocument;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Outcome of running the full `lex → parse → resolve → validate` pipeline
-/// over a source string. The `Document` is always returned (it may be
-/// partial); diagnostics describe everything wrong with the input.
+/// over a source string.
+///
+/// Holds the [`ResolvedDocument`] (which itself owns an `Arc<Document>`) plus
+/// the merged diagnostic list. The resolved view is cached inside the result
+/// so callers can issue queries — hover, find-references, code-actions —
+/// without re-running `semantic::resolve`. This is the cache the LSP relies
+/// on: each `did_change` produces one `CheckResult`, and every subsequent
+/// LSP request reads through `result.resolved` directly.
 #[derive(Debug, Clone)]
 pub struct CheckResult {
-    pub document: Document,
+    pub resolved: ResolvedDocument,
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -57,33 +65,32 @@ impl CheckResult {
             .any(|d| matches!(d.severity, diagnostic::Severity::Error))
     }
 
-    /// Build a [`ResolvedDocument`] view over this result's document.
-    ///
-    /// The kinship-query seam (per ADR-0001) lives on `ResolvedDocument`. The
-    /// pipeline already builds one internally during validation, but it can't
-    /// be stored alongside the owned `Document` (the borrow lifetime would be
-    /// self-referential). Callers that need to issue queries — the LSP feature
-    /// modules, downstream tooling — go through this method.
-    ///
-    /// Cost: re-runs `semantic::resolve` (one pass over the AST, hashmap
-    /// insertions per statement). Cheap for editor-scale documents but not
-    /// free; cache the result if calling repeatedly in a hot path.
-    pub fn resolved(&self) -> ResolvedDocument<'_> {
-        let (resolved, _) = semantic::resolve(&self.document);
-        resolved
+    /// The cached [`ResolvedDocument`] view for kinship queries. Stable
+    /// across calls; no recomputation. Equivalent to `&self.resolved` —
+    /// this method exists so call sites can read like a query (`.resolved()`)
+    /// rather than a field access if they prefer.
+    pub fn resolved(&self) -> &ResolvedDocument {
+        &self.resolved
+    }
+
+    /// The underlying parsed [`Document`]. Forwarded from the resolved view
+    /// so callers don't need to know about the indirection.
+    pub fn document(&self) -> &Document {
+        self.resolved.document()
     }
 }
 
 /// One-call entry point: lex, parse, resolve, validate, return the merged
-/// diagnostics.
+/// diagnostics together with the cached resolved view.
 pub fn check(source: &str) -> CheckResult {
     let tokens = lexer::tokenize(source);
     let (document, mut diagnostics) = parser::parse(&tokens);
-    let (resolved, resolve_diags) = semantic::resolve(&document);
+    let document = Arc::new(document);
+    let (resolved, resolve_diags) = semantic::resolve(document);
     diagnostics.extend(resolve_diags);
     diagnostics.extend(validator::validate(&resolved));
     CheckResult {
-        document,
+        resolved,
         diagnostics,
     }
 }

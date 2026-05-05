@@ -88,9 +88,11 @@ The function `kula_core::semantic::resolve(&Document) -> ResolvedDocument`. Buil
 
 The **kinship-query seam** (per [ADR-0001](./docs/adr/0001-resolved-document-as-query-seam.md)). All cross-reference questions ("who are this person's parents?", "is this id declared?", "who are the spouses of this marriage?") are answered by methods on this type. Validator rules and LSP features query through it; raw AST traversal is reserved for the seam's implementation, not its callers.
 
+Owns its `Document` via `Arc<Document>` (per [ADR-0007](./docs/adr/0007-resolved-document-owns-document.md)) so the resolved view can be cached alongside other artifacts. The id index keys by owned `String` mapping to a private `ResolvedEntity { kind, statement_idx }` value; query methods rebuild the borrowed view (`&PersonStmt`, `EntityRef<'_>`) on demand.
+
 ### Validator
 
-The pass that runs all thirteen rules over a `ResolvedDocument`, accumulating diagnostics. Lives at `crates/kula-core/src/validator.rs`. Each rule is a function; the validator's job is to call them and collect output.
+The pass that runs spec rules R02–R13 over a `ResolvedDocument`, accumulating diagnostics. Lives at `crates/kula-core/src/validator.rs`. Each rule is a function; the validator's job is to call them and collect output. (R01 — duplicate ids — is the one rule that lives inside `semantic::resolve`, because the duplicate check is a property of insertion order as the entity table is built.)
 
 ### Cycle detector
 
@@ -100,13 +102,17 @@ A standalone algorithm at `crates/kula-core/src/cycles.rs`, called by rule 13 (p
 
 The query `ResolvedDocument::node_at(byte_offset) -> Option<Node<'a>>`. Lives at `crates/kula-core/src/node_at.rs`. Returns a typed enum identifying *what's at the cursor* — keyword, identifier declaration, identifier reference (with resolved target), field name, field value. The shared foundation for hover, goto-definition, and completion. See [`docs/architecture.md`](./docs/architecture.md) for the data-flow diagram.
 
+### Entity-reference accessor
+
+The method `Node::entity_reference(&self) -> Option<EntityNode<'a>>` (in `crates/kula-core/src/node_at.rs`) collapses the four id-bearing `Node` variants (`PersonDeclId`, `MarriageDeclId`, `PersonRef`, `MarriageRef`) into a uniform summary: `kind`, `name`, `ident_span`, `is_decl`, and the resolved `target`. LSP features that key on "what entity is the user pointing at?" (goto-definition, find-references, rename) phrase themselves as a query for this summary instead of re-pattern-matching the four variants by hand.
+
 ### Server
 
 The `tower-lsp` Backend implementation in `crates/kula-lsp/src/server.rs`. Owns the document cache, dispatches LSP requests to feature modules, advertises capabilities.
 
 ### Document cache
 
-Thread-safe map from `Url` to `Document`-with-resolved-state in `crates/kula-lsp/src/state.rs`. Updated on `did_open` / `did_change` / `did_close`.
+Thread-safe map from `Url` to a `Document`-with-resolved-state in `crates/kula-lsp/src/state.rs`. Each entry holds an `Arc<str>` source (shared with the [LineIndex](#lineindex)) and a `CheckResult` whose `resolved` field is the cached [`ResolvedDocument`](#resolveddocument) — so every LSP request handler reads through the same resolved view without re-running `semantic::resolve`. Updated on `did_open` / `did_change` / `did_close`.
 
 ### Feature module
 

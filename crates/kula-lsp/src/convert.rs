@@ -9,6 +9,8 @@
 //! purposes. LSP clients tolerate both conventions; staying byte-faithful
 //! avoids ambiguity when the editor and server disagree about line endings.
 
+use std::sync::Arc;
+
 use tower_lsp::lsp_types::{Position, Range};
 
 use kula_core::span::ByteSpan;
@@ -16,14 +18,23 @@ use kula_core::span::ByteSpan;
 /// Index of line-start byte offsets in a source string.
 ///
 /// Built once per source; lookup is O(log lines).
+///
+/// Holds the source as an [`Arc<str>`] so callers (notably [`crate::state::Document`])
+/// can share the same heap buffer rather than carrying a duplicate copy. Constructing
+/// a `LineIndex` from a `&str` allocates a fresh `Arc<str>`; constructing from an
+/// existing `Arc<str>` is just a refcount bump.
 #[derive(Debug, Clone)]
 pub struct LineIndex {
     line_starts: Vec<usize>,
-    source: String,
+    source: Arc<str>,
 }
 
 impl LineIndex {
-    pub fn new(source: &str) -> Self {
+    /// Build a line index from `source`. Accepts anything that converts into
+    /// `Arc<str>` — `&str` (clones once), `String` (reuses the heap buffer),
+    /// `Arc<str>` (refcount bump only, source is shared).
+    pub fn new(source: impl Into<Arc<str>>) -> Self {
+        let source: Arc<str> = source.into();
         let mut line_starts = vec![0];
         for (i, b) in source.bytes().enumerate() {
             if b == b'\n' {
@@ -32,13 +43,19 @@ impl LineIndex {
         }
         Self {
             line_starts,
-            source: source.to_owned(),
+            source,
         }
     }
 
     /// The source string this index was built from.
     pub fn source(&self) -> &str {
         &self.source
+    }
+
+    /// The shared `Arc<str>` backing this index, so callers can hold the
+    /// same heap buffer without copying it.
+    pub fn source_arc(&self) -> Arc<str> {
+        Arc::clone(&self.source)
     }
 
     /// Convert a UTF-8 byte offset into an LSP `Position`. Out-of-range

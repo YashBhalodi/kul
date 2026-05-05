@@ -19,7 +19,7 @@ const SPEC_BASE: &str = "https://github.com/YashBhalodi/kulalang/blob/main/spec"
 /// nothing useful sits there. Pure: no async, no `Client`, no `tower-lsp`
 /// types beyond `lsp_types`.
 pub fn hover(
-    resolved: &ResolvedDocument<'_>,
+    resolved: &ResolvedDocument,
     line_index: &LineIndex,
     byte_offset: usize,
 ) -> Option<Hover> {
@@ -136,7 +136,7 @@ fn person_panel(p: &PersonStmt) -> String {
     out
 }
 
-fn marriage_panel(resolved: &ResolvedDocument<'_>, m: &MarriageStmt) -> String {
+fn marriage_panel(resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
     let spouse_a = resolved.person(&m.spouse_a.name);
     let spouse_b = resolved.person(&m.spouse_b.name);
     let header = match (display_name_of(spouse_a), display_name_of(spouse_b)) {
@@ -234,11 +234,12 @@ mod tests {
     use kula_core::lexer::tokenize;
     use kula_core::parser::parse;
     use kula_core::semantic::resolve;
+    use std::sync::Arc;
 
     fn hover_at(source: &str, offset: usize) -> Option<String> {
         let tokens = tokenize(source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let line_index = LineIndex::new(source);
         hover(&resolved, &line_index, offset).map(|h| match h.contents {
             HoverContents::Markup(MarkupContent { value, .. }) => value,

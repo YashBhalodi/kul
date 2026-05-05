@@ -26,7 +26,7 @@ pub struct Cycle<'a> {
     pub link_spans: Vec<ByteSpan>,
 }
 
-pub fn find_cycles<'a>(resolved: &ResolvedDocument<'a>) -> Vec<Cycle<'a>> {
+pub fn find_cycles<'a>(resolved: &'a ResolvedDocument) -> Vec<Cycle<'a>> {
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum Color {
         White,

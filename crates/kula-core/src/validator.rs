@@ -6,14 +6,20 @@
 //! through [`ResolvedDocument`]'s typed methods — they never enumerate
 //! `document.statements` themselves.
 
-use crate::ast::{EndReason, MarriageStmt};
+use crate::ast::{EndReason, Ident, MarriageStmt, Statement};
 use crate::date::{DateLit, before_strict};
 use crate::diagnostic::{Diagnostic, detail};
 use crate::lexer::FieldName;
-use crate::semantic::ResolvedDocument;
+use crate::semantic::{EntityKind, EntityRef, ResolvedDocument};
 
-pub fn validate(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+pub fn validate(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
+    // R02 must run first: it's the source-order pass over raw statements that
+    // reports "no entity with this id," and downstream rules already trust
+    // that resolved spouse/parent links exist. Keeping it at the top of
+    // `validate` preserves the diagnostic ordering R02-then-R03+ that callers
+    // (and snapshot tests) rely on.
+    diagnostics.extend(rule_02_unresolved_references(resolved));
     diagnostics.extend(rule_03_required_fields(resolved));
     diagnostics.extend(rule_04_self_marriage(resolved));
     diagnostics.extend(rule_05_end_consistency(resolved));
@@ -28,12 +34,114 @@ pub fn validate(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     diagnostics
 }
 
+/// Rule 2 — every marriage spouse, `birth` ref, and `adoption` ref must
+/// resolve to a declared id of the appropriate kind.
+///
+/// Iterates the raw statement list (not the per-kind resolved iterators) so
+/// diagnostics surface in source order, interleaving spouse refs and
+/// birth/adoption refs as they appear in the document.
+pub fn rule_02_unresolved_references(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    for stmt in resolved.statements() {
+        match stmt {
+            Statement::Person(p) => {
+                if let Some(birth) = &p.birth {
+                    check_marriage_ref(resolved, &birth.marriage_ref, "birth", &mut out);
+                }
+                for adoption in &p.adoptions {
+                    check_marriage_ref(resolved, &adoption.marriage_ref, "adoption", &mut out);
+                }
+            }
+            Statement::Marriage(m) => {
+                check_person_ref(resolved, &m.spouse_a, &mut out);
+                check_person_ref(resolved, &m.spouse_b, &mut out);
+            }
+        }
+    }
+    out
+}
+
+fn check_person_ref(resolved: &ResolvedDocument, ident: &Ident, out: &mut Vec<Diagnostic>) {
+    match resolved.entity(&ident.name) {
+        None => {
+            out.push(Diagnostic::error(
+                "KULA-R02",
+                format!(
+                    "no person with id `{}` is declared in this file — check for a typo, or add a `person {} …` declaration",
+                    ident.name, ident.name
+                ),
+                ident.span,
+            ));
+        }
+        Some(EntityRef {
+            kind: EntityKind::Person,
+            ..
+        }) => {}
+        Some(EntityRef {
+            kind: EntityKind::Marriage,
+            id: prior,
+        }) => {
+            out.push(
+                Diagnostic::error(
+                    "KULA-R02",
+                    format!(
+                        "`{}` is a marriage, not a person — spouses must reference declared persons",
+                        ident.name
+                    ),
+                    ident.span,
+                )
+                .with_related(prior.span, format!("`{}` declared as a marriage here", ident.name)),
+            );
+        }
+    }
+}
+
+fn check_marriage_ref(
+    resolved: &ResolvedDocument,
+    ident: &Ident,
+    role: &str,
+    out: &mut Vec<Diagnostic>,
+) {
+    match resolved.entity(&ident.name) {
+        None => {
+            out.push(Diagnostic::error(
+                "KULA-R02",
+                format!(
+                    "no marriage with id `{}` is declared in this file — check for a typo, or add a `marriage {} …` declaration (the `{role}` link expects a marriage id)",
+                    ident.name, ident.name
+                ),
+                ident.span,
+            ));
+        }
+        Some(EntityRef {
+            kind: EntityKind::Marriage,
+            ..
+        }) => {}
+        Some(EntityRef {
+            kind: EntityKind::Person,
+            id: prior,
+        }) => {
+            out.push(
+                Diagnostic::error(
+                    "KULA-R02",
+                    format!(
+                        "`{}` is a person, not a marriage — `{role}` links must reference a marriage id",
+                        ident.name
+                    ),
+                    ident.span,
+                )
+                .with_related(prior.span, format!("`{}` declared as a person here", ident.name)),
+            );
+        }
+    }
+}
+
 /// Rule 3 — required fields missing.
 ///
 /// A `person` MUST have `name` and `gender`.
 /// A `marriage` MUST have `start`. (The two spouses are positional and
 /// enforced by the grammar — a missing spouse is a parse error.)
-pub fn rule_03_required_fields(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+pub fn rule_03_required_fields(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for p in resolved.persons() {
         if !p.has_field(FieldName::Name) {
@@ -83,7 +191,7 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
 
 /// Rule 4 — self-marriage. A marriage's two spouse identifiers must be
 /// distinct.
-pub fn rule_04_self_marriage(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+pub fn rule_04_self_marriage(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for m in resolved.marriages() {
         if m.spouse_a.name == m.spouse_b.name {
@@ -108,7 +216,7 @@ fn self_marriage_diagnostic(m: &MarriageStmt) -> Diagnostic {
 /// Rule 5 — `end` and `end_reason` must both be present or both absent.
 /// Rule 5b (KULA-R05b) — `end_reason` value must be in the v1 vocabulary
 /// (currently just `divorce`).
-pub fn rule_05_end_consistency(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+pub fn rule_05_end_consistency(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for m in resolved.marriages() {
         match (m.end(), m.end_reason()) {
@@ -163,7 +271,7 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
 }
 
 /// Rule 6 — `person.died < person.born`.
-pub fn rule_06_died_before_born(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+pub fn rule_06_died_before_born(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     resolved
         .persons()
         .filter_map(|p| {
@@ -180,7 +288,7 @@ pub fn rule_06_died_before_born(resolved: &ResolvedDocument<'_>) -> Vec<Diagnost
 }
 
 /// Rule 7 — `marriage.end < marriage.start`.
-pub fn rule_07_marriage_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+pub fn rule_07_marriage_end_before_start(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     resolved
         .marriages()
         .filter_map(|m| {
@@ -197,7 +305,7 @@ pub fn rule_07_marriage_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec
 }
 
 /// Rule 8 — `adoption.end < adoption.start`.
-pub fn rule_08_adoption_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+pub fn rule_08_adoption_end_before_start(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for p in resolved.persons() {
         for adoption in &p.adoptions {
@@ -222,7 +330,7 @@ pub fn rule_08_adoption_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec
 }
 
 /// Rule 9 — `marriage.start < S.born` for either spouse `S`.
-pub fn rule_09_marriage_before_spouse_born(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+pub fn rule_09_marriage_before_spouse_born(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for m in resolved.marriages() {
         for spouse in resolved.spouses_of(m) {
@@ -247,7 +355,7 @@ pub fn rule_09_marriage_before_spouse_born(resolved: &ResolvedDocument<'_>) -> V
 }
 
 /// Rule 10 — `marriage.start > S.died` for either spouse `S`.
-pub fn rule_10_spouse_died_before_marriage(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+pub fn rule_10_spouse_died_before_marriage(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for m in resolved.marriages() {
         for spouse in resolved.spouses_of(m) {
@@ -277,7 +385,7 @@ pub fn rule_10_spouse_died_before_marriage(resolved: &ResolvedDocument<'_>) -> V
 
 /// Rule 11 — bio child born before either bio parent. Parents are the
 /// spouses of the marriage referenced by the child's `birth` sub-statement.
-pub fn rule_11_bio_child_born_before_parent(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+pub fn rule_11_bio_child_born_before_parent(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for child in resolved.persons() {
         let Some(birth) = &child.birth else { continue };
@@ -306,7 +414,7 @@ pub fn rule_11_bio_child_born_before_parent(resolved: &ResolvedDocument<'_>) -> 
 }
 
 /// Rule 12 — `adoption.start < P.born` for either adoptive parent `P`.
-pub fn rule_12_adoption_before_adopter_born(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+pub fn rule_12_adoption_before_adopter_born(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for child in resolved.persons() {
         for adoption in &child.adoptions {
@@ -380,7 +488,7 @@ fn temporal_violation(
 
 /// Rule 13 — no person may appear as their own ancestor in the parent graph
 /// (union of bio and adoptive parent links).
-pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
+pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for cycle in crate::cycles::find_cycles(resolved) {
         let head = *cycle

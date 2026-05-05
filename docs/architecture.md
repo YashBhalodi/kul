@@ -27,9 +27,9 @@ source: &str
   ▼  parser.rs             produces Document (typed AST + spans)
   │
   ▼  semantic.rs           produces ResolvedDocument (AST + id indexes)
-  │                        emits rule 02 diagnostics inline (unresolved refs)
+  │                        emits rule 01 diagnostics inline (duplicate ids)
   │
-  ▼  validator.rs          runs rules 03–13, accumulates diagnostics
+  ▼  validator.rs          runs rules 02–13, accumulates diagnostics
   │                        rule 13 delegates to cycles.rs
   │
   ▼  CheckResult { resolved: ResolvedDocument, diagnostics: Vec<Diagnostic> }
@@ -41,7 +41,7 @@ The shape is deliberately linear. Each pass produces a strictly richer artifact;
 
 - The lexer doesn't know about IDs.
 - The parser doesn't know which IDs are declared.
-- The validator never reaches into raw `Document.statements` — it queries through `ResolvedDocument` (per [ADR-0001](./adr/0001-resolved-document-as-query-seam.md)).
+- The validator never reaches into raw `Document.statements` — it queries through `ResolvedDocument` (per [ADR-0001](./adr/0001-resolved-document-as-query-seam.md)). All thirteen spec rules (R01 lives inline in `semantic::resolve` because it's a property of insertion order; R02–R13 live in `validator.rs`).
 
 ## Crate map
 
@@ -80,9 +80,9 @@ client (VSCode)
 server.rs::Backend::<request> handler
   │  reads document from state::Documents
   ▼
-ResolvedDocument (already cached for this URI)
+&doc.check.resolved  (cached ResolvedDocument for this URI)
   │
-  ▼  resolved.node_at(byte_offset)  →  Option<Node<'a>>
+  ▼  resolved.node_at(byte_offset)  →  Option<Node<'_>>
   │
   ▼  features/<feature>.rs builds the response by pattern-matching
   │  on the Node variant
@@ -94,7 +94,7 @@ ResolvedDocument (already cached for this URI)
 
 Three things make this work:
 
-1. The document cache (`state::Documents`) holds parsed-and-resolved documents — re-parsing on every request would be wasteful, and the cache is the source of truth.
+1. The document cache (`state::Documents`) holds the full `CheckResult` — including the cached `ResolvedDocument` — per open URI. Re-parsing or re-resolving on every request would be wasteful; the cache is the source of truth (per [ADR-0007](./adr/0007-resolved-document-owns-document.md)).
 2. `node_at` is the shared foundation. Hover, goto-definition, and completion all start with "what's at the cursor?" — implementing it once means the three features can't disagree about it.
 3. `Node` is a typed enum, not a tag. Each LSP feature pattern-matches the variants relevant to it; the compiler enforces exhaustiveness when a new variant lands.
 
@@ -104,13 +104,14 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 
 | Seam                                  | File                                          | What's behind it                                                                                                |
 | ------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `kula_core::check`                    | `crates/kula-core/src/lib.rs`                 | The whole pipeline. CLI and LSP both enter here.                                                                |
-| `ResolvedDocument` query methods      | `crates/kula-core/src/semantic.rs`            | All kinship questions. ADR-0001 mandates queries go through this; raw AST iteration is the seam's job.          |
+| `kula_core::check`                    | `crates/kula-core/src/lib.rs`                 | The whole pipeline. CLI and LSP both enter here. Returns a `CheckResult` whose `resolved: ResolvedDocument` field is the cached query view (per [ADR-0007](./adr/0007-resolved-document-owns-document.md)). |
+| `ResolvedDocument` query methods      | `crates/kula-core/src/semantic.rs`            | All kinship questions. ADR-0001 mandates queries go through this; raw AST iteration is the seam's job. Owns its `Arc<Document>` so the resolved view can be cached alongside other artifacts (no self-referential lifetime). |
 | `ResolvedDocument::node_at`           | `crates/kula-core/src/node_at.rs`             | "What's at byte offset X?" Returns a typed `Node`. Foundation for hover, definition, completion.                |
+| `Node::entity_reference`              | `crates/kula-core/src/node_at.rs`             | "What entity (person / marriage) is the cursor pointing at?" Returns an `EntityNode` summary (id, kind, decl span, target). Used by goto-definition, find-references, rename. |
 | `Diagnostic` + `Severity` + code + `detail` | `crates/kula-core/src/diagnostic.rs`    | The error currency. Carries spans, codes (KULA-Rxx), related info, and (per ADR-0006) an optional sub-case tag. |
 | `field_meta::FieldMeta`               | `crates/kula-core/src/field_meta.rs`          | Per-field taxonomy: value shape, completion description, hover Markdown. Hover, completion, and semantic-tokens consume it (ADR-0005). |
-| `LineIndex`                           | `crates/kula-lsp/src/convert.rs`              | Byte ↔ LSP-position. Handles UTF-16 code units and CRLF. The only place that knows about LSP position semantics.|
-| `state::Documents`                    | `crates/kula-lsp/src/state.rs`                | The LSP document cache. Thread-safe; the only path to a `Document` from inside an LSP request handler.          |
+| `LineIndex`                           | `crates/kula-lsp/src/convert.rs`              | Byte ↔ LSP-position. Handles UTF-16 code units and CRLF. Holds source as `Arc<str>` so `state::Document` shares the same heap buffer.|
+| `state::Documents`                    | `crates/kula-lsp/src/state.rs`                | The LSP document cache. Thread-safe; the only path to a `Document` from inside an LSP request handler. Each cached `Document` shares one `Arc<str>` between its `source` field and the `LineIndex`.          |
 
 If you find yourself reaching around one of these (e.g. iterating `document.statements` from a feature module), stop and consider extending the seam instead.
 
@@ -118,7 +119,7 @@ If you find yourself reaching around one of these (e.g. iterating `document.stat
 
 ### A new validator rule
 
-1. Add a function `fn rule_NN_<short_name>(resolved: &ResolvedDocument, diagnostics: &mut Vec<Diagnostic>)` in `crates/kula-core/src/validator.rs`.
+1. Add a function `fn rule_NN_<short_name>(resolved: &ResolvedDocument) -> Vec<Diagnostic>` in `crates/kula-core/src/validator.rs`. (R02–R13 all live here. R01 — duplicate ids — lives inside `semantic::resolve` because it's a property of insertion order.)
 2. Call it from the rule jump-list at the top of the file.
 3. Allocate a code `KULA-RNN`. Update [`spec/07-validation-rules.md`](../spec/07-validation-rules.md) with the rule definition.
 4. Add a test `rule_NN_<short_name>` in `crates/kula-core/tests/validator.rs` covering the positive case (rule fires) and negative case (rule doesn't fire). Snapshot the diagnostic output.
@@ -131,6 +132,7 @@ If you find yourself reaching around one of these (e.g. iterating `document.stat
 3. Wire it into `Backend` in `server.rs` and advertise the capability in `initialize`.
 4. Add an integration test in `crates/kula-lsp/tests/<feature>.rs` using the existing minimal LSP client.
 5. If the feature needs new "what's at the cursor?" information, extend the `Node` enum in `node_at.rs` (additively — don't rename existing variants) and the resolution logic. The feature then matches on the new variant.
+6. If the feature keys on "what entity is the cursor pointing at?" (a person / marriage id, decl or reference), call `node.entity_reference()` instead of pattern-matching the four id-bearing `Node` variants by hand. The accessor returns an `EntityNode` with `kind`, `name`, `ident_span`, `is_decl`, `target`, and a `decl_span()` method.
 
 ### A new AST variant
 

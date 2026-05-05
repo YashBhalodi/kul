@@ -29,7 +29,7 @@ use crate::convert::LineIndex;
 /// registry, and filters by overlap with the request range so the user
 /// only sees actions relevant to the cursor/selection.
 pub fn code_actions(
-    resolved: &ResolvedDocument<'_>,
+    resolved: &ResolvedDocument,
     diagnostics: &[Diagnostic],
     line_index: &LineIndex,
     uri: &Url,
@@ -52,7 +52,7 @@ pub fn code_actions(
     out
 }
 
-type ProviderFn = fn(&ResolvedDocument<'_>, &Diagnostic, &LineIndex, &Url) -> Vec<CodeAction>;
+type ProviderFn = fn(&ResolvedDocument, &Diagnostic, &LineIndex, &Url) -> Vec<CodeAction>;
 
 /// Registry of diagnostic-code → provider. Logically a `HashMap<&str,
 /// ProviderFn>`; built lazily so it's `const`-style at the call site.
@@ -71,7 +71,7 @@ fn registry() -> HashMap<&'static str, ProviderFn> {
 /// the canonical values — so the code-action wiring stays sound when the
 /// validator's message text changes.
 fn r03_required_fields(
-    resolved: &ResolvedDocument<'_>,
+    resolved: &ResolvedDocument,
     diag: &Diagnostic,
     line_index: &LineIndex,
     uri: &Url,
@@ -117,7 +117,7 @@ fn r03_required_fields(
 /// marriage; we locate it by containment (the spans aren't equal — R05
 /// anchors on the offending field, not the marriage's outer span).
 fn r05_end_consistency(
-    resolved: &ResolvedDocument<'_>,
+    resolved: &ResolvedDocument,
     diag: &Diagnostic,
     line_index: &LineIndex,
     uri: &Url,
@@ -343,7 +343,7 @@ mod tests {
         let line_index = LineIndex::new(source);
         let request_range = full_doc_range(&line_index);
         code_actions(
-            &resolved,
+            resolved,
             &result.diagnostics,
             &line_index,
             &url(),
@@ -558,7 +558,7 @@ mod tests {
             end: line_index.position(idx(src, "\n") + 1),
         };
         let actions = code_actions(
-            &resolved,
+            resolved,
             &result.diagnostics,
             &line_index,
             &url(),

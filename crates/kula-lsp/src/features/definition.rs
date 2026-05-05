@@ -4,7 +4,6 @@
 //! its target (when one exists). All this module does is turn a `Node::*Ref`
 //! with `target: Some(_)` into the corresponding declaration `Location`.
 
-use kula_core::node_at::Node;
 use kula_core::semantic::ResolvedDocument;
 use tower_lsp::lsp_types::{Location, Url};
 
@@ -14,21 +13,17 @@ use crate::convert::LineIndex;
 /// when there is nothing to navigate to (declaration site, unresolved
 /// reference, keyword, field, whitespace, EOF).
 pub fn definition(
-    resolved: &ResolvedDocument<'_>,
+    resolved: &ResolvedDocument,
     line_index: &LineIndex,
     uri: &Url,
     byte_offset: usize,
 ) -> Option<Location> {
-    let node = resolved.node_at(byte_offset)?;
-    let target_span = match node {
-        Node::PersonRef {
-            target: Some(p), ..
-        } => p.id.span,
-        Node::MarriageRef {
-            target: Some(m), ..
-        } => m.id.span,
-        _ => return None,
-    };
+    let entity = resolved.node_at(byte_offset)?.entity_reference()?;
+    // Goto-def from a decl is a no-op; resolved refs jump to the target.
+    if entity.is_decl {
+        return None;
+    }
+    let target_span = entity.target?.decl_span();
     Some(Location {
         uri: uri.clone(),
         range: line_index.range(target_span),
@@ -41,6 +36,7 @@ mod tests {
     use kula_core::lexer::tokenize;
     use kula_core::parser::parse;
     use kula_core::semantic::resolve;
+    use std::sync::Arc;
 
     fn url() -> Url {
         Url::parse("file:///t.kula").unwrap()
@@ -49,7 +45,7 @@ mod tests {
     fn def_at(source: &str, offset: usize) -> Option<Location> {
         let tokens = tokenize(source);
         let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(&document);
+        let (resolved, _) = resolve(Arc::new(document));
         let line_index = LineIndex::new(source);
         definition(&resolved, &line_index, &url(), offset)
     }

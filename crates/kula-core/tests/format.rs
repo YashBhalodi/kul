@@ -85,9 +85,9 @@ fn format_source_is_idempotent_on_corpus() {
 fn format_source_round_trips_ast_through_corpus() {
     for path in corpus_files() {
         let source = read(&path);
-        let original_ast = kula_core::check(&source).document;
+        let original_ast = kula_core::check(&source).document().clone();
         let formatted = format_source(&source);
-        let reparsed_ast = kula_core::check(&formatted).document;
+        let reparsed_ast = kula_core::check(&formatted).document().clone();
         // `format(&Document)` is span-blind, so two ASTs that print equal
         // are equal modulo span positions — exactly the equivalence we want.
         assert_eq!(
@@ -103,9 +103,9 @@ fn format_source_round_trips_ast_through_corpus() {
 fn format_ast_only_is_idempotent_on_corpus() {
     for path in corpus_files() {
         let source = read(&path);
-        let doc1 = kula_core::check(&source).document;
+        let doc1 = kula_core::check(&source).document().clone();
         let printed_once = format(&doc1);
-        let doc2 = kula_core::check(&printed_once).document;
+        let doc2 = kula_core::check(&printed_once).document().clone();
         let printed_twice = format(&doc2);
         assert_eq!(
             printed_once,
