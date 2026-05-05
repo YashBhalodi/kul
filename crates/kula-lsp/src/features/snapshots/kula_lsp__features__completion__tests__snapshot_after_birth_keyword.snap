@@ -1,0 +1,11 @@
+---
+source: crates/kula-lsp/src/features/completion.rs
+expression: items
+---
+[
+  {
+    "label": "m_alice_bob",
+    "kind": 23,
+    "detail": "Alice + Bob, 1972–1990"
+  }
+]

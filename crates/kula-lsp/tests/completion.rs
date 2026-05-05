@@ -200,3 +200,48 @@ fn indented_under_person_returns_sub_keywords() {
     assert!(labels.contains(&"birth".to_owned()));
     assert!(labels.contains(&"adoption".to_owned()));
 }
+
+#[test]
+fn after_birth_keyword_returns_marriage_ids() {
+    let mut handle = Handle::spawn();
+    open_doc(
+        &mut handle,
+        "person alice name:\"Alice\" gender:female\n\
+         person bob name:\"Bob\" gender:male\n\
+         marriage m_alice_bob alice bob start:1972\n\
+         person kid name:\"K\" gender:other\n  birth ",
+    );
+    // line 4 column 8 = right after `birth ` (2 indent + 6 keyword)
+    let labels = complete_at(&mut handle, 15, 4, 8);
+    assert_eq!(labels, vec!["m_alice_bob".to_owned()]);
+}
+
+#[test]
+fn after_marriage_id_returns_persons_for_spouse_a() {
+    let mut handle = Handle::spawn();
+    open_doc(
+        &mut handle,
+        "person alice name:\"Alice\" gender:female\n\
+         person bob name:\"Bob\" gender:male\n\
+         marriage m ",
+    );
+    // line 2 column 11 = right after `marriage m `
+    let labels = complete_at(&mut handle, 16, 2, 11);
+    assert!(labels.contains(&"alice".to_owned()));
+    assert!(labels.contains(&"bob".to_owned()));
+}
+
+#[test]
+fn after_spouse_a_excludes_self_marriage() {
+    let mut handle = Handle::spawn();
+    open_doc(
+        &mut handle,
+        "person alice name:\"Alice\" gender:female\n\
+         person bob name:\"Bob\" gender:male\n\
+         marriage m alice ",
+    );
+    // line 2 column 17 = right after `marriage m alice `
+    let labels = complete_at(&mut handle, 17, 2, 17);
+    assert!(!labels.contains(&"alice".to_owned()));
+    assert!(labels.contains(&"bob".to_owned()));
+}

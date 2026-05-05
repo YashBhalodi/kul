@@ -2,13 +2,15 @@
 //!
 //! Token-stream-first classifier: the cursor often sits in whitespace or
 //! a partial token where there's no clean AST node, so we walk tokens up
-//! to the cursor and classify into one of seven contexts. The seven sets
-//! are static — ID-reference completion (suggesting declared marriage IDs
-//! after `birth`, etc.) is Phase 4.
+//! to the cursor and classify into one of a fixed set of contexts. The
+//! keyword/field/enum sets are static; the marriage-id and person-id
+//! sets come from the resolved document (every declared marriage and
+//! person, surfaced where a reference is expected).
 
 use kula_core::ast::{
     AdoptionFieldKind, MarriageFieldKind, MarriageStmt, PersonFieldKind, PersonStmt, Statement,
 };
+use kula_core::date::DateLit;
 use kula_core::lexer::{EnumKw, FieldName, Token, TokenKind, tokenize};
 use kula_core::semantic::ResolvedDocument;
 use tower_lsp::lsp_types::{CompletionItem, CompletionItemKind};
@@ -30,6 +32,8 @@ pub fn complete(
         Context::AdoptionFieldList { existing } => adoption_fields(&existing),
         Context::AfterGenderColon => gender_values(),
         Context::AfterEndReasonColon => end_reason_values(),
+        Context::MarriageRefPosition => marriage_id_items(resolved),
+        Context::SpousePosition { exclude } => person_id_items(resolved, exclude.as_deref()),
     }
 }
 
@@ -49,6 +53,13 @@ enum Context {
     AfterGenderColon,
     /// Right after `end_reason:`.
     AfterEndReasonColon,
+    /// Inside a `birth` or `adoption` sub-statement at the marriage-ref
+    /// position. Suggest declared marriage ids.
+    MarriageRefPosition,
+    /// Inside a `marriage` statement at a spouse position. Suggest declared
+    /// persons; exclude the named person if `exclude` is set (the user
+    /// already filled spouse_a, so spouse_b shouldn't repeat them).
+    SpousePosition { exclude: Option<String> },
     /// No completion to offer (inside a string, on a date literal, in a
     /// comment, etc.).
     None,
@@ -96,32 +107,168 @@ fn classify(
     // 3. Determine the enclosing top-level statement.
     let enclosing = enclosing_statement(resolved, cursor);
 
-    match (line.is_fresh, line.is_indented, &line.first_kw, enclosing) {
+    let scan = positional_scan(&preceding, cursor);
+
+    // The line's leading keyword discriminates first — partially-typed
+    // lines (e.g. `marriage m <CURSOR>`) won't have parsed cleanly, so we
+    // can't always rely on `enclosing` reflecting the line being typed.
+    match (line.is_fresh, line.is_indented, &line.first_kw) {
         // Fresh, non-indented line at top level → top-level keywords.
-        (true, false, _, _) => Context::TopLevelStart,
+        (true, false, _) => Context::TopLevelStart,
 
-        // Fresh, indented line under a person → birth/adoption.
-        (true, true, _, Some(Enclosing::Person(_))) => Context::IndentedUnderPerson,
+        // Fresh, indented line under a person → birth/adoption keywords.
+        (true, true, _) => match enclosing {
+            Some(Enclosing::Person(_)) => Context::IndentedUnderPerson,
+            _ => Context::None,
+        },
 
-        // Indented, non-fresh: the line starts with `adoption <m_ref> ...`.
-        // Offer adoption field names, filtered.
-        (false, true, Some(LineKw::Adoption), Some(Enclosing::Person(p))) => {
-            Context::AdoptionFieldList {
-                existing: existing_adoption_fields_at_line(p, &line),
+        // `birth` sub-statement: one positional (the marriage ref).
+        (false, true, Some(LineKw::Birth)) => {
+            if scan.filled == 0 && !scan.past_positionals {
+                Context::MarriageRefPosition
+            } else {
+                Context::None
             }
         }
 
-        // Continuing a person's same-line field list.
-        (false, false, _, Some(Enclosing::Person(p))) => Context::PersonFieldList {
-            existing: existing_person_fields(p),
+        // `adoption` sub-statement: first positional is a marriage ref,
+        // then field list.
+        (false, true, Some(LineKw::Adoption)) => match enclosing {
+            Some(Enclosing::Person(p)) => {
+                if scan.filled == 0 && !scan.past_positionals {
+                    Context::MarriageRefPosition
+                } else {
+                    Context::AdoptionFieldList {
+                        existing: existing_adoption_fields_at_line(p, &line),
+                    }
+                }
+            }
+            _ => Context::None,
         },
 
-        // Continuing a marriage's same-line field list.
-        (false, false, _, Some(Enclosing::Marriage(m))) => Context::MarriageFieldList {
-            existing: existing_marriage_fields(m),
+        // `marriage` line: positions 0 (its own id), 1 (spouse_a), 2
+        // (spouse_b), then field list.
+        (false, false, Some(LineKw::Marriage)) => {
+            let existing = match enclosing {
+                Some(Enclosing::Marriage(m)) => existing_marriage_fields(m),
+                _ => Vec::new(),
+            };
+            if scan.past_positionals {
+                Context::MarriageFieldList { existing }
+            } else {
+                match scan.filled {
+                    // Cursor is on the marriage's own id — user is naming
+                    // a new marriage; suggesting existing ids would point
+                    // them at collisions.
+                    0 => Context::None,
+                    1 => Context::SpousePosition { exclude: None },
+                    2 => Context::SpousePosition {
+                        exclude: scan.seen.get(1).cloned(),
+                    },
+                    // Both spouses filled, no field tokens yet — between
+                    // spouse_b and the first field.
+                    _ => Context::MarriageFieldList { existing },
+                }
+            }
+        }
+
+        // `person` top-level line: field list (the id is freely-named like
+        // a marriage's, so position 0 gets nothing).
+        (false, false, Some(LineKw::Person)) => match enclosing {
+            Some(Enclosing::Person(p)) => Context::PersonFieldList {
+                existing: existing_person_fields(p),
+            },
+            _ => Context::None,
         },
 
-        _ => Context::None,
+        // Continuation of a previous statement (no leading keyword on this
+        // line) — depends on what the enclosing statement is.
+        (false, _, _) => match enclosing {
+            Some(Enclosing::Person(p)) => Context::PersonFieldList {
+                existing: existing_person_fields(p),
+            },
+            Some(Enclosing::Marriage(m)) => Context::MarriageFieldList {
+                existing: existing_marriage_fields(m),
+            },
+            None => Context::None,
+        },
+    }
+}
+
+/// Scan the positional region of the cursor's line — i.e. the naked
+/// identifier slots after the leading keyword, before any `field:` token.
+struct PositionalScan {
+    /// Number of fully-filled positional slots before the cursor (each one
+    /// is a complete identifier with whitespace after it).
+    filled: usize,
+    /// The naked-identifier texts seen, in order. `seen[0]` for `marriage`
+    /// is the marriage's own id; `seen[1]` is spouse_a.
+    seen: Vec<String>,
+    /// True once we've seen a `field:` or `:` token on the line — past the
+    /// positional region.
+    past_positionals: bool,
+}
+
+fn positional_scan(preceding: &[&Token], cursor: usize) -> PositionalScan {
+    let line_start_idx = preceding
+        .iter()
+        .rposition(|t| matches!(t.kind, TokenKind::Newline))
+        .map(|i| i + 1)
+        .unwrap_or(0);
+    let line_tokens = &preceding[line_start_idx..];
+
+    // Skip the leading indent + keyword(s).
+    let mut iter = line_tokens.iter();
+    while let Some(t) = iter.clone().next() {
+        match t.kind {
+            TokenKind::Indent
+            | TokenKind::PersonKw
+            | TokenKind::MarriageKw
+            | TokenKind::BirthKw
+            | TokenKind::AdoptionKw
+            | TokenKind::KulaKw => {
+                iter.next();
+            }
+            _ => break,
+        }
+    }
+
+    let mut filled = 0;
+    let mut seen: Vec<String> = Vec::new();
+    let mut past = false;
+
+    for t in iter {
+        match &t.kind {
+            TokenKind::FieldKw(_) | TokenKind::Colon => {
+                past = true;
+                break;
+            }
+            TokenKind::Ident(s) | TokenKind::Bare(s) => {
+                if t.span.end == cursor {
+                    // Cursor adjacent to a partial identifier — the user is
+                    // mid-typing this slot, so it's not yet "filled" for
+                    // counting purposes (they want suggestions for *this*
+                    // position, not the next one).
+                } else {
+                    filled += 1;
+                    seen.push(s.clone());
+                }
+            }
+            // EnumKw lexed inside a positional slot is unusual but treat it
+            // as a filled slot so we don't miscount.
+            TokenKind::EnumKw(_) | TokenKind::String(_) | TokenKind::Error(_)
+                if t.span.end != cursor =>
+            {
+                filled += 1;
+            }
+            _ => {}
+        }
+    }
+
+    PositionalScan {
+        filled,
+        seen,
+        past_positionals: past,
     }
 }
 
@@ -459,6 +606,77 @@ fn end_reason_values() -> Vec<CompletionItem> {
     )]
 }
 
+/// Every declared marriage as a completion item — used after `birth` and
+/// `adoption`. Detail shows the spouses' display names and the date span so
+/// the user can disambiguate between marriages of the same person.
+fn marriage_id_items(resolved: &ResolvedDocument<'_>) -> Vec<CompletionItem> {
+    resolved
+        .marriages()
+        .map(|m| CompletionItem {
+            label: m.id.name.clone(),
+            kind: Some(CompletionItemKind::EVENT),
+            detail: Some(marriage_detail(resolved, m)),
+            ..Default::default()
+        })
+        .collect()
+}
+
+/// Every declared person as a completion item — used in marriage spouse
+/// positions. `exclude` filters one id out (so spouse_b's list excludes the
+/// person already named as spouse_a, since you can't marry yourself).
+fn person_id_items(resolved: &ResolvedDocument<'_>, exclude: Option<&str>) -> Vec<CompletionItem> {
+    resolved
+        .persons()
+        .filter(|p| Some(p.id.name.as_str()) != exclude)
+        .map(|p| CompletionItem {
+            label: p.id.name.clone(),
+            kind: Some(CompletionItemKind::VARIABLE),
+            detail: Some(person_detail(p)),
+            ..Default::default()
+        })
+        .collect()
+}
+
+fn marriage_detail(resolved: &ResolvedDocument<'_>, m: &MarriageStmt) -> String {
+    let a = resolved
+        .person(&m.spouse_a.name)
+        .and_then(|p| p.name())
+        .map(|n| n.value.clone())
+        .unwrap_or_else(|| m.spouse_a.name.clone());
+    let b = resolved
+        .person(&m.spouse_b.name)
+        .and_then(|p| p.name())
+        .map(|n| n.value.clone())
+        .unwrap_or_else(|| m.spouse_b.name.clone());
+    let dates = match (m.start().map(year_str), m.end().map(year_str)) {
+        (Some(s), Some(e)) => format!(", {s}–{e}"),
+        (Some(s), None) => format!(", {s}–"),
+        (None, Some(e)) => format!(", ?–{e}"),
+        (None, None) => String::new(),
+    };
+    format!("{a} + {b}{dates}")
+}
+
+fn person_detail(p: &PersonStmt) -> String {
+    let name = p
+        .name()
+        .map(|n| n.value.clone())
+        .unwrap_or_else(|| p.id.name.clone());
+    match p.born().map(year_str) {
+        Some(b) => format!("{name}, b. {b}"),
+        None => name,
+    }
+}
+
+fn year_str(d: &DateLit) -> String {
+    let mut s = String::new();
+    if d.circa {
+        s.push('~');
+    }
+    s.push_str(&format!("{:04}", d.year));
+    s
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -608,6 +826,198 @@ mod tests {
         let labels = run(src);
         assert!(!labels.contains(&"start:".to_owned()));
         assert!(labels.contains(&"end:".to_owned()));
+    }
+
+    fn run_with_details(src_with_marker: &str) -> Vec<(String, Option<String>)> {
+        let (source, offset) = cursor_fixture(src_with_marker);
+        let tokens = tokenize(&source);
+        let (document, _) = parse(&tokens);
+        let (resolved, _) = resolve(&document);
+        complete(&source, &resolved, offset)
+            .into_iter()
+            .map(|c| (c.label, c.detail))
+            .collect()
+    }
+
+    fn run_kinds(src_with_marker: &str) -> Vec<(String, CompletionItemKind)> {
+        let (source, offset) = cursor_fixture(src_with_marker);
+        let tokens = tokenize(&source);
+        let (document, _) = parse(&tokens);
+        let (resolved, _) = resolve(&document);
+        complete(&source, &resolved, offset)
+            .into_iter()
+            .map(|c| (c.label, c.kind.unwrap()))
+            .collect()
+    }
+
+    #[test]
+    fn after_birth_offers_marriage_ids_with_spouse_detail() {
+        let src = "person alice name:\"Alice\" gender:female\n\
+                   person bob name:\"Bob\" gender:male\n\
+                   marriage m1 alice bob start:1972 end:1990 end_reason:divorce\n\
+                   marriage m2 alice bob start:2000\n\
+                   person kid name:\"K\" gender:other\n  birth <CURSOR>";
+        let items = run_with_details(src);
+        let labels: Vec<&str> = items.iter().map(|(l, _)| l.as_str()).collect();
+        assert_eq!(labels, vec!["m1", "m2"]);
+        // Detail strings include both spouses' display names + date span.
+        assert_eq!(items[0].1.as_deref(), Some("Alice + Bob, 1972–1990"));
+        assert_eq!(items[1].1.as_deref(), Some("Alice + Bob, 2000–"));
+    }
+
+    #[test]
+    fn after_birth_with_partial_id_still_offers_marriages() {
+        // Cursor adjacent to a partial ident — IDE still wants the full set
+        // and filters by prefix client-side.
+        let src = "person alice name:\"A\" gender:female\n\
+                   person bob name:\"B\" gender:male\n\
+                   marriage m_alice_bob alice bob start:1972\n\
+                   person kid name:\"K\" gender:other\n  birth m_<CURSOR>";
+        let labels = run(src);
+        assert_eq!(labels, vec!["m_alice_bob".to_owned()]);
+    }
+
+    #[test]
+    fn after_adoption_offers_marriage_ids() {
+        let src = "person alice name:\"Alice\" gender:female\n\
+                   person bob name:\"Bob\" gender:male\n\
+                   marriage m alice bob start:1972\n\
+                   person kid name:\"K\" gender:other\n  adoption <CURSOR>";
+        let labels = run(src);
+        assert_eq!(labels, vec!["m".to_owned()]);
+    }
+
+    #[test]
+    fn adoption_after_marriage_ref_still_offers_fields() {
+        // Once the marriage ref is filled, adoption fields take over.
+        let src = "person alice name:\"A\" gender:female\n\
+                   person bob name:\"B\" gender:male\n\
+                   marriage m alice bob start:1972\n\
+                   person kid name:\"K\" gender:other\n  adoption m <CURSOR>";
+        let labels = run(src);
+        assert!(labels.contains(&"start:".to_owned()));
+        assert!(labels.contains(&"end:".to_owned()));
+        // Marriage ids should NOT appear here.
+        assert!(!labels.contains(&"m".to_owned()));
+    }
+
+    #[test]
+    fn after_birth_marriage_ref_offers_nothing() {
+        // `birth <ref>` is a single-positional sub-statement; nothing useful
+        // to offer once the ref is in place.
+        let src = "person alice name:\"A\" gender:female\n\
+                   person bob name:\"B\" gender:male\n\
+                   marriage m alice bob start:1972\n\
+                   person kid name:\"K\" gender:other\n  birth m <CURSOR>";
+        assert!(run(src).is_empty());
+    }
+
+    #[test]
+    fn after_marriage_id_offers_persons_for_spouse_a() {
+        let src = "person alice name:\"Alice\" gender:female born:1950\n\
+                   person bob name:\"Bob\" gender:male born:1948\n\
+                   marriage m <CURSOR>";
+        let items = run_with_details(src);
+        let labels: Vec<&str> = items.iter().map(|(l, _)| l.as_str()).collect();
+        assert_eq!(labels, vec!["alice", "bob"]);
+        assert_eq!(items[0].1.as_deref(), Some("Alice, b. 1950"));
+        assert_eq!(items[1].1.as_deref(), Some("Bob, b. 1948"));
+    }
+
+    #[test]
+    fn after_spouse_a_excludes_self_marriage() {
+        let src = "person alice name:\"A\" gender:female\n\
+                   person bob name:\"B\" gender:male\n\
+                   person carol name:\"C\" gender:female\n\
+                   marriage m alice <CURSOR>";
+        let labels = run(src);
+        assert!(!labels.contains(&"alice".to_owned()));
+        assert!(labels.contains(&"bob".to_owned()));
+        assert!(labels.contains(&"carol".to_owned()));
+    }
+
+    #[test]
+    fn at_marriage_id_position_offers_nothing() {
+        // The user is naming a NEW marriage; existing marriage ids would be
+        // collisions, and persons/keywords are wrong here too.
+        let src = "marriage <CURSOR>";
+        assert!(run(src).is_empty());
+    }
+
+    #[test]
+    fn after_both_spouses_falls_through_to_marriage_fields() {
+        let src = "person a name:\"A\" gender:female\n\
+                   person b name:\"B\" gender:male\n\
+                   marriage m a b <CURSOR>";
+        let labels = run(src);
+        assert!(labels.contains(&"start:".to_owned()));
+        assert!(labels.contains(&"end:".to_owned()));
+    }
+
+    #[test]
+    fn marriage_completion_kinds_are_distinct() {
+        let src = "person alice name:\"A\" gender:female\n\
+                   marriage m alice alice start:1972\n\
+                   person kid name:\"K\" gender:other\n  birth <CURSOR>";
+        let kinds = run_kinds(src);
+        assert!(kinds.iter().all(|(_, k)| *k == CompletionItemKind::EVENT));
+    }
+
+    #[test]
+    fn person_completion_kinds_are_variable() {
+        let src = "person alice name:\"A\" gender:female\n\
+                   person bob name:\"B\" gender:male\n\
+                   marriage m <CURSOR>";
+        let kinds = run_kinds(src);
+        assert!(
+            kinds
+                .iter()
+                .all(|(_, k)| *k == CompletionItemKind::VARIABLE)
+        );
+    }
+
+    #[test]
+    fn snapshot_after_birth_keyword() {
+        let (source, offset) = cursor_fixture(
+            "person alice name:\"Alice\" gender:female born:1950\n\
+             person bob name:\"Bob\" gender:male born:1948\n\
+             marriage m_alice_bob alice bob start:1972 end:1990 end_reason:divorce\n\
+             person kid name:\"K\" gender:other\n  birth <CURSOR>",
+        );
+        let tokens = tokenize(&source);
+        let (document, _) = parse(&tokens);
+        let (resolved, _) = resolve(&document);
+        let items = complete(&source, &resolved, offset);
+        insta::assert_json_snapshot!(items);
+    }
+
+    #[test]
+    fn snapshot_after_marriage_id_for_spouse_a() {
+        let (source, offset) = cursor_fixture(
+            "person alice name:\"Alice\" gender:female born:1950\n\
+             person bob name:\"Bob\" gender:male born:1948\n\
+             marriage m <CURSOR>",
+        );
+        let tokens = tokenize(&source);
+        let (document, _) = parse(&tokens);
+        let (resolved, _) = resolve(&document);
+        let items = complete(&source, &resolved, offset);
+        insta::assert_json_snapshot!(items);
+    }
+
+    #[test]
+    fn snapshot_after_spouse_a_excludes_self() {
+        let (source, offset) = cursor_fixture(
+            "person alice name:\"Alice\" gender:female born:1950\n\
+             person bob name:\"Bob\" gender:male born:1948\n\
+             person carol name:\"Carol\" gender:female born:1975\n\
+             marriage m alice <CURSOR>",
+        );
+        let tokens = tokenize(&source);
+        let (document, _) = parse(&tokens);
+        let (resolved, _) = resolve(&document);
+        let items = complete(&source, &resolved, offset);
+        insta::assert_json_snapshot!(items);
     }
 
     #[test]
