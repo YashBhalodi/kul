@@ -29,6 +29,7 @@ The spec is split across fourteen sections plus a standalone formal grammar. Rea
 | —   | [`grammar.ebnf`](./grammar.ebnf)                                | Standalone normative EBNF                                                   |
 | 13  | [Versioning policy](./13-versioning-policy.md)                  | How future versions extend without breaking                                 |
 | 14  | [Formatter rules](./14-formatter-rules.md)                      | Canonical form a conforming `kula format` must produce                      |
+| 15  | [Export schema](./15-export-schema.md)                          | Canonical JSON envelope a conforming `kula export` must produce             |
 
 ## Conventions used in this spec
 

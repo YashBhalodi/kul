@@ -254,6 +254,130 @@ fn format_refuses_input_with_parse_errors() {
         .stderr(contains("cannot format input with parse errors"));
 }
 
+// === `kula export` ===
+
+#[test]
+fn export_clean_file_emits_success_envelope_and_exits_zero() {
+    let path = examples_dir().join("01-single-couple.kula");
+    let output = Command::cargo_bin("kula")
+        .unwrap()
+        .args(["export"])
+        .arg(&path)
+        .output()
+        .expect("run kula export");
+    assert!(output.status.success(), "expected exit 0");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid json");
+    assert_eq!(env["ok"], true);
+    assert_eq!(env["schema"], 1);
+    assert_eq!(env["kula"], "0.1");
+    assert!(env["graph"]["persons"].is_array());
+    assert!(env["graph"]["marriages"].is_array());
+    assert!(env["graph"]["parenthood_links"].is_array());
+}
+
+#[test]
+fn export_dirty_file_emits_failure_envelope_and_exits_one() {
+    let output = Command::cargo_bin("kula")
+        .unwrap()
+        .args(["export", "-"])
+        .write_stdin("person alice gender:female\n")
+        .output()
+        .expect("run kula export");
+    assert_eq!(output.status.code(), Some(1), "expected exit 1");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid json");
+    assert_eq!(env["ok"], false);
+    let diags = env["diagnostics"].as_array().expect("diagnostics array");
+    assert!(diags.iter().any(|d| d["code"] == "KULA-R03"));
+}
+
+#[test]
+fn export_stdin_succeeds_on_clean_input() {
+    let output = Command::cargo_bin("kula")
+        .unwrap()
+        .args(["export", "-"])
+        .write_stdin("person alice name:\"Alice\" gender:female\n")
+        .output()
+        .expect("run kula export");
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
+    assert_eq!(env["ok"], true);
+    assert_eq!(env["graph"]["persons"][0]["id"], "alice");
+}
+
+#[test]
+fn export_multiple_files_emits_one_envelope_per_line() {
+    let p1 = examples_dir().join("01-single-couple.kula");
+    let p2 = examples_dir().join("02-nuclear-family.kula");
+    let output = Command::cargo_bin("kula")
+        .unwrap()
+        .args(["export"])
+        .arg(&p1)
+        .arg(&p2)
+        .output()
+        .expect("run kula export");
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let lines: Vec<&str> = stdout.lines().collect();
+    assert_eq!(lines.len(), 2, "expected one envelope per file");
+    for line in lines {
+        let env: serde_json::Value = serde_json::from_str(line).expect("valid json");
+        assert_eq!(env["ok"], true);
+    }
+}
+
+#[test]
+fn export_multiple_files_exits_one_if_any_fail() {
+    let valid = examples_dir().join("01-single-couple.kula");
+    let invalid_path = corpus_root().join("invalid/rule-03-missing-name.kula");
+    let output = Command::cargo_bin("kula")
+        .unwrap()
+        .args(["export"])
+        .arg(&valid)
+        .arg(&invalid_path)
+        .output()
+        .expect("run kula export");
+    assert_eq!(output.status.code(), Some(1));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let lines: Vec<&str> = stdout.lines().collect();
+    assert_eq!(lines.len(), 2);
+    let first: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
+    let second: serde_json::Value = serde_json::from_str(lines[1]).unwrap();
+    assert_eq!(first["ok"], true);
+    assert_eq!(second["ok"], false);
+}
+
+#[test]
+fn export_format_json_is_default_and_explicit_flag_works() {
+    let path = examples_dir().join("01-single-couple.kula");
+    let with_flag = Command::cargo_bin("kula")
+        .unwrap()
+        .args(["export", "--format", "json"])
+        .arg(&path)
+        .output()
+        .expect("run kula export");
+    let without_flag = Command::cargo_bin("kula")
+        .unwrap()
+        .args(["export"])
+        .arg(&path)
+        .output()
+        .expect("run kula export");
+    assert!(with_flag.status.success());
+    assert!(without_flag.status.success());
+    assert_eq!(with_flag.stdout, without_flag.stdout);
+}
+
+fn examples_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("examples")
+}
+
 fn tempfile_dir() -> PathBuf {
     // Use the test binary's target directory to avoid colliding with global
     // tempdir. The directory is created on demand and reused across runs.

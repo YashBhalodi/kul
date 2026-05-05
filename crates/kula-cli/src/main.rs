@@ -13,12 +13,13 @@ const VERSION_STRING: &str = concat!(
 );
 
 const TOP_LONG_ABOUT: &str = "\
-Kula language CLI — parse and validate .kula documents.
+Kula language CLI — parse, validate, format, and export .kula documents.
 
 A Kula document describes a family: persons, marriages, biological births,
 and adoptions. `kula validate` parses a document and reports the 13
-spec-defined errors with line/column anchors. `kula lsp` runs the language
-server over stdio for editor integrations.
+spec-defined errors with line/column anchors. `kula export` projects a
+clean document into a JSON graph for downstream consumers. `kula lsp` runs
+the language server over stdio for editor integrations.
 
 EXAMPLES:
   kula validate family.kula
@@ -28,10 +29,11 @@ EXAMPLES:
   kula validate --quiet family.kula && echo ok
   kula format family.kula       # canonicalize the file in place
   kula format --check family.kula  # CI gate: non-zero if not canonical
+  kula export family.kula | jq .   # project clean document to JSON
   kula lsp                      # speak LSP over stdio (editor integrations)
 
 EXIT CODES:
-  0  every input validated/formatted cleanly
+  0  every input validated/formatted/exported cleanly
   1  at least one input had error diagnostics, or (under --check) was not
      in canonical form
   2  CLI usage error (e.g. unknown flag, missing argument)
@@ -131,6 +133,54 @@ EXIT CODES:
   2  CLI usage error
 ";
 
+const EXPORT_LONG_ABOUT: &str = "\
+Project a `.kula` document into the canonical JSON envelope.
+
+The export is **strict**: any error-severity diagnostic blocks projection
+and the failure envelope (carrying the diagnostics) is written to stdout
+with a non-zero exit code. Warnings do not block.
+
+The success envelope shape is:
+
+  {
+    \"ok\":     true,
+    \"schema\": <integer>,
+    \"kula\":   \"<language version>\",
+    \"graph\":  {
+      \"persons\":           [ ... ],
+      \"marriages\":         [ ... ],
+      \"parenthood_links\":  [ ... ]
+    }
+  }
+
+The failure envelope shape is:
+
+  {
+    \"ok\":          false,
+    \"diagnostics\": [ ... ]  // same schema as `kula validate --format json`
+  }
+
+Pass `-` as a filename to read source from standard input. Multiple inputs
+write one envelope per line in input order. See
+`spec/15-export-schema.md` for the normative schema.
+
+EXAMPLES:
+  # Single file.
+  kula export family.kula | jq .
+
+  # Read from stdin.
+  cat family.kula | kula export -
+
+  # Batch.
+  kula export examples/*.kula
+
+EXIT CODES:
+  0  every input projected to a success envelope
+  1  at least one input failed (errors blocked the projection, or the file
+     could not be read)
+  2  CLI usage error
+";
+
 const LSP_LONG_ABOUT: &str = "\
 Run the Kula language server over stdio.
 
@@ -189,6 +239,20 @@ enum Command {
         check: bool,
     },
 
+    /// Project one or more `.kula` files to the canonical JSON envelope.
+    #[command(long_about = EXPORT_LONG_ABOUT)]
+    Export {
+        /// Files to export. Use `-` to read from standard input.
+        #[arg(value_name = "FILE", required = true)]
+        files: Vec<PathBuf>,
+
+        /// Output format. `json` (default) is the canonical
+        /// kinship-native shape; alternative shapes land additively as
+        /// follow-up issues.
+        #[arg(long, value_enum, default_value_t = commands::export::CliExportFormat::Json)]
+        format: commands::export::CliExportFormat,
+    },
+
     /// Run the language server over stdio.
     #[command(long_about = LSP_LONG_ABOUT)]
     Lsp,
@@ -216,6 +280,9 @@ fn main() -> ExitCode {
         }),
         Command::Format { files, check } => {
             commands::format::run(commands::format::Options { files, check })
+        }
+        Command::Export { files, format } => {
+            commands::export::run(commands::export::Options { files, format })
         }
         Command::Lsp => run_lsp(),
     }

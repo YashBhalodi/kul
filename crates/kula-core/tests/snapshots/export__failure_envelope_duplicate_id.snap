@@ -1,0 +1,29 @@
+---
+source: crates/kula-core/tests/export.rs
+expression: json
+---
+{
+  "ok": false,
+  "diagnostics": [
+    {
+      "code": "KULA-R01",
+      "severity": "error",
+      "message": "id `alice` is already used by another person — pick a different id (every id must be unique across all persons and marriages)",
+      "primary": {
+        "byte_start": 47,
+        "byte_end": 52,
+        "line": 2,
+        "column": 8
+      },
+      "related": [
+        {
+          "label": "first declared here as a person",
+          "byte_start": 7,
+          "byte_end": 12,
+          "line": 1,
+          "column": 8
+        }
+      ]
+    }
+  ]
+}

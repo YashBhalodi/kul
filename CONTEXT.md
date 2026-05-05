@@ -60,6 +60,18 @@ One of the thirteen spec-defined checks (KULA-R01 through KULA-R13). See [`spec/
 
 An error or warning emitted by the validator. Carries a **code** (`KULA-Rxx`), a **severity**, a **message**, a **primary span**, and optional **related** spans. Rendered to the user via `miette` (CLI) or translated to LSP diagnostics (editor).
 
+### ExportEnvelope
+
+The top-level value `kula export` (and the public `kula_core::export::export` function) emits. Either a **success envelope** carrying a `schema` number, the source's `kula` language version, and the [`ExportedGraph`](#exportedgraph), or a **failure envelope** carrying the diagnostic list. The export is strict on errors per [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md).
+
+### ExportedGraph
+
+The kinship-native graph projection inside a success [`ExportEnvelope`](#exportenvelope). Three flat collections — `persons`, `marriages`, `parenthood_links` — that mirror the language primitives one-to-one, with cross-references by id. Defined normatively in [`spec/15-export-schema.md`](./spec/15-export-schema.md); shape choice motivated in [ADR-0008](./docs/adr/0008-export-kinship-native-shape.md).
+
+### Schema number
+
+The `schema:` integer on a success [`ExportEnvelope`](#exportenvelope). Discriminator for the structural shape of the envelope; bumped only when consumers might silently mis-represent data by ignoring a new construct. Independent of the language version (the `kula:` field). Policy in [ADR-0010](./docs/adr/0010-export-schema-versioning.md).
+
 ## Implementation vocabulary
 
 These names appear in code, ADRs, and architecture discussion.

@@ -94,4 +94,4 @@ The formatter is a pure presentation pass: it MUST NOT add, remove, or transform
 
 ---
 
-← [Section 13 — Versioning policy](./13-versioning-policy.md) | [Index](./README.md)
+← [Section 13 — Versioning policy](./13-versioning-policy.md) | [Section 15 — Export schema](./15-export-schema.md) | [Index](./README.md)

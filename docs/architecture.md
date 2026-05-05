@@ -169,6 +169,18 @@ Per ADR-0006 a single rule can carry multiple sub-cases on the same primary span
 2. Add the implementation under `crates/kula-cli/src/commands/`.
 3. Add an end-to-end test in `crates/kula-cli/tests/` using `assert_cmd`.
 
+### A new exported field
+
+The export module (`crates/kula-core/src/export.rs`) projects every Person, Marriage, and parenthood-link field through a single per-type builder (`exported_person`, `build_graph`, `build_parenthood_links`). When you add a new field on a Person/Marriage/Adoption (per "A new field on a statement" above), the export side picks it up in three steps:
+
+1. Add an optional field to the matching `Exported*` struct in `export.rs` (mark it `#[serde(skip_serializing_if = "Option::is_none")]` if not always present).
+2. Read the field via the existing `*Stmt::<field>()` accessor in the per-type builder and assign it.
+3. Document the new field in [`spec/15-export-schema.md`](../spec/15-export-schema.md) — additively, since per [ADR-0010](./adr/0010-export-schema-versioning.md) new optional fields do NOT bump the `schema` integer.
+
+The export snapshot suite (`crates/kula-core/tests/export.rs`) auto-grows as each example file changes shape, so the new field's representation gets snapshot-locked the moment you `cargo insta accept`.
+
+If the new construct is structurally large enough that consumers might silently drop it (a new top-level collection, an existing field's semantics changing incompatibly), bump `SCHEMA_VERSION` in `export.rs` in the same change and document the bump in [ADR-0010](./adr/0010-export-schema-versioning.md).
+
 ### A new public type or function
 
 If it's part of the kula-core surface, add `//!`/`///` rustdoc explaining the contract. This is the *interface*, not the implementation. Internal helpers can be terse; public surface earns documentation.

@@ -25,6 +25,7 @@ pub mod ast;
 pub mod cycles;
 pub mod date;
 pub mod diagnostic;
+pub mod export;
 pub mod field_meta;
 pub mod format;
 pub mod lexer;
