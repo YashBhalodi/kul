@@ -13,7 +13,7 @@ use kula_core::ast::{
 use kula_core::date::DateLit;
 use kula_core::lexer::{EnumKw, FieldName, Token, TokenKind, tokenize};
 use kula_core::semantic::ResolvedDocument;
-use tower_lsp::lsp_types::{CompletionItem, CompletionItemKind};
+use tower_lsp::lsp_types::{CompletionItem, CompletionItemKind, InsertTextFormat};
 
 /// Build a completion item list for the cursor at `byte_offset`. Empty
 /// vec when the cursor lands somewhere we have nothing to offer.
@@ -32,6 +32,7 @@ pub fn complete(
         Context::AdoptionFieldList { existing } => adoption_fields(&existing),
         Context::AfterGenderColon => gender_values(),
         Context::AfterEndReasonColon => end_reason_values(),
+        Context::AfterStringFieldColon => quoted_value_snippet(),
         Context::MarriageRefPosition => marriage_id_items(resolved),
         Context::SpousePosition { exclude } => person_id_items(resolved, exclude.as_deref()),
     }
@@ -53,6 +54,9 @@ enum Context {
     AfterGenderColon,
     /// Right after `end_reason:`.
     AfterEndReasonColon,
+    /// Right after a quoted-string field's `:` (`name:`, `family:`, `given:`).
+    /// Surfaces a single snippet item that wraps the value in quotes.
+    AfterStringFieldColon,
     /// Inside a `birth` or `adoption` sub-statement at the marriage-ref
     /// position. Suggest declared marriage ids.
     MarriageRefPosition,
@@ -94,7 +98,10 @@ fn classify(
         match field {
             FieldName::Gender => return Context::AfterGenderColon,
             FieldName::EndReason => return Context::AfterEndReasonColon,
-            // Other field types (string, date) — nothing useful to offer.
+            FieldName::Name | FieldName::Family | FieldName::Given => {
+                return Context::AfterStringFieldColon;
+            }
+            // Date fields — nothing useful to offer.
             _ => return Context::None,
         }
     }
@@ -551,8 +558,33 @@ fn person_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
     ];
     all.iter()
         .filter(|(f, _)| !existing.contains(f))
-        .map(|(f, doc)| item(&format!("{}:", f.as_str()), CompletionItemKind::FIELD, doc))
+        .map(|(f, doc)| {
+            let label = format!("{}:", f.as_str());
+            if is_string_field(*f) {
+                field_with_quoted_snippet(&label, doc)
+            } else {
+                item(&label, CompletionItemKind::FIELD, doc)
+            }
+        })
         .collect()
+}
+
+fn is_string_field(f: FieldName) -> bool {
+    matches!(f, FieldName::Name | FieldName::Family | FieldName::Given)
+}
+
+/// Field-name item whose insertion auto-wraps the value in quotes:
+/// accepting `name:` actually inserts `name:"$0"`. Cursor lands inside
+/// the quotes so the user can just type the name.
+fn field_with_quoted_snippet(label: &str, doc: &str) -> CompletionItem {
+    CompletionItem {
+        label: label.to_owned(),
+        kind: Some(CompletionItemKind::FIELD),
+        detail: Some(doc.to_owned()),
+        insert_text: Some(format!("{label}\"$0\"")),
+        insert_text_format: Some(InsertTextFormat::SNIPPET),
+        ..Default::default()
+    }
 }
 
 fn marriage_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
@@ -604,6 +636,20 @@ fn end_reason_values() -> Vec<CompletionItem> {
         CompletionItemKind::ENUM_MEMBER,
         "Marriage ended in divorce",
     )]
+}
+
+/// A single preselected snippet that inserts `""` and lands the cursor
+/// between the quotes — the canonical fix for "I forgot to wrap the value".
+fn quoted_value_snippet() -> Vec<CompletionItem> {
+    vec![CompletionItem {
+        label: "\"…\"".to_owned(),
+        kind: Some(CompletionItemKind::VALUE),
+        detail: Some("Quoted value (cursor between the quotes)".to_owned()),
+        insert_text: Some(r#""$0""#.to_owned()),
+        insert_text_format: Some(InsertTextFormat::SNIPPET),
+        preselect: Some(true),
+        ..Default::default()
+    }]
 }
 
 /// Every declared marriage as a completion item — used after `birth` and
@@ -787,11 +833,82 @@ mod tests {
         assert_eq!(run(src), vec!["divorce".to_owned()]);
     }
 
+    /// Accepting `name:` from the field-name completion should drop in
+    /// `name:"<cursor>"` directly — the user types the name and the closing
+    /// quote is already there. Symmetric for `family:` and `given:`. Date
+    /// and gender items keep their plain `field:` insertion.
     #[test]
-    fn after_name_colon_returns_empty() {
-        // We don't suggest values for free-form fields like name:.
-        let src = "person a name:<CURSOR>";
-        assert!(run(src).is_empty());
+    fn person_field_completion_wraps_string_values_in_quotes() {
+        use tower_lsp::lsp_types::InsertTextFormat;
+        let (source, offset) = cursor_fixture("person a <CURSOR>");
+        let tokens = tokenize(&source);
+        let (document, _) = parse(&tokens);
+        let (resolved, _) = resolve(&document);
+        let items = complete(&source, &resolved, offset);
+
+        for field in ["name:", "family:", "given:"] {
+            let it = items
+                .iter()
+                .find(|c| c.label == field)
+                .unwrap_or_else(|| panic!("missing item `{field}` in {items:#?}"));
+            let expected = format!("{}\"$0\"", field);
+            assert_eq!(
+                it.insert_text.as_deref(),
+                Some(expected.as_str()),
+                "string field `{field}` should insert `{expected}`"
+            );
+            assert_eq!(it.insert_text_format, Some(InsertTextFormat::SNIPPET));
+        }
+
+        for field in ["born:", "died:", "gender:"] {
+            let it = items
+                .iter()
+                .find(|c| c.label == field)
+                .unwrap_or_else(|| panic!("missing item `{field}`"));
+            assert!(
+                it.insert_text.is_none() && it.insert_text_format.is_none(),
+                "non-string field `{field}` should keep plain insertion; got: {it:#?}"
+            );
+        }
+    }
+
+    /// After `name:`, suggest a single preselected snippet item that wraps
+    /// the value in quotes and lands the cursor between them. Same goes for
+    /// `family:` and `given:`. This catches the dominant typo (forgetting
+    /// quotes) the moment the user types `:` — they hit Tab and end up
+    /// inside a quoted value.
+    #[test]
+    fn after_string_field_colon_offers_quoted_value_snippet() {
+        use tower_lsp::lsp_types::InsertTextFormat;
+        for field in ["name", "family", "given"] {
+            let src = format!("person a {field}:<CURSOR>");
+            let (source, offset) = cursor_fixture(&src);
+            let tokens = tokenize(&source);
+            let (document, _) = parse(&tokens);
+            let (resolved, _) = resolve(&document);
+            let items = complete(&source, &resolved, offset);
+            assert_eq!(
+                items.len(),
+                1,
+                "expected one item for `{field}:`; got: {items:#?}"
+            );
+            let item = &items[0];
+            assert_eq!(
+                item.insert_text.as_deref(),
+                Some(r#""$0""#),
+                "insert_text should wrap cursor in quotes for `{field}:`"
+            );
+            assert_eq!(
+                item.insert_text_format,
+                Some(InsertTextFormat::SNIPPET),
+                "insert_text_format must be Snippet for `{field}:` so $0 is honored"
+            );
+            assert_eq!(
+                item.preselect,
+                Some(true),
+                "the item should be preselected so a single Tab accepts it"
+            );
+        }
     }
 
     #[test]
