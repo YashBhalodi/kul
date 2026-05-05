@@ -7,18 +7,21 @@
 //!
 //! This is the only async layer in the crate — every callee is sync.
 
-use tower_lsp::jsonrpc::Result;
+use tower_lsp::jsonrpc::{Error, Result};
 use tower_lsp::lsp_types::{
     CompletionOptions, CompletionParams, CompletionResponse, DidChangeTextDocumentParams,
     DidCloseTextDocumentParams, DidOpenTextDocumentParams, DocumentSymbolParams,
     DocumentSymbolResponse, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
     HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams, Location,
-    MessageType, OneOf, ReferenceParams, ServerCapabilities, ServerInfo,
-    TextDocumentSyncCapability, TextDocumentSyncKind, Url,
+    MessageType, OneOf, PrepareRenameResponse, ReferenceParams, RenameOptions, RenameParams,
+    ServerCapabilities, ServerInfo, TextDocumentPositionParams, TextDocumentSyncCapability,
+    TextDocumentSyncKind, Url, WorkspaceEdit,
 };
 use tower_lsp::{Client, LanguageServer};
 
-use crate::features::{completion, definition, diagnostics, document_symbol, hover, references};
+use crate::features::{
+    completion, definition, diagnostics, document_symbol, hover, references, rename,
+};
 use crate::state::Documents;
 
 /// The Kula language server.
@@ -68,6 +71,10 @@ impl LanguageServer for Backend {
                 }),
                 document_symbol_provider: Some(OneOf::Left(true)),
                 references_provider: Some(OneOf::Left(true)),
+                rename_provider: Some(OneOf::Right(RenameOptions {
+                    prepare_provider: Some(true),
+                    work_done_progress_options: Default::default(),
+                })),
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
@@ -146,6 +153,49 @@ impl LanguageServer for Backend {
             })
             .await;
         Ok(result.flatten().map(GotoDefinitionResponse::Scalar))
+    }
+
+    async fn prepare_rename(
+        &self,
+        params: TextDocumentPositionParams,
+    ) -> Result<Option<PrepareRenameResponse>> {
+        let uri = params.text_document.uri;
+        let position = params.position;
+        let result = self
+            .documents
+            .with(&uri, |doc| {
+                let offset = doc.line_index.byte_offset(position)?;
+                let resolved = doc.check.resolved();
+                rename::prepare_rename(&resolved, &doc.line_index, offset)
+            })
+            .await;
+        Ok(result.flatten())
+    }
+
+    async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
+        let uri = params.text_document_position.text_document.uri;
+        let position = params.text_document_position.position;
+        let new_name = params.new_name;
+        let result = self
+            .documents
+            .with(&uri, |doc| {
+                let offset = doc
+                    .line_index
+                    .byte_offset(position)
+                    .ok_or(rename::RenameError::NotRenameable)?;
+                let resolved = doc.check.resolved();
+                rename::rename(&resolved, &doc.line_index, &uri, offset, &new_name)
+            })
+            .await;
+        match result {
+            None => Ok(None),
+            Some(Ok(we)) => Ok(Some(we)),
+            Some(Err(e)) => Err(Error {
+                code: tower_lsp::jsonrpc::ErrorCode::InvalidRequest,
+                message: e.message().into(),
+                data: None,
+            }),
+        }
     }
 
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
