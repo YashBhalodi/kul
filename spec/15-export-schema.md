@@ -73,6 +73,7 @@ The graph is the kinship-native projection: three flat collections, one per lang
 - `gender` MUST be one of `"male"`, `"female"`, `"other"` (always present — rule R03).
 - `family`, `given`, `born`, `died` MUST be present iff the corresponding field appeared on the source declaration. Absent fields MUST be omitted from the JSON object (not emitted as `null`).
 - `born` and `died` MUST be [date objects](#156-date-object).
+- `span` MUST be present iff the exporter was invoked with positions enabled (see §15.9). When present it MUST be a two-element `[byte_start, byte_end]` array covering the source-level statement.
 
 ### 15.4 Marriage object
 
@@ -91,6 +92,7 @@ The graph is the kinship-native projection: three flat collections, one per lang
 - `start` MUST be a [date object](#156-date-object) (always present — rule R03).
 - `end` MUST be present iff the source declared an `end:` field. Per rule R05, `end` and `end_reason` are paired.
 - `end_reason` MUST be the value as written in source (currently the only valid value is `"divorce"`).
+- `span` MUST be present iff the exporter was invoked with positions enabled (see §15.9). When present it MUST be a two-element `[byte_start, byte_end]` array covering the source-level statement.
 
 ### 15.5 Parenthood-link object
 
@@ -111,6 +113,7 @@ Each `birth` or `adoption` sub-statement projects to one parenthood-link entry.
 - `kind` MUST be `"biological"` for `birth` links or `"adoptive"` for `adoption` links. Future kinds (e.g. surrogacy) land additively without bumping the schema (see §15.7).
 - `start` MUST be present iff the source `adoption` carried a `start:` field. Always absent on biological links.
 - `end` MUST be present iff the source `adoption` carried an `end:` field. Always absent on biological links.
+- `span` MUST be present iff the exporter was invoked with positions enabled (see §15.9). When present it MUST be a two-element `[byte_start, byte_end]` array covering the source-level `birth` or `adoption` sub-statement.
 
 ### 15.6 Date object
 
@@ -157,7 +160,15 @@ A consumer that requires an exact-known shape MAY check the `schema` field and r
 
 A new `schema` number MUST be allocated only when consumers might silently mis-represent data by ignoring a new construct (e.g. a brand-new top-level collection appears, or an existing field's semantics change incompatibly). Adding optional fields, enum values, or new `parenthood_links.kind` values MUST NOT bump the schema.
 
-### 15.9 Worked example
+### 15.9 Source positions (opt-in)
+
+When the exporter is invoked with positions enabled (the reference CLI flag is `--with-positions`), every Person, Marriage, and parenthood-link object in the graph MUST carry a `span` field. The field MUST be a two-element array `[byte_start, byte_end]` of half-open byte offsets into the source string, identifying the source range the entity was projected from. The range MUST cover the full statement (or sub-statement) including any indented continuations the parser attached to it.
+
+When positions are disabled (the default), the `span` field MUST be omitted from every object — not emitted as `null`. The default keeps the envelope compact for consumers (CLI pipelines, generators) that do not need source positions.
+
+Source positions MUST NOT appear on date objects, on the envelope itself, or on diagnostic objects (the diagnostic shape already carries its own `byte_start` / `byte_end` per §15.7).
+
+### 15.10 Worked example
 
 For the source in [`examples/03-three-generations.kula`](../examples/03-three-generations.kula), a conforming exporter produces (line breaks added for readability):
 

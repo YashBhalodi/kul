@@ -68,6 +68,12 @@ pub enum ExportFormat {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ExportOptions {
     pub format: ExportFormat,
+    /// When `true`, every exported entity carries a `span: [byte_start,
+    /// byte_end]` field pointing back to its declaration in the source.
+    /// Default `false` keeps the envelope compact; opt in when the
+    /// consumer needs to map a click on a graph node back to a source
+    /// location ("highlight Alice's declaration").
+    pub with_positions: bool,
 }
 
 /// The export envelope returned by [`export`]. Either a success payload
@@ -134,6 +140,10 @@ pub struct ExportedPerson {
     pub born: Option<ExportedDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub died: Option<ExportedDate>,
+    /// `[byte_start, byte_end]` covering the source-level statement.
+    /// Present only when `ExportOptions::with_positions` was `true`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub span: Option<[usize; 2]>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -148,6 +158,10 @@ pub struct ExportedMarriage {
     pub end: Option<ExportedDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_reason: Option<String>,
+    /// `[byte_start, byte_end]` covering the source-level statement.
+    /// Present only when `ExportOptions::with_positions` was `true`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub span: Option<[usize; 2]>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -163,6 +177,11 @@ pub struct ExportedParenthoodLink {
     /// `end:` of an adoption. Always absent for biological links.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end: Option<ExportedDate>,
+    /// `[byte_start, byte_end]` covering the source-level `birth` or
+    /// `adoption` sub-statement. Present only when
+    /// `ExportOptions::with_positions` was `true`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub span: Option<[usize; 2]>,
 }
 
 /// A date as projected into the envelope. Splits the source `~YYYY[-MM[-DD]]`
@@ -223,7 +242,7 @@ pub fn export(source: &str, check: &CheckResult, options: ExportOptions) -> Expo
         });
     }
     let resolved = check.resolved();
-    let graph = build_graph(resolved);
+    let graph = build_graph(resolved, &options);
     let kula = resolved
         .document()
         .version
@@ -238,8 +257,11 @@ pub fn export(source: &str, check: &CheckResult, options: ExportOptions) -> Expo
     })
 }
 
-fn build_graph(resolved: &ResolvedDocument) -> ExportedGraph {
-    let persons = resolved.persons().map(exported_person).collect();
+fn build_graph(resolved: &ResolvedDocument, options: &ExportOptions) -> ExportedGraph {
+    let persons = resolved
+        .persons()
+        .map(|p| exported_person(p, options))
+        .collect();
     let marriages = resolved
         .marriages()
         .map(|m| ExportedMarriage {
@@ -248,9 +270,10 @@ fn build_graph(resolved: &ResolvedDocument) -> ExportedGraph {
             start: exported_date(m.start().expect("R03 ensures marriage.start is present")),
             end: m.end().map(exported_date),
             end_reason: m.end_reason().map(|er| end_reason_str(&er.value)),
+            span: span_if(options, m.span),
         })
         .collect();
-    let parenthood_links = build_parenthood_links(resolved);
+    let parenthood_links = build_parenthood_links(resolved, options);
     ExportedGraph {
         persons,
         marriages,
@@ -258,7 +281,10 @@ fn build_graph(resolved: &ResolvedDocument) -> ExportedGraph {
     }
 }
 
-fn build_parenthood_links(resolved: &ResolvedDocument) -> Vec<ExportedParenthoodLink> {
+fn build_parenthood_links(
+    resolved: &ResolvedDocument,
+    options: &ExportOptions,
+) -> Vec<ExportedParenthoodLink> {
     let mut out = Vec::new();
     for p in resolved.persons() {
         if let Some(birth) = &p.birth {
@@ -268,6 +294,7 @@ fn build_parenthood_links(resolved: &ResolvedDocument) -> Vec<ExportedParenthood
                 kind: "biological",
                 start: None,
                 end: None,
+                span: span_if(options, birth.span),
             });
         }
         for adoption in &p.adoptions {
@@ -277,13 +304,14 @@ fn build_parenthood_links(resolved: &ResolvedDocument) -> Vec<ExportedParenthood
                 kind: "adoptive",
                 start: adoption.start().map(exported_date),
                 end: adoption.end().map(exported_date),
+                span: span_if(options, adoption.span),
             });
         }
     }
     out
 }
 
-fn exported_person(p: &PersonStmt) -> ExportedPerson {
+fn exported_person(p: &PersonStmt, options: &ExportOptions) -> ExportedPerson {
     ExportedPerson {
         id: p.id.name.clone(),
         name: p
@@ -300,7 +328,12 @@ fn exported_person(p: &PersonStmt) -> ExportedPerson {
         ),
         born: p.born().map(exported_date),
         died: p.died().map(exported_date),
+        span: span_if(options, p.span),
     }
+}
+
+fn span_if(options: &ExportOptions, span: ByteSpan) -> Option<[usize; 2]> {
+    options.with_positions.then_some([span.start, span.end])
 }
 
 fn exported_date(d: &DateLit) -> ExportedDate {

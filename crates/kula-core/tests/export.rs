@@ -30,30 +30,102 @@ fn read(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()))
 }
 
-fn export_default(source: &str) -> String {
+fn export_with(source: &str, options: ExportOptions) -> String {
     let check = kula_core::check(source);
-    let envelope = export(source, &check, ExportOptions::default());
+    let envelope = export(source, &check, options);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 
-/// Generate one snapshot test per example file. The snapshot name embeds
-/// the file stem so a missing or extra example surfaces as a clearly-named
+fn export_default(source: &str) -> String {
+    export_with(source, ExportOptions::default())
+}
+
+fn export_with_positions(source: &str) -> String {
+    export_with(
+        source,
+        ExportOptions {
+            with_positions: true,
+            ..ExportOptions::default()
+        },
+    )
+}
+
+/// Generate two snapshot tests per example file — one with positions off
+/// (the default) and one with positions on. The snapshot name embeds the
+/// file stem so a missing or extra example surfaces as a clearly-named
 /// snapshot.
 macro_rules! example_snapshot {
-    ($name:ident, $stem:literal) => {
+    ($default_name:ident, $positions_name:ident, $stem:literal) => {
         #[test]
-        fn $name() {
+        fn $default_name() {
             let path = examples_dir().join(concat!($stem, ".kula"));
             let json = export_default(&read(&path));
+            insta::assert_snapshot!(json);
+        }
+
+        #[test]
+        fn $positions_name() {
+            let path = examples_dir().join(concat!($stem, ".kula"));
+            let json = export_with_positions(&read(&path));
             insta::assert_snapshot!(json);
         }
     };
 }
 
-example_snapshot!(example_01_single_couple, "01-single-couple");
-example_snapshot!(example_02_nuclear_family, "02-nuclear-family");
-example_snapshot!(example_03_three_generations, "03-three-generations");
-example_snapshot!(example_04_polygamous_family, "04-polygamous-family");
+example_snapshot!(
+    example_01_single_couple,
+    example_01_single_couple_with_positions,
+    "01-single-couple"
+);
+example_snapshot!(
+    example_02_nuclear_family,
+    example_02_nuclear_family_with_positions,
+    "02-nuclear-family"
+);
+example_snapshot!(
+    example_03_three_generations,
+    example_03_three_generations_with_positions,
+    "03-three-generations"
+);
+example_snapshot!(
+    example_04_polygamous_family,
+    example_04_polygamous_family_with_positions,
+    "04-polygamous-family"
+);
+
+#[test]
+fn positions_off_by_default_omits_span_field() {
+    let json = export_default("person alice name:\"A\" gender:female\n");
+    assert!(
+        !json.contains("\"span\""),
+        "default mode must not emit `span`; got:\n{json}"
+    );
+}
+
+#[test]
+fn positions_on_emits_span_on_every_entity() {
+    let src = "\
+person alice name:\"A\" gender:female
+person bob name:\"B\" gender:male
+person kid name:\"K\" gender:other
+  birth m
+  adoption m start:2000
+marriage m alice bob start:1972
+";
+    let json = export_with_positions(src);
+    let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let envelope_ok = value["ok"].as_bool().unwrap();
+    assert!(envelope_ok, "expected success envelope; got:\n{json}");
+    for collection in ["persons", "marriages", "parenthood_links"] {
+        for entity in value["graph"][collection].as_array().unwrap() {
+            let span = entity["span"]
+                .as_array()
+                .unwrap_or_else(|| panic!("missing span on {collection}: {entity}"));
+            assert_eq!(span.len(), 2, "span must be a [start, end] pair");
+            assert!(span[0].as_u64().unwrap() < span[1].as_u64().unwrap());
+        }
+    }
+}
 
 /// Catch-all: if a new `examples/*.kula` lands without a matching test
 /// above, this fires so the contributor adds the snapshot.

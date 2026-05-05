@@ -251,6 +251,13 @@ enum Command {
         /// follow-up issues.
         #[arg(long, value_enum, default_value_t = commands::export::CliExportFormat::Json)]
         format: commands::export::CliExportFormat,
+
+        /// Include `span: [byte_start, byte_end]` on every exported
+        /// entity. Useful for editor-side tooling that wants to map a
+        /// click on a graph node back to its source declaration.
+        /// Default off — keeps the envelope compact.
+        #[arg(long)]
+        with_positions: bool,
     },
 
     /// Run the language server over stdio.
@@ -281,9 +288,15 @@ fn main() -> ExitCode {
         Command::Format { files, check } => {
             commands::format::run(commands::format::Options { files, check })
         }
-        Command::Export { files, format } => {
-            commands::export::run(commands::export::Options { files, format })
-        }
+        Command::Export {
+            files,
+            format,
+            with_positions,
+        } => commands::export::run(commands::export::Options {
+            files,
+            format,
+            with_positions,
+        }),
         Command::Lsp => run_lsp(),
     }
 }

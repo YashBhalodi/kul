@@ -28,6 +28,7 @@ impl From<CliExportFormat> for ExportFormat {
 pub struct Options {
     pub files: Vec<PathBuf>,
     pub format: CliExportFormat,
+    pub with_positions: bool,
 }
 
 pub fn run(opts: Options) -> ExitCode {
@@ -60,6 +61,7 @@ fn export_one(path: &Path, opts: &Options) -> io::Result<bool> {
         &check,
         ExportOptions {
             format: opts.format.into(),
+            with_positions: opts.with_positions,
         },
     );
     let json = serde_json::to_string(&envelope).expect("serialize export envelope");

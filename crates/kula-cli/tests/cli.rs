@@ -350,6 +350,46 @@ fn export_multiple_files_exits_one_if_any_fail() {
 }
 
 #[test]
+fn export_with_positions_attaches_span_to_every_entity() {
+    let path = examples_dir().join("02-nuclear-family.kula");
+    let output = Command::cargo_bin("kula")
+        .unwrap()
+        .args(["export", "--with-positions"])
+        .arg(&path)
+        .output()
+        .expect("run kula export --with-positions");
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
+    for collection in ["persons", "marriages", "parenthood_links"] {
+        for entity in env["graph"][collection].as_array().unwrap() {
+            let span = entity["span"]
+                .as_array()
+                .unwrap_or_else(|| panic!("missing span on {collection}: {entity}"));
+            assert_eq!(span.len(), 2);
+            assert!(span[0].as_u64().unwrap() < span[1].as_u64().unwrap());
+        }
+    }
+}
+
+#[test]
+fn export_default_omits_span_field() {
+    let path = examples_dir().join("02-nuclear-family.kula");
+    let output = Command::cargo_bin("kula")
+        .unwrap()
+        .args(["export"])
+        .arg(&path)
+        .output()
+        .expect("run kula export");
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        !stdout.contains("\"span\""),
+        "default mode must not emit `span`; got:\n{stdout}"
+    );
+}
+
+#[test]
 fn export_format_json_is_default_and_explicit_flag_works() {
     let path = examples_dir().join("01-single-couple.kula");
     let with_flag = Command::cargo_bin("kula")
