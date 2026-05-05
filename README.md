@@ -6,16 +6,17 @@ KulaLang is a domain-specific language project for describing human kinship — 
 
 ## Status
 
-**v0.1: Language design complete; reference parser, validator, and CLI shipped.**
+**v0.1: Language design, reference parser, validator CLI, language server, and LSP-backed VSCode extension all shipped. First public release pending tag push** — see [`docs/release.md`](./docs/release.md).
 
-| Deliverable                          | State                                                  |
-| ------------------------------------ | ------------------------------------------------------ |
-| Vision and scope                     | Drafted — see [`docs/vision.md`](./docs/vision.md)     |
-| Language specification               | Drafted — see [`spec/`](./spec/README.md)              |
-| Reference parser (`kula-core`)       | Shipped — see [`crates/kula-core`](./crates/kula-core) |
-| Validator CLI (`kula validate`)      | Shipped — see [`crates/kula-cli`](./crates/kula-cli)   |
-| VSCode extension (Phase 1)           | Shipped — see [`editor/vscode`](./editor/vscode)       |
-| Language server                      | Phase 3 — not started                                  |
+| Deliverable                          | State                                                          |
+| ------------------------------------ | -------------------------------------------------------------- |
+| Vision and scope                     | Drafted — see [`docs/vision.md`](./docs/vision.md)             |
+| Language specification               | Drafted — see [`spec/`](./spec/README.md)                      |
+| Reference parser (`kula-core`)       | Shipped — see [`crates/kula-core`](./crates/kula-core)         |
+| Validator CLI (`kula validate`)      | Shipped — see [`crates/kula-cli`](./crates/kula-cli)           |
+| Language server (`kula-lsp`)         | Shipped — see [`crates/kula-lsp`](./crates/kula-lsp)           |
+| VSCode extension                     | Shipped (LSP-backed) — see [`editor/vscode`](./editor/vscode)  |
+| First public release (`v0.1.0`)      | Pending — see [`docs/release.md`](./docs/release.md)           |
 
 ## Install
 
@@ -62,9 +63,10 @@ The full feature surface — polygamy, remarriage, retroactive adoption, partial
 ├── justfile                 # `just check` runs fmt + clippy + tests
 ├── crates/
 │   ├── kula-core/           # parser, AST, semantic, validator, diagnostics
-│   └── kula-cli/            # `kula` binary
-├── docs/                    # vision, roadmap PRDs, agent docs
-├── editor/vscode/           # VSCode extension (Phase 1)
+│   ├── kula-cli/            # `kula` binary
+│   └── kula-lsp/            # `kula-lsp` language server binary
+├── docs/                    # vision, roadmap PRDs, ADRs, release process
+├── editor/vscode/           # VSCode extension (LSP-backed)
 ├── spec/                    # normative Kula 0.1 specification
 │   └── grammar.ebnf         # standalone normative EBNF
 └── examples/                # worked example .kula documents
@@ -85,9 +87,13 @@ The v1 deliverables defined by [`docs/vision.md`](./docs/vision.md) are:
 2. **Reference parser** — implementation language and approach TBD.
 3. **Validator surface** — CLI at minimum (`kula validate <file>`); editor integration as a stretch goal.
 
+## Releases
+
+KulaLang ships the CLI, language server, and VSCode extension in lockstep — one tag, one pipeline, one set of artifacts. Maintainers: see [`docs/release.md`](./docs/release.md) for the full procedure. Users: pre-built binaries are attached to each [GitHub Release](https://github.com/YashBhalodi/kulalang/releases) and the VSCode extension is published to the marketplace.
+
 ## License
 
-The language specification and (forthcoming) reference parser and tooling are released under the [MIT License](./LICENSE).
+The language specification and reference parser, language server, and tooling are released under the [MIT License](./LICENSE).
 
 ## Openness and contributions
 

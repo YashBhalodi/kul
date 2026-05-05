@@ -28,9 +28,6 @@
     "family-tree"
   ],
   "main": "./out/extension.js",
-  "activationEvents": [
-    "onLanguage:kula"
-  ],
   "scripts": {
     "typecheck": "tsc -p . --noEmit",
     "bundle": "esbuild src/extension.ts --bundle --platform=node --target=node18 --external:vscode --outfile=out/extension.js --minify",
