@@ -101,7 +101,8 @@
     "configurationDefaults": {
       "[kula]": {
         "editor.defaultFormatter": "YashBhalodi.kulalang",
-        "editor.formatOnSave": true
+        "editor.formatOnSave": true,
+        "editor.semanticHighlighting.enabled": true
       }
     }
   },
