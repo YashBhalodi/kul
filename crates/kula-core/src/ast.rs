@@ -5,6 +5,7 @@
 //! as raw [`Ident`]s here; resolution happens in [`crate::semantic`].
 
 use crate::date::DateLit;
+use crate::lexer::FieldName;
 use crate::span::ByteSpan;
 
 /// A `.kula` document: an optional version declaration plus a sequence of
@@ -56,6 +57,12 @@ pub struct PersonStmt {
     /// At most one biological-birth sub-statement per spec section 5.1.
     pub birth: Option<BirthSub>,
     pub adoptions: Vec<AdoptionSub>,
+    /// Field-name keywords whose value the parser couldn't parse (e.g.
+    /// unquoted `name:Alice`). The malformed value is reported as a parse
+    /// diagnostic; recording the name here lets the validator skip the
+    /// "missing required field" check that would otherwise pile a second,
+    /// misleading error on top of the first.
+    pub malformed_fields: Vec<FieldName>,
 }
 
 impl PersonStmt {
@@ -104,6 +111,27 @@ impl PersonStmt {
         self.fields.iter().find_map(|f| match &f.kind {
             PersonFieldKind::Gender(v) => Some(v),
             _ => None,
+        })
+    }
+
+    /// True if `name` was either parsed cleanly or attempted-but-malformed.
+    /// Used by R03 to avoid emitting "missing required field" when the
+    /// writer clearly typed the field but got the value wrong (e.g.
+    /// forgot quotes around a `name:` value).
+    pub fn has_field(&self, name: FieldName) -> bool {
+        if self.malformed_fields.contains(&name) {
+            return true;
+        }
+        self.fields.iter().any(|f| {
+            matches!(
+                (&f.kind, name),
+                (PersonFieldKind::Name(_), FieldName::Name)
+                    | (PersonFieldKind::Family(_), FieldName::Family)
+                    | (PersonFieldKind::Given(_), FieldName::Given)
+                    | (PersonFieldKind::Born(_), FieldName::Born)
+                    | (PersonFieldKind::Died(_), FieldName::Died)
+                    | (PersonFieldKind::Gender(_), FieldName::Gender)
+            )
         })
     }
 }

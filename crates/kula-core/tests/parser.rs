@@ -96,3 +96,27 @@ fn parse_person_with_two_birth_diagnoses() {
         "person carol name:\"Carol\" gender:female\n  birth m_one\n  birth m_two\n"
     ));
 }
+
+/// Unquoted string-field value: the P07 message should drop the "string
+/// literal" jargon and tell the writer how to fix it (wrap in quotes, with an
+/// example).
+#[test]
+fn unquoted_string_value_message_hints_at_quotes() {
+    let tokens = tokenize("person alice name:Alice gender:female\n");
+    let (_, diags) = parse(&tokens);
+    let p07: Vec<_> = diags.iter().filter(|d| d.code == "KULA-P07").collect();
+    assert_eq!(p07.len(), 1, "expected one KULA-P07, got: {diags:#?}");
+    let msg = &p07[0].message;
+    assert!(
+        msg.contains("quoted string"),
+        "message should say `quoted string`, not `string literal`; got: {msg}"
+    );
+    assert!(
+        msg.contains(r#"name:"…""#) || msg.contains(r#"name:"Alice""#),
+        "message should include an example like `name:\"…\"`; got: {msg}"
+    );
+    assert!(
+        !msg.contains("string literal"),
+        "message must not say `string literal` (jargon); got: {msg}"
+    );
+}

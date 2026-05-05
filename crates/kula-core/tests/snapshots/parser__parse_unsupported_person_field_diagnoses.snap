@@ -86,6 +86,7 @@ ast: Document {
                 ],
                 birth: None,
                 adoptions: [],
+                malformed_fields: [],
             },
         ),
     ],

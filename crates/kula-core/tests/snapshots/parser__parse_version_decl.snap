@@ -1,6 +1,5 @@
 ---
 source: crates/kula-core/tests/parser.rs
-assertion_line: 22
 expression: "render(\"kula 0.1\\n\\nperson alice name:\\\"Alice\\\" gender:female\\n\")"
 ---
 ast: Document {
@@ -81,6 +80,7 @@ ast: Document {
                 ],
                 birth: None,
                 adoptions: [],
+                malformed_fields: [],
             },
         ),
     ],

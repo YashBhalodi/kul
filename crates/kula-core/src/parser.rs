@@ -18,6 +18,22 @@ pub fn parse(tokens: &[Token]) -> (Document, Vec<Diagnostic>) {
     Parser::new(tokens).run()
 }
 
+/// Outcome of parsing a single `<name>:<value>` field on a person statement.
+/// Distinguishes "we parsed a clean field", "we got a value-parse error but
+/// recovered at the next field boundary", and "we hit something we can't
+/// recover from on this statement".
+enum PersonFieldOutcome {
+    Field(PersonField),
+    /// Field-name keyword was matched, value parse failed, recovery landed
+    /// at the next field boundary. The field name is recorded so the
+    /// validator's required-field check (R03) can suppress its "missing"
+    /// diagnostic.
+    Malformed(FieldName),
+    /// Unrecoverable on this statement (e.g. missing colon). The caller
+    /// should stop parsing fields for this statement.
+    Fatal,
+}
+
 struct Parser<'a> {
     tokens: &'a [Token],
     pos: usize,
@@ -154,18 +170,26 @@ impl<'a> Parser<'a> {
         };
 
         let mut fields = Vec::new();
+        let mut malformed_fields: Vec<FieldName> = Vec::new();
         loop {
             match self.peek_kind() {
                 TokenKind::Newline | TokenKind::Eof => break,
-                TokenKind::FieldKw(_) => {
-                    if let Some(field) = self.parse_person_field() {
+                TokenKind::FieldKw(_) => match self.parse_person_field() {
+                    PersonFieldOutcome::Field(field) => {
                         span = span.merge(field.span);
                         fields.push(field);
-                    } else {
+                    }
+                    PersonFieldOutcome::Malformed(name) => {
+                        // Value-parse diagnostic was already pushed; recovery
+                        // landed at the next field boundary (or newline) so we
+                        // can keep parsing more fields on this line.
+                        malformed_fields.push(name);
+                    }
+                    PersonFieldOutcome::Fatal => {
                         // recover_to_newline already invoked inside parse_person_field
                         break;
                     }
-                }
+                },
                 _ => {
                     let tok = self.peek().clone();
                     self.diagnostics.push(Diagnostic::error(
@@ -195,6 +219,7 @@ impl<'a> Parser<'a> {
             fields,
             birth,
             adoptions,
+            malformed_fields,
         })
     }
 
@@ -557,7 +582,7 @@ impl<'a> Parser<'a> {
         )
     }
 
-    fn parse_person_field(&mut self) -> Option<PersonField> {
+    fn parse_person_field(&mut self) -> PersonFieldOutcome {
         let name_tok = self.advance().clone();
         let TokenKind::FieldKw(field_name) = name_tok.kind else {
             unreachable!("parse_person_field called with non-field token");
@@ -578,18 +603,36 @@ impl<'a> Parser<'a> {
                 colon_tok.span,
             ));
             self.recover_to_newline();
-            return None;
+            return PersonFieldOutcome::Fatal;
         }
         self.advance();
         span = span.merge(colon_tok.span);
 
         let kind = match field_name {
-            FieldName::Name => PersonFieldKind::Name(self.parse_string_value(field_name)?),
-            FieldName::Family => PersonFieldKind::Family(self.parse_string_value(field_name)?),
-            FieldName::Given => PersonFieldKind::Given(self.parse_string_value(field_name)?),
-            FieldName::Born => PersonFieldKind::Born(self.parse_date_value(field_name)?),
-            FieldName::Died => PersonFieldKind::Died(self.parse_date_value(field_name)?),
-            FieldName::Gender => self.parse_gender_value()?,
+            FieldName::Name => match self.parse_string_value(field_name) {
+                Some(s) => PersonFieldKind::Name(s),
+                None => return PersonFieldOutcome::Malformed(field_name),
+            },
+            FieldName::Family => match self.parse_string_value(field_name) {
+                Some(s) => PersonFieldKind::Family(s),
+                None => return PersonFieldOutcome::Malformed(field_name),
+            },
+            FieldName::Given => match self.parse_string_value(field_name) {
+                Some(s) => PersonFieldKind::Given(s),
+                None => return PersonFieldOutcome::Malformed(field_name),
+            },
+            FieldName::Born => match self.parse_date_value(field_name) {
+                Some(d) => PersonFieldKind::Born(d),
+                None => return PersonFieldOutcome::Fatal,
+            },
+            FieldName::Died => match self.parse_date_value(field_name) {
+                Some(d) => PersonFieldKind::Died(d),
+                None => return PersonFieldOutcome::Fatal,
+            },
+            FieldName::Gender => match self.parse_gender_value() {
+                Some(k) => k,
+                None => return PersonFieldOutcome::Fatal,
+            },
             FieldName::Start | FieldName::End | FieldName::EndReason => {
                 self.diagnostics.push(Diagnostic::error(
                     "KULA-P10",
@@ -600,7 +643,7 @@ impl<'a> Parser<'a> {
                     name_span,
                 ));
                 self.recover_to_newline();
-                return None;
+                return PersonFieldOutcome::Fatal;
             }
         };
 
@@ -613,7 +656,7 @@ impl<'a> Parser<'a> {
         };
         span = span.merge(value_span);
 
-        Some(PersonField {
+        PersonFieldOutcome::Field(PersonField {
             span,
             name_span,
             kind,
@@ -621,17 +664,27 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_string_value(&mut self, field: FieldName) -> Option<StringValue> {
-        self.expect_value(
+        let tok = self.peek().clone();
+        if let TokenKind::String(value) = &tok.kind {
+            self.advance();
+            return Some(StringValue {
+                value: value.clone(),
+                span: tok.span,
+            });
+        }
+        self.diagnostics.push(Diagnostic::error(
             "KULA-P07",
-            || format!("expected a string literal for `{}:`", field.as_str()),
-            |tok| match &tok.kind {
-                TokenKind::String(value) => Some(StringValue {
-                    value: value.clone(),
-                    span: tok.span,
-                }),
-                _ => None,
-            },
-        )
+            format!(
+                "expected a quoted string for `{name}:` (e.g. `{name}:\"…\"`), found {found}",
+                name = field.as_str(),
+                found = describe_token(&tok.kind)
+            ),
+            tok.span,
+        ));
+        // Skip the malformed value but stop at the next field keyword so a
+        // following `gender:female` etc. on the same line still parses.
+        self.recover_to_field_boundary();
+        None
     }
 
     fn parse_gender_value(&mut self) -> Option<PersonFieldKind> {
@@ -720,6 +773,19 @@ impl<'a> Parser<'a> {
             self.advance();
         }
         if matches!(self.peek_kind(), TokenKind::Newline) {
+            self.advance();
+        }
+    }
+
+    /// Skip tokens up to (but NOT past) the next field-name keyword,
+    /// newline, or EOF. Used after a value-parse failure where the rest of
+    /// the line is plausibly intact — e.g. `name:Alice Sharma gender:female`
+    /// should still let `gender:female` parse.
+    fn recover_to_field_boundary(&mut self) {
+        while !matches!(
+            self.peek_kind(),
+            TokenKind::FieldKw(_) | TokenKind::Newline | TokenKind::Eof
+        ) {
             self.advance();
         }
     }

@@ -314,6 +314,39 @@ fn rule_13_mixed_bio_adoption() {
     insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
 }
 
+/// When a string-field value fails to parse, the parser should still mark
+/// the field as attempted so the validator's required-field check (R03)
+/// doesn't add a misleading "missing field" diagnostic on top of the parse
+/// error. And recovery shouldn't swallow the rest of the line — the
+/// `gender:` field after the malformed `name:` should still parse, so its
+/// R03 doesn't fire either.
+#[test]
+fn malformed_string_value_suppresses_cascading_missing_field_r03() {
+    let result = check("person alice name:Alice gender:female\n");
+    let codes: Vec<&str> = result.diagnostics.iter().map(|d| d.code).collect();
+    assert_eq!(
+        codes,
+        vec!["KULA-P07"],
+        "expected only KULA-P07; got: {:#?}",
+        result.diagnostics
+    );
+}
+
+/// Real repro from the LSP report: the malformed value spans multiple
+/// tokens (`Alice Sharma`). Recovery still has to skip past `Sharma` and
+/// land on `gender:female` so it parses cleanly with no cascading R03.
+#[test]
+fn malformed_multi_token_string_value_recovers_at_next_field() {
+    let result = check("person alice name:Alice Sharma gender:female\n");
+    let codes: Vec<&str> = result.diagnostics.iter().map(|d| d.code).collect();
+    assert_eq!(
+        codes,
+        vec!["KULA-P07"],
+        "expected only KULA-P07; got: {:#?}",
+        result.diagnostics
+    );
+}
+
 #[test]
 fn rules_9_through_12_clean_on_full_example() {
     let src = std::fs::read_to_string(format!(

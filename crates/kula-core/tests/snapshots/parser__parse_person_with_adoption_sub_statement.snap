@@ -110,6 +110,7 @@ ast: Document {
                         ],
                     },
                 ],
+                malformed_fields: [],
             },
         ),
     ],

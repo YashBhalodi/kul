@@ -82,6 +82,7 @@ ast: Document {
                     },
                 ),
                 adoptions: [],
+                malformed_fields: [],
             },
         ),
     ],

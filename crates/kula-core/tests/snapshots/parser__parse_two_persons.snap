@@ -64,6 +64,7 @@ ast: Document {
                 ],
                 birth: None,
                 adoptions: [],
+                malformed_fields: [],
             },
         ),
         Person(
@@ -125,6 +126,7 @@ ast: Document {
                 ],
                 birth: None,
                 adoptions: [],
+                malformed_fields: [],
             },
         ),
     ],

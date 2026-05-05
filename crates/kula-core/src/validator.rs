@@ -9,6 +9,7 @@
 use crate::ast::{EndReason, MarriageStmt};
 use crate::date::before_strict;
 use crate::diagnostic::Diagnostic;
+use crate::lexer::FieldName;
 use crate::semantic::ResolvedDocument;
 
 pub fn validate(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
@@ -35,7 +36,7 @@ pub fn validate(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
 pub fn rule_03_required_fields(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for p in resolved.persons() {
-        if p.name().is_none() {
+        if !p.has_field(FieldName::Name) {
             out.push(Diagnostic::error(
                 "KULA-R03",
                 format!(
@@ -45,7 +46,7 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
                 p.id.span,
             ));
         }
-        if p.gender().is_none() {
+        if !p.has_field(FieldName::Gender) {
             out.push(Diagnostic::error(
                 "KULA-R03",
                 format!(
