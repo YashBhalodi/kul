@@ -1,5 +1,6 @@
 ---
 source: crates/kula-core/tests/validator.rs
+assertion_line: 279
 expression: render_diagnostics(&result.diagnostics)
 ---
-KULA-R05 [131..141]: marriage `m_alice_bob` has `end` without `end_reason`; add `end_reason:divorce`
+KULA-R05 [131..141]: marriage `m_alice_bob` has an `end:` date but no `end_reason:` — add `end_reason:divorce`

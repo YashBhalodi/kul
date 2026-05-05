@@ -1,6 +1,6 @@
 ---
 source: crates/kula-lsp/src/features/diagnostics.rs
-assertion_line: 147
+assertion_line: 146
 expression: lsp
 ---
 [
@@ -18,7 +18,7 @@ expression: lsp
     "severity": 1,
     "code": "KULA-R01",
     "source": "kula",
-    "message": "duplicate id `dup_a`: this person re-declares an id already used by a person",
+    "message": "id `dup_a` is already used by another person — pick a different id (every id must be unique across all persons and marriages)",
     "relatedInformation": [
       {
         "location": {
@@ -34,7 +34,7 @@ expression: lsp
             }
           }
         },
-        "message": "prior declaration"
+        "message": "first declared here as a person"
       }
     ]
   },
@@ -52,7 +52,7 @@ expression: lsp
     "severity": 1,
     "code": "KULA-R03",
     "source": "kula",
-    "message": "person `noname` is missing required field `name`"
+    "message": "person `noname` needs a `name:` field — add `name:\"…\"` to the declaration"
   },
   {
     "range": {
@@ -68,7 +68,7 @@ expression: lsp
     "severity": 1,
     "code": "KULA-R03",
     "source": "kula",
-    "message": "person `noname` is missing required field `gender`"
+    "message": "person `noname` needs a `gender:` field — use `gender:male`, `gender:female`, or `gender:other`"
   },
   {
     "range": {
@@ -84,7 +84,7 @@ expression: lsp
     "severity": 1,
     "code": "KULA-R04",
     "source": "kula",
-    "message": "marriage `bad_self` has the same person `bad_dates` as both spouses; spouses must be distinct",
+    "message": "marriage `bad_self` lists `bad_dates` as both spouses — spouses must be distinct people",
     "relatedInformation": [
       {
         "location": {
@@ -100,7 +100,7 @@ expression: lsp
             }
           }
         },
-        "message": "first spouse"
+        "message": "first spouse listed here"
       }
     ]
   },

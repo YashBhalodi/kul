@@ -1,5 +1,6 @@
 ---
 source: crates/kula-core/tests/validator.rs
+assertion_line: 127
 expression: render_diagnostics(&result.diagnostics)
 ---
-KULA-R03 [71..72]: marriage `m` is missing required field `start`
+KULA-R03 [71..72]: marriage `m` needs a `start:` date — add `start:YYYY` (or a fuller `YYYY-MM-DD`)

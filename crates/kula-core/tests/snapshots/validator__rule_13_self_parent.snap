@@ -1,6 +1,7 @@
 ---
 source: crates/kula-core/tests/validator.rs
+assertion_line: 300
 expression: render_diagnostics(&result.diagnostics)
 ---
-KULA-R13 [162..167]: parenthood cycle detected — `alice` is their own ancestor
-  related [203..214]: parent link in this cycle
+KULA-R13 [162..167]: `alice` ends up as their own ancestor — check the `birth` and `adoption` links
+  related [203..214]: parent link in the cycle

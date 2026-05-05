@@ -352,7 +352,7 @@ impl<'a> Parser<'a> {
                 self.diagnostics.push(Diagnostic::error(
                     "KULA-P14",
                     format!(
-                        "field `{}` is not valid on `adoption`; only `start` and `end` are allowed",
+                        "field `{}` isn't valid on `adoption` — valid fields are `start:` and `end:`",
                         field_name.as_str()
                     ),
                     name_span,
@@ -487,7 +487,10 @@ impl<'a> Parser<'a> {
             | FieldName::Gender => {
                 self.diagnostics.push(Diagnostic::error(
                     "KULA-P10",
-                    format!("field `{}` is not valid on `marriage`", field_name.as_str()),
+                    format!(
+                        "field `{}` isn't valid on `marriage` — valid fields are `start:`, `end:`, and `end_reason:`",
+                        field_name.as_str()
+                    ),
                     name_span,
                 ));
                 self.recover_to_newline();
@@ -590,7 +593,10 @@ impl<'a> Parser<'a> {
             FieldName::Start | FieldName::End | FieldName::EndReason => {
                 self.diagnostics.push(Diagnostic::error(
                     "KULA-P10",
-                    format!("field `{}` is not valid on `person`", field_name.as_str()),
+                    format!(
+                        "field `{}` isn't valid on `person` — valid fields are `name:`, `family:`, `given:`, `gender:`, `born:`, and `died:`",
+                        field_name.as_str()
+                    ),
                     name_span,
                 ));
                 self.recover_to_newline();

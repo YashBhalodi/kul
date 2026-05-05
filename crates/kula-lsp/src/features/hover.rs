@@ -29,7 +29,7 @@ pub fn hover(
     let (markdown, span) = match node {
         Node::Keyword(k, span) => (keyword_content(k), span),
         Node::VersionLiteral(v) => (
-            "Kula language version this document targets.".to_owned(),
+            "**Kula language version** — the version this file targets. The toolchain validates against this version's rules.".to_owned(),
             v.version_span,
         ),
         Node::PersonDeclId(p) => (person_panel(p), p.id.span),
@@ -79,62 +79,68 @@ pub fn hover(
 fn keyword_content(k: KeywordKind) -> String {
     match k {
         KeywordKind::Kula => format!(
-            "**`kula`** — version declaration keyword.\n\nIntroduces a Kula document and binds it to a language version. See [§2 Document structure]({SPEC_BASE}/02-document-structure.md)."
+            "**`kula`** — declares the language version this file uses.\n\nMust be the first non-blank line of the document.\n\n```kula\nkula 1\n```\n\n[Document structure →]({SPEC_BASE}/02-document-structure.md)"
         ),
         KeywordKind::Person => format!(
-            "**`person`** — top-level statement declaring an individual.\n\nFollowed by an identifier and any of the person fields (`name:`, `family:`, `given:`, `gender:`, `born:`, `died:`). See [§4 Top-level statements]({SPEC_BASE}/04-top-level-statements.md)."
+            "**`person`** — declares an individual.\n\nGive each person a unique id, then their `name:` and `gender:`. Birth and death dates are optional.\n\n```kula\nperson alice name:\"Alice Doe\" gender:female born:1980\n```\n\n[Top-level statements →]({SPEC_BASE}/04-top-level-statements.md)"
         ),
         KeywordKind::Marriage => format!(
-            "**`marriage`** — top-level statement declaring a marriage between two persons.\n\nFollowed by an identifier, two spouse references, and any of the marriage fields (`start:`, `end:`, `end_reason:`). See [§4 Top-level statements]({SPEC_BASE}/04-top-level-statements.md)."
+            "**`marriage`** — declares a marriage between two people.\n\nGive each marriage a unique id, the two spouses' ids, and a `start:` date. Add `end:` and `end_reason:` if it ended.\n\n```kula\nmarriage m_alice_bob alice bob start:2010 end:2020 end_reason:divorce\n```\n\n[Top-level statements →]({SPEC_BASE}/04-top-level-statements.md)"
         ),
         KeywordKind::Birth => format!(
-            "**`birth`** — sub-statement of `person` recording the biological-parent marriage.\n\nA person has at most one `birth` (spec §5.1). See [§5 Person sub-statements]({SPEC_BASE}/05-person-sub-statements.md)."
+            "**`birth`** — links a person to their biological parents.\n\nIndent under a person and give the marriage id of the biological parents. Each person has at most one `birth`.\n\n```kula\nperson kid name:\"Kid\" gender:other\n  birth m_alice_bob\n```\n\n[Person sub-statements →]({SPEC_BASE}/05-person-sub-statements.md)"
         ),
         KeywordKind::Adoption => format!(
-            "**`adoption`** — sub-statement of `person` recording an adoption by a marriage.\n\nA person may have multiple adoptions; each carries a `start:` date and an optional `end:` date. See [§5 Person sub-statements]({SPEC_BASE}/05-person-sub-statements.md)."
+            "**`adoption`** — links a person to an adoptive marriage.\n\nIndent under a person and give the adoptive marriage's id and a `start:` date. Add `end:` if the adoption ended. A person may have multiple adoptions.\n\n```kula\nperson kid name:\"Kid\" gender:other\n  adoption m_carol_dave start:2005\n```\n\n[Person sub-statements →]({SPEC_BASE}/05-person-sub-statements.md)"
         ),
     }
 }
 
 fn person_panel(p: &PersonStmt) -> String {
-    let mut out = format!("**`person {}`**", p.id.name);
-    if let Some(name) = p.name() {
-        out.push_str(&format!("\n\n- name: \"{}\"", escape(&name.value)));
-    }
-    if let Some(family) = p.family() {
-        out.push_str(&format!("\n- family: \"{}\"", escape(&family.value)));
-    }
-    if let Some(given) = p.given() {
-        out.push_str(&format!("\n- given: \"{}\"", escape(&given.value)));
-    }
+    let mut out = match p.name() {
+        Some(name) => format!("**{}** — `person {}`", escape(&name.value), p.id.name),
+        None => format!("**`person {}`** *(no `name:` set)*", p.id.name),
+    };
+    let mut details: Vec<String> = Vec::new();
     if let Some(g) = p.gender() {
         let label = match g.value {
             kula_core::ast::Gender::Male => "male",
             kula_core::ast::Gender::Female => "female",
             kula_core::ast::Gender::Other => "other",
         };
-        out.push_str(&format!("\n- gender: `{label}`"));
+        details.push(format!("- gender: {label}"));
     }
     if let Some(b) = p.born() {
-        out.push_str(&format!("\n- born: `{}`", date_repr(b)));
+        details.push(format!("- born: `{}`", date_repr(b)));
     }
     if let Some(d) = p.died() {
-        out.push_str(&format!("\n- died: `{}`", date_repr(d)));
+        details.push(format!("- died: `{}`", date_repr(d)));
+    }
+    if let Some(family) = p.family() {
+        details.push(format!("- family name: {}", escape(&family.value)));
+    }
+    if let Some(given) = p.given() {
+        details.push(format!("- given name: {}", escape(&given.value)));
+    }
+    if !details.is_empty() {
+        out.push_str("\n\n");
+        out.push_str(&details.join("\n"));
     }
     out
 }
 
 fn marriage_panel(resolved: &ResolvedDocument<'_>, m: &MarriageStmt) -> String {
-    let mut out = format!("**`marriage {}`**", m.id.name);
     let spouse_a = resolved.person(&m.spouse_a.name);
     let spouse_b = resolved.person(&m.spouse_b.name);
+    let header = match (display_name_of(spouse_a), display_name_of(spouse_b)) {
+        (Some(a), Some(b)) => format!("**{} & {}** — `marriage {}`", a, b, m.id.name),
+        _ => format!("**`marriage {}`**", m.id.name),
+    };
+    let mut out = header;
     out.push_str(&format!(
-        "\n\n- spouse A: {}",
-        spouse_repr(&m.spouse_a.name, spouse_a)
-    ));
-    out.push_str(&format!(
-        "\n- spouse B: {}",
-        spouse_repr(&m.spouse_b.name, spouse_b)
+        "\n\n- spouses: {} & {}",
+        spouse_repr(&m.spouse_a.name, spouse_a),
+        spouse_repr(&m.spouse_b.name, spouse_b),
     ));
     if let Some(start) = m.start() {
         out.push_str(&format!("\n- start: `{}`", date_repr(start)));
@@ -152,55 +158,69 @@ fn marriage_panel(resolved: &ResolvedDocument<'_>, m: &MarriageStmt) -> String {
     out
 }
 
+fn display_name_of(p: Option<&PersonStmt>) -> Option<String> {
+    p?.name().map(|n| escape(&n.value))
+}
+
 fn spouse_repr(id: &str, target: Option<&PersonStmt>) -> String {
     match target {
         Some(p) => match p.name() {
-            Some(n) => format!("`{id}` (\"{}\")", escape(&n.value)),
+            Some(n) => format!("`{id}` ({})", escape(&n.value)),
             None => format!("`{id}`"),
         },
-        None => format!("`{id}` *(unresolved)*"),
+        None => format!("`{id}` *(not declared)*"),
     }
 }
 
 fn unresolved_note(kind: &str, id: &str) -> String {
     format!(
-        "**`{id}`** — unresolved {kind} reference. The {kind} `{id}` is not declared in this document. See diagnostic `KULA-R02`."
+        "**`{id}`** — no `{kind}` with this id is declared in this file.\n\nCheck for a typo, or add a `{kind} {id} …` declaration somewhere in the file.\n\nDiagnostic `KULA-R02`."
     )
 }
 
 fn person_field_doc(k: &PersonFieldKind) -> &'static str {
     match k {
-        PersonFieldKind::Name(_) => "**`name:`** — display name; full UTF-8 string.",
-        PersonFieldKind::Family(_) => "**`family:`** — family-name component; UTF-8 string.",
-        PersonFieldKind::Given(_) => "**`given:`** — given-name component; UTF-8 string.",
+        PersonFieldKind::Name(_) => {
+            "**`name:`** — the person's full display name. Any text in double quotes.\n\nExample: `name:\"Alice Doe\"`"
+        }
+        PersonFieldKind::Family(_) => {
+            "**`family:`** — family name (last name / surname). Any text in double quotes. Optional.\n\nExample: `family:\"Doe\"`"
+        }
+        PersonFieldKind::Given(_) => {
+            "**`given:`** — given name (first name). Any text in double quotes. Optional.\n\nExample: `given:\"Alice\"`"
+        }
         PersonFieldKind::Born(_) => {
-            "**`born:`** — birth date. `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`; optional leading `~` for ±5y circa."
+            "**`born:`** — date of birth. Use `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`.\n\nPrefix with `~` for an approximate date (e.g. `~1980` means roughly 1975–1985)."
         }
         PersonFieldKind::Died(_) => {
-            "**`died:`** — death date. Same date forms as `born:`. Absent means alive (spec §4.2)."
+            "**`died:`** — date of death. Same formats as `born:`. Omit this field if the person is still alive."
         }
-        PersonFieldKind::Gender(_) => "**`gender:`** — one of `male`, `female`, `other`.",
+        PersonFieldKind::Gender(_) => "**`gender:`** — one of `male`, `female`, or `other`.",
     }
 }
 
 fn marriage_field_doc(k: &MarriageFieldKind) -> &'static str {
     match k {
         MarriageFieldKind::Start(_) => {
-            "**`start:`** — date the marriage began. Required (spec §4.3)."
+            "**`start:`** — date the marriage began. Required for every marriage.\n\nUse `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`. Prefix with `~` for an approximate date."
         }
         MarriageFieldKind::End(_) => {
-            "**`end:`** — date the marriage ended. Pairs with `end_reason:`."
+            "**`end:`** — date the marriage ended. Must be paired with `end_reason:`. Omit both if the marriage is ongoing."
         }
         MarriageFieldKind::EndReason(_) => {
-            "**`end_reason:`** — reason the marriage ended. Currently only `divorce`. Pairs with `end:`."
+            "**`end_reason:`** — why the marriage ended. The only value in v1 is `divorce`. Must be paired with `end:`."
         }
     }
 }
 
 fn adoption_field_doc(k: &AdoptionFieldKind) -> &'static str {
     match k {
-        AdoptionFieldKind::Start(_) => "**`start:`** — date the adoption started.",
-        AdoptionFieldKind::End(_) => "**`end:`** — date the adoption ended (open-ended if absent).",
+        AdoptionFieldKind::Start(_) => {
+            "**`start:`** — date the adoption took effect.\n\nUse `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`. Prefix with `~` for an approximate date."
+        }
+        AdoptionFieldKind::End(_) => {
+            "**`end:`** — date the adoption ended. Omit this field if the adoption is still in effect."
+        }
     }
 }
 
@@ -370,10 +390,10 @@ mod tests {
             .map(|i| marriage_line + i)
             .unwrap();
         let body = hover_at(src, ghost).unwrap();
-        assert!(body.contains("unresolved"));
+        assert!(body.contains("not declared") || body.contains("no `person`"));
         assert!(body.contains("KULA-R02"));
         // Doesn't dump a full panel.
-        assert!(!body.contains("- name:"));
+        assert!(!body.contains("- gender:"));
     }
 
     #[test]
@@ -391,7 +411,7 @@ mod tests {
     fn marriage_ref_unresolved_short_note() {
         let src = "person kid name:\"K\" gender:other\n  birth m_nope\n";
         let body = hover_at(src, idx(src, "m_nope")).unwrap();
-        assert!(body.contains("unresolved"));
+        assert!(body.contains("not declared") || body.contains("no `marriage`"));
         assert!(body.contains("KULA-R02"));
     }
 
@@ -401,7 +421,7 @@ mod tests {
         for (field, expect) in [
             ("name:", "display name"),
             ("gender:", "male"),
-            ("born:", "birth date"),
+            ("born:", "date of birth"),
         ] {
             let body = hover_at(src, idx(src, field)).unwrap();
             assert!(
@@ -415,7 +435,7 @@ mod tests {
     fn person_field_value_includes_literal() {
         let src = "person alice name:\"A\" gender:female born:~1900-06\n";
         let body = hover_at(src, idx(src, "~1900-06")).unwrap();
-        assert!(body.contains("birth date"));
+        assert!(body.contains("date of birth"));
         assert!(body.contains("~1900-06"));
     }
 
@@ -453,7 +473,10 @@ mod tests {
             .map(|i| adoption_line + i)
             .unwrap();
         let body = hover_at(src, start_field).unwrap();
-        assert!(body.contains("started"), "adoption start hover:\n{body}");
+        assert!(
+            body.contains("took effect"),
+            "adoption start hover:\n{body}"
+        );
         let body = hover_at(src, end_field).unwrap();
         assert!(body.contains("ended"), "adoption end hover:\n{body}");
     }

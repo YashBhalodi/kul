@@ -37,7 +37,7 @@ fn validate_missing_name_exits_one() {
         .failure()
         .code(1)
         .stderr(contains("KULA-R03"))
-        .stderr(contains("missing required field `name`"));
+        .stderr(contains("needs a `name:` field"));
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn validate_missing_gender_exits_one() {
         .failure()
         .code(1)
         .stderr(contains("KULA-R03"))
-        .stderr(contains("missing required field `gender`"));
+        .stderr(contains("needs a `gender:` field"));
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn validate_duplicate_id_reports_rule_01() {
         .failure()
         .code(1)
         .stderr(contains("KULA-R01"))
-        .stderr(contains("duplicate id"));
+        .stderr(contains("is already used"));
 }
 
 #[test]

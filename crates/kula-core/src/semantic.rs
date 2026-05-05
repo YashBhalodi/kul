@@ -171,18 +171,23 @@ pub fn resolve(document: &Document) -> (ResolvedDocument<'_>, Vec<Diagnostic>) {
         let key = id.name.as_str();
         match entities.get(key) {
             Some(prior) => {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "KULA-R01",
-                        format!(
-                            "duplicate id `{}`: this {} re-declares an id already used by a {}",
-                            id.name,
-                            kind.as_str(),
-                            prior.kind.as_str()
-                        ),
-                        id.span,
+                let prior_kind = prior.kind.as_str();
+                let message = if prior.kind == kind {
+                    format!(
+                        "id `{}` is already used by another {prior_kind} — pick a different id (every id must be unique across all persons and marriages)",
+                        id.name
                     )
-                    .with_related(prior.span(), "prior declaration"),
+                } else {
+                    format!(
+                        "id `{}` is already used by a {prior_kind} — pick a different id (every id must be unique across all persons and marriages)",
+                        id.name
+                    )
+                };
+                diagnostics.push(
+                    Diagnostic::error("KULA-R01", message, id.span).with_related(
+                        prior.span(),
+                        format!("first declared here as a {prior_kind}"),
+                    ),
                 );
             }
             None => {
@@ -244,8 +249,8 @@ fn check_person_ref(resolved: &ResolvedDocument<'_>, ident: &Ident, out: &mut Ve
             out.push(Diagnostic::error(
                 "KULA-R02",
                 format!(
-                    "unresolved reference: spouse `{}` is not a declared person",
-                    ident.name
+                    "no person with id `{}` is declared in this file — check for a typo, or add a `person {} …` declaration",
+                    ident.name, ident.name
                 ),
                 ident.span,
             ));
@@ -262,12 +267,12 @@ fn check_person_ref(resolved: &ResolvedDocument<'_>, ident: &Ident, out: &mut Ve
                 Diagnostic::error(
                     "KULA-R02",
                     format!(
-                        "wrong-kind reference: spouse `{}` resolves to a marriage, not a person",
+                        "`{}` is a marriage, not a person — spouses must reference declared persons",
                         ident.name
                     ),
                     ident.span,
                 )
-                .with_related(prior.span, "marriage declared here"),
+                .with_related(prior.span, format!("`{}` declared as a marriage here", ident.name)),
             );
         }
     }
@@ -284,8 +289,8 @@ fn check_marriage_ref(
             out.push(Diagnostic::error(
                 "KULA-R02",
                 format!(
-                    "unresolved reference: {role} marriage `{}` is not a declared marriage",
-                    ident.name
+                    "no marriage with id `{}` is declared in this file — check for a typo, or add a `marriage {} …` declaration (the `{role}` link expects a marriage id)",
+                    ident.name, ident.name
                 ),
                 ident.span,
             ));
@@ -302,12 +307,12 @@ fn check_marriage_ref(
                 Diagnostic::error(
                     "KULA-R02",
                     format!(
-                        "wrong-kind reference: {role} `{}` resolves to a person, not a marriage",
+                        "`{}` is a person, not a marriage — `{role}` links must reference a marriage id",
                         ident.name
                     ),
                     ident.span,
                 )
-                .with_related(prior.span, "person declared here"),
+                .with_related(prior.span, format!("`{}` declared as a person here", ident.name)),
             );
         }
     }

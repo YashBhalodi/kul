@@ -354,12 +354,20 @@ fn item(label: &str, kind: CompletionItemKind, detail: &str) -> CompletionItem {
 
 fn top_level_keywords() -> Vec<CompletionItem> {
     vec![
-        item("kula", CompletionItemKind::KEYWORD, "Version declaration"),
-        item("person", CompletionItemKind::KEYWORD, "Declare a person"),
+        item(
+            "kula",
+            CompletionItemKind::KEYWORD,
+            "Set the language version (must be the first line)",
+        ),
+        item(
+            "person",
+            CompletionItemKind::KEYWORD,
+            "Declare an individual (name, gender, dates)",
+        ),
         item(
             "marriage",
             CompletionItemKind::KEYWORD,
-            "Declare a marriage",
+            "Declare a marriage between two people",
         ),
     ]
 }
@@ -369,24 +377,30 @@ fn sub_statement_keywords() -> Vec<CompletionItem> {
         item(
             "birth",
             CompletionItemKind::KEYWORD,
-            "Biological-parent marriage",
+            "Link to biological parents (a marriage id)",
         ),
         item(
             "adoption",
             CompletionItemKind::KEYWORD,
-            "Adoption sub-statement",
+            "Link to an adoptive marriage",
         ),
     ]
 }
 
 fn person_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
     let all: &[(FieldName, &str)] = &[
-        (FieldName::Name, "Display name (UTF-8 string)"),
-        (FieldName::Family, "Family-name component"),
-        (FieldName::Given, "Given-name component"),
-        (FieldName::Gender, "male / female / other"),
-        (FieldName::Born, "Birth date"),
-        (FieldName::Died, "Death date (absent = alive)"),
+        (FieldName::Name, "Full display name — required"),
+        (FieldName::Family, "Family name (last name)"),
+        (FieldName::Given, "Given name (first name)"),
+        (FieldName::Gender, "male, female, or other — required"),
+        (
+            FieldName::Born,
+            "Date of birth (YYYY, YYYY-MM, or YYYY-MM-DD)",
+        ),
+        (
+            FieldName::Died,
+            "Date of death — omit if the person is still alive",
+        ),
     ];
     all.iter()
         .filter(|(f, _)| !existing.contains(f))
@@ -396,9 +410,15 @@ fn person_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
 
 fn marriage_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
     let all: &[(FieldName, &str)] = &[
-        (FieldName::Start, "Date the marriage began (required)"),
-        (FieldName::End, "Date the marriage ended"),
-        (FieldName::EndReason, "Reason: divorce"),
+        (FieldName::Start, "Date the marriage began — required"),
+        (
+            FieldName::End,
+            "Date the marriage ended — pair with end_reason:",
+        ),
+        (
+            FieldName::EndReason,
+            "Why the marriage ended — currently only `divorce`",
+        ),
     ];
     all.iter()
         .filter(|(f, _)| !existing.contains(f))
@@ -408,8 +428,11 @@ fn marriage_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
 
 fn adoption_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
     let all: &[(FieldName, &str)] = &[
-        (FieldName::Start, "Date the adoption started"),
-        (FieldName::End, "Date the adoption ended"),
+        (FieldName::Start, "Date the adoption took effect"),
+        (
+            FieldName::End,
+            "Date the adoption ended — omit if still in effect",
+        ),
     ];
     all.iter()
         .filter(|(f, _)| !existing.contains(f))
@@ -418,17 +441,21 @@ fn adoption_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
 }
 
 fn gender_values() -> Vec<CompletionItem> {
-    [EnumKw::Male, EnumKw::Female, EnumKw::Other]
-        .iter()
-        .map(|kw| item(kw.as_str(), CompletionItemKind::ENUM_MEMBER, "Gender"))
-        .collect()
+    [
+        (EnumKw::Male, "Male"),
+        (EnumKw::Female, "Female"),
+        (EnumKw::Other, "Non-binary or unspecified"),
+    ]
+    .iter()
+    .map(|(kw, doc)| item(kw.as_str(), CompletionItemKind::ENUM_MEMBER, doc))
+    .collect()
 }
 
 fn end_reason_values() -> Vec<CompletionItem> {
     vec![item(
         EnumKw::Divorce.as_str(),
         CompletionItemKind::ENUM_MEMBER,
-        "End reason",
+        "Marriage ended in divorce",
     )]
 }
 

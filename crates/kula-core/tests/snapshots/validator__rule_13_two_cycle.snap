@@ -1,7 +1,8 @@
 ---
 source: crates/kula-core/tests/validator.rs
+assertion_line: 307
 expression: render_diagnostics(&result.diagnostics)
 ---
-KULA-R13 [80..85]: parenthood cycle detected — parent cycle: `alice` → `carol` → `alice`
-  related [121..132]: parent link in this cycle
-  related [219..231]: parent link in this cycle
+KULA-R13 [80..85]: parent-link cycle: `alice` → `carol` → `alice` — one of these `birth` or `adoption` links must be wrong
+  related [121..132]: parent link in the cycle
+  related [219..231]: parent link in the cycle

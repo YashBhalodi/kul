@@ -38,14 +38,20 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
         if p.name().is_none() {
             out.push(Diagnostic::error(
                 "KULA-R03",
-                format!("person `{}` is missing required field `name`", p.id.name),
+                format!(
+                    "person `{}` needs a `name:` field — add `name:\"…\"` to the declaration",
+                    p.id.name
+                ),
                 p.id.span,
             ));
         }
         if p.gender().is_none() {
             out.push(Diagnostic::error(
                 "KULA-R03",
-                format!("person `{}` is missing required field `gender`", p.id.name),
+                format!(
+                    "person `{}` needs a `gender:` field — use `gender:male`, `gender:female`, or `gender:other`",
+                    p.id.name
+                ),
                 p.id.span,
             ));
         }
@@ -54,7 +60,10 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
         if m.start().is_none() {
             out.push(Diagnostic::error(
                 "KULA-R03",
-                format!("marriage `{}` is missing required field `start`", m.id.name),
+                format!(
+                    "marriage `{}` needs a `start:` date — add `start:YYYY` (or a fuller `YYYY-MM-DD`)",
+                    m.id.name
+                ),
                 m.id.span,
             ));
         }
@@ -78,12 +87,12 @@ fn self_marriage_diagnostic(m: &MarriageStmt) -> Diagnostic {
     Diagnostic::error(
         "KULA-R04",
         format!(
-            "marriage `{}` has the same person `{}` as both spouses; spouses must be distinct",
+            "marriage `{}` lists `{}` as both spouses — spouses must be distinct people",
             m.id.name, m.spouse_a.name
         ),
         m.spouse_b.span,
     )
-    .with_related(m.spouse_a.span, "first spouse")
+    .with_related(m.spouse_a.span, "first spouse listed here")
 }
 
 /// Rule 5 — `end` and `end_reason` must both be present or both absent.
@@ -97,7 +106,7 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
                 out.push(Diagnostic::error(
                     "KULA-R05",
                     format!(
-                        "marriage `{}` has `end` without `end_reason`; add `end_reason:divorce`",
+                        "marriage `{}` has an `end:` date but no `end_reason:` — add `end_reason:divorce`",
                         m.id.name
                     ),
                     end.span,
@@ -116,7 +125,7 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
                 out.push(Diagnostic::error(
                     "KULA-R05",
                     format!(
-                        "marriage `{}` has `end_reason` without `end`; remove this field or add a matching `end:` date",
+                        "marriage `{}` has an `end_reason:` but no `end:` date — add an `end:` date or remove this field",
                         m.id.name
                     ),
                     field_span,
@@ -129,9 +138,7 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
         {
             out.push(Diagnostic::error(
                 "KULA-R05b",
-                format!(
-                    "`end_reason:{raw}` is not a recognized v1 value; the v1 vocabulary is `divorce`"
-                ),
+                format!("`end_reason:{raw}` isn't recognized — the only value in v1 is `divorce`"),
                 reason.span,
             ));
         }
@@ -275,7 +282,7 @@ pub fn rule_11_bio_child_born_before_parent(resolved: &ResolvedDocument<'_>) -> 
                     Diagnostic::error(
                         "KULA-R11",
                         format!(
-                            "bio child `{}` was born before parent `{}`",
+                            "`{}` was born before their biological parent `{}`",
                             child.id.name, parent.id.name
                         ),
                         child_born.span,
@@ -331,8 +338,11 @@ pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument<'_>) -> Vec<Diagnos
             .members
             .first()
             .expect("cycle must have at least one member");
-        let chain = if cycle.members.len() == 1 {
-            format!("`{}` is their own ancestor", head.id.name)
+        let message = if cycle.members.len() == 1 {
+            format!(
+                "`{}` ends up as their own ancestor — check the `birth` and `adoption` links",
+                head.id.name
+            )
         } else {
             let mut parts: Vec<String> = cycle
                 .members
@@ -340,15 +350,14 @@ pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument<'_>) -> Vec<Diagnos
                 .map(|m| format!("`{}`", m.id.name))
                 .collect();
             parts.push(format!("`{}`", head.id.name));
-            format!("parent cycle: {}", parts.join(" → "))
+            format!(
+                "parent-link cycle: {} — one of these `birth` or `adoption` links must be wrong",
+                parts.join(" → ")
+            )
         };
-        let mut diag = Diagnostic::error(
-            "KULA-R13",
-            format!("parenthood cycle detected — {chain}"),
-            head.id.span,
-        );
+        let mut diag = Diagnostic::error("KULA-R13", message, head.id.span);
         for span in cycle.link_spans {
-            diag = diag.with_related(span, "parent link in this cycle");
+            diag = diag.with_related(span, "parent link in the cycle");
         }
         out.push(diag);
     }

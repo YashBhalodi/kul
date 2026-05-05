@@ -1,5 +1,6 @@
 ---
 source: crates/kula-core/tests/validator.rs
+assertion_line: 47
 expression: render_diagnostics(&result.diagnostics)
 ---
-KULA-R03 [7..10]: person `bob` is missing required field `gender`
+KULA-R03 [7..10]: person `bob` needs a `gender:` field — use `gender:male`, `gender:female`, or `gender:other`

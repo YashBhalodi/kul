@@ -1,8 +1,9 @@
 ---
 source: crates/kula-core/tests/validator.rs
+assertion_line: 141
 expression: render_diagnostics(&result.diagnostics)
 ---
-KULA-R02 [222..227]: wrong-kind reference: birth `alice` resolves to a person, not a marriage
-  related [7..12]: person declared here
-KULA-R02 [296..307]: wrong-kind reference: spouse `m_alice_bob` resolves to a marriage, not a person
-  related [88..99]: marriage declared here
+KULA-R02 [222..227]: `alice` is a person, not a marriage — `birth` links must reference a marriage id
+  related [7..12]: `alice` declared as a person here
+KULA-R02 [296..307]: `m_alice_bob` is a marriage, not a person — spouses must reference declared persons
+  related [88..99]: `m_alice_bob` declared as a marriage here

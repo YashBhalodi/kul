@@ -1,22 +1,22 @@
 ---
 source: crates/kula-lsp/src/features/completion.rs
-assertion_line: 602
+assertion_line: 617
 expression: items
 ---
 [
   {
     "label": "kula",
     "kind": 14,
-    "detail": "Version declaration"
+    "detail": "Set the language version (must be the first line)"
   },
   {
     "label": "person",
     "kind": 14,
-    "detail": "Declare a person"
+    "detail": "Declare an individual (name, gender, dates)"
   },
   {
     "label": "marriage",
     "kind": 14,
-    "detail": "Declare a marriage"
+    "detail": "Declare a marriage between two people"
   }
 ]
