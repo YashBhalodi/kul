@@ -6,17 +6,37 @@ Conventions and configuration for AI agents working in this repository. Read thi
 
 ```
 crates/
-  kula-core/   — library: lexer, parser, AST, semantic, validator, diagnostics
-  kula-cli/    — binary `kula`: thin CLI wrapper around kula-core
-docs/          — vision, roadmap PRDs, agent docs
+  kula-core/   — library: lexer, parser, AST, semantic, validator, diagnostics, node-at-cursor query
+  kula-cli/    — binary `kula`: `kula validate` + `kula lsp` subcommands
+  kula-lsp/    — library + binary `kula-lsp`: LSP adapter over kula-core
+docs/
+  vision.md    — v1 scope and out-of-scope
+  roadmap/     — per-phase PRDs (Phase 1–4)
+  architecture.md — implementation map: pipeline, seams, "where to add X" recipes
+  testing.md   — test conventions: snapshots, corpus, perf budgets
+  release.md   — operational handbook for cutting a release
+  adr/         — Architectural Decision Records
+  agents/      — agent-tooling docs (issue tracker, triage labels, domain-docs convention)
 spec/          — Kula 0.1 language specification (the normative source of truth)
-editor/        — VSCode extension (Phase 1)
+editor/vscode/ — VSCode extension (LSP-backed, marketplace-publishable)
 examples/      — `.kula` corpus used as both docs and the positive test corpus
+CONTEXT.md     — domain glossary; canonical vocabulary for the project
 ```
 
-## Rust development
+## Where to look first
 
-The Rust workspace at the repo root is the home for Phases 2–4.
+| You need to…                                | Read                                   |
+| ------------------------------------------- | -------------------------------------- |
+| Understand the language                     | [`spec/`](./spec/README.md)            |
+| Understand the codebase shape               | [`docs/architecture.md`](./docs/architecture.md) |
+| Understand the domain vocabulary            | [`CONTEXT.md`](./CONTEXT.md)           |
+| Understand a major design decision          | [`docs/adr/`](./docs/adr/)             |
+| Add a test or perf budget                   | [`docs/testing.md`](./docs/testing.md) |
+| Cut a release                               | [`docs/release.md`](./docs/release.md) |
+| Triage / file an issue                      | [`docs/agents/issue-tracker.md`](./docs/agents/issue-tracker.md), [`docs/agents/triage-labels.md`](./docs/agents/triage-labels.md) |
+| Plan multi-phase work                       | [`docs/roadmap/`](./docs/roadmap/README.md) |
+
+## Rust development
 
 ### Prerequisites
 
@@ -44,19 +64,12 @@ Other recipes:
 A change is done when:
 
 1. `just check` is green.
-2. New behavior is covered by tests in the appropriate crate (snapshot tests via `insta` for lexer/parser/validator output, golden corpus for validation rules).
+2. New behavior is covered by tests in the appropriate crate. Snapshot tests (via `insta`) are the default for parser / validator / LSP-feature output — see [`docs/testing.md`](./docs/testing.md) and [ADR-0003](./docs/adr/0003-snapshot-tests-as-primary-validation.md).
 3. Public items have rustdoc; clippy lints are at deny level (no `#[allow]` without a justifying comment).
+4. If a non-obvious design choice is being made, it lands as an ADR in [`docs/adr/`](./docs/adr/) — not as a code comment that a future agent might "simplify" away.
 
-## Agent skills
+## Domain vocabulary
 
-### Issue tracker
+This repo is **single-context**: one [`CONTEXT.md`](./CONTEXT.md) at the repo root plus [`docs/adr/`](./docs/adr/) cover the entire project. When naming things — in issue titles, hypothesis statements, tests, PR descriptions — use the terms `CONTEXT.md` defines. Don't drift into "service / handler / component" speak; the architecture vocabulary (module / interface / seam / depth) is in [`docs/architecture.md`](./docs/architecture.md).
 
-GitHub Issues at `YashBhalodi/kulalang` via the `gh` CLI. See [`docs/agents/issue-tracker.md`](./docs/agents/issue-tracker.md).
-
-### Triage labels
-
-The five canonical triage roles use their default label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See [`docs/agents/triage-labels.md`](./docs/agents/triage-labels.md).
-
-### Domain docs
-
-Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root (neither file exists yet — the `grill-with-docs` and `improve-codebase-architecture` skills will populate them lazily as the implementation begins). See [`docs/agents/domain.md`](./docs/agents/domain.md).
+If a concept isn't in the glossary yet, that's a signal — either you're inventing language the project doesn't use (reconsider) or there's a real gap (extend the glossary in the same change).

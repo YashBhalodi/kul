@@ -1,7 +1,25 @@
 //! Kula language core: lexer, parser, semantic analyzer, validator, diagnostics.
 //!
 //! This crate is the reusable language-implementation library that powers the
-//! `kula` CLI and (in Phase 3) the language server.
+//! `kula` CLI and the `kula-lsp` language server. Both consumers call
+//! [`check`] once per source string; everything else hangs off the resulting
+//! `CheckResult` (an AST and a diagnostic list) or the `ResolvedDocument`
+//! query surface in [`semantic`].
+//!
+//! # Pipeline
+//!
+//! ```text
+//! source: &str
+//!   → lexer::tokenize  → Vec<Token>
+//!   → parser::parse    → (Document, Vec<Diagnostic>)
+//!   → semantic::resolve → (ResolvedDocument, Vec<Diagnostic>)
+//!   → validator::validate → Vec<Diagnostic>
+//! ```
+//!
+//! Each pass produces a strictly richer artifact; nothing earlier in the
+//! pipeline ever consults something later. See `docs/architecture.md` in the
+//! repository for the data-flow diagram and seam table, and `CONTEXT.md` for
+//! the canonical vocabulary used in this crate.
 
 pub mod ast;
 pub mod cycles;

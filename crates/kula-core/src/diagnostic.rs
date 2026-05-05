@@ -2,7 +2,7 @@
 //!
 //! A [`Diagnostic`] is source-agnostic: it carries spans, a stable code, and
 //! a message. Consumers (the CLI, the LSP) wrap it with the source string
-//! when rendering — see [`Diagnostic::with_source`] for the miette path.
+//! when rendering — see [`RenderableDiagnostic`] for the miette path.
 
 use crate::span::ByteSpan;
 

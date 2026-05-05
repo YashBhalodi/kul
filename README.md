@@ -81,11 +81,14 @@ The full feature surface — polygamy, remarriage, retroactive adoption, partial
 
 ## Roadmap
 
-The v1 deliverables defined by [`docs/vision.md`](./docs/vision.md) are:
+The v1 deliverables defined by [`docs/vision.md`](./docs/vision.md) — language spec, reference parser, validator CLI, and editor integration — are all shipped. The phase-by-phase delivery PRDs live under [`docs/roadmap/`](./docs/roadmap/README.md):
 
-1. **Language specification** — drafted in [`spec/`](./spec/README.md).
-2. **Reference parser** — implementation language and approach TBD.
-3. **Validator surface** — CLI at minimum (`kula validate <file>`); editor integration as a stretch goal.
+1. **Phase 1** — VSCode extension with TextMate highlighting and snippets ✓
+2. **Phase 2** — Reference parser, validator, CLI ✓
+3. **Phase 3** — Basic LSP (diagnostics, hover, goto-definition, completion) ✓
+4. **Phase 4** — Polished LSP (cross-cutting refinement) — future work
+
+Beyond v1: the language is intentionally minimal at v0.1; future grammar additions land additively (see [`CONTEXT.md`](./CONTEXT.md) on the additivity principle and the [language version policy](./spec/13-versioning-policy.md)).
 
 ## Releases
 
