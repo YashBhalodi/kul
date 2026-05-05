@@ -7,10 +7,9 @@
 //! sets come from the resolved document (every declared marriage and
 //! person, surfaced where a reference is expected).
 
-use kula_core::ast::{
-    AdoptionFieldKind, MarriageFieldKind, MarriageStmt, PersonFieldKind, PersonStmt, Statement,
-};
+use kula_core::ast::{MarriageStmt, PersonStmt, Statement};
 use kula_core::date::DateLit;
+use kula_core::field_meta::{self, StatementKind, ValueKind};
 use kula_core::lexer::{EnumKw, FieldName, Token, TokenKind, tokenize};
 use kula_core::semantic::ResolvedDocument;
 use tower_lsp::lsp_types::{CompletionItem, CompletionItemKind, InsertTextFormat};
@@ -449,52 +448,27 @@ fn cursor_inside_string_or_comment(source: &str, cursor: usize) -> bool {
 }
 
 fn existing_person_fields(p: &PersonStmt) -> Vec<FieldName> {
-    p.fields
-        .iter()
-        .map(|f| match &f.kind {
-            PersonFieldKind::Name(_) => FieldName::Name,
-            PersonFieldKind::Family(_) => FieldName::Family,
-            PersonFieldKind::Given(_) => FieldName::Given,
-            PersonFieldKind::Born(_) => FieldName::Born,
-            PersonFieldKind::Died(_) => FieldName::Died,
-            PersonFieldKind::Gender(_) => FieldName::Gender,
-        })
-        .collect()
+    p.fields.iter().map(|f| f.kind.field_name()).collect()
 }
 
 fn existing_marriage_fields(m: &MarriageStmt) -> Vec<FieldName> {
-    m.fields
-        .iter()
-        .map(|f| match &f.kind {
-            MarriageFieldKind::Start(_) => FieldName::Start,
-            MarriageFieldKind::End(_) => FieldName::End,
-            MarriageFieldKind::EndReason(_) => FieldName::EndReason,
-        })
-        .collect()
+    m.fields.iter().map(|f| f.kind.field_name()).collect()
 }
 
 fn existing_adoption_fields_at_line(p: &PersonStmt, line: &LineInfo) -> Vec<FieldName> {
-    let kw_span = match line.first_kw_span {
-        Some(s) => s,
-        None => return Vec::new(),
+    let Some(kw_span) = line.first_kw_span else {
+        return Vec::new();
     };
     // Match the adoption whose keyword span starts at the same byte as
     // the line's first keyword (the parser-built `keyword_span`).
-    let adopt = p
+    let Some(adopt) = p
         .adoptions
         .iter()
-        .find(|a| a.keyword_span.start == kw_span.start);
-    match adopt {
-        Some(a) => a
-            .fields
-            .iter()
-            .map(|f| match &f.kind {
-                AdoptionFieldKind::Start(_) => FieldName::Start,
-                AdoptionFieldKind::End(_) => FieldName::End,
-            })
-            .collect(),
-        None => Vec::new(),
-    }
+        .find(|a| a.keyword_span.start == kw_span.start)
+    else {
+        return Vec::new();
+    };
+    adopt.fields.iter().map(|f| f.kind.field_name()).collect()
 }
 
 fn item(label: &str, kind: CompletionItemKind, detail: &str) -> CompletionItem {
@@ -542,35 +516,37 @@ fn sub_statement_keywords() -> Vec<CompletionItem> {
 }
 
 fn person_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
-    let all: &[(FieldName, &str)] = &[
-        (FieldName::Name, "Full display name — required"),
-        (FieldName::Family, "Family name (last name)"),
-        (FieldName::Given, "Given name (first name)"),
-        (FieldName::Gender, "male, female, or other — required"),
-        (
-            FieldName::Born,
-            "Date of birth (YYYY, YYYY-MM, or YYYY-MM-DD)",
-        ),
-        (
-            FieldName::Died,
-            "Date of death — omit if the person is still alive",
-        ),
-    ];
-    all.iter()
-        .filter(|(f, _)| !existing.contains(f))
-        .map(|(f, doc)| {
-            let label = format!("{}:", f.as_str());
-            if is_string_field(*f) {
-                field_with_quoted_snippet(&label, doc)
-            } else {
-                item(&label, CompletionItemKind::FIELD, doc)
+    field_completions(StatementKind::Person, existing)
+}
+
+fn marriage_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
+    field_completions(StatementKind::Marriage, existing)
+}
+
+fn adoption_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
+    field_completions(StatementKind::Adoption, existing)
+}
+
+/// Build the completion list for one statement shape: every field valid
+/// for that shape (in canonical order) minus the ones already present on
+/// the line. String-typed fields use a snippet that auto-wraps the value
+/// in quotes; everything else is a plain field item.
+fn field_completions(kind: StatementKind, existing: &[FieldName]) -> Vec<CompletionItem> {
+    field_meta::fields_for(kind)
+        .iter()
+        .copied()
+        .filter(|name| !existing.contains(name))
+        .map(|name| {
+            let m = field_meta::meta(name);
+            let label = format!("{}:", m.name.as_str());
+            match m.value_kind {
+                ValueKind::String => field_with_quoted_snippet(&label, m.short_doc),
+                ValueKind::Date | ValueKind::Enum => {
+                    item(&label, CompletionItemKind::FIELD, m.short_doc)
+                }
             }
         })
         .collect()
-}
-
-fn is_string_field(f: FieldName) -> bool {
-    matches!(f, FieldName::Name | FieldName::Family | FieldName::Given)
 }
 
 /// Field-name item whose insertion auto-wraps the value in quotes:
@@ -585,38 +561,6 @@ fn field_with_quoted_snippet(label: &str, doc: &str) -> CompletionItem {
         insert_text_format: Some(InsertTextFormat::SNIPPET),
         ..Default::default()
     }
-}
-
-fn marriage_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
-    let all: &[(FieldName, &str)] = &[
-        (FieldName::Start, "Date the marriage began — required"),
-        (
-            FieldName::End,
-            "Date the marriage ended — pair with end_reason:",
-        ),
-        (
-            FieldName::EndReason,
-            "Why the marriage ended — currently only `divorce`",
-        ),
-    ];
-    all.iter()
-        .filter(|(f, _)| !existing.contains(f))
-        .map(|(f, doc)| item(&format!("{}:", f.as_str()), CompletionItemKind::FIELD, doc))
-        .collect()
-}
-
-fn adoption_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
-    let all: &[(FieldName, &str)] = &[
-        (FieldName::Start, "Date the adoption took effect"),
-        (
-            FieldName::End,
-            "Date the adoption ended — omit if still in effect",
-        ),
-    ];
-    all.iter()
-        .filter(|(f, _)| !existing.contains(f))
-        .map(|(f, doc)| item(&format!("{}:", f.as_str()), CompletionItemKind::FIELD, doc))
-        .collect()
 }
 
 fn gender_values() -> Vec<CompletionItem> {

@@ -10,10 +10,8 @@
 //! `lsp_types`. The encoded stream is line/character-delta-compressed per
 //! the LSP spec.
 
-use kula_core::ast::{
-    AdoptionFieldKind, AdoptionSub, BirthSub, MarriageFieldKind, MarriageStmt, PersonFieldKind,
-    PersonStmt, Statement, VersionDecl,
-};
+use kula_core::ast::{AdoptionSub, BirthSub, MarriageStmt, PersonStmt, Statement, VersionDecl};
+use kula_core::field_meta::{self, ValueKind};
 use kula_core::semantic::ResolvedDocument;
 use kula_core::span::ByteSpan;
 use tower_lsp::lsp_types::{
@@ -63,11 +61,10 @@ struct RawToken {
 /// 5-tuples after delta encoding.
 pub fn semantic_tokens(resolved: &ResolvedDocument<'_>, line_index: &LineIndex) -> SemanticTokens {
     let mut raw: Vec<RawToken> = Vec::new();
-    let document = resolved.document();
-    if let Some(version) = &document.version {
+    if let Some(version) = &resolved.document().version {
         emit_version(&mut raw, version);
     }
-    for stmt in &document.statements {
+    for stmt in resolved.statements() {
         match stmt {
             Statement::Person(p) => emit_person(&mut raw, p),
             Statement::Marriage(m) => emit_marriage(&mut raw, m),
@@ -105,30 +102,7 @@ fn emit_person(out: &mut Vec<RawToken>, p: &PersonStmt) {
         token_type: TT_CLASS,
     });
     for f in &p.fields {
-        out.push(RawToken {
-            span: f.name_span,
-            token_type: TT_PROPERTY,
-        });
-        match &f.kind {
-            PersonFieldKind::Name(s) | PersonFieldKind::Family(s) | PersonFieldKind::Given(s) => {
-                out.push(RawToken {
-                    span: s.span,
-                    token_type: TT_STRING,
-                });
-            }
-            PersonFieldKind::Born(d) | PersonFieldKind::Died(d) => {
-                out.push(RawToken {
-                    span: d.span,
-                    token_type: TT_NUMBER,
-                });
-            }
-            PersonFieldKind::Gender(g) => {
-                out.push(RawToken {
-                    span: g.span,
-                    token_type: TT_ENUM_MEMBER,
-                });
-            }
-        }
+        emit_field(out, f.name_span, f.kind.value_span(), f.kind.field_name());
     }
     if let Some(birth) = &p.birth {
         emit_birth(out, birth);
@@ -159,18 +133,7 @@ fn emit_adoption(out: &mut Vec<RawToken>, a: &AdoptionSub) {
         token_type: TT_PARAMETER,
     });
     for f in &a.fields {
-        out.push(RawToken {
-            span: f.name_span,
-            token_type: TT_PROPERTY,
-        });
-        match &f.kind {
-            AdoptionFieldKind::Start(d) | AdoptionFieldKind::End(d) => {
-                out.push(RawToken {
-                    span: d.span,
-                    token_type: TT_NUMBER,
-                });
-            }
-        }
+        emit_field(out, f.name_span, f.kind.value_span(), f.kind.field_name());
     }
 }
 
@@ -192,24 +155,33 @@ fn emit_marriage(out: &mut Vec<RawToken>, m: &MarriageStmt) {
         token_type: TT_VARIABLE,
     });
     for f in &m.fields {
-        out.push(RawToken {
-            span: f.name_span,
-            token_type: TT_PROPERTY,
-        });
-        match &f.kind {
-            MarriageFieldKind::Start(d) | MarriageFieldKind::End(d) => {
-                out.push(RawToken {
-                    span: d.span,
-                    token_type: TT_NUMBER,
-                });
-            }
-            MarriageFieldKind::EndReason(v) => {
-                out.push(RawToken {
-                    span: v.span,
-                    token_type: TT_ENUM_MEMBER,
-                });
-            }
-        }
+        emit_field(out, f.name_span, f.kind.value_span(), f.kind.field_name());
+    }
+}
+
+/// Emit the two tokens for a single `field:value` pair: the property name
+/// and the value (typed by the field's [`ValueKind`]).
+fn emit_field(
+    out: &mut Vec<RawToken>,
+    name_span: ByteSpan,
+    value_span: ByteSpan,
+    name: kula_core::lexer::FieldName,
+) {
+    out.push(RawToken {
+        span: name_span,
+        token_type: TT_PROPERTY,
+    });
+    out.push(RawToken {
+        span: value_span,
+        token_type: token_type_for(field_meta::meta(name).value_kind),
+    });
+}
+
+fn token_type_for(kind: ValueKind) -> u32 {
+    match kind {
+        ValueKind::String => TT_STRING,
+        ValueKind::Date => TT_NUMBER,
+        ValueKind::Enum => TT_ENUM_MEMBER,
     }
 }
 

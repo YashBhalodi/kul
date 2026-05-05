@@ -7,8 +7,8 @@
 //! `document.statements` themselves.
 
 use crate::ast::{EndReason, MarriageStmt};
-use crate::date::before_strict;
-use crate::diagnostic::Diagnostic;
+use crate::date::{DateLit, before_strict};
+use crate::diagnostic::{Diagnostic, detail};
 use crate::lexer::FieldName;
 use crate::semantic::ResolvedDocument;
 
@@ -37,36 +37,45 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
     let mut out = Vec::new();
     for p in resolved.persons() {
         if !p.has_field(FieldName::Name) {
-            out.push(Diagnostic::error(
-                "KULA-R03",
-                format!(
-                    "person `{}` needs a `name:` field — add `name:\"…\"` to the declaration",
-                    p.id.name
-                ),
-                p.id.span,
-            ));
+            out.push(
+                Diagnostic::error(
+                    "KULA-R03",
+                    format!(
+                        "person `{}` needs a `name:` field — add `name:\"…\"` to the declaration",
+                        p.id.name
+                    ),
+                    p.id.span,
+                )
+                .with_detail(detail::R03_MISSING_NAME),
+            );
         }
         if !p.has_field(FieldName::Gender) {
-            out.push(Diagnostic::error(
-                "KULA-R03",
-                format!(
-                    "person `{}` needs a `gender:` field — use `gender:male`, `gender:female`, or `gender:other`",
-                    p.id.name
-                ),
-                p.id.span,
-            ));
+            out.push(
+                Diagnostic::error(
+                    "KULA-R03",
+                    format!(
+                        "person `{}` needs a `gender:` field — use `gender:male`, `gender:female`, or `gender:other`",
+                        p.id.name
+                    ),
+                    p.id.span,
+                )
+                .with_detail(detail::R03_MISSING_GENDER),
+            );
         }
     }
     for m in resolved.marriages() {
         if m.start().is_none() {
-            out.push(Diagnostic::error(
-                "KULA-R03",
-                format!(
-                    "marriage `{}` needs a `start:` date — add `start:YYYY` (or a fuller `YYYY-MM-DD`)",
-                    m.id.name
-                ),
-                m.id.span,
-            ));
+            out.push(
+                Diagnostic::error(
+                    "KULA-R03",
+                    format!(
+                        "marriage `{}` needs a `start:` date — add `start:YYYY` (or a fuller `YYYY-MM-DD`)",
+                        m.id.name
+                    ),
+                    m.id.span,
+                )
+                .with_detail(detail::R03_MISSING_MARRIAGE_START),
+            );
         }
     }
     out
@@ -104,14 +113,17 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
     for m in resolved.marriages() {
         match (m.end(), m.end_reason()) {
             (Some(end), None) => {
-                out.push(Diagnostic::error(
-                    "KULA-R05",
-                    format!(
-                        "marriage `{}` has an `end:` date but no `end_reason:` — add `end_reason:divorce`",
-                        m.id.name
-                    ),
-                    end.span,
-                ));
+                out.push(
+                    Diagnostic::error(
+                        "KULA-R05",
+                        format!(
+                            "marriage `{}` has an `end:` date but no `end_reason:` — add `end_reason:divorce`",
+                            m.id.name
+                        ),
+                        end.span,
+                    )
+                    .with_detail(detail::R05_END_WITHOUT_END_REASON),
+                );
             }
             (None, Some(reason)) => {
                 // Anchor on the field's full span (including the `end_reason:`
@@ -123,14 +135,17 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
                     .find(|f| matches!(f.kind, crate::ast::MarriageFieldKind::EndReason(_)))
                     .map(|f| f.span)
                     .unwrap_or(reason.span);
-                out.push(Diagnostic::error(
-                    "KULA-R05",
-                    format!(
-                        "marriage `{}` has an `end_reason:` but no `end:` date — add an `end:` date or remove this field",
-                        m.id.name
-                    ),
-                    field_span,
-                ));
+                out.push(
+                    Diagnostic::error(
+                        "KULA-R05",
+                        format!(
+                            "marriage `{}` has an `end_reason:` but no `end:` date — add an `end:` date or remove this field",
+                            m.id.name
+                        ),
+                        field_span,
+                    )
+                    .with_detail(detail::R05_END_REASON_WITHOUT_END),
+                );
             }
             _ => {}
         }
@@ -149,42 +164,36 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument<'_>) -> Vec<Diagnosti
 
 /// Rule 6 — `person.died < person.born`.
 pub fn rule_06_died_before_born(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
-    let mut out = Vec::new();
-    for p in resolved.persons() {
-        if let (Some(born), Some(died)) = (p.born(), p.died())
-            && before_strict(died, born)
-        {
-            out.push(
-                Diagnostic::error(
-                    "KULA-R06",
-                    format!("person `{}` died before they were born", p.id.name),
-                    died.span,
-                )
-                .with_related(born.span, "born here"),
-            );
-        }
-    }
-    out
+    resolved
+        .persons()
+        .filter_map(|p| {
+            temporal_violation(
+                "KULA-R06",
+                p.died(),
+                p.born(),
+                Anchor::Earlier,
+                || format!("person `{}` died before they were born", p.id.name),
+                || "born here".to_owned(),
+            )
+        })
+        .collect()
 }
 
 /// Rule 7 — `marriage.end < marriage.start`.
 pub fn rule_07_marriage_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
-    let mut out = Vec::new();
-    for m in resolved.marriages() {
-        if let (Some(start), Some(end)) = (m.start(), m.end())
-            && before_strict(end, start)
-        {
-            out.push(
-                Diagnostic::error(
-                    "KULA-R07",
-                    format!("marriage `{}` ended before it began", m.id.name),
-                    end.span,
-                )
-                .with_related(start.span, "started here"),
-            );
-        }
-    }
-    out
+    resolved
+        .marriages()
+        .filter_map(|m| {
+            temporal_violation(
+                "KULA-R07",
+                m.end(),
+                m.start(),
+                Anchor::Earlier,
+                || format!("marriage `{}` ended before it began", m.id.name),
+                || "started here".to_owned(),
+            )
+        })
+        .collect()
 }
 
 /// Rule 8 — `adoption.end < adoption.start`.
@@ -192,20 +201,20 @@ pub fn rule_08_adoption_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec
     let mut out = Vec::new();
     for p in resolved.persons() {
         for adoption in &p.adoptions {
-            if let (Some(start), Some(end)) = (adoption.start(), adoption.end())
-                && before_strict(end, start)
-            {
-                out.push(
-                    Diagnostic::error(
-                        "KULA-R08",
-                        format!(
-                            "adoption of `{}` (by marriage `{}`) ended before it began",
-                            p.id.name, adoption.marriage_ref.name
-                        ),
-                        end.span,
+            if let Some(d) = temporal_violation(
+                "KULA-R08",
+                adoption.end(),
+                adoption.start(),
+                Anchor::Earlier,
+                || {
+                    format!(
+                        "adoption of `{}` (by marriage `{}`) ended before it began",
+                        p.id.name, adoption.marriage_ref.name
                     )
-                    .with_related(start.span, "started here"),
-                );
+                },
+                || "started here".to_owned(),
+            ) {
+                out.push(d);
             }
         }
     }
@@ -216,21 +225,21 @@ pub fn rule_08_adoption_end_before_start(resolved: &ResolvedDocument<'_>) -> Vec
 pub fn rule_09_marriage_before_spouse_born(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for m in resolved.marriages() {
-        let Some(start) = m.start() else { continue };
         for spouse in resolved.spouses_of(m) {
-            let Some(born) = spouse.born() else { continue };
-            if before_strict(start, born) {
-                out.push(
-                    Diagnostic::error(
-                        "KULA-R09",
-                        format!(
-                            "marriage `{}` started before spouse `{}` was born",
-                            m.id.name, spouse.id.name
-                        ),
-                        start.span,
+            if let Some(d) = temporal_violation(
+                "KULA-R09",
+                m.start(),
+                spouse.born(),
+                Anchor::Earlier,
+                || {
+                    format!(
+                        "marriage `{}` started before spouse `{}` was born",
+                        m.id.name, spouse.id.name
                     )
-                    .with_related(born.span, format!("`{}` born here", spouse.id.name)),
-                );
+                },
+                || format!("`{}` born here", spouse.id.name),
+            ) {
+                out.push(d);
             }
         }
     }
@@ -241,21 +250,25 @@ pub fn rule_09_marriage_before_spouse_born(resolved: &ResolvedDocument<'_>) -> V
 pub fn rule_10_spouse_died_before_marriage(resolved: &ResolvedDocument<'_>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for m in resolved.marriages() {
-        let Some(start) = m.start() else { continue };
         for spouse in resolved.spouses_of(m) {
-            let Some(died) = spouse.died() else { continue };
-            if before_strict(died, start) {
-                out.push(
-                    Diagnostic::error(
-                        "KULA-R10",
-                        format!(
-                            "marriage `{}` started after spouse `{}` had already died",
-                            m.id.name, spouse.id.name
-                        ),
-                        start.span,
+            // Of all temporal rules this is the one that anchors on the
+            // later date (the marriage `start:` is "wrong" because it
+            // came after the spouse's death, not because it came too
+            // early). Hence Anchor::Later.
+            if let Some(d) = temporal_violation(
+                "KULA-R10",
+                spouse.died(),
+                m.start(),
+                Anchor::Later,
+                || {
+                    format!(
+                        "marriage `{}` started after spouse `{}` had already died",
+                        m.id.name, spouse.id.name
                     )
-                    .with_related(died.span, format!("`{}` died here", spouse.id.name)),
-                );
+                },
+                || format!("`{}` died here", spouse.id.name),
+            ) {
+                out.push(d);
             }
         }
     }
@@ -268,28 +281,24 @@ pub fn rule_11_bio_child_born_before_parent(resolved: &ResolvedDocument<'_>) -> 
     let mut out = Vec::new();
     for child in resolved.persons() {
         let Some(birth) = &child.birth else { continue };
-        let Some(child_born) = child.born() else {
-            continue;
-        };
         let Some(marriage) = resolved.marriage(&birth.marriage_ref.name) else {
             continue;
         };
         for parent in resolved.spouses_of(marriage) {
-            let Some(parent_born) = parent.born() else {
-                continue;
-            };
-            if before_strict(child_born, parent_born) {
-                out.push(
-                    Diagnostic::error(
-                        "KULA-R11",
-                        format!(
-                            "`{}` was born before their biological parent `{}`",
-                            child.id.name, parent.id.name
-                        ),
-                        child_born.span,
+            if let Some(d) = temporal_violation(
+                "KULA-R11",
+                child.born(),
+                parent.born(),
+                Anchor::Earlier,
+                || {
+                    format!(
+                        "`{}` was born before their biological parent `{}`",
+                        child.id.name, parent.id.name
                     )
-                    .with_related(parent_born.span, format!("`{}` born here", parent.id.name)),
-                );
+                },
+                || format!("`{}` born here", parent.id.name),
+            ) {
+                out.push(d);
             }
         }
     }
@@ -301,33 +310,72 @@ pub fn rule_12_adoption_before_adopter_born(resolved: &ResolvedDocument<'_>) -> 
     let mut out = Vec::new();
     for child in resolved.persons() {
         for adoption in &child.adoptions {
-            let Some(start) = adoption.start() else {
-                continue;
-            };
             let Some(marriage) = resolved.marriage(&adoption.marriage_ref.name) else {
                 continue;
             };
             for parent in resolved.spouses_of(marriage) {
-                let Some(parent_born) = parent.born() else {
-                    continue;
-                };
-                if before_strict(start, parent_born) {
-                    out.push(
-                        Diagnostic::error(
-                            "KULA-R12",
-                            format!(
-                                "adoption of `{}` started before adoptive parent `{}` was born",
-                                child.id.name, parent.id.name
-                            ),
-                            start.span,
+                if let Some(d) = temporal_violation(
+                    "KULA-R12",
+                    adoption.start(),
+                    parent.born(),
+                    Anchor::Earlier,
+                    || {
+                        format!(
+                            "adoption of `{}` started before adoptive parent `{}` was born",
+                            child.id.name, parent.id.name
                         )
-                        .with_related(parent_born.span, format!("`{}` born here", parent.id.name)),
-                    );
+                    },
+                    || format!("`{}` born here", parent.id.name),
+                ) {
+                    out.push(d);
                 }
             }
         }
     }
     out
+}
+
+/// Which side of the chronological pair the diagnostic anchors on. Most
+/// temporal rules anchor on the date that came too *early* (R06: `died`
+/// came before `born`). R10 is the exception — it anchors on the date
+/// that came too *late* (the marriage `start:` came after the spouse's
+/// death).
+#[derive(Copy, Clone)]
+enum Anchor {
+    Earlier,
+    Later,
+}
+
+/// Build a temporal-ordering violation diagnostic.
+///
+/// Fires when both dates are present and `earlier` strictly precedes
+/// `later` (i.e. the pair is genuinely out of order). The diagnostic
+/// anchors on whichever side the rule chose to highlight as "the
+/// surprising date"; the other side is carried as a related span.
+///
+/// Both message closures run only on a real violation, so the
+/// allocation-heavy `format!`s stay off the happy path.
+fn temporal_violation(
+    code: &'static str,
+    earlier: Option<&DateLit>,
+    later: Option<&DateLit>,
+    anchor: Anchor,
+    message: impl FnOnce() -> String,
+    related_label: impl FnOnce() -> String,
+) -> Option<Diagnostic> {
+    let earlier = earlier?;
+    let later = later?;
+    if !before_strict(earlier, later) {
+        return None;
+    }
+    let (primary, related) = match anchor {
+        Anchor::Earlier => (earlier, later),
+        Anchor::Later => (later, earlier),
+    };
+    Some(
+        Diagnostic::error(code, message(), primary.span)
+            .with_related(related.span, related_label()),
+    )
 }
 
 /// Rule 13 — no person may appear as their own ancestor in the parent graph

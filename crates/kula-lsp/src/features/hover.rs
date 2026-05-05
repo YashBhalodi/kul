@@ -4,10 +4,8 @@
 //! Markdown content builder. The async `Backend::hover` method is a thin
 //! shell over [`hover`].
 
-use kula_core::ast::{
-    AdoptionField, AdoptionFieldKind, MarriageField, MarriageFieldKind, MarriageStmt, PersonField,
-    PersonFieldKind, PersonStmt,
-};
+use kula_core::ast::{AdoptionField, MarriageField, MarriageStmt, PersonField, PersonStmt};
+use kula_core::field_meta;
 use kula_core::node_at::{KeywordKind, Node};
 use kula_core::semantic::ResolvedDocument;
 use kula_core::span::ByteSpan;
@@ -50,20 +48,29 @@ pub fn hover(
             ident,
             target: None,
         } => (unresolved_note("marriage", &ident.name), ident.span),
-        Node::PersonFieldName(f) => (person_field_doc(&f.kind).to_owned(), f.name_span),
+        Node::PersonFieldName(f) => (
+            field_meta::meta(f.kind.field_name()).hover_md.to_owned(),
+            f.name_span,
+        ),
         Node::PersonFieldValue(f) => (
             person_field_value_md(line_index.source(), f),
-            value_span_of_person(f),
+            f.kind.value_span(),
         ),
-        Node::MarriageFieldName(f) => (marriage_field_doc(&f.kind).to_owned(), f.name_span),
+        Node::MarriageFieldName(f) => (
+            field_meta::meta(f.kind.field_name()).hover_md.to_owned(),
+            f.name_span,
+        ),
         Node::MarriageFieldValue(f) => (
             marriage_field_value_md(line_index.source(), f),
-            value_span_of_marriage(f),
+            f.kind.value_span(),
         ),
-        Node::AdoptionFieldName(f) => (adoption_field_doc(&f.kind).to_owned(), f.name_span),
+        Node::AdoptionFieldName(f) => (
+            field_meta::meta(f.kind.field_name()).hover_md.to_owned(),
+            f.name_span,
+        ),
         Node::AdoptionFieldValue(f) => (
             adoption_field_value_md(line_index.source(), f),
-            value_span_of_adoption(f),
+            f.kind.value_span(),
         ),
     };
 
@@ -178,89 +185,22 @@ fn unresolved_note(kind: &str, id: &str) -> String {
     )
 }
 
-fn person_field_doc(k: &PersonFieldKind) -> &'static str {
-    match k {
-        PersonFieldKind::Name(_) => {
-            "**`name:`** — the person's full display name. Any text in double quotes.\n\nExample: `name:\"Alice Doe\"`"
-        }
-        PersonFieldKind::Family(_) => {
-            "**`family:`** — family name (last name / surname). Any text in double quotes. Optional.\n\nExample: `family:\"Doe\"`"
-        }
-        PersonFieldKind::Given(_) => {
-            "**`given:`** — given name (first name). Any text in double quotes. Optional.\n\nExample: `given:\"Alice\"`"
-        }
-        PersonFieldKind::Born(_) => {
-            "**`born:`** — date of birth. Use `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`.\n\nPrefix with `~` for an approximate date (e.g. `~1980` means roughly 1975–1985)."
-        }
-        PersonFieldKind::Died(_) => {
-            "**`died:`** — date of death. Same formats as `born:`. Omit this field if the person is still alive."
-        }
-        PersonFieldKind::Gender(_) => "**`gender:`** — one of `male`, `female`, or `other`.",
-    }
-}
-
-fn marriage_field_doc(k: &MarriageFieldKind) -> &'static str {
-    match k {
-        MarriageFieldKind::Start(_) => {
-            "**`start:`** — date the marriage began. Required for every marriage.\n\nUse `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`. Prefix with `~` for an approximate date."
-        }
-        MarriageFieldKind::End(_) => {
-            "**`end:`** — date the marriage ended. Must be paired with `end_reason:`. Omit both if the marriage is ongoing."
-        }
-        MarriageFieldKind::EndReason(_) => {
-            "**`end_reason:`** — why the marriage ended. The only value in v1 is `divorce`. Must be paired with `end:`."
-        }
-    }
-}
-
-fn adoption_field_doc(k: &AdoptionFieldKind) -> &'static str {
-    match k {
-        AdoptionFieldKind::Start(_) => {
-            "**`start:`** — date the adoption took effect.\n\nUse `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`. Prefix with `~` for an approximate date."
-        }
-        AdoptionFieldKind::End(_) => {
-            "**`end:`** — date the adoption ended. Omit this field if the adoption is still in effect."
-        }
-    }
-}
-
 fn person_field_value_md(source: &str, f: &PersonField) -> String {
-    let doc = person_field_doc(&f.kind);
-    let literal = source_slice(source, value_span_of_person(f));
+    let doc = field_meta::meta(f.kind.field_name()).hover_md;
+    let literal = source_slice(source, f.kind.value_span());
     format!("{doc}\n\n`{literal}`")
 }
 
 fn marriage_field_value_md(source: &str, f: &MarriageField) -> String {
-    let doc = marriage_field_doc(&f.kind);
-    let literal = source_slice(source, value_span_of_marriage(f));
+    let doc = field_meta::meta(f.kind.field_name()).hover_md;
+    let literal = source_slice(source, f.kind.value_span());
     format!("{doc}\n\n`{literal}`")
 }
 
 fn adoption_field_value_md(source: &str, f: &AdoptionField) -> String {
-    let doc = adoption_field_doc(&f.kind);
-    let literal = source_slice(source, value_span_of_adoption(f));
+    let doc = field_meta::meta(f.kind.field_name()).hover_md;
+    let literal = source_slice(source, f.kind.value_span());
     format!("{doc}\n\n`{literal}`")
-}
-
-fn value_span_of_person(f: &PersonField) -> ByteSpan {
-    match &f.kind {
-        PersonFieldKind::Name(s) | PersonFieldKind::Family(s) | PersonFieldKind::Given(s) => s.span,
-        PersonFieldKind::Born(d) | PersonFieldKind::Died(d) => d.span,
-        PersonFieldKind::Gender(g) => g.span,
-    }
-}
-
-fn value_span_of_marriage(f: &MarriageField) -> ByteSpan {
-    match &f.kind {
-        MarriageFieldKind::Start(d) | MarriageFieldKind::End(d) => d.span,
-        MarriageFieldKind::EndReason(r) => r.span,
-    }
-}
-
-fn value_span_of_adoption(f: &AdoptionField) -> ByteSpan {
-    match &f.kind {
-        AdoptionFieldKind::Start(d) | AdoptionFieldKind::End(d) => d.span,
-    }
 }
 
 fn date_repr(d: &kula_core::date::DateLit) -> String {

@@ -80,6 +80,15 @@ impl<'a> ResolvedDocument<'a> {
         self.document
     }
 
+    /// Walk every top-level statement in source order.
+    ///
+    /// Use this when a caller wants to dispatch on the typed `Statement`
+    /// enum (semantic tokens, the document outline). Kinship questions
+    /// belong on the per-kind iterators below.
+    pub fn statements(&self) -> impl Iterator<Item = &'a Statement> + '_ {
+        self.document.statements.iter()
+    }
+
     /// Walk every `person` statement in source order.
     pub fn persons(&self) -> impl Iterator<Item = &'a PersonStmt> + '_ {
         self.document.statements.iter().filter_map(|s| match s {

@@ -184,6 +184,21 @@ pub enum AdoptionFieldKind {
     End(DateLit),
 }
 
+impl AdoptionFieldKind {
+    pub fn field_name(&self) -> FieldName {
+        match self {
+            AdoptionFieldKind::Start(_) => FieldName::Start,
+            AdoptionFieldKind::End(_) => FieldName::End,
+        }
+    }
+
+    pub fn value_span(&self) -> ByteSpan {
+        match self {
+            AdoptionFieldKind::Start(d) | AdoptionFieldKind::End(d) => d.span,
+        }
+    }
+}
+
 /// An identifier as written in source — name plus the span of the token.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ident {
@@ -207,6 +222,29 @@ pub enum PersonFieldKind {
     Born(DateLit),
     Died(DateLit),
     Gender(GenderValue),
+}
+
+impl PersonFieldKind {
+    pub fn field_name(&self) -> FieldName {
+        match self {
+            PersonFieldKind::Name(_) => FieldName::Name,
+            PersonFieldKind::Family(_) => FieldName::Family,
+            PersonFieldKind::Given(_) => FieldName::Given,
+            PersonFieldKind::Born(_) => FieldName::Born,
+            PersonFieldKind::Died(_) => FieldName::Died,
+            PersonFieldKind::Gender(_) => FieldName::Gender,
+        }
+    }
+
+    pub fn value_span(&self) -> ByteSpan {
+        match self {
+            PersonFieldKind::Name(s) | PersonFieldKind::Family(s) | PersonFieldKind::Given(s) => {
+                s.span
+            }
+            PersonFieldKind::Born(d) | PersonFieldKind::Died(d) => d.span,
+            PersonFieldKind::Gender(g) => g.span,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -278,6 +316,23 @@ pub enum MarriageFieldKind {
     Start(DateLit),
     End(DateLit),
     EndReason(EndReasonValue),
+}
+
+impl MarriageFieldKind {
+    pub fn field_name(&self) -> FieldName {
+        match self {
+            MarriageFieldKind::Start(_) => FieldName::Start,
+            MarriageFieldKind::End(_) => FieldName::End,
+            MarriageFieldKind::EndReason(_) => FieldName::EndReason,
+        }
+    }
+
+    pub fn value_span(&self) -> ByteSpan {
+        match self {
+            MarriageFieldKind::Start(d) | MarriageFieldKind::End(d) => d.span,
+            MarriageFieldKind::EndReason(r) => r.span,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -14,7 +14,7 @@
 use std::collections::HashMap;
 
 use kula_core::ast::{MarriageFieldKind, MarriageStmt, PersonStmt};
-use kula_core::diagnostic::Diagnostic;
+use kula_core::diagnostic::{Diagnostic, detail};
 use kula_core::semantic::ResolvedDocument;
 use kula_core::span::ByteSpan;
 use tower_lsp::lsp_types::{
@@ -65,10 +65,11 @@ fn registry() -> HashMap<&'static str, ProviderFn> {
 
 /// KULA-R03: a required field is missing on a person or marriage.
 ///
-/// We dispatch on the diagnostic's message because R03 covers three
-/// conditions (missing `name:`, missing `gender:`, missing marriage
-/// `start:`) and they all anchor on the same span (`id.span`). The
-/// validator's messages are stable — they're the contract here.
+/// R03 covers three sub-cases (missing `name:`, missing `gender:`, missing
+/// marriage `start:`) all anchored on the same `id.span`. We dispatch on
+/// the diagnostic's `detail` tag — see `kula_core::diagnostic::detail` for
+/// the canonical values — so the code-action wiring stays sound when the
+/// validator's message text changes.
 fn r03_required_fields(
     resolved: &ResolvedDocument<'_>,
     diag: &Diagnostic,
@@ -76,8 +77,13 @@ fn r03_required_fields(
     uri: &Url,
 ) -> Vec<CodeAction> {
     let mut out = Vec::new();
-    if let Some(p) = resolved.persons().find(|p| p.id.span == diag.primary) {
-        if diag.message.contains("`gender:`") {
+    let Some(p) = resolved.persons().find(|p| p.id.span == diag.primary) else {
+        // R03 on marriage (missing `start:`) — deliberately no quick fix;
+        // the user has to supply a date.
+        return out;
+    };
+    match diag.detail {
+        Some(detail::R03_MISSING_GENDER) => {
             for value in ["male", "female", "other"] {
                 out.push(add_person_field(
                     p,
@@ -89,7 +95,7 @@ fn r03_required_fields(
                 ));
             }
         }
-        if diag.message.contains("`name:`") {
+        Some(detail::R03_MISSING_NAME) => {
             out.push(add_person_field(
                 p,
                 line_index,
@@ -99,13 +105,17 @@ fn r03_required_fields(
                 diag,
             ));
         }
+        _ => {}
     }
-    // R03 on marriage (missing `start:`) — deliberately no quick fix; the
-    // user has to supply a date.
     out
 }
 
 /// KULA-R05: `end:` and `end_reason:` must both be present or both absent.
+///
+/// Two sub-cases (extra `end:` vs. extra `end_reason:`); we dispatch on
+/// `diag.detail`. Each diagnostic's primary span sits inside a single
+/// marriage; we locate it by containment (the spans aren't equal — R05
+/// anchors on the offending field, not the marriage's outer span).
 fn r05_end_consistency(
     resolved: &ResolvedDocument<'_>,
     diag: &Diagnostic,
@@ -113,36 +123,36 @@ fn r05_end_consistency(
     uri: &Url,
 ) -> Vec<CodeAction> {
     let mut out = Vec::new();
-    let m = match resolved.marriages().find(|m| {
-        // The R05 diagnostic is anchored on the field's span (end value or
-        // the end_reason field), which sits inside the marriage's outer
-        // span. Use containment, not equality.
-        span_contains(m.span, diag.primary)
-    }) {
-        Some(m) => m,
-        None => return out,
+    let Some(m) = resolved
+        .marriages()
+        .find(|m| span_contains(m.span, diag.primary))
+    else {
+        return out;
     };
-    if m.end().is_some() && m.end_reason().is_none() {
-        out.push(add_marriage_field(
-            m,
-            line_index,
-            uri,
-            "end_reason:divorce",
-            "Add `end_reason:divorce`",
-            diag,
-        ));
-    }
-    if m.end_reason().is_some() && m.end().is_none() {
-        if let Some(action) = remove_marriage_field(
-            m,
-            MarriageFieldKind::EndReason(default_end_reason()),
-            line_index,
-            uri,
-            "Remove `end_reason:` field",
-            diag,
-        ) {
-            out.push(action);
+    match diag.detail {
+        Some(detail::R05_END_WITHOUT_END_REASON) => {
+            out.push(add_marriage_field(
+                m,
+                line_index,
+                uri,
+                "end_reason:divorce",
+                "Add `end_reason:divorce`",
+                diag,
+            ));
         }
+        Some(detail::R05_END_REASON_WITHOUT_END) => {
+            if let Some(action) = remove_marriage_field(
+                m,
+                MarriageFieldKind::EndReason(default_end_reason()),
+                line_index,
+                uri,
+                "Remove `end_reason:` field",
+                diag,
+            ) {
+                out.push(action);
+            }
+        }
+        _ => {}
     }
     out
 }

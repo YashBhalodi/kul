@@ -107,7 +107,8 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 | `kula_core::check`                    | `crates/kula-core/src/lib.rs`                 | The whole pipeline. CLI and LSP both enter here.                                                                |
 | `ResolvedDocument` query methods      | `crates/kula-core/src/semantic.rs`            | All kinship questions. ADR-0001 mandates queries go through this; raw AST iteration is the seam's job.          |
 | `ResolvedDocument::node_at`           | `crates/kula-core/src/node_at.rs`             | "What's at byte offset X?" Returns a typed `Node`. Foundation for hover, definition, completion.                |
-| `Diagnostic` + `Severity` + code      | `crates/kula-core/src/diagnostic.rs`          | The error currency. Carries spans, codes (KULA-Rxx), related info. Both renderers (miette, LSP) consume it.     |
+| `Diagnostic` + `Severity` + code + `detail` | `crates/kula-core/src/diagnostic.rs`    | The error currency. Carries spans, codes (KULA-Rxx), related info, and (per ADR-0006) an optional sub-case tag. |
+| `field_meta::FieldMeta`               | `crates/kula-core/src/field_meta.rs`          | Per-field taxonomy: value shape, completion description, hover Markdown. Hover, completion, and semantic-tokens consume it (ADR-0005). |
 | `LineIndex`                           | `crates/kula-lsp/src/convert.rs`              | Byte ↔ LSP-position. Handles UTF-16 code units and CRLF. The only place that knows about LSP position semantics.|
 | `state::Documents`                    | `crates/kula-lsp/src/state.rs`                | The LSP document cache. Thread-safe; the only path to a `Document` from inside an LSP request handler.          |
 
@@ -141,6 +142,24 @@ This is the highest-risk change because the AST is a stable surface. Read the ad
 4. Update the validator if any rule should care.
 5. Update LSP feature modules whose `match` arms might now be non-exhaustive (the compiler will tell you).
 6. Update the spec.
+
+### A new field on a statement
+
+Per ADR-0005 the field taxonomy lives in `field_meta`. Adding a field is mostly a one-table change.
+
+1. Extend `FieldName` (in `lexer.rs`) and the relevant `*FieldKind` enum in `ast.rs` — *additively*.
+2. Add a row to `META` in `crates/kula-core/src/field_meta.rs` and add the `FieldName` to the right `*_FIELDS` slice (canonical formatter order).
+3. Update the parser to emit the new variant.
+4. If the field is required, R03 needs a new arm; otherwise the validator picks it up automatically through field accessors.
+5. Hover, completion, and semantic-tokens all read the new row at runtime — no editing needed in those features.
+
+### A new sub-case on an existing rule
+
+Per ADR-0006 a single rule can carry multiple sub-cases on the same primary span, distinguished by a `detail` tag. Add one when the code-action provider (or any other tooling consumer) needs to behave differently per sub-case.
+
+1. Add a `pub const` tag in `kula_core::diagnostic::detail` (naming: `<rule>-<short>`).
+2. Set it on the producing diagnostic via `.with_detail(detail::TAG)`.
+3. Match on it at the consumer (e.g. the code-action registry).
 
 ### A new CLI subcommand
 

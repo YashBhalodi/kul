@@ -24,9 +24,7 @@ pub fn document_symbols(
     line_index: &LineIndex,
 ) -> Vec<DocumentSymbol> {
     resolved
-        .document()
-        .statements
-        .iter()
+        .statements()
         .map(|stmt| match stmt {
             Statement::Person(p) => person_symbol(line_index, p),
             Statement::Marriage(m) => marriage_symbol(resolved, line_index, m),

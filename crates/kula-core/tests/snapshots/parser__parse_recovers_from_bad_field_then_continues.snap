@@ -1,5 +1,6 @@
 ---
 source: crates/kula-core/tests/parser.rs
+assertion_line: 36
 expression: "render(\"person alice oops:bad gender:female\\nperson bob name:\\\"Bob\\\" gender:male\\n\")"
 ---
 ast: Document {
@@ -102,5 +103,6 @@ diagnostics: [
             end: 17,
         },
         related: [],
+        detail: None,
     },
 ]

@@ -24,6 +24,13 @@ pub struct RelatedSpan {
 
 /// A diagnostic produced by the lexer, parser, semantic analyzer, or
 /// validator. Stable across releases by `code`.
+///
+/// `detail` is an optional sub-case discriminator, used when one rule code
+/// covers multiple distinguishable conditions on the same span. Consumers
+/// that change behavior per-condition (e.g. the code-action provider that
+/// suggests different fixes for missing `name:` vs. missing `gender:`)
+/// match on it instead of parsing the human-facing `message`. Tags are
+/// declared next to the rule producer; see the `detail` constants below.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagnostic {
     pub code: &'static str,
@@ -31,6 +38,7 @@ pub struct Diagnostic {
     pub message: String,
     pub primary: ByteSpan,
     pub related: Vec<RelatedSpan>,
+    pub detail: Option<&'static str>,
 }
 
 impl Diagnostic {
@@ -41,6 +49,7 @@ impl Diagnostic {
             message: message.into(),
             primary,
             related: Vec::new(),
+            detail: None,
         }
     }
 
@@ -51,6 +60,31 @@ impl Diagnostic {
         });
         self
     }
+
+    /// Tag this diagnostic with a sub-case discriminator. See the
+    /// `detail::*` module constants for the canonical values.
+    pub fn with_detail(mut self, detail: &'static str) -> Self {
+        self.detail = Some(detail);
+        self
+    }
+}
+
+/// Canonical `Diagnostic::detail` tags. A tag identifies *which sub-case*
+/// of a rule fired when one rule code (e.g. `KULA-R03`) covers multiple
+/// conditions whose primary spans coincide. Both the validator (producer)
+/// and the LSP code-action provider (consumer) reference the same
+/// constants — adding a new tag is a one-line change in both places.
+pub mod detail {
+    /// R03: `person` is missing its required `name:` field.
+    pub const R03_MISSING_NAME: &str = "r03-missing-name";
+    /// R03: `person` is missing its required `gender:` field.
+    pub const R03_MISSING_GENDER: &str = "r03-missing-gender";
+    /// R03: `marriage` is missing its required `start:` field.
+    pub const R03_MISSING_MARRIAGE_START: &str = "r03-missing-marriage-start";
+    /// R05: `marriage` has `end:` but no `end_reason:`.
+    pub const R05_END_WITHOUT_END_REASON: &str = "r05-end-without-end-reason";
+    /// R05: `marriage` has `end_reason:` but no `end:`.
+    pub const R05_END_REASON_WITHOUT_END: &str = "r05-end-reason-without-end";
 }
 
 /// Wraps a [`Diagnostic`] with the source string for `miette` rendering.
