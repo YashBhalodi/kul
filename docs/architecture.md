@@ -48,19 +48,24 @@ The shape is deliberately linear. Each pass produces a strictly richer artifact;
 ```
 kula-core   ── library (no_std-friendly intent, but uses std for now)
               the entire pipeline lives here. Public surface is the
-              CheckResult API plus the AST types and ResolvedDocument
-              query methods.
+              CheckResult API plus the AST types, ResolvedDocument
+              query methods, the formatter, and the export module
+              (kinship-native + cytoscape projections).
 
 kula-cli    ── thin binary `kula`
-              Two subcommands: `validate` (renders diagnostics with
-              miette) and `lsp` (delegates to kula_lsp::run).
-              Owns argument parsing and human/JSON output formatting.
+              Four subcommands: `validate` (renders diagnostics with
+              miette), `format` (canonicalize per ADR-0004), `export`
+              (project to JSON via kula_core::export), and `lsp`
+              (delegates to kula_lsp::run). Owns argument parsing and
+              human/JSON output formatting.
 
 kula-lsp    ── library + binary `kula-lsp`
               tower-lsp Backend implementation. Owns the document cache,
               implements feature modules (hover, definition, completion,
-              diagnostics), translates kula-core types to LSP types.
-              Never re-implements pipeline logic — only adapts.
+              diagnostics, export, …), translates kula-core types to LSP
+              types. Never re-implements pipeline logic — only adapts.
+              Custom requests (e.g. `kula/export`) are registered via
+              `LspService::build().custom_method(...)` in `lib.rs`.
 ```
 
 The dependency graph is unidirectional: `kula-cli → kula-lsp → kula-core`, and `kula-cli → kula-core`. Nothing depends on the CLI; nothing in core depends on the LSP. New crates should preserve this.
@@ -110,6 +115,7 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 | `Node::entity_reference`              | `crates/kula-core/src/node_at.rs`             | "What entity (person / marriage) is the cursor pointing at?" Returns an `EntityNode` summary (id, kind, decl span, target). Used by goto-definition, find-references, rename. |
 | `Diagnostic` + `Severity` + code + `detail` | `crates/kula-core/src/diagnostic.rs`    | The error currency. Carries spans, codes (KULA-Rxx), related info, and (per ADR-0006) an optional sub-case tag. |
 | `field_meta::FieldMeta`               | `crates/kula-core/src/field_meta.rs`          | Per-field taxonomy: value shape, completion description, hover Markdown. Hover, completion, and semantic-tokens consume it (ADR-0005). |
+| `export::export`                      | `crates/kula-core/src/export.rs`              | Canonical JSON projection of a `CheckResult` into an `ExportEnvelope`. Strict on errors; format-dispatched (kinship-native or cytoscape). The deep module the CLI's `kula export` and the LSP's `kula/export` both call. Schema documented in [`spec/15-export-schema.md`](../spec/15-export-schema.md); shape, posture, and versioning settled in ADRs 0008–0010. |
 | `LineIndex`                           | `crates/kula-lsp/src/convert.rs`              | Byte ↔ LSP-position. Handles UTF-16 code units and CRLF. Holds source as `Arc<str>` so `state::Document` shares the same heap buffer.|
 | `state::Documents`                    | `crates/kula-lsp/src/state.rs`                | The LSP document cache. Thread-safe; the only path to a `Document` from inside an LSP request handler. Each cached `Document` shares one `Arc<str>` between its `source` field and the `LineIndex`.          |
 
@@ -133,6 +139,16 @@ If you find yourself reaching around one of these (e.g. iterating `document.stat
 4. Add an integration test in `crates/kula-lsp/tests/<feature>.rs` using the existing minimal LSP client.
 5. If the feature needs new "what's at the cursor?" information, extend the `Node` enum in `node_at.rs` (additively — don't rename existing variants) and the resolution logic. The feature then matches on the new variant.
 6. If the feature keys on "what entity is the cursor pointing at?" (a person / marriage id, decl or reference), call `node.entity_reference()` instead of pattern-matching the four id-bearing `Node` variants by hand. The accessor returns an `EntityNode` with `kind`, `name`, `ident_span`, `is_decl`, `target`, and a `decl_span()` method.
+
+### A new LSP custom request
+
+Custom (non-LSP-standard) requests like `kula/export` follow a slightly different wiring than the textDocument capabilities above:
+
+1. Define request params (with `serde::Deserialize`) and the projection function in `crates/kula-lsp/src/features/<request>.rs`. Keep the projection a pure `(Document, Params) -> Result<Response, Error>` function so it's unit-testable without LSP plumbing.
+2. Add a public method on `Backend` (`pub async fn <name>(&self, params: …) -> jsonrpc::Result<…>`) in `server.rs` that reads from `state::Documents` and calls the projection.
+3. Register the method in `lib.rs` via `LspService::build(...).custom_method("<namespace>/<name>", Backend::<name>).finish()`.
+4. Advertise the custom capability under `experimental.<name>` in `Backend::initialize` so clients can detect support.
+5. Add an integration test that drives the real binary with the same hand-rolled stdio LSP client as the standard-capability tests use; verify both the success-payload shape and the JSON-RPC error path.
 
 ### A new AST variant
 

@@ -36,7 +36,7 @@ Requires the Rust stable toolchain (edition 2024). `kula --version` to confirm.
 
 ### Editor extension
 
-The [KulaLang VSCode extension](https://marketplace.visualstudio.com/items?itemName=YashBhalodi.kulalang) bundles the language server — install it and `.kula` files get diagnostics, hover, go-to-definition, find-references, rename, completion, formatting, and outline view automatically. No additional configuration.
+The [KulaLang VSCode extension](https://marketplace.visualstudio.com/items?itemName=YashBhalodi.kulalang) bundles the language server — install it and `.kula` files get diagnostics, hover, go-to-definition, find-references, rename, completion, formatting, outline view, and the **Kula: Export to JSON** / **Kula: Export to Cytoscape JSON** commands automatically. No additional configuration.
 
 For other editors, point your LSP client at the `kula-lsp` binary.
 
@@ -66,6 +66,18 @@ kula format --check family.kula   # CI gate: non-zero exit if not canonical
 
 The formatter is opinionated and idempotent: one canonical layout, no configuration. See [ADR-0004](./docs/adr/0004-formatter-canonical-rules.md) and [`spec/14-formatter-rules.md`](./spec/14-formatter-rules.md).
 
+### Export a document to JSON
+
+```sh
+kula export family.kula                           # canonical kinship-native JSON
+kula export --format cytoscape family.kula        # nodes + edges for graph viz
+kula export --with-positions family.kula          # add byte spans for click-to-source
+cat family.kula | kula export -                   # read from stdin
+kula export *.kula                                # one envelope per line
+```
+
+Projects a clean Kula document into a stable JSON envelope downstream tools can consume — visualizers, scripts, generators. The default shape is **kinship-native** (`persons`, `marriages`, `parenthood_links`, with id-only cross-references); `--format cytoscape` projects the same data into the Cytoscape `nodes`/`edges` shape loadable by Cytoscape.js, Sigma.js, vis-network, etc. Strict on errors: a document with any error-severity diagnostic returns a failure envelope (and a non-zero exit code) rather than a partial graph. The schema is normative — see [`spec/15-export-schema.md`](./spec/15-export-schema.md).
+
 ### Run the language server
 
 ```sh
@@ -73,6 +85,8 @@ kula lsp
 ```
 
 Speaks LSP over stdio. Most users go through the VSCode extension instead.
+
+The language server also handles a custom `kula/export` request, which is what the VSCode **Kula: Export to JSON** and **Kula: Export to Cytoscape JSON** commands call — they project the in-memory buffer (including unsaved edits) and prompt for a save location.
 
 ## Learn the language
 

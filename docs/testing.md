@@ -12,9 +12,9 @@ Tests in this workspace live at two layers, and both layers are load-bearing.
 
 | Crate     | Tests live at                                  | Style                                                                          |
 | --------- | ---------------------------------------------- | ------------------------------------------------------------------------------ |
-| kula-core | `crates/kula-core/tests/{lexer,parser,validator}.rs` | Integration tests; insta snapshots                                             |
-| kula-cli  | `crates/kula-cli/tests/cli.rs`                 | End-to-end via `assert_cmd` + `predicates`                                     |
-| kula-lsp  | `crates/kula-lsp/tests/{handshake,diagnostics,hover,definition,completion,cold_start}.rs` | Stdio LSP client driving the real server; insta snapshots                      |
+| kula-core | `crates/kula-core/tests/{lexer,parser,validator,format,export}.rs` | Integration tests; insta snapshots. `export.rs` macro-generates one snapshot per `examples/*.kula` per option matrix (default / with-positions / cytoscape). |
+| kula-cli  | `crates/kula-cli/tests/cli.rs`                 | End-to-end via `assert_cmd` + `predicates`. Covers every subcommand including `kula export` (success / failure envelopes, both formats, `--with-positions`). |
+| kula-lsp  | `crates/kula-lsp/tests/{handshake,diagnostics,hover,definition,completion,cold_start,export}.rs` | Stdio LSP client driving the real server; insta snapshots. `export.rs` covers the `kula/export` custom request end-to-end (success, failure, cytoscape, document-not-open error). |
 | kula-lsp  | `crates/kula-lsp/tests/perf.rs`                | Performance budget gates (no LSP-protocol round-trip)                          |
 
 These cross public-API surfaces and exercise wire formats / process behavior. They are the highest-fidelity tests in the suite.

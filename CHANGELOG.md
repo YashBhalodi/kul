@@ -25,11 +25,13 @@ First public release. Everything below ships together at tag `v0.1.0`.
 - **Node-at-cursor query** (`ResolvedDocument::node_at`) — the shared foundation for hover, go-to-definition, completion, find-references, and rename.
 - **Field metadata table** — single source of truth for per-field value shape, hover Markdown, and completion descriptions ([ADR-0005](./docs/adr/0005-field-metadata-table.md)).
 - **Diagnostic detail tags** — sub-case discrimination on a single rule for code-action providers ([ADR-0006](./docs/adr/0006-diagnostic-detail-tag.md)).
+- **Export module** (`kula_core::export`) — canonical JSON projection of a `CheckResult` into an `ExportEnvelope` (kinship-native graph or failure envelope). Strict on error-severity diagnostics; opt-in `with_positions` adds source spans on every entity. Cytoscape sub-module (`kula_core::export::cytoscape`) projects the same graph into the bipartite `nodes`/`edges` shape. Schema is normative — see [`spec/15-export-schema.md`](./spec/15-export-schema.md), [ADR-0008](./docs/adr/0008-export-kinship-native-shape.md), [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md), [ADR-0010](./docs/adr/0010-export-schema-versioning.md).
 
 ### `kula-cli`
 
 - **`kula validate`** — multiple files in one invocation, `-` reads from stdin, `--quiet` for exit-code-only, `--format json` (jsonl), `--no-color`. Exit `0` on success, `1` on any error.
 - **`kula format`** — canonicalize a file in place; `--check` mode for CI gating (non-zero if not canonical).
+- **`kula export`** — project a clean document to the canonical JSON envelope. `--format json` (default) emits the kinship-native shape; `--format cytoscape` emits the `nodes`/`edges` shape; `--with-positions` adds opt-in byte spans. Strict on errors; same stdin/-/multi-file ergonomics as `validate`.
 - **`kula lsp`** — speak LSP over stdio (typically driven by an editor extension).
 
 ### `kula-lsp`
@@ -44,10 +46,12 @@ First public release. Everything below ships together at tag `v0.1.0`.
 - **Code actions** — quick-fixes for `KULA-R03` missing-required-field and `KULA-R05` end-consistency.
 - **Document formatting** — wraps `kula_core::format`.
 - **Semantic tokens** — declaration / reference distinction for IDs, plus keyword / field / enum / date / string highlighting.
+- **`kula/export` custom request** — project the in-memory buffer (including unsaved edits) through `kula_core::export`. Capability advertised under `experimental.kulaExport`.
 
 ### Editor
 
 - **VSCode extension** — TextMate grammar, file icon, snippets, language configuration, format-on-save, and full LSP integration with the bundled `kula-lsp` binary. No additional configuration required.
+- **Export commands** — **Kula: Export to JSON** and **Kula: Export to Cytoscape JSON** in the command palette (visible only on `.kula` files). Routes through the LSP's `kula/export` request, prompts for a save location, surfaces a notification if the document has errors.
 
 ### Tooling and CI
 

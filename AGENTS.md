@@ -6,9 +6,9 @@ Conventions, layout, and workflow for anyone (human or AI) working in this repos
 
 ```
 crates/
-  kula-core/   — library: lexer, parser, AST, semantic, validator, diagnostics, node-at-cursor query, formatter
-  kula-cli/    — binary `kula`: `kula validate`, `kula format`, `kula lsp` subcommands
-  kula-lsp/    — library + binary `kula-lsp`: LSP adapter over kula-core
+  kula-core/   — library: lexer, parser, AST, semantic, validator, diagnostics, node-at-cursor query, formatter, export
+  kula-cli/    — binary `kula`: `kula validate`, `kula format`, `kula export`, `kula lsp` subcommands
+  kula-lsp/    — library + binary `kula-lsp`: LSP adapter over kula-core (handles standard capabilities plus the `kula/export` custom request)
 docs/
   vision.md    — language scope and design intent
   architecture.md — implementation map: pipeline, seams, "where to add X" recipes
