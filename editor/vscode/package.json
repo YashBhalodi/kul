@@ -78,6 +78,30 @@
         "path": "./icons/kula-icon-theme.json"
       }
     ],
+    "commands": [
+      {
+        "command": "kulalang.export.json",
+        "title": "Kula: Export to JSON",
+        "category": "Kula"
+      },
+      {
+        "command": "kulalang.export.cytoscape",
+        "title": "Kula: Export to Cytoscape JSON",
+        "category": "Kula"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "kulalang.export.json",
+          "when": "editorLangId == kula"
+        },
+        {
+          "command": "kulalang.export.cytoscape",
+          "when": "editorLangId == kula"
+        }
+      ]
+    },
     "configuration": {
       "title": "Kula",
       "properties": {

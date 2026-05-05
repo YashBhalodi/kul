@@ -7,6 +7,8 @@
 //!
 //! This is the only async layer in the crate — every callee is sync.
 
+use kula_core::export::ExportEnvelope;
+use serde_json::json;
 use tower_lsp::jsonrpc::{Error, Result};
 use tower_lsp::lsp_types::{
     CodeActionParams, CodeActionProviderCapability, CodeActionResponse, CompletionOptions,
@@ -21,6 +23,7 @@ use tower_lsp::lsp_types::{
 };
 use tower_lsp::{Client, LanguageServer};
 
+use crate::features::export::{ExportParams, ExportRequestError, export_for};
 use crate::features::{
     code_action, completion, definition, diagnostics, document_symbol, formatting, hover,
     references, rename, semantic_tokens,
@@ -38,6 +41,31 @@ impl Backend {
         Self {
             client,
             documents: Documents::new(),
+        }
+    }
+
+    /// Handler for the `kula/export` custom request. Reads the cached
+    /// `Document` for the given URI, runs the export, and returns the
+    /// envelope verbatim. Strict-on-errors is the export function's
+    /// contract — this adapter does not interpret the envelope.
+    pub async fn export(&self, params: ExportParams) -> Result<ExportEnvelope> {
+        let uri = params.uri.clone();
+        let result = self
+            .documents
+            .with(&uri, |doc| export_for(doc, &params))
+            .await;
+        match result {
+            None => Err(Error {
+                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
+                message: ExportRequestError::DocumentNotOpen.message().into(),
+                data: None,
+            }),
+            Some(Err(e)) => Err(Error {
+                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
+                message: e.message().into(),
+                data: None,
+            }),
+            Some(Ok(envelope)) => Ok(envelope),
         }
     }
 
@@ -90,6 +118,18 @@ impl LanguageServer for Backend {
                         },
                     ),
                 ),
+                // Custom (non-LSP-standard) capability advertised under
+                // `experimental` so a client can detect support before
+                // sending the request. The shape mirrors the request
+                // params: clients send `kula/export` with `{ uri, format,
+                // withPositions? }` and receive an export envelope
+                // verbatim. See `crates/kula-lsp/src/features/export.rs`.
+                experimental: Some(json!({
+                    "kulaExport": {
+                        "formats": ["json", "cytoscape"],
+                        "supportsPositions": true,
+                    }
+                })),
                 ..Default::default()
             },
             server_info: Some(ServerInfo {

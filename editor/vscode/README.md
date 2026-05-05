@@ -14,6 +14,7 @@ This extension lives inside the [kulalang](https://github.com/YashBhalodi/kulala
 - Snippets for the common shapes: `kula`, `person`, `marriage`, `birth`, `adoption`
 - Format-on-save: `.kula` files are canonicalized via `kula format` whenever you save (override per workspace if you prefer manual formatting)
 - **Language-server integration** when `kula-lsp` is available (pointed at via `kula.serverPath` for development; bundled in the marketplace release): live diagnostics, hover panels, go-to-definition, basic completion, document outline, find-references, rename, code actions, and document formatting
+- **Export commands** — `Kula: Export to JSON` and `Kula: Export to Cytoscape JSON` (run from the command palette on any `.kula` file): projects the current document — *including unsaved edits* — through the language server's `kula/export` request and prompts for a save location. The JSON form is the canonical kinship-native shape ([spec §15](https://github.com/YashBhalodi/kulalang/tree/main/spec/15-export-schema.md)); the Cytoscape form is a `nodes`/`edges` projection loadable into Cytoscape.js, Sigma.js, vis-network, etc. If the document has errors the command surfaces a notification and points you at the Problems panel
 
 ## Settings
 

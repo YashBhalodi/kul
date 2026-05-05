@@ -60,6 +60,93 @@ export async function activate(
             `Kula LSP failed to start: ${message}. Check the "Kula LSP" output channel for details.`,
         );
     }
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand("kulalang.export.json", () =>
+            runExport("json"),
+        ),
+        vscode.commands.registerCommand("kulalang.export.cytoscape", () =>
+            runExport("cytoscape"),
+        ),
+    );
+}
+
+type ExportFormat = "json" | "cytoscape";
+
+interface ExportEnvelope {
+    ok: boolean;
+    diagnostics?: { code: string }[];
+}
+
+async function runExport(format: ExportFormat): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.languageId !== "kula") {
+        await vscode.window.showWarningMessage(
+            "Kula export only works on .kula files.",
+        );
+        return;
+    }
+    if (!client) {
+        await vscode.window.showWarningMessage(
+            "Kula LSP is not running — open a `.kula` file to start the server.",
+        );
+        return;
+    }
+
+    let envelope: ExportEnvelope;
+    try {
+        envelope = await client.sendRequest<ExportEnvelope>("kula/export", {
+            uri: editor.document.uri.toString(),
+            format,
+            withPositions: false,
+        });
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        await vscode.window.showErrorMessage(
+            `Kula export failed: ${message}`,
+        );
+        return;
+    }
+
+    if (!envelope.ok) {
+        const count = envelope.diagnostics?.length ?? 0;
+        await vscode.window.showWarningMessage(
+            `Kula export failed: ${count} issue${count === 1 ? "" : "s"} — fix the errors in the Problems panel and try again.`,
+        );
+        return;
+    }
+
+    const defaultName = defaultExportFilename(editor.document.uri, format);
+    const target = await vscode.window.showSaveDialog({
+        defaultUri: defaultName,
+        filters: { JSON: ["json"] },
+        saveLabel: "Export",
+    });
+    if (!target) {
+        return;
+    }
+    const body = JSON.stringify(envelope, null, 2);
+    try {
+        await vscode.workspace.fs.writeFile(target, Buffer.from(body, "utf8"));
+        await vscode.window.showInformationMessage(
+            `Kula: exported ${path.basename(target.fsPath)}`,
+        );
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        await vscode.window.showErrorMessage(
+            `Kula: could not write export file: ${message}`,
+        );
+    }
+}
+
+function defaultExportFilename(
+    source: vscode.Uri,
+    format: ExportFormat,
+): vscode.Uri {
+    const dir = path.dirname(source.fsPath);
+    const stem = path.basename(source.fsPath, path.extname(source.fsPath));
+    const suffix = format === "cytoscape" ? ".cytoscape.json" : ".json";
+    return vscode.Uri.file(path.join(dir, `${stem}${suffix}`));
 }
 
 export async function deactivate(): Promise<void> {
