@@ -145,27 +145,4 @@ marriage bad_self bad_dates bad_dates start:2010
         let lsp = to_lsp(&url(), &core.diagnostics, &idx(source));
         insta::assert_json_snapshot!(lsp);
     }
-
-    #[test]
-    fn one_thousand_statement_check_and_translate_under_budget() {
-        let mut source = String::from("kula 1\n");
-        for i in 0..1000 {
-            use std::fmt::Write as _;
-            let _ = writeln!(&mut source, "person p{i} name:\"P{i}\" gender:female");
-        }
-        let start = std::time::Instant::now();
-        let core = kula_core::check(&source);
-        let line_index = LineIndex::new(&source);
-        let _ = to_lsp(&url(), &core.diagnostics, &line_index);
-        let elapsed = start.elapsed();
-
-        eprintln!("1000-statement parse + check + to_lsp: {elapsed:?}");
-        // PRD target is 100ms. CI runners and debug builds are slower than
-        // a developer laptop, so assert a generous 500ms ceiling — enough
-        // to catch a 5x regression without flaking.
-        assert!(
-            elapsed < std::time::Duration::from_millis(500),
-            "1000-statement budget exceeded: {elapsed:?}"
-        );
-    }
 }

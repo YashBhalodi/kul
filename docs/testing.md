@@ -6,13 +6,27 @@ For the architectural reasons behind these patterns, see [ADR-0003](./adr/0003-s
 
 ## Layout
 
+Tests in this workspace live at two layers, and both layers are load-bearing.
+
+### Integration tests in `tests/`
+
 | Crate     | Tests live at                                  | Style                                                                          |
 | --------- | ---------------------------------------------- | ------------------------------------------------------------------------------ |
 | kula-core | `crates/kula-core/tests/{lexer,parser,validator}.rs` | Integration tests; insta snapshots                                             |
-| kula-cli  | `crates/kula-cli/tests/`                       | End-to-end via `assert_cmd` + `predicates`                                     |
-| kula-lsp  | `crates/kula-lsp/tests/{handshake,diagnostics,hover,definition,completion,cold_start}.rs` | Integration tests against a hand-rolled stdio LSP client; insta snapshots      |
+| kula-cli  | `crates/kula-cli/tests/cli.rs`                 | End-to-end via `assert_cmd` + `predicates`                                     |
+| kula-lsp  | `crates/kula-lsp/tests/{handshake,diagnostics,hover,definition,completion,cold_start}.rs` | Stdio LSP client driving the real server; insta snapshots                      |
+| kula-lsp  | `crates/kula-lsp/tests/perf.rs`                | Performance budget gates (no LSP-protocol round-trip)                          |
 
-Unit tests live in `#[cfg(test)] mod tests { … }` blocks at the bottom of source files. Use them for narrow logic with no external surface (e.g. `LineIndex` round-trip math, date arithmetic). Anything that crosses a public-API boundary belongs in `tests/`.
+These cross public-API surfaces and exercise wire formats / process behavior. They are the highest-fidelity tests in the suite.
+
+### Inline tests in `#[cfg(test)] mod tests { … }`
+
+Several src/ files carry inline test modules at the bottom. They serve two roles:
+
+1. **Unit tests of pure-logic helpers** that have no external surface: `convert::LineIndex` round-trip math, `date.rs` partial-date parsing, `span.rs` arithmetic. These could not reasonably live in `tests/` without widening visibility.
+2. **Fast-inner-loop coverage of feature entry points**: `features/{hover,definition,completion,diagnostics}.rs` each have inline tests that call their `pub fn` directly with hand-built `ResolvedDocument` fixtures. They run in milliseconds; the integration tests in `tests/` cover the same scenarios at higher fidelity (full stdio JSON-RPC) but ~25× slower per test. Both layers are kept on purpose — the inline tests catch logic bugs in the dev loop; the integration tests catch wire-format and lifecycle bugs.
+
+If you're testing genuinely public behavior and don't need the inner-loop speed, `tests/` is the better home. If you're testing a private helper or want sub-millisecond feedback while iterating on a feature module, inline is fine. The deciding question is "does this need to run as part of every cargo nextest in <50ms, and does it touch private surface?" — yes to either pushes inline; no to both pushes to `tests/`.
 
 There are no skipped or ignored tests anywhere in the workspace. If a test is broken, fix it or delete it — don't `#[ignore]` it.
 
@@ -106,30 +120,19 @@ Conventions:
 
 ## Performance budgets
 
-A perf budget is a test, not a benchmark. The canonical example:
+Perf budgets are tests, not benchmarks. They live at [`crates/kula-lsp/tests/perf.rs`](../crates/kula-lsp/tests/perf.rs) — one file collecting every gate, easy to find, runs as part of `cargo nextest`. The canonical example is `one_thousand_statement_check_and_translate_under_budget`: builds a 1000-person document, runs the full `kula_core::check` + `to_lsp` pipeline, asserts the elapsed time is under a ceiling.
 
-```rust
-#[test]
-fn one_thousand_statement_check_and_translate_under_budget() {
-    let source = /* 1000 person declarations */;
-    let start = std::time::Instant::now();
-    let core = kula_core::check(&source);
-    let _ = to_lsp(&url(), &core.diagnostics, &LineIndex::new(&source));
-    let elapsed = start.elapsed();
-    assert!(elapsed < std::time::Duration::from_millis(500),
-            "1000-statement budget exceeded: {elapsed:?}");
-}
-```
+The "tests, not benches" choice is deliberate:
 
-— at `crates/kula-lsp/src/features/diagnostics.rs`. The PRD target is 100ms; the test asserts 500ms (5× slack) to absorb CI runner variability.
-
-The "tests, not benches" choice is deliberate: budgets must run on every PR; they have to fail loudly when violated; they shouldn't require a separate `cargo bench` step. If a future regression doubles parse time, the test fires immediately.
+- Budgets run on every PR — no separate `cargo bench` step to forget.
+- A regression fails loudly and immediately.
+- Each budget asserts a generous ceiling (typically 5× the real target) so CI runner variability doesn't cause flakes, but doesn't hide a 2× regression. The actual target lives in a comment so a future agent who sees `< 500ms` knows the real budget is 100ms.
 
 When adding a perf-sensitive code path:
 
-1. Locate the perf budget closest to the hot path (or add a new one).
-2. Pick a CI slack factor that absorbs runner variability without hiding 2× regressions. 5× is a reasonable default.
-3. The comment in the test records the actual target (so a future agent who sees `< 500ms` knows the *real* budget is 100ms).
+1. Add a `#[test]` to `tests/perf.rs` that exercises the hot path through the public surface.
+2. Pick a representative workload (size, shape) that matches realistic editor use — not a microbench.
+3. Pick a ceiling that absorbs runner variability (5× the target is a reasonable default) and document the real target in a comment.
 
 If a budget gets in the way of a legitimate change, *raise it deliberately*, with a comment explaining why. Don't delete it.
 

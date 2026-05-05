@@ -164,7 +164,7 @@ Things to push back on if you find yourself reaching for them:
 
 ## Performance budget
 
-The current target is **<100ms total** for parse + check + LSP-translate on a 1000-statement document. The budget lives as a test (not a benchmark), at `crates/kula-lsp/src/features/diagnostics.rs::one_thousand_statement_check_and_translate_under_budget`. The test asserts <500ms (5× CI slack) so it doesn't flake on slow runners; the comment in the test records the actual target.
+The current target is **<100ms total** for parse + check + LSP-translate on a 1000-statement document. The budget lives as a test (not a benchmark), at [`crates/kula-lsp/tests/perf.rs`](../crates/kula-lsp/tests/perf.rs). The test asserts <500ms (5× CI slack) so it doesn't flake on slow runners; the comment in the test records the actual target.
 
 If a change pushes the test over budget, *fix the regression* — don't loosen the assertion. If a new pass legitimately needs more headroom, raise the budget in the same change with a comment justifying why.
 
