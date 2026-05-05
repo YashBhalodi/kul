@@ -9,18 +9,19 @@
 
 use tower_lsp::jsonrpc::{Error, Result};
 use tower_lsp::lsp_types::{
-    CompletionOptions, CompletionParams, CompletionResponse, DidChangeTextDocumentParams,
-    DidCloseTextDocumentParams, DidOpenTextDocumentParams, DocumentSymbolParams,
-    DocumentSymbolResponse, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
-    HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams, Location,
-    MessageType, OneOf, PrepareRenameResponse, ReferenceParams, RenameOptions, RenameParams,
-    ServerCapabilities, ServerInfo, TextDocumentPositionParams, TextDocumentSyncCapability,
-    TextDocumentSyncKind, Url, WorkspaceEdit,
+    CodeActionParams, CodeActionProviderCapability, CodeActionResponse, CompletionOptions,
+    CompletionParams, CompletionResponse, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams, DocumentSymbolParams, DocumentSymbolResponse, GotoDefinitionParams,
+    GotoDefinitionResponse, Hover, HoverParams, HoverProviderCapability, InitializeParams,
+    InitializeResult, InitializedParams, Location, MessageType, OneOf, PrepareRenameResponse,
+    ReferenceParams, RenameOptions, RenameParams, ServerCapabilities, ServerInfo,
+    TextDocumentPositionParams, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
+    WorkspaceEdit,
 };
 use tower_lsp::{Client, LanguageServer};
 
 use crate::features::{
-    completion, definition, diagnostics, document_symbol, hover, references, rename,
+    code_action, completion, definition, diagnostics, document_symbol, hover, references, rename,
 };
 use crate::state::Documents;
 
@@ -75,6 +76,7 @@ impl LanguageServer for Backend {
                     prepare_provider: Some(true),
                     work_done_progress_options: Default::default(),
                 })),
+                code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
@@ -153,6 +155,25 @@ impl LanguageServer for Backend {
             })
             .await;
         Ok(result.flatten().map(GotoDefinitionResponse::Scalar))
+    }
+
+    async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
+        let uri = params.text_document.uri;
+        let range = params.range;
+        let actions = self
+            .documents
+            .with(&uri, |doc| {
+                let resolved = doc.check.resolved();
+                code_action::code_actions(
+                    &resolved,
+                    &doc.check.diagnostics,
+                    &doc.line_index,
+                    &uri,
+                    range,
+                )
+            })
+            .await;
+        Ok(actions.filter(|a| !a.is_empty()))
     }
 
     async fn prepare_rename(
