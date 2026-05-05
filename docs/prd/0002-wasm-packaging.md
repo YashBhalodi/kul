@@ -2,20 +2,20 @@
 
 ## Problem Statement
 
-Once the export foundation ships (#37), every downstream consumer that runs in JavaScript — the VSCode webview live preview, a web visualizer, a static-site generator that bakes the family tree into HTML, an Observable notebook, etc. — needs a way to run `kula-core` in its own runtime. The two viable paths are:
+The export foundation has shipped (`kula export` CLI subcommand + `kula_core::export` module + spec §15). Every downstream consumer that runs in JavaScript — the VSCode webview live preview, a web visualizer, a static-site generator that bakes the family tree into HTML, an Observable notebook, etc. — now needs a way to run `kula-core` in its own runtime. The two viable paths are:
 
 1. Reimplement the lex/parse/resolve/validate/export pipeline in JS (lossy and a maintenance time-bomb — every Kula spec change forces a parallel update).
 2. Compile `kula-core` to WebAssembly and expose a thin JS-callable surface.
 
 Path 2 is the only one that preserves "the canonical pipeline runs everywhere"; without it, the VSCode webview and the future web visualizer either re-invent the wheel or have to shell out to a CLI binary that browsers cannot invoke.
 
-This PRD is the foundation for every browser-based consumer that comes after — it is the explicit prerequisite for the consumer-app epic flagged in #37.
+This PRD is the foundation for every browser-based consumer that comes after — it is the explicit prerequisite for the downstream consumer-app epic.
 
 ## Solution
 
 Ship a new `kula-wasm` adapter crate that compiles `kula-core` to WebAssembly via `wasm-bindgen` + `wasm-pack`, plus a published artifact (`.wasm` + JS glue + TypeScript types) that JavaScript consumers can install and use.
 
-The initial surface is intentionally minimal — exactly **one function**: `exportGraph(source, options)` — mirroring the export-only foundation in #37. Diagnostics, validation as a standalone call, and any kinship queries are deferred to their own PRDs and added to this WASM surface incrementally.
+The initial surface is intentionally minimal — exactly **one function**: `exportGraph(source, options)` — mirroring the export-only foundation already in `kula_core::export`. Diagnostics, validation as a standalone call, and any kinship queries are deferred to their own PRDs and added to this WASM surface incrementally.
 
 Distribution starts with **GitHub releases only** (a tarball attached alongside the existing `kula` and `kula-lsp` archives). An npm package is a desirable future addition that gets revisited when the first browser-based consumer app is being built — at that point the friction of "manually download and vendor" will be visible and worth solving. Until then, the GitHub-release tarball matches the existing distribution pattern with no new infrastructure to maintain.
 
@@ -85,7 +85,7 @@ No browser-side automated tests for v1 — the wasm-pack toolchain plus the node
 
 ## Further Notes
 
-This PRD has a hard dependency: it cannot start until the foundation PRD (#37) ships. The deep module that `kula-wasm` adapts is the foundation's `kula-core::export` function — without that function existing, there is nothing to compile to WASM.
+The deep module that `kula-wasm` adapts is `kula_core::export::export` — already in the codebase as of the export-foundation epic, so this PRD is unblocked and ready to start whenever a browser consumer needs it.
 
 The crate-graph position is identical to `kula-lsp`'s: a thin adapter at the edge of the workspace, depending on `kula-core`, that translates a foreign protocol (LSP for the language server, JS / WASM ABI for this crate) into native Kula calls. The deletion test passes the same way: removing `kula-wasm` would either reproduce the JS adapter elsewhere, or eliminate browser/Node consumers entirely.
 

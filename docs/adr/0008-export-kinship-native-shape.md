@@ -24,7 +24,7 @@ The canonical export shape is **kinship-native**. Three flat top-level collectio
 
 Cross-references are id-only. Embedded objects do not appear (the marriage carries spouse ids, not spouse objects). Derived projections do not appear (no `person.children`, no `person.siblings`, no `marriage.duration`). Consumers compose those views over the flat collections.
 
-The Cytoscape format ships as a secondary, opt-in projection (per [`docs/prd/0001-export-foundation-v1.md`](../prd/0001-export-foundation-v1.md), implemented in issue #42) — a pure transformer over the kinship-native graph. It cannot drift from the canonical shape because it is derived from it.
+The Cytoscape format ships as a secondary, opt-in projection (`--format cytoscape`) — a pure transformer over the kinship-native graph. It cannot drift from the canonical shape because it is derived from it.
 
 ## Consequences
 

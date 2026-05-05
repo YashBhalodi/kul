@@ -2,9 +2,9 @@
 
 ## Problem Statement
 
-The export foundation (#37) embeds validation as the precondition for export — a clean validate is required, and on failure the diagnostics come back inside the export envelope. That is the right scoping for export, but it leaves a gap: a downstream consumer that wants to ask **"is this Kula source valid?"** without paying the cost of, or caring about, an export.
+The shipped export foundation embeds validation as the precondition for export — a clean validate is required, and on failure the diagnostics come back inside the export envelope (see [ADR-0009](../adr/0009-export-strict-on-diagnostics.md)). That is the right scoping for export, but it leaves a gap: a downstream consumer that wants to ask **"is this Kula source valid?"** without paying the cost of, or caring about, an export.
 
-Concretely, a browser-based consumer (the future web visualizer, a VSCode webview live-preview, a wiki-style "preview as you type" widget) frequently has Kula source where it does NOT want the JSON graph yet — it only wants to render error squiggles or show a "fix N issues" badge. Today the only way to surface diagnostics from JavaScript is to call `exportGraph` (after the WASM PRD #38 ships) and look at the failure envelope, which is wasted projection work and forces the consumer to discard a graph it actually wanted on success.
+Concretely, a browser-based consumer (the future web visualizer, a VSCode webview live-preview, a wiki-style "preview as you type" widget) frequently has Kula source where it does NOT want the JSON graph yet — it only wants to render error squiggles or show a "fix N issues" badge. Once the WASM packaging PRD ([PRD-0002](./0002-wasm-packaging.md)) ships, the only way to surface diagnostics from JavaScript will be to call `exportGraph` and look at the failure envelope, which is wasted projection work and forces the consumer to discard a graph it actually wanted on success.
 
 The CLI side already has `kula validate` for this exact purpose. The browser side does not, and inventing it after the fact would push consumers to either reimplement the diagnostic shape in JS or call `exportGraph` for things `exportGraph` was not designed for.
 
@@ -31,7 +31,7 @@ The CLI side already does this via `kula validate`; this PRD does not change CLI
 
 ### Modules
 
-- **A new `check` exposed function in the existing `kula-wasm` crate.** The crate already exists from the WASM packaging PRD (#38); this PRD adds one more `#[wasm_bindgen]` function alongside `exportGraph`. No new crate needed.
+- **A new `check` exposed function in the existing `kula-wasm` crate.** The crate already exists from the WASM packaging PRD ([PRD-0002](./0002-wasm-packaging.md)); this PRD adds one more `#[wasm_bindgen]` function alongside `exportGraph`. No new crate needed.
 - **A small return-type addition** — `CheckResult` in WASM-land — wrapping `{ diagnostics: Diagnostic[] }`. Lives in the same hand-written `index.d.ts` already maintained for the WASM crate.
 - **Internal sharing.** Both `exportGraph` and `check` call the same `kula_core::check` pipeline; `check` simply does not project the resolved view to a graph. This is the deletion-test-passes shape — there is no separate "validation logic"; it is the same pipeline, just consumed differently.
 - **No CLI changes.** The existing `kula validate` subcommand already serves the CLI side of this surface; this PRD does not touch it.
@@ -68,9 +68,9 @@ Modules getting tests:
 
 ## Further Notes
 
-This PRD has a hard dependency on the WASM packaging PRD (#38) shipping first. Without the `kula-wasm` crate and its build/distribution pipeline existing, there is nothing for this PRD to extend.
+This PRD has a hard dependency on the WASM packaging PRD ([PRD-0002](./0002-wasm-packaging.md)) shipping first. Without the `kula-wasm` crate and its build/distribution pipeline existing, there is nothing for this PRD to extend.
 
-It is deliberately small. The whole point of the strict-on-diagnostics design in #37 was to keep `exportGraph` doing one thing; the consequence is that `check` becomes a clean separate surface to add later, exactly when consumers need it. This PRD is that "later."
+It is deliberately small. The whole point of the strict-on-diagnostics design in the export foundation (see [ADR-0009](../adr/0009-export-strict-on-diagnostics.md)) was to keep `exportGraph` doing one thing; the consequence is that `check` becomes a clean separate surface to add later, exactly when consumers need it. This PRD is that "later."
 
 The deletion test is informative: removing `check` from the WASM surface would force every consumer that wants diagnostics-without-projection to either call `exportGraph` and discard the projection, or reimplement the validator in JS. Both are bad enough that `check` earns its spot.
 
