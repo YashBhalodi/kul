@@ -39,7 +39,7 @@ expression: syms
       },
       "end": {
         "line": 7,
-        "character": 59
+        "character": 65
       }
     },
     "selectionRange": {

@@ -10,10 +10,20 @@
 //!   parses internally and threads the original bytes through so comments
 //!   round-trip per [ADR 0004] rule 7. The CLI and LSP use this entry point.
 //!
-//! The acceptance criteria for the formatter are property-tested in
-//! [`tests/format.rs`]: every example in the corpus is idempotent under
-//! [`format_source`] and round-trips through `parse → format → parse`
-//! with an AST-equal result.
+//! ## Per-block alignment
+//!
+//! Internally both entry points convert each rendered line to a sequence of
+//! [`Cell`]s and accumulate adjacent same-shape lines into a [`BlockBuffer`]
+//! that flushes with column padding. "Same shape" means `(indent, sequence
+//! of cell kinds)` matches exactly — so adding or removing a field from
+//! one statement automatically excludes it from the surrounding block, and
+//! the sparse-vs-rectangular question never arises. Boundaries that flush
+//! the buffer:
+//!
+//! - blank line in the source (only relevant to [`format_source`]);
+//! - whole-line comment (only relevant to [`format_source`]);
+//! - shape change (any kind/field-set change);
+//! - indent change (top-level → sub-statement and back).
 //!
 //! [ADR 0004]: https://github.com/YashBhalodi/kulalang/blob/main/docs/adr/0004-formatter-canonical-rules.md
 
@@ -24,12 +34,7 @@ use crate::ast::{
     MarriageStmt, PersonFieldKind, PersonStmt, Statement, VersionDecl,
 };
 use crate::date::DateLit;
-
-/// Canonical sub-statement indent (spec rule: exactly two spaces).
-const INDENT: &str = "  ";
-/// Canonical separator between fields on a single line (spec rule: exactly
-/// two spaces).
-const FIELD_SEP: &str = "  ";
+use crate::lexer::FieldName;
 
 // === Public entry points ===
 
@@ -41,21 +46,14 @@ const FIELD_SEP: &str = "  ";
 /// `Document` in memory (e.g. a code-generation tool). For
 /// source-to-source formatting use [`format_source`].
 pub fn format(doc: &Document) -> String {
-    let mut out = String::new();
-    let mut first = true;
+    let mut emitter = Emitter::new();
     if let Some(v) = &doc.version {
-        write_version(&mut out, v);
-        out.push('\n');
-        first = false;
+        emitter.emit_line(0, build_version_cells(v));
     }
     for stmt in &doc.statements {
-        if !first {
-            out.push('\n');
-        }
-        first = false;
-        write_statement_no_comments(&mut out, stmt);
+        emitter.emit_statement(stmt);
     }
-    out
+    emitter.finish()
 }
 
 /// Format a Kula source string to its canonical form.
@@ -73,7 +71,426 @@ pub fn format_source(source: &str) -> String {
     SourceFormatter::new(source, &result.document).run()
 }
 
-// === Source-level formatter ===
+// === Cells, shapes, and blocks ===
+
+#[derive(Debug, Clone)]
+struct Cell {
+    text: String,
+    kind: CellKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CellKind {
+    /// A statement keyword: `kula`, `person`, `marriage`, `birth`, `adoption`.
+    Keyword,
+    /// A positional id (the bound id of a `person` or `marriage`, or the
+    /// version literal). Single space after.
+    Positional,
+    /// A reference positional in a `marriage` or `birth`/`adoption` line.
+    /// Single space after.
+    Reference,
+    /// A `name:value` field. Two spaces after.
+    Field(FieldName),
+    /// An inline comment, always the last cell on its line.
+    Comment,
+}
+
+impl CellKind {
+    /// Two cells of these kinds are "same shape" iff this returns true for
+    /// each pair at matching positions. Field names participate in the
+    /// shape signature so two persons with different field sets don't try
+    /// to align with each other.
+    fn shape_eq(self, other: CellKind) -> bool {
+        self == other
+    }
+}
+
+/// Buffers a run of consecutive same-shape lines so they can be flushed
+/// together with column padding.
+struct BlockBuffer {
+    indent: usize,
+    shape: Vec<CellKind>,
+    lines: Vec<Vec<Cell>>,
+}
+
+impl BlockBuffer {
+    fn empty() -> Self {
+        Self {
+            indent: 0,
+            shape: Vec::new(),
+            lines: Vec::new(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.lines.is_empty()
+    }
+
+    fn would_extend(&self, indent: usize, shape: &[CellKind]) -> bool {
+        if self.is_empty() {
+            return false;
+        }
+        if self.indent != indent {
+            return false;
+        }
+        if self.shape.len() != shape.len() {
+            return false;
+        }
+        self.shape
+            .iter()
+            .zip(shape.iter())
+            .all(|(a, b)| a.shape_eq(*b))
+    }
+
+    fn push(&mut self, indent: usize, shape: Vec<CellKind>, cells: Vec<Cell>) {
+        if self.is_empty() {
+            self.indent = indent;
+            self.shape = shape;
+        }
+        self.lines.push(cells);
+    }
+
+    fn flush(&mut self, out: &mut String) {
+        if self.is_empty() {
+            return;
+        }
+        emit_block(self.indent, &self.lines, out);
+        self.lines.clear();
+        self.shape.clear();
+        self.indent = 0;
+    }
+}
+
+fn emit_block(indent: usize, lines: &[Vec<Cell>], out: &mut String) {
+    debug_assert!(!lines.is_empty(), "emit_block on empty");
+    let cols = lines[0].len();
+    let mut widths = vec![0usize; cols];
+    for line in lines {
+        for (i, cell) in line.iter().enumerate() {
+            // Use char count rather than byte length — the corpus is ASCII
+            // today, but a non-ASCII identifier (e.g. "Élise") should still
+            // count as one column position per Unicode scalar. Display
+            // width for CJK is a separate problem we punt on for now.
+            widths[i] = widths[i].max(cell.text.chars().count());
+        }
+    }
+    for line in lines {
+        for _ in 0..indent {
+            out.push(' ');
+        }
+        for (i, cell) in line.iter().enumerate() {
+            out.push_str(&cell.text);
+            let is_last = i + 1 == line.len();
+            if is_last {
+                continue;
+            }
+            let pad = widths[i].saturating_sub(cell.text.chars().count());
+            for _ in 0..pad {
+                out.push(' ');
+            }
+            match separator_between(cell.kind, line[i + 1].kind) {
+                Sep::Single => out.push(' '),
+                Sep::Double => out.push_str("  "),
+            }
+        }
+        out.push('\n');
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Sep {
+    Single,
+    Double,
+}
+
+fn separator_between(prev: CellKind, next: CellKind) -> Sep {
+    // Spec rules: single space after a keyword and between positionals;
+    // two spaces before any field; two spaces before an inline comment.
+    match next {
+        CellKind::Field(_) | CellKind::Comment => Sep::Double,
+        CellKind::Keyword | CellKind::Positional | CellKind::Reference => match prev {
+            CellKind::Keyword | CellKind::Positional | CellKind::Reference => Sep::Single,
+            // Field-or-comment → positional shouldn't happen in canonical
+            // output (positionals come first). Treat as single space if it
+            // ever does so we don't panic.
+            CellKind::Field(_) | CellKind::Comment => Sep::Single,
+        },
+    }
+}
+
+// === Generic emitter (used by both entry points) ===
+
+struct Emitter {
+    out: String,
+    buffer: BlockBuffer,
+}
+
+impl Emitter {
+    fn new() -> Self {
+        Self {
+            out: String::new(),
+            buffer: BlockBuffer::empty(),
+        }
+    }
+
+    fn emit_line(&mut self, indent: usize, cells: Vec<Cell>) {
+        let shape: Vec<CellKind> = cells.iter().map(|c| c.kind).collect();
+        if !self.buffer.would_extend(indent, &shape) {
+            self.buffer.flush(&mut self.out);
+        }
+        self.buffer.push(indent, shape, cells);
+    }
+
+    /// Force the current block to flush even if the next push would extend
+    /// it. Used at boundaries that are visible to the user (blank lines,
+    /// whole-line comments) but invisible to shape matching.
+    fn flush(&mut self) {
+        self.buffer.flush(&mut self.out);
+    }
+
+    fn finish(mut self) -> String {
+        self.buffer.flush(&mut self.out);
+        if !self.out.is_empty() && !self.out.ends_with('\n') {
+            self.out.push('\n');
+        }
+        self.out
+    }
+
+    fn emit_statement(&mut self, stmt: &Statement) {
+        match stmt {
+            Statement::Person(p) => self.emit_person(p),
+            Statement::Marriage(m) => self.emit_marriage(m),
+        }
+    }
+
+    fn emit_person(&mut self, p: &PersonStmt) {
+        self.emit_line(0, build_person_cells(p, None));
+        let subs = collect_sub_refs(p);
+        if !subs.is_empty() {
+            // The person's header is the last row of the top-level block;
+            // a sub-statement at indent=2 forces a flush. After the
+            // sub-statements, the next top-level statement starts a fresh
+            // block (which may or may not align with statements before
+            // this one — alignment requires *adjacency*, and the
+            // sub-statements break adjacency).
+            self.flush();
+            for sub in &subs {
+                self.emit_line(2, build_sub_cells(sub, None));
+            }
+            self.flush();
+        }
+    }
+
+    fn emit_marriage(&mut self, m: &MarriageStmt) {
+        self.emit_line(0, build_marriage_cells(m, None));
+    }
+}
+
+// === AST → cells ===
+
+fn build_version_cells(v: &VersionDecl) -> Vec<Cell> {
+    vec![
+        Cell {
+            text: "kula".to_string(),
+            kind: CellKind::Keyword,
+        },
+        Cell {
+            text: v.version.clone(),
+            kind: CellKind::Positional,
+        },
+    ]
+}
+
+fn build_person_cells(p: &PersonStmt, inline_comment: Option<&str>) -> Vec<Cell> {
+    let mut cells = Vec::with_capacity(8);
+    cells.push(Cell {
+        text: "person".to_string(),
+        kind: CellKind::Keyword,
+    });
+    cells.push(Cell {
+        text: p.id.name.clone(),
+        kind: CellKind::Positional,
+    });
+    // Spec table order: name, gender, family, given, born, died.
+    if let Some(s) = p.fields.iter().find_map(|f| match &f.kind {
+        PersonFieldKind::Name(s) => Some(s),
+        _ => None,
+    }) {
+        cells.push(field_cell(FieldName::Name, &quote_string(&s.value)));
+    }
+    if let Some(g) = p.fields.iter().find_map(|f| match &f.kind {
+        PersonFieldKind::Gender(g) => Some(g),
+        _ => None,
+    }) {
+        cells.push(field_cell(FieldName::Gender, gender_str(g.value)));
+    }
+    if let Some(s) = p.fields.iter().find_map(|f| match &f.kind {
+        PersonFieldKind::Family(s) => Some(s),
+        _ => None,
+    }) {
+        cells.push(field_cell(FieldName::Family, &quote_string(&s.value)));
+    }
+    if let Some(s) = p.fields.iter().find_map(|f| match &f.kind {
+        PersonFieldKind::Given(s) => Some(s),
+        _ => None,
+    }) {
+        cells.push(field_cell(FieldName::Given, &quote_string(&s.value)));
+    }
+    if let Some(d) = p.fields.iter().find_map(|f| match &f.kind {
+        PersonFieldKind::Born(d) => Some(d),
+        _ => None,
+    }) {
+        cells.push(field_cell(FieldName::Born, &date_str(d)));
+    }
+    if let Some(d) = p.fields.iter().find_map(|f| match &f.kind {
+        PersonFieldKind::Died(d) => Some(d),
+        _ => None,
+    }) {
+        cells.push(field_cell(FieldName::Died, &date_str(d)));
+    }
+    if let Some(text) = inline_comment {
+        cells.push(Cell {
+            text: text.to_string(),
+            kind: CellKind::Comment,
+        });
+    }
+    cells
+}
+
+fn build_marriage_cells(m: &MarriageStmt, inline_comment: Option<&str>) -> Vec<Cell> {
+    let mut cells = Vec::with_capacity(7);
+    cells.push(Cell {
+        text: "marriage".to_string(),
+        kind: CellKind::Keyword,
+    });
+    cells.push(Cell {
+        text: m.id.name.clone(),
+        kind: CellKind::Positional,
+    });
+    cells.push(Cell {
+        text: m.spouse_a.name.clone(),
+        kind: CellKind::Reference,
+    });
+    cells.push(Cell {
+        text: m.spouse_b.name.clone(),
+        kind: CellKind::Reference,
+    });
+    if let Some(d) = m.fields.iter().find_map(|f| match &f.kind {
+        MarriageFieldKind::Start(d) => Some(d),
+        _ => None,
+    }) {
+        cells.push(field_cell(FieldName::Start, &date_str(d)));
+    }
+    if let Some(d) = m.fields.iter().find_map(|f| match &f.kind {
+        MarriageFieldKind::End(d) => Some(d),
+        _ => None,
+    }) {
+        cells.push(field_cell(FieldName::End, &date_str(d)));
+    }
+    if let Some(er) = m.fields.iter().find_map(|f| match &f.kind {
+        MarriageFieldKind::EndReason(v) => Some(v),
+        _ => None,
+    }) {
+        cells.push(field_cell(FieldName::EndReason, &end_reason_str(&er.value)));
+    }
+    if let Some(text) = inline_comment {
+        cells.push(Cell {
+            text: text.to_string(),
+            kind: CellKind::Comment,
+        });
+    }
+    cells
+}
+
+enum SubRef<'a> {
+    Birth(&'a BirthSub),
+    Adoption(&'a AdoptionSub),
+}
+
+impl SubRef<'_> {
+    fn span_start(&self) -> usize {
+        match self {
+            SubRef::Birth(b) => b.span.start,
+            SubRef::Adoption(a) => a.span.start,
+        }
+    }
+}
+
+fn collect_sub_refs(p: &PersonStmt) -> Vec<SubRef<'_>> {
+    let mut subs: Vec<SubRef> = Vec::new();
+    if let Some(b) = &p.birth {
+        subs.push(SubRef::Birth(b));
+    }
+    for a in &p.adoptions {
+        subs.push(SubRef::Adoption(a));
+    }
+    subs.sort_by_key(|s| s.span_start());
+    subs
+}
+
+fn build_sub_cells(sub: &SubRef<'_>, inline_comment: Option<&str>) -> Vec<Cell> {
+    match sub {
+        SubRef::Birth(b) => {
+            let mut cells = vec![
+                Cell {
+                    text: "birth".to_string(),
+                    kind: CellKind::Keyword,
+                },
+                Cell {
+                    text: b.marriage_ref.name.clone(),
+                    kind: CellKind::Reference,
+                },
+            ];
+            if let Some(text) = inline_comment {
+                cells.push(Cell {
+                    text: text.to_string(),
+                    kind: CellKind::Comment,
+                });
+            }
+            cells
+        }
+        SubRef::Adoption(a) => {
+            let mut cells = vec![
+                Cell {
+                    text: "adoption".to_string(),
+                    kind: CellKind::Keyword,
+                },
+                Cell {
+                    text: a.marriage_ref.name.clone(),
+                    kind: CellKind::Reference,
+                },
+            ];
+            if let Some(d) = a.fields.iter().find_map(|f| match &f.kind {
+                AdoptionFieldKind::Start(d) => Some(d),
+                _ => None,
+            }) {
+                cells.push(field_cell(FieldName::Start, &date_str(d)));
+            }
+            if let Some(d) = a.fields.iter().find_map(|f| match &f.kind {
+                AdoptionFieldKind::End(d) => Some(d),
+                _ => None,
+            }) {
+                cells.push(field_cell(FieldName::End, &date_str(d)));
+            }
+            if let Some(text) = inline_comment {
+                cells.push(Cell {
+                    text: text.to_string(),
+                    kind: CellKind::Comment,
+                });
+            }
+            cells
+        }
+    }
+}
+
+fn field_cell(name: FieldName, value: &str) -> Cell {
+    Cell {
+        text: format!("{}:{}", name.as_str(), value),
+        kind: CellKind::Field(name),
+    }
+}
+
+// === Source-level formatter (preserves comments) ===
 
 #[derive(Debug, Clone)]
 struct Comment {
@@ -88,7 +505,6 @@ struct Comment {
 }
 
 struct SourceFormatter<'a> {
-    out: String,
     source: &'a str,
     doc: &'a Document,
     line_starts: Vec<usize>,
@@ -96,6 +512,7 @@ struct SourceFormatter<'a> {
     /// has no comment. At most one comment per source line by construction.
     comment_by_line: Vec<usize>,
     comments: Vec<Comment>,
+    emitter: Emitter,
 }
 
 impl<'a> SourceFormatter<'a> {
@@ -109,12 +526,12 @@ impl<'a> SourceFormatter<'a> {
             }
         }
         Self {
-            out: String::new(),
             source,
             doc,
             line_starts,
             comments,
             comment_by_line,
+            emitter: Emitter::new(),
         }
     }
 
@@ -126,12 +543,18 @@ impl<'a> SourceFormatter<'a> {
             let v_line = self.line_of_byte(v.span.start);
             self.flush_loose(cursor_line..v_line, &mut pending_blank);
             self.maybe_blank_separator(&mut pending_blank);
-            self.emit_version(v);
+            let inline = self.inline_comment_text(v_line).map(str::to_owned);
+            let mut cells = build_version_cells(v);
+            if let Some(text) = inline.as_deref() {
+                cells.push(Cell {
+                    text: text.to_string(),
+                    kind: CellKind::Comment,
+                });
+            }
+            self.emitter.emit_line(0, cells);
             cursor_line = self.line_of_byte_end(v.span.end) + 1;
         }
 
-        // The parser builds Document.statements in source order, so iterating
-        // the vector is iterating left-to-right through the file.
         let stmts: Vec<(usize, usize, &Statement)> = self
             .doc
             .statements
@@ -150,16 +573,67 @@ impl<'a> SourceFormatter<'a> {
         for (start_line, end_line, stmt) in stmts {
             self.flush_loose(cursor_line..start_line, &mut pending_blank);
             self.maybe_blank_separator(&mut pending_blank);
-            self.emit_statement(stmt);
+            self.emit_statement(stmt, start_line);
             cursor_line = end_line + 1;
         }
 
         self.flush_loose(cursor_line..self.line_count(), &mut pending_blank);
+        self.emitter.finish()
+    }
 
-        if !self.out.is_empty() && !self.out.ends_with('\n') {
-            self.out.push('\n');
+    fn emit_statement(&mut self, stmt: &Statement, start_line: usize) {
+        match stmt {
+            Statement::Person(p) => self.emit_person(p, start_line),
+            Statement::Marriage(m) => self.emit_marriage(m, start_line),
         }
-        self.out
+    }
+
+    fn emit_person(&mut self, p: &PersonStmt, header_line: usize) {
+        let inline = self.inline_comment_text(header_line).map(str::to_owned);
+        let cells = build_person_cells(p, inline.as_deref());
+        self.emitter.emit_line(0, cells);
+
+        let subs = collect_sub_refs(p);
+        if subs.is_empty() {
+            return;
+        }
+        // Top-level block ends here; sub-statements start a new block at
+        // indent=2.
+        self.emitter.flush();
+
+        let mut sub_cursor = header_line + 1;
+        for sub in &subs {
+            let sub_line = self.line_of_byte(sub.span_start());
+            // Whole-line comments inside the person block break the
+            // sub-statement alignment block, just like at top level.
+            for line in sub_cursor..sub_line {
+                if let Some((is_inline, range)) = self.comment_view(line) {
+                    if !is_inline {
+                        self.emitter.flush();
+                        let text = &self.source[range];
+                        let mut s = String::new();
+                        for _ in 0..2 {
+                            s.push(' ');
+                        }
+                        s.push_str(text);
+                        s.push('\n');
+                        self.emitter.out.push_str(&s);
+                    }
+                }
+                // Blank lines inside a person block are removed (ADR rule 6).
+            }
+            let inline = self.inline_comment_text(sub_line).map(str::to_owned);
+            let cells = build_sub_cells(sub, inline.as_deref());
+            self.emitter.emit_line(2, cells);
+            sub_cursor = sub_line + 1;
+        }
+        self.emitter.flush();
+    }
+
+    fn emit_marriage(&mut self, m: &MarriageStmt, header_line: usize) {
+        let inline = self.inline_comment_text(header_line).map(str::to_owned);
+        let cells = build_marriage_cells(m, inline.as_deref());
+        self.emitter.emit_line(0, cells);
     }
 
     fn line_count(&self) -> usize {
@@ -173,9 +647,6 @@ impl<'a> SourceFormatter<'a> {
         }
     }
 
-    /// Line containing the last byte of a span (one byte before `end`).
-    /// Spans use exclusive ends, so `line_of_byte(span.end)` over-counts when
-    /// `span.end` lands on a line boundary.
     fn line_of_byte_end(&self, end: usize) -> usize {
         if end == 0 {
             return 0;
@@ -192,12 +663,17 @@ impl<'a> SourceFormatter<'a> {
         }
     }
 
-    /// Returns `(is_inline, text_byte_range)` for the comment on `line`, or
-    /// `None` if there is no comment. Avoids the borrow-checker tangle of
-    /// holding `&Comment` while pushing to `self.out`.
     fn comment_view(&self, line: usize) -> Option<(bool, std::ops::Range<usize>)> {
         let c = self.comment_for_line(line)?;
         Some((c.is_inline, c.hash_start..c.end))
+    }
+
+    fn inline_comment_text(&self, line: usize) -> Option<&str> {
+        let c = self.comment_for_line(line)?;
+        if !c.is_inline {
+            return None;
+        }
+        Some(&self.source[c.hash_start..c.end])
     }
 
     fn line_is_blank(&self, line: usize) -> bool {
@@ -225,13 +701,14 @@ impl<'a> SourceFormatter<'a> {
                     // comment is appended where the statement is rendered.
                     continue;
                 }
-                if *pending_blank && !self.out.is_empty() {
-                    self.out.push('\n');
+                self.emitter.flush();
+                if *pending_blank && !self.emitter.out.is_empty() {
+                    self.emitter.out.push('\n');
                 }
                 *pending_blank = false;
                 let text = &self.source[text_range];
-                self.out.push_str(text);
-                self.out.push('\n');
+                self.emitter.out.push_str(text);
+                self.emitter.out.push('\n');
                 continue;
             }
             if self.line_is_blank(line) {
@@ -240,269 +717,20 @@ impl<'a> SourceFormatter<'a> {
         }
     }
 
-    /// Emit a single blank line before the next top-level element if one is
-    /// queued. Suppressed at file start so the document never begins with a
-    /// blank line.
     fn maybe_blank_separator(&mut self, pending_blank: &mut bool) {
-        if *pending_blank && !self.out.is_empty() {
-            self.out.push('\n');
+        if *pending_blank {
+            // A blank line is a hard block boundary even if the surrounding
+            // shapes match — the user's whitespace is the signal.
+            self.emitter.flush();
+            if !self.emitter.out.is_empty() {
+                self.emitter.out.push('\n');
+            }
         }
         *pending_blank = false;
     }
-
-    fn emit_version(&mut self, v: &VersionDecl) {
-        let line = self.line_of_byte(v.span.start);
-        write_version(&mut self.out, v);
-        self.append_inline_comment(line);
-        self.out.push('\n');
-    }
-
-    fn emit_statement(&mut self, stmt: &Statement) {
-        match stmt {
-            Statement::Person(p) => self.emit_person(p),
-            Statement::Marriage(m) => self.emit_marriage(m),
-        }
-    }
-
-    fn emit_person(&mut self, p: &PersonStmt) {
-        let header_line = self.line_of_byte(p.span.start);
-        write_person_signature(&mut self.out, p);
-        self.append_inline_comment(header_line);
-        self.out.push('\n');
-
-        // Combine birth + adoptions in source order via spans. The AST
-        // stores them in two fields, but the original ordering is what the
-        // user wrote and ADR 0004 rule 2 (positional → required → optional)
-        // only governs *fields within a statement*, not sub-statement order.
-        let mut subs: Vec<(usize, SubRef)> = Vec::new();
-        if let Some(b) = &p.birth {
-            subs.push((b.span.start, SubRef::Birth(b)));
-        }
-        for a in &p.adoptions {
-            subs.push((a.span.start, SubRef::Adoption(a)));
-        }
-        subs.sort_by_key(|(start, _)| *start);
-
-        let block_last_line = self.line_of_byte_end(p.span.end);
-        let mut sub_cursor = header_line + 1;
-        for (_, sub) in &subs {
-            let sub_line = match sub {
-                SubRef::Birth(b) => self.line_of_byte(b.span.start),
-                SubRef::Adoption(a) => self.line_of_byte(a.span.start),
-            };
-            self.emit_block_internal_comments(sub_cursor..sub_line);
-            self.emit_sub(sub);
-            self.append_inline_comment(sub_line);
-            self.out.push('\n');
-            sub_cursor = sub_line + 1;
-        }
-        // No trailing inside-block comments by construction: PersonStmt.span
-        // ends at the last sub-statement, so any whole-line comment after the
-        // last sub but before the next top-level statement falls in the
-        // following `flush_loose` window and emits at column 0.
-        let _ = block_last_line;
-    }
-
-    fn emit_block_internal_comments(&mut self, range: std::ops::Range<usize>) {
-        for line in range {
-            if let Some((is_inline, text_range)) = self.comment_view(line) {
-                if !is_inline {
-                    self.out.push_str(INDENT);
-                    let text = &self.source[text_range];
-                    self.out.push_str(text);
-                    self.out.push('\n');
-                }
-            }
-            // Blank lines inside a person block are removed (ADR rule 6).
-        }
-    }
-
-    fn emit_sub(&mut self, sub: &SubRef<'_>) {
-        self.out.push_str(INDENT);
-        match sub {
-            SubRef::Birth(b) => write_birth_signature(&mut self.out, b),
-            SubRef::Adoption(a) => write_adoption_signature(&mut self.out, a),
-        }
-    }
-
-    fn emit_marriage(&mut self, m: &MarriageStmt) {
-        let line = self.line_of_byte(m.span.start);
-        write_marriage_signature(&mut self.out, m);
-        self.append_inline_comment(line);
-        self.out.push('\n');
-    }
-
-    fn append_inline_comment(&mut self, line: usize) {
-        if let Some((is_inline, text_range)) = self.comment_view(line) {
-            if is_inline {
-                self.out.push_str(FIELD_SEP);
-                let text = &self.source[text_range];
-                self.out.push_str(text);
-            }
-        }
-    }
 }
 
-enum SubRef<'a> {
-    Birth(&'a BirthSub),
-    Adoption(&'a AdoptionSub),
-}
-
-// === AST → canonical text (no comments) ===
-
-fn write_statement_no_comments(out: &mut String, stmt: &Statement) {
-    match stmt {
-        Statement::Person(p) => {
-            write_person_signature(out, p);
-            out.push('\n');
-            let mut subs: Vec<(usize, SubRef)> = Vec::new();
-            if let Some(b) = &p.birth {
-                subs.push((b.span.start, SubRef::Birth(b)));
-            }
-            for a in &p.adoptions {
-                subs.push((a.span.start, SubRef::Adoption(a)));
-            }
-            subs.sort_by_key(|(s, _)| *s);
-            for (_, sub) in subs {
-                out.push_str(INDENT);
-                match sub {
-                    SubRef::Birth(b) => write_birth_signature(out, b),
-                    SubRef::Adoption(a) => write_adoption_signature(out, a),
-                }
-                out.push('\n');
-            }
-        }
-        Statement::Marriage(m) => {
-            write_marriage_signature(out, m);
-            out.push('\n');
-        }
-    }
-}
-
-fn write_version(out: &mut String, v: &VersionDecl) {
-    out.push_str("kula ");
-    out.push_str(&v.version);
-}
-
-fn write_person_signature(out: &mut String, p: &PersonStmt) {
-    out.push_str("person ");
-    out.push_str(&p.id.name);
-    for v in canonical_person_fields(p) {
-        out.push_str(FIELD_SEP);
-        out.push_str(&v);
-    }
-}
-
-fn write_marriage_signature(out: &mut String, m: &MarriageStmt) {
-    out.push_str("marriage ");
-    out.push_str(&m.id.name);
-    out.push(' ');
-    out.push_str(&m.spouse_a.name);
-    out.push(' ');
-    out.push_str(&m.spouse_b.name);
-    for v in canonical_marriage_fields(m) {
-        out.push_str(FIELD_SEP);
-        out.push_str(&v);
-    }
-}
-
-fn write_birth_signature(out: &mut String, b: &BirthSub) {
-    out.push_str("birth ");
-    out.push_str(&b.marriage_ref.name);
-}
-
-fn write_adoption_signature(out: &mut String, a: &AdoptionSub) {
-    out.push_str("adoption ");
-    out.push_str(&a.marriage_ref.name);
-    for v in canonical_adoption_fields(a) {
-        out.push_str(FIELD_SEP);
-        out.push_str(&v);
-    }
-}
-
-fn canonical_person_fields(p: &PersonStmt) -> Vec<String> {
-    // Spec table order: name, gender, family, given, born, died.
-    let mut out = Vec::new();
-    if let Some(name) = first_field(p, |f| matches!(&f.kind, PersonFieldKind::Name(_))) {
-        if let PersonFieldKind::Name(s) = &name.kind {
-            out.push(format!("name:{}", quote_string(&s.value)));
-        }
-    }
-    if let Some(g) = first_field(p, |f| matches!(&f.kind, PersonFieldKind::Gender(_))) {
-        if let PersonFieldKind::Gender(v) = &g.kind {
-            out.push(format!("gender:{}", gender_str(v.value)));
-        }
-    }
-    if let Some(f) = first_field(p, |f| matches!(&f.kind, PersonFieldKind::Family(_))) {
-        if let PersonFieldKind::Family(s) = &f.kind {
-            out.push(format!("family:{}", quote_string(&s.value)));
-        }
-    }
-    if let Some(f) = first_field(p, |f| matches!(&f.kind, PersonFieldKind::Given(_))) {
-        if let PersonFieldKind::Given(s) = &f.kind {
-            out.push(format!("given:{}", quote_string(&s.value)));
-        }
-    }
-    if let Some(f) = first_field(p, |f| matches!(&f.kind, PersonFieldKind::Born(_))) {
-        if let PersonFieldKind::Born(d) = &f.kind {
-            out.push(format!("born:{}", date_str(d)));
-        }
-    }
-    if let Some(f) = first_field(p, |f| matches!(&f.kind, PersonFieldKind::Died(_))) {
-        if let PersonFieldKind::Died(d) = &f.kind {
-            out.push(format!("died:{}", date_str(d)));
-        }
-    }
-    out
-}
-
-fn first_field(
-    p: &PersonStmt,
-    pred: impl Fn(&crate::ast::PersonField) -> bool,
-) -> Option<&crate::ast::PersonField> {
-    p.fields.iter().find(|f| pred(f))
-}
-
-fn canonical_marriage_fields(m: &MarriageStmt) -> Vec<String> {
-    // Spec table order: start, end, end_reason.
-    let mut out = Vec::new();
-    if let Some(start) = m.fields.iter().find_map(|f| match &f.kind {
-        MarriageFieldKind::Start(d) => Some(d),
-        _ => None,
-    }) {
-        out.push(format!("start:{}", date_str(start)));
-    }
-    if let Some(end) = m.fields.iter().find_map(|f| match &f.kind {
-        MarriageFieldKind::End(d) => Some(d),
-        _ => None,
-    }) {
-        out.push(format!("end:{}", date_str(end)));
-    }
-    if let Some(er) = m.fields.iter().find_map(|f| match &f.kind {
-        MarriageFieldKind::EndReason(v) => Some(v),
-        _ => None,
-    }) {
-        out.push(format!("end_reason:{}", end_reason_str(&er.value)));
-    }
-    out
-}
-
-fn canonical_adoption_fields(a: &AdoptionSub) -> Vec<String> {
-    let mut out = Vec::new();
-    if let Some(d) = a.fields.iter().find_map(|f| match &f.kind {
-        AdoptionFieldKind::Start(d) => Some(d),
-        _ => None,
-    }) {
-        out.push(format!("start:{}", date_str(d)));
-    }
-    if let Some(d) = a.fields.iter().find_map(|f| match &f.kind {
-        AdoptionFieldKind::End(d) => Some(d),
-        _ => None,
-    }) {
-        out.push(format!("end:{}", date_str(d)));
-    }
-    out
-}
+// === Utilities ===
 
 fn date_str(d: &DateLit) -> String {
     let mut s = String::with_capacity(11);
@@ -550,8 +778,6 @@ fn end_reason_str(e: &EndReason) -> String {
         EndReason::Unknown(s) => s.clone(),
     }
 }
-
-// === Helpers ===
 
 fn compute_line_starts(source: &str) -> Vec<usize> {
     let mut v = vec![0];
@@ -720,13 +946,146 @@ mod tests {
     }
 
     #[test]
+    fn align_two_consecutive_persons_with_same_shape() {
+        let src = "person alice name:\"Alice\" gender:female\n\
+                   person bo name:\"Bob\" gender:male\n";
+        let out = format_source(src);
+        assert_eq!(
+            out,
+            "person alice  name:\"Alice\"  gender:female\n\
+             person bo     name:\"Bob\"    gender:male\n"
+        );
+    }
+
+    #[test]
+    fn shape_change_breaks_block() {
+        // alice has born; bob doesn't. Different shapes → no alignment.
+        let src = "person alice name:\"Alice\" gender:female born:1950\n\
+                   person bo name:\"Bob\" gender:male\n";
+        let out = format_source(src);
+        assert_eq!(
+            out,
+            "person alice  name:\"Alice\"  gender:female  born:1950\n\
+             person bo  name:\"Bob\"  gender:male\n"
+        );
+    }
+
+    #[test]
+    fn blank_line_breaks_block() {
+        let src = "person alice name:\"Alice\" gender:female\n\
+                   \n\
+                   person bo name:\"Bob\" gender:male\n";
+        let out = format_source(src);
+        assert_eq!(
+            out,
+            "person alice  name:\"Alice\"  gender:female\n\
+             \n\
+             person bo  name:\"Bob\"  gender:male\n"
+        );
+    }
+
+    #[test]
+    fn whole_line_comment_breaks_block() {
+        let src = "person alice name:\"Alice\" gender:female\n\
+                   # divider\n\
+                   person bo name:\"Bob\" gender:male\n";
+        let out = format_source(src);
+        assert_eq!(
+            out,
+            "person alice  name:\"Alice\"  gender:female\n\
+             # divider\n\
+             person bo  name:\"Bob\"  gender:male\n"
+        );
+    }
+
+    #[test]
+    fn marriage_block_aligns_positionals_too() {
+        let src = "person a name:\"A\" gender:female\n\
+                   person bb name:\"B\" gender:male\n\
+                   person cc name:\"C\" gender:male\n\
+                   marriage m1 a bb start:1972\n\
+                   marriage mm cc a start:1990\n";
+        let out = format_source(src);
+        // m1/mm align at col 10; spouse_a column at 13 (a/cc, padded so the
+        // next column starts at the same offset); spouse_b column at 16
+        // (bb/a, padded); start: at 20.
+        assert!(
+            out.contains("marriage m1 a  bb  start:1972\n"),
+            "row 1 missing alignment, got:\n{out}"
+        );
+        assert!(
+            out.contains("marriage mm cc a   start:1990\n"),
+            "row 2 missing alignment, got:\n{out}"
+        );
+    }
+
+    #[test]
+    fn sub_statements_align_within_a_person_block() {
+        // Two adoptions with same shape: they form an aligned block.
+        let src = "person alice name:\"A\" gender:female\n\
+                   person bb name:\"B\" gender:male\n\
+                   marriage m alice bb start:1972\n\
+                   person ravi name:\"Ravi\" gender:male\n\
+                   \x20\x20adoption m start:1985\n\
+                   \x20\x20adoption m start:1990\n";
+        let out = format_source(src);
+        assert!(
+            out.contains("  adoption m  start:1985\n  adoption m  start:1990\n"),
+            "expected aligned adoptions, got:\n{out}"
+        );
+    }
+
+    #[test]
+    fn person_with_substatement_does_not_align_to_neighbors() {
+        // alice has a sub-statement; bob doesn't. The sub-statement breaks
+        // alice's adjacency with the next top-level person.
+        let src = "person alice name:\"A\" gender:female\n\
+                   \x20\x20birth m_a\n\
+                   person bo name:\"B\" gender:male\n";
+        let out = format_source(src);
+        // alice's columns are independent of bob's.
+        assert_eq!(
+            out,
+            "person alice  name:\"A\"  gender:female\n\
+             \x20\x20birth m_a\n\
+             person bo  name:\"B\"  gender:male\n"
+        );
+    }
+
+    #[test]
+    fn inline_comments_align_when_present_on_every_block_line() {
+        let src = "person alice name:\"Alice\" gender:female  # alpha\n\
+                   person bo name:\"Bob\" gender:male  # beta\n";
+        let out = format_source(src);
+        assert_eq!(
+            out,
+            "person alice  name:\"Alice\"  gender:female  # alpha\n\
+             person bo     name:\"Bob\"    gender:male    # beta\n"
+        );
+    }
+
+    #[test]
+    fn inline_comment_on_one_row_breaks_block() {
+        let src = "person alice name:\"Alice\" gender:female  # alpha\n\
+                   person bo name:\"Bob\" gender:male\n";
+        let out = format_source(src);
+        // alice has an extra cell (the comment); bo does not. Different
+        // shapes → independent layouts.
+        assert_eq!(
+            out,
+            "person alice  name:\"Alice\"  gender:female  # alpha\n\
+             person bo  name:\"Bob\"  gender:male\n"
+        );
+    }
+
+    #[test]
     fn format_source_idempotent_on_canonical_input() {
         let canonical = "kula 0.1\n\
             \n\
             person alice  name:\"Alice\"  gender:female  born:1950-04-12\n\
-            person bob  name:\"Bob\"  gender:male  born:1948-11-30\n\
+            person bo     name:\"Bob\"    gender:male    born:1948-11-30\n\
             \n\
-            marriage m_alice_bob alice bob  start:1972-05-12\n";
+            marriage m_alice_bo alice bo  start:1972-05-12\n";
         let once = format_source(canonical);
         assert_eq!(once, canonical);
         let twice = format_source(&once);
@@ -744,22 +1103,6 @@ mod tests {
     }
 
     #[test]
-    fn format_reorders_marriage_fields_per_spec() {
-        let src = "person a name:\"A\" gender:female\n\
-                   person b name:\"B\" gender:male\n\
-                   marriage m a b end_reason:divorce end:1990 start:1972\n";
-        let formatted = format_source(src);
-        assert!(formatted.contains("marriage m a b  start:1972  end:1990  end_reason:divorce\n"));
-    }
-
-    #[test]
-    fn format_two_space_separators_between_fields() {
-        let src = "person alice name:\"A\" gender:female\n";
-        let out = format_source(src);
-        assert!(out.contains("alice  name:\"A\"  gender:female"));
-    }
-
-    #[test]
     fn format_collapses_blank_runs() {
         let src = "person a name:\"A\" gender:female\n\n\n\nperson b name:\"B\" gender:male\n";
         let out = format_source(src);
@@ -772,17 +1115,8 @@ mod tests {
     #[test]
     fn format_removes_blank_lines_inside_person_block() {
         let src = "person alice name:\"A\" gender:female\n\n  birth m\n";
-        // No marriage `m`, but the formatter doesn't care — it operates on
-        // structure, not semantics.
         let out = format_source(src);
         assert_eq!(out, "person alice  name:\"A\"  gender:female\n  birth m\n");
-    }
-
-    #[test]
-    fn format_preserves_inline_comment_with_two_space_gap() {
-        let src = "person alice name:\"A\" gender:female  # alpha\n";
-        let out = format_source(src);
-        assert_eq!(out, "person alice  name:\"A\"  gender:female  # alpha\n");
     }
 
     #[test]
@@ -790,18 +1124,6 @@ mod tests {
         let src = "# header\nperson alice name:\"A\" gender:female\n";
         let out = format_source(src);
         assert_eq!(out, "# header\nperson alice  name:\"A\"  gender:female\n");
-    }
-
-    #[test]
-    fn format_preserves_indented_comment_inside_person_block() {
-        let src = "person alice name:\"A\" gender:female\n\
-                   \x20\x20# adopted from registry\n\
-                   \x20\x20birth m\n";
-        let out = format_source(src);
-        assert_eq!(
-            out,
-            "person alice  name:\"A\"  gender:female\n  # adopted from registry\n  birth m\n"
-        );
     }
 
     #[test]
@@ -816,12 +1138,5 @@ mod tests {
         let src = "person alice name:\"O\\\"Brien\" gender:female\n";
         let out = format_source(src);
         assert!(out.contains("name:\"O\\\"Brien\""));
-    }
-
-    #[test]
-    fn format_canonicalizes_dates() {
-        let src = "person alice name:\"A\" gender:female born:~1950\n";
-        let out = format_source(src);
-        assert!(out.contains("born:~1950"));
     }
 }

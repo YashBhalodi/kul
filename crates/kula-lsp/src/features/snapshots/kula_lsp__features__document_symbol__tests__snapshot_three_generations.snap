@@ -14,7 +14,7 @@ expression: syms
       },
       "end": {
         "line": 10,
-        "character": 82
+        "character": 84
       }
     },
     "selectionRange": {
@@ -39,7 +39,7 @@ expression: syms
       },
       "end": {
         "line": 11,
-        "character": 80
+        "character": 84
       }
     },
     "selectionRange": {

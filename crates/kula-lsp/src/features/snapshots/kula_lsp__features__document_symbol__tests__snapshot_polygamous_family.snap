@@ -14,7 +14,7 @@ expression: syms
       },
       "end": {
         "line": 8,
-        "character": 65
+        "character": 66
       }
     },
     "selectionRange": {
@@ -39,7 +39,7 @@ expression: syms
       },
       "end": {
         "line": 9,
-        "character": 64
+        "character": 66
       }
     },
     "selectionRange": {
@@ -64,7 +64,7 @@ expression: syms
       },
       "end": {
         "line": 10,
-        "character": 58
+        "character": 66
       }
     },
     "selectionRange": {
@@ -140,7 +140,7 @@ expression: syms
       },
       "end": {
         "line": 15,
-        "character": 54
+        "character": 55
       }
     },
     "selectionRange": {
@@ -165,7 +165,7 @@ expression: syms
       },
       "end": {
         "line": 16,
-        "character": 54
+        "character": 55
       }
     },
     "selectionRange": {

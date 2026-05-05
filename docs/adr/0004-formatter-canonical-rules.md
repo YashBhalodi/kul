@@ -121,3 +121,13 @@ If any of these come up again, point at this ADR and decline.
 - **"Reformat comments."** Comments are user content. The formatter touches whitespace and structure, not authorial voice.
 - **"Default to single-space field separators to match other DSLs."** Tested it on the four corpus examples — fields visually merge into the surrounding identifiers ("name:\"Alice\" gender:female" reads as one block). The two-space separator was empirically the smallest change that restored scanability.
 - **"Move alignment from per-block to per-document."** Brittle — adding one field to one statement reflows the whole file. The whole reason `gofmt` doesn't do this is the diff blast radius.
+
+## Amendment 2026-05-05: per-block column alignment (#35)
+
+Reading the corpus after #27 landed showed the original §14.5 ("no column alignment, ever") was costing too much scannability. Two structurally-identical `person` lines stacked back-to-back in the founders block of `examples/03-three-generations.kula` were noticeably harder to read than their pre-canonical predecessors that had hand-aligned columns.
+
+The amendment adds a third position between "no alignment" and the still-rejected "whole-document alignment": **per-block** alignment, where a *block* is a run of consecutive same-indent same-shape lines bounded by blank lines, whole-line comments, indent changes, and shape changes.
+
+Strict shape matching is intentional. The two alternatives — "align columns that all rows share" and "pad missing fields with whitespace" — both leak edge cases into the spec and create the surprising-diff problem this ADR set out to avoid. With strict shape matching, every block is automatically rectangular, the rule fits in one paragraph, and a field added to one statement excludes it from the surrounding block rather than re-flowing it.
+
+Idempotence and round-trip (rules 8 and 9) hold unchanged. Anti-suggestion 5 ("per-document alignment") remains in force — what the amendment adds is a smaller scope of alignment with hard, user-controlled boundaries, not the rejected version. See `spec/14-formatter-rules.md` §14.5 for the normative restatement and #35 for the ticket history.

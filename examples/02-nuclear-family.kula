@@ -5,7 +5,7 @@
 kula 0.1
 
 person alice  name:"Alice Sharma"  gender:female  born:1950-04-12
-person bob  name:"Bob Sharma"  gender:male  born:1948-11-30
+person bob    name:"Bob Sharma"    gender:male    born:1948-11-30
 person carol  name:"Carol Sharma"  gender:female  born:1975-09-03
   birth m_alice_bob
 
