@@ -37,8 +37,11 @@
     "build": "npm run typecheck && npm run bundle",
     "watch": "esbuild src/extension.ts --bundle --platform=node --target=node18 --external:vscode --outfile=out/extension.js --sourcemap --watch",
     "vscode:prepublish": "npm run build",
+    "fetch-server": "node scripts/fetch-server-binaries.mjs",
     "package": "vsce package",
-    "publish": "vsce publish"
+    "package:bundled": "npm run fetch-server && vsce package",
+    "publish": "vsce publish",
+    "publish:bundled": "npm run fetch-server && vsce publish"
   },
   "contributes": {
     "languages": [

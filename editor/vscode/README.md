@@ -70,7 +70,7 @@ The generated `*.vsix` file is gitignored.
 
 ### Option C — Test the language server locally
 
-The extension's LSP client looks for `kula-lsp` first via the `kula.serverPath` setting and then falls back to a bundled binary. For development you'll want to point at your locally-built binary:
+The extension's LSP client looks for `kula-lsp` first via the `kula.serverPath` setting and then falls back to a bundled binary. The default `npm run package` produces an **unbundled** `.vsix` (fast, no network) — perfect for local-dev install. For development you'll want to point at your locally-built binary:
 
 1. Build the language server from the repo root:
 
@@ -94,6 +94,23 @@ The extension's LSP client looks for `kula-lsp` first via the `kula.serverPath` 
    - Autocomplete for keywords, field names, and enum values
 
 To debug the language server itself, set `kula.trace.server` to `messages` or `verbose` and watch the `Kula LSP` output channel (`View → Output → Kula LSP`).
+
+### Option D — Build a fully-bundled `.vsix` (production-style)
+
+Use this to package an extension that ships pre-built `kula-lsp` binaries for all four target platforms (`linux-x64`, `darwin-x64`, `darwin-arm64`, `win32-x64`) — the form that goes to the marketplace.
+
+This requires a published `kula-lsp` GitHub Release matching the extension's `package.json` version (the marketplace publish workflow handles tag coordination automatically).
+
+```sh
+cd editor/vscode
+npm install
+npm run package:bundled                                # downloads binaries from the matching kula-lsp-v* release, then vsce package
+code --install-extension kulalang-<version>.vsix --force
+```
+
+End users installing the bundled `.vsix` don't need to set `kula.serverPath` — the extension auto-locates the right platform binary.
+
+Override the LSP version with `LSP_VERSION=<x.y.z> npm run fetch-server` if the extension and language-server versions have drifted.
 
 ## Requirements
 

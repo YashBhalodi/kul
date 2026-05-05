@@ -23,10 +23,13 @@ jobs:
           node-version: '20'
       - name: Install vsce
         run: npm install -g @vscode/vsce
+      - name: Install extension dev dependencies
+        working-directory: editor/vscode
+        run: npm ci
       - name: Validate JSON files parse
         run: |
           set -e
-          for f in $(find editor/vscode -type f -name '*.json'); do
+          for f in $(find editor/vscode -type f -name '*.json' -not -path '*/node_modules/*'); do
             echo "validating $f"
             python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
           done
@@ -58,6 +61,14 @@ jobs:
             echo "::error::tag $GITHUB_REF_NAME does not match package.json version $pkg_version"
             exit 1
           fi
+      - name: Install dependencies
+        working-directory: editor/vscode
+        run: npm ci
+      - name: Fetch matched-version kula-lsp binaries
+        # The fetch script defaults to reading the version from package.json,
+        # which the previous step verified matches the tag.
+        working-directory: editor/vscode
+        run: npm run fetch-server
       - name: Publish to marketplace
         working-directory: editor/vscode
         env:

@@ -8,6 +8,7 @@ node_modules/**
 *.vsix
 
 src/**
+scripts/**
 tsconfig.json
 **/*.ts.map
 **/*.ts
