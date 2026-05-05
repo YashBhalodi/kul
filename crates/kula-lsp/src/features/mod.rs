@@ -7,4 +7,5 @@
 pub mod completion;
 pub mod definition;
 pub mod diagnostics;
+pub mod document_symbol;
 pub mod hover;

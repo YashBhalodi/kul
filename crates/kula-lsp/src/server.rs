@@ -10,14 +10,14 @@
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::{
     CompletionOptions, CompletionParams, CompletionResponse, DidChangeTextDocumentParams,
-    DidCloseTextDocumentParams, DidOpenTextDocumentParams, GotoDefinitionParams,
-    GotoDefinitionResponse, Hover, HoverParams, HoverProviderCapability, InitializeParams,
-    InitializeResult, InitializedParams, MessageType, OneOf, ServerCapabilities, ServerInfo,
-    TextDocumentSyncCapability, TextDocumentSyncKind, Url,
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, DocumentSymbolParams,
+    DocumentSymbolResponse, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
+    HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams, MessageType,
+    OneOf, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
 };
 use tower_lsp::{Client, LanguageServer};
 
-use crate::features::{completion, definition, diagnostics, hover};
+use crate::features::{completion, definition, diagnostics, document_symbol, hover};
 use crate::state::Documents;
 
 /// The Kula language server.
@@ -65,6 +65,7 @@ impl LanguageServer for Backend {
                     trigger_characters: Some(vec![":".to_owned(), " ".to_owned()]),
                     ..Default::default()
                 }),
+                document_symbol_provider: Some(OneOf::Left(true)),
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
@@ -143,6 +144,21 @@ impl LanguageServer for Backend {
             })
             .await;
         Ok(result.flatten().map(GotoDefinitionResponse::Scalar))
+    }
+
+    async fn document_symbol(
+        &self,
+        params: DocumentSymbolParams,
+    ) -> Result<Option<DocumentSymbolResponse>> {
+        let uri = params.text_document.uri;
+        let symbols = self
+            .documents
+            .with(&uri, |doc| {
+                let resolved = doc.check.resolved();
+                document_symbol::document_symbols(&resolved, &doc.line_index)
+            })
+            .await;
+        Ok(symbols.map(DocumentSymbolResponse::Nested))
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
