@@ -12,12 +12,13 @@ use tower_lsp::lsp_types::{
     CompletionOptions, CompletionParams, CompletionResponse, DidChangeTextDocumentParams,
     DidCloseTextDocumentParams, DidOpenTextDocumentParams, DocumentSymbolParams,
     DocumentSymbolResponse, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
-    HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams, MessageType,
-    OneOf, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
+    HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams, Location,
+    MessageType, OneOf, ReferenceParams, ServerCapabilities, ServerInfo,
+    TextDocumentSyncCapability, TextDocumentSyncKind, Url,
 };
 use tower_lsp::{Client, LanguageServer};
 
-use crate::features::{completion, definition, diagnostics, document_symbol, hover};
+use crate::features::{completion, definition, diagnostics, document_symbol, hover, references};
 use crate::state::Documents;
 
 /// The Kula language server.
@@ -66,6 +67,7 @@ impl LanguageServer for Backend {
                     ..Default::default()
                 }),
                 document_symbol_provider: Some(OneOf::Left(true)),
+                references_provider: Some(OneOf::Left(true)),
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
@@ -144,6 +146,21 @@ impl LanguageServer for Backend {
             })
             .await;
         Ok(result.flatten().map(GotoDefinitionResponse::Scalar))
+    }
+
+    async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
+        let uri = params.text_document_position.text_document.uri;
+        let position = params.text_document_position.position;
+        let include_decl = params.context.include_declaration;
+        let result = self
+            .documents
+            .with(&uri, |doc| {
+                let offset = doc.line_index.byte_offset(position)?;
+                let resolved = doc.check.resolved();
+                references::references(&resolved, &doc.line_index, &uri, offset, include_decl)
+            })
+            .await;
+        Ok(result.flatten())
     }
 
     async fn document_symbol(

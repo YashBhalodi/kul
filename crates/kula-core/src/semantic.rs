@@ -126,6 +126,49 @@ impl<'a> ResolvedDocument<'a> {
             .filter_map(|ident| self.person(&ident.name))
     }
 
+    /// Every reference site for `id` in the document, in source order.
+    ///
+    /// `kind` selects which positions count: spouse positions for a person,
+    /// `birth`/`adoption` marriage refs for a marriage. The declaration
+    /// site is **not** included — callers that want it (per LSP's
+    /// `includeDeclaration` flag) prepend it themselves.
+    ///
+    /// Unresolved references whose name happens to match `id` are still
+    /// returned. This means rename and find-references both work on partly-
+    /// broken documents (the user is mid-edit), and rule 2's "no person/
+    /// marriage with this id" diagnostic is the right place to surface
+    /// the missing declaration — not here.
+    pub fn references_to(&self, id: &str, kind: EntityKind) -> Vec<ByteSpan> {
+        let mut out = Vec::new();
+        match kind {
+            EntityKind::Person => {
+                for m in self.marriages() {
+                    if m.spouse_a.name == id {
+                        out.push(m.spouse_a.span);
+                    }
+                    if m.spouse_b.name == id {
+                        out.push(m.spouse_b.span);
+                    }
+                }
+            }
+            EntityKind::Marriage => {
+                for p in self.persons() {
+                    if let Some(b) = &p.birth
+                        && b.marriage_ref.name == id
+                    {
+                        out.push(b.marriage_ref.span);
+                    }
+                    for a in &p.adoptions {
+                        if a.marriage_ref.name == id {
+                            out.push(a.marriage_ref.span);
+                        }
+                    }
+                }
+            }
+        }
+        out
+    }
+
     /// Biological + adoptive parents of a person, in source order, each
     /// tagged with the link's source span and kind. Unresolved references
     /// are skipped (rule 2 reports them).
@@ -315,5 +358,106 @@ fn check_marriage_ref(
                 .with_related(prior.span, format!("`{}` declared as a person here", ident.name)),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::tokenize;
+    use crate::parser::parse;
+
+    fn resolve_str(source: &str) -> (Document, Vec<ByteSpan>) {
+        let tokens = tokenize(source);
+        let (document, _) = parse(&tokens);
+        // We move `document` into a slot the caller can hold; then re-resolve
+        // for queries.
+        (document, Vec::new())
+    }
+
+    fn refs(source: &str, id: &str, kind: EntityKind) -> Vec<(usize, usize)> {
+        let tokens = tokenize(source);
+        let (document, _) = parse(&tokens);
+        let (resolved, _) = resolve(&document);
+        resolved
+            .references_to(id, kind)
+            .into_iter()
+            .map(|s| (s.start, s.end))
+            .collect()
+    }
+
+    fn idx(source: &str, pat: &str) -> usize {
+        source.find(pat).expect("pattern in source")
+    }
+
+    #[test]
+    fn references_to_person_finds_spouse_positions() {
+        let src = "person alice name:\"A\" gender:female\n\
+                   person bob name:\"B\" gender:male\n\
+                   person carol name:\"C\" gender:female\n\
+                   marriage m1 alice bob start:1972\n\
+                   marriage m2 alice carol start:2000\n";
+        let got = refs(src, "alice", EntityKind::Person);
+        // Two refs, one per marriage spouse_a slot.
+        assert_eq!(got.len(), 2);
+
+        let m1_alice = idx(src, "marriage m1 alice") + "marriage m1 ".len();
+        let m2_alice = idx(src, "marriage m2 alice") + "marriage m2 ".len();
+        assert_eq!(got[0], (m1_alice, m1_alice + "alice".len()));
+        assert_eq!(got[1], (m2_alice, m2_alice + "alice".len()));
+    }
+
+    #[test]
+    fn references_to_marriage_finds_birth_and_adoption_refs() {
+        let src = "person alice name:\"A\" gender:female\n\
+                   person bob name:\"B\" gender:male\n\
+                   marriage m alice bob start:1972\n\
+                   person kid1 name:\"K1\" gender:other\n  birth m\n\
+                   person kid2 name:\"K2\" gender:other\n  adoption m start:2000\n";
+        let got = refs(src, "m", EntityKind::Marriage);
+        assert_eq!(got.len(), 2);
+        // First is the birth ref (earlier in source), second is the adoption.
+        assert!(got[0].0 < got[1].0);
+    }
+
+    #[test]
+    fn references_to_returns_unresolved_refs() {
+        // No declaration of `ghost`, but it is referenced as a spouse.
+        // The query still returns it so rename/find-references work mid-edit.
+        let src = "marriage m ghost b start:1972\nperson b name:\"B\" gender:male\n";
+        let got = refs(src, "ghost", EntityKind::Person);
+        assert_eq!(got.len(), 1);
+    }
+
+    #[test]
+    fn references_to_excludes_declaration_site() {
+        let src = "person alice name:\"A\" gender:female\n\
+                   marriage m alice alice start:2000\n"; // self-marriage, fine for span counting
+        let got = refs(src, "alice", EntityKind::Person);
+        // Two spouse positions, NOT the decl id.
+        assert_eq!(got.len(), 2);
+        let decl_span = idx(src, "person alice") + "person ".len();
+        assert!(got.iter().all(|&(s, _)| s != decl_span));
+    }
+
+    #[test]
+    fn references_to_no_matches_yields_empty() {
+        let src = "person alice name:\"A\" gender:female\n";
+        assert!(refs(src, "alice", EntityKind::Person).is_empty());
+        assert!(refs(src, "nope", EntityKind::Marriage).is_empty());
+    }
+
+    #[test]
+    fn references_to_kind_filters_correctly() {
+        // Same id used as marriage; querying as Person finds nothing.
+        let src = "person a name:\"A\" gender:female\n\
+                   person b name:\"B\" gender:male\n\
+                   marriage m a b start:1972\n\
+                   person kid name:\"K\" gender:other\n  birth m\n";
+        // `m` is a marriage; querying it as a person yields no refs.
+        let _ = resolve_str(src);
+        assert!(refs(src, "m", EntityKind::Person).is_empty());
+        // …but as a marriage, it has one ref (the `birth`).
+        assert_eq!(refs(src, "m", EntityKind::Marriage).len(), 1);
     }
 }
