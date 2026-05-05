@@ -1,8 +1,10 @@
 //! Typed AST for Kula documents.
 //!
-//! The AST grows additively across Phase 2: each new statement or field
-//! variant lands as the corresponding rule slice does. References are stored
-//! as raw [`Ident`]s here; resolution happens in [`crate::semantic`].
+//! The AST grows additively (see the additivity principle in `CONTEXT.md`):
+//! new statement or field variants land alongside the corresponding rule
+//! slice; existing variants are never reordered, renamed, or removed.
+//! References are stored as raw [`Ident`]s here; resolution happens in
+//! [`crate::semantic`].
 
 use crate::date::DateLit;
 use crate::lexer::FieldName;

@@ -26,7 +26,7 @@ The underlying `HashMap` indexes are `pub(crate)`. Internal helpers inside the `
 ## Consequences
 
 - New kinship questions land as new methods on `ResolvedDocument`, not as inline AST walks at the call site. This is the answer to "where does this question live?" for any future rule or feature.
-- The Phase 3 LSP plugs into the same query surface without any crate reshape. Hover, completion, code actions all phrase themselves as questions in this vocabulary.
+- The LSP plugs into the same query surface without any crate reshape. Hover, completion, code actions all phrase themselves as questions in this vocabulary.
 - The AST nodes (`PersonStmt`, `MarriageStmt`, `AdoptionSub`) carry field accessors (`name()`, `born()`, `start()`, etc.) so callers do not enumerate their `Vec<*Field>` storage either. Field-storage shape is a private detail of the AST module.
 - The validator file shrinks: each rule is now its rule logic plus a query call, not a query call plus a rule logic plus a traversal plus a HashMap lookup.
 

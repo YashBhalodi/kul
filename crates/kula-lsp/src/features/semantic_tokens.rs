@@ -1,10 +1,9 @@
 //! Semantic tokens for `textDocument/semanticTokens/full`.
 //!
 //! Walks the AST in source order and emits one token per keyword, identifier,
-//! field name, enum value, date, and string literal, with the type taxonomy
-//! fixed by `docs/roadmap/04-polished-lsp.md`. The legend is the ordered
-//! list of `SemanticTokenType`s the server reports in `initializeResult`;
-//! clients map a `tokenType` index back through it.
+//! field name, enum value, date, and string literal. The legend is the
+//! ordered list of `SemanticTokenType`s the server reports in
+//! `initializeResult`; clients map a `tokenType` index back through it.
 //!
 //! Pure dispatch over the parsed AST — no async, no LSP plumbing beyond
 //! `lsp_types`. The encoded stream is line/character-delta-compressed per

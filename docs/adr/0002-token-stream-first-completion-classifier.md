@@ -13,7 +13,7 @@ Two designs were considered:
 1. **AST-first.** Run the parser, locate the cursor in the resulting AST, ask the AST what variant is expected next. Falls back to token inspection only when the parser errors out.
 2. **Token-stream-first.** Walk the lexer's token stream up to the cursor line, classify the cursor context from the tokens directly (with cursor-adjacency rules to handle whitespace and partial tokens), and use the AST as a secondary signal (e.g. "what is the enclosing person/marriage?").
 
-Phase 3 implementation hit several cases where the AST-first design failed:
+The completion-classifier implementation hit several cases where the AST-first design failed:
 
 - A partial identifier (`gen`) tokenizes as `Ident("gen")`, but no parser production accepts a bare ident in person-field position; the parser errors and recovery skips the line. The AST then doesn't know that the cursor was *intended* to be a field name.
 - Cursor adjacency matters: `gender: ` (cursor after the space) is in **value** context, but `gender:|female` (cursor before the value, no space) is also value context, and `gender :` (cursor after a stray space) is *not* a field — it's a parse error. The AST cannot distinguish these post-recovery; the token stream can.

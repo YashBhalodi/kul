@@ -2,41 +2,7 @@
 
 > Kula — a kinship description language.
 
-KulaLang is a domain-specific language project for describing human kinship — the structure of families and how they evolve over time. A Kula document is hand-authored plain text that captures persons, marriages, and parenthood (biological and adoptive) as a structured artifact you can read, edit, and reason about.
-
-## Status
-
-**v0.1: Language design, reference parser, validator CLI, language server, and LSP-backed VSCode extension all shipped. First public release pending tag push** — see [`docs/release.md`](./docs/release.md).
-
-| Deliverable                          | State                                                          |
-| ------------------------------------ | -------------------------------------------------------------- |
-| Vision and scope                     | Drafted — see [`docs/vision.md`](./docs/vision.md)             |
-| Language specification               | Drafted — see [`spec/`](./spec/README.md)                      |
-| Reference parser (`kula-core`)       | Shipped — see [`crates/kula-core`](./crates/kula-core)         |
-| Validator CLI (`kula validate`)      | Shipped — see [`crates/kula-cli`](./crates/kula-cli)           |
-| Language server (`kula-lsp`)         | Shipped — see [`crates/kula-lsp`](./crates/kula-lsp)           |
-| VSCode extension                     | Shipped (LSP-backed) — see [`editor/vscode`](./editor/vscode)  |
-| First public release (`v0.1.0`)      | Pending — see [`docs/release.md`](./docs/release.md)           |
-
-## Install
-
-Pre-built binaries for Linux, macOS, and Windows are attached to each release on the [GitHub Releases page](https://github.com/YashBhalodi/kulalang/releases). Download the archive for your platform and extract the `kula` binary onto your `$PATH`.
-
-To build from source:
-
-```sh
-git clone https://github.com/YashBhalodi/kulalang.git
-cd kulalang
-cargo install --path crates/kula-cli
-```
-
-Then:
-
-```sh
-kula validate examples/03-three-generations.kula
-```
-
-## A taste
+Kula is a small, hand-authored language for describing human kinship — persons, marriages, biological birth, and adoption — as plain text you can read, edit, version-control, and reason about. KulaLang is the project: the language specification plus the official toolchain (`kula` CLI, `kula-lsp` language server, VSCode extension).
 
 ```
 kula 0.1
@@ -50,7 +16,69 @@ person alice name:"Alice Sharma" born:1950-04-12 gender:female
   birth m_ramesh_sita
 ```
 
-The full feature surface — polygamy, remarriage, retroactive adoption, partial dates, circa dates — is exercised in the [`examples/`](./examples/) directory and documented section-by-section in [`spec/`](./spec/README.md).
+Kula is for individuals modelling their family in a structured way; it is **not** a GEDCOM replacement and **not** a general-purpose graph language. See [`docs/vision.md`](./docs/vision.md) for scope and intent.
+
+## Install
+
+### Pre-built binaries
+
+Each [GitHub Release](https://github.com/YashBhalodi/kulalang/releases) attaches `kula` and `kula-lsp` archives for Linux (x86_64), macOS (Intel + Apple Silicon), and Windows (x86_64). Download the archive for your platform, extract, and put the `kula` binary on your `$PATH`.
+
+### From source
+
+```sh
+git clone https://github.com/YashBhalodi/kulalang.git
+cd kulalang
+cargo install --path crates/kula-cli
+```
+
+Requires the Rust stable toolchain (edition 2024). `kula --version` to confirm.
+
+### Editor extension
+
+The [KulaLang VSCode extension](https://marketplace.visualstudio.com/items?itemName=YashBhalodi.kulalang) bundles the language server — install it and `.kula` files get diagnostics, hover, go-to-definition, find-references, rename, completion, formatting, and outline view automatically. No additional configuration.
+
+For other editors, point your LSP client at the `kula-lsp` binary.
+
+## Use
+
+### Validate a document
+
+```sh
+kula validate family.kula
+```
+
+`kula validate` parses the file and reports the 13 spec-defined errors with line/column anchors. Exit `0` on success, `1` on any error.
+
+```sh
+kula validate examples/*.kula              # validate many files at once
+cat family.kula | kula validate -          # read from stdin
+kula validate --format json family.kula    # one JSON object per diagnostic (jsonl)
+kula validate --quiet family.kula          # exit code only, no output on success
+```
+
+### Format a document
+
+```sh
+kula format family.kula           # canonicalize in place
+kula format --check family.kula   # CI gate: non-zero exit if not canonical
+```
+
+The formatter is opinionated and idempotent: one canonical layout, no configuration. See [ADR-0004](./docs/adr/0004-formatter-canonical-rules.md) and [`spec/14-formatter-rules.md`](./spec/14-formatter-rules.md).
+
+### Run the language server
+
+```sh
+kula lsp
+```
+
+Speaks LSP over stdio. Most users go through the VSCode extension instead.
+
+## Learn the language
+
+- [`spec/`](./spec/README.md) — the normative Kula 0.1 specification (14 sections + EBNF grammar). Rigorous enough to implement an independent parser from.
+- [`examples/`](./examples/) — four worked `.kula` documents, smallest first, exercising the full feature surface (polygamy, retroactive adoption, partial dates, circa dates).
+- [`docs/vision.md`](./docs/vision.md) — what Kula is for and explicitly is not.
 
 ## Repository layout
 
@@ -59,16 +87,17 @@ The full feature surface — polygamy, remarriage, retroactive adoption, partial
 ├── README.md                # this file
 ├── LICENSE                  # MIT
 ├── CHANGELOG.md             # release notes per version
+├── AGENTS.md                # contributor / AI-agent entry point
+├── CONTEXT.md               # canonical domain vocabulary
 ├── Cargo.toml               # Rust workspace root
 ├── justfile                 # `just check` runs fmt + clippy + tests
 ├── crates/
-│   ├── kula-core/           # parser, AST, semantic, validator, diagnostics
+│   ├── kula-core/           # parser, AST, semantic, validator, formatter
 │   ├── kula-cli/            # `kula` binary
 │   └── kula-lsp/            # `kula-lsp` language server binary
-├── docs/                    # vision, roadmap PRDs, ADRs, release process
+├── docs/                    # architecture, ADRs, testing, release process
 ├── editor/vscode/           # VSCode extension (LSP-backed)
 ├── spec/                    # normative Kula 0.1 specification
-│   └── grammar.ebnf         # standalone normative EBNF
 └── examples/                # worked example .kula documents
 ```
 
@@ -77,27 +106,22 @@ The full feature surface — polygamy, remarriage, retroactive adoption, partial
 - **KulaLang** — the project (spec, parser, tooling, brand).
 - **Kula** — the language itself.
 - `.kula` — file extension.
-- `kula` — CLI binary name (e.g., `kula validate family.kula`).
+- `kula` — CLI binary name.
 
-## Roadmap
+## Versioning
 
-The v1 deliverables defined by [`docs/vision.md`](./docs/vision.md) — language spec, reference parser, validator CLI, and editor integration — are all shipped. The phase-by-phase delivery PRDs live under [`docs/roadmap/`](./docs/roadmap/README.md):
+The language follows the [versioning policy](./spec/13-versioning-policy.md): new fields and statements land **additively** — adding new information to a Kula document never requires rewriting existing declarations. The CLI, language server, and VSCode extension release in lockstep, one tag per release; see the [Releases page](https://github.com/YashBhalodi/kulalang/releases).
 
-1. **Phase 1** — VSCode extension with TextMate highlighting and snippets ✓
-2. **Phase 2** — Reference parser, validator, CLI ✓
-3. **Phase 3** — Basic LSP (diagnostics, hover, goto-definition, completion) ✓
-4. **Phase 4** — Polished LSP (cross-cutting refinement) — future work
+## Contributing
 
-Beyond v1: the language is intentionally minimal at v0.1; future grammar additions land additively (see [`CONTEXT.md`](./CONTEXT.md) on the additivity principle and the [language version policy](./spec/13-versioning-policy.md)).
+KulaLang is a personal project with public artifacts, not a community-driven standard — there is no commitment to a contributor community, governance process, or maintenance SLA. That said, the codebase is set up so an outside contributor (or an AI agent) can read the docs and start making changes:
 
-## Releases
-
-KulaLang ships the CLI, language server, and VSCode extension in lockstep — one tag, one pipeline, one set of artifacts. Maintainers: see [`docs/release.md`](./docs/release.md) for the full procedure. Users: pre-built binaries are attached to each [GitHub Release](https://github.com/YashBhalodi/kulalang/releases) and the VSCode extension is published to the marketplace.
+- [`AGENTS.md`](./AGENTS.md) — entry point: repo layout, dev commands (`just check`), definition of done.
+- [`docs/architecture.md`](./docs/architecture.md) — the implementation map and "where to add X" recipes.
+- [`docs/testing.md`](./docs/testing.md) — test conventions (snapshots, corpus, perf budgets).
+- [`docs/release.md`](./docs/release.md) — how to cut a release.
+- [`docs/adr/`](./docs/adr/) — architectural decision records.
 
 ## License
 
-The language specification and reference parser, language server, and tooling are released under the [MIT License](./LICENSE).
-
-## Openness and contributions
-
-KulaLang is a personal project with public artifacts, not (yet) a community-driven standard. There is no commitment to a contributor community, governance process, or maintenance SLA in v1. As the project matures, openness may evolve.
+MIT — see [`LICENSE`](./LICENSE). The specification, reference parser, language server, and tooling all release under the same terms.

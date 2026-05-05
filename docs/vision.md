@@ -76,7 +76,7 @@ The exclusions are not statements about the validity of these relationships in g
 
 ## Conceptual primitives
 
-The language is built on a small set of primitive concepts. The exact names, syntax, and semantics will be settled in the design phase; the conceptual shape is:
+The language is built on a small set of primitive concepts. The conceptual shape is:
 
 - **Person** — an identifiable individual with a lifespan.
 - **Marriage** — a temporal binary union between two persons. Has a beginning. May end, with a reason (divorce, death). Multiple marriages for one person are allowed, both serially and concurrently.
@@ -86,26 +86,16 @@ Everything else expressible in Kula — siblinghood, cousinhood, grandparenthood
 
 ## Project deliverables
 
-KulaLang consists of three deliverables that together constitute v1:
+KulaLang's v1 envelope is four coherent artifacts:
 
-1. **The language specification.** A self-contained formal document defining the grammar, semantics, and validation rules of Kula, with worked examples and edge cases. Specified rigorously enough that someone could implement an independent parser from it alone.
-2. **A reference parser.** An implementation of the spec that produces a structured representation of a Kula document. Built in-house.
-3. **A validator surface.** At minimum, a CLI that parses, validates, and reports errors on Kula files. A VSCode extension is a stretch goal that would provide editor-integrated validation.
-
-v1 is "done" when all three exist and are coherent — the spec is finalized, the parser implements it, and the CLI/extension surfaces it usefully.
+1. **The language specification.** A self-contained formal document defining the grammar, semantics, and validation rules of Kula, with worked examples and edge cases. Specified rigorously enough that someone could implement an independent parser from it alone. Lives at [`../spec/`](../spec/README.md).
+2. **A reference parser and library** (`kula-core`) that implements the spec end-to-end: lexer, parser, semantic resolution, validator (13 spec rules), formatter, node-at-cursor query for editor tooling.
+3. **A CLI** (`kula`) wrapping the library: `kula validate`, `kula format`, `kula lsp`.
+4. **An LSP-backed VSCode extension** (`kula-lsp` + the marketplace extension) delivering live diagnostics, hover, go-to-definition, find-references, rename, completion (keyword + ID-aware), document symbols, code actions, formatting, and semantic tokens.
 
 ### Explicitly downstream / separate
 
 - **Web visualization app.** A separate project that, if built, would let users interactively define and visualize a Kula document. Not part of v1, and may or may not be built at all. Other application surfaces (mobile, desktop, etc.) are similarly downstream and optional.
-
-## Phasing
-
-1. **Phase 1 — Language design.** Settle the conceptual model, the temporal semantics, the concrete syntax, and the validation rules. Output: a draft spec.
-2. **Phase 2 — Reference parser.** Build the parser against the draft spec. Iterate the spec where ambiguity surfaces.
-3. **Phase 3 — Validator surface.** Build the CLI (and optionally the VSCode extension). Use it to author real Kula documents and stress-test the language.
-4. **Phase 4 (optional, post-v1) — Application surfaces.** Web visualization, editor experiences, additional tools.
-
-Each phase exposes problems with the previous one. The order is deliberate — we do not begin a downstream surface until the layer beneath is solid.
 
 ## Distribution and openness
 
@@ -131,17 +121,9 @@ To keep the project honest and focused, KulaLang explicitly does _not_ aim to:
 - **Project name:** KulaLang
 - **Language name:** Kula
 - **File extension:** `.kula`
-- **CLI binary (working name):** `kula` (e.g., `kula validate family.kula`)
+- **CLI binary:** `kula` (e.g., `kula validate family.kula`)
 - **Tagline:** _Kula — a kinship description language._
 
 ## What this document is not
 
-This is a **vision document** — it captures the why, the what at a conceptual level, the scope, and the project shape. It deliberately does not specify:
-
-- The concrete syntax of the language.
-- The temporal modeling semantics (event-based vs. interval-based, etc.).
-- The grammar, type system, or validation rules.
-- The parser implementation strategy.
-- File formats beyond the working extension.
-
-Those are design decisions, to be settled in a separate session with their own structured grilling.
+This is a **vision document** — it captures the why, the what at a conceptual level, the scope, and the project shape. It deliberately does not specify the concrete syntax, temporal-modeling semantics, grammar, validation rules, or parser strategy. Those decisions are settled in [`../spec/`](../spec/README.md) (the normative specification) and [`adr/`](./adr/) (architectural decision records).

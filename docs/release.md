@@ -2,7 +2,7 @@
 
 KulaLang ships three things from one repository: the `kula` CLI, the `kula-lsp` language server, and the VSCode marketplace extension. They release in lockstep — one tag, one pipeline, one set of coordinated artifacts.
 
-This doc is the source of truth for how to cut a release and what the pipeline does. The roadmap PRDs describe what each phase ships; this doc is the operational handbook for getting it out the door.
+This doc is the source of truth for how to cut a release and what the pipeline does.
 
 ## Overview
 
@@ -150,4 +150,3 @@ The semver-bump-and-tag procedure is the only path forward. There's no concept o
 - The unified release workflow: [`.github/workflows/release.yml`](../.github/workflows/release.yml)
 - Per-PR extension lint: [`.github/workflows/vscode-extension.yml`](../.github/workflows/vscode-extension.yml)
 - Local-dev install paths for the extension: [`editor/vscode/README.md`](../editor/vscode/README.md)
-- The release-procedure tracking issue (current cycle): https://github.com/YashBhalodi/kulalang/issues/34

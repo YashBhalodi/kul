@@ -6,9 +6,9 @@
 
 ## Context
 
-Phase 4 ships a formatter (`kula format`, `textDocument/formatting`) that canonicalizes Kula source. Two questions decide its long-term shape: (1) what does "canonical" mean — i.e. for any two Kula documents that mean the same thing, which one does the formatter produce? (2) Should the rules be configurable?
+The formatter (`kula format`, `textDocument/formatting`) canonicalizes Kula source. Two questions decide its long-term shape: (1) what does "canonical" mean — i.e. for any two Kula documents that mean the same thing, which one does the formatter produce? (2) Should the rules be configurable?
 
-The formatter is a deep module in the Ousterhout sense: small interface (`format(&Document) -> String`), significant logic behind it, and the choices it bakes in are visible in every `.kula` file users will ever look at. Once shipped, changing them rewrites the entire ecosystem's history. This ADR settles the rules before code lands so the implementation slot in #27 is mechanical and the spec's normative section (`spec/14-formatter-rules.md`) mirrors a stable decision.
+The formatter is a deep module in the Ousterhout sense: small interface (`format(&Document) -> String`), significant logic behind it, and the choices it bakes in are visible in every `.kula` file users will ever look at. Once shipped, changing them rewrites the entire ecosystem's history. This ADR settles the rules so the implementation is mechanical and the spec's normative section (`spec/14-formatter-rules.md`) mirrors a stable decision.
 
 The implementation precedents we draw on:
 
