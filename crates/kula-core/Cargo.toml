@@ -11,10 +11,19 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[features]
+# Derive `tsify::Tsify` on the export-envelope types so a downstream
+# wasm-bindgen consumer (forthcoming `kula-wasm`) can emit accurate
+# `.d.ts` files from this Rust source of truth. Default-off — the CLI
+# and LSP never pay the cost. See PRD-0004.
+tsify = ["dep:tsify", "dep:wasm-bindgen"]
+
 [dependencies]
 miette = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+tsify = { workspace = true, optional = true, features = ["js"] }
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 insta = { workspace = true }

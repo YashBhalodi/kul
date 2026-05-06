@@ -34,6 +34,8 @@
 pub mod cytoscape;
 
 use serde::Serialize;
+#[cfg(feature = "tsify")]
+use tsify::Tsify;
 
 use crate::CheckResult;
 use crate::ast::{EndReason, Gender, PersonStmt};
@@ -90,6 +92,7 @@ pub struct ExportOptions {
 /// carry an `ok` boolean so consumers can discriminate without inspecting
 /// other fields.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum ExportEnvelope {
     Success(SuccessEnvelope),
@@ -97,6 +100,7 @@ pub enum ExportEnvelope {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct SuccessEnvelope {
     /// Always `true`. Consumer-facing discriminator.
@@ -123,6 +127,7 @@ pub struct SuccessEnvelope {
 /// asked for; the envelope's `schema` is the same integer regardless of
 /// shape because both shapes are projections of the same underlying data.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum GraphPayload {
     /// The kinship-native graph: three flat collections.
@@ -153,6 +158,7 @@ impl GraphPayload {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct FailureEnvelope {
     /// Always `false`. Consumer-facing discriminator.
@@ -171,6 +177,7 @@ impl ExportEnvelope {
 
 /// The kinship-native graph: three flat collections.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedGraph {
     pub persons: Vec<ExportedPerson>,
@@ -179,6 +186,7 @@ pub struct ExportedGraph {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedPerson {
     pub id: String,
@@ -199,6 +207,7 @@ pub struct ExportedPerson {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedMarriage {
     pub id: String,
@@ -218,6 +227,7 @@ pub struct ExportedMarriage {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedParenthoodLink {
     pub marriage_id: String,
@@ -242,6 +252,7 @@ pub struct ExportedParenthoodLink {
 /// form into `value` (no circa marker), `precision` (year / month / day),
 /// and `circa` (the `~` flag) so consumers don't have to re-parse strings.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedDate {
     pub value: String,
@@ -250,6 +261,7 @@ pub struct ExportedDate {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedDiagnostic {
     pub code: String,
@@ -260,6 +272,7 @@ pub struct ExportedDiagnostic {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedRelated {
     pub label: String,
@@ -268,6 +281,7 @@ pub struct ExportedRelated {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedSpan {
     pub byte_start: usize,
