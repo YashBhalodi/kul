@@ -9,6 +9,7 @@ import {
     EXPORT_SCHEMA_VERSION,
     KULA_CORE_VERSION,
     KULA_LANGUAGE_VERSION,
+    check,
     format,
 } from '../../pkg/kula_wasm.js';
 
@@ -32,5 +33,39 @@ if (schemaVersion < 1) {
     throw new Error('unsupported schema');
 }
 
+// `check` returns `{ diagnostics }`. Empty array means clean — emptiness
+// is the discriminator (no `ok` field per PRD-0004).
+const cleanResult = check(source);
+if (cleanResult.diagnostics.length === 0) {
+    // Clean-document short-circuit: downstream consumers proceed without
+    // touching the diagnostic list.
+}
+
+// Narrow into a real diagnostic against a known-broken source so the TS
+// types for `code`, `severity`, `message`, and `primary.byteStart` land.
+const broken = check('person alice gender:female\n');
+const firstDiagnostic = broken.diagnostics[0];
+if (firstDiagnostic !== undefined) {
+    const code: string = firstDiagnostic.code;
+    const severity: string = firstDiagnostic.severity;
+    const message: string = firstDiagnostic.message;
+    const byteStart: number = firstDiagnostic.primary.byteStart;
+    void code;
+    void severity;
+    void message;
+    void byteStart;
+}
+
+// Type system must reject non-string inputs to `check`.
+// @ts-expect-error check requires a string source
+check(42);
+
 // Suppress "unused binding" diagnostics in --noUnusedLocals mode.
-export const _exports = { formatted, coreVersion, langVersion, schemaVersion };
+export const _exports = {
+    formatted,
+    coreVersion,
+    langVersion,
+    schemaVersion,
+    cleanResult,
+    broken,
+};

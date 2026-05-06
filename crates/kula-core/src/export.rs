@@ -290,6 +290,22 @@ pub struct ExportedSpan {
     pub column: usize,
 }
 
+/// Project every diagnostic in a [`CheckResult`] into the wire-shape
+/// [`ExportedDiagnostic`] used by the failure envelope.
+///
+/// `source` must be the same source that produced `check`; it is used to
+/// compute line/column anchors. The `kula-wasm` `check` bridge calls this
+/// to expose diagnostics over the JS surface without reimplementing
+/// diagnostic-to-JSON walking or [`SourceMap`] construction.
+pub fn export_diagnostics(source: &str, check: &CheckResult) -> Vec<ExportedDiagnostic> {
+    let map = SourceMap::new(source);
+    check
+        .diagnostics
+        .iter()
+        .map(|d| exported_diagnostic(d, &map))
+        .collect()
+}
+
 /// Project a [`CheckResult`] into an [`ExportEnvelope`].
 ///
 /// Strict on errors: any error-severity diagnostic returns a failure
@@ -301,12 +317,7 @@ pub struct ExportedSpan {
 /// it must be the same source that produced `check`.
 pub fn export(source: &str, check: &CheckResult, options: ExportOptions) -> ExportEnvelope {
     if check.has_errors() {
-        let map = SourceMap::new(source);
-        let diagnostics = check
-            .diagnostics
-            .iter()
-            .map(|d| exported_diagnostic(d, &map))
-            .collect();
+        let diagnostics = export_diagnostics(source, check);
         return ExportEnvelope::Failure(FailureEnvelope {
             ok: false,
             diagnostics,

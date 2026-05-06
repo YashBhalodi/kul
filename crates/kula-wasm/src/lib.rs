@@ -12,6 +12,10 @@
 //! - [`format_source`] — JS-visible as `format`. Reformats a Kula source
 //!   string. Always returns a string; mirrors `kula_core::format::format_source`'s
 //!   best-effort contract for partial-parse input.
+//! - [`check`] — JS-visible as `check`. Lex / parse / resolve / validate a
+//!   Kula source string and return a [`CheckEnvelope`] carrying every
+//!   diagnostic. Always succeeds; an empty `diagnostics` array means a clean
+//!   document — emptiness is the discriminator, no `ok` field.
 //! - [`kula_core_version`] — JS-visible as `KULA_CORE_VERSION`. The version
 //!   of the `kula-core` crate compiled into this artifact.
 //! - [`kula_language_version`] — JS-visible as `KULA_LANGUAGE_VERSION`.
@@ -35,7 +39,26 @@
 //! See [PRD-0004](../../docs/prd/0004-wasm-packaging.md) for design
 //! rationale and the `check` / `exportGraph` follow-on slices.
 
+use kula_core::export::ExportedDiagnostic;
+use serde::Serialize;
+use tsify::Tsify;
 use wasm_bindgen::prelude::*;
+
+/// JS-side return type of [`check`]. Carries the full diagnostic list —
+/// errors, warnings, and notes alike. An empty `diagnostics` array means
+/// a clean document; consumers discriminate on emptiness rather than an
+/// `ok` field, per [PRD-0004](../../docs/prd/0004-wasm-packaging.md).
+///
+/// Diagnostic entries reuse `kula_core::export::ExportedDiagnostic` — the
+/// same shape that the failure-envelope path of `kula export` emits, so the
+/// TS type lands as a single source of truth across CLI export and WASM
+/// check.
+#[derive(Debug, Clone, Serialize, Tsify)]
+#[tsify(into_wasm_abi)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckEnvelope {
+    pub diagnostics: Vec<ExportedDiagnostic>,
+}
 
 #[wasm_bindgen(js_name = "KULA_CORE_VERSION")]
 pub fn kula_core_version() -> String {
@@ -56,4 +79,12 @@ pub fn export_schema_version() -> u32 {
 pub fn format_source(source: &str) -> String {
     console_error_panic_hook::set_once();
     kula_core::format::format_source(source)
+}
+
+#[wasm_bindgen(js_name = "check")]
+pub fn check(source: &str) -> CheckEnvelope {
+    console_error_panic_hook::set_once();
+    let result = kula_core::check(source);
+    let diagnostics = kula_core::export::export_diagnostics(source, &result);
+    CheckEnvelope { diagnostics }
 }
