@@ -26,11 +26,15 @@ pub fn to_lsp(
 ) -> Vec<Diagnostic> {
     diagnostics
         .iter()
-        .map(|d| translate_one(uri, d, line_index))
+        .map(|d| to_lsp_one(uri, d, line_index))
         .collect()
 }
 
-fn translate_one(uri: &Url, d: &CoreDiagnostic, idx: &LineIndex) -> Diagnostic {
+/// Translate a single `kula-core` diagnostic. The single point where
+/// severity / code / source / range mapping is decided — `to_lsp` and the
+/// code-action provider (which echoes the source diagnostic on every fix)
+/// both go through here so the editor sees one consistent shape.
+pub(crate) fn to_lsp_one(uri: &Url, d: &CoreDiagnostic, idx: &LineIndex) -> Diagnostic {
     let related = d
         .related
         .iter()

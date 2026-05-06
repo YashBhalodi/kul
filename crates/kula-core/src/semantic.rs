@@ -142,7 +142,7 @@ impl ResolvedDocument {
         if entity.kind != EntityKind::Person {
             return None;
         }
-        match self.statement_at(entity.statement_idx) {
+        match self.statement_by_index(entity.statement_idx) {
             Statement::Person(p) => Some(p),
             Statement::Marriage(_) => unreachable!(
                 "entity index claims kind=Person but statement is a marriage; resolve() invariant broken"
@@ -157,7 +157,7 @@ impl ResolvedDocument {
         if entity.kind != EntityKind::Marriage {
             return None;
         }
-        match self.statement_at(entity.statement_idx) {
+        match self.statement_by_index(entity.statement_idx) {
             Statement::Marriage(m) => Some(m),
             Statement::Person(_) => unreachable!(
                 "entity index claims kind=Marriage but statement is a person; resolve() invariant broken"
@@ -169,7 +169,7 @@ impl ResolvedDocument {
     /// Used by reference-resolution checks.
     pub fn entity(&self, id: &str) -> Option<EntityRef<'_>> {
         let entity = self.entities.get(id)?;
-        let ident = match self.statement_at(entity.statement_idx) {
+        let ident = match self.statement_by_index(entity.statement_idx) {
             Statement::Person(p) => &p.id,
             Statement::Marriage(m) => &m.id,
         };
@@ -177,6 +177,37 @@ impl ResolvedDocument {
             kind: entity.kind,
             id: ident,
         })
+    }
+
+    /// The top-level statement the cursor is sitting in, or just past.
+    ///
+    /// "Sitting in" meaning the latest statement whose `span.start` is
+    /// at-or-before `byte_offset`. This is **not** strict span-containment:
+    /// a cursor on a brand-new blank line below a `person` declaration is
+    /// past the `PersonStmt.span.end`, but this method still returns the
+    /// `Person` — callers that care about top-level vs. indented context
+    /// (the completion classifier) refine that with the current line's
+    /// indent. Returns `None` only when the cursor is before any statement
+    /// (e.g. inside the version line, or in leading whitespace).
+    ///
+    /// Implementation note: `O(n)` linear scan over `document.statements`.
+    /// Statements are kept in source order by the parser, so this is the
+    /// last hit while iterating; binary search would also be correct but
+    /// hasn't been needed at the perf budget.
+    pub fn statement_at(&self, byte_offset: usize) -> Option<&Statement> {
+        let mut chosen = None;
+        for stmt in &self.document.statements {
+            let span = match stmt {
+                Statement::Person(p) => p.span,
+                Statement::Marriage(m) => m.span,
+            };
+            if span.start <= byte_offset {
+                chosen = Some(stmt);
+            } else {
+                break;
+            }
+        }
+        chosen
     }
 
     /// The two declared spouses of a marriage, in declaration order, with
@@ -266,11 +297,11 @@ impl ResolvedDocument {
         out
     }
 
-    /// Internal: look up the statement at a given index. Panics if the index
-    /// is out of bounds — callers (`person`/`marriage`/`entity`) only use
-    /// indices that were stored by [`resolve`], which always come from
-    /// `document.statements.iter().enumerate()`.
-    fn statement_at(&self, idx: usize) -> &Statement {
+    /// Internal: look up the statement at a given index in
+    /// `document.statements`. Panics if the index is out of bounds — callers
+    /// (`person`/`marriage`/`entity`) only use indices stored by [`resolve`],
+    /// which always come from `document.statements.iter().enumerate()`.
+    fn statement_by_index(&self, idx: usize) -> &Statement {
         &self.document.statements[idx]
     }
 }
@@ -461,5 +492,61 @@ mod tests {
         );
         assert!(resolved.marriage("a").is_none());
         assert!(resolved.person("a").is_some());
+    }
+
+    fn statement_kind_at(resolved: &ResolvedDocument, offset: usize) -> Option<&'static str> {
+        resolved.statement_at(offset).map(|s| match s {
+            Statement::Person(_) => "person",
+            Statement::Marriage(_) => "marriage",
+        })
+    }
+
+    #[test]
+    fn statement_at_before_first_statement_returns_none() {
+        let src = "kula 1\nperson alice name:\"A\" gender:female\n";
+        let resolved = resolve_source(src);
+        // Inside the version line, before any statement.
+        assert_eq!(statement_kind_at(&resolved, 0), None);
+        assert_eq!(statement_kind_at(&resolved, 5), None);
+    }
+
+    #[test]
+    fn statement_at_inside_a_statement_returns_it() {
+        let src = "person alice name:\"A\" gender:female\nmarriage m alice alice start:2000\n";
+        let resolved = resolve_source(src);
+        let alice_inside = idx(src, "alice") + 1;
+        assert_eq!(statement_kind_at(&resolved, alice_inside), Some("person"));
+        let marriage_inside = idx(src, "marriage m") + 2;
+        assert_eq!(
+            statement_kind_at(&resolved, marriage_inside),
+            Some("marriage")
+        );
+    }
+
+    #[test]
+    fn statement_at_returns_latest_at_or_before_offset() {
+        // Cursor on a brand-new blank line below a person — past the
+        // person's span.end, but `statement_at` still returns the person
+        // because no later statement starts before the cursor. The completion
+        // classifier relies on this "sitting just past" semantic.
+        let src = "person alice name:\"A\" gender:female\n";
+        let resolved = resolve_source(src);
+        // Offset at end-of-source, well past the last statement.
+        assert_eq!(statement_kind_at(&resolved, src.len()), Some("person"));
+    }
+
+    #[test]
+    fn statement_at_picks_the_most_recent_when_multiple_precede() {
+        let src = "person alice name:\"A\" gender:female\n\
+                   person bob name:\"B\" gender:male\n\
+                   marriage m alice bob start:2000\n";
+        let resolved = resolve_source(src);
+        // After the marriage, the marriage is the most recent — even though
+        // both persons also start before the cursor.
+        assert_eq!(statement_kind_at(&resolved, src.len()), Some("marriage"));
+        // Mid-document, just after `bob`'s declaration line, the most-recent
+        // is bob, not alice.
+        let after_bob = idx(src, "person bob") + "person bob".len();
+        assert_eq!(statement_kind_at(&resolved, after_bob), Some("person"));
     }
 }

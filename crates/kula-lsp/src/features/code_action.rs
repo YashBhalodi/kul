@@ -234,7 +234,7 @@ fn remove_marriage_field(
     };
     let mut changes = HashMap::new();
     changes.insert(uri.clone(), vec![edit]);
-    let lsp_diag = lsp_diag_from(line_index, source);
+    let lsp_diag = super::diagnostics::to_lsp_one(uri, source, line_index);
     Some(CodeAction {
         title: title.to_owned(),
         kind: Some(CodeActionKind::QUICKFIX),
@@ -265,7 +265,7 @@ fn text_insertion_action(
     };
     let mut changes = HashMap::new();
     changes.insert(uri.clone(), vec![edit]);
-    let lsp_diag = lsp_diag_from(line_index, source);
+    let lsp_diag = super::diagnostics::to_lsp_one(uri, source, line_index);
     CodeAction {
         title: title.to_owned(),
         kind: Some(CodeActionKind::QUICKFIX),
@@ -302,22 +302,6 @@ fn ranges_overlap(a: Range, b: Range) -> bool {
 
 fn position_lt(a: Position, b: Position) -> bool {
     (a.line, a.character) < (b.line, b.character)
-}
-
-fn lsp_diag_from(line_index: &LineIndex, d: &Diagnostic) -> tower_lsp::lsp_types::Diagnostic {
-    use tower_lsp::lsp_types::{DiagnosticSeverity, NumberOrString};
-    tower_lsp::lsp_types::Diagnostic {
-        range: line_index.range(d.primary),
-        severity: Some(match d.severity {
-            kula_core::diagnostic::Severity::Error => DiagnosticSeverity::ERROR,
-            kula_core::diagnostic::Severity::Warning => DiagnosticSeverity::WARNING,
-            kula_core::diagnostic::Severity::Note => DiagnosticSeverity::HINT,
-        }),
-        code: Some(NumberOrString::String(d.code.to_owned())),
-        source: Some("kula".to_owned()),
-        message: d.message.clone(),
-        ..Default::default()
-    }
 }
 
 #[cfg(test)]

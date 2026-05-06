@@ -105,8 +105,9 @@ fn classify(source: &str, tokens: &[Token], resolved: &ResolvedDocument, cursor:
     //    significant keyword on the line, if any?
     let line = current_line(&preceding);
 
-    // 3. Determine the enclosing top-level statement.
-    let enclosing = enclosing_statement(resolved, cursor);
+    // 3. Determine the enclosing top-level statement via the
+    //    `ResolvedDocument` query seam (ADR-0001).
+    let enclosing = resolved.statement_at(cursor);
 
     let scan = positional_scan(&preceding, cursor);
 
@@ -119,7 +120,7 @@ fn classify(source: &str, tokens: &[Token], resolved: &ResolvedDocument, cursor:
 
         // Fresh, indented line under a person → birth/adoption keywords.
         (true, true, _) => match enclosing {
-            Some(Enclosing::Person(_)) => Context::IndentedUnderPerson,
+            Some(Statement::Person(_)) => Context::IndentedUnderPerson,
             _ => Context::None,
         },
 
@@ -135,7 +136,7 @@ fn classify(source: &str, tokens: &[Token], resolved: &ResolvedDocument, cursor:
         // `adoption` sub-statement: first positional is a marriage ref,
         // then field list.
         (false, true, Some(LineKw::Adoption)) => match enclosing {
-            Some(Enclosing::Person(p)) => {
+            Some(Statement::Person(p)) => {
                 if scan.filled == 0 && !scan.past_positionals {
                     Context::MarriageRefPosition
                 } else {
@@ -151,7 +152,7 @@ fn classify(source: &str, tokens: &[Token], resolved: &ResolvedDocument, cursor:
         // (spouse_b), then field list.
         (false, false, Some(LineKw::Marriage)) => {
             let existing = match enclosing {
-                Some(Enclosing::Marriage(m)) => existing_marriage_fields(m),
+                Some(Statement::Marriage(m)) => existing_marriage_fields(m),
                 _ => Vec::new(),
             };
             if scan.past_positionals {
@@ -176,7 +177,7 @@ fn classify(source: &str, tokens: &[Token], resolved: &ResolvedDocument, cursor:
         // `person` top-level line: field list (the id is freely-named like
         // a marriage's, so position 0 gets nothing).
         (false, false, Some(LineKw::Person)) => match enclosing {
-            Some(Enclosing::Person(p)) => Context::PersonFieldList {
+            Some(Statement::Person(p)) => Context::PersonFieldList {
                 existing: existing_person_fields(p),
             },
             _ => Context::None,
@@ -185,10 +186,10 @@ fn classify(source: &str, tokens: &[Token], resolved: &ResolvedDocument, cursor:
         // Continuation of a previous statement (no leading keyword on this
         // line) — depends on what the enclosing statement is.
         (false, _, _) => match enclosing {
-            Some(Enclosing::Person(p)) => Context::PersonFieldList {
+            Some(Statement::Person(p)) => Context::PersonFieldList {
                 existing: existing_person_fields(p),
             },
-            Some(Enclosing::Marriage(m)) => Context::MarriageFieldList {
+            Some(Statement::Marriage(m)) => Context::MarriageFieldList {
                 existing: existing_marriage_fields(m),
             },
             None => Context::None,
@@ -336,30 +337,6 @@ fn current_line(preceding: &[&Token]) -> LineInfo {
         is_indented,
         first_kw,
         first_kw_span,
-    }
-}
-
-enum Enclosing<'a> {
-    Person(&'a PersonStmt),
-    Marriage(&'a MarriageStmt),
-}
-
-fn enclosing_statement<'a>(resolved: &'a ResolvedDocument, cursor: usize) -> Option<Enclosing<'a>> {
-    // Most recent statement whose span starts at or before the cursor.
-    let stmts = &resolved.document().statements;
-    let mut chosen: Option<&Statement> = None;
-    for s in stmts {
-        let span = match s {
-            Statement::Person(p) => p.span,
-            Statement::Marriage(m) => m.span,
-        };
-        if span.start <= cursor {
-            chosen = Some(s);
-        }
-    }
-    match chosen? {
-        Statement::Person(p) => Some(Enclosing::Person(p)),
-        Statement::Marriage(m) => Some(Enclosing::Marriage(m)),
     }
 }
 
