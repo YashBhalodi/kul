@@ -28,7 +28,7 @@ expression: decoded
         line: 10,
         character: 7,
         length: 6,
-        kind: "class",
+        kind: "function",
         text: "ramesh",
     },
     Decoded {
@@ -56,7 +56,7 @@ expression: decoded
         line: 10,
         character: 44,
         length: 4,
-        kind: "enumMember",
+        kind: "enum",
         text: "male",
     },
     Decoded {
@@ -98,7 +98,7 @@ expression: decoded
         line: 11,
         character: 7,
         length: 4,
-        kind: "class",
+        kind: "function",
         text: "sita",
     },
     Decoded {
@@ -126,7 +126,7 @@ expression: decoded
         line: 11,
         character: 44,
         length: 6,
-        kind: "enumMember",
+        kind: "enum",
         text: "female",
     },
     Decoded {
@@ -175,14 +175,14 @@ expression: decoded
         line: 13,
         character: 23,
         length: 6,
-        kind: "variable",
+        kind: "parameter",
         text: "ramesh",
     },
     Decoded {
         line: 13,
         character: 30,
         length: 4,
-        kind: "variable",
+        kind: "parameter",
         text: "sita",
     },
     Decoded {
@@ -210,7 +210,7 @@ expression: decoded
         line: 16,
         character: 7,
         length: 5,
-        kind: "class",
+        kind: "function",
         text: "alice",
     },
     Decoded {
@@ -238,7 +238,7 @@ expression: decoded
         line: 16,
         character: 42,
         length: 6,
-        kind: "enumMember",
+        kind: "enum",
         text: "female",
     },
     Decoded {
@@ -280,7 +280,7 @@ expression: decoded
         line: 18,
         character: 7,
         length: 3,
-        kind: "class",
+        kind: "function",
         text: "bob",
     },
     Decoded {
@@ -308,7 +308,7 @@ expression: decoded
         line: 18,
         character: 38,
         length: 4,
-        kind: "enumMember",
+        kind: "enum",
         text: "male",
     },
     Decoded {
@@ -357,14 +357,14 @@ expression: decoded
         line: 20,
         character: 21,
         length: 5,
-        kind: "variable",
+        kind: "parameter",
         text: "alice",
     },
     Decoded {
         line: 20,
         character: 27,
         length: 3,
-        kind: "variable",
+        kind: "parameter",
         text: "bob",
     },
     Decoded {
@@ -406,7 +406,7 @@ expression: decoded
         line: 20,
         character: 77,
         length: 7,
-        kind: "enumMember",
+        kind: "enum",
         text: "divorce",
     },
     Decoded {
@@ -420,7 +420,7 @@ expression: decoded
         line: 23,
         character: 7,
         length: 5,
-        kind: "class",
+        kind: "function",
         text: "carol",
     },
     Decoded {
@@ -448,7 +448,7 @@ expression: decoded
         line: 23,
         character: 42,
         length: 6,
-        kind: "enumMember",
+        kind: "enum",
         text: "female",
     },
     Decoded {
@@ -490,7 +490,7 @@ expression: decoded
         line: 26,
         character: 7,
         length: 4,
-        kind: "class",
+        kind: "function",
         text: "ravi",
     },
     Decoded {
@@ -518,7 +518,7 @@ expression: decoded
         line: 26,
         character: 40,
         length: 4,
-        kind: "enumMember",
+        kind: "enum",
         text: "male",
     },
     Decoded {

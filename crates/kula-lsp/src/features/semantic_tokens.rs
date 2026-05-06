@@ -27,11 +27,9 @@ pub fn legend() -> SemanticTokensLegend {
         token_types: vec![
             SemanticTokenType::KEYWORD,
             SemanticTokenType::PROPERTY,
-            SemanticTokenType::ENUM_MEMBER,
-            SemanticTokenType::CLASS,
             SemanticTokenType::FUNCTION,
-            SemanticTokenType::VARIABLE,
             SemanticTokenType::PARAMETER,
+            SemanticTokenType::ENUM,
             SemanticTokenType::NUMBER,
             SemanticTokenType::STRING,
         ],
@@ -41,13 +39,11 @@ pub fn legend() -> SemanticTokensLegend {
 
 const TT_KEYWORD: u32 = 0;
 const TT_PROPERTY: u32 = 1;
-const TT_ENUM_MEMBER: u32 = 2;
-const TT_CLASS: u32 = 3;
-const TT_FUNCTION: u32 = 4;
-const TT_VARIABLE: u32 = 5;
-const TT_PARAMETER: u32 = 6;
-const TT_NUMBER: u32 = 7;
-const TT_STRING: u32 = 8;
+const TT_FUNCTION: u32 = 2;
+const TT_PARAMETER: u32 = 3;
+const TT_ENUM: u32 = 4;
+const TT_NUMBER: u32 = 5;
+const TT_STRING: u32 = 6;
 
 #[derive(Debug, Clone, Copy)]
 struct RawToken {
@@ -98,7 +94,7 @@ fn emit_person(out: &mut Vec<RawToken>, p: &PersonStmt) {
     });
     out.push(RawToken {
         span: p.id.span,
-        token_type: TT_CLASS,
+        token_type: TT_FUNCTION,
     });
     for f in &p.fields {
         emit_field(out, f.name_span, f.kind.value_span(), f.kind.field_name());
@@ -147,11 +143,11 @@ fn emit_marriage(out: &mut Vec<RawToken>, m: &MarriageStmt) {
     });
     out.push(RawToken {
         span: m.spouse_a.span,
-        token_type: TT_VARIABLE,
+        token_type: TT_PARAMETER,
     });
     out.push(RawToken {
         span: m.spouse_b.span,
-        token_type: TT_VARIABLE,
+        token_type: TT_PARAMETER,
     });
     for f in &m.fields {
         emit_field(out, f.name_span, f.kind.value_span(), f.kind.field_name());
@@ -180,7 +176,7 @@ fn token_type_for(kind: ValueKind) -> u32 {
     match kind {
         ValueKind::String => TT_STRING,
         ValueKind::Date => TT_NUMBER,
-        ValueKind::Enum => TT_ENUM_MEMBER,
+        ValueKind::Enum => TT_ENUM,
     }
 }
 
@@ -244,11 +240,9 @@ mod tests {
         match idx {
             TT_KEYWORD => "keyword",
             TT_PROPERTY => "property",
-            TT_ENUM_MEMBER => "enumMember",
-            TT_CLASS => "class",
             TT_FUNCTION => "function",
-            TT_VARIABLE => "variable",
             TT_PARAMETER => "parameter",
+            TT_ENUM => "enum",
             TT_NUMBER => "number",
             TT_STRING => "string",
             _ => "unknown",
@@ -327,16 +321,20 @@ mod tests {
     #[test]
     fn legend_matches_taxonomy() {
         let l = legend();
-        assert_eq!(l.token_types.len(), 9);
+        assert_eq!(l.token_types.len(), 7);
         assert_eq!(
             l.token_types[TT_KEYWORD as usize],
             SemanticTokenType::KEYWORD
         );
-        assert_eq!(l.token_types[TT_CLASS as usize], SemanticTokenType::CLASS);
         assert_eq!(
             l.token_types[TT_FUNCTION as usize],
             SemanticTokenType::FUNCTION
         );
+        assert_eq!(
+            l.token_types[TT_PARAMETER as usize],
+            SemanticTokenType::PARAMETER
+        );
+        assert_eq!(l.token_types[TT_ENUM as usize], SemanticTokenType::ENUM);
         assert!(l.token_modifiers.is_empty());
     }
 
@@ -362,35 +360,32 @@ mod tests {
     }
 
     #[test]
-    fn person_decl_is_class_marriage_decl_is_function() {
+    fn id_decls_are_function() {
         let src = "person alice name:\"Alice\" gender:female\n\
                    person bob name:\"Bob\" gender:male\n\
                    marriage m alice bob start:2010\n";
         let (_, decoded) = tokens_for(src);
         let alice_decl = decoded.iter().find(|d| d.text == "alice" && d.line == 0);
-        assert_eq!(alice_decl.unwrap().kind, "class");
+        assert_eq!(alice_decl.unwrap().kind, "function");
         let m_decl = decoded.iter().find(|d| d.text == "m" && d.line == 2);
         assert_eq!(m_decl.unwrap().kind, "function");
     }
 
     #[test]
-    fn person_ref_is_variable_marriage_ref_is_parameter() {
+    fn id_refs_are_parameter() {
         let src = "person alice name:\"A\" gender:female\n\
                    person bob name:\"B\" gender:male\n\
                    marriage m alice bob start:2010\n\
                    person kid name:\"K\" gender:other\n  birth m\n";
         let (_, decoded) = tokens_for(src);
-        // The two `alice` and `bob` mentions on the marriage line are spouse
-        // references — they should be `variable`, not `class`.
         let spouse_refs: Vec<_> = decoded
             .iter()
             .filter(|d| d.line == 2 && (d.text == "alice" || d.text == "bob"))
             .collect();
         assert_eq!(spouse_refs.len(), 2);
         for r in spouse_refs {
-            assert_eq!(r.kind, "variable");
+            assert_eq!(r.kind, "parameter");
         }
-        // The `m` on the `birth m` line is a marriage reference.
         let marriage_ref = decoded
             .iter()
             .find(|d| d.line == 4 && d.text == "m")
@@ -413,10 +408,10 @@ mod tests {
         assert!(kinds.contains(&("name", "property")));
         assert!(kinds.contains(&("\"Alice\"", "string")));
         assert!(kinds.contains(&("gender", "property")));
-        assert!(kinds.contains(&("female", "enumMember")));
+        assert!(kinds.contains(&("female", "enum")));
         assert!(kinds.contains(&("1950-04-12", "number")));
         assert!(kinds.contains(&("end_reason", "property")));
-        assert!(kinds.contains(&("divorce", "enumMember")));
+        assert!(kinds.contains(&("divorce", "enum")));
     }
 
     #[test]
@@ -476,7 +471,7 @@ mod tests {
         assert!(
             decoded
                 .iter()
-                .any(|d| d.text == "alice" && d.kind == "class")
+                .any(|d| d.text == "alice" && d.kind == "function")
         );
         assert!(
             decoded

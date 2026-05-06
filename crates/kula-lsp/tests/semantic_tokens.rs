@@ -154,11 +154,9 @@ fn initialize_advertises_semantic_tokens_legend() {
         vec![
             "keyword",
             "property",
-            "enumMember",
-            "class",
             "function",
-            "variable",
             "parameter",
+            "enum",
             "number",
             "string",
         ]

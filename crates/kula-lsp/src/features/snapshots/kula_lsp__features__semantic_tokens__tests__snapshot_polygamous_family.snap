@@ -28,7 +28,7 @@ expression: decoded
         line: 8,
         character: 7,
         length: 5,
-        kind: "class",
+        kind: "function",
         text: "alice",
     },
     Decoded {
@@ -56,7 +56,7 @@ expression: decoded
         line: 8,
         character: 43,
         length: 6,
-        kind: "enumMember",
+        kind: "enum",
         text: "female",
     },
     Decoded {
@@ -84,7 +84,7 @@ expression: decoded
         line: 9,
         character: 7,
         length: 6,
-        kind: "class",
+        kind: "function",
         text: "devraj",
     },
     Decoded {
@@ -112,7 +112,7 @@ expression: decoded
         line: 9,
         character: 43,
         length: 4,
-        kind: "enumMember",
+        kind: "enum",
         text: "male",
     },
     Decoded {
@@ -140,7 +140,7 @@ expression: decoded
         line: 10,
         character: 7,
         length: 5,
-        kind: "class",
+        kind: "function",
         text: "meera",
     },
     Decoded {
@@ -168,7 +168,7 @@ expression: decoded
         line: 10,
         character: 43,
         length: 6,
-        kind: "enumMember",
+        kind: "enum",
         text: "female",
     },
     Decoded {
@@ -196,7 +196,7 @@ expression: decoded
         line: 12,
         character: 7,
         length: 5,
-        kind: "class",
+        kind: "function",
         text: "priya",
     },
     Decoded {
@@ -224,7 +224,7 @@ expression: decoded
         line: 12,
         character: 41,
         length: 6,
-        kind: "enumMember",
+        kind: "enum",
         text: "female",
     },
     Decoded {
@@ -273,14 +273,14 @@ expression: decoded
         line: 15,
         character: 24,
         length: 6,
-        kind: "variable",
+        kind: "parameter",
         text: "devraj",
     },
     Decoded {
         line: 15,
         character: 31,
         length: 5,
-        kind: "variable",
+        kind: "parameter",
         text: "meera",
     },
     Decoded {
@@ -315,14 +315,14 @@ expression: decoded
         line: 16,
         character: 24,
         length: 5,
-        kind: "variable",
+        kind: "parameter",
         text: "alice",
     },
     Decoded {
         line: 16,
         character: 31,
         length: 6,
-        kind: "variable",
+        kind: "parameter",
         text: "devraj",
     },
     Decoded {
