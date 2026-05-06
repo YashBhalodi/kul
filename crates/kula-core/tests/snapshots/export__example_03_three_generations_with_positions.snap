@@ -141,17 +141,17 @@ expression: json
           "precision": "day",
           "circa": false
         },
-        "end_reason": "divorce",
+        "endReason": "divorce",
         "span": [
           754,
           838
         ]
       }
     ],
-    "parenthood_links": [
+    "parenthoodLinks": [
       {
-        "marriage_id": "m_ramesh_sita",
-        "child_id": "alice",
+        "marriageId": "m_ramesh_sita",
+        "childId": "alice",
         "kind": "biological",
         "span": [
           656,
@@ -159,8 +159,8 @@ expression: json
         ]
       },
       {
-        "marriage_id": "m_alice_bob",
-        "child_id": "carol",
+        "marriageId": "m_alice_bob",
+        "childId": "carol",
         "kind": "biological",
         "span": [
           933,
@@ -168,8 +168,8 @@ expression: json
         ]
       },
       {
-        "marriage_id": "m_alice_bob",
-        "child_id": "ravi",
+        "marriageId": "m_alice_bob",
+        "childId": "ravi",
         "kind": "adoptive",
         "start": {
           "value": "1985-06-01",

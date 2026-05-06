@@ -126,7 +126,7 @@ expression: json
             "precision": "day",
             "circa": false
           },
-          "end_reason": "divorce"
+          "endReason": "divorce"
         }
       }
     ],

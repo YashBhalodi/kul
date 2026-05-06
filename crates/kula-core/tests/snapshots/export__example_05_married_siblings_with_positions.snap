@@ -1,6 +1,5 @@
 ---
 source: crates/kula-core/tests/export.rs
-assertion_line: 116
 expression: json
 ---
 {
@@ -144,10 +143,10 @@ expression: json
         ]
       }
     ],
-    "parenthood_links": [
+    "parenthoodLinks": [
       {
-        "marriage_id": "m_ramesh_sita",
-        "child_id": "arjun",
+        "marriageId": "m_ramesh_sita",
+        "childId": "arjun",
         "kind": "biological",
         "span": [
           466,
@@ -155,8 +154,8 @@ expression: json
         ]
       },
       {
-        "marriage_id": "m_ramesh_sita",
-        "child_id": "vikram",
+        "marriageId": "m_ramesh_sita",
+        "childId": "vikram",
         "kind": "biological",
         "span": [
           677,

@@ -10,8 +10,8 @@ expression: json
       "severity": "error",
       "message": "no person with id `ghost` is declared in this file — check for a typo, or add a `person ghost …` declaration",
       "primary": {
-        "byte_start": 57,
-        "byte_end": 62,
+        "byteStart": 57,
+        "byteEnd": 62,
         "line": 2,
         "column": 18
       },

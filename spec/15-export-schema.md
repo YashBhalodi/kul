@@ -44,9 +44,9 @@ The graph is the kinship-native projection: three flat collections, one per lang
 
 ```json
 {
-  "persons":           [ ... ],
-  "marriages":         [ ... ],
-  "parenthood_links":  [ ... ]
+  "persons":          [ ... ],
+  "marriages":        [ ... ],
+  "parenthoodLinks":  [ ... ]
 }
 ```
 
@@ -73,26 +73,26 @@ The graph is the kinship-native projection: three flat collections, one per lang
 - `gender` MUST be one of `"male"`, `"female"`, `"other"` (always present — rule R03).
 - `family`, `given`, `born`, `died` MUST be present iff the corresponding field appeared on the source declaration. Absent fields MUST be omitted from the JSON object (not emitted as `null`).
 - `born` and `died` MUST be [date objects](#156-date-object).
-- `span` MUST be present iff the exporter was invoked with positions enabled (see §15.9). When present it MUST be a two-element `[byte_start, byte_end]` array covering the source-level statement.
+- `span` MUST be present iff the exporter was invoked with positions enabled (see §15.9). When present it MUST be a two-element `[byteStart, byteEnd]` array covering the source-level statement.
 
 ### 15.4 Marriage object
 
 ```json
 {
-  "id":         "m_alice_bob",
-  "spouses":    ["alice", "bob"],
-  "start":      { ... },
-  "end":        { ... },
-  "end_reason": "divorce"
+  "id":        "m_alice_bob",
+  "spouses":   ["alice", "bob"],
+  "start":     { ... },
+  "end":       { ... },
+  "endReason": "divorce"
 }
 ```
 
 - `id` MUST be the declared id of the marriage.
 - `spouses` MUST be a two-element array of person ids in declaration order.
 - `start` MUST be a [date object](#156-date-object) (always present — rule R03).
-- `end` MUST be present iff the source declared an `end:` field. Per rule R05, `end` and `end_reason` are paired.
-- `end_reason` MUST be the value as written in source (currently the only valid value is `"divorce"`).
-- `span` MUST be present iff the exporter was invoked with positions enabled (see §15.9). When present it MUST be a two-element `[byte_start, byte_end]` array covering the source-level statement.
+- `end` MUST be present iff the source declared an `end:` field. Per rule R05, `end` and `endReason` are paired.
+- `endReason` MUST be the value as written in source (currently the only valid value is `"divorce"`).
+- `span` MUST be present iff the exporter was invoked with positions enabled (see §15.9). When present it MUST be a two-element `[byteStart, byteEnd]` array covering the source-level statement.
 
 ### 15.5 Parenthood-link object
 
@@ -100,20 +100,20 @@ Each `birth` or `adoption` sub-statement projects to one parenthood-link entry.
 
 ```json
 {
-  "marriage_id": "m_alice_bob",
-  "child_id":    "ravi",
-  "kind":        "adoptive",
-  "start":       { ... },
-  "end":         { ... }
+  "marriageId": "m_alice_bob",
+  "childId":    "ravi",
+  "kind":       "adoptive",
+  "start":      { ... },
+  "end":        { ... }
 }
 ```
 
-- `marriage_id` MUST be the marriage id referenced by the sub-statement.
-- `child_id` MUST be the id of the person whose declaration carried the sub-statement.
+- `marriageId` MUST be the marriage id referenced by the sub-statement.
+- `childId` MUST be the id of the person whose declaration carried the sub-statement.
 - `kind` MUST be `"biological"` for `birth` links or `"adoptive"` for `adoption` links. Future kinds (e.g. surrogacy) land additively without bumping the schema (see §15.7).
 - `start` MUST be present iff the source `adoption` carried a `start:` field. Always absent on biological links.
 - `end` MUST be present iff the source `adoption` carried an `end:` field. Always absent on biological links.
-- `span` MUST be present iff the exporter was invoked with positions enabled (see §15.9). When present it MUST be a two-element `[byte_start, byte_end]` array covering the source-level `birth` or `adoption` sub-statement.
+- `span` MUST be present iff the exporter was invoked with positions enabled (see §15.9). When present it MUST be a two-element `[byteStart, byteEnd]` array covering the source-level `birth` or `adoption` sub-statement.
 
 ### 15.6 Date object
 
@@ -138,15 +138,15 @@ Diagnostic objects in the failure envelope's `diagnostics` array MUST match the 
   "code":     "KULA-R03",
   "severity": "error",
   "message":  "person `alice` needs a `name:` field — add `name:\"…\"` to the declaration",
-  "primary":  { "byte_start": 7, "byte_end": 12, "line": 1, "column": 8 },
+  "primary":  { "byteStart": 7, "byteEnd": 12, "line": 1, "column": 8 },
   "related":  [
-    { "label": "first declared here", "byte_start": ..., "byte_end": ..., "line": ..., "column": ... }
+    { "label": "first declared here", "byteStart": ..., "byteEnd": ..., "line": ..., "column": ... }
   ]
 }
 ```
 
 - `severity` MUST be one of `"error"`, `"warning"`, `"note"`.
-- `byte_start` and `byte_end` are byte offsets into the source; `line` and `column` are 1-indexed.
+- `byteStart` and `byteEnd` are byte offsets into the source; `line` and `column` are 1-indexed.
 
 ### 15.8 Forward compatibility
 
@@ -162,11 +162,11 @@ A new `schema` number MUST be allocated only when consumers might silently mis-r
 
 ### 15.9 Source positions (opt-in)
 
-When the exporter is invoked with positions enabled (the reference CLI flag is `--with-positions`), every Person, Marriage, and parenthood-link object in the graph MUST carry a `span` field. The field MUST be a two-element array `[byte_start, byte_end]` of half-open byte offsets into the source string, identifying the source range the entity was projected from. The range MUST cover the full statement (or sub-statement) including any indented continuations the parser attached to it.
+When the exporter is invoked with positions enabled (the reference CLI flag is `--with-positions`), every Person, Marriage, and parenthood-link object in the graph MUST carry a `span` field. The field MUST be a two-element array `[byteStart, byteEnd]` of half-open byte offsets into the source string, identifying the source range the entity was projected from. The range MUST cover the full statement (or sub-statement) including any indented continuations the parser attached to it.
 
 When positions are disabled (the default), the `span` field MUST be omitted from every object — not emitted as `null`. The default keeps the envelope compact for consumers (CLI pipelines, generators) that do not need source positions.
 
-Source positions MUST NOT appear on date objects, on the envelope itself, or on diagnostic objects (the diagnostic shape already carries its own `byte_start` / `byte_end` per §15.7).
+Source positions MUST NOT appear on date objects, on the envelope itself, or on diagnostic objects (the diagnostic shape already carries its own `byteStart` / `byteEnd` per §15.7).
 
 ### 15.10 Cytoscape format (opt-in)
 
@@ -182,7 +182,7 @@ The envelope structure (`ok`, `schema`, `kula`, `graph`) is unchanged. Only the 
   "graph": {
     "nodes": [
       { "data": { "id": "p:<person-id>", "type": "person", "name": "...", "gender": "...", ... } },
-      { "data": { "id": "m:<marriage-id>", "type": "marriage", "start": {...}, "end": {...}, "end_reason": "..." } }
+      { "data": { "id": "m:<marriage-id>", "type": "marriage", "start": {...}, "end": {...}, "endReason": "..." } }
     ],
     "edges": [
       { "data": { "source": "m:<marriage-id>", "target": "p:<person-id>", "type": "spouse" } },
@@ -195,7 +195,7 @@ The envelope structure (`ok`, `schema`, `kula`, `graph`) is unchanged. Only the 
 
 Modeling rules:
 
-- Marriages MUST be promoted to first-class nodes (`type: "marriage"`), so they can carry their `start`, `end`, and `end_reason` as node `data` fields.
+- Marriages MUST be promoted to first-class nodes (`type: "marriage"`), so they can carry their `start`, `end`, and `endReason` as node `data` fields.
 - Person ids in the cytoscape graph MUST be prefixed `p:` and marriage ids MUST be prefixed `m:` to avoid collisions in the single flat node namespace.
 - Every edge MUST run from a marriage node to a person node (the graph is bipartite). Person-to-person edges MUST NOT appear.
 - Spouse edges MUST carry `type: "spouse"`, with `source` the marriage and `target` the spouse person.
@@ -236,14 +236,14 @@ For the source in [`examples/03-three-generations.kula`](../examples/03-three-ge
       { "id": "m_ramesh_sita", "spouses": ["ramesh", "sita"],
         "start": { "value": "1948-06-10", "precision": "day", "circa": false } },
       { "id": "m_alice_bob", "spouses": ["alice", "bob"],
-        "start": { "value": "1972-05-12", "precision": "day", "circa": false },
-        "end":   { "value": "1990-08-01", "precision": "day", "circa": false },
-        "end_reason": "divorce" }
+        "start":     { "value": "1972-05-12", "precision": "day", "circa": false },
+        "end":       { "value": "1990-08-01", "precision": "day", "circa": false },
+        "endReason": "divorce" }
     ],
-    "parenthood_links": [
-      { "marriage_id": "m_ramesh_sita", "child_id": "alice", "kind": "biological" },
-      { "marriage_id": "m_alice_bob",   "child_id": "carol", "kind": "biological" },
-      { "marriage_id": "m_alice_bob",   "child_id": "ravi",  "kind": "adoptive",
+    "parenthoodLinks": [
+      { "marriageId": "m_ramesh_sita", "childId": "alice", "kind": "biological" },
+      { "marriageId": "m_alice_bob",   "childId": "carol", "kind": "biological" },
+      { "marriageId": "m_alice_bob",   "childId": "ravi",  "kind": "adoptive",
         "start": { "value": "1985-06-01", "precision": "day", "circa": false } }
     ]
   }

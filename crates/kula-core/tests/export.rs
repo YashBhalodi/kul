@@ -143,7 +143,7 @@ marriage m alice bob start:1972
     let value: serde_json::Value = serde_json::from_str(&json).unwrap();
     let envelope_ok = value["ok"].as_bool().unwrap();
     assert!(envelope_ok, "expected success envelope; got:\n{json}");
-    for collection in ["persons", "marriages", "parenthood_links"] {
+    for collection in ["persons", "marriages", "parenthoodLinks"] {
         for entity in value["graph"][collection].as_array().unwrap() {
             let span = entity["span"]
                 .as_array()

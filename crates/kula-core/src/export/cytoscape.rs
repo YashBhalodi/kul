@@ -32,12 +32,14 @@ use crate::export::{ExportedDate, ExportedGraph};
 
 /// The Cytoscape JSON graph shape.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CytoscapeGraph {
     pub nodes: Vec<CytoscapeNode>,
     pub edges: Vec<CytoscapeEdge>,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CytoscapeNode {
     pub data: NodeData,
 }
@@ -46,13 +48,14 @@ pub struct CytoscapeNode {
 /// serialization time by which fields are present, matching the Cytoscape
 /// convention of "the data object is whatever the consumer wants."
 #[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
+#[serde(untagged, rename_all = "camelCase")]
 pub enum NodeData {
     Person(PersonNodeData),
     Marriage(MarriageNodeData),
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PersonNodeData {
     /// `p:<person-id>`.
     pub id: String,
@@ -72,6 +75,7 @@ pub struct PersonNodeData {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MarriageNodeData {
     /// `m:<marriage-id>`.
     pub id: String,
@@ -86,11 +90,13 @@ pub struct MarriageNodeData {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CytoscapeEdge {
     pub data: EdgeData,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EdgeData {
     /// `m:<marriage-id>` (always; every edge originates at a marriage).
     pub source: String,

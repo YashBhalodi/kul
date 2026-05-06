@@ -90,13 +90,14 @@ pub struct ExportOptions {
 /// carry an `ok` boolean so consumers can discriminate without inspecting
 /// other fields.
 #[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
+#[serde(untagged, rename_all = "camelCase")]
 pub enum ExportEnvelope {
     Success(SuccessEnvelope),
     Failure(FailureEnvelope),
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SuccessEnvelope {
     /// Always `true`. Consumer-facing discriminator.
     pub ok: bool,
@@ -122,7 +123,7 @@ pub struct SuccessEnvelope {
 /// asked for; the envelope's `schema` is the same integer regardless of
 /// shape because both shapes are projections of the same underlying data.
 #[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
+#[serde(untagged, rename_all = "camelCase")]
 pub enum GraphPayload {
     /// The kinship-native graph: three flat collections.
     Native(ExportedGraph),
@@ -152,6 +153,7 @@ impl GraphPayload {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FailureEnvelope {
     /// Always `false`. Consumer-facing discriminator.
     pub ok: bool,
@@ -169,6 +171,7 @@ impl ExportEnvelope {
 
 /// The kinship-native graph: three flat collections.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportedGraph {
     pub persons: Vec<ExportedPerson>,
     pub marriages: Vec<ExportedMarriage>,
@@ -176,6 +179,7 @@ pub struct ExportedGraph {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportedPerson {
     pub id: String,
     pub name: String,
@@ -195,6 +199,7 @@ pub struct ExportedPerson {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportedMarriage {
     pub id: String,
     /// The two spouse ids, in declaration order. Both ids resolve to a
@@ -213,6 +218,7 @@ pub struct ExportedMarriage {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportedParenthoodLink {
     pub marriage_id: String,
     pub child_id: String,
@@ -236,6 +242,7 @@ pub struct ExportedParenthoodLink {
 /// form into `value` (no circa marker), `precision` (year / month / day),
 /// and `circa` (the `~` flag) so consumers don't have to re-parse strings.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportedDate {
     pub value: String,
     pub precision: &'static str,
@@ -243,6 +250,7 @@ pub struct ExportedDate {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportedDiagnostic {
     pub code: String,
     pub severity: &'static str,
@@ -252,6 +260,7 @@ pub struct ExportedDiagnostic {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportedRelated {
     pub label: String,
     #[serde(flatten)]
@@ -259,6 +268,7 @@ pub struct ExportedRelated {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportedSpan {
     pub byte_start: usize,
     pub byte_end: usize,

@@ -99,10 +99,10 @@ expression: json
         ]
       }
     ],
-    "parenthood_links": [
+    "parenthoodLinks": [
       {
-        "marriage_id": "m_alice_devraj",
-        "child_id": "priya",
+        "marriageId": "m_alice_devraj",
+        "childId": "priya",
         "kind": "biological",
         "span": [
           485,

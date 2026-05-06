@@ -55,6 +55,6 @@ expression: json
         ]
       }
     ],
-    "parenthood_links": []
+    "parenthoodLinks": []
   }
 }

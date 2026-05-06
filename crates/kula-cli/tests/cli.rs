@@ -273,7 +273,7 @@ fn export_clean_file_emits_success_envelope_and_exits_zero() {
     assert_eq!(env["kula"], "0.1");
     assert!(env["graph"]["persons"].is_array());
     assert!(env["graph"]["marriages"].is_array());
-    assert!(env["graph"]["parenthood_links"].is_array());
+    assert!(env["graph"]["parenthoodLinks"].is_array());
 }
 
 #[test]
@@ -361,7 +361,7 @@ fn export_with_positions_attaches_span_to_every_entity() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let env: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
-    for collection in ["persons", "marriages", "parenthood_links"] {
+    for collection in ["persons", "marriages", "parenthoodLinks"] {
         for entity in env["graph"][collection].as_array().unwrap() {
             let span = entity["span"]
                 .as_array()

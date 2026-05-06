@@ -161,7 +161,7 @@ fn export_clean_document_returns_success_envelope() {
     assert_eq!(envelope["schema"], 1);
     assert!(envelope["graph"]["persons"].is_array());
     assert!(envelope["graph"]["marriages"].is_array());
-    assert!(envelope["graph"]["parenthood_links"].is_array());
+    assert!(envelope["graph"]["parenthoodLinks"].is_array());
 }
 
 #[test]
