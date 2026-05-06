@@ -13,7 +13,7 @@ This extension lives inside the [kulalang](https://github.com/YashBhalodi/kulala
 - Syntax highlighting for keywords, strings (with escapes), date literals (with `~` circa marker), field names, enum values (`male`/`female`/`other`/`divorce`), declared identifiers, and id references
 - Snippets for the common shapes: `kula`, `person`, `marriage`, `birth`, `adoption`
 - Format-on-save: `.kula` files are canonicalized via `kula format` whenever you save (override per workspace if you prefer manual formatting)
-- **Language-server integration** when `kula-lsp` is available (pointed at via `kula.serverPath` for development; bundled in the marketplace release): live diagnostics, hover panels, go-to-definition, basic completion, document outline, find-references, rename, code actions, and document formatting
+- **Language-server integration** when `kula-lsp` is available (pointed at via `kula.serverPath` for development; bundled in the published Open VSX release): live diagnostics, hover panels, go-to-definition, basic completion, document outline, find-references, rename, code actions, and document formatting
 - **Export commands** — `Kula: Export to JSON` and `Kula: Export to Cytoscape JSON` (run from the command palette on any `.kula` file): projects the current document — *including unsaved edits* — through the language server's `kula/export` request and prompts for a save location. The JSON form is the canonical kinship-native shape ([spec §15](https://github.com/YashBhalodi/kulalang/tree/main/spec/15-export-schema.md)); the Cytoscape form is a `nodes`/`edges` projection loadable into Cytoscape.js, Sigma.js, vis-network, etc. If the document has errors the command surfaces a notification and points you at the Problems panel
 
 ## Settings
@@ -34,7 +34,7 @@ Closing the dev-host window unloads the extension. Best for iterating on the act
 
 ### Option B — Install a local `.vsix` into your real VSCode
 
-Use this when you want the extension active across all your VSCode windows (not just the dev host) without publishing to the marketplace.
+Use this when you want the extension active across all your VSCode windows (not just the dev host) without publishing to Open VSX.
 
 **One-time setup:**
 
@@ -99,7 +99,7 @@ To debug the language server itself, set `kula.trace.server` to `messages` or `v
 
 ### Option D — Build a fully-bundled `.vsix` (production-style)
 
-Use this to package an extension that ships pre-built `kula-lsp` binaries for all four target platforms (`linux-x64`, `darwin-x64`, `darwin-arm64`, `win32-x64`) — the form that goes to the marketplace.
+Use this to package an extension that ships pre-built `kula-lsp` binaries for all four target platforms (`linux-x64`, `darwin-x64`, `darwin-arm64`, `win32-x64`) — the form that goes to Open VSX (and that ships as `kulalang-<version>.vsix` on every GitHub Release).
 
 This requires a published GitHub Release at tag `v<version>` (the unified release pipeline produces all binaries under one tag). For day-to-day development you don't need this — Option C with `kula.serverPath` is faster.
 

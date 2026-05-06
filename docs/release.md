@@ -1,6 +1,6 @@
 # Release process
 
-KulaLang ships four things from one repository: the `kula` CLI, the `kula-lsp` language server, the VSCode marketplace extension, and the `@kulalang/wasm` npm package. They release in lockstep — one tag, one pipeline, one set of coordinated artifacts.
+KulaLang ships four things from one repository: the `kula` CLI, the `kula-lsp` language server, the VSCode extension (published to Open VSX), and the `@kulalang/wasm` npm package. They release in lockstep — one tag, one pipeline, one set of coordinated artifacts.
 
 This doc is the source of truth for how to cut a release and what the pipeline does.
 
@@ -12,17 +12,18 @@ Pushing a tag of the form `v<major>.<minor>.<patch>` triggers `.github/workflows
 2. **Builds `kula` for four targets** — `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-msvc`. Each binary is smoke-tested with `kula --version` and `kula validate examples/03-three-generations.kula`.
 3. **Builds `kula-lsp` for the same four targets**, smoke-tested with `kula-lsp --version`.
 4. **Builds and publishes `@kulalang/wasm`** — `wasm-pack build --target bundler`, gzipped bundle-size assertion, `npm publish --access public`, and a `kula-wasm.tar.gz` artifact for the GitHub Release.
-5. **Creates a GitHub Release** at `v<version>` with all nine archives attached (8 CLI/LSP + 1 WASM tarball) and auto-generated release notes.
-6. **Publishes the VSCode extension** to the marketplace, with platform-specific `kula-lsp` binaries bundled inside the `.vsix` so end users don't need to set `kula.serverPath`.
+5. **Publishes the VSCode extension** to [Open VSX](https://open-vsx.org/), with platform-specific `kula-lsp` binaries bundled inside the `.vsix` so end users don't need to set `kula.serverPath`. The packaged `.vsix` is also uploaded as a workflow artifact (`kula-vsix`) so the GitHub Release can attach it for upstream-VSCode users.
+6. **Creates a GitHub Release** at `v<version>` with all 10 artifacts attached (8 CLI/LSP archives + 1 WASM tarball + 1 `.vsix`) and auto-generated release notes.
 
-`build-cli`, `build-lsp`, and `wasm-publish` run in parallel after `verify`; `github-release` waits for all three (it consumes their artifacts), and `marketplace-publish` runs in parallel after `build-lsp`. Total wall-clock time is dominated by the slowest matrix build.
+`build-cli`, `build-lsp`, and `wasm-publish` run in parallel after `verify`; `openvsx-publish` runs after `build-lsp` (it bundles the LSP binaries into the `.vsix`); `github-release` waits for all four (it consumes their artifacts). Total wall-clock time is dominated by the slowest matrix build.
 
 ```
-verify ──┬──► build-cli   (4 targets) ──┐
-         │                                ├──► github-release   (9 archives)
-         ├──► build-lsp   (4 targets) ──┤
-         │                                ├──► marketplace-publish (bundled .vsix)
-         └──► wasm-publish              ──┴──► npm (@kulalang/wasm)
+verify ──┬──► build-cli   (4 targets) ──────────────────┐
+         │                                                │
+         ├──► build-lsp   (4 targets) ──► openvsx-publish ┼──► github-release   (10 artifacts)
+         │                                       │        │
+         │                                       └────────┴──► Open VSX (bundled .vsix)
+         └──► wasm-publish ──► npm (@kulalang/wasm) ──────┘
 ```
 
 ## Cutting a release
@@ -59,12 +60,14 @@ The pipeline runs automatically. Watch the progress at https://github.com/YashBh
 
 ### What "done" looks like
 
-- GitHub Release at `https://github.com/YashBhalodi/kulalang/releases/tag/v0.x.0` carries 9 archives:
+- GitHub Release at `https://github.com/YashBhalodi/kulalang/releases/tag/v0.x.0` carries 10 artifacts:
   - `kula-<target>.{tar.gz,zip}` × 4
   - `kula-lsp-<target>.{tar.gz,zip}` × 4
   - `kula-wasm.tar.gz` × 1
-- Marketplace listing at `https://marketplace.visualstudio.com/items?itemName=YashBhalodi.kulalang` shows the new version.
-- `code --install-extension YashBhalodi.kulalang` on a clean profile installs and works without setting `kula.serverPath` (the extension auto-locates the right platform binary from the bundled `server/<platform>/`).
+  - `kulalang-0.x.0.vsix` × 1
+- Open VSX listing at `https://open-vsx.org/extension/YashBhalodi/kulalang` shows the new version.
+- On an Open-VSX-consuming editor (VSCodium, Cursor, Windsurf, Theia/Che, Gitpod), `<editor> --install-extension YashBhalodi.kulalang` resolves against Open VSX, installs, and works without setting `kula.serverPath` (the extension auto-locates the right platform binary from the bundled `server/<platform>/`).
+- On upstream VSCode (which talks to Microsoft Marketplace, where KulaLang is intentionally not published), users install via the released `.vsix`: download `kulalang-0.x.0.vsix` from the GitHub Release, `code --install-extension /path/to/kulalang-0.x.0.vsix`. Same bundled-binary autolocation behavior.
 - `npm view @kulalang/wasm version` returns `0.x.0`. A clean Node project can `npm install @kulalang/wasm@0.x.0` and `import { check, exportGraph, format } from '@kulalang/wasm'` without further setup.
 
 ### Recommended post-publish smoke
@@ -76,30 +79,41 @@ The integration tests cover protocol correctness, but only a human catches "the 
 
 ## One-time setup
 
-Before the very first marketplace publish, the publisher account and PAT must exist. The historical blocker is Microsoft Account credit-card verification — have a card handy.
+Before the very first Open VSX publish, the Eclipse account, namespace claim, and PAT must exist. Unlike the Microsoft Marketplace, no credit-card verification is required — an Eclipse account is free.
 
-### a. Create the marketplace publisher
+### a. Create the Eclipse account
 
-- https://marketplace.visualstudio.com/manage
-- Sign in with a Microsoft account; complete credit-card verification
-- Create publisher with ID exactly `YashBhalodi` (case-sensitive, must match `editor/vscode/package.json`'s `"publisher"`)
+- https://accounts.eclipse.org → Register (or sign in)
+- Email verification only; no payment, no KYC
 
-### b. Generate the publishing PAT
+### b. Sign in to Open VSX and accept the Publisher Agreement
 
-- https://dev.azure.com/ → User Settings → Personal Access Tokens → New Token
-- Organization: **All accessible organizations**
-- Expiration: 1 year is typical
-- Scopes: **Custom defined** → expand **Marketplace** → check **Manage**
+- https://open-vsx.org → "Log in" → GitHub OAuth
+- Profile menu → user-settings → click "Show Publisher Agreement" and accept the terms
+- The GitHub identity used for OAuth must be linked to (or share an email with) the Eclipse account
+
+### c. Generate the publishing PAT
+
+- https://open-vsx.org/user-settings/tokens → "Generate New Token"
+- Description: anything memorable (e.g. `kulalang-release-ci`)
 - Copy the token immediately (only shown once)
 
-### c. Store as repo secret
+### d. Pre-claim the `YashBhalodi` namespace
+
+The namespace name is case-sensitive — it must match `editor/vscode/package.json`'s `"publisher"` field. Open VSX does not auto-create namespaces on first publish, so this step must happen before tagging:
 
 ```sh
-gh secret set VSCE_PAT
+npx --yes ovsx create-namespace YashBhalodi --pat <token>
+```
+
+### e. Store as repo secret
+
+```sh
+gh secret set OVSX_PAT
 # paste the token at the prompt
 ```
 
-The publish job reads `VSCE_PAT` from secrets. Anytime the PAT expires, repeat (b) and (c) — `vsce publish` will start failing with a 401 until refreshed.
+The publish job reads `OVSX_PAT` from secrets. Anytime the PAT expires or is rotated, repeat (c) and (e) — `ovsx publish` will start failing with a 401 until refreshed.
 
 ## Pipeline reference
 
@@ -114,13 +128,13 @@ Standard cross-compilation matrix. Each platform target builds in release mode w
 `build-lsp` uploads two artifact sets per platform:
 
 - An archive (`kula-lsp-<target>.{tar.gz,zip}`) for the GitHub Release.
-- A raw binary under `kula-lsp-raw-<platform_dir>/` for the marketplace job to bundle directly. This avoids re-downloading from a Release the workflow itself just produced.
+- A raw binary under `kula-lsp-raw-<platform_dir>/` for the `openvsx-publish` job to bundle directly. This avoids re-downloading from a Release the workflow itself just produced.
 
 ### `wasm-publish`
 
 Builds the `@kulalang/wasm` package via `wasm-pack build --target bundler`, rewrites the wasm-pack-generated `package.json` `name` to `@kulalang/wasm` (wasm-pack derives the npm name from the Rust crate name `kula-wasm`), asserts the gzipped `.wasm` is ≤ 1 MB, and re-asserts the npm `package.json` version equals the release version. The `pkg/` output is then staged into `kula-wasm/` and packaged as `kula-wasm.tar.gz`, uploaded as the `kula-wasm` artifact for `github-release` to attach to the public Release.
 
-On a real publish (tag push or `dry_run: false`), the job also runs `npm publish --access public` from `crates/kula-wasm/pkg`, authenticated via the `NPM_TOKEN` repo secret. A pre-flight step fails with a readable error if `NPM_TOKEN` is unset, matching the `VSCE_PAT` failure shape. On dry-run, the build and the version assertions still run — only the npm publish is skipped, so dry-runs catch breakage before tagging.
+On a real publish (tag push or `dry_run: false`), the job also runs `npm publish --access public` from `crates/kula-wasm/pkg`, authenticated via the `NPM_TOKEN` repo secret. A pre-flight step fails with a readable error if `NPM_TOKEN` is unset, matching the `OVSX_PAT` failure shape. On dry-run, the build and the version assertions still run — only the npm publish is skipped, so dry-runs catch breakage before tagging.
 
 The job does not re-run `cargo test`, the Node smoke, or `tsc --noEmit` — `.github/workflows/rust.yml`'s `wasm-build` job already gates the merge to `main`, so any commit a tag points at has already passed those checks.
 
@@ -128,13 +142,17 @@ The job does not re-run `cargo test`, the Node smoke, or `tsc --noEmit` — `.gi
 
 Pulls every archive artifact, copies them into a flat directory, and creates the public Release with `softprops/action-gh-release@v2`. Release notes are auto-generated from PRs/commits since the previous release.
 
-### `marketplace-publish`
+### `openvsx-publish`
 
-Pulls the raw `kula-lsp` binaries, stages them under `editor/vscode/server/<platform>/`, runs `npm ci`, and runs `vsce publish` with `VSCE_PAT`. The bundled `.vsix` carries all four platform binaries; VSCode's marketplace doesn't currently support platform-specific extension splits for this workflow shape, but if size becomes a concern that's a future-friendly migration path.
+Pulls the raw `kula-lsp` binaries, stages them under `editor/vscode/server/<platform>/`, runs `npm ci`, and packages the bundled extension via `vsce package` (no global install — invoked through `npx @vscode/vsce` from the extension's `devDependencies`-resolved transitive). The packaged `.vsix` is uploaded as a workflow artifact named `kula-vsix` so `github-release` can attach it to the public Release for upstream-VSCode users.
+
+On a real publish (tag push or `dry_run: false`), the job then runs `npx ovsx publish kulalang-<version>.vsix -p $OVSX_PAT`. A pre-flight step fails with a readable error if `OVSX_PAT` is unset, matching the `NPM_TOKEN` failure shape. On dry-run, the package step and the artifact upload still run — only the OVSX publish is skipped, so dry-runs catch breakage before tagging.
+
+The bundled `.vsix` carries all four platform binaries. Open VSX supports platform-specific extension splits via `--target`, but a single bundled `.vsix` is simpler at current sizes; if size becomes a concern that's a future-friendly migration path.
 
 ### `dry_run`
 
-`workflow_dispatch` accepts a `dry_run` input (default `true`). When true, the conditional `if:` on `github-release` and `marketplace-publish` evaluates false, so the pipeline builds + smoke-tests every binary without publishing anything. Tag pushes always set `dry_run` effectively to false because the `if:` short-circuits on `github.event_name == 'push'`.
+`workflow_dispatch` accepts a `dry_run` input (default `true`). When true, the conditional `if:` on `github-release` and on the `openvsx-publish` publish steps evaluates false, so the pipeline builds + smoke-tests every binary, packages the `.vsix`, and uploads the artifact without publishing anything. Tag pushes always set `dry_run` effectively to false because the `if:` short-circuits on `github.event_name == 'push'`.
 
 ## Troubleshooting
 
@@ -146,9 +164,13 @@ The error message identifies which two of (workspace, extension, tag) disagree. 
 
 Look at the failing matrix entry. Most failures are a transient toolchain issue or a clippy/test regression — fix the underlying issue on `main`, push a new commit, and re-tag.
 
-### `marketplace-publish` fails with 401
+### `openvsx-publish` fails
 
-PAT expired or doesn't have **Marketplace → Manage** scope. Refresh per the one-time-setup steps and re-run the failed job.
+- **`OVSX_PAT secret is unset`** — the pre-flight check ran. Set the secret per the one-time setup steps and re-run the failed job.
+- **`401 Unauthorized` from `ovsx publish`** — the token expired, was revoked, or was generated against a different Eclipse account. Generate a fresh token at https://open-vsx.org/user-settings/tokens and `gh secret set OVSX_PAT`.
+- **`Namespace 'YashBhalodi' does not exist`** — the namespace pre-claim was never run, or it was claimed under a different account. Run `npx --yes ovsx create-namespace YashBhalodi --pat <token>` once with the same token now stored in `OVSX_PAT`.
+- **Secret-scanner rejection on upload** — Open VSX runs an automated scan and refuses uploads it flags. The error message identifies the offending file inside the `.vsix`. Fix at the source (typically a stray `.env`, key, or test fixture that landed in the bundled extension), bump and re-tag.
+- **`Extension YashBhalodi.kulalang <version> already exists`** — `ovsx publish` is not idempotent on a published version. Bump the workspace version (and `editor/vscode/package.json`), re-tag, and re-run the pipeline.
 
 ### `wasm-publish` fails on the npm publish step
 
@@ -159,7 +181,7 @@ PAT expired or doesn't have **Marketplace → Manage** scope. Refresh per the on
 
 ### Release exists but extension didn't publish
 
-Both `github-release` and `marketplace-publish` are independent — one failing doesn't roll back the other. If the extension publish failed but the Release succeeded, fix the underlying issue and re-run just the `marketplace-publish` job (Actions UI → workflow run → "Re-run failed jobs"). The `vsce publish` step is idempotent for already-published versions; if the marketplace already accepted that version you'll need to bump and re-cut.
+`github-release` depends on `openvsx-publish`, so an Open VSX publish failure blocks the Release from being created in the first place. If the OVSX failure was transient (network blip, registry hiccup), fix any underlying issue and re-run the failed jobs (Actions UI → workflow run → "Re-run failed jobs"); the `kula-vsix` artifact uploaded earlier in the same job is reused. If Open VSX already accepted that version but the re-run mistakes it for a fresh attempt, you'll need to bump and re-cut — `ovsx publish` is not idempotent on the same version.
 
 ### Need to ship a fix
 

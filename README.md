@@ -36,7 +36,9 @@ Requires the Rust stable toolchain (edition 2024). `kula --version` to confirm.
 
 ### Editor extension
 
-The [KulaLang VSCode extension](https://marketplace.visualstudio.com/items?itemName=YashBhalodi.kulalang) bundles the language server — install it and `.kula` files get diagnostics, hover, go-to-definition, find-references, rename, completion, formatting, outline view, and the **Kula: Export to JSON** / **Kula: Export to Cytoscape JSON** commands automatically. No additional configuration.
+The [KulaLang VSCode extension](https://open-vsx.org/extension/YashBhalodi/kulalang) is published on [Open VSX](https://open-vsx.org/) and bundles the language server — install it and `.kula` files get diagnostics, hover, go-to-definition, find-references, rename, completion, formatting, outline view, and the **Kula: Export to JSON** / **Kula: Export to Cytoscape JSON** commands automatically. No additional configuration.
+
+On editors that consume Open VSX (VSCodium, Cursor, Windsurf, Eclipse Theia / Che, Gitpod, Amazon Kiro), `<editor> --install-extension YashBhalodi.kulalang` resolves and installs the extension directly. On upstream Microsoft VSCode (which talks to the Microsoft Marketplace, where KulaLang is intentionally not published), download `kulalang-<version>.vsix` from the matching [GitHub Release](https://github.com/YashBhalodi/kulalang/releases) and install it with `code --install-extension /path/to/kulalang-<version>.vsix`.
 
 For other editors, point your LSP client at the `kula-lsp` binary.
 
