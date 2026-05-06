@@ -32,7 +32,7 @@ The CLI runs `check` internally as the precondition for `export` — callers do 
 - The consumer surface is more, not less, capable: a permissive-mode foundation can be approximated by a strict-mode foundation plus a one-line consumer cache. The reverse — turning permissive output into a clean strict failure — would require the consumer to re-run the validator.
 - Diagnostic shape inside the failure envelope reuses the existing `kula validate --format json` representation. A consumer that already understands `kula validate` output understands the failure envelope.
 - The CLI's exit code maps directly to the envelope: `0` for success envelopes, `1` for failure envelopes. CI pipelines need no extra parsing to gate on a clean export.
-- A future `check()` API that exposes validation as its own product surface (per the deferred [PRD-0003](../prd/0003-standalone-check-api.md)) is unaffected — strict-export and standalone-check coexist without overlap. Until then, the embedded `check()` inside `export()` is the only surface the foundation needs.
+- A standalone `check()` API that exposes validation as its own product surface coexists without overlap — the WASM bridge in `kula-wasm` ships exactly that (see [ADR-0011](./0011-wasm-surface-three-shapes-no-wrappers.md)), where `check(source) -> { diagnostics }` is its own entrypoint and `exportGraph(source)` reuses `kula_core::check` internally as its precondition.
 
 ## Anti-suggestions (do not re-propose)
 

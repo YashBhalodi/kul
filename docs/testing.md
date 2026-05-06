@@ -16,6 +16,9 @@ Tests in this workspace live at two layers, and both layers are load-bearing.
 | kula-cli  | `crates/kula-cli/tests/cli.rs`                 | End-to-end via `assert_cmd` + `predicates`. Covers every subcommand including `kula export` (success / failure envelopes, both formats, `--with-positions`). |
 | kula-lsp  | `crates/kula-lsp/tests/{handshake,diagnostics,hover,definition,completion,cold_start,export}.rs` | Stdio LSP client driving the real server; insta snapshots. `export.rs` covers the `kula/export` custom request end-to-end (success, failure, cytoscape, document-not-open error). |
 | kula-lsp  | `crates/kula-lsp/tests/perf.rs`                | Performance budget gates (no LSP-protocol round-trip)                          |
+| kula-wasm | `crates/kula-wasm/tests/{check,export_graph,format}.rs` | Rust-side snapshot tests over the example corpus, asserting the WASM serde-bridge faithfully round-trips the underlying `kula-core` output. `export_graph.rs` includes a cross-surface bit-identical assertion against `kula_core::export::export`. |
+| kula-wasm | `crates/kula-wasm/tests/typescript/usage.ts` (driven by `tsc --noEmit` in CI) | TypeScript consumer compile-test. Exercises realistic patterns (discriminating on `ok`, narrowing `GraphPayload`, iterating `parenthoodLinks`, `@ts-expect-error` on illegal arguments) so a `.d.ts` that compiles against itself but isn't usable in real consumer code surfaces. |
+| kula-wasm | `crates/kula-wasm/tests/node/smoke.mjs` (driven by `node --experimental-wasm-modules` in CI) | End-to-end Node smoke test: imports the wasm-pack output as a downstream consumer would, calls all three functions on the example corpus and a known-broken fixture, asserts shape and basic invariants. Catches WASM-toolchain or JS-glue regressions invisible to Rust-only tests. |
 
 These cross public-API surfaces and exercise wire formats / process behavior. They are the highest-fidelity tests in the suite.
 
@@ -135,6 +138,15 @@ When adding a perf-sensitive code path:
 3. Pick a ceiling that absorbs runner variability (5× the target is a reasonable default) and document the real target in a comment.
 
 If a budget gets in the way of a legitimate change, *raise it deliberately*, with a comment explaining why. Don't delete it.
+
+## WASM artifact gates
+
+The WASM artifact has two CI gates that aren't tests in the `cargo nextest` sense, but fail the build the same way:
+
+- **Bundle-size budget** — the `wasm-build` job in `.github/workflows/rust.yml` gzips the built `.wasm` and fails if size > 1 MB. Prevents silent regressions where a dependency bump bloats the artifact.
+- **Generated TypeScript types diff** — the same job regenerates `crates/kula-wasm/types/kula_wasm.d.ts` via `wasm-pack build` and `git diff --exit-code`s against the committed snapshot. A Rust-side type change that crosses the WASM boundary fails the merge with a reviewable diff instead of landing as silent runtime drift on consumers (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)). Regenerate locally with `just wasm` and commit the diff.
+
+Both gates are part of `.github/workflows/rust.yml` (per-PR), not just `release.yml` — a Rust-side change that breaks WASM is caught at PR time, not at release tag.
 
 ## What not to test
 

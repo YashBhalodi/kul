@@ -66,13 +66,27 @@ kula-lsp    ── library + binary `kula-lsp`
               types. Never re-implements pipeline logic — only adapts.
               Custom requests (e.g. `kula/export`) are registered via
               `LspService::build().custom_method(...)` in `lib.rs`.
+
+kula-wasm   ── library (cdylib + rlib), published as `@kulalang/wasm`
+              wasm-bindgen adapter over kula-core. Three exposed
+              functions — `check`, `exportGraph`, `format` — each a
+              two-or-three-line wrapper around the matching kula-core
+              deep module, plus version-metadata getters. Surface
+              shape is settled in ADR-0011; TypeScript types are
+              derived via Tsify, committed, and diffed in CI per
+              ADR-0012. Single ESM `--target bundler` build for
+              modern bundlers (Vite, Webpack, Next.js, etc.).
 ```
 
-The dependency graph is unidirectional: `kula-cli → kula-lsp → kula-core`, and `kula-cli → kula-core`. Nothing depends on the CLI; nothing in core depends on the LSP. New crates should preserve this.
+The dependency graph is unidirectional: `kula-cli → kula-lsp → kula-core`, `kula-cli → kula-core`, and `kula-wasm → kula-core`. Nothing depends on the CLI; nothing in core depends on the LSP or the WASM crate. New crates should preserve this.
 
 ### Why a separate `kula-lsp` crate at all?
 
 A nontrivial chunk of LSP-specific machinery (tower-lsp, async runtime, JSON-RPC framing, document cache, byte ↔ LSP-position translation) doesn't belong in core — it's editor-protocol concern, not language concern. Bundling it into `kula-cli` would force the CLI binary to pull in `tower-lsp` and `tokio` for users who only ever run `kula validate`. The split is the deletion test passing: removing `kula-lsp` would either reproduce the editor logic in the CLI, or eliminate editor support entirely.
+
+### Why a separate `kula-wasm` crate at all?
+
+Same shape of argument as the LSP split, in the JS direction. Browser and Node consumers cannot shell out to the `kula` binary or speak LSP over stdio; they need a JS-callable surface. Compiling `kula-core` to WebAssembly with `wasm-bindgen` is the only viable path. The bridge has its own concerns — `cdylib` crate type, `wasm-bindgen` derives, `console_error_panic_hook` registration, `serde-wasm-bindgen` round-trip, the bundler-target build pipeline — that have no place in `kula-core` or `kula-cli`. The deletion test passes: removing `kula-wasm` would either reproduce the JS adapter elsewhere, or eliminate JS-ecosystem consumers entirely. The `kula-core/tsify` feature exists exactly so the WASM crate can derive accurate `.d.ts` from the Rust source of truth without forcing tsify onto the CLI/LSP build graph (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)).
 
 ## LSP request flow
 
@@ -119,6 +133,7 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 | `export::export`                      | `crates/kula-core/src/export.rs`              | Canonical JSON projection of a `CheckResult` into an `ExportEnvelope`. Strict on errors; format-dispatched (kinship-native or cytoscape). The deep module the CLI's `kula export` and the LSP's `kula/export` both call. Schema documented in [`spec/15-export-schema.md`](../spec/15-export-schema.md); shape, posture, and versioning settled in ADRs 0008–0010. |
 | `LineIndex`                           | `crates/kula-lsp/src/convert.rs`              | Byte ↔ LSP-position. Handles UTF-16 code units and CRLF. Holds source as `Arc<str>` so `state::Document` shares the same heap buffer.|
 | `state::Documents`                    | `crates/kula-lsp/src/state.rs`                | The LSP document cache. Thread-safe; the only path to a `Document` from inside an LSP request handler. Each cached `Document` shares one `Arc<str>` between its `source` field and the `LineIndex`.          |
+| `kula_wasm::{check, export_graph, format_source}` | `crates/kula-wasm/src/lib.rs`     | The WASM/JS surface. Three deep-module entrypoints exposed via `wasm-bindgen` with three operation-specific return shapes (per [ADR-0011](./adr/0011-wasm-surface-three-shapes-no-wrappers.md)). No convenience layer; consumers compose helpers at the call site. |
 
 If you find yourself reaching around one of these (e.g. iterating `document.statements` from a feature module), stop and consider extending the seam instead.
 
@@ -198,9 +213,25 @@ The export snapshot suite (`crates/kula-core/tests/export.rs`) auto-grows as eac
 
 If the new construct is structurally large enough that consumers might silently drop it (a new top-level collection, an existing field's semantics changing incompatibly), bump `SCHEMA_VERSION` in `export.rs` in the same change and document the bump in [ADR-0010](./adr/0010-export-schema-versioning.md).
 
+### A new WASM-exposed function or type
+
+The bridge is intentionally thin (per [ADR-0011](./adr/0011-wasm-surface-three-shapes-no-wrappers.md)) and adding to it should stay thin. Re-read that ADR before adding any new surface — the rule of three says wait until a third independent consumer asks for the same helper.
+
+When a new entrypoint genuinely belongs:
+
+1. Add a `pub fn` in `crates/kula-wasm/src/lib.rs` with `#[wasm_bindgen(js_name = "camelCaseName")]`. Body should be ≤3 lines: `console_error_panic_hook::set_once()`, one `kula_core::*` call, return.
+2. If the return type is a new struct, derive `serde::Serialize` + `tsify::Tsify`, add `#[tsify(into_wasm_abi)]` and `#[serde(rename_all = "camelCase")]`. Add the type's rustdoc explaining the JS-side contract — that text becomes the JSDoc on the generated `.d.ts`.
+3. If the new type is reused from `kula-core`, prefer extending the existing `Exported*` struct in `crates/kula-core/src/export.rs` over inventing a parallel WASM-only type. Single source of truth.
+4. Add a snapshot test in `crates/kula-wasm/tests/<entrypoint>.rs` mirroring the existing `check.rs` / `format.rs` / `export_graph.rs` shape.
+5. Extend `crates/kula-wasm/tests/typescript/usage.ts` to exercise the new surface from a real consumer perspective. CI runs `tsc --noEmit` on it.
+6. Run `just wasm` to regenerate `crates/kula-wasm/types/kula_wasm.d.ts`. Commit the diff. CI's `wasm-build` job (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)) fails the merge if the committed snapshot drifts from the regenerated output.
+7. Extend the Node smoke test (`crates/kula-wasm/tests/node/smoke.mjs`) if the new function would meaningfully break end-to-end without protocol-level coverage.
+
 ### A new public type or function
 
 If it's part of the kula-core surface, add `//!`/`///` rustdoc explaining the contract. This is the *interface*, not the implementation. Internal helpers can be terse; public surface earns documentation.
+
+If the new type crosses the WASM boundary (i.e. it's part of `ExportEnvelope` or one of its descendants, or `kula-wasm` will reuse it), the rustdoc on the type *is* the JSDoc that lands in the generated `.d.ts`. Write it for a JS/TS consumer, not just a Rust reader. Mark optional fields `#[serde(skip_serializing_if = "Option::is_none")]` so they are omitted from the JSON when absent rather than serialized as `null`; `Option<T>` automatically projects to `T | undefined` (a `?`-marked TS field) via the existing `derive(Tsify)`.
 
 ## What not to add
 

@@ -47,7 +47,7 @@ export interface ExportOptions {
  * JS-side return type of [`check`]. Carries the full diagnostic list —
  * errors, warnings, and notes alike. An empty `diagnostics` array means
  * a clean document; consumers discriminate on emptiness rather than an
- * `ok` field, per [PRD-0004](../../docs/prd/0004-wasm-packaging.md).
+ * `ok` field, per [ADR-0011](../../docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md).
  *
  * Diagnostic entries reuse `kula_core::export::ExportedDiagnostic` — the
  * same shape that the failure-envelope path of `kula export` emits, so the

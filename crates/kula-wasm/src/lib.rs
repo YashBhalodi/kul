@@ -41,8 +41,10 @@
 //! so genuine bugs in `kula-core` surface as readable JS console errors
 //! rather than opaque WASM traps. Idempotent across calls.
 //!
-//! See [PRD-0004](../../docs/prd/0004-wasm-packaging.md) for design
-//! rationale and the `check` / `exportGraph` follow-on slices.
+//! See [ADR-0011](../../docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md)
+//! for the surface-shape decision (three operations, three shapes, no
+//! convenience layer) and [ADR-0012](../../docs/adr/0012-tsify-derived-types-committed-and-diffed.md)
+//! for the TypeScript-types-from-Rust discipline.
 
 use kula_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic};
 use serde::Serialize;
@@ -52,7 +54,7 @@ use wasm_bindgen::prelude::*;
 /// JS-side return type of [`check`]. Carries the full diagnostic list —
 /// errors, warnings, and notes alike. An empty `diagnostics` array means
 /// a clean document; consumers discriminate on emptiness rather than an
-/// `ok` field, per [PRD-0004](../../docs/prd/0004-wasm-packaging.md).
+/// `ok` field, per [ADR-0011](../../docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md).
 ///
 /// Diagnostic entries reuse `kula_core::export::ExportedDiagnostic` — the
 /// same shape that the failure-envelope path of `kula export` emits, so the

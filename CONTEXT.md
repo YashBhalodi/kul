@@ -64,6 +64,10 @@ An error or warning emitted by the validator. Carries a **code** (`KULA-Rxx`), a
 
 The top-level value `kula export` (and the public `kula_core::export::export` function) emits. Either a **success envelope** carrying a `schema` number, the source's `kula` language version, and the [`ExportedGraph`](#exportedgraph), or a **failure envelope** carrying the diagnostic list. The export is strict on errors per [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md).
 
+### CheckEnvelope
+
+The top-level value `@kulalang/wasm`'s `check(source)` function returns. A single-field object — `{ diagnostics: ExportedDiagnostic[] }` — carrying every diagnostic the validator produced (errors, warnings, and notes alike). An empty array means a clean document; consumers discriminate on emptiness, with no `ok` field. The diagnostic shape reuses [`ExportEnvelope`](#exportenvelope)'s failure-arm `ExportedDiagnostic` so CLI export and WASM check agree on one source of truth. Defined at `crates/kula-wasm/src/lib.rs`; surface decision recorded in [ADR-0011](./docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md).
+
 ### ExportedGraph
 
 The kinship-native graph projection inside a success [`ExportEnvelope`](#exportenvelope). Three flat collections — `persons`, `marriages`, `parenthood_links` — that mirror the language primitives one-to-one, with cross-references by id. Defined normatively in [`spec/15-export-schema.md`](./spec/15-export-schema.md); shape choice motivated in [ADR-0008](./docs/adr/0008-export-kinship-native-shape.md).

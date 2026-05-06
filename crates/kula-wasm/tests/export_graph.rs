@@ -9,13 +9,13 @@
 //! - **Cross-surface bit-identical** asserts that the pretty-printed JSON
 //!   from the WASM bridge equals the pretty-printed JSON from a direct
 //!   `kula_core::export::export` call for every example × every option
-//!   combo. This is the load-bearing guarantee of PRD-0004: WASM `check`
-//!   has no CLI counterpart, but `exportGraph` does, and the two surfaces
-//!   must speak the same JSON.
+//!   combo. WASM `check` has no CLI counterpart, but `exportGraph` does,
+//!   and the two surfaces must speak the same JSON.
 //!
-//! See [PRD-0004](../../../docs/prd/0004-wasm-packaging.md) — `exportGraph`
-//! exists so JS-ecosystem consumers can reach `kula_core::export::export`
-//! without shelling out to the CLI.
+//! See [ADR-0011](../../../docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md)
+//! — `exportGraph` exists so JS-ecosystem consumers can reach
+//! `kula_core::export::export` without shelling out to the CLI, with the
+//! same envelope shape on both surfaces.
 
 use std::path::{Path, PathBuf};
 

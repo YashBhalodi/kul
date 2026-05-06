@@ -18,9 +18,9 @@
 //!
 //! Snapshots are pretty-printed JSON of the `CheckEnvelope`.
 //!
-//! See [PRD-0004](../../../docs/prd/0004-wasm-packaging.md) — the `check`
-//! entry point lands the Tsify cross-crate plumbing that `exportGraph`
-//! reuses.
+//! See [ADR-0011](../../../docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md)
+//! for why `check` is its own entrypoint with an empty-array discriminator
+//! rather than a uniform `{ ok, ... }` envelope.
 
 use std::path::{Path, PathBuf};
 

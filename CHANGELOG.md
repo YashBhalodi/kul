@@ -34,6 +34,23 @@ First public release. Everything below ships together at tag `v0.1.0`.
 - **`kula export`** — project a clean document to the canonical JSON envelope. `--format json` (default) emits the kinship-native shape; `--format cytoscape` emits the `nodes`/`edges` shape; `--with-positions` adds opt-in byte spans. Strict on errors; same stdin/-/multi-file ergonomics as `validate`.
 - **`kula lsp`** — speak LSP over stdio (typically driven by an editor extension).
 
+### `kula-wasm` / `@kulalang/wasm`
+
+- **WebAssembly bindings for `kula-core`** — published to npm as [`@kulalang/wasm`](https://www.npmjs.com/package/@kulalang/wasm) and to each GitHub Release as `kula-wasm.tar.gz`. Single ESM `--target bundler` build for modern bundlers (Vite, Webpack 5+, Next.js, Turbopack, SvelteKit, Nuxt, Astro).
+- **Three exposed operations** ([ADR-0011](./docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md)):
+  - `check(source) -> { diagnostics }` — empty array means clean (no `ok` field; emptiness is the discriminator).
+  - `exportGraph(source, options?) -> SuccessEnvelope | FailureEnvelope` — bit-identical to `kula export --format=json`. Strict-on-errors per [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md).
+  - `format(source) -> string` — best-effort even on partial-parse input.
+- **Version metadata getters** — `KULA_CORE_VERSION()`, `KULA_LANGUAGE_VERSION()`, `EXPORT_SCHEMA_VERSION()` for consumer compatibility checks without parsing an envelope.
+- **TypeScript types derived from Rust** via [`tsify`](https://docs.rs/tsify), committed at `crates/kula-wasm/types/kula_wasm.d.ts` and CI-diffed against the regenerated output ([ADR-0012](./docs/adr/0012-tsify-derived-types-committed-and-diffed.md)). A type change that crosses the WASM boundary surfaces as a reviewable PR diff, not silent runtime drift.
+- **Lockstep versioning** — `@kulalang/wasm`'s npm version, the workspace `Cargo.toml` version, the VSCode extension version, and the git tag all match. Enforced by the `verify` job in [`release.yml`](./.github/workflows/release.yml).
+
+### `kula-core` cleanups (surfaced by WASM packaging)
+
+- **Workspace `miette` dependency narrowed** — the `fancy` feature is now enabled only in `kula-cli` (where the terminal-rendering machinery is actually used). `kula-core`, `kula-lsp`, and `kula-wasm` depend on plain `miette`, shrinking the WASM and LSP artifact sizes.
+- **Optional `tsify` feature on `kula-core`** — default-off; enables `Tsify` derives on the export-envelope types so `kula-wasm` can emit accurate TypeScript types. The CLI and LSP never pull `tsify` or `wasm-bindgen` into their builds.
+- **Export envelope JSON shape uses camelCase** — `parenthoodLinks`, `endReason`, `marriageId`, `childId`, `byteStart`, `byteEnd`, `withPositions`. JS-ecosystem convention; applied via `#[serde(rename_all = "camelCase")]` to the export structs. The CLI's `kula export --format=json` output and the WASM `exportGraph` output share one source of truth in `kula_core::export`. The Kula source language keeps its own snake_case identifiers — only the JSON projection changed. Normative in [`spec/15-export-schema.md`](./spec/15-export-schema.md).
+
 ### `kula-lsp`
 
 - **Live diagnostics** — full Kula 0.1 validator, results pushed via `publishDiagnostics`.
@@ -56,4 +73,6 @@ First public release. Everything below ships together at tag `v0.1.0`.
 ### Tooling and CI
 
 - **`just check`** — single-command gate (fmt, clippy at deny, full nextest run).
-- **Cross-platform release pipeline** producing CLI and language-server binaries for `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-apple-darwin`, and `x86_64-pc-windows-msvc`, plus the marketplace `.vsix` with all four platform binaries bundled. See [`docs/release.md`](./docs/release.md).
+- **`just wasm`** — builds `crates/kula-wasm` via `wasm-pack`, patches the npm package name, and refreshes the committed `.d.ts` snapshot.
+- **Cross-platform release pipeline** producing CLI and language-server binaries for `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-apple-darwin`, and `x86_64-pc-windows-msvc`, plus the marketplace `.vsix` with all four platform binaries bundled, plus the `@kulalang/wasm` npm package and `kula-wasm.tar.gz` archive. See [`docs/release.md`](./docs/release.md).
+- **Per-PR WASM gates** in [`.github/workflows/rust.yml`](./.github/workflows/rust.yml) — `wasm-pack` build, gzipped bundle-size budget (≤ 1 MB), generated `.d.ts` snapshot diff, Rust-side snapshot tests, Node smoke test, and TypeScript consumer compile-test (`tsc --noEmit`).

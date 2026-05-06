@@ -2,7 +2,7 @@
 
 > Kula — a kinship description language.
 
-Kula is a small, hand-authored language for describing human kinship — persons, marriages, biological birth, and adoption — as plain text you can read, edit, version-control, and reason about. KulaLang is the project: the language specification plus the official toolchain (`kula` CLI, `kula-lsp` language server, VSCode extension).
+Kula is a small, hand-authored language for describing human kinship — persons, marriages, biological birth, and adoption — as plain text you can read, edit, version-control, and reason about. KulaLang is the project: the language specification plus the official toolchain (`kula` CLI, `kula-lsp` language server, VSCode extension, and `@kulalang/wasm` for browser/Node consumers).
 
 ```
 kula 0.1
@@ -88,6 +88,25 @@ Speaks LSP over stdio. Most users go through the VSCode extension instead.
 
 The language server also handles a custom `kula/export` request, which is what the VSCode **Kula: Export to JSON** and **Kula: Export to Cytoscape JSON** commands call — they project the in-memory buffer (including unsaved edits) and prompt for a save location.
 
+### Use from JavaScript / TypeScript (browser or Node)
+
+```sh
+npm install @kulalang/wasm
+```
+
+```ts
+import { check, exportGraph, format } from '@kulalang/wasm';
+
+const source = 'kula 0.1\nperson alice name:"A" gender:female\n';
+
+check(source);                         // { diagnostics: [] }  ← empty = clean
+exportGraph(source);                   // { ok: true, schema: 1, kula: "0.1", graph: { … } }
+exportGraph(source, { format: 'cytoscape' });  // { ok: true, …, graph: { nodes, edges } }
+format(source);                        // canonicalized source string
+```
+
+The package ships a single `--target bundler` ESM build — works out of the box in Vite, Webpack 5+, Next.js, Turbopack, SvelteKit, Nuxt, and Astro. TypeScript types are derived from the Rust source of truth ([ADR-0012](./docs/adr/0012-tsify-derived-types-committed-and-diffed.md)) and ship with the package. The exported envelope is bit-identical to `kula export --format=json` — same bytes, server-side or browser-side.
+
 ## Learn the language
 
 - [`spec/`](./spec/README.md) — the normative Kula 0.1 specification (14 sections + EBNF grammar). Rigorous enough to implement an independent parser from.
@@ -106,9 +125,10 @@ The language server also handles a custom `kula/export` request, which is what t
 ├── Cargo.toml               # Rust workspace root
 ├── justfile                 # `just check` runs fmt + clippy + tests
 ├── crates/
-│   ├── kula-core/           # parser, AST, semantic, validator, formatter
+│   ├── kula-core/           # parser, AST, semantic, validator, formatter, export
 │   ├── kula-cli/            # `kula` binary
-│   └── kula-lsp/            # `kula-lsp` language server binary
+│   ├── kula-lsp/            # `kula-lsp` language server binary
+│   └── kula-wasm/           # `@kulalang/wasm` — browser/Node WASM bindings
 ├── docs/                    # architecture, ADRs, testing, release process
 ├── editor/vscode/           # VSCode extension (LSP-backed)
 ├── spec/                    # normative Kula 0.1 specification

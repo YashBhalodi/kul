@@ -17,7 +17,8 @@ import {
 } from '../../pkg/kula_wasm.js';
 
 // `format` accepts a string and returns a string unconditionally
-// (best-effort even on partial-parse input — see PRD-0004 user story 12).
+// (best-effort even on partial-parse input — mirrors
+// `kula_core::format::format_source`'s contract).
 const source: string = 'person alice name:"A" gender:female\n';
 const formatted: string = format(source);
 
@@ -37,7 +38,7 @@ if (schemaVersion < 1) {
 }
 
 // `check` returns `{ diagnostics }`. Empty array means clean — emptiness
-// is the discriminator (no `ok` field per PRD-0004).
+// is the discriminator (no `ok` field per ADR-0011).
 const cleanResult = check(source);
 if (cleanResult.diagnostics.length === 0) {
     // Clean-document short-circuit: downstream consumers proceed without
