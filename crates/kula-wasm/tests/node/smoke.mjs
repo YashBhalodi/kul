@@ -13,6 +13,7 @@ import {
     KULA_CORE_VERSION,
     KULA_LANGUAGE_VERSION,
     check,
+    exportGraph,
     format,
 } from '../../pkg/kula_wasm.js';
 
@@ -69,6 +70,26 @@ if (!Number.isInteger(schemaVersion) || schemaVersion < 1) {
     process.exit(1);
 }
 
+const exportEnvelope = exportGraph(source);
+if (exportEnvelope?.ok !== true) {
+    console.error(`exportGraph on clean fixture did not produce success envelope: ${JSON.stringify(exportEnvelope)}`);
+    process.exit(1);
+}
+if (typeof exportEnvelope.schema !== 'number' || exportEnvelope.schema < 1) {
+    console.error(`exportGraph schema not a positive integer: ${JSON.stringify(exportEnvelope)}`);
+    process.exit(1);
+}
+const persons = exportEnvelope.graph?.persons;
+if (!Array.isArray(persons) || persons.length === 0) {
+    console.error(`exportGraph graph.persons not a non-empty array: ${JSON.stringify(exportEnvelope.graph)}`);
+    process.exit(1);
+}
+if (typeof persons[0].name !== 'string' || persons[0].name.length === 0) {
+    console.error(`exportGraph graph.persons[0].name not a non-empty string: ${JSON.stringify(persons[0])}`);
+    process.exit(1);
+}
+
 console.log(`smoke OK — kula-core ${coreVersion}, language ${langVersion}, schema ${schemaVersion}`);
 console.log(`format produced ${formatted.length} bytes for 03-three-generations.kula`);
 console.log(`check clean → 0 diagnostics; check broken → ${brokenResult.diagnostics.length} diagnostic(s), first ${diag.code}`);
+console.log(`exportGraph clean → ${persons.length} person(s), first "${persons[0].name}"`);

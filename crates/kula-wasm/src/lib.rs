@@ -16,6 +16,11 @@
 //!   Kula source string and return a [`CheckEnvelope`] carrying every
 //!   diagnostic. Always succeeds; an empty `diagnostics` array means a clean
 //!   document — emptiness is the discriminator, no `ok` field.
+//! - [`export_graph`] — JS-visible as `exportGraph`. Lex / parse / resolve /
+//!   validate / project to the export envelope. Strict-on-errors per
+//!   [ADR-0009](../../docs/adr/0009-export-strict-on-diagnostics.md): any
+//!   error-severity diagnostic produces a [`FailureEnvelope`]; otherwise a
+//!   [`SuccessEnvelope`] carrying the kinship-native or cytoscape graph.
 //! - [`kula_core_version`] — JS-visible as `KULA_CORE_VERSION`. The version
 //!   of the `kula-core` crate compiled into this artifact.
 //! - [`kula_language_version`] — JS-visible as `KULA_LANGUAGE_VERSION`.
@@ -39,7 +44,7 @@
 //! See [PRD-0004](../../docs/prd/0004-wasm-packaging.md) for design
 //! rationale and the `check` / `exportGraph` follow-on slices.
 
-use kula_core::export::ExportedDiagnostic;
+use kula_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic};
 use serde::Serialize;
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
@@ -87,4 +92,19 @@ pub fn check(source: &str) -> CheckEnvelope {
     let result = kula_core::check(source);
     let diagnostics = kula_core::export::export_diagnostics(source, &result);
     CheckEnvelope { diagnostics }
+}
+
+#[wasm_bindgen(js_name = "exportGraph")]
+pub fn export_graph(source: &str, options: Option<ExportOptions>) -> ExportEnvelope {
+    console_error_panic_hook::set_once();
+    export_with(source, options.unwrap_or_default())
+}
+
+/// Native-callable variant of [`export_graph`]. Same semantics, but takes
+/// a typed [`ExportOptions`] so non-wasm tests can call into this crate
+/// without round-tripping through `JsValue`. The wasm-bridge `exportGraph`
+/// is a thin deserializer in front of this fn.
+pub fn export_with(source: &str, options: ExportOptions) -> ExportEnvelope {
+    let result = kula_core::check(source);
+    kula_core::export::export(source, &result, options)
 }

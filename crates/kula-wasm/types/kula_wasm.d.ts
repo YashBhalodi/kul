@@ -24,6 +24,26 @@ export interface ExportedDate {
 export type GraphPayload = ExportedGraph | CytoscapeGraph;
 
 /**
+ * Caller-tunable knobs for [`export`]. Defaults are the most common path.
+ *
+ * `Deserialize` is camelCase and field-level `default` so a JS-side caller
+ * can pass `{}`, `{ withPositions: true }`, or `{ format: \"cytoscape\" }`
+ * and the omitted fields fall back to [`ExportOptions::default`]. The
+ * `kula-wasm` `exportGraph` bridge uses this directly.
+ */
+export interface ExportOptions {
+    format?: ExportFormat;
+    /**
+     * When `true`, every exported entity carries a `span: [byte_start,
+     * byte_end]` field pointing back to its declaration in the source.
+     * Default `false` keeps the envelope compact; opt in when the
+     * consumer needs to map a click on a graph node back to a source
+     * location (\"highlight Alice\'s declaration\").
+     */
+    withPositions?: boolean;
+}
+
+/**
  * JS-side return type of [`check`]. Carries the full diagnostic list —
  * errors, warnings, and notes alike. An empty `diagnostics` array means
  * a clean document; consumers discriminate on emptiness rather than an
@@ -44,6 +64,16 @@ export interface CheckEnvelope {
  * convention of \"the data object is whatever the consumer wants.\
  */
 export type NodeData = PersonNodeData | MarriageNodeData;
+
+/**
+ * Output format for [`export`].
+ *
+ * `Deserialize` accepts the lowercase wire form (`\"json\"`, `\"cytoscape\"`)
+ * so JS-side consumers and CLI flag parsing share one vocabulary. See
+ * [`ExportOptions`] for the camelCase wrapper that `kula-wasm`\'s
+ * `exportGraph` uses on its options input.
+ */
+export type ExportFormat = "json" | "cytoscape";
 
 /**
  * The Cytoscape JSON graph shape.
@@ -255,5 +285,7 @@ export function KULA_CORE_VERSION(): string;
 export function KULA_LANGUAGE_VERSION(): string;
 
 export function check(source: string): CheckEnvelope;
+
+export function exportGraph(source: string, options?: ExportOptions | null): ExportEnvelope;
 
 export function format(source: string): string;

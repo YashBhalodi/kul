@@ -1,0 +1,124 @@
+---
+source: crates/kula-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kula": "0.1",
+  "graph": {
+    "nodes": [
+      {
+        "data": {
+          "id": "p:alice",
+          "type": "person",
+          "name": "Alice Sharma",
+          "gender": "female",
+          "born": {
+            "value": "1950-04-12",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:devraj",
+          "type": "person",
+          "name": "Devraj Kumar",
+          "gender": "male",
+          "born": {
+            "value": "1948-06-21",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:meera",
+          "type": "person",
+          "name": "Meera",
+          "gender": "female",
+          "born": {
+            "value": "1955-03-08",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:priya",
+          "type": "person",
+          "name": "Priya Kumar",
+          "gender": "female",
+          "born": {
+            "value": "1994-12-01",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_devraj_meera",
+          "type": "marriage",
+          "start": {
+            "value": "1990-01-01",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_alice_devraj",
+          "type": "marriage",
+          "start": {
+            "value": "1992-02-14",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "source": "m:m_devraj_meera",
+          "target": "p:devraj",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_devraj_meera",
+          "target": "p:meera",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_alice_devraj",
+          "target": "p:alice",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_alice_devraj",
+          "target": "p:devraj",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_alice_devraj",
+          "target": "p:priya",
+          "type": "biological_child"
+        }
+      }
+    ]
+  }
+}

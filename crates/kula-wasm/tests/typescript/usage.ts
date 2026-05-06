@@ -10,7 +10,10 @@ import {
     KULA_CORE_VERSION,
     KULA_LANGUAGE_VERSION,
     check,
+    exportGraph,
     format,
+    type ExportedGraph,
+    type CytoscapeGraph,
 } from '../../pkg/kula_wasm.js';
 
 // `format` accepts a string and returns a string unconditionally
@@ -60,6 +63,48 @@ if (firstDiagnostic !== undefined) {
 // @ts-expect-error check requires a string source
 check(42);
 
+// `exportGraph` accepts options as a typed object; omitting it is valid.
+const defaultExport = exportGraph(source);
+const positionedExport = exportGraph(source, { withPositions: true });
+const cytoscapeExport = exportGraph(source, { format: 'cytoscape' });
+
+// Discriminate success vs failure by structural narrowing — `in` checks
+// the discriminating field directly. The wire-level `ok` is a `boolean`
+// rather than a literal type, so structural narrowing is the right tool.
+let firstPersonName = '';
+let parenthoodLinkCount = 0;
+if ('graph' in defaultExport) {
+    // Narrow `GraphPayload` between native and cytoscape. The default
+    // format is `"json"` (kinship-native), so the native branch is the
+    // expected one here.
+    const graph = defaultExport.graph as ExportedGraph;
+    if (graph.persons.length > 0) {
+        firstPersonName = graph.persons[0].name;
+    }
+    for (const link of graph.parenthoodLinks) {
+        // Narrow into the link payload — every link carries marriageId
+        // and childId regardless of `kind`.
+        const _id: string = link.marriageId;
+        void _id;
+        parenthoodLinkCount += 1;
+    }
+} else {
+    // Failure branch: diagnostics carry the same shape as `check`'s.
+    const _code: string = defaultExport.diagnostics[0]?.code ?? '';
+    void _code;
+}
+
+// Cytoscape branch narrows into a different graph payload.
+let cytoscapeNodeCount = 0;
+if ('graph' in cytoscapeExport) {
+    const graph = cytoscapeExport.graph as CytoscapeGraph;
+    cytoscapeNodeCount = graph.nodes.length;
+}
+
+// Type system must reject unknown format strings.
+// @ts-expect-error "graphviz" is not a valid ExportFormat
+exportGraph(source, { format: 'graphviz' });
+
 // Suppress "unused binding" diagnostics in --noUnusedLocals mode.
 export const _exports = {
     formatted,
@@ -68,4 +113,10 @@ export const _exports = {
     schemaVersion,
     cleanResult,
     broken,
+    defaultExport,
+    positionedExport,
+    cytoscapeExport,
+    firstPersonName,
+    parenthoodLinkCount,
+    cytoscapeNodeCount,
 };

@@ -33,7 +33,7 @@
 
 pub mod cytoscape;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
@@ -59,7 +59,14 @@ pub const SCHEMA_VERSION: u32 = 1;
 pub const LANGUAGE_VERSION: &str = "0.1";
 
 /// Output format for [`export`].
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+///
+/// `Deserialize` accepts the lowercase wire form (`"json"`, `"cytoscape"`)
+/// so JS-side consumers and CLI flag parsing share one vocabulary. See
+/// [`ExportOptions`] for the camelCase wrapper that `kula-wasm`'s
+/// `exportGraph` uses on its options input.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "lowercase")]
 pub enum ExportFormat {
     /// The canonical kinship-native JSON shape — three flat collections
     /// (`persons`, `marriages`, `parenthood_links`) mirroring the
@@ -74,7 +81,14 @@ pub enum ExportFormat {
 }
 
 /// Caller-tunable knobs for [`export`]. Defaults are the most common path.
-#[derive(Debug, Clone, Copy, Default)]
+///
+/// `Deserialize` is camelCase and field-level `default` so a JS-side caller
+/// can pass `{}`, `{ withPositions: true }`, or `{ format: "cytoscape" }`
+/// and the omitted fields fall back to [`ExportOptions::default`]. The
+/// `kula-wasm` `exportGraph` bridge uses this directly.
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify), tsify(from_wasm_abi))]
+#[serde(default, rename_all = "camelCase")]
 pub struct ExportOptions {
     pub format: ExportFormat,
     /// When `true`, every exported entity carries a `span: [byte_start,
@@ -92,7 +106,7 @@ pub struct ExportOptions {
 /// carry an `ok` boolean so consumers can discriminate without inspecting
 /// other fields.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[cfg_attr(feature = "tsify", derive(Tsify), tsify(into_wasm_abi))]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum ExportEnvelope {
     Success(SuccessEnvelope),
@@ -630,6 +644,37 @@ person d name:\"D\" gender:female born:~1980
         assert!(
             s.graph.as_cytoscape().is_some(),
             "cytoscape format should produce cytoscape payload"
+        );
+    }
+
+    #[test]
+    fn export_options_deserialize_empty_object_yields_defaults() {
+        let opts: ExportOptions = serde_json::from_str("{}").unwrap();
+        assert_eq!(opts.format, ExportFormat::Json);
+        assert!(!opts.with_positions);
+    }
+
+    #[test]
+    fn export_options_deserialize_explicit_camelcase_fields() {
+        let opts: ExportOptions =
+            serde_json::from_str(r#"{"format":"cytoscape","withPositions":true}"#).unwrap();
+        assert_eq!(opts.format, ExportFormat::Cytoscape);
+        assert!(opts.with_positions);
+    }
+
+    #[test]
+    fn export_options_deserialize_partial_object_falls_back_to_defaults() {
+        let opts: ExportOptions = serde_json::from_str(r#"{"withPositions":true}"#).unwrap();
+        assert_eq!(opts.format, ExportFormat::Json);
+        assert!(opts.with_positions);
+    }
+
+    #[test]
+    fn export_format_rejects_unknown_variant() {
+        let err = serde_json::from_str::<ExportFormat>(r#""graphviz""#).unwrap_err();
+        assert!(
+            err.to_string().contains("graphviz"),
+            "error should mention the unknown variant: {err}"
         );
     }
 }
