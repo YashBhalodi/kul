@@ -58,3 +58,57 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
       - run: cargo nextest run --workspace --no-tests=pass
+
+  wasm-build:
+    name: wasm-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm-build
+      - uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: "v0.13.1"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build @kulalang/wasm
+        run: |
+          wasm-pack build crates/kula-wasm --target bundler --out-dir pkg --out-name kula_wasm
+          node -e 'const fs=require("fs"),p="crates/kula-wasm/pkg/package.json";const j=JSON.parse(fs.readFileSync(p));j.name="@kulalang/wasm";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")'
+      - name: Verify package.json shape
+        run: |
+          set -eu
+          name=$(node -p 'require("./crates/kula-wasm/pkg/package.json").name')
+          version=$(node -p 'require("./crates/kula-wasm/pkg/package.json").version')
+          ws_version=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          test "$name" = "@kulalang/wasm" || { echo "::error::package name $name != @kulalang/wasm"; exit 1; }
+          test "$version" = "$ws_version" || { echo "::error::package version $version != workspace $ws_version"; exit 1; }
+      - name: Bundle-size budget (gzipped .wasm ≤ 1 MB)
+        run: |
+          set -eu
+          size=$(gzip -c crates/kula-wasm/pkg/kula_wasm_bg.wasm | wc -c)
+          budget=$((1024 * 1024))
+          echo "gzipped .wasm: $size bytes (budget: $budget)"
+          if [ "$size" -gt "$budget" ]; then
+            echo "::error::wasm gzip size $size exceeds budget $budget"
+            exit 1
+          fi
+      - name: Refresh committed types and diff
+        run: |
+          set -eu
+          cp crates/kula-wasm/pkg/kula_wasm.d.ts crates/kula-wasm/types/kula_wasm.d.ts
+          git diff --exit-code -- crates/kula-wasm/types/ || {
+            echo "::error::generated kula_wasm.d.ts differs from committed snapshot — run \`just wasm\` and commit the diff"
+            exit 1
+          }
+      - name: Run Rust snapshot tests
+        run: cargo test -p kula-wasm
+      - name: Node smoke test
+        run: node --experimental-wasm-modules crates/kula-wasm/tests/node/smoke.mjs
+      - name: TypeScript compile-test
+        run: npx --yes -p typescript@5.6 tsc --project crates/kula-wasm/tests/typescript/tsconfig.json

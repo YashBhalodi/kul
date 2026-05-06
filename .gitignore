@@ -21,3 +21,7 @@ node_modules/
 /target
 **/*.rs.bk
 Cargo.lock.bak
+
+# WASM build output (wasm-pack). The generated `.d.ts` is extracted into
+# `crates/kula-wasm/types/` and committed; everything else is artifact-only.
+crates/kula-wasm/pkg/

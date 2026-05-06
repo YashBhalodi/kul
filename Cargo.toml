@@ -4,6 +4,7 @@ members = [
     "crates/kula-core",
     "crates/kula-cli",
     "crates/kula-lsp",
+    "crates/kula-wasm",
 ]
 
 [workspace.package]
@@ -34,6 +35,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tsify = { version = "0.5", default-features = false }
 wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
 
 [profile.release]
 lto = "thin"

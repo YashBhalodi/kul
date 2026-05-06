@@ -1,0 +1,21 @@
+---
+source: crates/kula-wasm/tests/format.rs
+expression: formatted
+---
+# Example 4: A polygamous family.
+#
+# - Devraj is concurrently married to Meera (from 1990) and Alice (from 1992).
+# - Priya is the biological daughter of Alice and Devraj.
+# - Both marriages are ongoing.
+
+kula 0.1
+
+person alice   name:"Alice Sharma"  gender:female  born:1950-04-12
+person devraj  name:"Devraj Kumar"  gender:male    born:1948-06-21
+person meera   name:"Meera"         gender:female  born:1955-03-08
+
+person priya  name:"Priya Kumar"  gender:female  born:1994-12-01
+  birth m_alice_devraj
+
+marriage m_devraj_meera devraj meera   start:1990-01-01
+marriage m_alice_devraj alice  devraj  start:1992-02-14
