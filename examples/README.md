@@ -8,6 +8,7 @@ Worked-example `.kula` documents that double as the **positive test corpus**. Ev
 | [`02-nuclear-family.kula`](./02-nuclear-family.kula)    | A `birth` sub-statement deriving parents from a marriage.                                 |
 | [`03-three-generations.kula`](./03-three-generations.kula) | Three generations, divorce (`end_reason`), retroactive adoption, circa date (`~1980`).  |
 | [`04-polygamous-family.kula`](./04-polygamous-family.kula) | Two concurrent marriages for one person; child of one of them.                          |
+| [`05-married-siblings.kula`](./05-married-siblings.kula) | Two sons of a couple, each themselves married; one block per marriage.                  |
 
 ## Try it
 
