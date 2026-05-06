@@ -131,3 +131,25 @@ The amendment adds a third position between "no alignment" and the still-rejecte
 Strict shape matching is intentional. The two alternatives — "align columns that all rows share" and "pad missing fields with whitespace" — both leak edge cases into the spec and create the surprising-diff problem this ADR set out to avoid. With strict shape matching, every block is automatically rectangular, the rule fits in one paragraph, and a field added to one statement excludes it from the surrounding block rather than re-flowing it.
 
 Idempotence and round-trip (rules 8 and 9) hold unchanged. Anti-suggestion 5 ("per-document alignment") remains in force — what the amendment adds is a smaller scope of alignment with hard, user-controlled boundaries, not the rejected version. See `spec/14-formatter-rules.md` §14.5 for the normative restatement and #35 for the ticket history.
+
+## Amendment 2026-05-06: per-region column alignment
+
+The 2026-05-05 amendment defined a *block* as a run of *consecutive* same-indent same-shape lines, bounded by four boundary types: blank line, whole-line comment, indent change, shape change. After it shipped, `examples/05-married-siblings.kula` exposed the cost of that granularity. The file's natural structure stacks two same-shape `person` lines around a `birth` sub-statement:
+
+```
+person arjun  name:"Arjun Sharma"  gender:male  born:1950-04-12
+  birth m_ramesh_sita
+person priya  name:"Priya Sharma"  gender:female  born:1952-08-19
+```
+
+The eye wants the second `person` to align with the first, but the previous rule refused: the `birth` between them broke adjacency, the `person` whose header was followed by sub-statements ended its top-level block at the header line, and the next `person` opened a fresh (one-row) block. The result was visually jittery in exactly the place readers most want column alignment — a column scan across same-shape rows.
+
+This amendment relaxes the boundary rules: the **blank line is the only region boundary**. Within a region, same-shape same-indent top-level lines form one alignment group regardless of intervening different-shape lines or whole-line comments. Sub-statements still scope per parent `person` — a sub-statement under one person never joins the alignment group of a sub-statement under a different person, even within the same region. The previous "person whose header is followed by sub-statements ends its top-level block at the header" rule is retired; it was scaffolding for the consecutive-lines model that is no longer needed.
+
+The blast radius widens slightly. Under the previous rule, editing one row of a block could reflow only its consecutive same-shape neighbors. Under this amendment, editing one row can reflow column widths for any same-shape peer in the same region — including peers separated by sub-statements or comments. The widening is bounded by blank lines, not unbounded. Authors who want two same-shape stretches *not* to share columns now have one explicit tool: a blank line.
+
+Anti-suggestion 5 ("per-document alignment") remains in force. Per-region alignment is a strict subset of per-document alignment: it lifts the consecutive-lines requirement but keeps the blank-line boundary. The diff-blast-radius argument that motivated rejecting per-document alignment is preserved, just on a wider scope than per-block.
+
+Idempotence and round-trip (rules 8 and 9) hold by construction: the alignment-group key is `(region, indent, shape, parent-scope-for-sub-statements)`; re-formatting the output uses the same regions, same shapes, same parent scopes → same group memberships → same column widths → byte-identical output. The formatter still only inserts whitespace before separators, so the parsed AST is unchanged.
+
+Corpus impact is contained: only `examples/05-married-siblings.kula` visibly changes — gaining shared columns across each son's `birth` line. Examples 01–04 are byte-identical, because their region layouts already produced one-shape-per-region groupings under the previous rule. See `spec/14-formatter-rules.md` §14.5 for the normative restatement.

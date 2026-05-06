@@ -34,26 +34,19 @@ The two-space inter-field rule is the only unusual one. It buys visual separatio
 
 Sub-statements (`birth`, `adoption`) MUST be indented with exactly two ASCII spaces. Tabs are forbidden — the lexer already treats them as parse errors.
 
-## 14.5 Per-block column alignment
+## 14.5 Per-region column alignment
 
-The formatter MUST align columns within a *block*. A block is a maximal run of consecutive lines that share an *indent* and a *shape*. The block boundaries are:
-
-- a blank line in the source,
-- a whole-line comment,
-- a change of indent (top-level vs sub-statement),
-- a change of shape.
+The formatter MUST align columns within a *region*. A region is a maximal run of lines bounded by blank lines (or document start/end). The blank line is the only region boundary — whole-line comments, indent changes, and shape changes do NOT bound regions.
 
 Two lines have the same shape iff their cell sequences match position-by-position. A line's cells are: the statement keyword; then any positional arguments in grammar order (id, spouses, marriage-ref); then any fields in the canonical order from §14.2; then optionally an inline comment as the trailing cell. Two cells have the same kind iff they are the same keyword, the same positional role, the same field name, or both are inline comments.
 
-Strict shape matching is the contract: if one line in a candidate block has a `died:` field and the next doesn't, the two lines have different shapes and form two separate (one-line) blocks, each padded independently. There is no "sparse alignment" where missing fields leave gaps; every block is automatically rectangular.
+Within a region, top-level lines that share both *shape* and *indent* form an *alignment group*. Sub-statements (`birth`, `adoption`) form alignment groups *per parent `person`*: same-shape sub-statements under one person form a group, distinct from sub-statements under any other person — even when both persons sit in the same region.
 
-Within a block, the formatter MUST pad each cell with trailing spaces so that the next column starts at the same byte offset on every line. Padding is added *before* the canonical inter-cell separator from §14.3 — so the gap between two columns is `(padding) + (single space or two spaces)`, depending on which cell kinds the gap sits between. The last cell on each line MUST NOT be padded.
+Different-shape lines within a region do not participate in any alignment group and do not influence column widths. They sit at their natural width between participating lines. Strict shape matching is the contract: if one line has a `died:` field and the next doesn't, the two lines have different shapes and belong to different groups, each padded independently. There is no "sparse alignment" where missing fields leave gaps; every group is automatically rectangular.
 
-Alignment MUST NOT extend across block boundaries. In particular, alignment NEVER ripples across a blank line; the user's choice of where to place blank lines is the per-block boundary they control.
+Within a group, the formatter MUST pad each cell with trailing spaces so that the next column starts at the same byte offset on every line of the group. Padding is added *before* the canonical inter-cell separator from §14.3 — so the gap between two columns is `(padding) + (single space or two spaces)`, depending on which cell kinds the gap sits between. The last cell on each line MUST NOT be padded.
 
-When a `person` block contains sub-statements (`birth`, `adoption`), the sub-statements form their own alignment block at indent 2. Two consecutive sub-statements of the same shape (e.g. two `adoption` lines) align column-wise; a `birth` between two `adoption`s breaks adjacency and the adoptions do not align.
-
-A `person` whose header is followed by sub-statements MUST end its top-level block at the header line; the next top-level statement starts a fresh block, even if its shape matches the previous header's. Adjacency requires the lines to be visually adjacent in the canonical output.
+Alignment MUST NOT extend across blank lines; the user's choice of where to place blank lines is the boundary they control. The blank line is now load-bearing for layout: an author who wants column widths in two stretches of same-shape lines to differ MUST split them with a blank line.
 
 ## 14.6 Blank-line handling
 

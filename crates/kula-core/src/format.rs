@@ -10,23 +10,30 @@
 //!   parses internally and threads the original bytes through so comments
 //!   round-trip per [ADR 0004] rule 7. The CLI and LSP use this entry point.
 //!
-//! ## Per-block alignment
+//! ## Per-region alignment
 //!
-//! Internally both entry points convert each rendered line to a sequence of
-//! [`Cell`]s and accumulate adjacent same-shape lines into a [`BlockBuffer`]
-//! that flushes with column padding. "Same shape" means `(indent, sequence
-//! of cell kinds)` matches exactly — so adding or removing a field from
-//! one statement automatically excludes it from the surrounding block, and
-//! the sparse-vs-rectangular question never arises. Boundaries that flush
-//! the buffer:
+//! Both entry points convert each rendered line to a sequence of [`Cell`]s
+//! and queue it into a region buffer. A *region* is the run of lines between
+//! two blank lines (or document start/end); the blank line is the only
+//! region boundary. Whole-line comments, indent changes, and shape changes
+//! do NOT bound regions.
 //!
-//! - blank line in the source (only relevant to [`format_source`]);
-//! - whole-line comment (only relevant to [`format_source`]);
-//! - shape change (any kind/field-set change);
-//! - indent change (top-level → sub-statement and back).
+//! When a region flushes, lines are bucketed into *alignment groups* by a
+//! key that captures who they share columns with:
+//!
+//! - top-level lines: `(indent, shape)`;
+//! - sub-statements (`birth`, `adoption`): `(indent, shape, parent_person_id)`,
+//!   so two sub-statements under different persons never share a group even
+//!   when they're in the same region.
+//!
+//! Within a group the formatter pads each cell so the next column starts at
+//! the same byte offset on every line of the group. Different-shape lines
+//! within a region land in their own (possibly one-line) groups and don't
+//! influence each other's widths.
 //!
 //! [ADR 0004]: https://github.com/YashBhalodi/kulalang/blob/main/docs/adr/0004-formatter-canonical-rules.md
 
+use std::collections::HashMap;
 use std::fmt::Write as _;
 
 use crate::ast::{
@@ -48,7 +55,7 @@ use crate::lexer::FieldName;
 pub fn format(doc: &Document) -> String {
     let mut emitter = Emitter::new();
     if let Some(v) = &doc.version {
-        emitter.emit_line(0, build_version_cells(v));
+        emitter.emit_top_level(0, build_version_cells(v));
     }
     for stmt in &doc.statements {
         emitter.emit_statement(stmt);
@@ -71,7 +78,7 @@ pub fn format_source(source: &str) -> String {
     SourceFormatter::new(source, result.document()).run()
 }
 
-// === Cells, shapes, and blocks ===
+// === Cells, shapes, and groups ===
 
 #[derive(Debug, Clone)]
 struct Cell {
@@ -79,7 +86,7 @@ struct Cell {
     kind: CellKind,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum CellKind {
     /// A statement keyword: `kula`, `person`, `marriage`, `birth`, `adoption`.
     Keyword,
@@ -95,106 +102,192 @@ enum CellKind {
     Comment,
 }
 
-impl CellKind {
-    /// Two cells of these kinds are "same shape" iff this returns true for
-    /// each pair at matching positions. Field names participate in the
-    /// shape signature so two persons with different field sets don't try
-    /// to align with each other.
-    fn shape_eq(self, other: CellKind) -> bool {
-        self == other
-    }
-}
-
-/// Buffers a run of consecutive same-shape lines so they can be flushed
-/// together with column padding.
-struct BlockBuffer {
+/// Identifies which lines share columns with each other within a region.
+///
+/// Two lines align iff their `GroupKey`s are equal. `parent` is `None` for
+/// top-level statements (region-scoped) and `Some(id)` for sub-statements
+/// (parent-scoped); two sub-statements under different persons therefore
+/// never collide even with identical `(indent, shape)`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct GroupKey {
     indent: usize,
     shape: Vec<CellKind>,
-    lines: Vec<Vec<Cell>>,
+    parent: Option<u32>,
 }
 
-impl BlockBuffer {
-    fn empty() -> Self {
+#[derive(Debug, Clone)]
+enum RegionItem {
+    /// A statement (or version) line that participates in an alignment group.
+    Aligned {
+        indent: usize,
+        cells: Vec<Cell>,
+        group: GroupKey,
+    },
+    /// A whole-line comment with its already-resolved indent and the raw
+    /// `#…` text. Comments never participate in alignment.
+    Comment { indent: usize, text: String },
+}
+
+// === Emitter (used by both entry points) ===
+
+struct Emitter {
+    out: String,
+    region: Vec<RegionItem>,
+    /// Monotonic id used to scope each `person`'s sub-statements. Reset at
+    /// every region flush so ids don't grow unbounded across a document.
+    next_parent_id: u32,
+}
+
+impl Emitter {
+    fn new() -> Self {
         Self {
-            indent: 0,
-            shape: Vec::new(),
-            lines: Vec::new(),
+            out: String::new(),
+            region: Vec::new(),
+            next_parent_id: 0,
         }
     }
 
-    fn is_empty(&self) -> bool {
-        self.lines.is_empty()
+    fn allocate_parent_id(&mut self) -> u32 {
+        let id = self.next_parent_id;
+        self.next_parent_id += 1;
+        id
     }
 
-    fn would_extend(&self, indent: usize, shape: &[CellKind]) -> bool {
-        if self.is_empty() {
-            return false;
-        }
-        if self.indent != indent {
-            return false;
-        }
-        if self.shape.len() != shape.len() {
-            return false;
-        }
-        self.shape
-            .iter()
-            .zip(shape.iter())
-            .all(|(a, b)| a.shape_eq(*b))
+    fn emit_top_level(&mut self, indent: usize, cells: Vec<Cell>) {
+        let shape: Vec<CellKind> = cells.iter().map(|c| c.kind).collect();
+        let group = GroupKey {
+            indent,
+            shape,
+            parent: None,
+        };
+        self.region.push(RegionItem::Aligned {
+            indent,
+            cells,
+            group,
+        });
     }
 
-    fn push(&mut self, indent: usize, shape: Vec<CellKind>, cells: Vec<Cell>) {
-        if self.is_empty() {
-            self.indent = indent;
-            self.shape = shape;
-        }
-        self.lines.push(cells);
+    fn emit_sub(&mut self, parent_id: u32, indent: usize, cells: Vec<Cell>) {
+        let shape: Vec<CellKind> = cells.iter().map(|c| c.kind).collect();
+        let group = GroupKey {
+            indent,
+            shape,
+            parent: Some(parent_id),
+        };
+        self.region.push(RegionItem::Aligned {
+            indent,
+            cells,
+            group,
+        });
     }
 
-    fn flush(&mut self, out: &mut String) {
-        if self.is_empty() {
+    fn emit_comment(&mut self, indent: usize, text: String) {
+        self.region.push(RegionItem::Comment { indent, text });
+    }
+
+    /// Compute per-group column widths and emit the buffered region. After
+    /// this returns, the buffer is empty and the parent-id counter resets,
+    /// so each region's sub-statement scoping is independent.
+    fn end_region(&mut self) {
+        if self.region.is_empty() {
             return;
         }
-        emit_block(self.indent, &self.lines, out);
-        self.lines.clear();
-        self.shape.clear();
-        self.indent = 0;
+        let mut widths: HashMap<GroupKey, Vec<usize>> = HashMap::new();
+        for item in &self.region {
+            if let RegionItem::Aligned { cells, group, .. } = item {
+                let entry = widths
+                    .entry(group.clone())
+                    .or_insert_with(|| vec![0; cells.len()]);
+                debug_assert_eq!(
+                    entry.len(),
+                    cells.len(),
+                    "GroupKey collision across different-shape rows"
+                );
+                for (i, cell) in cells.iter().enumerate() {
+                    entry[i] = entry[i].max(cell.text.chars().count());
+                }
+            }
+        }
+        let items = std::mem::take(&mut self.region);
+        for item in items {
+            match item {
+                RegionItem::Aligned {
+                    indent,
+                    cells,
+                    group,
+                } => {
+                    let cols = widths.get(&group).expect("group widths");
+                    emit_aligned_line(indent, &cells, cols, &mut self.out);
+                }
+                RegionItem::Comment { indent, text } => {
+                    for _ in 0..indent {
+                        self.out.push(' ');
+                    }
+                    self.out.push_str(&text);
+                    self.out.push('\n');
+                }
+            }
+        }
+        self.next_parent_id = 0;
+    }
+
+    fn finish(mut self) -> String {
+        self.end_region();
+        if !self.out.is_empty() && !self.out.ends_with('\n') {
+            self.out.push('\n');
+        }
+        self.out
+    }
+
+    fn emit_statement(&mut self, stmt: &Statement) {
+        match stmt {
+            Statement::Person(p) => self.emit_person(p),
+            Statement::Marriage(m) => self.emit_marriage(m),
+        }
+    }
+
+    fn emit_person(&mut self, p: &PersonStmt) {
+        self.emit_top_level(0, build_person_cells(p, None));
+        let subs = collect_sub_refs(p);
+        if subs.is_empty() {
+            return;
+        }
+        let parent = self.allocate_parent_id();
+        for sub in &subs {
+            self.emit_sub(parent, 2, build_sub_cells(sub, None));
+        }
+    }
+
+    fn emit_marriage(&mut self, m: &MarriageStmt) {
+        self.emit_top_level(0, build_marriage_cells(m, None));
     }
 }
 
-fn emit_block(indent: usize, lines: &[Vec<Cell>], out: &mut String) {
-    debug_assert!(!lines.is_empty(), "emit_block on empty");
-    let cols = lines[0].len();
-    let mut widths = vec![0usize; cols];
-    for line in lines {
-        for (i, cell) in line.iter().enumerate() {
-            // Use char count rather than byte length — the corpus is ASCII
-            // today, but a non-ASCII identifier (e.g. "Élise") should still
-            // count as one column position per Unicode scalar. Display
-            // width for CJK is a separate problem we punt on for now.
-            widths[i] = widths[i].max(cell.text.chars().count());
-        }
+fn emit_aligned_line(indent: usize, cells: &[Cell], widths: &[usize], out: &mut String) {
+    debug_assert_eq!(cells.len(), widths.len());
+    for _ in 0..indent {
+        out.push(' ');
     }
-    for line in lines {
-        for _ in 0..indent {
+    for (i, cell) in cells.iter().enumerate() {
+        out.push_str(&cell.text);
+        let is_last = i + 1 == cells.len();
+        if is_last {
+            continue;
+        }
+        // Use char count rather than byte length — the corpus is ASCII
+        // today, but a non-ASCII identifier (e.g. "Élise") should still
+        // count as one column position per Unicode scalar. Display width
+        // for CJK is a separate problem we punt on for now.
+        let pad = widths[i].saturating_sub(cell.text.chars().count());
+        for _ in 0..pad {
             out.push(' ');
         }
-        for (i, cell) in line.iter().enumerate() {
-            out.push_str(&cell.text);
-            let is_last = i + 1 == line.len();
-            if is_last {
-                continue;
-            }
-            let pad = widths[i].saturating_sub(cell.text.chars().count());
-            for _ in 0..pad {
-                out.push(' ');
-            }
-            match separator_between(cell.kind, line[i + 1].kind) {
-                Sep::Single => out.push(' '),
-                Sep::Double => out.push_str("  "),
-            }
+        match separator_between(cell.kind, cells[i + 1].kind) {
+            Sep::Single => out.push(' '),
+            Sep::Double => out.push_str("  "),
         }
-        out.push('\n');
     }
+    out.push('\n');
 }
 
 #[derive(Clone, Copy)]
@@ -215,74 +308,6 @@ fn separator_between(prev: CellKind, next: CellKind) -> Sep {
             // ever does so we don't panic.
             CellKind::Field(_) | CellKind::Comment => Sep::Single,
         },
-    }
-}
-
-// === Generic emitter (used by both entry points) ===
-
-struct Emitter {
-    out: String,
-    buffer: BlockBuffer,
-}
-
-impl Emitter {
-    fn new() -> Self {
-        Self {
-            out: String::new(),
-            buffer: BlockBuffer::empty(),
-        }
-    }
-
-    fn emit_line(&mut self, indent: usize, cells: Vec<Cell>) {
-        let shape: Vec<CellKind> = cells.iter().map(|c| c.kind).collect();
-        if !self.buffer.would_extend(indent, &shape) {
-            self.buffer.flush(&mut self.out);
-        }
-        self.buffer.push(indent, shape, cells);
-    }
-
-    /// Force the current block to flush even if the next push would extend
-    /// it. Used at boundaries that are visible to the user (blank lines,
-    /// whole-line comments) but invisible to shape matching.
-    fn flush(&mut self) {
-        self.buffer.flush(&mut self.out);
-    }
-
-    fn finish(mut self) -> String {
-        self.buffer.flush(&mut self.out);
-        if !self.out.is_empty() && !self.out.ends_with('\n') {
-            self.out.push('\n');
-        }
-        self.out
-    }
-
-    fn emit_statement(&mut self, stmt: &Statement) {
-        match stmt {
-            Statement::Person(p) => self.emit_person(p),
-            Statement::Marriage(m) => self.emit_marriage(m),
-        }
-    }
-
-    fn emit_person(&mut self, p: &PersonStmt) {
-        self.emit_line(0, build_person_cells(p, None));
-        let subs = collect_sub_refs(p);
-        if !subs.is_empty() {
-            // The person's header is the last row of the top-level block;
-            // a sub-statement at indent=2 forces a flush. After the
-            // sub-statements, the next top-level statement starts a fresh
-            // block (which may or may not align with statements before
-            // this one — alignment requires *adjacency*, and the
-            // sub-statements break adjacency).
-            self.flush();
-            for sub in &subs {
-                self.emit_line(2, build_sub_cells(sub, None));
-            }
-            self.flush();
-        }
-    }
-
-    fn emit_marriage(&mut self, m: &MarriageStmt) {
-        self.emit_line(0, build_marriage_cells(m, None));
     }
 }
 
@@ -541,8 +566,8 @@ impl<'a> SourceFormatter<'a> {
 
         if let Some(v) = &self.doc.version {
             let v_line = self.line_of_byte(v.span.start);
-            self.flush_loose(cursor_line..v_line, &mut pending_blank);
-            self.maybe_blank_separator(&mut pending_blank);
+            self.queue_loose_lines(cursor_line..v_line, &mut pending_blank);
+            self.close_region_if_pending(&mut pending_blank);
             let inline = self.inline_comment_text(v_line).map(str::to_owned);
             let mut cells = build_version_cells(v);
             if let Some(text) = inline.as_deref() {
@@ -551,7 +576,7 @@ impl<'a> SourceFormatter<'a> {
                     kind: CellKind::Comment,
                 });
             }
-            self.emitter.emit_line(0, cells);
+            self.emitter.emit_top_level(0, cells);
             cursor_line = self.line_of_byte_end(v.span.end) + 1;
         }
 
@@ -571,13 +596,13 @@ impl<'a> SourceFormatter<'a> {
             .collect();
 
         for (start_line, end_line, stmt) in stmts {
-            self.flush_loose(cursor_line..start_line, &mut pending_blank);
-            self.maybe_blank_separator(&mut pending_blank);
+            self.queue_loose_lines(cursor_line..start_line, &mut pending_blank);
+            self.close_region_if_pending(&mut pending_blank);
             self.emit_statement(stmt, start_line);
             cursor_line = end_line + 1;
         }
 
-        self.flush_loose(cursor_line..self.line_count(), &mut pending_blank);
+        self.queue_loose_lines(cursor_line..self.line_count(), &mut pending_blank);
         self.emitter.finish()
     }
 
@@ -591,49 +616,41 @@ impl<'a> SourceFormatter<'a> {
     fn emit_person(&mut self, p: &PersonStmt, header_line: usize) {
         let inline = self.inline_comment_text(header_line).map(str::to_owned);
         let cells = build_person_cells(p, inline.as_deref());
-        self.emitter.emit_line(0, cells);
+        self.emitter.emit_top_level(0, cells);
 
         let subs = collect_sub_refs(p);
         if subs.is_empty() {
             return;
         }
-        // Top-level block ends here; sub-statements start a new block at
-        // indent=2.
-        self.emitter.flush();
+        let parent = self.emitter.allocate_parent_id();
 
         let mut sub_cursor = header_line + 1;
         for sub in &subs {
             let sub_line = self.line_of_byte(sub.span_start());
-            // Whole-line comments inside the person block break the
-            // sub-statement alignment block, just like at top level.
+            // Whole-line comments inside the person block ride along in the
+            // region buffer at indent 2 (per spec §14.7). They don't break
+            // sub-statement alignment — same-shape subs under the same
+            // parent still join one group.
             for line in sub_cursor..sub_line {
                 if let Some((is_inline, range)) = self.comment_view(line) {
                     if !is_inline {
-                        self.emitter.flush();
-                        let text = &self.source[range];
-                        let mut s = String::new();
-                        for _ in 0..2 {
-                            s.push(' ');
-                        }
-                        s.push_str(text);
-                        s.push('\n');
-                        self.emitter.out.push_str(&s);
+                        let text = self.source[range].to_string();
+                        self.emitter.emit_comment(2, text);
                     }
                 }
                 // Blank lines inside a person block are removed (ADR rule 6).
             }
             let inline = self.inline_comment_text(sub_line).map(str::to_owned);
             let cells = build_sub_cells(sub, inline.as_deref());
-            self.emitter.emit_line(2, cells);
+            self.emitter.emit_sub(parent, 2, cells);
             sub_cursor = sub_line + 1;
         }
-        self.emitter.flush();
     }
 
     fn emit_marriage(&mut self, m: &MarriageStmt, header_line: usize) {
         let inline = self.inline_comment_text(header_line).map(str::to_owned);
         let cells = build_marriage_cells(m, inline.as_deref());
-        self.emitter.emit_line(0, cells);
+        self.emitter.emit_top_level(0, cells);
     }
 
     fn line_count(&self) -> usize {
@@ -691,9 +708,11 @@ impl<'a> SourceFormatter<'a> {
             .all(|b| b == b' ' || b == b'\t' || b == b'\r' || b == b'\n')
     }
 
-    /// Walk `range` of source lines, emitting whole-line comments at column 0
-    /// and accumulating blank-line state for collapse.
-    fn flush_loose(&mut self, range: std::ops::Range<usize>, pending_blank: &mut bool) {
+    /// Walk `range` of source lines between two top-level statements: queue
+    /// any whole-line comments into the current region (or close the region
+    /// first if a blank line appeared) and remember whether a blank line was
+    /// seen so the caller can emit a separator before the next statement.
+    fn queue_loose_lines(&mut self, range: std::ops::Range<usize>, pending_blank: &mut bool) {
         for line in range {
             if let Some((is_inline, text_range)) = self.comment_view(line) {
                 if is_inline {
@@ -701,14 +720,12 @@ impl<'a> SourceFormatter<'a> {
                     // comment is appended where the statement is rendered.
                     continue;
                 }
-                self.emitter.flush();
-                if *pending_blank && !self.emitter.out.is_empty() {
-                    self.emitter.out.push('\n');
+                if *pending_blank {
+                    self.close_region(true);
+                    *pending_blank = false;
                 }
-                *pending_blank = false;
-                let text = &self.source[text_range];
-                self.emitter.out.push_str(text);
-                self.emitter.out.push('\n');
+                let text = self.source[text_range].to_string();
+                self.emitter.emit_comment(0, text);
                 continue;
             }
             if self.line_is_blank(line) {
@@ -717,16 +734,21 @@ impl<'a> SourceFormatter<'a> {
         }
     }
 
-    fn maybe_blank_separator(&mut self, pending_blank: &mut bool) {
+    fn close_region_if_pending(&mut self, pending_blank: &mut bool) {
         if *pending_blank {
-            // A blank line is a hard block boundary even if the surrounding
-            // shapes match — the user's whitespace is the signal.
-            self.emitter.flush();
-            if !self.emitter.out.is_empty() {
-                self.emitter.out.push('\n');
-            }
+            self.close_region(true);
+            *pending_blank = false;
         }
-        *pending_blank = false;
+    }
+
+    /// End the current region, optionally emitting a blank-line separator
+    /// before the next region begins. The blank line is suppressed when the
+    /// output is empty so the file never starts with one (ADR rule 6).
+    fn close_region(&mut self, emit_blank: bool) {
+        self.emitter.end_region();
+        if emit_blank && !self.emitter.out.is_empty() {
+            self.emitter.out.push('\n');
+        }
     }
 }
 
@@ -958,8 +980,9 @@ mod tests {
     }
 
     #[test]
-    fn shape_change_breaks_block() {
-        // alice has born; bob doesn't. Different shapes → no alignment.
+    fn shape_change_does_not_pull_columns_together() {
+        // alice has born; bob doesn't. Different shapes → independent groups
+        // even within the same region.
         let src = "person alice name:\"Alice\" gender:female born:1950\n\
                    person bo name:\"Bob\" gender:male\n";
         let out = format_source(src);
@@ -971,7 +994,7 @@ mod tests {
     }
 
     #[test]
-    fn blank_line_breaks_block() {
+    fn blank_line_breaks_alignment() {
         let src = "person alice name:\"Alice\" gender:female\n\
                    \n\
                    person bo name:\"Bob\" gender:male\n";
@@ -985,7 +1008,9 @@ mod tests {
     }
 
     #[test]
-    fn whole_line_comment_breaks_block() {
+    fn whole_line_comment_is_transparent_to_alignment() {
+        // Comments no longer break alignment under the per-region rule —
+        // same-shape lines on either side of a comment join one group.
         let src = "person alice name:\"Alice\" gender:female\n\
                    # divider\n\
                    person bo name:\"Bob\" gender:male\n";
@@ -994,7 +1019,7 @@ mod tests {
             out,
             "person alice  name:\"Alice\"  gender:female\n\
              # divider\n\
-             person bo  name:\"Bob\"  gender:male\n"
+             person bo     name:\"Bob\"    gender:male\n"
         );
     }
 
@@ -1021,7 +1046,7 @@ mod tests {
 
     #[test]
     fn sub_statements_align_within_a_person_block() {
-        // Two adoptions with same shape: they form an aligned block.
+        // Two adoptions with same shape under one person align.
         let src = "person alice name:\"A\" gender:female\n\
                    person bb name:\"B\" gender:male\n\
                    marriage m alice bb start:1972\n\
@@ -1036,19 +1061,39 @@ mod tests {
     }
 
     #[test]
-    fn person_with_substatement_does_not_align_to_neighbors() {
-        // alice has a sub-statement; bob doesn't. The sub-statement breaks
-        // alice's adjacency with the next top-level person.
+    fn sub_statements_under_different_persons_do_not_cross_align() {
+        // Two persons in the same region, each with one adoption. Because
+        // sub-statements scope per parent, the adoption-id columns are sized
+        // independently and the longer id does not pad the shorter one.
+        let src = "person alice name:\"A\" gender:female\n\
+                   \x20\x20adoption m_short  start:1980\n\
+                   person bob name:\"B\" gender:male\n\
+                   \x20\x20adoption m_a_much_longer_id  start:1985\n";
+        let out = format_source(src);
+        assert!(
+            out.contains("  adoption m_short  start:1980\n"),
+            "alice's adoption should be at natural width, got:\n{out}"
+        );
+        assert!(
+            out.contains("  adoption m_a_much_longer_id  start:1985\n"),
+            "bob's adoption should be at natural width, got:\n{out}"
+        );
+    }
+
+    #[test]
+    fn person_with_substatement_aligns_to_neighbor_across_sub() {
+        // Per the 2026-05-06 amendment: a sub-statement between two same-
+        // shape persons no longer breaks alignment.
         let src = "person alice name:\"A\" gender:female\n\
                    \x20\x20birth m_a\n\
                    person bo name:\"B\" gender:male\n";
         let out = format_source(src);
-        // alice's columns are independent of bob's.
+        // alice and bo share columns; the birth sits at indent 2 between.
         assert_eq!(
             out,
             "person alice  name:\"A\"  gender:female\n\
              \x20\x20birth m_a\n\
-             person bo  name:\"B\"  gender:male\n"
+             person bo     name:\"B\"  gender:male\n"
         );
     }
 
@@ -1065,12 +1110,12 @@ mod tests {
     }
 
     #[test]
-    fn inline_comment_on_one_row_breaks_block() {
+    fn inline_comment_on_one_row_does_not_pull_columns_together() {
         let src = "person alice name:\"Alice\" gender:female  # alpha\n\
                    person bo name:\"Bob\" gender:male\n";
         let out = format_source(src);
         // alice has an extra cell (the comment); bo does not. Different
-        // shapes → independent layouts.
+        // shapes → independent groups inside the same region.
         assert_eq!(
             out,
             "person alice  name:\"Alice\"  gender:female  # alpha\n\

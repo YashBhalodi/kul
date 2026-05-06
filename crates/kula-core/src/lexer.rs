@@ -52,7 +52,7 @@ pub enum TokenKind {
     Error(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FieldName {
     Name,
     Family,
