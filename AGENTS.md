@@ -25,16 +25,16 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 
 ## Where to look first
 
-| You need to…                                | Read                                   |
-| ------------------------------------------- | -------------------------------------- |
-| Understand the language                     | [`spec/`](./spec/README.md)            |
-| Understand the codebase shape               | [`docs/architecture.md`](./docs/architecture.md) |
-| Understand the domain vocabulary            | [`CONTEXT.md`](./CONTEXT.md)           |
-| Understand a major design decision          | [`docs/adr/`](./docs/adr/)             |
-| Understand product scope of an epic         | [`docs/prd/`](./docs/prd/)             |
-| Add a test or perf budget                   | [`docs/testing.md`](./docs/testing.md) |
-| Cut a release                               | [`docs/release.md`](./docs/release.md) |
-| Triage / file an issue                      | [`docs/agents/issue-tracker.md`](./docs/agents/issue-tracker.md), [`docs/agents/triage-labels.md`](./docs/agents/triage-labels.md) |
+| You need to…                        | Read                                                                                                                               |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Understand the language             | [`spec/`](./spec/README.md)                                                                                                        |
+| Understand the codebase shape       | [`docs/architecture.md`](./docs/architecture.md)                                                                                   |
+| Understand the domain vocabulary    | [`CONTEXT.md`](./CONTEXT.md)                                                                                                       |
+| Understand a major design decision  | [`docs/adr/`](./docs/adr/)                                                                                                         |
+| Understand product scope of an epic | [`docs/prd/`](./docs/prd/)                                                                                                         |
+| Add a test or perf budget           | [`docs/testing.md`](./docs/testing.md)                                                                                             |
+| Cut a release                       | [`docs/release.md`](./docs/release.md)                                                                                             |
+| Triage / file an issue              | [`docs/agents/issue-tracker.md`](./docs/agents/issue-tracker.md), [`docs/agents/triage-labels.md`](./docs/agents/triage-labels.md) |
 
 ## Rust development
 
@@ -67,56 +67,6 @@ A change is done when:
 2. New behavior is covered by tests in the appropriate crate. Snapshot tests (via `insta`) are the default for parser / validator / LSP-feature output — see [`docs/testing.md`](./docs/testing.md) and [ADR-0003](./docs/adr/0003-snapshot-tests-as-primary-validation.md).
 3. Public items have rustdoc; clippy lints are at deny level (no `#[allow]` without a justifying comment).
 4. If a non-obvious design choice is being made, it lands as an ADR in [`docs/adr/`](./docs/adr/) — not as a code comment that a future agent might "simplify" away.
-
-## Workflow
-
-The standard loop, end to end. Each step links to the doc that owns the detail.
-
-### 1. Pick or file an issue
-
-All work starts as a [GitHub issue](https://github.com/YashBhalodi/kulalang/issues). New ideas land with `needs-triage`; once specified they get `ready-for-agent` (AFK-suitable) or `ready-for-human`. Conventions: [`docs/agents/issue-tracker.md`](./docs/agents/issue-tracker.md), label mapping: [`docs/agents/triage-labels.md`](./docs/agents/triage-labels.md).
-
-### 2. Branch and commit
-
-- Work on a topic branch off `main`. No long-lived branches.
-- Commits are **imperative and descriptive**, lead with a verb (e.g. `Cache ResolvedDocument, share source via Arc`). No conventional-commits prefixes (`feat:`, `fix:`). One logical change per commit; squash WIPs before opening a PR.
-- Every commit must keep `just check` green.
-
-### 3. Make the change
-
-- Use the recipes in [`docs/architecture.md` § "Where to add X"](./docs/architecture.md) — they cover validator rules, LSP features, AST variants, fields, sub-cases, and CLI subcommands.
-- Query through the seams (`ResolvedDocument`, `node_at`, `entity_reference`, `field_meta`). Don't iterate `document.statements` from a feature module — that's [ADR-0001](./docs/adr/0001-resolved-document-as-query-seam.md) territory.
-- Use the vocabulary in [`CONTEXT.md`](./CONTEXT.md). If the concept isn't there, either rename or extend the glossary in the same change.
-- AST and field changes are **additive only** — never reorder, rename, or remove existing variants. New fields are optional unless the spec marks them required.
-
-### 4. Cover with tests
-
-- Snapshot test by default for anything that emits structured output (diagnostics, AST, completion lists, hover Markdown, formatted source, semantic-token streams). [`docs/testing.md`](./docs/testing.md) has the full layout, snapshot workflow (`cargo insta review`), and the test-addition checklist.
-- Validator rules: positive case + negative case + diagnostic snapshot, named `rule_NN_<short_name>`.
-- Examples under `examples/*.kula` are the positive test corpus — adding one pulls it into the test suite automatically. Don't put failing fixtures in `examples/`; inline `&str` literals next to the test.
-- Perf-sensitive paths get a `#[test]` in [`crates/kula-lsp/tests/perf.rs`](./crates/kula-lsp/tests/perf.rs) with a 5× ceiling and the real target documented in a comment.
-
-### 5. Add an ADR if a non-obvious choice is being made
-
-ADRs in [`docs/adr/`](./docs/adr/) capture *why* a load-bearing decision was made. Add one when:
-
-- Choosing between two viable designs and the choice will influence later decisions.
-- Settling a rule that downstream code or specs will depend on (e.g. formatter canonicality, ADR-0004).
-- Closing off a tempting alternative that future agents might re-propose ("anti-suggestion").
-
-Do **not** add an ADR for routine refactors, bug fixes, or restating something that's already clear in the code.
-
-ADR file naming: `NNNN-kebab-short-title.md` with the next free `NNNN`. Frontmatter: status (`Accepted` / `Superseded by ADR-XXXX`), date (ISO), deciders. Sections: Context → Decision → Consequences → Anti-suggestions.
-
-### 6. Open the PR
-
-- Title: short imperative summary.
-- Body: link the issue (`Fixes #N`), describe the user-visible change, call out anything reviewers should look at twice. PR descriptions are not commit messages — explain the *why*.
-- CI runs the same `just check` plus the extension lint workflow. Both must be green before merge.
-
-### 7. Cut a release (when appropriate)
-
-The CLI, language server, and VSCode extension release in lockstep — one tag, one pipeline. Procedure: [`docs/release.md`](./docs/release.md). The `verify` job blocks tagging if `Cargo.toml`, `editor/vscode/package.json`, and the git tag drift apart.
 
 ## Domain vocabulary
 
