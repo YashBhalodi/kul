@@ -96,6 +96,10 @@ clean_example!(
     "04-polygamous-family"
 );
 clean_example!(example_05_married_siblings_is_clean, "05-married-siblings");
+clean_example!(
+    example_06_three_branch_dynasty_is_clean,
+    "06-three-branch-dynasty"
+);
 
 #[test]
 fn every_example_has_a_dedicated_clean_check_test() {
@@ -113,6 +117,7 @@ fn every_example_has_a_dedicated_clean_check_test() {
         "03-three-generations",
         "04-polygamous-family",
         "05-married-siblings",
+        "06-three-branch-dynasty",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),

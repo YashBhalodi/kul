@@ -1,0 +1,472 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "nodes": [
+      {
+        "data": {
+          "id": "p:govind",
+          "type": "person",
+          "name": "Govind Iyer",
+          "gender": "male",
+          "born": {
+            "value": "1900-02-14",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:lakshmi",
+          "type": "person",
+          "name": "Lakshmi Iyer",
+          "gender": "female",
+          "born": {
+            "value": "1903-09-21",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:arjun",
+          "type": "person",
+          "name": "Arjun Iyer",
+          "gender": "male",
+          "born": {
+            "value": "1925-04-10",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:indira",
+          "type": "person",
+          "name": "Indira Iyer",
+          "gender": "female",
+          "born": {
+            "value": "1928-11-12",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:dilip",
+          "type": "person",
+          "name": "Dilip Iyer",
+          "gender": "male",
+          "born": {
+            "value": "1948-08-05",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:hema",
+          "type": "person",
+          "name": "Hema Iyer",
+          "gender": "female",
+          "born": {
+            "value": "1950-12-03",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:eshwar",
+          "type": "person",
+          "name": "Eshwar Iyer",
+          "gender": "male",
+          "born": {
+            "value": "1950-03-22",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:ila",
+          "type": "person",
+          "name": "Ila Iyer",
+          "gender": "female",
+          "born": {
+            "value": "1952-07-09",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:bharat",
+          "type": "person",
+          "name": "Bharat Iyer",
+          "gender": "male",
+          "born": {
+            "value": "1928-09-15",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:janaki",
+          "type": "person",
+          "name": "Janaki Iyer",
+          "gender": "female",
+          "born": {
+            "value": "1930-04-28",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:mohan",
+          "type": "person",
+          "name": "Mohan Iyer",
+          "gender": "male",
+          "born": {
+            "value": "1951-06-04",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:jyoti",
+          "type": "person",
+          "name": "Jyoti Iyer",
+          "gender": "female",
+          "born": {
+            "value": "1953-01-17",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:chitra",
+          "type": "person",
+          "name": "Chitra Iyer",
+          "gender": "female",
+          "born": {
+            "value": "1931-12-25",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:karan",
+          "type": "person",
+          "name": "Karan Iyer",
+          "gender": "male",
+          "born": {
+            "value": "1929-10-14",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:gaurav",
+          "type": "person",
+          "name": "Gaurav Iyer",
+          "gender": "male",
+          "born": {
+            "value": "1953-05-11",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:kamala",
+          "type": "person",
+          "name": "Kamala Iyer",
+          "gender": "female",
+          "born": {
+            "value": "1955-09-30",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_govind_lakshmi",
+          "type": "marriage",
+          "start": {
+            "value": "1922-05-30",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_arjun_indira",
+          "type": "marriage",
+          "start": {
+            "value": "1947-06-18",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_dilip_hema",
+          "type": "marriage",
+          "start": {
+            "value": "1970-02-14",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_eshwar_ila",
+          "type": "marriage",
+          "start": {
+            "value": "1972-10-30",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_bharat_janaki",
+          "type": "marriage",
+          "start": {
+            "value": "1950-11-19",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_mohan_jyoti",
+          "type": "marriage",
+          "start": {
+            "value": "1974-03-08",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_chitra_karan",
+          "type": "marriage",
+          "start": {
+            "value": "1952-08-22",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_gaurav_kamala",
+          "type": "marriage",
+          "start": {
+            "value": "1975-12-05",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "source": "m:m_govind_lakshmi",
+          "target": "p:govind",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_govind_lakshmi",
+          "target": "p:lakshmi",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_arjun_indira",
+          "target": "p:arjun",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_arjun_indira",
+          "target": "p:indira",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_dilip_hema",
+          "target": "p:dilip",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_dilip_hema",
+          "target": "p:hema",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_eshwar_ila",
+          "target": "p:eshwar",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_eshwar_ila",
+          "target": "p:ila",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_bharat_janaki",
+          "target": "p:bharat",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_bharat_janaki",
+          "target": "p:janaki",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_mohan_jyoti",
+          "target": "p:mohan",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_mohan_jyoti",
+          "target": "p:jyoti",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_chitra_karan",
+          "target": "p:chitra",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_chitra_karan",
+          "target": "p:karan",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_gaurav_kamala",
+          "target": "p:gaurav",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_gaurav_kamala",
+          "target": "p:kamala",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_govind_lakshmi",
+          "target": "p:arjun",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_arjun_indira",
+          "target": "p:dilip",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_arjun_indira",
+          "target": "p:eshwar",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_govind_lakshmi",
+          "target": "p:bharat",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_bharat_janaki",
+          "target": "p:mohan",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_govind_lakshmi",
+          "target": "p:chitra",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_chitra_karan",
+          "target": "p:gaurav",
+          "type": "biological_child"
+        }
+      }
+    ]
+  }
+}

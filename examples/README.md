@@ -9,6 +9,7 @@ Worked-example `.kul` documents that double as the **positive test corpus**. Eve
 | [`03-three-generations.kul`](./03-three-generations.kul) | Three generations, divorce (`end_reason`), retroactive adoption, circa date (`~1980`).  |
 | [`04-polygamous-family.kul`](./04-polygamous-family.kul) | Two concurrent marriages for one person; child of one of them.                          |
 | [`05-married-siblings.kul`](./05-married-siblings.kul) | Two sons of a couple, each themselves married; one block per marriage.                  |
+| [`06-three-branch-dynasty.kul`](./06-three-branch-dynasty.kul) | Three-branch dynasty: founders, three married children, four married grandchildren spread across the branches. |
 
 ## Try it
 

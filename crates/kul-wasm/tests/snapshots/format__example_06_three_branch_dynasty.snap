@@ -1,0 +1,66 @@
+---
+source: crates/kul-wasm/tests/format.rs
+expression: formatted
+---
+# Example 6: Three-branch dynasty.
+#
+# - A founder couple (Govind & Lakshmi) has three married children:
+#   two sons (Arjun the eldest, Bharat) and one daughter (Chitra).
+# - Arjun has two married sons (Dilip, Eshwar).
+# - Bharat and Chitra each have one married son (Mohan, Gaurav).
+# - Eight marriages spanning three generations; seven `birth`
+#   sub-statements derive Gen 2 and Gen 3 from their parents'
+#   marriages.
+
+kul 0.1
+
+# ---- Generation 1 (founders) ----
+person govind   name:"Govind Iyer"   gender:male    born:1900-02-14
+person lakshmi  name:"Lakshmi Iyer"  gender:female  born:1903-09-21
+
+marriage m_govind_lakshmi govind lakshmi  start:1922-05-30
+
+# ---- Arjun's branch (eldest son) ----
+person arjun   name:"Arjun Iyer"   gender:male    born:1925-04-10
+  birth m_govind_lakshmi
+person indira  name:"Indira Iyer"  gender:female  born:1928-11-12
+
+marriage m_arjun_indira arjun indira  start:1947-06-18
+
+person dilip  name:"Dilip Iyer"  gender:male    born:1948-08-05
+  birth m_arjun_indira
+person hema   name:"Hema Iyer"   gender:female  born:1950-12-03
+
+marriage m_dilip_hema dilip hema  start:1970-02-14
+
+person eshwar  name:"Eshwar Iyer"  gender:male    born:1950-03-22
+  birth m_arjun_indira
+person ila     name:"Ila Iyer"     gender:female  born:1952-07-09
+
+marriage m_eshwar_ila eshwar ila  start:1972-10-30
+
+# ---- Bharat's branch (second son) ----
+person bharat  name:"Bharat Iyer"  gender:male    born:1928-09-15
+  birth m_govind_lakshmi
+person janaki  name:"Janaki Iyer"  gender:female  born:1930-04-28
+
+marriage m_bharat_janaki bharat janaki  start:1950-11-19
+
+person mohan  name:"Mohan Iyer"  gender:male    born:1951-06-04
+  birth m_bharat_janaki
+person jyoti  name:"Jyoti Iyer"  gender:female  born:1953-01-17
+
+marriage m_mohan_jyoti mohan jyoti  start:1974-03-08
+
+# ---- Chitra's branch (daughter) ----
+person chitra  name:"Chitra Iyer"  gender:female  born:1931-12-25
+  birth m_govind_lakshmi
+person karan   name:"Karan Iyer"   gender:male    born:1929-10-14
+
+marriage m_chitra_karan chitra karan  start:1952-08-22
+
+person gaurav  name:"Gaurav Iyer"  gender:male    born:1953-05-11
+  birth m_chitra_karan
+person kamala  name:"Kamala Iyer"  gender:female  born:1955-09-30
+
+marriage m_gaurav_kamala gaurav kamala  start:1975-12-05

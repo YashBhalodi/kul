@@ -41,6 +41,7 @@ example_snapshot!(example_02_nuclear_family, "02-nuclear-family");
 example_snapshot!(example_03_three_generations, "03-three-generations");
 example_snapshot!(example_04_polygamous_family, "04-polygamous-family");
 example_snapshot!(example_05_married_siblings, "05-married-siblings");
+example_snapshot!(example_06_three_branch_dynasty, "06-three-branch-dynasty");
 
 #[test]
 fn every_example_has_a_dedicated_snapshot_test() {
@@ -58,6 +59,7 @@ fn every_example_has_a_dedicated_snapshot_test() {
         "03-three-generations",
         "04-polygamous-family",
         "05-married-siblings",
+        "06-three-branch-dynasty",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),

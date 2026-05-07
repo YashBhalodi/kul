@@ -119,6 +119,12 @@ example_snapshot!(
     example_05_married_siblings_cytoscape,
     "05-married-siblings"
 );
+example_snapshot!(
+    example_06_three_branch_dynasty,
+    example_06_three_branch_dynasty_with_positions,
+    example_06_three_branch_dynasty_cytoscape,
+    "06-three-branch-dynasty"
+);
 
 #[test]
 fn positions_off_by_default_omits_span_field() {
@@ -172,6 +178,7 @@ fn every_example_has_a_dedicated_snapshot_test() {
         "03-three-generations",
         "04-polygamous-family",
         "05-married-siblings",
+        "06-three-branch-dynasty",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),
