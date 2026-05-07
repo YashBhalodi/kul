@@ -191,4 +191,4 @@ The semver-bump-and-tag procedure is the only path forward. There's no concept o
 
 - The unified release workflow: [`.github/workflows/release.yml`](../.github/workflows/release.yml)
 - Per-PR extension lint: [`.github/workflows/vscode-extension.yml`](../.github/workflows/vscode-extension.yml)
-- Local-dev install paths for the extension: [`editor/vscode/README.md`](../editor/vscode/README.md)
+- Local-dev install paths for the extension: [`editor/vscode/DEVELOPING.md`](../editor/vscode/DEVELOPING.md)

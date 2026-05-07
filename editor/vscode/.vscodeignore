@@ -14,3 +14,4 @@ tsconfig.json
 **/*.ts
 !out/**/*.js
 package-lock.json
+DEVELOPING.md
