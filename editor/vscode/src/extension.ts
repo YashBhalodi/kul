@@ -184,7 +184,19 @@ function bundledServerPath(
         return undefined;
     }
     const exe = process.platform === "win32" ? "kul-lsp.exe" : "kul-lsp";
-    return path.join(context.extensionPath, "server", subdir, exe);
+    const p = path.join(context.extensionPath, "server", subdir, exe);
+    // vsce's zip layer drops the execute bit, so a marketplace-installed
+    // binary lands as -rw-r--r--. Restore +x on Unix before the
+    // executable check so the bundled LSP can actually launch.
+    if (process.platform !== "win32") {
+        try {
+            fs.chmodSync(p, 0o755);
+        } catch {
+            // File may not exist (Fix A means only one platform's binary
+            // is bundled per vsix); fall through to the existence check.
+        }
+    }
+    return p;
 }
 
 function platformSubdir(

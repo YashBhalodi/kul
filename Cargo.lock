@@ -632,7 +632,7 @@ dependencies = [
 
 [[package]]
 name = "kul-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -648,7 +648,7 @@ dependencies = [
 
 [[package]]
 name = "kul-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "insta",
  "miette",
@@ -661,7 +661,7 @@ dependencies = [
 
 [[package]]
 name = "kul-lsp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "insta",
  "kul-core",
@@ -675,7 +675,7 @@ dependencies = [
 
 [[package]]
 name = "kul-wasm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "console_error_panic_hook",
  "insta",

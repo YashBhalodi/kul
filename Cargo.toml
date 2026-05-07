@@ -8,7 +8,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/YashBhalodi/kul"
@@ -19,8 +19,8 @@ rust-version = "1.85"
 all = { level = "deny", priority = -1 }
 
 [workspace.dependencies]
-kul-core = { path = "crates/kul-core", version = "0.1.0" }
-kul-lsp = { path = "crates/kul-lsp", version = "0.1.0" }
+kul-core = { path = "crates/kul-core", version = "0.1.1" }
+kul-lsp = { path = "crates/kul-lsp", version = "0.1.1" }
 miette = "7"
 thiserror = "2"
 clap = { version = "4", features = ["derive"] }
