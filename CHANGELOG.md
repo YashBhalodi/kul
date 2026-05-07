@@ -4,6 +4,14 @@ All notable changes to KulLang are documented here. The format is based on [Keep
 
 The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi.kul`) ship in lockstep — one tag, one set of artifacts. Per-component notes live under each version.
 
+## [0.1.3] — 2026-05-07
+
+CI/infrastructure release. The release pipeline now publishes the VSCode extension to the **VS Code Marketplace** alongside Open VSX. No user-facing language, library, CLI, LSP, or behavior changes; the only difference at the consumer level is that upstream VSCode users can now install via `code --install-extension YashBhalodi.kul` instead of sideloading a `.vsix` from the GitHub Release.
+
+### Pipeline
+
+- **VS Code Marketplace publishing** — `release.yml`'s `extension-publish` matrix (renamed from `openvsx-publish`) now publishes each per-platform `.vsix` to both Open VSX and the Marketplace. Pre-flight checks for `OVSX_PAT` and `VSCE_PAT` run before either publish so a missing secret fails fast without leaving the registries out of sync (#62). The Marketplace setup walkthrough — Azure DevOps publisher, PAT scope (Marketplace > Manage, All accessible organizations), and partial-failure recovery — lives in [`docs/release.md`](./docs/release.md).
+
 ## [0.1.2] — 2026-05-07
 
 CI/infrastructure release. No user-facing language, library, CLI, LSP, or extension behavior changes — every committed surface is byte-identical to `v0.1.1` aside from the lockstep version bump. Cut to keep the release pipeline exercised end-to-end against the upgraded GitHub Actions runtime baseline.

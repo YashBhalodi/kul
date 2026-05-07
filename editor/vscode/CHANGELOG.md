@@ -2,7 +2,15 @@
 
 All notable changes to the **KulLang** VSCode extension are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.1.1] — Unreleased
+## [0.1.3] — 2026-05-07
+
+The extension is now published to the **VS Code Marketplace** in addition to Open VSX. Upstream VSCode users can install with `code --install-extension YashBhalodi.kul` directly, instead of sideloading a `.vsix` from the GitHub Release. Open-VSX-consuming editors (VSCodium, Cursor, Windsurf, Theia/Che, Gitpod) continue to install from Open VSX as before. No extension behavior changes (#62).
+
+## [0.1.2] — 2026-05-07
+
+CI lockstep bump. No extension behavior changes.
+
+## [0.1.1] — 2026-05-07
 
 Hotfix for marketplace install. `v0.1.0` shipped a single un-targeted `.vsix`; Cursor's marketplace install path treats untagged extensions as platform-independent and strips bundled platform binaries on install, leaving the extension with no language server. Fixed by publishing four `--target`-tagged `.vsix` files (one per platform) and chmoding the bundled binary on activation as a belt-and-suspenders against vsce's zip layer dropping the execute bit (#59).
 
