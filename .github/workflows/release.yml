@@ -31,7 +31,7 @@ jobs:
     outputs:
       version: ${{ steps.parse.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Parse and verify versions
         id: parse
         shell: bash
@@ -84,7 +84,7 @@ jobs:
             can_run: true
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -119,7 +119,7 @@ jobs:
             tar -czf "$STAGING.tar.gz" "$STAGING"
             echo "asset=$STAGING.tar.gz" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: kul-${{ matrix.target }}
           path: ${{ steps.package.outputs.asset }}
@@ -158,7 +158,7 @@ jobs:
             can_run: true
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -192,7 +192,7 @@ jobs:
             tar -czf "$STAGING.tar.gz" "$STAGING"
             echo "asset=$STAGING.tar.gz" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: kul-lsp-${{ matrix.target }}
           path: ${{ steps.package.outputs.asset }}
@@ -208,7 +208,7 @@ jobs:
             cp "target/${{ matrix.target }}/release/kul-lsp" "raw/${{ matrix.platform_dir }}/${{ matrix.binary_name }}"
             chmod +x "raw/${{ matrix.platform_dir }}/${{ matrix.binary_name }}"
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: kul-lsp-raw-${{ matrix.platform_dir }}
           path: raw/${{ matrix.platform_dir }}
@@ -219,7 +219,7 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
@@ -229,7 +229,7 @@ jobs:
       - uses: jetli/wasm-pack-action@v0.4.0
         with:
           version: "v0.13.1"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
@@ -263,7 +263,7 @@ jobs:
           set -eu
           cp -r crates/kul-wasm/pkg kul-wasm
           tar -czf kul-wasm.tar.gz kul-wasm
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: kul-wasm
           path: kul-wasm.tar.gz
@@ -292,8 +292,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           # Pull every artifact except the raw-binary ones (those are for
@@ -313,7 +313,7 @@ jobs:
           done
           ls -la release-files/
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: v${{ needs.verify.outputs.version }}
           tag_name: ${{ github.ref_name }}
@@ -338,12 +338,12 @@ jobs:
           - linux-x64
           - win32-x64
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: "20"
       - name: Download raw kul-lsp binary for ${{ matrix.target }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: kul-lsp-raw-${{ matrix.target }}
           path: editor/vscode/server/${{ matrix.target }}
@@ -359,7 +359,7 @@ jobs:
           npx --yes @vscode/vsce package \
             --target ${{ matrix.target }} \
             -o "kul-${{ needs.verify.outputs.version }}-${{ matrix.target }}.vsix"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: kul-vsix-${{ matrix.target }}
           path: editor/vscode/kul-${{ needs.verify.outputs.version }}-${{ matrix.target }}.vsix
