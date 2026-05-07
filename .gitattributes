@@ -1,0 +1,9 @@
+# Force LF line endings on checkout for text files. Without this, Windows
+# CI runners (with `core.autocrlf=true` as default) check out `.kul` and
+# other text files with CRLF, causing `kul format --check` and other
+# byte-equality assertions to fail.
+* text=auto eol=lf
+
+# Belt-and-suspenders: explicitly mark known binaries so git never tries
+# to "fix up" line endings on them.
+*.png binary
