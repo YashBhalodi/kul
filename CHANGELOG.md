@@ -4,7 +4,17 @@ All notable changes to KulLang are documented here. The format is based on [Keep
 
 The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi.kul`) ship in lockstep — one tag, one set of artifacts. Per-component notes live under each version.
 
-## [0.1.1] — Unreleased
+## [0.1.2] — 2026-05-07
+
+CI/infrastructure release. No user-facing language, library, CLI, LSP, or extension behavior changes — every committed surface is byte-identical to `v0.1.1` aside from the lockstep version bump. Cut to keep the release pipeline exercised end-to-end against the upgraded GitHub Actions runtime baseline.
+
+### Pipeline
+
+- **All workflow actions on Node 24** — `actions/checkout@v4 → @v6`, `actions/setup-node@v4 → @v6`, `actions/upload-artifact@v4 → @v7`, `actions/download-artifact@v4 → @v8`, `softprops/action-gh-release@v2 → @v3` (#57). Closes the GitHub Actions Node 20 deprecation that takes effect 2026-06-02 (force-upgrade) and 2026-09-16 (Node 20 removal). `Swatinem/rust-cache@v2` was already on Node 24; `dtolnay/rust-toolchain@stable` and `taiki-e/install-action@nextest` are composite (no Node runtime).
+- **Replaced `jetli/wasm-pack-action@v0.4.0` (last released 2022, pinned to Node 16) with `taiki-e/install-action@v2`** for the `wasm-build` and `wasm-publish` jobs (#61). Same prebuilt `wasm-pack@0.13.1` install path, just from a maintained, Node-24 action the repo already trusts (`taiki-e/install-action` is also used to install `nextest`). Closes #55.
+- **VSCode extension dev dependencies bumped** (#56) — `@types/node 22 → 25`, `esbuild 0.24 → 0.28` (includes the GHSA-67mh-4wv8-2f99 dev-server CORS fix from 0.25; not exploitable here since the extension doesn't use esbuild's `serve` mode), `typescript 5.9 → 6.0`. The `vscode-extension.yml` lint job runs `vsce package`, which executes `tsc --noEmit && esbuild bundle` via `vscode:prepublish`, so the bumps were typecheck-and-bundle validated before merge.
+
+## [0.1.1] — 2026-05-07
 
 Hotfix for marketplace install. `v0.1.0` shipped a single un-targeted `.vsix`; Cursor's marketplace install path treats untagged extensions as platform-independent and strips bundled platform binaries on install, leaving the extension with no language server. Fixed by publishing four `--target`-tagged `.vsix` files (one per platform) and chmoding the bundled binary on activation as a belt-and-suspenders against vsce's zip layer dropping the execute bit (#59).
 
