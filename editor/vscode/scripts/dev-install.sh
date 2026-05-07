@@ -36,11 +36,9 @@ vsix="$ext_dir/kul-${version}.vsix"
 code --install-extension "$vsix" --force
 
 binary="$repo_root/target/$mode/kul-lsp"
+node "$ext_dir/scripts/update-settings.mjs" "$binary"
+
 echo
 echo "Installed kul-${version}.vsix"
 echo "LSP binary: $binary"
-echo
-echo "Next steps:"
-echo "  1. If kul.serverPath in settings.json points at a different mode,"
-echo "     update it to: $binary"
-echo "  2. Reload the VSCode window: Cmd+Shift+P -> Developer: Reload Window"
+echo "Reload the VSCode window: Cmd+Shift+P -> Developer: Reload Window"

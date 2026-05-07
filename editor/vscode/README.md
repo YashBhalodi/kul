@@ -25,22 +25,20 @@ This extension lives inside the [kul](https://github.com/YashBhalodi/kul) repo. 
 
 ### Install for development
 
-A single command builds the language server, packages the extension, and installs the `.vsix` into your system VSCode:
+A single command builds the language server, packages the extension, installs the `.vsix` into VSCode, and points `kul.serverPath` at the just-built binary:
 
 ```sh
 just vscode            # debug LSP build (fast)
 just vscode release    # optimized LSP build
 ```
 
-Re-run after every code change. Reload the VSCode window once it finishes (`Cmd+Shift+P` → `Developer: Reload Window`) to pick up the new bundle. The recipe is idempotent and uses `--force` to overwrite the previously-installed extension.
+Re-run after every code change. Reload the VSCode window once it finishes (`Cmd+Shift+P` → `Developer: Reload Window`) to pick up the new bundle. The recipe is idempotent — `--force`-overwrites the installed extension and surgically updates `kul.serverPath` in both Cursor's and VSCode's user-level `settings.json` (whichever exist). Switching between debug and release just means re-running with the other mode.
 
 **One-time setup:**
 
 ```sh
 cd editor/vscode && npm install
 ```
-
-**One-time `kul.serverPath`:** point at the locally-built LSP so the extension uses your code, not a bundled binary. Open Settings (`Cmd+,`) → search `kul.serverPath` → paste the absolute path printed by `just vscode`. To switch between debug and release, edit this setting and reload the window.
 
 **Uninstall:**
 
