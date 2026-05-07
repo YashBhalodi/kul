@@ -20,13 +20,12 @@ marriage m_ramesh_sita ramesh sita  start:1948-06-10
 # ---- Generation 2 ----
 person alice  name:"Alice Sharma"  gender:female  born:1950-04-12
   birth m_ramesh_sita
-person bob  name:"Bob Sharma"  gender:male  born:1948-11-30  died:2020-03-15
+person bob    name:"Bob Sharma"    gender:male    born:1948-11-30  died:2020-03-15
 
 marriage m_alice_bob alice bob  start:1972-05-12  end:1990-08-01  end_reason:divorce
 
 # ---- Generation 3 ----
 person carol  name:"Carol Sharma"  gender:female  born:1975-09-03
   birth m_alice_bob
-
-person ravi  name:"Ravi Sharma"  gender:male  born:~1980
+person ravi   name:"Ravi Sharma"   gender:male    born:~1980
   adoption m_alice_bob  start:1985-06-01

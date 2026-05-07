@@ -10,26 +10,32 @@
 //!   parses internally and threads the original bytes through so comments
 //!   round-trip per [ADR 0004] rule 7. The CLI and LSP use this entry point.
 //!
-//! ## Per-region alignment
+//! ## Per-region sparse alignment
 //!
 //! Both entry points convert each rendered line to a sequence of [`Cell`]s
 //! and queue it into a region buffer. A *region* is the run of lines between
 //! two blank lines (or document start/end); the blank line is the only
-//! region boundary. Whole-line comments, indent changes, and shape changes
-//! do NOT bound regions.
+//! region boundary.
 //!
 //! When a region flushes, lines are bucketed into *alignment groups* by a
 //! key that captures who they share columns with:
 //!
-//! - top-level lines: `(indent, shape)`;
-//! - sub-statements (`birth`, `adoption`): `(indent, shape, parent_person_id)`,
+//! - top-level lines: `(indent, kind)`;
+//! - sub-statements (`birth`, `adoption`): `(indent, kind, parent_person_id)`,
 //!   so two sub-statements under different persons never share a group even
 //!   when they're in the same region.
 //!
-//! Within a group the formatter pads each cell so the next column starts at
-//! the same byte offset on every line of the group. Different-shape lines
-//! within a region land in their own (possibly one-line) groups and don't
-//! influence each other's widths.
+//! Each statement kind carries a fixed canonical column ordering (matching
+//! the field-order spec §14.2). Each cell is tagged with its column index in
+//! that ordering when built. A column is *present* in a group iff at least
+//! one line in the group has a cell at that index; the column's width is the
+//! max content width across lines that carry it. When emitting a line, the
+//! formatter walks the canonical column sequence in order, padding actual
+//! cells, emitting whitespace placeholders for columns the line lacks but
+//! the group has, and stopping at the line's last actual cell — no trailing
+//! whitespace is added through subsequent column slots. Shape no longer
+//! participates in grouping; same-keyword lines share columns regardless of
+//! which optional fields each carries.
 //!
 //! [ADR 0004]: https://github.com/YashBhalodi/kul/blob/main/docs/adr/0004-formatter-canonical-rules.md
 
@@ -55,7 +61,7 @@ use crate::lexer::FieldName;
 pub fn format(doc: &Document) -> String {
     let mut emitter = Emitter::new();
     if let Some(v) = &doc.version {
-        emitter.emit_top_level(0, build_version_cells(v));
+        emitter.emit_top_level(0, KindTag::Version, build_version_cells(v));
     }
     for stmt in &doc.statements {
         emitter.emit_statement(stmt);
@@ -78,12 +84,18 @@ pub fn format_source(source: &str) -> String {
     SourceFormatter::new(source, result.document()).run()
 }
 
-// === Cells, shapes, and groups ===
+// === Cells, kinds, and groups ===
 
 #[derive(Debug, Clone)]
 struct Cell {
     text: String,
-    kind: CellKind,
+    /// Index of this cell in the canonical column ordering for its statement
+    /// kind (see [`canonical_columns`]). Each cell builder assigns this when
+    /// constructing the line so the alignment pass can place cells in their
+    /// canonical column regardless of which optional fields are present. The
+    /// cell's `CellKind` is therefore implicit — `canonical_columns(kind)[col]`
+    /// is the single source of truth.
+    col: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -102,16 +114,63 @@ enum CellKind {
     Comment,
 }
 
+/// Identifies the statement kind of a line. Drives both the canonical column
+/// ordering and the alignment-group key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum KindTag {
+    Version,
+    Person,
+    Marriage,
+    Birth,
+    Adoption,
+}
+
+/// Canonical column kinds for a statement kind, in the order they appear on
+/// a line. The column at index `i` always has the same `CellKind` for every
+/// line in a group; lines may *omit* optional columns (everything past the
+/// required structural prefix), in which case the formatter emits whitespace
+/// of that column's width if the line has any further cells to its right.
+fn canonical_columns(kind: KindTag) -> &'static [CellKind] {
+    use CellKind::*;
+    use FieldName as F;
+    match kind {
+        KindTag::Version => &[Keyword, Positional, Comment],
+        KindTag::Person => &[
+            Keyword,
+            Positional,
+            Field(F::Name),
+            Field(F::Gender),
+            Field(F::Family),
+            Field(F::Given),
+            Field(F::Born),
+            Field(F::Died),
+            Comment,
+        ],
+        KindTag::Marriage => &[
+            Keyword,
+            Positional,
+            Reference,
+            Reference,
+            Field(F::Start),
+            Field(F::End),
+            Field(F::EndReason),
+            Comment,
+        ],
+        KindTag::Birth => &[Keyword, Reference, Comment],
+        KindTag::Adoption => &[Keyword, Reference, Field(F::Start), Field(F::End), Comment],
+    }
+}
+
 /// Identifies which lines share columns with each other within a region.
 ///
 /// Two lines align iff their `GroupKey`s are equal. `parent` is `None` for
 /// top-level statements (region-scoped) and `Some(id)` for sub-statements
-/// (parent-scoped); two sub-statements under different persons therefore
-/// never collide even with identical `(indent, shape)`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// (parent-scoped); two sub-statements under different persons never share
+/// a group even with identical `(indent, kind)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct GroupKey {
     indent: usize,
-    shape: Vec<CellKind>,
+    kind: KindTag,
     parent: Option<u32>,
 }
 
@@ -153,11 +212,10 @@ impl Emitter {
         id
     }
 
-    fn emit_top_level(&mut self, indent: usize, cells: Vec<Cell>) {
-        let shape: Vec<CellKind> = cells.iter().map(|c| c.kind).collect();
+    fn emit_top_level(&mut self, indent: usize, kind: KindTag, cells: Vec<Cell>) {
         let group = GroupKey {
             indent,
-            shape,
+            kind,
             parent: None,
         };
         self.region.push(RegionItem::Aligned {
@@ -167,11 +225,10 @@ impl Emitter {
         });
     }
 
-    fn emit_sub(&mut self, parent_id: u32, indent: usize, cells: Vec<Cell>) {
-        let shape: Vec<CellKind> = cells.iter().map(|c| c.kind).collect();
+    fn emit_sub(&mut self, parent_id: u32, indent: usize, kind: KindTag, cells: Vec<Cell>) {
         let group = GroupKey {
             indent,
-            shape,
+            kind,
             parent: Some(parent_id),
         };
         self.region.push(RegionItem::Aligned {
@@ -185,26 +242,29 @@ impl Emitter {
         self.region.push(RegionItem::Comment { indent, text });
     }
 
-    /// Compute per-group column widths and emit the buffered region. After
-    /// this returns, the buffer is empty and the parent-id counter resets,
-    /// so each region's sub-statement scoping is independent.
+    /// Compute per-group, per-column widths and emit the buffered region.
+    /// After this returns, the buffer is empty and the parent-id counter
+    /// resets, so each region's sub-statement scoping is independent.
+    ///
+    /// Widths are stored per group as `Vec<Option<usize>>` indexed by the
+    /// canonical column index of the group's kind; `None` marks a column
+    /// that no line in the group carries (and therefore is *not present* in
+    /// the rendered layout — the renderer emits no placeholder for it).
     fn end_region(&mut self) {
         if self.region.is_empty() {
             return;
         }
-        let mut widths: HashMap<GroupKey, Vec<usize>> = HashMap::new();
+        let mut widths: HashMap<GroupKey, Vec<Option<usize>>> = HashMap::new();
         for item in &self.region {
             if let RegionItem::Aligned { cells, group, .. } = item {
+                let canonical = canonical_columns(group.kind);
                 let entry = widths
-                    .entry(group.clone())
-                    .or_insert_with(|| vec![0; cells.len()]);
-                debug_assert_eq!(
-                    entry.len(),
-                    cells.len(),
-                    "GroupKey collision across different-shape rows"
-                );
-                for (i, cell) in cells.iter().enumerate() {
-                    entry[i] = entry[i].max(cell.text.chars().count());
+                    .entry(*group)
+                    .or_insert_with(|| vec![None; canonical.len()]);
+                for cell in cells {
+                    let slot = &mut entry[cell.col as usize];
+                    let w = cell.text.chars().count();
+                    *slot = Some(slot.unwrap_or(0).max(w));
                 }
             }
         }
@@ -217,7 +277,7 @@ impl Emitter {
                     group,
                 } => {
                     let cols = widths.get(&group).expect("group widths");
-                    emit_aligned_line(indent, &cells, cols, &mut self.out);
+                    emit_aligned_line(indent, group.kind, &cells, cols, &mut self.out);
                 }
                 RegionItem::Comment { indent, text } => {
                     for _ in 0..indent {
@@ -247,45 +307,95 @@ impl Emitter {
     }
 
     fn emit_person(&mut self, p: &PersonStmt) {
-        self.emit_top_level(0, build_person_cells(p, None));
+        self.emit_top_level(0, KindTag::Person, build_person_cells(p, None));
         let subs = collect_sub_refs(p);
         if subs.is_empty() {
             return;
         }
         let parent = self.allocate_parent_id();
         for sub in &subs {
-            self.emit_sub(parent, 2, build_sub_cells(sub, None));
+            let (kind, cells) = build_sub_cells(sub, None);
+            self.emit_sub(parent, 2, kind, cells);
         }
     }
 
     fn emit_marriage(&mut self, m: &MarriageStmt) {
-        self.emit_top_level(0, build_marriage_cells(m, None));
+        self.emit_top_level(0, KindTag::Marriage, build_marriage_cells(m, None));
     }
 }
 
-fn emit_aligned_line(indent: usize, cells: &[Cell], widths: &[usize], out: &mut String) {
-    debug_assert_eq!(cells.len(), widths.len());
+/// Render one line of an alignment group.
+///
+/// Walks the canonical column sequence for `kind` left-to-right. For each
+/// column that is *present in the group* (i.e. has a `Some` entry in
+/// `widths`), the line either:
+///
+/// - emits the cell at that column padded to the column width (if the line
+///   carries the cell and it is not the line's last cell), or
+/// - emits the cell unpadded (if it is the line's last cell), or
+/// - emits whitespace of the column's width (if the line lacks the cell but
+///   has further actual cells to its right).
+///
+/// After the line's last actual cell the renderer stops — no trailing
+/// whitespace is emitted through subsequent column slots, because trailing
+/// whitespace would corrupt idempotence on editors that strip it.
+///
+/// Inter-column separators are determined by the two adjacent columns'
+/// canonical `CellKind`s (single space after a keyword or between
+/// positionals/references; two spaces before fields/comments). The
+/// separator is independent of which cells the current line carries.
+fn emit_aligned_line(
+    indent: usize,
+    kind: KindTag,
+    cells: &[Cell],
+    widths: &[Option<usize>],
+    out: &mut String,
+) {
+    let canonical = canonical_columns(kind);
+    debug_assert_eq!(canonical.len(), widths.len());
     for _ in 0..indent {
         out.push(' ');
     }
-    for (i, cell) in cells.iter().enumerate() {
-        out.push_str(&cell.text);
-        let is_last = i + 1 == cells.len();
-        if is_last {
+
+    // The line's last actual cell — beyond this column, the renderer stops.
+    let last_col = cells
+        .last()
+        .expect("a line always has at least the keyword cell")
+        .col;
+
+    let mut prev_col: Option<u8> = None;
+    for (col_idx, slot_width) in widths.iter().enumerate() {
+        let col_idx = col_idx as u8;
+        if col_idx > last_col {
+            break;
+        }
+        let Some(width) = *slot_width else {
             continue;
+        };
+        if let Some(prev) = prev_col {
+            match separator_between(canonical[prev as usize], canonical[col_idx as usize]) {
+                Sep::Single => out.push(' '),
+                Sep::Double => out.push_str("  "),
+            }
         }
         // Use char count rather than byte length — the corpus is ASCII
         // today, but a non-ASCII identifier (e.g. "Élise") should still
         // count as one column position per Unicode scalar. Display width
         // for CJK is a separate problem we punt on for now.
-        let pad = widths[i].saturating_sub(cell.text.chars().count());
-        for _ in 0..pad {
-            out.push(' ');
+        if let Some(cell) = cells.iter().find(|c| c.col == col_idx) {
+            out.push_str(&cell.text);
+            if col_idx != last_col {
+                let pad = width.saturating_sub(cell.text.chars().count());
+                for _ in 0..pad {
+                    out.push(' ');
+                }
+            }
+        } else {
+            for _ in 0..width {
+                out.push(' ');
+            }
         }
-        match separator_between(cell.kind, cells[i + 1].kind) {
-            Sep::Single => out.push(' '),
-            Sep::Double => out.push_str("  "),
-        }
+        prev_col = Some(col_idx);
     }
     out.push('\n');
 }
@@ -317,111 +427,117 @@ fn build_version_cells(v: &VersionDecl) -> Vec<Cell> {
     vec![
         Cell {
             text: "kul".to_string(),
-            kind: CellKind::Keyword,
+            col: 0,
         },
         Cell {
             text: v.version.clone(),
-            kind: CellKind::Positional,
+            col: 1,
         },
     ]
 }
 
 fn build_person_cells(p: &PersonStmt, inline_comment: Option<&str>) -> Vec<Cell> {
-    let mut cells = Vec::with_capacity(8);
+    let mut cells = Vec::with_capacity(9);
     cells.push(Cell {
         text: "person".to_string(),
-        kind: CellKind::Keyword,
+        col: 0,
     });
     cells.push(Cell {
         text: p.id.name.clone(),
-        kind: CellKind::Positional,
+        col: 1,
     });
-    // Spec table order: name, gender, family, given, born, died.
+    // Spec table order matches the canonical column layout for `person`:
+    // col 2 = name, 3 = gender, 4 = family, 5 = given, 6 = born, 7 = died,
+    // 8 = comment.
     if let Some(s) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Name(s) => Some(s),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Name, &quote_string(&s.value)));
+        cells.push(field_cell(FieldName::Name, &quote_string(&s.value), 2));
     }
     if let Some(g) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Gender(g) => Some(g),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Gender, gender_str(g.value)));
+        cells.push(field_cell(FieldName::Gender, gender_str(g.value), 3));
     }
     if let Some(s) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Family(s) => Some(s),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Family, &quote_string(&s.value)));
+        cells.push(field_cell(FieldName::Family, &quote_string(&s.value), 4));
     }
     if let Some(s) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Given(s) => Some(s),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Given, &quote_string(&s.value)));
+        cells.push(field_cell(FieldName::Given, &quote_string(&s.value), 5));
     }
     if let Some(d) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Born(d) => Some(d),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Born, &date_str(d)));
+        cells.push(field_cell(FieldName::Born, &date_str(d), 6));
     }
     if let Some(d) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Died(d) => Some(d),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Died, &date_str(d)));
+        cells.push(field_cell(FieldName::Died, &date_str(d), 7));
     }
     if let Some(text) = inline_comment {
         cells.push(Cell {
             text: text.to_string(),
-            kind: CellKind::Comment,
+            col: 8,
         });
     }
     cells
 }
 
 fn build_marriage_cells(m: &MarriageStmt, inline_comment: Option<&str>) -> Vec<Cell> {
-    let mut cells = Vec::with_capacity(7);
+    let mut cells = Vec::with_capacity(8);
     cells.push(Cell {
         text: "marriage".to_string(),
-        kind: CellKind::Keyword,
+        col: 0,
     });
     cells.push(Cell {
         text: m.id.name.clone(),
-        kind: CellKind::Positional,
+        col: 1,
     });
     cells.push(Cell {
         text: m.spouse_a.name.clone(),
-        kind: CellKind::Reference,
+        col: 2,
     });
     cells.push(Cell {
         text: m.spouse_b.name.clone(),
-        kind: CellKind::Reference,
+        col: 3,
     });
     if let Some(d) = m.fields.iter().find_map(|f| match &f.kind {
         MarriageFieldKind::Start(d) => Some(d),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Start, &date_str(d)));
+        cells.push(field_cell(FieldName::Start, &date_str(d), 4));
     }
     if let Some(d) = m.fields.iter().find_map(|f| match &f.kind {
         MarriageFieldKind::End(d) => Some(d),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::End, &date_str(d)));
+        cells.push(field_cell(FieldName::End, &date_str(d), 5));
     }
     if let Some(er) = m.fields.iter().find_map(|f| match &f.kind {
         MarriageFieldKind::EndReason(v) => Some(v),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::EndReason, &end_reason_str(&er.value)));
+        cells.push(field_cell(
+            FieldName::EndReason,
+            &end_reason_str(&er.value),
+            6,
+        ));
     }
     if let Some(text) = inline_comment {
         cells.push(Cell {
             text: text.to_string(),
-            kind: CellKind::Comment,
+            col: 7,
         });
     }
     cells
@@ -453,65 +569,65 @@ fn collect_sub_refs(p: &PersonStmt) -> Vec<SubRef<'_>> {
     subs
 }
 
-fn build_sub_cells(sub: &SubRef<'_>, inline_comment: Option<&str>) -> Vec<Cell> {
+fn build_sub_cells(sub: &SubRef<'_>, inline_comment: Option<&str>) -> (KindTag, Vec<Cell>) {
     match sub {
         SubRef::Birth(b) => {
             let mut cells = vec![
                 Cell {
                     text: "birth".to_string(),
-                    kind: CellKind::Keyword,
+                    col: 0,
                 },
                 Cell {
                     text: b.marriage_ref.name.clone(),
-                    kind: CellKind::Reference,
+                    col: 1,
                 },
             ];
             if let Some(text) = inline_comment {
                 cells.push(Cell {
                     text: text.to_string(),
-                    kind: CellKind::Comment,
+                    col: 2,
                 });
             }
-            cells
+            (KindTag::Birth, cells)
         }
         SubRef::Adoption(a) => {
             let mut cells = vec![
                 Cell {
                     text: "adoption".to_string(),
-                    kind: CellKind::Keyword,
+                    col: 0,
                 },
                 Cell {
                     text: a.marriage_ref.name.clone(),
-                    kind: CellKind::Reference,
+                    col: 1,
                 },
             ];
             if let Some(d) = a.fields.iter().find_map(|f| match &f.kind {
                 AdoptionFieldKind::Start(d) => Some(d),
                 _ => None,
             }) {
-                cells.push(field_cell(FieldName::Start, &date_str(d)));
+                cells.push(field_cell(FieldName::Start, &date_str(d), 2));
             }
             if let Some(d) = a.fields.iter().find_map(|f| match &f.kind {
                 AdoptionFieldKind::End(d) => Some(d),
                 _ => None,
             }) {
-                cells.push(field_cell(FieldName::End, &date_str(d)));
+                cells.push(field_cell(FieldName::End, &date_str(d), 3));
             }
             if let Some(text) = inline_comment {
                 cells.push(Cell {
                     text: text.to_string(),
-                    kind: CellKind::Comment,
+                    col: 4,
                 });
             }
-            cells
+            (KindTag::Adoption, cells)
         }
     }
 }
 
-fn field_cell(name: FieldName, value: &str) -> Cell {
+fn field_cell(name: FieldName, value: &str, col: u8) -> Cell {
     Cell {
         text: format!("{}:{}", name.as_str(), value),
-        kind: CellKind::Field(name),
+        col,
     }
 }
 
@@ -573,10 +689,10 @@ impl<'a> SourceFormatter<'a> {
             if let Some(text) = inline.as_deref() {
                 cells.push(Cell {
                     text: text.to_string(),
-                    kind: CellKind::Comment,
+                    col: 2,
                 });
             }
-            self.emitter.emit_top_level(0, cells);
+            self.emitter.emit_top_level(0, KindTag::Version, cells);
             cursor_line = self.line_of_byte_end(v.span.end) + 1;
         }
 
@@ -616,7 +732,7 @@ impl<'a> SourceFormatter<'a> {
     fn emit_person(&mut self, p: &PersonStmt, header_line: usize) {
         let inline = self.inline_comment_text(header_line).map(str::to_owned);
         let cells = build_person_cells(p, inline.as_deref());
-        self.emitter.emit_top_level(0, cells);
+        self.emitter.emit_top_level(0, KindTag::Person, cells);
 
         let subs = collect_sub_refs(p);
         if subs.is_empty() {
@@ -629,7 +745,7 @@ impl<'a> SourceFormatter<'a> {
             let sub_line = self.line_of_byte(sub.span_start());
             // Whole-line comments inside the person block ride along in the
             // region buffer at indent 2 (per spec §14.7). They don't break
-            // sub-statement alignment — same-shape subs under the same
+            // sub-statement alignment — same-keyword subs under the same
             // parent still join one group.
             for line in sub_cursor..sub_line {
                 if let Some((is_inline, range)) = self.comment_view(line) {
@@ -641,8 +757,8 @@ impl<'a> SourceFormatter<'a> {
                 // Blank lines inside a person block are removed (ADR rule 6).
             }
             let inline = self.inline_comment_text(sub_line).map(str::to_owned);
-            let cells = build_sub_cells(sub, inline.as_deref());
-            self.emitter.emit_sub(parent, 2, cells);
+            let (kind, cells) = build_sub_cells(sub, inline.as_deref());
+            self.emitter.emit_sub(parent, 2, kind, cells);
             sub_cursor = sub_line + 1;
         }
     }
@@ -650,7 +766,7 @@ impl<'a> SourceFormatter<'a> {
     fn emit_marriage(&mut self, m: &MarriageStmt, header_line: usize) {
         let inline = self.inline_comment_text(header_line).map(str::to_owned);
         let cells = build_marriage_cells(m, inline.as_deref());
-        self.emitter.emit_top_level(0, cells);
+        self.emitter.emit_top_level(0, KindTag::Marriage, cells);
     }
 
     fn line_count(&self) -> usize {
@@ -980,16 +1096,19 @@ mod tests {
     }
 
     #[test]
-    fn shape_change_does_not_pull_columns_together() {
-        // alice has born; bob doesn't. Different shapes → independent groups
-        // even within the same region.
+    fn shape_difference_aligns_on_shared_columns() {
+        // alice has `born:`; bob doesn't. Under sparse-by-field-name (ADR-0004
+        // amendment 2026-05-07), the two share columns up through their
+        // common cells: keyword, positional, name, gender. bob's line stops
+        // at his last actual cell (`gender:male`) — no whitespace placeholder
+        // for `born:` because bob has nothing further to its right.
         let src = "person alice name:\"Alice\" gender:female born:1950\n\
                    person bo name:\"Bob\" gender:male\n";
         let out = format_source(src);
         assert_eq!(
             out,
             "person alice  name:\"Alice\"  gender:female  born:1950\n\
-             person bo  name:\"Bob\"  gender:male\n"
+             person bo     name:\"Bob\"    gender:male\n"
         );
     }
 
@@ -1110,16 +1229,19 @@ mod tests {
     }
 
     #[test]
-    fn inline_comment_on_one_row_does_not_pull_columns_together() {
+    fn inline_comment_on_one_row_aligns_shared_columns() {
+        // alice has a trailing inline comment; bo does not. Under
+        // sparse-by-field-name they're still in the same group (same indent,
+        // same keyword) and share columns up through bo's last actual cell.
+        // bo's `gender:male` ends shorter — no trailing whitespace for the
+        // missing comment column.
         let src = "person alice name:\"Alice\" gender:female  # alpha\n\
                    person bo name:\"Bob\" gender:male\n";
         let out = format_source(src);
-        // alice has an extra cell (the comment); bo does not. Different
-        // shapes → independent groups inside the same region.
         assert_eq!(
             out,
             "person alice  name:\"Alice\"  gender:female  # alpha\n\
-             person bo  name:\"Bob\"  gender:male\n"
+             person bo     name:\"Bob\"    gender:male\n"
         );
     }
 
@@ -1183,5 +1305,132 @@ mod tests {
         let src = "person alice name:\"O\\\"Brien\" gender:female\n";
         let out = format_source(src);
         assert!(out.contains("name:\"O\\\"Brien\""));
+    }
+
+    #[test]
+    fn person_with_extra_died_field_aligns_shared_columns_with_neighbor() {
+        // Reproduces the Gen 2 case from examples/03-three-generations.kul:
+        // alice (no `died`) and bob (with `died`) are consecutive in the same
+        // region. The user expects the columns they share — name, gender,
+        // born — to line up; bob's extra `died:` cell sits past the shared
+        // prefix at its natural width.
+        let src = "person alice name:\"Alice Sharma\" gender:female born:1950-04-12\n\
+                   person bob name:\"Bob Sharma\" gender:male born:1948-11-30 died:2020-03-15\n";
+        let out = format_source(src);
+        assert_eq!(
+            out,
+            "person alice  name:\"Alice Sharma\"  gender:female  born:1950-04-12\n\
+             person bob    name:\"Bob Sharma\"    gender:male    born:1948-11-30  died:2020-03-15\n"
+        );
+    }
+
+    #[test]
+    fn missing_middle_field_inserts_whitespace_placeholder() {
+        // alice has [name, gender, born]; bob has [name, gender, family,
+        // born, died]. `family:` is in the middle of bob's line per spec
+        // §14.2 canonical order. Sparse-by-field-name puts a whitespace
+        // placeholder of `family:`-column-width on alice's line so her
+        // `born:` column-aligns with bob's.
+        let src = "person alice name:\"Alice\" gender:female born:1950\n\
+                   person bob name:\"Bob\" gender:male family:\"Sharma\" born:1948 died:2020\n";
+        let out = format_source(src);
+        assert_eq!(
+            out,
+            "person alice  name:\"Alice\"  gender:female                   born:1950\n\
+             person bob    name:\"Bob\"    gender:male    family:\"Sharma\"  born:1948  died:2020\n"
+        );
+    }
+
+    #[test]
+    fn adjacent_regions_size_columns_independently() {
+        // Two regions of `person` lines, separated by a blank line. Each
+        // region has its own multi-line group with its own widest cells, so
+        // a long id in region A must not pad ids in region B.
+        let src = "person alexandria name:\"A\" gender:female\n\
+                   person beatrice   name:\"B\" gender:female\n\
+                   \n\
+                   person c name:\"C\" gender:male\n\
+                   person d name:\"D\" gender:male\n";
+        let out = format_source(src);
+        assert_eq!(
+            out,
+            "person alexandria  name:\"A\"  gender:female\n\
+             person beatrice    name:\"B\"  gender:female\n\
+             \n\
+             person c  name:\"C\"  gender:male\n\
+             person d  name:\"D\"  gender:male\n"
+        );
+    }
+
+    #[test]
+    fn three_regions_each_keep_their_own_widths() {
+        // Region 1 has the widest `name:` (long string); region 2 has the
+        // widest id; region 3 is narrowest. Confirms each region's column
+        // widths are computed in isolation — no cross-region bleed.
+        let src = "person a name:\"Alexandria the Great\" gender:female\n\
+                   person b name:\"Bo\"                    gender:female\n\
+                   \n\
+                   person aaaaa name:\"X\" gender:male\n\
+                   person bbbbb name:\"Y\" gender:male\n\
+                   \n\
+                   person p name:\"P\" gender:other\n\
+                   person q name:\"Q\" gender:other\n";
+        let out = format_source(src);
+        assert_eq!(
+            out,
+            "person a  name:\"Alexandria the Great\"  gender:female\n\
+             person b  name:\"Bo\"                    gender:female\n\
+             \n\
+             person aaaaa  name:\"X\"  gender:male\n\
+             person bbbbb  name:\"Y\"  gender:male\n\
+             \n\
+             person p  name:\"P\"  gender:other\n\
+             person q  name:\"Q\"  gender:other\n"
+        );
+    }
+
+    #[test]
+    fn marriage_region_between_person_regions_is_independent() {
+        // person block, marriage block, person block — three regions, three
+        // independent groups (with different keywords, so even within a
+        // region they wouldn't have shared columns). Verifies the blank-line
+        // boundary plus the per-keyword grouping interact cleanly.
+        let src = "person alice name:\"Alice\" gender:female\n\
+                   person bo    name:\"Bob\"   gender:male\n\
+                   \n\
+                   marriage m_alice_bo alice bo start:1972\n\
+                   marriage m_short    alice bo start:1980\n\
+                   \n\
+                   person c name:\"C\" gender:other\n\
+                   person dd name:\"D\" gender:other\n";
+        let out = format_source(src);
+        assert_eq!(
+            out,
+            "person alice  name:\"Alice\"  gender:female\n\
+             person bo     name:\"Bob\"    gender:male\n\
+             \n\
+             marriage m_alice_bo alice bo  start:1972\n\
+             marriage m_short    alice bo  start:1980\n\
+             \n\
+             person c   name:\"C\"  gender:other\n\
+             person dd  name:\"D\"  gender:other\n"
+        );
+    }
+
+    #[test]
+    fn last_cell_left_of_rightmost_column_emits_no_trailing_whitespace() {
+        // bob's last actual cell is `gender:male` even though the group's
+        // rightmost present column is `comment` (alice has one). Bob's line
+        // must end immediately after `gender:male` — no padding through the
+        // remaining slots.
+        let src = "person alice name:\"Alice\" gender:female  # n\n\
+                   person bo name:\"Bob\" gender:male\n";
+        let out = format_source(src);
+        let bo_line = out.lines().nth(1).expect("two lines");
+        assert_eq!(bo_line, "person bo     name:\"Bob\"    gender:male");
+        assert!(
+            !bo_line.ends_with(' '),
+            "bo's line must not have trailing whitespace, got {bo_line:?}"
+        );
     }
 }

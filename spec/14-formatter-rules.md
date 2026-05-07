@@ -34,19 +34,63 @@ The two-space inter-field rule is the only unusual one. It buys visual separatio
 
 Sub-statements (`birth`, `adoption`) MUST be indented with exactly two ASCII spaces. Tabs are forbidden — the lexer already treats them as parse errors.
 
-## 14.5 Per-region column alignment
+## 14.5 Per-region sparse column alignment
 
 The formatter MUST align columns within a *region*. A region is a maximal run of lines bounded by blank lines (or document start/end). The blank line is the only region boundary — whole-line comments, indent changes, and shape changes do NOT bound regions.
 
-Two lines have the same shape iff their cell sequences match position-by-position. A line's cells are: the statement keyword; then any positional arguments in grammar order (id, spouses, marriage-ref); then any fields in the canonical order from §14.2; then optionally an inline comment as the trailing cell. Two cells have the same kind iff they are the same keyword, the same positional role, the same field name, or both are inline comments.
+A line's cells are, in order: the statement keyword; then any positional arguments in grammar order (id, spouses, marriage-ref); then any fields the line carries in the canonical order from §14.2; then optionally an inline comment as the trailing cell. Two cells have the same *kind* iff they are the same keyword, the same positional role, the same field name, or both are inline comments.
 
-Within a region, top-level lines that share both *shape* and *indent* form an *alignment group*. Sub-statements (`birth`, `adoption`) form alignment groups *per parent `person`*: same-shape sub-statements under one person form a group, distinct from sub-statements under any other person — even when both persons sit in the same region.
+### Alignment groups
 
-Different-shape lines within a region do not participate in any alignment group and do not influence column widths. They sit at their natural width between participating lines. Strict shape matching is the contract: if one line has a `died:` field and the next doesn't, the two lines have different shapes and belong to different groups, each padded independently. There is no "sparse alignment" where missing fields leave gaps; every group is automatically rectangular.
+Within a region, lines join the same *alignment group* iff they share all three of:
 
-Within a group, the formatter MUST pad each cell with trailing spaces so that the next column starts at the same byte offset on every line of the group. Padding is added *before* the canonical inter-cell separator from §14.3 — so the gap between two columns is `(padding) + (single space or two spaces)`, depending on which cell kinds the gap sits between. The last cell on each line MUST NOT be padded.
+1. the same indent,
+2. the same statement keyword (`person`, `marriage`, `birth`, `adoption`),
+3. the same parent scope — top-level lines have no parent; sub-statements (`birth`, `adoption`) scope per the `person` they belong to, so two sub-statements under different persons never share a group even when both persons sit in the same region.
 
-Alignment MUST NOT extend across blank lines; the user's choice of where to place blank lines is the boundary they control. The blank line is now load-bearing for layout: an author who wants column widths in two stretches of same-shape lines to differ MUST split them with a blank line.
+Lines with different keywords do NOT share a group. A `person` line and a `marriage` line in the same region are independently aligned, even though both sit at indent 0. Sub-statements at indent 2 are in their own per-parent groups, separate from the indent-0 groups around them.
+
+### Canonical column ordering
+
+Each statement kind has a fixed column sequence. Within an alignment group, every line's cells map to columns of this sequence:
+
+| Statement / sub-statement                      | Column sequence                                                                                    |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `person <id>`                                  | keyword, id, `name?`, `gender?`, `family?`, `given?`, `born?`, `died?`, `comment?`                 |
+| `marriage <id> <spouse_a> <spouse_b>`          | keyword, id, spouse_a, spouse_b, `start?`, `end?`, `end_reason?`, `comment?`                       |
+| `birth <marriage-ref>`                         | keyword, marriage-ref, `comment?`                                                                  |
+| `adoption <marriage-ref>`                      | keyword, marriage-ref, `start?`, `end?`, `comment?`                                                |
+
+Columns marked `?` are *optional*: they are present in the group iff at least one line in the group carries that cell. Required structural cells (keyword, positional id, spouse references, marriage references) are always present.
+
+### Column widths
+
+The width of each present column equals the maximum content width across the lines in the group that carry that cell. Lines that do NOT carry the cell do not influence the column width.
+
+### Rendering a line
+
+Walk the group's column sequence left to right, emitting each line per the following rules:
+
+- For the line's *first* cell (always the keyword), emit the cell content padded with trailing spaces to the column width.
+- For each subsequent column, emit the canonical inter-cell separator from §14.3 (single space after a keyword or between positionals/references, two spaces before any field or inline comment), then either:
+  - the cell content (padded to column width if it is *not* the line's last actual cell, unpadded otherwise), if the line carries this column, or
+  - whitespace of exactly the column's width, if the line does not carry this column AND the line has at least one further actual cell to its right.
+- After emitting the line's last actual cell, stop. The line MUST NOT be padded with trailing whitespace through any subsequent column slots.
+
+Concretely, lines whose last actual cell sits left of the group's rightmost column end shorter than their peers; this is intentional. Leading-edge alignment is what column-scanning depends on, and trailing whitespace would break idempotence on editors that strip it.
+
+### Worked example
+
+```
+person alice  name:"Alice Sharma"  gender:female              born:1950-04-12
+person bob    name:"Bob Sharma"    gender:male    family:"X"  born:1948-11-30  died:2020-03-15
+```
+
+The group contains both lines (same indent, same `person` keyword). Columns present in the group: keyword, id, `name`, `gender`, `family`, `born`, `died`. Alice carries no `family` and no `died`; the formatter emits a whitespace placeholder of `family`-column-width before alice's `born:`, then stops alice's line at her unpadded `born:1950-04-12`. Bob's line carries every column; his `died:` is the last cell, unpadded.
+
+### Idempotence
+
+Anti-suggestion 5 of [ADR 0004](../docs/adr/0004-formatter-canonical-rules.md) — per-document alignment — remains rejected. Per-region sparse alignment is bounded by blank lines; an author who wants two stretches of same-keyword lines to NOT share columns MUST split them with a blank line. The blank line is load-bearing for layout.
 
 ## 14.6 Blank-line handling
 

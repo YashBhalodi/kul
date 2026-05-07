@@ -153,3 +153,40 @@ Anti-suggestion 5 ("per-document alignment") remains in force. Per-region alignm
 Idempotence and round-trip (rules 8 and 9) hold by construction: the alignment-group key is `(region, indent, shape, parent-scope-for-sub-statements)`; re-formatting the output uses the same regions, same shapes, same parent scopes → same group memberships → same column widths → byte-identical output. The formatter still only inserts whitespace before separators, so the parsed AST is unchanged.
 
 Corpus impact is contained: only `examples/05-married-siblings.kul` visibly changes — gaining shared columns across each son's `birth` line. Examples 01–04 are byte-identical, because their region layouts already produced one-shape-per-region groupings under the previous rule. See `spec/14-formatter-rules.md` §14.5 for the normative restatement.
+
+## Amendment 2026-05-07: sparse-by-field-name column alignment
+
+The 2026-05-06 amendment kept *strict shape matching* as the alignment-group condition: same indent, same `Vec<CellKind>`. Reading `examples/03-three-generations.kul` after a few rounds of edits exposed why this keeps being the wrong call.
+
+The Generation 2 region:
+
+```
+person alice  name:"Alice Sharma"  gender:female  born:1950-04-12
+  birth m_ramesh_sita
+person bob  name:"Bob Sharma"  gender:male  born:1948-11-30  died:2020-03-15
+```
+
+The eye expects `name:`, `gender:`, `born:` to align between alice and bob — those columns are *shared* between the two persons. Strict shape matching refused: bob has `died:` and alice doesn't, so the shapes differ, the lines fall into separate one-line groups, and bob's `name:` lands two columns left of alice's. The Generation 1 (both have `died:`) and Generation 3 (neither has `died:`) regions in the same file align cleanly because their shapes happen to match. The user is left with a layout that flips between aligned and not-aligned based on whether somebody died — exactly the kind of accidental visual cue the formatter exists to suppress.
+
+Strict shape matching was the conservative answer to a different anxiety: that "align on what we share, ignore what we don't" leaks edge cases. After a year of corpus, the actual pattern is the opposite of brittle. **Kul is an additive language** — authors evolve a person from `[name, gender, born]` to `[name, gender, born, died]` to `[name, gender, family, born, died]` over time. Each step is a one-cell addition in canonical position. Strict shape matching turns every such addition into a small alignment regression for that person's neighbors. The cost compounds across the corpus.
+
+This amendment replaces the shape-equality rule with **sparse-by-field-name alignment**, scoped per statement kind:
+
+- The alignment-group key becomes `(region, indent, keyword, parent-scope-for-sub-statements)`. Two lines join the same group iff they have the same indent, same statement keyword, and (for sub-statements) the same parent person. *Shape no longer participates.*
+- Each statement kind has a fixed canonical column ordering, derived from §14.2: `person → keyword, id, name?, gender?, family?, given?, born?, died?, comment?`; `marriage → keyword, id, ref_a, ref_b, start?, end?, end_reason?, comment?`; `birth → keyword, ref, comment?`; `adoption → keyword, ref, start?, end?, comment?`.
+- A column is *present* in a group iff at least one line in the group carries that cell. Required structural cells (keyword, positional, references) are always present. The column's width is the max content width across lines in the group that have it; lines without the cell don't influence the width.
+- A line emits its actual cells padded to their column widths and emits whitespace placeholders of column width for any missing column that sits *before* the line's last actual cell. The line's last actual cell is unpadded, and the line stops there — no trailing whitespace through subsequent column slots. (Trailing whitespace would corrupt idempotence on editors that strip it.)
+- Sub-statement scoping is unchanged: same-keyword sub-statements under one person form a group; sub-statements under different parents never share columns even within the same region.
+- Cross-statement-kind alignment is *not* introduced. A `person` line and a `marriage` line in the same region remain in separate groups because their canonical column orderings differ structurally (marriage carries references; person doesn't). The corpus convention of separating `person` blocks from `marriage` blocks with blank lines is preserved.
+
+**Trade-offs taken on knowingly.**
+
+- *Wider blast radius.* Adding a `family:` field to one statement creates a new column that pushes every same-keyword peer in the region rightward. This is the consequence ADR-0004's original §5 set out to avoid. The judgment now is that the alternative — same-keyword neighbors silently breaking column alignment whenever shapes diverge — is the worse failure mode for readers, and that authors who want two stretches of same-keyword lines *not* to share columns already have the explicit tool: a blank line. Anti-suggestion 5 (per-document alignment) remains in force; we're widening the within-region rule, not crossing region boundaries.
+- *Whitespace placeholders.* The 2026-05-05 amendment specifically named "pad missing fields with whitespace" as an alternative that "leaks edge cases into the spec." With three concrete corpus examples in hand and the canonical column ordering nailed down by §14.2, the edge cases are now bounded and enumerable: the placeholder is exactly `column_width` spaces, columns are in canonical order, and the "stop at last actual cell" rule cuts the trailing-whitespace pathology. The earlier rejection was correct given what we knew then; with the field-order spec stable, the rule fits in one paragraph.
+- *Different line lengths within a group.* Lines whose last actual cell is to the left of the rightmost column end shorter than their peers. This is intentional: leading-edge alignment is what column-scanning depends on, and equal line lengths would require trailing whitespace.
+
+Idempotence and round-trip (rules 8 and 9) hold by construction: re-formatting uses the same regions, same group keys (indent + keyword + parent), same canonical column ordering, same per-column max widths → byte-identical output. The formatter still only inserts whitespace before separators and as missing-cell placeholders, neither of which is parse-significant outside string literals.
+
+Corpus impact: `examples/03-three-generations.kul` Generation 2 gains alignment between alice and bob. Examples 01, 02, 04, 05 are unchanged because their regions already had uniform shapes. The change is verified end-to-end by re-running `kul format` over the corpus and asserting `format(format(s)) == format(s)` byte-equal.
+
+See `spec/14-formatter-rules.md` §14.5 for the normative restatement. This amendment supersedes the strict-shape clause of the 2026-05-05 and 2026-05-06 amendments; the rest of those amendments (per-block → per-region scope, blank-line as the only boundary, sub-statement per-parent scoping) carries forward unchanged.

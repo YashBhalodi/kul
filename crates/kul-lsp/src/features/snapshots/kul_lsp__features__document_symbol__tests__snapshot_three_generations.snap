@@ -140,7 +140,7 @@ expression: syms
       },
       "end": {
         "line": 18,
-        "character": 76
+        "character": 82
       }
     },
     "selectionRange": {
@@ -236,21 +236,21 @@ expression: syms
     "kind": 13,
     "range": {
       "start": {
-        "line": 26,
+        "line": 25,
         "character": 0
       },
       "end": {
-        "line": 27,
+        "line": 26,
         "character": 40
       }
     },
     "selectionRange": {
       "start": {
-        "line": 26,
+        "line": 25,
         "character": 7
       },
       "end": {
-        "line": 26,
+        "line": 25,
         "character": 11
       }
     },
@@ -261,21 +261,21 @@ expression: syms
         "kind": 8,
         "range": {
           "start": {
-            "line": 27,
+            "line": 26,
             "character": 2
           },
           "end": {
-            "line": 27,
+            "line": 26,
             "character": 40
           }
         },
         "selectionRange": {
           "start": {
-            "line": 27,
+            "line": 26,
             "character": 2
           },
           "end": {
-            "line": 27,
+            "line": 26,
             "character": 10
           }
         }
