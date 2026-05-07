@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Build and smoke-test only (skip GitHub Release + Open VSX publish)"
+        description: "Build and smoke-test only (skip GitHub Release + extension publish)"
         type: boolean
         default: true
 
@@ -286,7 +286,7 @@ jobs:
 
   github-release:
     name: GitHub Release
-    needs: [verify, build-cli, build-lsp, wasm-publish, openvsx-publish]
+    needs: [verify, build-cli, build-lsp, wasm-publish, extension-publish]
     if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.dry_run == false)
     runs-on: ubuntu-latest
     permissions:
@@ -297,7 +297,7 @@ jobs:
         with:
           path: dist
           # Pull every artifact except the raw-binary ones (those are for
-          # the openvsx-publish job's bundling step, not for the public release).
+          # the extension-publish job's bundling step, not for the public release).
           pattern: "kul*"
           merge-multiple: false
       - name: Collect release archives
@@ -321,7 +321,7 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
 
-  openvsx-publish:
+  extension-publish:
     name: Publish VSCode extension (${{ matrix.target }})
     needs: [verify, build-lsp]
     runs-on: ubuntu-latest
@@ -329,7 +329,7 @@ jobs:
       fail-fast: false
       matrix:
         # `target` matches both the vsce `--target` identifier and the raw
-        # artifact's `platform_dir` name. The marketplace serves the matching
+        # artifact's `platform_dir` name. Both registries serve the matching
         # vsix to each user; an "untagged" vsix (no --target) gets its
         # platform-specific binaries stripped on install.
         target:
@@ -373,9 +373,24 @@ jobs:
             echo "::error::OVSX_PAT secret is unset; cannot publish to Open VSX. See docs/release.md § One-time setup."
             exit 1
           fi
+      - name: Pre-flight VSCE_PAT check
+        if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.dry_run == false)
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "${VSCE_PAT:-}" ]; then
+            echo "::error::VSCE_PAT secret is unset; cannot publish to VS Code Marketplace. See docs/release.md § One-time setup."
+            exit 1
+          fi
       - name: Publish to Open VSX
         if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.dry_run == false)
         working-directory: editor/vscode
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: npx --yes ovsx publish "kul-${{ needs.verify.outputs.version }}-${{ matrix.target }}.vsix" -p "$OVSX_PAT"
+      - name: Publish to VS Code Marketplace
+        if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.dry_run == false)
+        working-directory: editor/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx --yes @vscode/vsce publish --packagePath "kul-${{ needs.verify.outputs.version }}-${{ matrix.target }}.vsix" --pat "$VSCE_PAT"
