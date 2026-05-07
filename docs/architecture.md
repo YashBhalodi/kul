@@ -67,7 +67,7 @@ kul-lsp    ── library + binary `kul-lsp`
               Custom requests (e.g. `kul/export`) are registered via
               `LspService::build().custom_method(...)` in `lib.rs`.
 
-kul-wasm   ── library (cdylib + rlib), published as `@kul/wasm`
+kul-wasm   ── library (cdylib + rlib), published as `@kullang/wasm`
               wasm-bindgen adapter over kul-core. Three exposed
               functions — `check`, `exportGraph`, `format` — each a
               two-or-three-line wrapper around the matching kul-core

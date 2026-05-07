@@ -215,7 +215,7 @@ jobs:
           if-no-files-found: error
 
   wasm-publish:
-    name: Publish @kul/wasm
+    name: Publish @kullang/wasm
     needs: verify
     runs-on: ubuntu-latest
     steps:
@@ -233,10 +233,10 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
-      - name: Build @kul/wasm
+      - name: Build @kullang/wasm
         run: |
           wasm-pack build crates/kul-wasm --target bundler --out-dir pkg --out-name kul_wasm
-          node -e 'const fs=require("fs"),p="crates/kul-wasm/pkg/package.json";const j=JSON.parse(fs.readFileSync(p));j.name="@kul/wasm";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")'
+          node -e 'const fs=require("fs"),p="crates/kul-wasm/pkg/package.json";const j=JSON.parse(fs.readFileSync(p));j.name="@kullang/wasm";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")'
       - name: Bundle-size budget (gzipped .wasm ≤ 1 MB)
         run: |
           set -eu
@@ -274,7 +274,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [ -z "${NPM_TOKEN:-}" ]; then
-            echo "::error::NPM_TOKEN secret is unset; cannot publish @kul/wasm. See docs/release.md § One-time npm setup."
+            echo "::error::NPM_TOKEN secret is unset; cannot publish @kullang/wasm. See docs/release.md § One-time npm setup."
             exit 1
           fi
       - name: Publish to npm

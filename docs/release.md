@@ -1,6 +1,6 @@
 # Release process
 
-KulLang ships four things from one repository: the `kul` CLI, the `kul-lsp` language server, the VSCode extension (published to Open VSX), and the `@kul/wasm` npm package. They release in lockstep — one tag, one pipeline, one set of coordinated artifacts.
+KulLang ships four things from one repository: the `kul` CLI, the `kul-lsp` language server, the VSCode extension (published to Open VSX), and the `@kullang/wasm` npm package. They release in lockstep — one tag, one pipeline, one set of coordinated artifacts.
 
 This doc is the source of truth for how to cut a release and what the pipeline does.
 
@@ -11,7 +11,7 @@ Pushing a tag of the form `v<major>.<minor>.<patch>` triggers `.github/workflows
 1. **Verifies version coordination** — `Cargo.toml` workspace version, `editor/vscode/package.json` version, and the tag must all match. Fails fast if they don't. The `wasm-publish` job re-asserts the wasm-pack-produced npm `package.json` version against the same tag as a belt-and-braces guard.
 2. **Builds `kul` for four targets** — `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-msvc`. Each binary is smoke-tested with `kul --version` and `kul validate examples/03-three-generations.kul`.
 3. **Builds `kul-lsp` for the same four targets**, smoke-tested with `kul-lsp --version`.
-4. **Builds and publishes `@kul/wasm`** — `wasm-pack build --target bundler`, gzipped bundle-size assertion, `npm publish --access public`, and a `kul-wasm.tar.gz` artifact for the GitHub Release.
+4. **Builds and publishes `@kullang/wasm`** — `wasm-pack build --target bundler`, gzipped bundle-size assertion, `npm publish --access public`, and a `kul-wasm.tar.gz` artifact for the GitHub Release.
 5. **Publishes the VSCode extension** to [Open VSX](https://open-vsx.org/), with platform-specific `kul-lsp` binaries bundled inside the `.vsix` so end users don't need to set `kul.serverPath`. The packaged `.vsix` is also uploaded as a workflow artifact (`kul-vsix`) so the GitHub Release can attach it for upstream-VSCode users.
 6. **Creates a GitHub Release** at `v<version>` with all 10 artifacts attached (8 CLI/LSP archives + 1 WASM tarball + 1 `.vsix`) and auto-generated release notes.
 
@@ -23,7 +23,7 @@ verify ──┬──► build-cli   (4 targets) ──────────
          ├──► build-lsp   (4 targets) ──► openvsx-publish ┼──► github-release   (10 artifacts)
          │                                       │        │
          │                                       └────────┴──► Open VSX (bundled .vsix)
-         └──► wasm-publish ──► npm (@kul/wasm) ──────┘
+         └──► wasm-publish ──► npm (@kullang/wasm) ──┘
 ```
 
 ## Cutting a release
@@ -68,7 +68,7 @@ The pipeline runs automatically. Watch the progress at https://github.com/YashBh
 - Open VSX listing at `https://open-vsx.org/extension/YashBhalodi/kul` shows the new version.
 - On an Open-VSX-consuming editor (VSCodium, Cursor, Windsurf, Theia/Che, Gitpod), `<editor> --install-extension YashBhalodi.kul` resolves against Open VSX, installs, and works without setting `kul.serverPath` (the extension auto-locates the right platform binary from the bundled `server/<platform>/`).
 - On upstream VSCode (which talks to Microsoft Marketplace, where KulLang is intentionally not published), users install via the released `.vsix`: download `kul-0.x.0.vsix` from the GitHub Release, `code --install-extension /path/to/kul-0.x.0.vsix`. Same bundled-binary autolocation behavior.
-- `npm view @kul/wasm version` returns `0.x.0`. A clean Node project can `npm install @kul/wasm@0.x.0` and `import { check, exportGraph, format } from '@kul/wasm'` without further setup.
+- `npm view @kullang/wasm version` returns `0.x.0`. A clean Node project can `npm install @kullang/wasm@0.x.0` and `import { check, exportGraph, format } from '@kullang/wasm'` without further setup.
 
 ### Recommended post-publish smoke
 
@@ -132,7 +132,7 @@ Standard cross-compilation matrix. Each platform target builds in release mode w
 
 ### `wasm-publish`
 
-Builds the `@kul/wasm` package via `wasm-pack build --target bundler`, rewrites the wasm-pack-generated `package.json` `name` to `@kul/wasm` (wasm-pack derives the npm name from the Rust crate name `kul-wasm`), asserts the gzipped `.wasm` is ≤ 1 MB, and re-asserts the npm `package.json` version equals the release version. The `pkg/` output is then staged into `kul-wasm/` and packaged as `kul-wasm.tar.gz`, uploaded as the `kul-wasm` artifact for `github-release` to attach to the public Release.
+Builds the `@kullang/wasm` package via `wasm-pack build --target bundler`, rewrites the wasm-pack-generated `package.json` `name` to `@kullang/wasm` (wasm-pack derives the npm name from the Rust crate name `kul-wasm`), asserts the gzipped `.wasm` is ≤ 1 MB, and re-asserts the npm `package.json` version equals the release version. The `pkg/` output is then staged into `kul-wasm/` and packaged as `kul-wasm.tar.gz`, uploaded as the `kul-wasm` artifact for `github-release` to attach to the public Release.
 
 On a real publish (tag push or `dry_run: false`), the job also runs `npm publish --access public` from `crates/kul-wasm/pkg`, authenticated via the `NPM_TOKEN` repo secret. A pre-flight step fails with a readable error if `NPM_TOKEN` is unset, matching the `OVSX_PAT` failure shape. On dry-run, the build and the version assertions still run — only the npm publish is skipped, so dry-runs catch breakage before tagging.
 
@@ -175,9 +175,9 @@ Look at the failing matrix entry. Most failures are a transient toolchain issue 
 ### `wasm-publish` fails on the npm publish step
 
 - **`NPM_TOKEN secret is unset`** — the pre-flight check ran. Set the secret per the one-time npm setup steps and re-run the failed job.
-- **`E401`/`E403` from `npm publish`** — the token expired, was revoked, or lacks publish permission on the `@kul` scope. Generate a fresh automation token at npmjs.com (Account → Access Tokens → Automation) and `gh secret set NPM_TOKEN`.
+- **`E401`/`E403` from `npm publish`** — the token expired, was revoked, or lacks publish permission on the `@kullang` scope. Generate a fresh automation token at npmjs.com (Account → Access Tokens → Automation) and `gh secret set NPM_TOKEN`.
 - **`E403 — cannot publish over existing version`** — the version was already published. `npm publish` is not idempotent; bump the workspace version (and `editor/vscode/package.json`), re-tag, and re-run the pipeline.
-- **`E402 — payment required` on first publish** — the `@kul` scope is private-by-default. The job already passes `--access public`; if this surfaces, the scope-claim setup wasn't completed (see issue #36's one-time npm setup section).
+- **`E402 — payment required` on first publish** — the `@kullang` scope is private-by-default. The job already passes `--access public`; if this surfaces, the scope-claim setup wasn't completed (see issue #36's one-time npm setup section).
 
 ### Release exists but extension didn't publish
 

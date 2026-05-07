@@ -76,17 +76,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Build @kul/wasm
+      - name: Build @kullang/wasm
         run: |
           wasm-pack build crates/kul-wasm --target bundler --out-dir pkg --out-name kul_wasm
-          node -e 'const fs=require("fs"),p="crates/kul-wasm/pkg/package.json";const j=JSON.parse(fs.readFileSync(p));j.name="@kul/wasm";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")'
+          node -e 'const fs=require("fs"),p="crates/kul-wasm/pkg/package.json";const j=JSON.parse(fs.readFileSync(p));j.name="@kullang/wasm";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")'
       - name: Verify package.json shape
         run: |
           set -eu
           name=$(node -p 'require("./crates/kul-wasm/pkg/package.json").name')
           version=$(node -p 'require("./crates/kul-wasm/pkg/package.json").version')
           ws_version=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
-          test "$name" = "@kul/wasm" || { echo "::error::package name $name != @kul/wasm"; exit 1; }
+          test "$name" = "@kullang/wasm" || { echo "::error::package name $name != @kullang/wasm"; exit 1; }
           test "$version" = "$ws_version" || { echo "::error::package version $version != workspace $ws_version"; exit 1; }
       - name: Bundle-size budget (gzipped .wasm ≤ 1 MB)
         run: |

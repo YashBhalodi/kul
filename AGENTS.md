@@ -9,7 +9,7 @@ crates/
   kul-core/   — library: lexer, parser, AST, semantic, validator, diagnostics, node-at-cursor query, formatter, export
   kul-cli/    — binary `kul`: `kul validate`, `kul format`, `kul export`, `kul lsp` subcommands
   kul-lsp/    — library + binary `kul-lsp`: LSP adapter over kul-core (handles standard capabilities plus the `kul/export` custom request)
-  kul-wasm/   — library (cdylib): WASM adapter over kul-core, published as `@kul/wasm` (npm) and `kul-wasm.tar.gz` (GitHub Release). Surface is `check`, `exportGraph`, `format` (per ADR-0011).
+  kul-wasm/   — library (cdylib): WASM adapter over kul-core, published as `@kullang/wasm` (npm) and `kul-wasm.tar.gz` (GitHub Release). Surface is `check`, `exportGraph`, `format` (per ADR-0011).
 docs/
   vision.md    — language scope and design intent
   architecture.md — implementation map: pipeline, seams, "where to add X" recipes

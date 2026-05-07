@@ -6,7 +6,7 @@
 
 ## Context
 
-`@kul/wasm` consumers are TypeScript users. They expect a typed API where their IDE catches mistakes — calling `exportGraph` with the wrong options shape, destructuring `parenthood_links` instead of `parenthoodLinks`, narrowing `GraphPayload` between kinship-native and Cytoscape arms. The runtime (the `.wasm` blob) and the types (the `.d.ts`) must agree.
+`@kullang/wasm` consumers are TypeScript users. They expect a typed API where their IDE catches mistakes — calling `exportGraph` with the wrong options shape, destructuring `parenthood_links` instead of `parenthoodLinks`, narrowing `GraphPayload` between kinship-native and Cytoscape arms. The runtime (the `.wasm` blob) and the types (the `.d.ts`) must agree.
 
 Three positions on how to keep them in sync:
 

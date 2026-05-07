@@ -78,7 +78,7 @@ KulLang's v1 envelope is four coherent artifacts:
 1. **The language specification** — fourteen normative sections plus a standalone EBNF grammar. Self-contained; rigorous enough that an independent parser can be written from it alone. → [`spec/`](../spec/README.md)
 2. **A reference parser and library** — [`kul-core`](../crates/kul-core/), implementing the spec end-to-end: lexer, parser, semantic resolution, validator (13 spec rules), formatter, node-at-cursor query, JSON export.
 3. **A CLI** — [`kul`](../crates/kul-cli/), wrapping the library: `kul validate`, `kul format`, `kul export`, `kul lsp`.
-4. **Editor tooling** — [`kul-lsp`](../crates/kul-lsp/) (the language server) plus an LSP-backed [VSCode extension](../editor/vscode/) delivering live diagnostics, hover, go-to-definition, find-references, rename, completion, document symbols, code actions, formatting, and semantic tokens. Plus [`@kul/wasm`](../crates/kul-wasm/) for browser and Node consumers.
+4. **Editor tooling** — [`kul-lsp`](../crates/kul-lsp/) (the language server) plus an LSP-backed [VSCode extension](../editor/vscode/) delivering live diagnostics, hover, go-to-definition, find-references, rename, completion, document symbols, code actions, formatting, and semantic tokens. Plus [`@kullang/wasm`](../crates/kul-wasm/) for browser and Node consumers.
 
 A web visualization app, a mobile app, or any other application surface would be downstream of these artifacts. None is part of v1; each may or may not be built.
 

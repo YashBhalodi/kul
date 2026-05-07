@@ -1,4 +1,4 @@
-// TypeScript consumer compile-test for `@kul/wasm`.
+// TypeScript consumer compile-test for `@kullang/wasm`.
 //
 // Runs under `tsc --noEmit` in CI. Catches the case where the generated
 // `.d.ts` compiles against itself but isn't usable in real consumer code:

@@ -1,4 +1,4 @@
-//! WebAssembly bindings for `kul-core`, published as `@kul/wasm`.
+//! WebAssembly bindings for `kul-core`, published as `@kullang/wasm`.
 //!
 //! Thin adapter at the workspace edge: translates a foreign protocol
 //! (the JS / WASM ABI) into native Kul calls. The crate has no language

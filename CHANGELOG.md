@@ -10,7 +10,7 @@ First public release. Everything below ships together at tag `v0.1.0`.
 
 ### Renamed
 
-- **Language `kula` → `kul`; project `kulalang` → `KulLang`.** Pre-release rename, applied atomically across the repository. The version-declaration keyword is now `kul 0.1` (was `kula 0.1`); file extension is `.kul` (was `.kula`); CLI binary is `kul` (was `kula`); language-server binary is `kul-lsp` (was `kula-lsp`); npm package is `@kul/wasm` (was `@kulalang/wasm`); validator codes are `KUL-Rxx` (was `KULA-Rxx`); export envelope field is `kul` (was `kula`); VSCode publisher.extensionId is `YashBhalodi.kul` with display name `KulLang`. Crate paths, GitHub repository URL, and every doc/example/test-corpus reference move with the rename. Motivated by pronunciation: `kul` orthographically forces /kuːl/ for English readers; `kula` was being parsed as KOO-lah.
+- **Language `kula` → `kul`; project `kulalang` → `KulLang`.** Pre-release rename, applied atomically across the repository. The version-declaration keyword is now `kul 0.1` (was `kula 0.1`); file extension is `.kul` (was `.kula`); CLI binary is `kul` (was `kula`); language-server binary is `kul-lsp` (was `kula-lsp`); npm package is `@kullang/wasm` (was `@kulalang/wasm`); validator codes are `KUL-Rxx` (was `KULA-Rxx`); export envelope field is `kul` (was `kula`); VSCode publisher.extensionId is `YashBhalodi.kul` with display name `KulLang`. Crate paths, GitHub repository URL, and every doc/example/test-corpus reference move with the rename. Motivated by pronunciation: `kul` orthographically forces /kuːl/ for English readers; `kula` was being parsed as KOO-lah.
 
 ### Language
 
@@ -38,16 +38,16 @@ First public release. Everything below ships together at tag `v0.1.0`.
 - **`kul export`** — project a clean document to the canonical JSON envelope. `--format json` (default) emits the kinship-native shape; `--format cytoscape` emits the `nodes`/`edges` shape; `--with-positions` adds opt-in byte spans. Strict on errors; same stdin/-/multi-file ergonomics as `validate`.
 - **`kul lsp`** — speak LSP over stdio (typically driven by an editor extension).
 
-### `kul-wasm` / `@kul/wasm`
+### `kul-wasm` / `@kullang/wasm`
 
-- **WebAssembly bindings for `kul-core`** — published to npm as [`@kul/wasm`](https://www.npmjs.com/package/@kul/wasm) and to each GitHub Release as `kul-wasm.tar.gz`. Single ESM `--target bundler` build for modern bundlers (Vite, Webpack 5+, Next.js, Turbopack, SvelteKit, Nuxt, Astro).
+- **WebAssembly bindings for `kul-core`** — published to npm as [`@kullang/wasm`](https://www.npmjs.com/package/@kullang/wasm) and to each GitHub Release as `kul-wasm.tar.gz`. Single ESM `--target bundler` build for modern bundlers (Vite, Webpack 5+, Next.js, Turbopack, SvelteKit, Nuxt, Astro).
 - **Three exposed operations** ([ADR-0011](./docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md)):
   - `check(source) -> { diagnostics }` — empty array means clean (no `ok` field; emptiness is the discriminator).
   - `exportGraph(source, options?) -> SuccessEnvelope | FailureEnvelope` — bit-identical to `kul export --format=json`. Strict-on-errors per [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md).
   - `format(source) -> string` — best-effort even on partial-parse input.
 - **Version metadata getters** — `KUL_CORE_VERSION()`, `KUL_LANGUAGE_VERSION()`, `EXPORT_SCHEMA_VERSION()` for consumer compatibility checks without parsing an envelope.
 - **TypeScript types derived from Rust** via [`tsify`](https://docs.rs/tsify), committed at `crates/kul-wasm/types/kul_wasm.d.ts` and CI-diffed against the regenerated output ([ADR-0012](./docs/adr/0012-tsify-derived-types-committed-and-diffed.md)). A type change that crosses the WASM boundary surfaces as a reviewable PR diff, not silent runtime drift.
-- **Lockstep versioning** — `@kul/wasm`'s npm version, the workspace `Cargo.toml` version, the VSCode extension version, and the git tag all match. Enforced by the `verify` job in [`release.yml`](./.github/workflows/release.yml).
+- **Lockstep versioning** — `@kullang/wasm`'s npm version, the workspace `Cargo.toml` version, the VSCode extension version, and the git tag all match. Enforced by the `verify` job in [`release.yml`](./.github/workflows/release.yml).
 
 ### `kul-core` cleanups (surfaced by WASM packaging)
 
@@ -78,5 +78,5 @@ First public release. Everything below ships together at tag `v0.1.0`.
 
 - **`just check`** — single-command gate (fmt, clippy at deny, full nextest run).
 - **`just wasm`** — builds `crates/kul-wasm` via `wasm-pack`, patches the npm package name, and refreshes the committed `.d.ts` snapshot.
-- **Cross-platform release pipeline** producing CLI and language-server binaries for `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-apple-darwin`, and `x86_64-pc-windows-msvc`, plus the marketplace `.vsix` with all four platform binaries bundled, plus the `@kul/wasm` npm package and `kul-wasm.tar.gz` archive. See [`docs/release.md`](./docs/release.md).
+- **Cross-platform release pipeline** producing CLI and language-server binaries for `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-apple-darwin`, and `x86_64-pc-windows-msvc`, plus the marketplace `.vsix` with all four platform binaries bundled, plus the `@kullang/wasm` npm package and `kul-wasm.tar.gz` archive. See [`docs/release.md`](./docs/release.md).
 - **Per-PR WASM gates** in [`.github/workflows/rust.yml`](./.github/workflows/rust.yml) — `wasm-pack` build, gzipped bundle-size budget (≤ 1 MB), generated `.d.ts` snapshot diff, Rust-side snapshot tests, Node smoke test, and TypeScript consumer compile-test (`tsc --noEmit`).

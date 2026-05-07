@@ -61,7 +61,7 @@ For other editors, point any LSP client at the `kul-lsp` binary.
 - **Hand-authored, machine-checked.** The formatter is opinionated, idempotent, zero-config; format-on-save canonicalizes to a single layout. → [ADR-0004](./docs/adr/0004-formatter-canonical-rules.md)
 - **End-to-end Rust toolchain** in one workspace: `kul-core` (lexer, parser, semantic resolution, validator, formatter, export, node-at-cursor query), `kul-cli`, `kul-lsp`, `kul-wasm`. One implementation; four packagings.
 - **Two stable JSON projections** — kinship-native (`persons`, `marriages`, `parenthoodLinks`) for downstream tooling, plus Cytoscape `nodes`/`edges` loadable directly into Cytoscape.js, Sigma.js, vis-network, and friends. Strict-on-errors envelope. → [Schema](./spec/15-export-schema.md)
-- **Browser-ready WASM** — `import { check, exportGraph, format } from '@kul/wasm'` works out of the box in Vite, Webpack 5+, Next.js, SvelteKit, Nuxt, Astro. TypeScript types derived from Rust source and CI-diffed against drift. → [ADR-0011](./docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md), [ADR-0012](./docs/adr/0012-tsify-derived-types-committed-and-diffed.md)
+- **Browser-ready WASM** — `import { check, exportGraph, format } from '@kullang/wasm'` works out of the box in Vite, Webpack 5+, Next.js, SvelteKit, Nuxt, Astro. TypeScript types derived from Rust source and CI-diffed against drift. → [ADR-0011](./docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md), [ADR-0012](./docs/adr/0012-tsify-derived-types-committed-and-diffed.md)
 - **[Architectural Decision Records](./docs/adr/)** for every non-obvious design call — what was chosen, what was rejected, when it might be revisited. The codebase has a paper trail.
 
 ## What Kul is and isn't
@@ -117,11 +117,11 @@ If you're on Microsoft's official VSCode (not a fork), the built-in Extensions t
 ### Browser / Node
 
 ```sh
-npm install @kul/wasm
+npm install @kullang/wasm
 ```
 
 ```ts
-import { check, exportGraph, format } from '@kul/wasm';
+import { check, exportGraph, format } from '@kullang/wasm';
 
 const source = 'kul 0.1\nperson alice name:"Alice" gender:female\n';
 
