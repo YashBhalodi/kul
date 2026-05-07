@@ -70,9 +70,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: wasm-build
-      - uses: jetli/wasm-pack-action@v0.4.0
+      - uses: taiki-e/install-action@v2
         with:
-          version: "v0.13.1"
+          tool: wasm-pack@0.13.1
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
