@@ -1,0 +1,103 @@
+---
+source: crates/kul-core/tests/parser.rs
+assertion_line: 95
+expression: "render(\"person carol name:\\\"Carol\\\" gender:female\\n  birth m_one\\n  birth m_two\\n\")"
+---
+ast: Document {
+    version: None,
+    statements: [
+        Person(
+            PersonStmt {
+                span: ByteSpan {
+                    start: 0,
+                    end: 67,
+                },
+                keyword_span: ByteSpan {
+                    start: 0,
+                    end: 6,
+                },
+                id: Ident {
+                    name: "carol",
+                    span: ByteSpan {
+                        start: 7,
+                        end: 12,
+                    },
+                },
+                fields: [
+                    PersonField {
+                        span: ByteSpan {
+                            start: 13,
+                            end: 25,
+                        },
+                        name_span: ByteSpan {
+                            start: 13,
+                            end: 17,
+                        },
+                        kind: Name(
+                            StringValue {
+                                value: "Carol",
+                                span: ByteSpan {
+                                    start: 18,
+                                    end: 25,
+                                },
+                            },
+                        ),
+                    },
+                    PersonField {
+                        span: ByteSpan {
+                            start: 26,
+                            end: 39,
+                        },
+                        name_span: ByteSpan {
+                            start: 26,
+                            end: 32,
+                        },
+                        kind: Gender(
+                            GenderValue {
+                                value: Female,
+                                span: ByteSpan {
+                                    start: 33,
+                                    end: 39,
+                                },
+                            },
+                        ),
+                    },
+                ],
+                birth: Some(
+                    BirthSub {
+                        span: ByteSpan {
+                            start: 42,
+                            end: 53,
+                        },
+                        keyword_span: ByteSpan {
+                            start: 42,
+                            end: 47,
+                        },
+                        marriage_ref: Ident {
+                            name: "m_one",
+                            span: ByteSpan {
+                                start: 48,
+                                end: 53,
+                            },
+                        },
+                    },
+                ),
+                adoptions: [],
+                malformed_fields: [],
+            },
+        ),
+    ],
+}
+diagnostics: [
+    Diagnostic {
+        code: "KUL-P13",
+        severity: Error,
+        message: "a person may have at most one `birth` sub-statement",
+        primary: ByteSpan {
+            start: 56,
+            end: 67,
+        },
+        related: [],
+        detail: None,
+    },
+]

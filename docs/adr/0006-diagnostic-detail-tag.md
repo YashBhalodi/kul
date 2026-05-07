@@ -6,7 +6,7 @@
 
 ## Context
 
-Some validator rules cover multiple distinguishable conditions on the same primary span. The clearest example is `KULA-R03` (required fields missing), which fires for three separate sub-cases — missing `name:`, missing `gender:`, missing marriage `start:` — all anchored on the offending statement's `id.span`. The diagnostic message text differs per sub-case (e.g. it mentions `` `gender:` `` or `` `name:` ``), but the rule code and primary span are the same.
+Some validator rules cover multiple distinguishable conditions on the same primary span. The clearest example is `KUL-R03` (required fields missing), which fires for three separate sub-cases — missing `name:`, missing `gender:`, missing marriage `start:` — all anchored on the offending statement's `id.span`. The diagnostic message text differs per sub-case (e.g. it mentions `` `gender:` `` or `` `name:` ``), but the rule code and primary span are the same.
 
 Code-action providers need to distinguish the sub-cases to offer the right quick-fixes. The R03 provider previously did this by string-searching the diagnostic's message: `if diag.message.contains("\`gender:\`")`. The contract — "validator messages are stable, code-actions parse them" — was load-bearing but invisible: a message rewrite would silently break the editor's quick-fixes, with no compiler signal and no test signal until somebody tried the lightbulb.
 
@@ -18,15 +18,15 @@ Three options were considered:
 
 ## Decision
 
-Option 3. `Diagnostic` gains a `detail: Option<&'static str>` field. The validator sets it via `Diagnostic::with_detail(detail::SOME_TAG)`; consumers match on the literal value via the same `pub const` declared in `kula_core::diagnostic::detail`. Tags are namespaced by rule (`r03-missing-name`, `r05-end-without-end-reason`).
+Option 3. `Diagnostic` gains a `detail: Option<&'static str>` field. The validator sets it via `Diagnostic::with_detail(detail::SOME_TAG)`; consumers match on the literal value via the same `pub const` declared in `kul_core::diagnostic::detail`. Tags are namespaced by rule (`r03-missing-name`, `r05-end-without-end-reason`).
 
 The R03 code-action registry now reads `diag.detail` instead of scanning the message. Same for R05 (which has two sub-cases, "extra `end:`" vs. "extra `end_reason:`"). Other rules continue without a tag — `detail` is `None` — and pay nothing.
 
 ## Consequences
 
 - Validator messages can be reworded freely. Code-action wiring keeps working as long as the producer/consumer share the same tag constant.
-- Adding a new tag is a one-line `pub const` addition in `kula_core::diagnostic::detail`, plus its use at the producer and any consumer that wants to dispatch on it. The naming convention (`<rule>-<short>`) keeps the constant name self-documenting.
-- The `Diagnostic` struct picks up one extra field. All existing snapshot tests that render `Diagnostic` via custom formatters (e.g. `render_diagnostics` in `crates/kula-core/tests/validator.rs`) are unaffected; the few that snapshot via `Debug` derive show an additive `detail: None` line.
+- Adding a new tag is a one-line `pub const` addition in `kul_core::diagnostic::detail`, plus its use at the producer and any consumer that wants to dispatch on it. The naming convention (`<rule>-<short>`) keeps the constant name self-documenting.
+- The `Diagnostic` struct picks up one extra field. All existing snapshot tests that render `Diagnostic` via custom formatters (e.g. `render_diagnostics` in `crates/kul-core/tests/validator.rs`) are unaffected; the few that snapshot via `Debug` derive show an additive `detail: None` line.
 - The mechanism applies to any rule that wants to expose internal sub-cases to tooling without splitting its rule code. This is intentional: the spec keeps a clean rule taxonomy; `detail` is a runtime discriminator for tooling.
 
 ## Anti-suggestions (do not re-propose)
@@ -34,4 +34,4 @@ The R03 code-action registry now reads `diag.detail` instead of scanning the mes
 - "Make `detail` a strongly-typed enum." The same coupling problem as option 2 — every diagnostic-level consumer pays for it, and a new tag becomes an enum variant change rather than a `pub const`.
 - "Inline the tag string at every call site, no `pub const`s." Drops typo-resistance. The whole point of the constants is that producer and consumer agree on a single source.
 - "Move the `detail::*` constants next to each rule rather than centralising them in `diagnostic.rs`." Tried mentally — call sites don't import them more cheaply, and a single file is easier to diff against the rule taxonomy in the spec.
-- "Drop `code` since `detail` carries finer-grained info." `code` is the spec-stable error identifier (KULA-Rxx), surfaced to users in diagnostics. `detail` is for tooling. They have different audiences and lifetimes.
+- "Drop `code` since `detail` carries finer-grained info." `code` is the spec-stable error identifier (KUL-Rxx), surfaced to users in diagnostics. `detail` is for tooling. They have different audiences and lifetimes.

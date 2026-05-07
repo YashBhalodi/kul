@@ -1,0 +1,8 @@
+---
+source: crates/kul-core/tests/validator.rs
+expression: render_diagnostics(&result.diagnostics)
+---
+KUL-R12 [193..203]: adoption of `ravi` started before adoptive parent `alice` was born
+  related [31..41]: `alice` born here
+KUL-R12 [193..203]: adoption of `ravi` started before adoptive parent `bob` was born
+  related [87..97]: `bob` born here

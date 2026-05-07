@@ -1,0 +1,6 @@
+---
+source: crates/kul-core/tests/validator.rs
+expression: render_diagnostics(&result.diagnostics)
+---
+KUL-R06 [49..59]: person `zombie` died before they were born
+  related [33..43]: born here

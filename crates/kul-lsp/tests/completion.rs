@@ -1,0 +1,247 @@
+//! Integration test: open a document and verify
+//! `textDocument/completion` returns the expected items at known cursor
+//! positions for several context categories.
+
+use std::io::{BufRead, BufReader, Read, Write};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::mpsc;
+use std::thread;
+use std::time::{Duration, Instant};
+
+use serde_json::{Value, json};
+
+fn binary_path() -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_BIN_EXE_kul-lsp"))
+}
+
+fn write_message(stdin: &mut ChildStdin, msg: &str) {
+    write!(stdin, "Content-Length: {}\r\n\r\n{}", msg.len(), msg).expect("write message");
+    stdin.flush().expect("flush stdin");
+}
+
+fn read_message(stdout: &mut BufReader<ChildStdout>) -> Option<String> {
+    let mut content_length: Option<usize> = None;
+    loop {
+        let mut line = String::new();
+        let n = stdout.read_line(&mut line).ok()?;
+        if n == 0 {
+            return None;
+        }
+        if line == "\r\n" {
+            break;
+        }
+        if let Some(rest) = line.strip_prefix("Content-Length:") {
+            content_length = Some(rest.trim().parse().ok()?);
+        }
+    }
+    let len = content_length?;
+    let mut body = vec![0u8; len];
+    stdout.read_exact(&mut body).ok()?;
+    String::from_utf8(body).ok()
+}
+
+struct Handle {
+    child: Child,
+    stdin: ChildStdin,
+    rx: mpsc::Receiver<String>,
+    _reader: thread::JoinHandle<()>,
+}
+
+impl Handle {
+    fn spawn() -> Self {
+        let mut cmd = Command::new(binary_path());
+        cmd.stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
+        let mut child = cmd.spawn().expect("spawn kul-lsp");
+        let stdin = child.stdin.take().expect("stdin");
+        let stdout = BufReader::new(child.stdout.take().expect("stdout"));
+        let (tx, rx) = mpsc::channel();
+        let reader = thread::spawn(move || {
+            let mut stdout = stdout;
+            while let Some(msg) = read_message(&mut stdout) {
+                if tx.send(msg).is_err() {
+                    return;
+                }
+            }
+        });
+        Self {
+            child,
+            stdin,
+            rx,
+            _reader: reader,
+        }
+    }
+
+    fn recv_response(&self, expected_id: i64, deadline: Instant) -> Option<Value> {
+        loop {
+            let now = Instant::now();
+            if now >= deadline {
+                return None;
+            }
+            let raw = self.rx.recv_timeout(deadline - now).ok()?;
+            let parsed: Value = serde_json::from_str(&raw).ok()?;
+            if parsed.get("id").and_then(Value::as_i64) == Some(expected_id) {
+                return Some(parsed);
+            }
+        }
+    }
+}
+
+impl Drop for Handle {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+fn open_doc(handle: &mut Handle, source: &str) {
+    write_message(
+        &mut handle.stdin,
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
+    );
+    let init = handle
+        .recv_response(1, Instant::now() + Duration::from_secs(5))
+        .expect("initialize");
+    let caps = &init["result"]["capabilities"];
+    assert!(
+        caps["completionProvider"].is_object(),
+        "missing completionProvider capability: {caps}"
+    );
+
+    write_message(
+        &mut handle.stdin,
+        r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#,
+    );
+
+    let escaped = serde_json::to_string(source).unwrap();
+    let did_open = format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///c.kul","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
+    );
+    write_message(&mut handle.stdin, &did_open);
+}
+
+fn complete_at(handle: &mut Handle, id: i64, line: u32, character: u32) -> Vec<String> {
+    let req = json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "method": "textDocument/completion",
+        "params": {
+            "textDocument": { "uri": "file:///c.kul" },
+            "position": { "line": line, "character": character }
+        }
+    });
+    write_message(&mut handle.stdin, &req.to_string());
+    let resp = handle
+        .recv_response(id, Instant::now() + Duration::from_secs(5))
+        .expect("completion response");
+    resp["result"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v["label"].as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+#[test]
+fn top_level_keywords_at_start() {
+    let mut handle = Handle::spawn();
+    open_doc(&mut handle, "");
+    let labels = complete_at(&mut handle, 10, 0, 0);
+    assert!(labels.contains(&"kul".to_owned()));
+    assert!(labels.contains(&"person".to_owned()));
+    assert!(labels.contains(&"marriage".to_owned()));
+}
+
+#[test]
+fn person_field_list_filters_present() {
+    let mut handle = Handle::spawn();
+    open_doc(&mut handle, "person a name:\"A\" gender:female \n");
+    // line 0, column = end of `... gender:female ` = 32
+    let labels = complete_at(&mut handle, 11, 0, 32);
+    assert!(!labels.contains(&"name:".to_owned()));
+    assert!(!labels.contains(&"gender:".to_owned()));
+    assert!(labels.contains(&"family:".to_owned()));
+    assert!(labels.contains(&"born:".to_owned()));
+}
+
+#[test]
+fn after_gender_colon_returns_enum_values() {
+    let mut handle = Handle::spawn();
+    open_doc(&mut handle, "person a name:\"A\" gender:");
+    // line 0, column = end of `gender:` = 25
+    let labels = complete_at(&mut handle, 12, 0, 25);
+    assert_eq!(
+        labels,
+        vec!["male".to_owned(), "female".into(), "other".into()]
+    );
+}
+
+#[test]
+fn after_end_reason_colon_returns_divorce() {
+    let mut handle = Handle::spawn();
+    open_doc(
+        &mut handle,
+        "marriage m a b start:2010 end:2020 end_reason:",
+    );
+    // line 0 column = full length = 46
+    let labels = complete_at(&mut handle, 13, 0, 46);
+    assert_eq!(labels, vec!["divorce".to_owned()]);
+}
+
+#[test]
+fn indented_under_person_returns_sub_keywords() {
+    let mut handle = Handle::spawn();
+    open_doc(&mut handle, "person a name:\"A\" gender:female\n  ");
+    // line 1 column 2 (after the indent)
+    let labels = complete_at(&mut handle, 14, 1, 2);
+    assert!(labels.contains(&"birth".to_owned()));
+    assert!(labels.contains(&"adoption".to_owned()));
+}
+
+#[test]
+fn after_birth_keyword_returns_marriage_ids() {
+    let mut handle = Handle::spawn();
+    open_doc(
+        &mut handle,
+        "person alice name:\"Alice\" gender:female\n\
+         person bob name:\"Bob\" gender:male\n\
+         marriage m_alice_bob alice bob start:1972\n\
+         person kid name:\"K\" gender:other\n  birth ",
+    );
+    // line 4 column 8 = right after `birth ` (2 indent + 6 keyword)
+    let labels = complete_at(&mut handle, 15, 4, 8);
+    assert_eq!(labels, vec!["m_alice_bob".to_owned()]);
+}
+
+#[test]
+fn after_marriage_id_returns_persons_for_spouse_a() {
+    let mut handle = Handle::spawn();
+    open_doc(
+        &mut handle,
+        "person alice name:\"Alice\" gender:female\n\
+         person bob name:\"Bob\" gender:male\n\
+         marriage m ",
+    );
+    // line 2 column 11 = right after `marriage m `
+    let labels = complete_at(&mut handle, 16, 2, 11);
+    assert!(labels.contains(&"alice".to_owned()));
+    assert!(labels.contains(&"bob".to_owned()));
+}
+
+#[test]
+fn after_spouse_a_excludes_self_marriage() {
+    let mut handle = Handle::spawn();
+    open_doc(
+        &mut handle,
+        "person alice name:\"Alice\" gender:female\n\
+         person bob name:\"Bob\" gender:male\n\
+         marriage m alice ",
+    );
+    // line 2 column 17 = right after `marriage m alice `
+    let labels = complete_at(&mut handle, 17, 2, 17);
+    assert!(!labels.contains(&"alice".to_owned()));
+    assert!(labels.contains(&"bob".to_owned()));
+}

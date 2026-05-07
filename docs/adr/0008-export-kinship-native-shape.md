@@ -6,7 +6,7 @@
 
 ## Context
 
-The export's job is to project a Kula document into a JSON value a downstream consumer can render. That projection has many shapes to choose from — and the choice is load-bearing because every consumer (web visualizer, VSCode webview, scripts, generators) inherits it. Three shapes were on the table:
+The export's job is to project a Kul document into a JSON value a downstream consumer can render. That projection has many shapes to choose from — and the choice is load-bearing because every consumer (web visualizer, VSCode webview, scripts, generators) inherits it. Three shapes were on the table:
 
 1. **Kinship-native.** Three flat collections — `persons`, `marriages`, `parenthood_links` — that mirror the language's primitives one-to-one. Cross-references are by id; nothing is embedded; nothing is derived. A consumer indexing by id gets a dictionary lookup; a consumer rendering the family tree composes derived views (children-of, siblings-of, descendants-of) on top.
 2. **Generic-graph (nodes + edges).** A flat `nodes` array plus a flat `edges` array, with type tags on each. Loadable into Cytoscape, Sigma.js, vis-network, Gephi without writing a custom adapter. Pays for that interop with a layer of indirection — all kinship-meaningful structure is encoded as `type` discriminators on opaque nodes/edges.
@@ -40,4 +40,4 @@ The Cytoscape format ships as a secondary, opt-in projection (`--format cytoscap
 - **"Embed children inside marriage objects."** Creates an asymmetry between bio and adoptive parents (whose marriage do you nest under?), pushes a redundancy-vs-cycle choice onto every consumer, and makes the schema sensitive to how the source happens to be ordered. The flat parenthood-link collection sidesteps all of this.
 - **"Inline spouse objects inside the marriage object."** Same problem as embedded children. Consumers that want a denormalized view build it once over the flat collections; consumers that don't want it pay nothing.
 - **"Add a `person.children` derived collection 'as a convenience'."** Drags every kinship question down a one-way path. Once a consumer reads `person.children`, the schema owes them every other derived view (`siblings`, `descendants`, `cousins`, `in_laws`). The single answer this ADR commits to is: derived views are consumer-side. The foundation does not freeze any kinship-derivation semantics.
-- **"Make the schema GEDCOM-shaped for interop."** [`docs/vision.md`](../vision.md) is explicit that Kula is intentionally not GEDCOM-compatible. A GEDCOM bridge is a separate downstream transformer if it ever happens.
+- **"Make the schema GEDCOM-shaped for interop."** [`docs/vision.md`](../vision.md) is explicit that Kul is intentionally not GEDCOM-compatible. A GEDCOM bridge is a separate downstream transformer if it ever happens.

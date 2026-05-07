@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-Issues and PRDs for this repo live as GitHub issues at `YashBhalodi/kulalang`. Use the `gh` CLI for all operations.
+Issues and PRDs for this repo live as GitHub issues at `YashBhalodi/kul`. Use the `gh` CLI for all operations.
 
 ## Conventions
 

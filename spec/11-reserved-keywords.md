@@ -5,7 +5,7 @@ The following identifiers are reserved and MUST NOT be used as person or marriag
 ```
 adoption    birth       born        died        divorce
 end         end_reason  family      female      gender
-given       kula        male        marriage    name
+given       kul        male        marriage    name
 other       person      start
 ```
 

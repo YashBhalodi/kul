@@ -5,10 +5,10 @@
 The first non-blank, non-comment line of a document MAY be a version declaration:
 
 ```
-kula 0.1
+kul 0.1
 ```
 
-The token following `kula` is a version number in `MAJOR.MINOR` form. A parser that does not recognize the version SHOULD report an error rather than parsing the document. If the version declaration is absent, the version is assumed to be the latest version known to the parser.
+The token following `kul` is a version number in `MAJOR.MINOR` form. A parser that does not recognize the version SHOULD report an error rather than parsing the document. If the version declaration is absent, the version is assumed to be the latest version known to the parser.
 
 A document MUST NOT contain more than one version declaration.
 

@@ -1,8 +1,8 @@
 # 1. Introduction
 
-Kula is a domain-specific language for describing human kinship — the structure of families and how they evolve over time. A Kula document is a plain UTF-8 text file with the `.kula` extension. The contents describe persons and the marriages between them; biological parenthood and adoption are recorded as references inside person declarations.
+Kul is a domain-specific language for describing human kinship — the structure of families and how they evolve over time. A Kul document is a plain UTF-8 text file with the `.kul` extension. The contents describe persons and the marriages between them; biological parenthood and adoption are recorded as references inside person declarations.
 
-The two primitives of Kula are:
+The two primitives of Kul are:
 
 - **Person** — an identifiable individual.
 - **Marriage** — a temporal binary union between two persons.

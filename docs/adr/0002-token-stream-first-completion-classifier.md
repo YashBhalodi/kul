@@ -21,7 +21,7 @@ The completion-classifier implementation hit several cases where the AST-first d
 
 ## Decision
 
-The completion classifier in `crates/kula-lsp/src/features/completion.rs` walks the token stream first. The AST (specifically `ResolvedDocument` and `node_at`) is consulted only as a secondary signal — for "what is the enclosing person?" or "what marriages are declared so far?" type questions, where the AST is authoritative.
+The completion classifier in `crates/kul-lsp/src/features/completion.rs` walks the token stream first. The AST (specifically `ResolvedDocument` and `node_at`) is consulted only as a secondary signal — for "what is the enclosing person?" or "what marriages are declared so far?" type questions, where the AST is authoritative.
 
 The classifier expresses its rules as cursor-adjacency on tokens: for example, "the cursor is in a field-value context only if the previous token is a `:` *or* a value-shaped token whose span ends exactly at the cursor". This is what handles whitespace correctly: `field: ` (whitespace after colon) stays in value context because the colon was the last *content* token; `field :` (whitespace before colon) does not yet have a value position.
 
@@ -38,4 +38,4 @@ The seven context labels are an enum (`Context::*`); each has its own completion
 - "Just use the AST and skip token-stream reasoning" — the AST cannot represent partially-typed input cleanly, and parser recovery is lossy. The token stream survives recovery.
 - "Make completion run after a successful parse only" — would mean *no completions* during the most common typing state (mid-identifier). Defeats the feature.
 - "Generate completions from the spec EBNF" — the spec describes valid programs, not in-progress edits. Cursor-adjacency and partial-token semantics are out of scope for the grammar.
-- "Move classification into kula-core so the CLI could use it too" — the CLI doesn't need completion. The classifier is editor-protocol concern; it stays in kula-lsp.
+- "Move classification into kul-core so the CLI could use it too" — the CLI doesn't need completion. The classifier is editor-protocol concern; it stays in kul-lsp.

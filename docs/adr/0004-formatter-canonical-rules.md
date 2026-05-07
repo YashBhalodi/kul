@@ -1,4 +1,4 @@
-## ADR 0004 — Canonical formatter rules for `kula format`
+## ADR 0004 — Canonical formatter rules for `kul format`
 
 **Status:** Accepted
 **Date:** 2026-05-05
@@ -6,9 +6,9 @@
 
 ## Context
 
-The formatter (`kula format`, `textDocument/formatting`) canonicalizes Kula source. Two questions decide its long-term shape: (1) what does "canonical" mean — i.e. for any two Kula documents that mean the same thing, which one does the formatter produce? (2) Should the rules be configurable?
+The formatter (`kul format`, `textDocument/formatting`) canonicalizes Kul source. Two questions decide its long-term shape: (1) what does "canonical" mean — i.e. for any two Kul documents that mean the same thing, which one does the formatter produce? (2) Should the rules be configurable?
 
-The formatter is a deep module in the Ousterhout sense: small interface (`format(&Document) -> String`), significant logic behind it, and the choices it bakes in are visible in every `.kula` file users will ever look at. Once shipped, changing them rewrites the entire ecosystem's history. This ADR settles the rules so the implementation is mechanical and the spec's normative section (`spec/14-formatter-rules.md`) mirrors a stable decision.
+The formatter is a deep module in the Ousterhout sense: small interface (`format(&Document) -> String`), significant logic behind it, and the choices it bakes in are visible in every `.kul` file users will ever look at. Once shipped, changing them rewrites the entire ecosystem's history. This ADR settles the rules so the implementation is mechanical and the spec's normative section (`spec/14-formatter-rules.md`) mirrors a stable decision.
 
 The implementation precedents we draw on:
 
@@ -53,7 +53,7 @@ Within a single `person` block whose sub-statements share field shapes (multiple
 ### 6. Blank-line handling
 
 - A blank line between top-level statements is preserved.
-- Runs of more than one consecutive blank line collapse to a single blank line. This bounds vertical whitespace without forcing the user to give it up entirely (people use blank lines as section separators — see the `# ---- Generation 2 ----` headers in `examples/03-three-generations.kula`).
+- Runs of more than one consecutive blank line collapse to a single blank line. This bounds vertical whitespace without forcing the user to give it up entirely (people use blank lines as section separators — see the `# ---- Generation 2 ----` headers in `examples/03-three-generations.kul`).
 - Blank lines inside a `person` block (between the header and its sub-statements, or between sub-statements) are removed.
 
 ### 7. Comments are opaque
@@ -96,7 +96,7 @@ The implementation in #27 ships alongside a new normative spec section restating
 ### What this rules out
 
 - A `--style=gofmt|prettier|tabular` CLI flag.
-- A `.kularc` / `.kula-format.toml` config file.
+- A `.kulrc` / `.kul-format.toml` config file.
 - Per-team conventions delivered as plugins.
 - Per-block tabular alignment that ripples across unrelated statements.
 - Reflowing or rewriting comments.
@@ -105,14 +105,14 @@ If any of these come up again, point at this ADR and decline.
 
 ### What it enables
 
-- The formatter is callable as a library (`kula_core::format::format(&Document)`) by code-generation tools without any environment to thread through.
-- `kula format --check` is a clean CI gate.
-- `examples/*.kula` becomes the formatter's most visible reference; it's checked into canonical form by the `idempotent` property test in #27.
+- The formatter is callable as a library (`kul_core::format::format(&Document)`) by code-generation tools without any environment to thread through.
+- `kul format --check` is a clean CI gate.
+- `examples/*.kul` becomes the formatter's most visible reference; it's checked into canonical form by the `idempotent` property test in #27.
 - `gofmt`-style "stop the bikeshedding" outcome.
 
 ### Open questions deferred to implementation (#27)
 
-- Surface for `kula format --check`: exit code, stderr message format. These are CLI ergonomics and don't belong in this ADR.
+- Surface for `kul format --check`: exit code, stderr message format. These are CLI ergonomics and don't belong in this ADR.
 
 ## Anti-suggestions (do not re-propose)
 
@@ -124,7 +124,7 @@ If any of these come up again, point at this ADR and decline.
 
 ## Amendment 2026-05-05: per-block column alignment (#35)
 
-Reading the corpus after #27 landed showed the original §14.5 ("no column alignment, ever") was costing too much scannability. Two structurally-identical `person` lines stacked back-to-back in the founders block of `examples/03-three-generations.kula` were noticeably harder to read than their pre-canonical predecessors that had hand-aligned columns.
+Reading the corpus after #27 landed showed the original §14.5 ("no column alignment, ever") was costing too much scannability. Two structurally-identical `person` lines stacked back-to-back in the founders block of `examples/03-three-generations.kul` were noticeably harder to read than their pre-canonical predecessors that had hand-aligned columns.
 
 The amendment adds a third position between "no alignment" and the still-rejected "whole-document alignment": **per-block** alignment, where a *block* is a run of consecutive same-indent same-shape lines bounded by blank lines, whole-line comments, indent changes, and shape changes.
 
@@ -134,7 +134,7 @@ Idempotence and round-trip (rules 8 and 9) hold unchanged. Anti-suggestion 5 ("p
 
 ## Amendment 2026-05-06: per-region column alignment
 
-The 2026-05-05 amendment defined a *block* as a run of *consecutive* same-indent same-shape lines, bounded by four boundary types: blank line, whole-line comment, indent change, shape change. After it shipped, `examples/05-married-siblings.kula` exposed the cost of that granularity. The file's natural structure stacks two same-shape `person` lines around a `birth` sub-statement:
+The 2026-05-05 amendment defined a *block* as a run of *consecutive* same-indent same-shape lines, bounded by four boundary types: blank line, whole-line comment, indent change, shape change. After it shipped, `examples/05-married-siblings.kul` exposed the cost of that granularity. The file's natural structure stacks two same-shape `person` lines around a `birth` sub-statement:
 
 ```
 person arjun  name:"Arjun Sharma"  gender:male  born:1950-04-12
@@ -152,4 +152,4 @@ Anti-suggestion 5 ("per-document alignment") remains in force. Per-region alignm
 
 Idempotence and round-trip (rules 8 and 9) hold by construction: the alignment-group key is `(region, indent, shape, parent-scope-for-sub-statements)`; re-formatting the output uses the same regions, same shapes, same parent scopes → same group memberships → same column widths → byte-identical output. The formatter still only inserts whitespace before separators, so the parsed AST is unchanged.
 
-Corpus impact is contained: only `examples/05-married-siblings.kula` visibly changes — gaining shared columns across each son's `birth` line. Examples 01–04 are byte-identical, because their region layouts already produced one-shape-per-region groupings under the previous rule. See `spec/14-formatter-rules.md` §14.5 for the normative restatement.
+Corpus impact is contained: only `examples/05-married-siblings.kul` visibly changes — gaining shared columns across each son's `birth` line. Examples 01–04 are byte-identical, because their region layouts already produced one-shape-per-region groupings under the previous rule. See `spec/14-formatter-rules.md` §14.5 for the normative restatement.

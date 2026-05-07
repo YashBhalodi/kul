@@ -1,7 +1,0 @@
----
-source: crates/kula-core/tests/validator.rs
-assertion_line: 54
-expression: render_diagnostics(&result.diagnostics)
----
-KULA-R03 [7..12]: person `carol` needs a `name:` field — add `name:"…"` to the declaration
-KULA-R03 [7..12]: person `carol` needs a `gender:` field — use `gender:male`, `gender:female`, or `gender:other`

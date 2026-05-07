@@ -1,0 +1,8 @@
+---
+source: crates/kul-core/tests/validator.rs
+assertion_line: 134
+expression: render_diagnostics(&result.diagnostics)
+---
+KUL-R02 [136..139]: no person with id `eve` is declared in this file — check for a typo, or add a `person eve …` declaration
+KUL-R02 [259..275]: no marriage with id `m_does_not_exist` is declared in this file — check for a typo, or add a `marriage m_does_not_exist …` declaration (the `birth` link expects a marriage id)
+KUL-R02 [380..389]: no marriage with id `m_phantom` is declared in this file — check for a typo, or add a `marriage m_phantom …` declaration (the `adoption` link expects a marriage id)

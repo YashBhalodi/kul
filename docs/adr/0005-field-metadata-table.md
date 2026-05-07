@@ -6,17 +6,17 @@
 
 ## Context
 
-Each field on a Kula statement carries several facts a tool needs: its name, its value shape (string / date / enum), a one-line description for completion items, and a long-form Markdown blurb for hover popovers. Before this ADR these facts were independently restated in three feature modules:
+Each field on a Kul statement carries several facts a tool needs: its name, its value shape (string / date / enum), a one-line description for completion items, and a long-form Markdown blurb for hover popovers. Before this ADR these facts were independently restated in three feature modules:
 
-- `crates/kula-lsp/src/features/hover.rs` knew the hover Markdown for every `PersonFieldKind`, `MarriageFieldKind`, and `AdoptionFieldKind` variant.
-- `crates/kula-lsp/src/features/completion.rs` knew the short-form description and which fields were string-shaped (so it could wrap the value in quotes).
-- `crates/kula-lsp/src/features/semantic_tokens.rs` knew which token type to emit for each field's value (string / number / enum-member).
+- `crates/kul-lsp/src/features/hover.rs` knew the hover Markdown for every `PersonFieldKind`, `MarriageFieldKind`, and `AdoptionFieldKind` variant.
+- `crates/kul-lsp/src/features/completion.rs` knew the short-form description and which fields were string-shaped (so it could wrap the value in quotes).
+- `crates/kul-lsp/src/features/semantic_tokens.rs` knew which token type to emit for each field's value (string / number / enum-member).
 
 Adding a field meant editing the AST enum, the parser, the validator, and three feature modules — and the compiler caught only the first two. A typo in any one of the feature modules silently desynchronised the editor experience.
 
 ## Decision
 
-`crates/kula-core/src/field_meta.rs` is the canonical per-field metadata table. One `FieldMeta` row per `FieldName`, containing:
+`crates/kul-core/src/field_meta.rs` is the canonical per-field metadata table. One `FieldMeta` row per `FieldName`, containing:
 
 - `value_kind: ValueKind` — `String`, `Date`, or `Enum`. The shape of the value as written in source.
 - `short_doc: &'static str` — one-line description used in completion-item details.
@@ -39,11 +39,11 @@ Hover, completion, and semantic-token features pick up the new field automatical
 - The field taxonomy stops being something a feature module can disagree about. Hover, completion, and semantic tokens all read from one row each.
 - A test in `field_meta` asserts that every `FieldName` has a `META` row, so a new variant without a row fails compilation-adjacent (the test panics).
 - The hover content for fields that appear on multiple statement shapes (currently `start:` and `end:`, which appear on both `marriage` and `adoption`) is shared. The prose acknowledges both contexts in one paragraph rather than producing per-statement variants. If a future field has materially different semantics between statement shapes the table key can grow to `(StatementKind, FieldName)` — but that complication is unwarranted while every field is either statement-specific or near-identical across shapes.
-- Field metadata is in `kula-core` rather than `kula-lsp`. The justification: it describes the language, not the editor protocol. A future CLI command (`kula explain born`) or doc-generator can consume the same table without duplicating it.
+- Field metadata is in `kul-core` rather than `kul-lsp`. The justification: it describes the language, not the editor protocol. A future CLI command (`kul explain born`) or doc-generator can consume the same table without duplicating it.
 
 ## Anti-suggestions (do not re-propose)
 
-- "Move the table into `kula-lsp` since only the LSP currently consumes it." Premature scoping. The CLI and any future tool that reflects on fields belong on the same surface.
+- "Move the table into `kul-lsp` since only the LSP currently consumes it." Premature scoping. The CLI and any future tool that reflects on fields belong on the same surface.
 - "Generate the table from the spec." The spec is normative prose; the table is a programmatic surface. They share content but their formats differ enough that one isn't trivially derived from the other. Cross-checking via tests is fine; cross-generation would be a maintenance burden.
 - "Replace per-statement-shape lookups (`fields_for`) with a single `FieldName::valid_on(StatementKind)` method." Same information, more scattered call sites. The slice form lets completion and the formatter iterate in canonical order with no sort step.
 - "Replace `field_name()` accessors on the AST enums with a `Display` impl or trait." The accessor is a typed method that returns a typed enum; a trait/`Display` form would lose type safety for no readability gain.

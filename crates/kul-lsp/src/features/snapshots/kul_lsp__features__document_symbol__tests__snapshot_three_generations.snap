@@ -1,0 +1,285 @@
+---
+source: crates/kul-lsp/src/features/document_symbol.rs
+expression: syms
+---
+[
+  {
+    "name": "Ramesh Sharma",
+    "detail": "1925–2005",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 10,
+        "character": 0
+      },
+      "end": {
+        "line": 10,
+        "character": 84
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 10,
+        "character": 7
+      },
+      "end": {
+        "line": 10,
+        "character": 13
+      }
+    }
+  },
+  {
+    "name": "Sita Sharma",
+    "detail": "1928–2010",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 11,
+        "character": 0
+      },
+      "end": {
+        "line": 11,
+        "character": 84
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 11,
+        "character": 7
+      },
+      "end": {
+        "line": 11,
+        "character": 11
+      }
+    }
+  },
+  {
+    "name": "Ramesh Sharma & Sita Sharma",
+    "detail": "1948",
+    "kind": 24,
+    "range": {
+      "start": {
+        "line": 13,
+        "character": 0
+      },
+      "end": {
+        "line": 13,
+        "character": 52
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 13,
+        "character": 9
+      },
+      "end": {
+        "line": 13,
+        "character": 22
+      }
+    }
+  },
+  {
+    "name": "Alice Sharma",
+    "detail": "b. 1950",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 16,
+        "character": 0
+      },
+      "end": {
+        "line": 17,
+        "character": 21
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 16,
+        "character": 7
+      },
+      "end": {
+        "line": 16,
+        "character": 12
+      }
+    },
+    "children": [
+      {
+        "name": "birth m_ramesh_sita",
+        "kind": 8,
+        "range": {
+          "start": {
+            "line": 17,
+            "character": 2
+          },
+          "end": {
+            "line": 17,
+            "character": 21
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 17,
+            "character": 2
+          },
+          "end": {
+            "line": 17,
+            "character": 7
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Bob Sharma",
+    "detail": "1948–2020",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 18,
+        "character": 0
+      },
+      "end": {
+        "line": 18,
+        "character": 76
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 18,
+        "character": 7
+      },
+      "end": {
+        "line": 18,
+        "character": 10
+      }
+    }
+  },
+  {
+    "name": "Alice Sharma & Bob Sharma",
+    "detail": "1972–1990",
+    "kind": 24,
+    "range": {
+      "start": {
+        "line": 20,
+        "character": 0
+      },
+      "end": {
+        "line": 20,
+        "character": 84
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 20,
+        "character": 9
+      },
+      "end": {
+        "line": 20,
+        "character": 20
+      }
+    }
+  },
+  {
+    "name": "Carol Sharma",
+    "detail": "b. 1975",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 23,
+        "character": 0
+      },
+      "end": {
+        "line": 24,
+        "character": 19
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 23,
+        "character": 7
+      },
+      "end": {
+        "line": 23,
+        "character": 12
+      }
+    },
+    "children": [
+      {
+        "name": "birth m_alice_bob",
+        "kind": 8,
+        "range": {
+          "start": {
+            "line": 24,
+            "character": 2
+          },
+          "end": {
+            "line": 24,
+            "character": 19
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 24,
+            "character": 2
+          },
+          "end": {
+            "line": 24,
+            "character": 7
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Ravi Sharma",
+    "detail": "b. ~1980",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 26,
+        "character": 0
+      },
+      "end": {
+        "line": 27,
+        "character": 40
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 26,
+        "character": 7
+      },
+      "end": {
+        "line": 26,
+        "character": 11
+      }
+    },
+    "children": [
+      {
+        "name": "adoption m_alice_bob",
+        "detail": "1985",
+        "kind": 8,
+        "range": {
+          "start": {
+            "line": 27,
+            "character": 2
+          },
+          "end": {
+            "line": 27,
+            "character": 40
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 27,
+            "character": 2
+          },
+          "end": {
+            "line": 27,
+            "character": 10
+          }
+        }
+      }
+    ]
+  }
+]

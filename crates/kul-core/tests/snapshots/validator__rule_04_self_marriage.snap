@@ -1,0 +1,7 @@
+---
+source: crates/kul-core/tests/validator.rs
+assertion_line: 119
+expression: render_diagnostics(&result.diagnostics)
+---
+KUL-R04 [70..75]: marriage `m_alice_alice` lists `alice` as both spouses — spouses must be distinct people
+  related [64..69]: first spouse listed here

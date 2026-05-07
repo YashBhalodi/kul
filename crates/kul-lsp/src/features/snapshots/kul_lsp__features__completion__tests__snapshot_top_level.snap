@@ -1,0 +1,22 @@
+---
+source: crates/kul-lsp/src/features/completion.rs
+assertion_line: 617
+expression: items
+---
+[
+  {
+    "label": "kul",
+    "kind": 14,
+    "detail": "Set the language version (must be the first line)"
+  },
+  {
+    "label": "person",
+    "kind": 14,
+    "detail": "Declare an individual (name, gender, dates)"
+  },
+  {
+    "label": "marriage",
+    "kind": 14,
+    "detail": "Declare a marriage between two people"
+  }
+]

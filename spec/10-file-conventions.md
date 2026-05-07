@@ -2,12 +2,12 @@
 
 |                |                                            |
 | -------------- | ------------------------------------------ |
-| File extension | `.kula`                                    |
+| File extension | `.kul`                                    |
 | Encoding       | UTF-8 (no BOM)                             |
 | Line endings   | LF or CRLF (parser MUST accept either)     |
-| CLI binary     | `kula` (e.g., `kula validate family.kula`) |
+| CLI binary     | `kul` (e.g., `kul validate family.kul`) |
 
-A Kula document MAY be empty (zero statements). Such a document represents the empty family and is valid.
+A Kul document MAY be empty (zero statements). Such a document represents the empty family and is valid.
 
 ---
 

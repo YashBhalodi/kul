@@ -6,7 +6,7 @@
 
 ## Context
 
-`ResolvedDocument` is the kinship-query seam ([ADR-0001](./0001-resolved-document-as-query-seam.md)) — the public surface every validator rule and LSP feature queries through. Originally it borrowed the parsed AST: `ResolvedDocument<'a>` held `&'a Document` plus a set of `HashMap<&'a str, &'a PersonStmt>` indexes. The borrow lifetime tied the resolved view to whatever owned the `Document` — typically a local variable, or the `CheckResult` returned by `kula_core::check`.
+`ResolvedDocument` is the kinship-query seam ([ADR-0001](./0001-resolved-document-as-query-seam.md)) — the public surface every validator rule and LSP feature queries through. Originally it borrowed the parsed AST: `ResolvedDocument<'a>` held `&'a Document` plus a set of `HashMap<&'a str, &'a PersonStmt>` indexes. The borrow lifetime tied the resolved view to whatever owned the `Document` — typically a local variable, or the `CheckResult` returned by `kul_core::check`.
 
 This caused a real and visible problem in the LSP. `CheckResult` owned the `Document`; `ResolvedDocument<'a>` borrowed it; storing both in a single struct was self-referential, so `CheckResult` could not cache the resolved view. The `resolved()` method instead re-ran `semantic::resolve` on every call. That meant every LSP request handler — hover, goto-definition, completion, references, rename, code-actions, document-symbol, semantic-tokens — re-built the id index per keystroke. The comment in `lib.rs` openly acknowledged the regression: *"can't be stored alongside the owned `Document` (the borrow lifetime would be self-referential). Cost: re-runs `semantic::resolve` (one pass over the AST, hashmap insertions per statement). Cheap for editor-scale documents but not free."*
 
@@ -33,11 +33,11 @@ pub struct CheckResult {
 
 The previously-separate `persons: HashMap<&str, &PersonStmt>` and `marriages: HashMap<&str, &MarriageStmt>` indexes collapse into the single `entities` map. Per-kind lookup (`person(id)` / `marriage(id)`) checks the stored `kind` and dereferences the statement at the recorded index.
 
-`Arc<Document>` integrates naturally with the `Arc<str>` source already adopted in `kula-lsp::convert::LineIndex` and `kula-lsp::state::Document` ([refactor #3](../architecture.md)). The shared-immutable-data idiom is already paying for itself in the LSP cache; this extends the same shape to the AST itself.
+`Arc<Document>` integrates naturally with the `Arc<str>` source already adopted in `kul-lsp::convert::LineIndex` and `kul-lsp::state::Document` ([refactor #3](../architecture.md)). The shared-immutable-data idiom is already paying for itself in the LSP cache; this extends the same shape to the AST itself.
 
 ## Consequences
 
-- The LSP document cache (`state::Document`) holds one `CheckResult` per open URI, and every request handler reads through `doc.check.resolved` directly — no `semantic::resolve` call per keystroke. For an N-statement document this saves an O(N) hashmap rebuild on every hover/completion/definition/etc. request. The performance test in `crates/kula-lsp/tests/perf.rs` continues to assert <500ms on 1000-statement documents.
+- The LSP document cache (`state::Document`) holds one `CheckResult` per open URI, and every request handler reads through `doc.check.resolved` directly — no `semantic::resolve` call per keystroke. For an N-statement document this saves an O(N) hashmap rebuild on every hover/completion/definition/etc. request. The performance test in `crates/kul-lsp/tests/perf.rs` continues to assert <500ms on 1000-statement documents.
 - The borrowed view types — `Node<'a>`, `EntityNode<'a>`, `EntityTarget<'a>`, `EntityRef<'a>`, `ParentLink<'a>` — keep their lifetime parameters. They're transient view types whose `'a` is now the elided lifetime of `&resolved`. Pattern matches and method calls in feature modules continue to work as before; the only difference is what the lifetime is *measured against* (a `&ResolvedDocument` rather than a `&'a Document`).
 - `ResolvedDocument: Send + Sync` (because every field is). The LSP server can hold one in `tokio::sync::RwLock<HashMap<Url, Document>>` without further wrapping.
 - `Document` itself does **not** need a `Send + Sync` bound beyond what it already had (all fields are owned plain data: `String`, `Vec`, primitive spans). `Arc<Document>` works without any new derives.

@@ -1,0 +1,88 @@
+---
+source: crates/kul-core/tests/parser.rs
+expression: "render(\"kul 0.1\\n\\nperson alice name:\\\"Alice\\\" gender:female\\n\")"
+---
+ast: Document {
+    version: Some(
+        VersionDecl {
+            span: ByteSpan {
+                start: 0,
+                end: 7,
+            },
+            keyword_span: ByteSpan {
+                start: 0,
+                end: 3,
+            },
+            version: "0.1",
+            version_span: ByteSpan {
+                start: 4,
+                end: 7,
+            },
+        },
+    ),
+    statements: [
+        Person(
+            PersonStmt {
+                span: ByteSpan {
+                    start: 9,
+                    end: 48,
+                },
+                keyword_span: ByteSpan {
+                    start: 9,
+                    end: 15,
+                },
+                id: Ident {
+                    name: "alice",
+                    span: ByteSpan {
+                        start: 16,
+                        end: 21,
+                    },
+                },
+                fields: [
+                    PersonField {
+                        span: ByteSpan {
+                            start: 22,
+                            end: 34,
+                        },
+                        name_span: ByteSpan {
+                            start: 22,
+                            end: 26,
+                        },
+                        kind: Name(
+                            StringValue {
+                                value: "Alice",
+                                span: ByteSpan {
+                                    start: 27,
+                                    end: 34,
+                                },
+                            },
+                        ),
+                    },
+                    PersonField {
+                        span: ByteSpan {
+                            start: 35,
+                            end: 48,
+                        },
+                        name_span: ByteSpan {
+                            start: 35,
+                            end: 41,
+                        },
+                        kind: Gender(
+                            GenderValue {
+                                value: Female,
+                                span: ByteSpan {
+                                    start: 42,
+                                    end: 48,
+                                },
+                            },
+                        ),
+                    },
+                ],
+                birth: None,
+                adoptions: [],
+                malformed_fields: [],
+            },
+        ),
+    ],
+}
+diagnostics: []

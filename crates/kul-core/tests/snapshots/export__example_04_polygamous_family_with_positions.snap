@@ -1,0 +1,114 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "alice",
+        "name": "Alice Sharma",
+        "gender": "female",
+        "born": {
+          "value": "1950-04-12",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          215,
+          281
+        ]
+      },
+      {
+        "id": "devraj",
+        "name": "Devraj Kumar",
+        "gender": "male",
+        "born": {
+          "value": "1948-06-21",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          282,
+          348
+        ]
+      },
+      {
+        "id": "meera",
+        "name": "Meera",
+        "gender": "female",
+        "born": {
+          "value": "1955-03-08",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          349,
+          415
+        ]
+      },
+      {
+        "id": "priya",
+        "name": "Priya Kumar",
+        "gender": "female",
+        "born": {
+          "value": "1994-12-01",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          417,
+          504
+        ]
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_devraj_meera",
+        "spouses": [
+          "devraj",
+          "meera"
+        ],
+        "start": {
+          "value": "1990-01-01",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          506,
+          561
+        ]
+      },
+      {
+        "id": "m_alice_devraj",
+        "spouses": [
+          "alice",
+          "devraj"
+        ],
+        "start": {
+          "value": "1992-02-14",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          562,
+          617
+        ]
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_alice_devraj",
+        "childId": "priya",
+        "kind": "biological",
+        "span": [
+          484,
+          504
+        ]
+      }
+    ]
+  }
+}

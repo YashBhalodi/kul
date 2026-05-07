@@ -1,0 +1,37 @@
+{
+  "Kul version header": {
+    "prefix": "kul",
+    "description": "Kul document version header.",
+    "body": [
+      "kul 0.1"
+    ]
+  },
+  "Person declaration": {
+    "prefix": "person",
+    "description": "Declare a person with id, display name, and gender.",
+    "body": [
+      "person ${1:id} name:\"${2:Display Name}\" gender:${3|male,female,other|}"
+    ]
+  },
+  "Marriage declaration": {
+    "prefix": "marriage",
+    "description": "Declare a marriage with id, two spouses, and start date.",
+    "body": [
+      "marriage ${1:id} ${2:spouse1} ${3:spouse2} start:${4:YYYY-MM-DD}"
+    ]
+  },
+  "Birth sub-statement": {
+    "prefix": "birth",
+    "description": "Indented birth sub-statement linking a person to the marriage they were born into.",
+    "body": [
+      "birth ${1:marriage-id}"
+    ]
+  },
+  "Adoption sub-statement": {
+    "prefix": "adoption",
+    "description": "Indented adoption sub-statement linking a person to the marriage that adopted them.",
+    "body": [
+      "adoption ${1:marriage-id} start:${2:YYYY-MM-DD}"
+    ]
+  }
+}

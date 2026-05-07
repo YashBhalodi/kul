@@ -1,0 +1,72 @@
+---
+source: crates/kul-core/tests/parser.rs
+expression: "render(\"person alice name:\\\"Alice Sharma\\\" gender:female\\n\")"
+---
+ast: Document {
+    version: None,
+    statements: [
+        Person(
+            PersonStmt {
+                span: ByteSpan {
+                    start: 0,
+                    end: 46,
+                },
+                keyword_span: ByteSpan {
+                    start: 0,
+                    end: 6,
+                },
+                id: Ident {
+                    name: "alice",
+                    span: ByteSpan {
+                        start: 7,
+                        end: 12,
+                    },
+                },
+                fields: [
+                    PersonField {
+                        span: ByteSpan {
+                            start: 13,
+                            end: 32,
+                        },
+                        name_span: ByteSpan {
+                            start: 13,
+                            end: 17,
+                        },
+                        kind: Name(
+                            StringValue {
+                                value: "Alice Sharma",
+                                span: ByteSpan {
+                                    start: 18,
+                                    end: 32,
+                                },
+                            },
+                        ),
+                    },
+                    PersonField {
+                        span: ByteSpan {
+                            start: 33,
+                            end: 46,
+                        },
+                        name_span: ByteSpan {
+                            start: 33,
+                            end: 39,
+                        },
+                        kind: Gender(
+                            GenderValue {
+                                value: Female,
+                                span: ByteSpan {
+                                    start: 40,
+                                    end: 46,
+                                },
+                            },
+                        ),
+                    },
+                ],
+                birth: None,
+                adoptions: [],
+                malformed_fields: [],
+            },
+        ),
+    ],
+}
+diagnostics: []

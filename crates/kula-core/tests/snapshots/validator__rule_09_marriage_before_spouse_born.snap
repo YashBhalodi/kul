@@ -1,8 +1,0 @@
----
-source: crates/kula-core/tests/validator.rs
-expression: render_diagnostics(&result.diagnostics)
----
-KULA-R09 [148..158]: marriage `m_alice_bob` started before spouse `alice` was born
-  related [31..41]: `alice` born here
-KULA-R09 [148..158]: marriage `m_alice_bob` started before spouse `bob` was born
-  related [87..97]: `bob` born here

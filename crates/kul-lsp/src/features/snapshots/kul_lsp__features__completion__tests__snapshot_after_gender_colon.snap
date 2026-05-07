@@ -1,0 +1,22 @@
+---
+source: crates/kul-lsp/src/features/completion.rs
+assertion_line: 627
+expression: items
+---
+[
+  {
+    "label": "male",
+    "kind": 20,
+    "detail": "Male"
+  },
+  {
+    "label": "female",
+    "kind": 20,
+    "detail": "Female"
+  },
+  {
+    "label": "other",
+    "kind": 20,
+    "detail": "Non-binary or unspecified"
+  }
+]

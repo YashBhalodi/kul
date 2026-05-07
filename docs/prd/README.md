@@ -1,6 +1,6 @@
 # PRDs
 
-Product Requirements Documents for KulaLang. Each PRD captures the scope, user stories, and implementation/testing decisions for a single product epic — at the level a contributor (human or AI) needs to understand "why are we building this, and what does done look like?"
+Product Requirements Documents for KulLang. Each PRD captures the scope, user stories, and implementation/testing decisions for a single product epic — at the level a contributor (human or AI) needs to understand "why are we building this, and what does done look like?"
 
 ## Lifecycle
 

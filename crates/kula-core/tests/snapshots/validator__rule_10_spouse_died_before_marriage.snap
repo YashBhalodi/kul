@@ -1,6 +1,0 @@
----
-source: crates/kula-core/tests/validator.rs
-expression: render_diagnostics(&result.diagnostics)
----
-KULA-R10 [164..174]: marriage `m_alice_bob` started after spouse `alice` had already died
-  related [47..57]: `alice` died here

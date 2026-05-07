@@ -11,6 +11,6 @@
   ],
   "indentationRules": {
     "increaseIndentPattern": "^\\s*(person)\\s+\\S.*$",
-    "decreaseIndentPattern": "^\\s*(person|marriage|kula)\\s.*$"
+    "decreaseIndentPattern": "^\\s*(person|marriage|kul)\\s.*$"
   }
 }

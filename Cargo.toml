@@ -1,17 +1,17 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/kula-core",
-    "crates/kula-cli",
-    "crates/kula-lsp",
-    "crates/kula-wasm",
+    "crates/kul-core",
+    "crates/kul-cli",
+    "crates/kul-lsp",
+    "crates/kul-wasm",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/YashBhalodi/kulalang"
+repository = "https://github.com/YashBhalodi/kul"
 authors = ["YashBhalodi"]
 rust-version = "1.85"
 
@@ -19,8 +19,8 @@ rust-version = "1.85"
 all = { level = "deny", priority = -1 }
 
 [workspace.dependencies]
-kula-core = { path = "crates/kula-core", version = "0.1.0" }
-kula-lsp = { path = "crates/kula-lsp", version = "0.1.0" }
+kul-core = { path = "crates/kul-core", version = "0.1.0" }
+kul-lsp = { path = "crates/kul-lsp", version = "0.1.0" }
 miette = "7"
 thiserror = "2"
 clap = { version = "4", features = ["derive"] }

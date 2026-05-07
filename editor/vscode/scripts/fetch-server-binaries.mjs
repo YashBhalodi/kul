@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Fetch the matched `kula-lsp` binaries from the kulalang GitHub Release
+ * Fetch the matched `kul-lsp` binaries from the kul GitHub Release
  * (tag `v<version>` — the unified release pipeline) and stage them under
  * `editor/vscode/server/<platform>/` so `vsce package` can bundle them.
  *
@@ -11,10 +11,10 @@
  *
  * Layout matches what the extension's `bundledServerPath` lookup expects:
  *
- *   editor/vscode/server/linux-x64/kula-lsp
- *   editor/vscode/server/darwin-x64/kula-lsp
- *   editor/vscode/server/darwin-arm64/kula-lsp
- *   editor/vscode/server/win32-x64/kula-lsp.exe
+ *   editor/vscode/server/linux-x64/kul-lsp
+ *   editor/vscode/server/darwin-x64/kul-lsp
+ *   editor/vscode/server/darwin-arm64/kul-lsp
+ *   editor/vscode/server/win32-x64/kul-lsp.exe
  *
  * Usage (from `editor/vscode/`):
  *
@@ -27,7 +27,7 @@
  *   npm run package:bundled                           # fetch + vsce package
  *
  * The default `npm run package` is unchanged — produces an unbundled
- * .vsix for local-dev install + `kula.serverPath`.
+ * .vsix for local-dev install + `kul.serverPath`.
  */
 
 import { execFileSync } from "node:child_process";
@@ -50,29 +50,29 @@ const TARGETS = [
         rustTarget: "x86_64-unknown-linux-gnu",
         platformDir: "linux-x64",
         archive: "tar.gz",
-        binaryName: "kula-lsp",
+        binaryName: "kul-lsp",
     },
     {
         rustTarget: "x86_64-apple-darwin",
         platformDir: "darwin-x64",
         archive: "tar.gz",
-        binaryName: "kula-lsp",
+        binaryName: "kul-lsp",
     },
     {
         rustTarget: "aarch64-apple-darwin",
         platformDir: "darwin-arm64",
         archive: "tar.gz",
-        binaryName: "kula-lsp",
+        binaryName: "kul-lsp",
     },
     {
         rustTarget: "x86_64-pc-windows-msvc",
         platformDir: "win32-x64",
         archive: "zip",
-        binaryName: "kula-lsp.exe",
+        binaryName: "kul-lsp.exe",
     },
 ];
 
-const REPO = "YashBhalodi/kulalang";
+const REPO = "YashBhalodi/kul";
 
 async function main() {
     const here = dirname(fileURLToPath(import.meta.url));
@@ -87,7 +87,7 @@ async function main() {
     const tag = `v${version}`;
     console.log(`fetching ${REPO} release ${tag}`);
 
-    const tmp = mkdtempSync(join(tmpdir(), "kula-lsp-fetch-"));
+    const tmp = mkdtempSync(join(tmpdir(), "kul-lsp-fetch-"));
     try {
         for (const target of TARGETS) {
             await fetchAndStage(tag, target, tmp, serverRoot);
@@ -111,7 +111,7 @@ function readDefaultVersion(extensionRoot) {
 }
 
 async function fetchAndStage(tag, target, tmp, serverRoot) {
-    const archiveName = `kula-lsp-${target.rustTarget}.${target.archive}`;
+    const archiveName = `kul-lsp-${target.rustTarget}.${target.archive}`;
     const url = `https://github.com/${REPO}/releases/download/${tag}/${archiveName}`;
     const archivePath = join(tmp, archiveName);
 
@@ -138,8 +138,8 @@ async function fetchAndStage(tag, target, tmp, serverRoot) {
         }
     }
 
-    // Archive contents are at <staging>/kula-lsp-<target>/kula-lsp[.exe].
-    const stagingDir = `kula-lsp-${target.rustTarget}`;
+    // Archive contents are at <staging>/kul-lsp-<target>/kul-lsp[.exe].
+    const stagingDir = `kul-lsp-${target.rustTarget}`;
     const sourceBinary = join(extractDir, stagingDir, target.binaryName);
     if (!existsSync(sourceBinary)) {
         die(`expected binary at ${sourceBinary} after extracting ${archiveName}`);

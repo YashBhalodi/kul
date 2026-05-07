@@ -6,10 +6,10 @@ Conventions, layout, and workflow for anyone (human or AI) working in this repos
 
 ```
 crates/
-  kula-core/   — library: lexer, parser, AST, semantic, validator, diagnostics, node-at-cursor query, formatter, export
-  kula-cli/    — binary `kula`: `kula validate`, `kula format`, `kula export`, `kula lsp` subcommands
-  kula-lsp/    — library + binary `kula-lsp`: LSP adapter over kula-core (handles standard capabilities plus the `kula/export` custom request)
-  kula-wasm/   — library (cdylib): WASM adapter over kula-core, published as `@kulalang/wasm` (npm) and `kula-wasm.tar.gz` (GitHub Release). Surface is `check`, `exportGraph`, `format` (per ADR-0011).
+  kul-core/   — library: lexer, parser, AST, semantic, validator, diagnostics, node-at-cursor query, formatter, export
+  kul-cli/    — binary `kul`: `kul validate`, `kul format`, `kul export`, `kul lsp` subcommands
+  kul-lsp/    — library + binary `kul-lsp`: LSP adapter over kul-core (handles standard capabilities plus the `kul/export` custom request)
+  kul-wasm/   — library (cdylib): WASM adapter over kul-core, published as `@kul/wasm` (npm) and `kul-wasm.tar.gz` (GitHub Release). Surface is `check`, `exportGraph`, `format` (per ADR-0011).
 docs/
   vision.md    — language scope and design intent
   architecture.md — implementation map: pipeline, seams, "where to add X" recipes
@@ -18,9 +18,9 @@ docs/
   adr/         — Architectural Decision Records
   prd/         — Product Requirements Documents (transient — deleted after the epic ships; see [`prd/README.md`](./docs/prd/README.md))
   agents/      — agent-tooling docs (issue tracker, triage labels, domain-docs convention)
-spec/          — Kula 0.1 language specification (the normative source of truth)
+spec/          — Kul 0.1 language specification (the normative source of truth)
 editor/vscode/ — VSCode extension (LSP-backed, marketplace-publishable)
-examples/      — `.kula` corpus used as both docs and the positive test corpus
+examples/      — `.kul` corpus used as both docs and the positive test corpus
 CONTEXT.md     — domain glossary; canonical vocabulary for the project
 ```
 
@@ -58,7 +58,7 @@ Other recipes:
 - `just test` — tests only.
 - `just fmt` — auto-format.
 - `just lint` — clippy alone.
-- `just run -- validate examples/03-three-generations.kula` — passthrough to `cargo run -p kula-cli --`.
+- `just run -- validate examples/03-three-generations.kul` — passthrough to `cargo run -p kul-cli --`.
 
 ### Definition of done (Rust changes)
 

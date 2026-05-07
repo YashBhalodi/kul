@@ -1,6 +1,6 @@
 (* ============================================================
-   Kula Language Grammar (EBNF) — version 0.1
-   Normative grammar for the Kula language. See spec/12-formal-grammar.md
+   Kul Language Grammar (EBNF) — version 0.1
+   Normative grammar for the Kul language. See spec/12-formal-grammar.md
    for the prose introduction; see spec/ overall for full semantics.
    ============================================================ *)
 
@@ -11,7 +11,7 @@ blank-line        = NEWLINE ;
 comment-line      = comment NEWLINE ;
 comment           = "#" { any-char-except-newline } ;
 
-version-decl      = "kula" version ;
+version-decl      = "kul" version ;
 version           = digit { digit } "." digit { digit } ;
 
 (* --- Top-level statements --- *)

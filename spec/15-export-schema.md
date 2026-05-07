@@ -1,8 +1,8 @@
 ## 15. Export schema
 
-This section is normative. It specifies the canonical JSON envelope a conforming Kula exporter MUST produce. The reference exporter is `kula export`, surfaced both as a CLI subcommand and as the public function `kula_core::export::export`.
+This section is normative. It specifies the canonical JSON envelope a conforming Kul exporter MUST produce. The reference exporter is `kul export`, surfaced both as a CLI subcommand and as the public function `kul_core::export::export`.
 
-The export is a one-way projection from a Kula document to a flat JSON shape suitable for downstream consumers (visualizers, web apps, scripts, generators). The `.kula` source remains the canonical artifact; the export is derived.
+The export is a one-way projection from a Kul document to a flat JSON shape suitable for downstream consumers (visualizers, web apps, scripts, generators). The `.kul` source remains the canonical artifact; the export is derived.
 
 The decisions behind this schema — its kinship-native shape, its strict-on-diagnostics posture, and its independent versioning — are recorded in [ADR-0008](../docs/adr/0008-export-kinship-native-shape.md), [ADR-0009](../docs/adr/0009-export-strict-on-diagnostics.md), and [ADR-0010](../docs/adr/0010-export-schema-versioning.md).
 
@@ -16,14 +16,14 @@ A conforming exporter MUST emit one of two top-level objects.
 {
   "ok": true,
   "schema": 1,
-  "kula": "0.1",
+  "kul": "0.1",
   "graph": { ... }
 }
 ```
 
 - `ok` MUST be the boolean `true`.
 - `schema` MUST be a positive integer identifying the export schema version (currently `1`).
-- `kula` MUST be the language version that produced the export — the version declared by the document's `kula <version>` line, or the implementation's default if no declaration is present.
+- `kul` MUST be the language version that produced the export — the version declared by the document's `kul <version>` line, or the implementation's default if no declaration is present.
 - `graph` MUST be the [graph object](#152-graph-object).
 
 **Failure envelope.** Emitted when validation produced one or more error-severity diagnostics. Warnings alone MUST NOT trigger the failure envelope.
@@ -131,11 +131,11 @@ Each `birth` or `adoption` sub-statement projects to one parenthood-link entry.
 
 ### 15.7 Diagnostic objects
 
-Diagnostic objects in the failure envelope's `diagnostics` array MUST match the schema produced by `kula validate --format json`:
+Diagnostic objects in the failure envelope's `diagnostics` array MUST match the schema produced by `kul validate --format json`:
 
 ```json
 {
-  "code":     "KULA-R03",
+  "code":     "KUL-R03",
   "severity": "error",
   "message":  "person `alice` needs a `name:` field — add `name:\"…\"` to the declaration",
   "primary":  { "byteStart": 7, "byteEnd": 12, "line": 1, "column": 8 },
@@ -172,13 +172,13 @@ Source positions MUST NOT appear on date objects, on the envelope itself, or on 
 
 A conforming exporter MAY also emit the graph in the **Cytoscape JSON shape** when explicitly requested (the reference CLI flag is `--format cytoscape`). This shape is loadable into Cytoscape Desktop, Cytoscape.js, Sigma.js, vis-network, and other tools that consume the standard `{ nodes, edges }` graph form.
 
-The envelope structure (`ok`, `schema`, `kula`, `graph`) is unchanged. Only the `graph` field's payload differs:
+The envelope structure (`ok`, `schema`, `kul`, `graph`) is unchanged. Only the `graph` field's payload differs:
 
 ```json
 {
   "ok": true,
   "schema": 1,
-  "kula": "0.1",
+  "kul": "0.1",
   "graph": {
     "nodes": [
       { "data": { "id": "p:<person-id>", "type": "person", "name": "...", "gender": "...", ... } },
@@ -207,13 +207,13 @@ The failure envelope shape (§15.1) is unchanged in cytoscape mode — strict-on
 
 ### 15.11 Worked example
 
-For the source in [`examples/03-three-generations.kula`](../examples/03-three-generations.kula), a conforming exporter produces (line breaks added for readability):
+For the source in [`examples/03-three-generations.kul`](../examples/03-three-generations.kul), a conforming exporter produces (line breaks added for readability):
 
 ```json
 {
   "ok": true,
   "schema": 1,
-  "kula": "0.1",
+  "kul": "0.1",
   "graph": {
     "persons": [
       { "id": "ramesh", "name": "Ramesh Sharma", "gender": "male",

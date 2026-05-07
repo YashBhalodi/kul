@@ -1,23 +1,23 @@
-# KulaLang
+# KulLang
 
-> Kula — a kinship description language.
+> Kul — a kinship description language.
 
 ## Names and conventions
 
 This project follows the common pattern (cf. Kotlin/KotlinLang, Go/golang) of distinguishing the umbrella project from the language itself:
 
-- **KulaLang** — the project: the spec, the parser, the tooling, the repository, the brand.
-- **Kula** — the language itself: what you actually author.
-- `.kula` — file extension for Kula source files.
-- `kula` — CLI binary name (e.g., `kula validate family.kula`).
+- **KulLang** — the project: the spec, the parser, the tooling, the repository, the brand.
+- **Kul** — the language itself: what you actually author.
+- `.kul` — file extension for Kul source files.
+- `kul` — CLI binary name (e.g., `kul validate family.kul`).
 
-Throughout the rest of this document, "Kula" refers to the language, and "KulaLang" refers to the project as a whole.
+Throughout the rest of this document, "Kul" refers to the language, and "KulLang" refers to the project as a whole.
 
-## What is Kula
+## What is Kul
 
-Kula is a small, specialized domain-specific language for describing human kinship — the structure of families and how they evolve over time. It is designed to be both **human-readable** (you can author and review a Kula document by hand) and **programmatically actable** (parsers, validators, and visualizers can operate on it).
+Kul is a small, specialized domain-specific language for describing human kinship — the structure of families and how they evolve over time. It is designed to be both **human-readable** (you can author and review a Kul document by hand) and **programmatically actable** (parsers, validators, and visualizers can operate on it).
 
-The name _kula_ (कुल) is Sanskrit/Hindi for _family, clan, lineage_. The cultural grounding of the language is conservative Indian kinship; the surface syntax is in English so that anyone literate in English can read and write it.
+The name _kul_ (कुल) is Hindi for _family, clan, lineage_ — pronounced /kuːl/, rhymes with "cool". The cultural grounding of the language is conservative Indian kinship; the surface syntax is in English so that anyone literate in English can read and write it.
 
 ## Why this exists
 
@@ -29,20 +29,20 @@ I want a single, formally-specified language in which I can describe a family �
 
 GEDCOM is the de facto kinship interchange format and has existed for 40 years. It solves a related but different problem:
 
-- GEDCOM is designed for **ancestry research** (tracing who descended from whom for genealogy). Kula is designed for **modeling living kinship dynamics** as they evolve.
-- GEDCOM is **not pleasant to hand-author**. Kula treats hand-authoring as a primary use case.
-- GEDCOM treats relationship state changes as **time-stamped events** layered on top of a family-unit record. Kula treats **chronology as first-class** — every relationship has temporal extent and reasons for ending.
-- GEDCOM's family-unit model is rooted in monogamous, formalized marriage. Kula's structural primitives accommodate the dynamics common in non-western conservative kinship — polygamy, retroactive adoption, multi-generational continuity — without retrofits.
+- GEDCOM is designed for **ancestry research** (tracing who descended from whom for genealogy). Kul is designed for **modeling living kinship dynamics** as they evolve.
+- GEDCOM is **not pleasant to hand-author**. Kul treats hand-authoring as a primary use case.
+- GEDCOM treats relationship state changes as **time-stamped events** layered on top of a family-unit record. Kul treats **chronology as first-class** — every relationship has temporal extent and reasons for ending.
+- GEDCOM's family-unit model is rooted in monogamous, formalized marriage. Kul's structural primitives accommodate the dynamics common in non-western conservative kinship — polygamy, retroactive adoption, multi-generational continuity — without retrofits.
 
-Kula is intentionally _not_ GEDCOM-compatible. It is an independent language with its own formal definition.
+Kul is intentionally _not_ GEDCOM-compatible. It is an independent language with its own formal definition.
 
 ## Audience
 
-Kula is for people like me: individuals — primarily but not exclusively from Indian or similar conservative-kinship cultural backgrounds — who want to model their family in a structured, formal way. The cultural grounding informs the _scope decisions_ (what's expressible) but stays in the backdrop; the language surface is in English and accessible to any English-literate user.
+Kul is for people like me: individuals — primarily but not exclusively from Indian or similar conservative-kinship cultural backgrounds — who want to model their family in a structured, formal way. The cultural grounding informs the _scope decisions_ (what's expressible) but stays in the backdrop; the language surface is in English and accessible to any English-literate user.
 
 Secondary audience: language designers and DSL enthusiasts who appreciate a small, well-specified language as an artifact in its own right.
 
-Kula is not aimed at:
+Kul is not aimed at:
 
 - Genealogy researchers (use GEDCOM-based tooling).
 - Social CRM use cases (modeling friendships, professional networks, etc.).
@@ -70,7 +70,7 @@ These are deliberately excluded so the language stays small and coherent. They m
 - Single parenthood (every child in scope has two parents at the time of conception/adoption).
 - Polyamorous co-parenting (more than two parents in the same parenthood unit).
 - Friendships, professional relationships, mentorships, neighbors, or any other non-kinship social tie.
-- Legal compliance with any jurisdiction's marriage/adoption law. Kula records _real-world relationships_, not their legal status.
+- Legal compliance with any jurisdiction's marriage/adoption law. Kul records _real-world relationships_, not their legal status.
 
 The exclusions are not statements about the validity of these relationships in general — they are statements about what _this language_ attempts to express in its first version.
 
@@ -82,20 +82,20 @@ The language is built on a small set of primitive concepts. The conceptual shape
 - **Marriage** — a temporal binary union between two persons. Has a beginning. May end, with a reason (divorce, death). Multiple marriages for one person are allowed, both serially and concurrently.
 - **Parenthood link** — a relationship from a marriage to a person (the child), qualified by _kind_ (biological or adoptive). A child may have multiple parenthood links over their lifetime, each with its own beginning.
 
-Everything else expressible in Kula — siblinghood, cousinhood, grandparenthood, step-relationships, half-siblings, in-laws, descendants, ancestors — is _derived_ from compositions of these primitives. The language defines structure; richer relationship terms are queries or views on top of that structure.
+Everything else expressible in Kul — siblinghood, cousinhood, grandparenthood, step-relationships, half-siblings, in-laws, descendants, ancestors — is _derived_ from compositions of these primitives. The language defines structure; richer relationship terms are queries or views on top of that structure.
 
 ## Project deliverables
 
-KulaLang's v1 envelope is four coherent artifacts:
+KulLang's v1 envelope is four coherent artifacts:
 
-1. **The language specification.** A self-contained formal document defining the grammar, semantics, and validation rules of Kula, with worked examples and edge cases. Specified rigorously enough that someone could implement an independent parser from it alone. Lives at [`../spec/`](../spec/README.md).
-2. **A reference parser and library** (`kula-core`) that implements the spec end-to-end: lexer, parser, semantic resolution, validator (13 spec rules), formatter, node-at-cursor query for editor tooling.
-3. **A CLI** (`kula`) wrapping the library: `kula validate`, `kula format`, `kula lsp`.
-4. **An LSP-backed VSCode extension** (`kula-lsp` + the marketplace extension) delivering live diagnostics, hover, go-to-definition, find-references, rename, completion (keyword + ID-aware), document symbols, code actions, formatting, and semantic tokens.
+1. **The language specification.** A self-contained formal document defining the grammar, semantics, and validation rules of Kul, with worked examples and edge cases. Specified rigorously enough that someone could implement an independent parser from it alone. Lives at [`../spec/`](../spec/README.md).
+2. **A reference parser and library** (`kul-core`) that implements the spec end-to-end: lexer, parser, semantic resolution, validator (13 spec rules), formatter, node-at-cursor query for editor tooling.
+3. **A CLI** (`kul`) wrapping the library: `kul validate`, `kul format`, `kul lsp`.
+4. **An LSP-backed VSCode extension** (`kul-lsp` + the marketplace extension) delivering live diagnostics, hover, go-to-definition, find-references, rename, completion (keyword + ID-aware), document symbols, code actions, formatting, and semantic tokens.
 
 ### Explicitly downstream / separate
 
-- **Web visualization app.** A separate project that, if built, would let users interactively define and visualize a Kula document. Not part of v1, and may or may not be built at all. Other application surfaces (mobile, desktop, etc.) are similarly downstream and optional.
+- **Web visualization app.** A separate project that, if built, would let users interactively define and visualize a Kul document. Not part of v1, and may or may not be built at all. Other application surfaces (mobile, desktop, etc.) are similarly downstream and optional.
 
 ## Distribution and openness
 
@@ -107,7 +107,7 @@ KulaLang's v1 envelope is four coherent artifacts:
 
 ## Non-goals
 
-To keep the project honest and focused, KulaLang explicitly does _not_ aim to:
+To keep the project honest and focused, KulLang explicitly does _not_ aim to:
 
 - Be a general-purpose graph or relationship language.
 - Be culturally universal. The scope reflects Indian conservative kinship; broadening is a future decision.
@@ -118,11 +118,11 @@ To keep the project honest and focused, KulaLang explicitly does _not_ aim to:
 
 ## Working conventions
 
-- **Project name:** KulaLang
-- **Language name:** Kula
-- **File extension:** `.kula`
-- **CLI binary:** `kula` (e.g., `kula validate family.kula`)
-- **Tagline:** _Kula — a kinship description language._
+- **Project name:** KulLang
+- **Language name:** Kul
+- **File extension:** `.kul`
+- **CLI binary:** `kul` (e.g., `kul validate family.kul`)
+- **Tagline:** _Kul — a kinship description language._
 
 ## What this document is not
 

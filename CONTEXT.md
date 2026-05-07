@@ -1,18 +1,18 @@
 # CONTEXT
 
-Canonical vocabulary for KulaLang. When discussing this project — in issue titles, code reviews, hypothesis statements, ADRs, test names, PR descriptions — use these terms exactly as defined here. Don't drift into synonyms (no "service / handler / component / API"); when a concept is missing, extend this file in the same change.
+Canonical vocabulary for KulLang. When discussing this project — in issue titles, code reviews, hypothesis statements, ADRs, test names, PR descriptions — use these terms exactly as defined here. Don't drift into synonyms (no "service / handler / component / API"); when a concept is missing, extend this file in the same change.
 
 The architecture vocabulary (**module**, **interface**, **seam**, **depth**, **adapter**, etc.) is documented in [`docs/architecture.md`](./docs/architecture.md) and used throughout the codebase. This file focuses on the project's domain and implementation nouns.
 
 ## What this project is
 
-**KulaLang** is the project: a language design (Kula) plus the reference toolchain that consumes it. **Kula** is the language itself — a DSL for describing human kinship as plain text. A **Kula document** is a `.kula` file; it contains a sequence of declarations a human writes by hand and a machine can validate, query, and render.
+**KulLang** is the project: a language design (Kul) plus the reference toolchain that consumes it. **Kul** is the language itself — a DSL for describing human kinship as plain text. A **Kul document** is a `.kul` file; it contains a sequence of declarations a human writes by hand and a machine can validate, query, and render.
 
-The project's design discipline is the **additivity principle**: adding new information to a Kula document must never require rewriting existing declarations. This shapes the AST (optional fields, stable IDs), the validator (rules tolerate omissions where the spec allows them), and the [version policy](./spec/13-versioning-policy.md) (new fields land additively).
+The project's design discipline is the **additivity principle**: adding new information to a Kul document must never require rewriting existing declarations. This shapes the AST (optional fields, stable IDs), the validator (rules tolerate omissions where the spec allows them), and the [version policy](./spec/13-versioning-policy.md) (new fields land additively).
 
 ## Kinship vocabulary (the language)
 
-These are the user-facing nouns. They appear in `.kula` source, in spec section names, in diagnostic messages, in hover popovers, and in test names. They are also the names of the AST node types in `crates/kula-core/src/ast.rs`.
+These are the user-facing nouns. They appear in `.kul` source, in spec section names, in diagnostic messages, in hover popovers, and in test names. They are also the names of the AST node types in `crates/kul-core/src/ast.rs`.
 
 ### Person
 
@@ -22,7 +22,7 @@ A declared individual: `person <id> name:"…" born:… died:… gender:…`. Th
 
 A declared union: `marriage <id> <spouse_a> <spouse_b> start:… end:… end_reason:…`. The two spouse positions reference declared persons by id. Marriages are identified, not anonymous — children link to a marriage by id.
 
-A person may participate in multiple marriages (sequential or concurrent — concurrent marriages are valid; see `examples/04-polygamous-family.kula`). The spec does not restrict marriages to particular gender combinations.
+A person may participate in multiple marriages (sequential or concurrent — concurrent marriages are valid; see `examples/04-polygamous-family.kul`). The spec does not restrict marriages to particular gender combinations.
 
 ### Birth
 
@@ -34,7 +34,7 @@ A sub-statement under a person: `adoption <marriage_id> start:…`. Declares thi
 
 ### Field
 
-Any `key:value` pair on a Person, Marriage, Birth, or Adoption. Fields are optional unless the spec marks them required (see [`spec/04-validation-rules.md`](./spec/07-validation-rules.md)). They are unordered. Repeating a field in the same declaration is an error (KULA-R05).
+Any `key:value` pair on a Person, Marriage, Birth, or Adoption. Fields are optional unless the spec marks them required (see [`spec/04-validation-rules.md`](./spec/07-validation-rules.md)). They are unordered. Repeating a field in the same declaration is an error (KUL-R05).
 
 ### Date literal
 
@@ -54,19 +54,19 @@ The inverse of parent. There is no `child` declaration in the language — child
 
 ### Validator rule
 
-One of the thirteen spec-defined checks (KULA-R01 through KULA-R13). See [`spec/04-validation-rules.md`](./spec/07-validation-rules.md). In code, each rule lives as a function in `crates/kula-core/src/validator.rs` named `rule_NN_<short_name>`; tests follow the same pattern.
+One of the thirteen spec-defined checks (KUL-R01 through KUL-R13). See [`spec/04-validation-rules.md`](./spec/07-validation-rules.md). In code, each rule lives as a function in `crates/kul-core/src/validator.rs` named `rule_NN_<short_name>`; tests follow the same pattern.
 
 ### Diagnostic
 
-An error or warning emitted by the validator. Carries a **code** (`KULA-Rxx`), a **severity**, a **message**, a **primary span**, and optional **related** spans. Rendered to the user via `miette` (CLI) or translated to LSP diagnostics (editor).
+An error or warning emitted by the validator. Carries a **code** (`KUL-Rxx`), a **severity**, a **message**, a **primary span**, and optional **related** spans. Rendered to the user via `miette` (CLI) or translated to LSP diagnostics (editor).
 
 ### ExportEnvelope
 
-The top-level value `kula export` (and the public `kula_core::export::export` function) emits. Either a **success envelope** carrying a `schema` number, the source's `kula` language version, and the [`ExportedGraph`](#exportedgraph), or a **failure envelope** carrying the diagnostic list. The export is strict on errors per [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md).
+The top-level value `kul export` (and the public `kul_core::export::export` function) emits. Either a **success envelope** carrying a `schema` number, the source's `kul` language version, and the [`ExportedGraph`](#exportedgraph), or a **failure envelope** carrying the diagnostic list. The export is strict on errors per [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md).
 
 ### CheckEnvelope
 
-The top-level value `@kulalang/wasm`'s `check(source)` function returns. A single-field object — `{ diagnostics: ExportedDiagnostic[] }` — carrying every diagnostic the validator produced (errors, warnings, and notes alike). An empty array means a clean document; consumers discriminate on emptiness, with no `ok` field. The diagnostic shape reuses [`ExportEnvelope`](#exportenvelope)'s failure-arm `ExportedDiagnostic` so CLI export and WASM check agree on one source of truth. Defined at `crates/kula-wasm/src/lib.rs`; surface decision recorded in [ADR-0011](./docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md).
+The top-level value `@kul/wasm`'s `check(source)` function returns. A single-field object — `{ diagnostics: ExportedDiagnostic[] }` — carrying every diagnostic the validator produced (errors, warnings, and notes alike). An empty array means a clean document; consumers discriminate on emptiness, with no `ok` field. The diagnostic shape reuses [`ExportEnvelope`](#exportenvelope)'s failure-arm `ExportedDiagnostic` so CLI export and WASM check agree on one source of truth. Defined at `crates/kul-wasm/src/lib.rs`; surface decision recorded in [ADR-0011](./docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md).
 
 ### ExportedGraph
 
@@ -74,7 +74,7 @@ The kinship-native graph projection inside a success [`ExportEnvelope`](#exporte
 
 ### Schema number
 
-The `schema:` integer on a success [`ExportEnvelope`](#exportenvelope). Discriminator for the structural shape of the envelope; bumped only when consumers might silently mis-represent data by ignoring a new construct. Independent of the language version (the `kula:` field). Policy in [ADR-0010](./docs/adr/0010-export-schema-versioning.md).
+The `schema:` integer on a success [`ExportEnvelope`](#exportenvelope). Discriminator for the structural shape of the envelope; bumped only when consumers might silently mis-represent data by ignoring a new construct. Independent of the language version (the `kul:` field). Policy in [ADR-0010](./docs/adr/0010-export-schema-versioning.md).
 
 ## Implementation vocabulary
 
@@ -82,7 +82,7 @@ These names appear in code, ADRs, and architecture discussion.
 
 ### Document
 
-The AST root: a version declaration plus a list of **statements**. Carries the source `&str` only by reference (`Document<'a>`). Type lives at `crates/kula-core/src/ast.rs`.
+The AST root: a version declaration plus a list of **statements**. Carries the source `&str` only by reference (`Document<'a>`). Type lives at `crates/kul-core/src/ast.rs`.
 
 ### Statement
 
@@ -90,15 +90,15 @@ The two top-level AST nodes: `Statement::Person(PersonStmt)` and `Statement::Mar
 
 ### Span / ByteSpan
 
-A `(start, end)` byte range into the source string. Every AST node carries one. Used for diagnostics, hover ranges, goto-definition targets, completion contexts. Type lives at `crates/kula-core/src/span.rs`.
+A `(start, end)` byte range into the source string. Every AST node carries one. Used for diagnostics, hover ranges, goto-definition targets, completion contexts. Type lives at `crates/kul-core/src/span.rs`.
 
 ### Lexer / Parser
 
-Two passes in `crates/kula-core/src/`. The lexer produces a flat token stream (`TokenKind` + span); the parser builds the AST. Both are hand-written and small (~350 + ~750 lines). Recovery is ad-hoc per production: hit an error, sync to newline, continue.
+Two passes in `crates/kul-core/src/`. The lexer produces a flat token stream (`TokenKind` + span); the parser builds the AST. Both are hand-written and small (~350 + ~750 lines). Recovery is ad-hoc per production: hit an error, sync to newline, continue.
 
 ### Resolver
 
-The function `kula_core::semantic::resolve(&Document) -> ResolvedDocument`. Builds the id-to-statement indexes and reports unresolved references (rule 02) inline. Lives at `crates/kula-core/src/semantic.rs`.
+The function `kul_core::semantic::resolve(&Document) -> ResolvedDocument`. Builds the id-to-statement indexes and reports unresolved references (rule 02) inline. Lives at `crates/kul-core/src/semantic.rs`.
 
 ### ResolvedDocument
 
@@ -108,31 +108,31 @@ Owns its `Document` via `Arc<Document>` (per [ADR-0007](./docs/adr/0007-resolved
 
 ### Validator
 
-The pass that runs spec rules R02–R13 over a `ResolvedDocument`, accumulating diagnostics. Lives at `crates/kula-core/src/validator.rs`. Each rule is a function; the validator's job is to call them and collect output. (R01 — duplicate ids — is the one rule that lives inside `semantic::resolve`, because the duplicate check is a property of insertion order as the entity table is built.)
+The pass that runs spec rules R02–R13 over a `ResolvedDocument`, accumulating diagnostics. Lives at `crates/kul-core/src/validator.rs`. Each rule is a function; the validator's job is to call them and collect output. (R01 — duplicate ids — is the one rule that lives inside `semantic::resolve`, because the duplicate check is a property of insertion order as the entity table is built.)
 
 ### Cycle detector
 
-A standalone algorithm at `crates/kula-core/src/cycles.rs`, called by rule 13 (parenthood cycles). Pure function over the parent graph; separated from the rule because the algorithm is independently testable and the rule is a thin shell around it.
+A standalone algorithm at `crates/kul-core/src/cycles.rs`, called by rule 13 (parenthood cycles). Pure function over the parent graph; separated from the rule because the algorithm is independently testable and the rule is a thin shell around it.
 
 ### Node-at-cursor / `node_at`
 
-The query `ResolvedDocument::node_at(byte_offset) -> Option<Node<'a>>`. Lives at `crates/kula-core/src/node_at.rs`. Returns a typed enum identifying *what's at the cursor* — keyword, identifier declaration, identifier reference (with resolved target), field name, field value. The shared foundation for hover, goto-definition, and completion. See [`docs/architecture.md`](./docs/architecture.md) for the data-flow diagram.
+The query `ResolvedDocument::node_at(byte_offset) -> Option<Node<'a>>`. Lives at `crates/kul-core/src/node_at.rs`. Returns a typed enum identifying *what's at the cursor* — keyword, identifier declaration, identifier reference (with resolved target), field name, field value. The shared foundation for hover, goto-definition, and completion. See [`docs/architecture.md`](./docs/architecture.md) for the data-flow diagram.
 
 ### Entity-reference accessor
 
-The method `Node::entity_reference(&self) -> Option<EntityNode<'a>>` (in `crates/kula-core/src/node_at.rs`) collapses the four id-bearing `Node` variants (`PersonDeclId`, `MarriageDeclId`, `PersonRef`, `MarriageRef`) into a uniform summary: `kind`, `name`, `ident_span`, `is_decl`, and the resolved `target`. LSP features that key on "what entity is the user pointing at?" (goto-definition, find-references, rename) phrase themselves as a query for this summary instead of re-pattern-matching the four variants by hand.
+The method `Node::entity_reference(&self) -> Option<EntityNode<'a>>` (in `crates/kul-core/src/node_at.rs`) collapses the four id-bearing `Node` variants (`PersonDeclId`, `MarriageDeclId`, `PersonRef`, `MarriageRef`) into a uniform summary: `kind`, `name`, `ident_span`, `is_decl`, and the resolved `target`. LSP features that key on "what entity is the user pointing at?" (goto-definition, find-references, rename) phrase themselves as a query for this summary instead of re-pattern-matching the four variants by hand.
 
 ### Server
 
-The `tower-lsp` Backend implementation in `crates/kula-lsp/src/server.rs`. Owns the document cache, dispatches LSP requests to feature modules, advertises capabilities.
+The `tower-lsp` Backend implementation in `crates/kul-lsp/src/server.rs`. Owns the document cache, dispatches LSP requests to feature modules, advertises capabilities.
 
 ### Document cache
 
-Thread-safe map from `Url` to a `Document`-with-resolved-state in `crates/kula-lsp/src/state.rs`. Each entry holds an `Arc<str>` source (shared with the [LineIndex](#lineindex)) and a `CheckResult` whose `resolved` field is the cached [`ResolvedDocument`](#resolveddocument) — so every LSP request handler reads through the same resolved view without re-running `semantic::resolve`. Updated on `did_open` / `did_change` / `did_close`.
+Thread-safe map from `Url` to a `Document`-with-resolved-state in `crates/kul-lsp/src/state.rs`. Each entry holds an `Arc<str>` source (shared with the [LineIndex](#lineindex)) and a `CheckResult` whose `resolved` field is the cached [`ResolvedDocument`](#resolveddocument) — so every LSP request handler reads through the same resolved view without re-running `semantic::resolve`. Updated on `did_open` / `did_change` / `did_close`.
 
 ### Feature module
 
-One per LSP feature — `crates/kula-lsp/src/features/{hover,definition,completion,diagnostics}.rs`. Each turns a typed request into a typed response by reading the document cache and querying through `ResolvedDocument` + `node_at`. None should walk the AST directly.
+One per LSP feature — `crates/kul-lsp/src/features/{hover,definition,completion,diagnostics}.rs`. Each turns a typed request into a typed response by reading the document cache and querying through `ResolvedDocument` + `node_at`. None should walk the AST directly.
 
 ### Completion classifier
 
@@ -140,7 +140,7 @@ The token-stream-first context detector in `features/completion.rs`. Identifies 
 
 ### LineIndex
 
-Byte-offset ↔ LSP-position converter in `crates/kula-lsp/src/convert.rs`. Handles UTF-16 code-unit positions (LSP spec) ↔ UTF-8 byte offsets (kula-core), with CRLF round-trip safety.
+Byte-offset ↔ LSP-position converter in `crates/kul-lsp/src/convert.rs`. Handles UTF-16 code-unit positions (LSP spec) ↔ UTF-8 byte offsets (kul-core), with CRLF round-trip safety.
 
 ## When this glossary is incomplete
 

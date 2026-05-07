@@ -631,14 +631,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "kula-cli"
+name = "kul-cli"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "clap",
  "insta",
- "kula-core",
- "kula-lsp",
+ "kul-core",
+ "kul-lsp",
  "miette",
  "predicates",
  "serde",
@@ -647,7 +647,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kula-core"
+name = "kul-core"
 version = "0.1.0"
 dependencies = [
  "insta",
@@ -660,11 +660,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "kula-lsp"
+name = "kul-lsp"
 version = "0.1.0"
 dependencies = [
  "insta",
- "kula-core",
+ "kul-core",
  "serde",
  "serde_json",
  "tokio",
@@ -674,12 +674,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "kula-wasm"
+name = "kul-wasm"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
  "insta",
- "kula-core",
+ "kul-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",

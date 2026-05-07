@@ -1,6 +1,6 @@
 # 12. Formal grammar
 
-The complete normative grammar for Kula 0.1 is provided as a standalone EBNF file:
+The complete normative grammar for Kul 0.1 is provided as a standalone EBNF file:
 
 > [`grammar.ebnf`](./grammar.ebnf)
 

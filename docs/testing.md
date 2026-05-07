@@ -1,6 +1,6 @@
 # Testing
 
-How tests are organized in KulaLang and what conventions to follow when adding one.
+How tests are organized in KulLang and what conventions to follow when adding one.
 
 For the architectural reasons behind these patterns, see [ADR-0003](./adr/0003-snapshot-tests-as-primary-validation.md).
 
@@ -12,13 +12,13 @@ Tests in this workspace live at two layers, and both layers are load-bearing.
 
 | Crate     | Tests live at                                  | Style                                                                          |
 | --------- | ---------------------------------------------- | ------------------------------------------------------------------------------ |
-| kula-core | `crates/kula-core/tests/{lexer,parser,validator,format,export}.rs` | Integration tests; insta snapshots. `export.rs` macro-generates one snapshot per `examples/*.kula` per option matrix (default / with-positions / cytoscape). |
-| kula-cli  | `crates/kula-cli/tests/cli.rs`                 | End-to-end via `assert_cmd` + `predicates`. Covers every subcommand including `kula export` (success / failure envelopes, both formats, `--with-positions`). |
-| kula-lsp  | `crates/kula-lsp/tests/{handshake,diagnostics,hover,definition,completion,cold_start,export}.rs` | Stdio LSP client driving the real server; insta snapshots. `export.rs` covers the `kula/export` custom request end-to-end (success, failure, cytoscape, document-not-open error). |
-| kula-lsp  | `crates/kula-lsp/tests/perf.rs`                | Performance budget gates (no LSP-protocol round-trip)                          |
-| kula-wasm | `crates/kula-wasm/tests/{check,export_graph,format}.rs` | Rust-side snapshot tests over the example corpus, asserting the WASM serde-bridge faithfully round-trips the underlying `kula-core` output. `export_graph.rs` includes a cross-surface bit-identical assertion against `kula_core::export::export`. |
-| kula-wasm | `crates/kula-wasm/tests/typescript/usage.ts` (driven by `tsc --noEmit` in CI) | TypeScript consumer compile-test. Exercises realistic patterns (discriminating on `ok`, narrowing `GraphPayload`, iterating `parenthoodLinks`, `@ts-expect-error` on illegal arguments) so a `.d.ts` that compiles against itself but isn't usable in real consumer code surfaces. |
-| kula-wasm | `crates/kula-wasm/tests/node/smoke.mjs` (driven by `node --experimental-wasm-modules` in CI) | End-to-end Node smoke test: imports the wasm-pack output as a downstream consumer would, calls all three functions on the example corpus and a known-broken fixture, asserts shape and basic invariants. Catches WASM-toolchain or JS-glue regressions invisible to Rust-only tests. |
+| kul-core | `crates/kul-core/tests/{lexer,parser,validator,format,export}.rs` | Integration tests; insta snapshots. `export.rs` macro-generates one snapshot per `examples/*.kul` per option matrix (default / with-positions / cytoscape). |
+| kul-cli  | `crates/kul-cli/tests/cli.rs`                 | End-to-end via `assert_cmd` + `predicates`. Covers every subcommand including `kul export` (success / failure envelopes, both formats, `--with-positions`). |
+| kul-lsp  | `crates/kul-lsp/tests/{handshake,diagnostics,hover,definition,completion,cold_start,export}.rs` | Stdio LSP client driving the real server; insta snapshots. `export.rs` covers the `kul/export` custom request end-to-end (success, failure, cytoscape, document-not-open error). |
+| kul-lsp  | `crates/kul-lsp/tests/perf.rs`                | Performance budget gates (no LSP-protocol round-trip)                          |
+| kul-wasm | `crates/kul-wasm/tests/{check,export_graph,format}.rs` | Rust-side snapshot tests over the example corpus, asserting the WASM serde-bridge faithfully round-trips the underlying `kul-core` output. `export_graph.rs` includes a cross-surface bit-identical assertion against `kul_core::export::export`. |
+| kul-wasm | `crates/kul-wasm/tests/typescript/usage.ts` (driven by `tsc --noEmit` in CI) | TypeScript consumer compile-test. Exercises realistic patterns (discriminating on `ok`, narrowing `GraphPayload`, iterating `parenthoodLinks`, `@ts-expect-error` on illegal arguments) so a `.d.ts` that compiles against itself but isn't usable in real consumer code surfaces. |
+| kul-wasm | `crates/kul-wasm/tests/node/smoke.mjs` (driven by `node --experimental-wasm-modules` in CI) | End-to-end Node smoke test: imports the wasm-pack output as a downstream consumer would, calls all three functions on the example corpus and a known-broken fixture, asserts shape and basic invariants. Catches WASM-toolchain or JS-glue regressions invisible to Rust-only tests. |
 
 These cross public-API surfaces and exercise wire formats / process behavior. They are the highest-fidelity tests in the suite.
 
@@ -49,7 +49,7 @@ Most parser, validator, and LSP-feature tests are **snapshot tests**: the output
 
 ```sh
 # 1. Add or change a test. Run it.
-cargo nextest run -p kula-core --test validator -E 'test(rule_07_)'
+cargo nextest run -p kul-core --test validator -E 'test(rule_07_)'
 
 # 2. If the snapshot is new or changed, the test fails and writes a `.snap.new` file.
 
@@ -73,7 +73,7 @@ If you find yourself writing a 50-line assertion of "this field equals X, that f
 
 ## Examples corpus as positive tests
 
-The `.kula` files under [`examples/`](../examples/) are the **positive test corpus**. Several integration tests glob the directory and assert every file validates cleanly. This means:
+The `.kul` files under [`examples/`](../examples/) are the **positive test corpus**. Several integration tests glob the directory and assert every file validates cleanly. This means:
 
 - Adding a new example automatically pulls it into the test suite.
 - Changing an example may update many snapshots — review the diffs carefully (a single comma in a name field can ripple through hover, completion, and diagnostic snapshots).
@@ -88,11 +88,11 @@ Failing-validation cases live next to the test that exercises them — *not* in 
 ```rust
 #[test]
 fn rule_07_rejects_marriage_with_self() {
-    let source = "kula 0.1
+    let source = "kul 0.1
 person a name:\"A\" gender:female
 marriage m_self a a start:2000-01-01
 ";
-    let diagnostics = kula_core::check(source).diagnostics;
+    let diagnostics = kul_core::check(source).diagnostics;
     insta::assert_yaml_snapshot!(diagnostics);
 }
 ```
@@ -108,11 +108,11 @@ Each of the thirteen spec rules has its own test function, named `rule_NN_<short
 
 If a single test is doing both, that's fine; if it grows complex, split.
 
-When you add a new rule (KULA-R14, etc.), follow the same pattern. The numbering is part of the public diagnostic contract — once shipped, codes don't get reassigned.
+When you add a new rule (KUL-R14, etc.), follow the same pattern. The numbering is part of the public diagnostic contract — once shipped, codes don't get reassigned.
 
 ## LSP integration tests
 
-The LSP integration tests in `crates/kula-lsp/tests/` use a small in-test LSP client (Content-Length framing, JSON-RPC, threads + mpsc) to drive the real server. They are the highest-fidelity tests in the suite — they catch regressions in capabilities advertisement, lifecycle handlers, and message ordering.
+The LSP integration tests in `crates/kul-lsp/tests/` use a small in-test LSP client (Content-Length framing, JSON-RPC, threads + mpsc) to drive the real server. They are the highest-fidelity tests in the suite — they catch regressions in capabilities advertisement, lifecycle handlers, and message ordering.
 
 Conventions:
 
@@ -123,7 +123,7 @@ Conventions:
 
 ## Performance budgets
 
-Perf budgets are tests, not benchmarks. They live at [`crates/kula-lsp/tests/perf.rs`](../crates/kula-lsp/tests/perf.rs) — one file collecting every gate, easy to find, runs as part of `cargo nextest`. The canonical example is `one_thousand_statement_check_and_translate_under_budget`: builds a 1000-person document, runs the full `kula_core::check` + `to_lsp` pipeline, asserts the elapsed time is under a ceiling.
+Perf budgets are tests, not benchmarks. They live at [`crates/kul-lsp/tests/perf.rs`](../crates/kul-lsp/tests/perf.rs) — one file collecting every gate, easy to find, runs as part of `cargo nextest`. The canonical example is `one_thousand_statement_check_and_translate_under_budget`: builds a 1000-person document, runs the full `kul_core::check` + `to_lsp` pipeline, asserts the elapsed time is under a ceiling.
 
 The "tests, not benches" choice is deliberate:
 
@@ -144,7 +144,7 @@ If a budget gets in the way of a legitimate change, *raise it deliberately*, wit
 The WASM artifact has two CI gates that aren't tests in the `cargo nextest` sense, but fail the build the same way:
 
 - **Bundle-size budget** — the `wasm-build` job in `.github/workflows/rust.yml` gzips the built `.wasm` and fails if size > 1 MB. Prevents silent regressions where a dependency bump bloats the artifact.
-- **Generated TypeScript types diff** — the same job regenerates `crates/kula-wasm/types/kula_wasm.d.ts` via `wasm-pack build` and `git diff --exit-code`s against the committed snapshot. A Rust-side type change that crosses the WASM boundary fails the merge with a reviewable diff instead of landing as silent runtime drift on consumers (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)). Regenerate locally with `just wasm` and commit the diff.
+- **Generated TypeScript types diff** — the same job regenerates `crates/kul-wasm/types/kul_wasm.d.ts` via `wasm-pack build` and `git diff --exit-code`s against the committed snapshot. A Rust-side type change that crosses the WASM boundary fails the merge with a reviewable diff instead of landing as silent runtime drift on consumers (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)). Regenerate locally with `just wasm` and commit the diff.
 
 Both gates are part of `.github/workflows/rust.yml` (per-PR), not just `release.yml` — a Rust-side change that breaks WASM is caught at PR time, not at release tag.
 

@@ -1,12 +1,12 @@
 # 14. Formatter rules
 
-This section is normative. It specifies the canonical form a conforming Kula formatter MUST produce. The rules are settled in [ADR 0004](../docs/adr/0004-formatter-canonical-rules.md), which carries the rationale; this section is the contract.
+This section is normative. It specifies the canonical form a conforming Kul formatter MUST produce. The rules are settled in [ADR 0004](../docs/adr/0004-formatter-canonical-rules.md), which carries the rationale; this section is the contract.
 
-A formatter for Kula is a function `format(s) → s'` over a Kula source string. For every input that parses without lex or parse errors, the formatter MUST return a string that satisfies every rule in this section. Inputs that fail to parse SHOULD be rejected rather than partially formatted.
+A formatter for Kul is a function `format(s) → s'` over a Kul source string. For every input that parses without lex or parse errors, the formatter MUST return a string that satisfies every rule in this section. Inputs that fail to parse SHOULD be rejected rather than partially formatted.
 
 ## 14.1 Opinionated, no configuration
 
-A conforming formatter MUST accept exactly one input — the source — and produce exactly one output. It MUST NOT consult a configuration file, environment variable, or command-line flag that alters its output. The reference CLI (`kula format`) carries flags only for *operational* concerns (`--check`, file selection, stdin); none of them change the canonical form.
+A conforming formatter MUST accept exactly one input — the source — and produce exactly one output. It MUST NOT consult a configuration file, environment variable, or command-line flag that alters its output. The reference CLI (`kul format`) carries flags only for *operational* concerns (`--check`, file selection, stdin); none of them change the canonical form.
 
 ## 14.2 Field order
 
@@ -67,7 +67,7 @@ Two normalization rules cover whitespace adjacent to comments:
 
 ## 14.8 Idempotence
 
-For every Kula source string `s` that parses without lex or parse errors:
+For every Kul source string `s` that parses without lex or parse errors:
 
 ```
 format(format(s)) == format(s)   // byte-equal
@@ -77,7 +77,7 @@ A formatter that breaks idempotence is non-conforming. Any future rule change th
 
 ## 14.9 Round-trip
 
-For every Kula source string `s` that parses without lex or parse errors:
+For every Kul source string `s` that parses without lex or parse errors:
 
 ```
 parse(format(s)) ≡ parse(s)   // AST-equal modulo span positions

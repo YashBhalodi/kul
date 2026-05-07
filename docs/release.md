@@ -1,6 +1,6 @@
 # Release process
 
-KulaLang ships four things from one repository: the `kula` CLI, the `kula-lsp` language server, the VSCode extension (published to Open VSX), and the `@kulalang/wasm` npm package. They release in lockstep — one tag, one pipeline, one set of coordinated artifacts.
+KulLang ships four things from one repository: the `kul` CLI, the `kul-lsp` language server, the VSCode extension (published to Open VSX), and the `@kul/wasm` npm package. They release in lockstep — one tag, one pipeline, one set of coordinated artifacts.
 
 This doc is the source of truth for how to cut a release and what the pipeline does.
 
@@ -9,10 +9,10 @@ This doc is the source of truth for how to cut a release and what the pipeline d
 Pushing a tag of the form `v<major>.<minor>.<patch>` triggers `.github/workflows/release.yml`, which:
 
 1. **Verifies version coordination** — `Cargo.toml` workspace version, `editor/vscode/package.json` version, and the tag must all match. Fails fast if they don't. The `wasm-publish` job re-asserts the wasm-pack-produced npm `package.json` version against the same tag as a belt-and-braces guard.
-2. **Builds `kula` for four targets** — `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-msvc`. Each binary is smoke-tested with `kula --version` and `kula validate examples/03-three-generations.kula`.
-3. **Builds `kula-lsp` for the same four targets**, smoke-tested with `kula-lsp --version`.
-4. **Builds and publishes `@kulalang/wasm`** — `wasm-pack build --target bundler`, gzipped bundle-size assertion, `npm publish --access public`, and a `kula-wasm.tar.gz` artifact for the GitHub Release.
-5. **Publishes the VSCode extension** to [Open VSX](https://open-vsx.org/), with platform-specific `kula-lsp` binaries bundled inside the `.vsix` so end users don't need to set `kula.serverPath`. The packaged `.vsix` is also uploaded as a workflow artifact (`kula-vsix`) so the GitHub Release can attach it for upstream-VSCode users.
+2. **Builds `kul` for four targets** — `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-msvc`. Each binary is smoke-tested with `kul --version` and `kul validate examples/03-three-generations.kul`.
+3. **Builds `kul-lsp` for the same four targets**, smoke-tested with `kul-lsp --version`.
+4. **Builds and publishes `@kul/wasm`** — `wasm-pack build --target bundler`, gzipped bundle-size assertion, `npm publish --access public`, and a `kul-wasm.tar.gz` artifact for the GitHub Release.
+5. **Publishes the VSCode extension** to [Open VSX](https://open-vsx.org/), with platform-specific `kul-lsp` binaries bundled inside the `.vsix` so end users don't need to set `kul.serverPath`. The packaged `.vsix` is also uploaded as a workflow artifact (`kul-vsix`) so the GitHub Release can attach it for upstream-VSCode users.
 6. **Creates a GitHub Release** at `v<version>` with all 10 artifacts attached (8 CLI/LSP archives + 1 WASM tarball + 1 `.vsix`) and auto-generated release notes.
 
 `build-cli`, `build-lsp`, and `wasm-publish` run in parallel after `verify`; `openvsx-publish` runs after `build-lsp` (it bundles the LSP binaries into the `.vsix`); `github-release` waits for all four (it consumes their artifacts). Total wall-clock time is dominated by the slowest matrix build.
@@ -23,7 +23,7 @@ verify ──┬──► build-cli   (4 targets) ──────────
          ├──► build-lsp   (4 targets) ──► openvsx-publish ┼──► github-release   (10 artifacts)
          │                                       │        │
          │                                       └────────┴──► Open VSX (bundled .vsix)
-         └──► wasm-publish ──► npm (@kulalang/wasm) ──────┘
+         └──► wasm-publish ──► npm (@kul/wasm) ──────┘
 ```
 
 ## Cutting a release
@@ -56,25 +56,25 @@ git tag v0.x.0
 git push origin v0.x.0
 ```
 
-The pipeline runs automatically. Watch the progress at https://github.com/YashBhalodi/kulalang/actions.
+The pipeline runs automatically. Watch the progress at https://github.com/YashBhalodi/kul/actions.
 
 ### What "done" looks like
 
-- GitHub Release at `https://github.com/YashBhalodi/kulalang/releases/tag/v0.x.0` carries 10 artifacts:
-  - `kula-<target>.{tar.gz,zip}` × 4
-  - `kula-lsp-<target>.{tar.gz,zip}` × 4
-  - `kula-wasm.tar.gz` × 1
-  - `kulalang-0.x.0.vsix` × 1
-- Open VSX listing at `https://open-vsx.org/extension/YashBhalodi/kulalang` shows the new version.
-- On an Open-VSX-consuming editor (VSCodium, Cursor, Windsurf, Theia/Che, Gitpod), `<editor> --install-extension YashBhalodi.kulalang` resolves against Open VSX, installs, and works without setting `kula.serverPath` (the extension auto-locates the right platform binary from the bundled `server/<platform>/`).
-- On upstream VSCode (which talks to Microsoft Marketplace, where KulaLang is intentionally not published), users install via the released `.vsix`: download `kulalang-0.x.0.vsix` from the GitHub Release, `code --install-extension /path/to/kulalang-0.x.0.vsix`. Same bundled-binary autolocation behavior.
-- `npm view @kulalang/wasm version` returns `0.x.0`. A clean Node project can `npm install @kulalang/wasm@0.x.0` and `import { check, exportGraph, format } from '@kulalang/wasm'` without further setup.
+- GitHub Release at `https://github.com/YashBhalodi/kul/releases/tag/v0.x.0` carries 10 artifacts:
+  - `kul-<target>.{tar.gz,zip}` × 4
+  - `kul-lsp-<target>.{tar.gz,zip}` × 4
+  - `kul-wasm.tar.gz` × 1
+  - `kul-0.x.0.vsix` × 1
+- Open VSX listing at `https://open-vsx.org/extension/YashBhalodi/kul` shows the new version.
+- On an Open-VSX-consuming editor (VSCodium, Cursor, Windsurf, Theia/Che, Gitpod), `<editor> --install-extension YashBhalodi.kul` resolves against Open VSX, installs, and works without setting `kul.serverPath` (the extension auto-locates the right platform binary from the bundled `server/<platform>/`).
+- On upstream VSCode (which talks to Microsoft Marketplace, where KulLang is intentionally not published), users install via the released `.vsix`: download `kul-0.x.0.vsix` from the GitHub Release, `code --install-extension /path/to/kul-0.x.0.vsix`. Same bundled-binary autolocation behavior.
+- `npm view @kul/wasm version` returns `0.x.0`. A clean Node project can `npm install @kul/wasm@0.x.0` and `import { check, exportGraph, format } from '@kul/wasm'` without further setup.
 
 ### Recommended post-publish smoke
 
 The integration tests cover protocol correctness, but only a human catches "the squiggle color is wrong on this theme" or "the hover popover is hard to read". After a release lands:
 
-- Open each `examples/*.kula` in real VSCode (clean profile, bundled binary).
+- Open each `examples/*.kul` in real VSCode (clean profile, bundled binary).
 - Exercise diagnostics, hover, go-to-definition, completion on both light and dark themes.
 
 ## One-time setup
@@ -95,7 +95,7 @@ Before the very first Open VSX publish, the Eclipse account, namespace claim, an
 ### c. Generate the publishing PAT
 
 - https://open-vsx.org/user-settings/tokens → "Generate New Token"
-- Description: anything memorable (e.g. `kulalang-release-ci`)
+- Description: anything memorable (e.g. `kul-release-ci`)
 - Copy the token immediately (only shown once)
 
 ### d. Pre-claim the `YashBhalodi` namespace
@@ -127,14 +127,14 @@ Standard cross-compilation matrix. Each platform target builds in release mode w
 
 `build-lsp` uploads two artifact sets per platform:
 
-- An archive (`kula-lsp-<target>.{tar.gz,zip}`) for the GitHub Release.
-- A raw binary under `kula-lsp-raw-<platform_dir>/` for the `openvsx-publish` job to bundle directly. This avoids re-downloading from a Release the workflow itself just produced.
+- An archive (`kul-lsp-<target>.{tar.gz,zip}`) for the GitHub Release.
+- A raw binary under `kul-lsp-raw-<platform_dir>/` for the `openvsx-publish` job to bundle directly. This avoids re-downloading from a Release the workflow itself just produced.
 
 ### `wasm-publish`
 
-Builds the `@kulalang/wasm` package via `wasm-pack build --target bundler`, rewrites the wasm-pack-generated `package.json` `name` to `@kulalang/wasm` (wasm-pack derives the npm name from the Rust crate name `kula-wasm`), asserts the gzipped `.wasm` is ≤ 1 MB, and re-asserts the npm `package.json` version equals the release version. The `pkg/` output is then staged into `kula-wasm/` and packaged as `kula-wasm.tar.gz`, uploaded as the `kula-wasm` artifact for `github-release` to attach to the public Release.
+Builds the `@kul/wasm` package via `wasm-pack build --target bundler`, rewrites the wasm-pack-generated `package.json` `name` to `@kul/wasm` (wasm-pack derives the npm name from the Rust crate name `kul-wasm`), asserts the gzipped `.wasm` is ≤ 1 MB, and re-asserts the npm `package.json` version equals the release version. The `pkg/` output is then staged into `kul-wasm/` and packaged as `kul-wasm.tar.gz`, uploaded as the `kul-wasm` artifact for `github-release` to attach to the public Release.
 
-On a real publish (tag push or `dry_run: false`), the job also runs `npm publish --access public` from `crates/kula-wasm/pkg`, authenticated via the `NPM_TOKEN` repo secret. A pre-flight step fails with a readable error if `NPM_TOKEN` is unset, matching the `OVSX_PAT` failure shape. On dry-run, the build and the version assertions still run — only the npm publish is skipped, so dry-runs catch breakage before tagging.
+On a real publish (tag push or `dry_run: false`), the job also runs `npm publish --access public` from `crates/kul-wasm/pkg`, authenticated via the `NPM_TOKEN` repo secret. A pre-flight step fails with a readable error if `NPM_TOKEN` is unset, matching the `OVSX_PAT` failure shape. On dry-run, the build and the version assertions still run — only the npm publish is skipped, so dry-runs catch breakage before tagging.
 
 The job does not re-run `cargo test`, the Node smoke, or `tsc --noEmit` — `.github/workflows/rust.yml`'s `wasm-build` job already gates the merge to `main`, so any commit a tag points at has already passed those checks.
 
@@ -144,9 +144,9 @@ Pulls every archive artifact, copies them into a flat directory, and creates the
 
 ### `openvsx-publish`
 
-Pulls the raw `kula-lsp` binaries, stages them under `editor/vscode/server/<platform>/`, runs `npm ci`, and packages the bundled extension via `vsce package` (no global install — invoked through `npx @vscode/vsce` from the extension's `devDependencies`-resolved transitive). The packaged `.vsix` is uploaded as a workflow artifact named `kula-vsix` so `github-release` can attach it to the public Release for upstream-VSCode users.
+Pulls the raw `kul-lsp` binaries, stages them under `editor/vscode/server/<platform>/`, runs `npm ci`, and packages the bundled extension via `vsce package` (no global install — invoked through `npx @vscode/vsce` from the extension's `devDependencies`-resolved transitive). The packaged `.vsix` is uploaded as a workflow artifact named `kul-vsix` so `github-release` can attach it to the public Release for upstream-VSCode users.
 
-On a real publish (tag push or `dry_run: false`), the job then runs `npx ovsx publish kulalang-<version>.vsix -p $OVSX_PAT`. A pre-flight step fails with a readable error if `OVSX_PAT` is unset, matching the `NPM_TOKEN` failure shape. On dry-run, the package step and the artifact upload still run — only the OVSX publish is skipped, so dry-runs catch breakage before tagging.
+On a real publish (tag push or `dry_run: false`), the job then runs `npx ovsx publish kul-<version>.vsix -p $OVSX_PAT`. A pre-flight step fails with a readable error if `OVSX_PAT` is unset, matching the `NPM_TOKEN` failure shape. On dry-run, the package step and the artifact upload still run — only the OVSX publish is skipped, so dry-runs catch breakage before tagging.
 
 The bundled `.vsix` carries all four platform binaries. Open VSX supports platform-specific extension splits via `--target`, but a single bundled `.vsix` is simpler at current sizes; if size becomes a concern that's a future-friendly migration path.
 
@@ -170,18 +170,18 @@ Look at the failing matrix entry. Most failures are a transient toolchain issue 
 - **`401 Unauthorized` from `ovsx publish`** — the token expired, was revoked, or was generated against a different Eclipse account. Generate a fresh token at https://open-vsx.org/user-settings/tokens and `gh secret set OVSX_PAT`.
 - **`Namespace 'YashBhalodi' does not exist`** — the namespace pre-claim was never run, or it was claimed under a different account. Run `npx --yes ovsx create-namespace YashBhalodi --pat <token>` once with the same token now stored in `OVSX_PAT`.
 - **Secret-scanner rejection on upload** — Open VSX runs an automated scan and refuses uploads it flags. The error message identifies the offending file inside the `.vsix`. Fix at the source (typically a stray `.env`, key, or test fixture that landed in the bundled extension), bump and re-tag.
-- **`Extension YashBhalodi.kulalang <version> already exists`** — `ovsx publish` is not idempotent on a published version. Bump the workspace version (and `editor/vscode/package.json`), re-tag, and re-run the pipeline.
+- **`Extension YashBhalodi.kul <version> already exists`** — `ovsx publish` is not idempotent on a published version. Bump the workspace version (and `editor/vscode/package.json`), re-tag, and re-run the pipeline.
 
 ### `wasm-publish` fails on the npm publish step
 
 - **`NPM_TOKEN secret is unset`** — the pre-flight check ran. Set the secret per the one-time npm setup steps and re-run the failed job.
-- **`E401`/`E403` from `npm publish`** — the token expired, was revoked, or lacks publish permission on the `@kulalang` scope. Generate a fresh automation token at npmjs.com (Account → Access Tokens → Automation) and `gh secret set NPM_TOKEN`.
+- **`E401`/`E403` from `npm publish`** — the token expired, was revoked, or lacks publish permission on the `@kul` scope. Generate a fresh automation token at npmjs.com (Account → Access Tokens → Automation) and `gh secret set NPM_TOKEN`.
 - **`E403 — cannot publish over existing version`** — the version was already published. `npm publish` is not idempotent; bump the workspace version (and `editor/vscode/package.json`), re-tag, and re-run the pipeline.
-- **`E402 — payment required` on first publish** — the `@kulalang` scope is private-by-default. The job already passes `--access public`; if this surfaces, the scope-claim setup wasn't completed (see issue #36's one-time npm setup section).
+- **`E402 — payment required` on first publish** — the `@kul` scope is private-by-default. The job already passes `--access public`; if this surfaces, the scope-claim setup wasn't completed (see issue #36's one-time npm setup section).
 
 ### Release exists but extension didn't publish
 
-`github-release` depends on `openvsx-publish`, so an Open VSX publish failure blocks the Release from being created in the first place. If the OVSX failure was transient (network blip, registry hiccup), fix any underlying issue and re-run the failed jobs (Actions UI → workflow run → "Re-run failed jobs"); the `kula-vsix` artifact uploaded earlier in the same job is reused. If Open VSX already accepted that version but the re-run mistakes it for a fresh attempt, you'll need to bump and re-cut — `ovsx publish` is not idempotent on the same version.
+`github-release` depends on `openvsx-publish`, so an Open VSX publish failure blocks the Release from being created in the first place. If the OVSX failure was transient (network blip, registry hiccup), fix any underlying issue and re-run the failed jobs (Actions UI → workflow run → "Re-run failed jobs"); the `kul-vsix` artifact uploaded earlier in the same job is reused. If Open VSX already accepted that version but the re-run mistakes it for a fresh attempt, you'll need to bump and re-cut — `ovsx publish` is not idempotent on the same version.
 
 ### Need to ship a fix
 

@@ -1,0 +1,16 @@
+---
+source: crates/kul-lsp/src/features/completion.rs
+expression: items
+---
+[
+  {
+    "label": "bob",
+    "kind": 6,
+    "detail": "Bob, b. 1948"
+  },
+  {
+    "label": "carol",
+    "kind": 6,
+    "detail": "Carol, b. 1975"
+  }
+]

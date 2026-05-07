@@ -1,0 +1,6 @@
+---
+source: crates/kul-core/tests/validator.rs
+assertion_line: 293
+expression: render_diagnostics(&result.diagnostics)
+---
+KUL-R05b [153..162]: `end_reason:annulment` isn't recognized — the only value in v1 is `divorce`

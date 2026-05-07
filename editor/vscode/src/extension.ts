@@ -16,14 +16,14 @@ export async function activate(
     const serverPath = resolveServerPath(context);
     if (!serverPath) {
         await vscode.window.showErrorMessage(
-            "Kula: kula-lsp binary not found. Set the `kula.serverPath` setting to the absolute path of your kula-lsp binary, or install the bundled extension version. See the README for details.",
+            "Kul: kul-lsp binary not found. Set the `kul.serverPath` setting to the absolute path of your kul-lsp binary, or install the bundled extension version. See the README for details.",
         );
         return;
     }
 
     const env = { ...process.env };
     if (!env.RUST_LOG) {
-        env.RUST_LOG = "kula_lsp=info";
+        env.RUST_LOG = "kul_lsp=info";
     }
 
     const serverOptions: ServerOptions = {
@@ -35,18 +35,18 @@ export async function activate(
         debug: {
             command: serverPath,
             args: [],
-            options: { env: { ...env, RUST_LOG: "kula_lsp=debug" } },
+            options: { env: { ...env, RUST_LOG: "kul_lsp=debug" } },
         },
     };
 
     const clientOptions: LanguageClientOptions = {
-        documentSelector: [{ scheme: "file", language: "kula" }],
-        outputChannelName: "Kula LSP",
+        documentSelector: [{ scheme: "file", language: "kul" }],
+        outputChannelName: "Kul LSP",
     };
 
     client = new LanguageClient(
-        "kula",
-        "Kula LSP",
+        "kul",
+        "Kul LSP",
         serverOptions,
         clientOptions,
     );
@@ -57,15 +57,15 @@ export async function activate(
         const message =
             err instanceof Error ? err.message : String(err);
         await vscode.window.showErrorMessage(
-            `Kula LSP failed to start: ${message}. Check the "Kula LSP" output channel for details.`,
+            `Kul LSP failed to start: ${message}. Check the "Kul LSP" output channel for details.`,
         );
     }
 
     context.subscriptions.push(
-        vscode.commands.registerCommand("kulalang.export.json", () =>
+        vscode.commands.registerCommand("kul.export.json", () =>
             runExport("json"),
         ),
-        vscode.commands.registerCommand("kulalang.export.cytoscape", () =>
+        vscode.commands.registerCommand("kul.export.cytoscape", () =>
             runExport("cytoscape"),
         ),
     );
@@ -80,22 +80,22 @@ interface ExportEnvelope {
 
 async function runExport(format: ExportFormat): Promise<void> {
     const editor = vscode.window.activeTextEditor;
-    if (!editor || editor.document.languageId !== "kula") {
+    if (!editor || editor.document.languageId !== "kul") {
         await vscode.window.showWarningMessage(
-            "Kula export only works on .kula files.",
+            "Kul export only works on .kul files.",
         );
         return;
     }
     if (!client) {
         await vscode.window.showWarningMessage(
-            "Kula LSP is not running — open a `.kula` file to start the server.",
+            "Kul LSP is not running — open a `.kul` file to start the server.",
         );
         return;
     }
 
     let envelope: ExportEnvelope;
     try {
-        envelope = await client.sendRequest<ExportEnvelope>("kula/export", {
+        envelope = await client.sendRequest<ExportEnvelope>("kul/export", {
             uri: editor.document.uri.toString(),
             format,
             withPositions: false,
@@ -103,7 +103,7 @@ async function runExport(format: ExportFormat): Promise<void> {
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         await vscode.window.showErrorMessage(
-            `Kula export failed: ${message}`,
+            `Kul export failed: ${message}`,
         );
         return;
     }
@@ -111,7 +111,7 @@ async function runExport(format: ExportFormat): Promise<void> {
     if (!envelope.ok) {
         const count = envelope.diagnostics?.length ?? 0;
         await vscode.window.showWarningMessage(
-            `Kula export failed: ${count} issue${count === 1 ? "" : "s"} — fix the errors in the Problems panel and try again.`,
+            `Kul export failed: ${count} issue${count === 1 ? "" : "s"} — fix the errors in the Problems panel and try again.`,
         );
         return;
     }
@@ -129,12 +129,12 @@ async function runExport(format: ExportFormat): Promise<void> {
     try {
         await vscode.workspace.fs.writeFile(target, Buffer.from(body, "utf8"));
         await vscode.window.showInformationMessage(
-            `Kula: exported ${path.basename(target.fsPath)}`,
+            `Kul: exported ${path.basename(target.fsPath)}`,
         );
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         await vscode.window.showErrorMessage(
-            `Kula: could not write export file: ${message}`,
+            `Kul: could not write export file: ${message}`,
         );
     }
 }
@@ -157,7 +157,7 @@ export async function deactivate(): Promise<void> {
 function resolveServerPath(
     context: vscode.ExtensionContext,
 ): string | undefined {
-    const cfg = vscode.workspace.getConfiguration("kula");
+    const cfg = vscode.workspace.getConfiguration("kul");
     const userPath = cfg.get<string>("serverPath");
     if (userPath && userPath.trim() !== "") {
         const expanded = expandHome(userPath.trim());
@@ -165,7 +165,7 @@ function resolveServerPath(
             return expanded;
         }
         void vscode.window.showWarningMessage(
-            `Kula: kula.serverPath is set to "${userPath}" but the file does not exist or is not executable. Falling back to the bundled binary if present.`,
+            `Kul: kul.serverPath is set to "${userPath}" but the file does not exist or is not executable. Falling back to the bundled binary if present.`,
         );
     }
 
@@ -183,7 +183,7 @@ function bundledServerPath(
     if (!subdir) {
         return undefined;
     }
-    const exe = process.platform === "win32" ? "kula-lsp.exe" : "kula-lsp";
+    const exe = process.platform === "win32" ? "kul-lsp.exe" : "kul-lsp";
     return path.join(context.extensionPath, "server", subdir, exe);
 }
 

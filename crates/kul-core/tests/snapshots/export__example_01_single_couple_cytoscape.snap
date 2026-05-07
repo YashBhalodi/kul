@@ -1,0 +1,66 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "nodes": [
+      {
+        "data": {
+          "id": "p:alice",
+          "type": "person",
+          "name": "Alice Sharma",
+          "gender": "female",
+          "born": {
+            "value": "1950-04-12",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:bob",
+          "type": "person",
+          "name": "Bob Sharma",
+          "gender": "male",
+          "born": {
+            "value": "1948-11-30",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_alice_bob",
+          "type": "marriage",
+          "start": {
+            "value": "1972-05-12",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "source": "m:m_alice_bob",
+          "target": "p:alice",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_alice_bob",
+          "target": "p:bob",
+          "type": "spouse"
+        }
+      }
+    ]
+  }
+}

@@ -1,17 +1,17 @@
 {
-  "name": "kulalang",
-  "displayName": "KulaLang",
-  "description": "Syntax highlighting and editor support for Kula (.kula) kinship-description files.",
+  "name": "kul",
+  "displayName": "KulLang",
+  "description": "Syntax highlighting and editor support for Kul (.kul) kinship-description files.",
   "version": "0.1.0",
   "publisher": "YashBhalodi",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YashBhalodi/kulalang.git"
+    "url": "https://github.com/YashBhalodi/kul.git"
   },
-  "homepage": "https://github.com/YashBhalodi/kulalang",
+  "homepage": "https://github.com/YashBhalodi/kul",
   "bugs": {
-    "url": "https://github.com/YashBhalodi/kulalang/issues"
+    "url": "https://github.com/YashBhalodi/kul/issues"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -21,8 +21,8 @@
   ],
   "icon": "images/icon.png",
   "keywords": [
-    "kula",
-    "kulalang",
+    "kul",
+    "KulLang",
     "kinship",
     "genealogy",
     "family-tree"
@@ -43,74 +43,74 @@
   "contributes": {
     "languages": [
       {
-        "id": "kula",
+        "id": "kul",
         "aliases": [
-          "Kula",
-          "KulaLang"
+          "Kul",
+          "KulLang"
         ],
         "extensions": [
-          ".kula"
+          ".kul"
         ],
         "configuration": "./language-configuration.json",
         "icon": {
-          "light": "./images/kula-file-icon.svg",
-          "dark": "./images/kula-file-icon.svg"
+          "light": "./images/kul-file-icon.svg",
+          "dark": "./images/kul-file-icon.svg"
         }
       }
     ],
     "grammars": [
       {
-        "language": "kula",
-        "scopeName": "source.kula",
-        "path": "./syntaxes/kula.tmLanguage.json"
+        "language": "kul",
+        "scopeName": "source.kul",
+        "path": "./syntaxes/kul.tmLanguage.json"
       }
     ],
     "snippets": [
       {
-        "language": "kula",
-        "path": "./snippets/kula.json"
+        "language": "kul",
+        "path": "./snippets/kul.json"
       }
     ],
     "iconThemes": [
       {
-        "id": "kula-icons",
-        "label": "Kula File Icons",
-        "path": "./icons/kula-icon-theme.json"
+        "id": "kul-icons",
+        "label": "Kul File Icons",
+        "path": "./icons/kul-icon-theme.json"
       }
     ],
     "commands": [
       {
-        "command": "kulalang.export.json",
-        "title": "Kula: Export to JSON",
-        "category": "Kula"
+        "command": "kul.export.json",
+        "title": "Kul: Export to JSON",
+        "category": "Kul"
       },
       {
-        "command": "kulalang.export.cytoscape",
-        "title": "Kula: Export to Cytoscape JSON",
-        "category": "Kula"
+        "command": "kul.export.cytoscape",
+        "title": "Kul: Export to Cytoscape JSON",
+        "category": "Kul"
       }
     ],
     "menus": {
       "commandPalette": [
         {
-          "command": "kulalang.export.json",
-          "when": "editorLangId == kula"
+          "command": "kul.export.json",
+          "when": "editorLangId == kul"
         },
         {
-          "command": "kulalang.export.cytoscape",
-          "when": "editorLangId == kula"
+          "command": "kul.export.cytoscape",
+          "when": "editorLangId == kul"
         }
       ]
     },
     "configuration": {
-      "title": "Kula",
+      "title": "Kul",
       "properties": {
-        "kula.serverPath": {
+        "kul.serverPath": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to a `kula-lsp` binary. When set, overrides the bundled binary. Use this to point at a locally-built `kula-lsp` (e.g. `target/debug/kula-lsp`) for development. Leave empty to use the bundled binary."
+          "description": "Absolute path to a `kul-lsp` binary. When set, overrides the bundled binary. Use this to point at a locally-built `kul-lsp` (e.g. `target/debug/kul-lsp`) for development. Leave empty to use the bundled binary."
         },
-        "kula.trace.server": {
+        "kul.trace.server": {
           "type": "string",
           "enum": [
             "off",
@@ -118,13 +118,13 @@
             "verbose"
           ],
           "default": "off",
-          "description": "Trace LSP messages between VSCode and the Kula language server. Output appears in the `Kula LSP` channel."
+          "description": "Trace LSP messages between VSCode and the Kul language server. Output appears in the `Kul LSP` channel."
         }
       }
     },
     "configurationDefaults": {
-      "[kula]": {
-        "editor.defaultFormatter": "YashBhalodi.kulalang",
+      "[kul]": {
+        "editor.defaultFormatter": "YashBhalodi.kul",
         "editor.formatOnSave": true,
         "editor.semanticHighlighting.enabled": true
       }

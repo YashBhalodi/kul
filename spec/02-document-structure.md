@@ -1,12 +1,12 @@
 # 2. Document structure
 
-A Kula document is a sequence of **statements**, each starting on its own line. The first non-blank, non-comment line of a document MAY be a version declaration. All other top-level lines are person or marriage statements. Statement order is free; the parser performs reference resolution across the whole document.
+A Kul document is a sequence of **statements**, each starting on its own line. The first non-blank, non-comment line of a document MAY be a version declaration. All other top-level lines are person or marriage statements. Statement order is free; the parser performs reference resolution across the whole document.
 
 The valid top-level statement keywords are:
 
 | Keyword    | Meaning                                                                |
 | ---------- | ---------------------------------------------------------------------- |
-| `kula`     | Document version declaration (optional; if present, must appear first) |
+| `kul`     | Document version declaration (optional; if present, must appear first) |
 | `person`   | Person declaration                                                     |
 | `marriage` | Marriage declaration                                                   |
 

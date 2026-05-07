@@ -58,7 +58,7 @@ jobs:
           echo "version=$ws_version" >> "$GITHUB_OUTPUT"
 
   build-cli:
-    name: build kula-cli (${{ matrix.target }})
+    name: build kul-cli (${{ matrix.target }})
     needs: verify
     strategy:
       fail-fast: false
@@ -92,41 +92,41 @@ jobs:
         with:
           key: cli-release-${{ matrix.target }}
       - name: Build
-        run: cargo build -p kula-cli --release --target ${{ matrix.target }}
+        run: cargo build -p kul-cli --release --target ${{ matrix.target }}
       - name: Smoke test
         if: matrix.can_run
         shell: bash
         run: |
           set -e
-          BIN="target/${{ matrix.target }}/release/kula"
+          BIN="target/${{ matrix.target }}/release/kul"
           if [[ "${{ runner.os }}" == "Windows" ]]; then BIN="$BIN.exe"; fi
           "$BIN" --version
-          "$BIN" validate examples/03-three-generations.kula
+          "$BIN" validate examples/03-three-generations.kul
       - name: Package
         id: package
         shell: bash
         run: |
           set -e
-          STAGING="kula-${{ matrix.target }}"
+          STAGING="kul-${{ matrix.target }}"
           mkdir -p "$STAGING"
           cp README.md LICENSE CHANGELOG.md "$STAGING/" 2>/dev/null || true
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            cp "target/${{ matrix.target }}/release/kula.exe" "$STAGING/"
+            cp "target/${{ matrix.target }}/release/kul.exe" "$STAGING/"
             7z a -tzip "$STAGING.zip" "$STAGING" >/dev/null
             echo "asset=$STAGING.zip" >> "$GITHUB_OUTPUT"
           else
-            cp "target/${{ matrix.target }}/release/kula" "$STAGING/"
+            cp "target/${{ matrix.target }}/release/kul" "$STAGING/"
             tar -czf "$STAGING.tar.gz" "$STAGING"
             echo "asset=$STAGING.tar.gz" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/upload-artifact@v4
         with:
-          name: kula-${{ matrix.target }}
+          name: kul-${{ matrix.target }}
           path: ${{ steps.package.outputs.asset }}
           if-no-files-found: error
 
   build-lsp:
-    name: build kula-lsp (${{ matrix.target }})
+    name: build kul-lsp (${{ matrix.target }})
     needs: verify
     strategy:
       fail-fast: false
@@ -136,25 +136,25 @@ jobs:
             os: ubuntu-latest
             archive: tar.gz
             platform_dir: linux-x64
-            binary_name: kula-lsp
+            binary_name: kul-lsp
             can_run: true
           - target: aarch64-apple-darwin
             os: macos-latest
             archive: tar.gz
             platform_dir: darwin-arm64
-            binary_name: kula-lsp
+            binary_name: kul-lsp
             can_run: true
           - target: x86_64-apple-darwin
             os: macos-latest
             archive: tar.gz
             platform_dir: darwin-x64
-            binary_name: kula-lsp
+            binary_name: kul-lsp
             can_run: false
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             archive: zip
             platform_dir: win32-x64
-            binary_name: kula-lsp.exe
+            binary_name: kul-lsp.exe
             can_run: true
     runs-on: ${{ matrix.os }}
     steps:
@@ -166,13 +166,13 @@ jobs:
         with:
           key: lsp-release-${{ matrix.target }}
       - name: Build
-        run: cargo build -p kula-lsp --release --target ${{ matrix.target }}
+        run: cargo build -p kul-lsp --release --target ${{ matrix.target }}
       - name: Smoke test
         if: matrix.can_run
         shell: bash
         run: |
           set -e
-          BIN="target/${{ matrix.target }}/release/kula-lsp"
+          BIN="target/${{ matrix.target }}/release/kul-lsp"
           if [[ "${{ runner.os }}" == "Windows" ]]; then BIN="$BIN.exe"; fi
           "$BIN" --version
       - name: Package archive (for GitHub Release)
@@ -180,21 +180,21 @@ jobs:
         shell: bash
         run: |
           set -e
-          STAGING="kula-lsp-${{ matrix.target }}"
+          STAGING="kul-lsp-${{ matrix.target }}"
           mkdir -p "$STAGING"
           cp README.md LICENSE CHANGELOG.md "$STAGING/" 2>/dev/null || true
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            cp "target/${{ matrix.target }}/release/kula-lsp.exe" "$STAGING/"
+            cp "target/${{ matrix.target }}/release/kul-lsp.exe" "$STAGING/"
             7z a -tzip "$STAGING.zip" "$STAGING" >/dev/null
             echo "asset=$STAGING.zip" >> "$GITHUB_OUTPUT"
           else
-            cp "target/${{ matrix.target }}/release/kula-lsp" "$STAGING/"
+            cp "target/${{ matrix.target }}/release/kul-lsp" "$STAGING/"
             tar -czf "$STAGING.tar.gz" "$STAGING"
             echo "asset=$STAGING.tar.gz" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/upload-artifact@v4
         with:
-          name: kula-lsp-${{ matrix.target }}
+          name: kul-lsp-${{ matrix.target }}
           path: ${{ steps.package.outputs.asset }}
           if-no-files-found: error
       - name: Stage raw binary (for Open VSX bundling)
@@ -203,19 +203,19 @@ jobs:
           set -e
           mkdir -p "raw/${{ matrix.platform_dir }}"
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            cp "target/${{ matrix.target }}/release/kula-lsp.exe" "raw/${{ matrix.platform_dir }}/${{ matrix.binary_name }}"
+            cp "target/${{ matrix.target }}/release/kul-lsp.exe" "raw/${{ matrix.platform_dir }}/${{ matrix.binary_name }}"
           else
-            cp "target/${{ matrix.target }}/release/kula-lsp" "raw/${{ matrix.platform_dir }}/${{ matrix.binary_name }}"
+            cp "target/${{ matrix.target }}/release/kul-lsp" "raw/${{ matrix.platform_dir }}/${{ matrix.binary_name }}"
             chmod +x "raw/${{ matrix.platform_dir }}/${{ matrix.binary_name }}"
           fi
       - uses: actions/upload-artifact@v4
         with:
-          name: kula-lsp-raw-${{ matrix.platform_dir }}
+          name: kul-lsp-raw-${{ matrix.platform_dir }}
           path: raw/${{ matrix.platform_dir }}
           if-no-files-found: error
 
   wasm-publish:
-    name: Publish @kulalang/wasm
+    name: Publish @kul/wasm
     needs: verify
     runs-on: ubuntu-latest
     steps:
@@ -233,14 +233,14 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
-      - name: Build @kulalang/wasm
+      - name: Build @kul/wasm
         run: |
-          wasm-pack build crates/kula-wasm --target bundler --out-dir pkg --out-name kula_wasm
-          node -e 'const fs=require("fs"),p="crates/kula-wasm/pkg/package.json";const j=JSON.parse(fs.readFileSync(p));j.name="@kulalang/wasm";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")'
+          wasm-pack build crates/kul-wasm --target bundler --out-dir pkg --out-name kul_wasm
+          node -e 'const fs=require("fs"),p="crates/kul-wasm/pkg/package.json";const j=JSON.parse(fs.readFileSync(p));j.name="@kul/wasm";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")'
       - name: Bundle-size budget (gzipped .wasm ≤ 1 MB)
         run: |
           set -eu
-          size=$(gzip -c crates/kula-wasm/pkg/kula_wasm_bg.wasm | wc -c)
+          size=$(gzip -c crates/kul-wasm/pkg/kul_wasm_bg.wasm | wc -c)
           budget=$((1024 * 1024))
           echo "gzipped .wasm: $size bytes (budget: $budget)"
           if [ "$size" -gt "$budget" ]; then
@@ -250,7 +250,7 @@ jobs:
       - name: Verify npm package.json version matches release
         run: |
           set -eu
-          pkg_version=$(node -p 'require("./crates/kula-wasm/pkg/package.json").version')
+          pkg_version=$(node -p 'require("./crates/kul-wasm/pkg/package.json").version')
           release_version="${{ needs.verify.outputs.version }}"
           echo "npm package.json: $pkg_version"
           echo "release:          $release_version"
@@ -261,12 +261,12 @@ jobs:
       - name: Stage tarball
         run: |
           set -eu
-          cp -r crates/kula-wasm/pkg kula-wasm
-          tar -czf kula-wasm.tar.gz kula-wasm
+          cp -r crates/kul-wasm/pkg kul-wasm
+          tar -czf kul-wasm.tar.gz kul-wasm
       - uses: actions/upload-artifact@v4
         with:
-          name: kula-wasm
-          path: kula-wasm.tar.gz
+          name: kul-wasm
+          path: kul-wasm.tar.gz
           if-no-files-found: error
       - name: Pre-flight NPM_TOKEN check
         if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.dry_run == false)
@@ -274,12 +274,12 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [ -z "${NPM_TOKEN:-}" ]; then
-            echo "::error::NPM_TOKEN secret is unset; cannot publish @kulalang/wasm. See docs/release.md § One-time npm setup."
+            echo "::error::NPM_TOKEN secret is unset; cannot publish @kul/wasm. See docs/release.md § One-time npm setup."
             exit 1
           fi
       - name: Publish to npm
         if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.dry_run == false)
-        working-directory: crates/kula-wasm/pkg
+        working-directory: crates/kul-wasm/pkg
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public
@@ -298,16 +298,16 @@ jobs:
           path: dist
           # Pull every artifact except the raw-binary ones (those are for
           # the openvsx-publish job's bundling step, not for the public release).
-          pattern: "kula*"
+          pattern: "kul*"
           merge-multiple: false
       - name: Collect release archives
         shell: bash
         run: |
           set -e
           mkdir -p release-files
-          for d in dist/kula-*; do
+          for d in dist/kul-*; do
             case "$d" in
-              dist/kula-lsp-raw-*) continue ;;
+              dist/kul-lsp-raw-*) continue ;;
             esac
             cp "$d"/* release-files/
           done
@@ -330,18 +330,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: Download raw kula-lsp binaries
+      - name: Download raw kul-lsp binaries
         uses: actions/download-artifact@v4
         with:
           path: lsp-raw
-          pattern: kula-lsp-raw-*
+          pattern: kul-lsp-raw-*
       - name: Stage binaries into editor/vscode/server/
         shell: bash
         run: |
           set -e
           mkdir -p editor/vscode/server
-          for d in lsp-raw/kula-lsp-raw-*; do
-            platform="${d##*kula-lsp-raw-}"
+          for d in lsp-raw/kul-lsp-raw-*; do
+            platform="${d##*kul-lsp-raw-}"
             mv "$d" "editor/vscode/server/$platform"
             ls -la "editor/vscode/server/$platform"
           done
@@ -350,11 +350,11 @@ jobs:
         run: npm ci
       - name: Package .vsix
         working-directory: editor/vscode
-        run: npx --yes @vscode/vsce package -o "kulalang-${{ needs.verify.outputs.version }}.vsix"
+        run: npx --yes @vscode/vsce package -o "kul-${{ needs.verify.outputs.version }}.vsix"
       - uses: actions/upload-artifact@v4
         with:
-          name: kula-vsix
-          path: editor/vscode/kulalang-${{ needs.verify.outputs.version }}.vsix
+          name: kul-vsix
+          path: editor/vscode/kul-${{ needs.verify.outputs.version }}.vsix
           if-no-files-found: error
       - name: Pre-flight OVSX_PAT check
         if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.dry_run == false)
@@ -370,4 +370,4 @@ jobs:
         working-directory: editor/vscode
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: npx --yes ovsx publish "kulalang-${{ needs.verify.outputs.version }}.vsix" -p "$OVSX_PAT"
+        run: npx --yes ovsx publish "kul-${{ needs.verify.outputs.version }}.vsix" -p "$OVSX_PAT"

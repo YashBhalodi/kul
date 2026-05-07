@@ -1,0 +1,20 @@
+---
+source: crates/kul-wasm/tests/check.rs
+expression: check_json(src)
+---
+{
+  "diagnostics": [
+    {
+      "code": "KUL-R02",
+      "severity": "error",
+      "message": "no person with id `ghost` is declared in this file — check for a typo, or add a `person ghost …` declaration",
+      "primary": {
+        "byteStart": 57,
+        "byteEnd": 62,
+        "line": 2,
+        "column": 18
+      },
+      "related": []
+    }
+  ]
+}

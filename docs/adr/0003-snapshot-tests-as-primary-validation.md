@@ -6,11 +6,11 @@
 
 ## Context
 
-The kula-core pipeline produces structured output at every stage: tokens with spans, AST nodes with spans, resolved indexes, lists of diagnostics with codes and related-info. The kula-lsp feature modules produce LSP responses: hover Markdown blocks, lists of completion items, location lists for goto-definition, lists of LSP diagnostics. In every case, the test's question is "did the output structure change?", not "is one specific scalar equal to a literal?"
+The kul-core pipeline produces structured output at every stage: tokens with spans, AST nodes with spans, resolved indexes, lists of diagnostics with codes and related-info. The kul-lsp feature modules produce LSP responses: hover Markdown blocks, lists of completion items, location lists for goto-definition, lists of LSP diagnostics. In every case, the test's question is "did the output structure change?", not "is one specific scalar equal to a literal?"
 
 Three test styles were considered:
 
-1. **Hand-written assertions.** `assert_eq!(diagnostics[0].code, "KULA-R03");` — fine for a single-field check, brittle and verbose for whole-output comparison. A change to a Markdown header text in hover.rs would update two dozen asserts.
+1. **Hand-written assertions.** `assert_eq!(diagnostics[0].code, "KUL-R03");` — fine for a single-field check, brittle and verbose for whole-output comparison. A change to a Markdown header text in hover.rs would update two dozen asserts.
 2. **Golden-file string comparison.** Render the output as a string, compare to a checked-in `.expected` file. Better than hand-written, but the diff workflow is manual: re-run, diff, copy-paste, commit.
 3. **Snapshot tests via `insta`.** The output is rendered (YAML/JSON/text), compared to a `.snap` file. On mismatch, insta writes a `.snap.new` file; `cargo insta review` shows an interactive diff and accepts/rejects. Changes are explicit, reviewable, and committed alongside code.
 

@@ -1,7 +1,0 @@
----
-source: crates/kula-core/tests/validator.rs
-assertion_line: 105
-expression: render_diagnostics(&result.diagnostics)
----
-KULA-R01 [47..52]: id `alice` is already used by another person — pick a different id (every id must be unique across all persons and marriages)
-  related [7..12]: first declared here as a person

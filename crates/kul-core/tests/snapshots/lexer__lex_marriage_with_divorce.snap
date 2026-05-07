@@ -1,0 +1,19 @@
+---
+source: crates/kul-core/tests/lexer.rs
+expression: render_tokens(source)
+---
+  0..8   MarriageKw
+  9..14  Ident("m_a_b")
+ 15..20  Ident("alice")
+ 21..24  Ident("bob")
+ 25..30  FieldKw(Start)
+ 30..31  Colon
+ 31..41  Bare("1972-05-12")
+ 42..45  FieldKw(End)
+ 45..46  Colon
+ 46..56  Bare("1990-08-01")
+ 57..67  FieldKw(EndReason)
+ 67..68  Colon
+ 68..75  EnumKw(Divorce)
+ 75..76  Newline
+ 76..76  Eof

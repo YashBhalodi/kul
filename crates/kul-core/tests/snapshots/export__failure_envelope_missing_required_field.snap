@@ -1,0 +1,21 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "ok": false,
+  "diagnostics": [
+    {
+      "code": "KUL-R03",
+      "severity": "error",
+      "message": "person `alice` needs a `name:` field — add `name:\"…\"` to the declaration",
+      "primary": {
+        "byteStart": 7,
+        "byteEnd": 12,
+        "line": 1,
+        "column": 8
+      },
+      "related": []
+    }
+  ]
+}

@@ -6,7 +6,7 @@
 
 ## Context
 
-The validator and the cycle-detector both need to ask questions of a parsed Kula document: "who are this person's bio parents?", "who is the spouse of this marriage?", "is this id declared?". Initially each call site walked `Document.statements` directly and pattern-matched on `Statement::Person` / `Statement::Marriage`, plus poked the `HashMap<&str, &PersonStmt>` indexes that `semantic::resolve` returned.
+The validator and the cycle-detector both need to ask questions of a parsed Kul document: "who are this person's bio parents?", "who is the spouse of this marriage?", "is this id declared?". Initially each call site walked `Document.statements` directly and pattern-matched on `Statement::Person` / `Statement::Marriage`, plus poked the `HashMap<&str, &PersonStmt>` indexes that `semantic::resolve` returned.
 
 Eleven of the thirteen validator rules ended up with the same outer loop. The cycle-detector duplicated parent-graph reconstruction. When a question got even slightly cross-cutting ("the spouses of this marriage, skipping unresolved ones"), each rule re-derived it inline. The hypothetical seam at `ResolvedDocument` was not real — adapters went around it.
 

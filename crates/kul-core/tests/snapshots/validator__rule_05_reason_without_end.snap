@@ -1,0 +1,6 @@
+---
+source: crates/kul-core/tests/validator.rs
+assertion_line: 286
+expression: render_diagnostics(&result.diagnostics)
+---
+KUL-R05 [127..145]: marriage `m_alice_bob` has an `end_reason:` but no `end:` date — add an `end:` date or remove this field

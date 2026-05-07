@@ -1,0 +1,6 @@
+---
+source: crates/kul-core/tests/validator.rs
+expression: render_diagnostics(&result.diagnostics)
+---
+KUL-R07 [131..141]: marriage `m_alice_bob` ended before it began
+  related [116..126]: started here

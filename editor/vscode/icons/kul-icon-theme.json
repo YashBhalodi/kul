@@ -1,0 +1,13 @@
+{
+  "iconDefinitions": {
+    "_kul_file": {
+      "iconPath": "../images/kul-file-icon.svg"
+    }
+  },
+  "fileExtensions": {
+    "kul": "_kul_file"
+  },
+  "languageIds": {
+    "kul": "_kul_file"
+  }
+}

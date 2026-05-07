@@ -1,0 +1,133 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Kul",
+  "scopeName": "source.kul",
+  "fileTypes": ["kul"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#version-decl" },
+    { "include": "#person-decl" },
+    { "include": "#marriage-decl" },
+    { "include": "#sub-statement" },
+    { "include": "#string-field" },
+    { "include": "#date-field" },
+    { "include": "#gender-field" },
+    { "include": "#end-reason-field" },
+    { "include": "#string" },
+    { "include": "#date" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.line.number-sign.kul",
+      "match": "#.*$"
+    },
+
+    "version-decl": {
+      "match": "^\\s*(kul)\\b\\s+(\\d+(?:\\.\\d+)?)?",
+      "captures": {
+        "1": { "name": "keyword.control.kul.kul" },
+        "2": { "name": "constant.numeric.version.kul" }
+      }
+    },
+
+    "person-decl": {
+      "match": "^\\s*(person)\\s+([A-Za-z_][A-Za-z0-9_-]*)",
+      "captures": {
+        "1": { "name": "keyword.control.person.kul" },
+        "2": { "name": "entity.name.type.person.kul" }
+      }
+    },
+
+    "marriage-decl": {
+      "match": "^\\s*(marriage)\\s+([A-Za-z_][A-Za-z0-9_-]*)(?:\\s+([A-Za-z_][A-Za-z0-9_-]*))?(?:\\s+([A-Za-z_][A-Za-z0-9_-]*))?",
+      "captures": {
+        "1": { "name": "keyword.control.marriage.kul" },
+        "2": { "name": "entity.name.type.marriage.kul" },
+        "3": { "name": "variable.other.reference.person.kul" },
+        "4": { "name": "variable.other.reference.person.kul" }
+      }
+    },
+
+    "sub-statement": {
+      "match": "^\\s+(birth|adoption)\\s+([A-Za-z_][A-Za-z0-9_-]*)",
+      "captures": {
+        "1": { "name": "keyword.control.sub-statement.kul" },
+        "2": { "name": "variable.other.reference.marriage.kul" }
+      }
+    },
+
+    "string-field": {
+      "begin": "\\b(name|family|given)(:)",
+      "end": "(?=\\s|$)",
+      "beginCaptures": {
+        "1": { "name": "variable.parameter.kul" },
+        "2": { "name": "punctuation.separator.key-value.kul" }
+      },
+      "patterns": [
+        { "include": "#string" }
+      ]
+    },
+
+    "date-field": {
+      "begin": "\\b(born|died|start|end)(:)",
+      "end": "(?=\\s|$)",
+      "beginCaptures": {
+        "1": { "name": "variable.parameter.kul" },
+        "2": { "name": "punctuation.separator.key-value.kul" }
+      },
+      "patterns": [
+        { "include": "#date" }
+      ]
+    },
+
+    "gender-field": {
+      "begin": "\\b(gender)(:)",
+      "end": "(?=\\s|$)",
+      "beginCaptures": {
+        "1": { "name": "variable.parameter.kul" },
+        "2": { "name": "punctuation.separator.key-value.kul" }
+      },
+      "patterns": [
+        {
+          "match": "\\b(male|female|other)\\b",
+          "name": "constant.language.gender.kul"
+        }
+      ]
+    },
+
+    "end-reason-field": {
+      "begin": "\\b(end_reason)(:)",
+      "end": "(?=\\s|$)",
+      "beginCaptures": {
+        "1": { "name": "variable.parameter.kul" },
+        "2": { "name": "punctuation.separator.key-value.kul" }
+      },
+      "patterns": [
+        {
+          "match": "\\b(divorce)\\b",
+          "name": "constant.language.end-reason.kul"
+        }
+      ]
+    },
+
+    "string": {
+      "name": "string.quoted.double.kul",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.kul",
+          "match": "\\\\[\\\\\"]"
+        }
+      ]
+    },
+
+    "date": {
+      "match": "(~)?(\\d{4})(?:-(\\d{2})(?:-(\\d{2}))?)?",
+      "captures": {
+        "1": { "name": "keyword.operator.circa.kul" },
+        "0": { "name": "constant.numeric.date.kul" }
+      }
+    }
+  }
+}

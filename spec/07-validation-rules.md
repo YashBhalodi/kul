@@ -36,7 +36,7 @@ The following are NOT errors, even though they may indicate questionable data. T
 - Cultural prohibitions on marriage (incest, same-gotra, sapinda restrictions).
 - Reproductive age plausibility ("parent was 9 when child was born").
 
-These exclusions reflect Kula's design priority of recording reality over enforcing legal or cultural norms.
+These exclusions reflect Kul's design priority of recording reality over enforcing legal or cultural norms.
 
 ---
 

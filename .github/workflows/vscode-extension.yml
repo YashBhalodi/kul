@@ -38,4 +38,4 @@ jobs:
           done
       - name: Validate manifest with vsce package
         working-directory: editor/vscode
-        run: vsce package --no-yarn --out /tmp/kula-test.vsix
+        run: vsce package --no-yarn --out /tmp/kul-test.vsix

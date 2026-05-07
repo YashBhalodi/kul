@@ -2,7 +2,7 @@
 
 ## 6.1 Reference resolution
 
-A Kula document is parsed in two phases. In the first phase, all top-level `person` and `marriage` statements are collected and indexed by ID. In the second phase, all references — marriage spouses, `birth.<marriage-id>`, and `adoption.<marriage-id>` — are resolved against the indexed declarations. Statements may appear in any order; forward references are permitted.
+A Kul document is parsed in two phases. In the first phase, all top-level `person` and `marriage` statements are collected and indexed by ID. In the second phase, all references — marriage spouses, `birth.<marriage-id>`, and `adoption.<marriage-id>` — are resolved against the indexed declarations. Statements may appear in any order; forward references are permitted.
 
 A reference to an undeclared identifier is an error (see [Section 7 — Validation rules](./07-validation-rules.md), rule 2).
 
@@ -14,7 +14,7 @@ A marriage M is **active at time T** if and only if:
 2. `M.end` is absent OR `M.end > T`, and
 3. For each spouse S of M: `S.died` is absent OR `S.died > T`.
 
-Condition 3 means a marriage becomes inactive when either spouse dies, even though the marriage record itself is not modified. This is how Kula reconciles "death does not end the marriage" (the marriage's stored fields are unchanged) with the practical query of who is currently married to whom (which uses this derivation).
+Condition 3 means a marriage becomes inactive when either spouse dies, even though the marriage record itself is not modified. This is how Kul reconciles "death does not end the marriage" (the marriage's stored fields are unchanged) with the practical query of who is currently married to whom (which uses this derivation).
 
 ## 6.3 Parenthood derivation
 
@@ -31,7 +31,7 @@ The set of P's parents at time T is the union of biological parents (if any) and
 
 ## 6.4 Derived kinship terms
 
-Standard kinship terms (sibling, half-sibling, cousin, grandparent, in-law, etc.) are NOT first-class concepts in Kula. They are derivable from the person and marriage graph:
+Standard kinship terms (sibling, half-sibling, cousin, grandparent, in-law, etc.) are NOT first-class concepts in Kul. They are derivable from the person and marriage graph:
 
 - **Siblings**: persons sharing both biological parents.
 - **Half-siblings**: persons sharing exactly one biological parent.

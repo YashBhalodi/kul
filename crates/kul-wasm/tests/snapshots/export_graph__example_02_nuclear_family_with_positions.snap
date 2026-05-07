@@ -1,0 +1,84 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "alice",
+        "name": "Alice Sharma",
+        "gender": "female",
+        "born": {
+          "value": "1950-04-12",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          193,
+          258
+        ]
+      },
+      {
+        "id": "bob",
+        "name": "Bob Sharma",
+        "gender": "male",
+        "born": {
+          "value": "1948-11-30",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          259,
+          324
+        ]
+      },
+      {
+        "id": "carol",
+        "name": "Carol Sharma",
+        "gender": "female",
+        "born": {
+          "value": "1975-09-03",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          325,
+          410
+        ]
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_alice_bob",
+        "spouses": [
+          "alice",
+          "bob"
+        ],
+        "start": {
+          "value": "1972-05-12",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          412,
+          460
+        ]
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_alice_bob",
+        "childId": "carol",
+        "kind": "biological",
+        "span": [
+          393,
+          410
+        ]
+      }
+    ]
+  }
+}

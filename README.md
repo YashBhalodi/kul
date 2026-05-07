@@ -1,11 +1,11 @@
-# KulaLang
+# KulLang
 
-> Kula — a kinship description language.
+> Kul — a kinship description language.
 
-Kula is a small, hand-authored language for describing human kinship — persons, marriages, biological birth, and adoption — as plain text you can read, edit, version-control, and reason about. KulaLang is the project: the language specification plus the official toolchain (`kula` CLI, `kula-lsp` language server, VSCode extension, and `@kulalang/wasm` for browser/Node consumers).
+Kul is a small, hand-authored language for describing human kinship — persons, marriages, biological birth, and adoption — as plain text you can read, edit, version-control, and reason about. KulLang is the project: the language specification plus the official toolchain (`kul` CLI, `kul-lsp` language server, VSCode extension, and `@kul/wasm` for browser/Node consumers).
 
 ```
-kula 0.1
+kul 0.1
 
 person ramesh name:"Ramesh Sharma" born:1925-03-10 died:2005-08-22 gender:male
 person sita   name:"Sita Sharma"   born:1928-07-15 died:2010-11-04 gender:female
@@ -16,54 +16,54 @@ person alice name:"Alice Sharma" born:1950-04-12 gender:female
   birth m_ramesh_sita
 ```
 
-Kula is for individuals modelling their family in a structured way; it is **not** a GEDCOM replacement and **not** a general-purpose graph language. See [`docs/vision.md`](./docs/vision.md) for scope and intent.
+Kul is for individuals modelling their family in a structured way; it is **not** a GEDCOM replacement and **not** a general-purpose graph language. See [`docs/vision.md`](./docs/vision.md) for scope and intent.
 
 ## Install
 
 ### Pre-built binaries
 
-Each [GitHub Release](https://github.com/YashBhalodi/kulalang/releases) attaches `kula` and `kula-lsp` archives for Linux (x86_64), macOS (Intel + Apple Silicon), and Windows (x86_64). Download the archive for your platform, extract, and put the `kula` binary on your `$PATH`.
+Each [GitHub Release](https://github.com/YashBhalodi/kul/releases) attaches `kul` and `kul-lsp` archives for Linux (x86_64), macOS (Intel + Apple Silicon), and Windows (x86_64). Download the archive for your platform, extract, and put the `kul` binary on your `$PATH`.
 
 ### From source
 
 ```sh
-git clone https://github.com/YashBhalodi/kulalang.git
-cd kulalang
-cargo install --path crates/kula-cli
+git clone https://github.com/YashBhalodi/kul.git
+cd kul
+cargo install --path crates/kul-cli
 ```
 
-Requires the Rust stable toolchain (edition 2024). `kula --version` to confirm.
+Requires the Rust stable toolchain (edition 2024). `kul --version` to confirm.
 
 ### Editor extension
 
-The [KulaLang VSCode extension](https://open-vsx.org/extension/YashBhalodi/kulalang) is published on [Open VSX](https://open-vsx.org/) and bundles the language server — install it and `.kula` files get diagnostics, hover, go-to-definition, find-references, rename, completion, formatting, outline view, and the **Kula: Export to JSON** / **Kula: Export to Cytoscape JSON** commands automatically. No additional configuration.
+The [KulLang VSCode extension](https://open-vsx.org/extension/YashBhalodi/kul) is published on [Open VSX](https://open-vsx.org/) and bundles the language server — install it and `.kul` files get diagnostics, hover, go-to-definition, find-references, rename, completion, formatting, outline view, and the **Kul: Export to JSON** / **Kul: Export to Cytoscape JSON** commands automatically. No additional configuration.
 
-On editors that consume Open VSX (VSCodium, Cursor, Windsurf, Eclipse Theia / Che, Gitpod, Amazon Kiro), `<editor> --install-extension YashBhalodi.kulalang` resolves and installs the extension directly. On upstream Microsoft VSCode (which talks to the Microsoft Marketplace, where KulaLang is intentionally not published), download `kulalang-<version>.vsix` from the matching [GitHub Release](https://github.com/YashBhalodi/kulalang/releases) and install it with `code --install-extension /path/to/kulalang-<version>.vsix`.
+On editors that consume Open VSX (VSCodium, Cursor, Windsurf, Eclipse Theia / Che, Gitpod, Amazon Kiro), `<editor> --install-extension YashBhalodi.kul` resolves and installs the extension directly. On upstream Microsoft VSCode (which talks to the Microsoft Marketplace, where KulLang is intentionally not published), download `kul-<version>.vsix` from the matching [GitHub Release](https://github.com/YashBhalodi/kul/releases) and install it with `code --install-extension /path/to/kul-<version>.vsix`.
 
-For other editors, point your LSP client at the `kula-lsp` binary.
+For other editors, point your LSP client at the `kul-lsp` binary.
 
 ## Use
 
 ### Validate a document
 
 ```sh
-kula validate family.kula
+kul validate family.kul
 ```
 
-`kula validate` parses the file and reports the 13 spec-defined errors with line/column anchors. Exit `0` on success, `1` on any error.
+`kul validate` parses the file and reports the 13 spec-defined errors with line/column anchors. Exit `0` on success, `1` on any error.
 
 ```sh
-kula validate examples/*.kula              # validate many files at once
-cat family.kula | kula validate -          # read from stdin
-kula validate --format json family.kula    # one JSON object per diagnostic (jsonl)
-kula validate --quiet family.kula          # exit code only, no output on success
+kul validate examples/*.kul              # validate many files at once
+cat family.kul | kul validate -          # read from stdin
+kul validate --format json family.kul    # one JSON object per diagnostic (jsonl)
+kul validate --quiet family.kul          # exit code only, no output on success
 ```
 
 ### Format a document
 
 ```sh
-kula format family.kula           # canonicalize in place
-kula format --check family.kula   # CI gate: non-zero exit if not canonical
+kul format family.kul           # canonicalize in place
+kul format --check family.kul   # CI gate: non-zero exit if not canonical
 ```
 
 The formatter is opinionated and idempotent: one canonical layout, no configuration. See [ADR-0004](./docs/adr/0004-formatter-canonical-rules.md) and [`spec/14-formatter-rules.md`](./spec/14-formatter-rules.md).
@@ -71,49 +71,49 @@ The formatter is opinionated and idempotent: one canonical layout, no configurat
 ### Export a document to JSON
 
 ```sh
-kula export family.kula                           # canonical kinship-native JSON
-kula export --format cytoscape family.kula        # nodes + edges for graph viz
-kula export --with-positions family.kula          # add byte spans for click-to-source
-cat family.kula | kula export -                   # read from stdin
-kula export *.kula                                # one envelope per line
+kul export family.kul                           # canonical kinship-native JSON
+kul export --format cytoscape family.kul        # nodes + edges for graph viz
+kul export --with-positions family.kul          # add byte spans for click-to-source
+cat family.kul | kul export -                   # read from stdin
+kul export *.kul                                # one envelope per line
 ```
 
-Projects a clean Kula document into a stable JSON envelope downstream tools can consume — visualizers, scripts, generators. The default shape is **kinship-native** (`persons`, `marriages`, `parenthood_links`, with id-only cross-references); `--format cytoscape` projects the same data into the Cytoscape `nodes`/`edges` shape loadable by Cytoscape.js, Sigma.js, vis-network, etc. Strict on errors: a document with any error-severity diagnostic returns a failure envelope (and a non-zero exit code) rather than a partial graph. The schema is normative — see [`spec/15-export-schema.md`](./spec/15-export-schema.md).
+Projects a clean Kul document into a stable JSON envelope downstream tools can consume — visualizers, scripts, generators. The default shape is **kinship-native** (`persons`, `marriages`, `parenthood_links`, with id-only cross-references); `--format cytoscape` projects the same data into the Cytoscape `nodes`/`edges` shape loadable by Cytoscape.js, Sigma.js, vis-network, etc. Strict on errors: a document with any error-severity diagnostic returns a failure envelope (and a non-zero exit code) rather than a partial graph. The schema is normative — see [`spec/15-export-schema.md`](./spec/15-export-schema.md).
 
 ### Run the language server
 
 ```sh
-kula lsp
+kul lsp
 ```
 
 Speaks LSP over stdio. Most users go through the VSCode extension instead.
 
-The language server also handles a custom `kula/export` request, which is what the VSCode **Kula: Export to JSON** and **Kula: Export to Cytoscape JSON** commands call — they project the in-memory buffer (including unsaved edits) and prompt for a save location.
+The language server also handles a custom `kul/export` request, which is what the VSCode **Kul: Export to JSON** and **Kul: Export to Cytoscape JSON** commands call — they project the in-memory buffer (including unsaved edits) and prompt for a save location.
 
 ### Use from JavaScript / TypeScript (browser or Node)
 
 ```sh
-npm install @kulalang/wasm
+npm install @kul/wasm
 ```
 
 ```ts
-import { check, exportGraph, format } from '@kulalang/wasm';
+import { check, exportGraph, format } from '@kul/wasm';
 
-const source = 'kula 0.1\nperson alice name:"A" gender:female\n';
+const source = 'kul 0.1\nperson alice name:"A" gender:female\n';
 
 check(source);                         // { diagnostics: [] }  ← empty = clean
-exportGraph(source);                   // { ok: true, schema: 1, kula: "0.1", graph: { … } }
+exportGraph(source);                   // { ok: true, schema: 1, kul: "0.1", graph: { … } }
 exportGraph(source, { format: 'cytoscape' });  // { ok: true, …, graph: { nodes, edges } }
 format(source);                        // canonicalized source string
 ```
 
-The package ships a single `--target bundler` ESM build — works out of the box in Vite, Webpack 5+, Next.js, Turbopack, SvelteKit, Nuxt, and Astro. TypeScript types are derived from the Rust source of truth ([ADR-0012](./docs/adr/0012-tsify-derived-types-committed-and-diffed.md)) and ship with the package. The exported envelope is bit-identical to `kula export --format=json` — same bytes, server-side or browser-side.
+The package ships a single `--target bundler` ESM build — works out of the box in Vite, Webpack 5+, Next.js, Turbopack, SvelteKit, Nuxt, and Astro. TypeScript types are derived from the Rust source of truth ([ADR-0012](./docs/adr/0012-tsify-derived-types-committed-and-diffed.md)) and ship with the package. The exported envelope is bit-identical to `kul export --format=json` — same bytes, server-side or browser-side.
 
 ## Learn the language
 
-- [`spec/`](./spec/README.md) — the normative Kula 0.1 specification (14 sections + EBNF grammar). Rigorous enough to implement an independent parser from.
-- [`examples/`](./examples/) — four worked `.kula` documents, smallest first, exercising the full feature surface (polygamy, retroactive adoption, partial dates, circa dates).
-- [`docs/vision.md`](./docs/vision.md) — what Kula is for and explicitly is not.
+- [`spec/`](./spec/README.md) — the normative Kul 0.1 specification (14 sections + EBNF grammar). Rigorous enough to implement an independent parser from.
+- [`examples/`](./examples/) — four worked `.kul` documents, smallest first, exercising the full feature surface (polygamy, retroactive adoption, partial dates, circa dates).
+- [`docs/vision.md`](./docs/vision.md) — what Kul is for and explicitly is not.
 
 ## Repository layout
 
@@ -127,30 +127,30 @@ The package ships a single `--target bundler` ESM build — works out of the box
 ├── Cargo.toml               # Rust workspace root
 ├── justfile                 # `just check` runs fmt + clippy + tests
 ├── crates/
-│   ├── kula-core/           # parser, AST, semantic, validator, formatter, export
-│   ├── kula-cli/            # `kula` binary
-│   ├── kula-lsp/            # `kula-lsp` language server binary
-│   └── kula-wasm/           # `@kulalang/wasm` — browser/Node WASM bindings
+│   ├── kul-core/           # parser, AST, semantic, validator, formatter, export
+│   ├── kul-cli/            # `kul` binary
+│   ├── kul-lsp/            # `kul-lsp` language server binary
+│   └── kul-wasm/           # `@kul/wasm` — browser/Node WASM bindings
 ├── docs/                    # architecture, ADRs, testing, release process
 ├── editor/vscode/           # VSCode extension (LSP-backed)
-├── spec/                    # normative Kula 0.1 specification
-└── examples/                # worked example .kula documents
+├── spec/                    # normative Kul 0.1 specification
+└── examples/                # worked example .kul documents
 ```
 
 ## Names and conventions
 
-- **KulaLang** — the project (spec, parser, tooling, brand).
-- **Kula** — the language itself.
-- `.kula` — file extension.
-- `kula` — CLI binary name.
+- **KulLang** — the project (spec, parser, tooling, brand).
+- **Kul** — the language itself.
+- `.kul` — file extension.
+- `kul` — CLI binary name.
 
 ## Versioning
 
-The language follows the [versioning policy](./spec/13-versioning-policy.md): new fields and statements land **additively** — adding new information to a Kula document never requires rewriting existing declarations. The CLI, language server, and VSCode extension release in lockstep, one tag per release; see the [Releases page](https://github.com/YashBhalodi/kulalang/releases).
+The language follows the [versioning policy](./spec/13-versioning-policy.md): new fields and statements land **additively** — adding new information to a Kul document never requires rewriting existing declarations. The CLI, language server, and VSCode extension release in lockstep, one tag per release; see the [Releases page](https://github.com/YashBhalodi/kul/releases).
 
 ## Contributing
 
-KulaLang is a personal project with public artifacts, not a community-driven standard — there is no commitment to a contributor community, governance process, or maintenance SLA. That said, the codebase is set up so an outside contributor (or an AI agent) can read the docs and start making changes:
+KulLang is a personal project with public artifacts, not a community-driven standard — there is no commitment to a contributor community, governance process, or maintenance SLA. That said, the codebase is set up so an outside contributor (or an AI agent) can read the docs and start making changes:
 
 - [`AGENTS.md`](./AGENTS.md) — entry point: repo layout, dev commands (`just check`), definition of done.
 - [`docs/architecture.md`](./docs/architecture.md) — the implementation map and "where to add X" recipes.
