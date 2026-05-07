@@ -1,0 +1,37 @@
+version: 2
+
+# Dependabot scans run weekly. Grouped updates keep the PR count low; the
+# workspace's tight coupling means batching cargo updates is safer than
+# letting each crate get its own PR. The VSCode extension is a separate
+# npm project at editor/vscode, scanned independently.
+
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      cargo-deps:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /editor/vscode
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      vscode-extension:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 5

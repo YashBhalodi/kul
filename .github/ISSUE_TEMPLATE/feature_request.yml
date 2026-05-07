@@ -1,0 +1,28 @@
+name: Feature request / language proposal
+description: Suggest new behavior, syntax, or tooling
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please skim [`docs/vision.md`](../blob/main/docs/vision.md) and the [language spec](../tree/main/spec) — proposals that align with the language's stated scope are dramatically easier to land. PRs are not currently accepted for v0.x, so use this issue to discuss before any code is written.
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the use case in your own words. The "why" matters more than the proposed syntax.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed shape (optional)
+      description: If you have a concrete idea for the syntax / API / behavior, sketch it here. Pseudocode, `.kul` snippets, or rough TypeScript signatures all welcome.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds exist today? What other designs did you think about and reject?

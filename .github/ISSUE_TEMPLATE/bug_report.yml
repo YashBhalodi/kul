@@ -1,0 +1,61 @@
+name: Bug report
+description: Wrong behavior in the CLI, language server, VSCode extension, or @kullang/wasm
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. A small reproducer tends to be the difference between a fix that lands this week and one that drifts for months.
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface?
+      options:
+        - kul CLI (validate / format / export / lsp)
+        - kul-lsp language server
+        - VSCode extension
+        - "@kullang/wasm (npm)"
+        - Documentation / spec
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: e.g. `kul --version`, the npm package version, or the VSCode extension version. "Latest from main @ <sha>" is fine for self-built binaries.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproducer
+    attributes:
+      label: Minimal reproducer
+      description: The smallest `.kul` source (or sequence of commands) that exhibits the bug. Smaller is dramatically more useful than complete.
+      render: kul
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include exact diagnostic output, stack traces, or screenshots. For LSP issues, the `kul-lsp` log if you can capture it.
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: OS / environment
+      placeholder: "macOS 14.5, VSCode 1.95, Node 22"
