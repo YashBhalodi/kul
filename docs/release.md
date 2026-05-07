@@ -12,17 +12,17 @@ Pushing a tag of the form `v<major>.<minor>.<patch>` triggers `.github/workflows
 2. **Builds `kul` for four targets** — `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-msvc`. Each binary is smoke-tested with `kul --version` and `kul validate examples/03-three-generations.kul`.
 3. **Builds `kul-lsp` for the same four targets**, smoke-tested with `kul-lsp --version`.
 4. **Builds and publishes `@kullang/wasm`** — `wasm-pack build --target bundler`, gzipped bundle-size assertion, `npm publish --access public`, and a `kul-wasm.tar.gz` artifact for the GitHub Release.
-5. **Publishes the VSCode extension** to [Open VSX](https://open-vsx.org/), with platform-specific `kul-lsp` binaries bundled inside the `.vsix` so end users don't need to set `kul.serverPath`. The packaged `.vsix` is also uploaded as a workflow artifact (`kul-vsix`) so the GitHub Release can attach it for upstream-VSCode users.
-6. **Creates a GitHub Release** at `v<version>` with all 10 artifacts attached (8 CLI/LSP archives + 1 WASM tarball + 1 `.vsix`) and auto-generated release notes.
+5. **Publishes the VSCode extension** to [Open VSX](https://open-vsx.org/) as four platform-specific `.vsix` files (one each for `darwin-arm64`, `darwin-x64`, `linux-x64`, `win32-x64`), each carrying the matching `kul-lsp` binary so end users don't need to set `kul.serverPath`. Each `.vsix` is also uploaded as a workflow artifact (`kul-vsix-<target>`) so the GitHub Release can attach it for upstream-VSCode users.
+6. **Creates a GitHub Release** at `v<version>` with all 13 artifacts attached (8 CLI/LSP archives + 1 WASM tarball + 4 platform-specific `.vsix`) and auto-generated release notes.
 
-`build-cli`, `build-lsp`, and `wasm-publish` run in parallel after `verify`; `openvsx-publish` runs after `build-lsp` (it bundles the LSP binaries into the `.vsix`); `github-release` waits for all four (it consumes their artifacts). Total wall-clock time is dominated by the slowest matrix build.
+`build-cli`, `build-lsp`, and `wasm-publish` run in parallel after `verify`; `openvsx-publish` runs as a 4-target matrix after `build-lsp` (each matrix entry bundles a single platform's LSP binary into a `--target`-tagged `.vsix`); `github-release` waits for all four (it consumes their artifacts). Total wall-clock time is dominated by the slowest matrix build.
 
 ```
-verify ──┬──► build-cli   (4 targets) ──────────────────┐
-         │                                                │
-         ├──► build-lsp   (4 targets) ──► openvsx-publish ┼──► github-release   (10 artifacts)
-         │                                       │        │
-         │                                       └────────┴──► Open VSX (bundled .vsix)
+verify ──┬──► build-cli   (4 targets) ──────────────────────────┐
+         │                                                       │
+         ├──► build-lsp   (4 targets) ──► openvsx-publish (4×) ──┼──► github-release   (13 artifacts)
+         │                                       │               │
+         │                                       └───────────────┴──► Open VSX (per-platform .vsix × 4)
          └──► wasm-publish ──► npm (@kullang/wasm) ──┘
 ```
 
@@ -60,14 +60,14 @@ The pipeline runs automatically. Watch the progress at https://github.com/YashBh
 
 ### What "done" looks like
 
-- GitHub Release at `https://github.com/YashBhalodi/kul/releases/tag/v0.x.0` carries 10 artifacts:
+- GitHub Release at `https://github.com/YashBhalodi/kul/releases/tag/v0.x.0` carries 13 artifacts:
   - `kul-<target>.{tar.gz,zip}` × 4
   - `kul-lsp-<target>.{tar.gz,zip}` × 4
   - `kul-wasm.tar.gz` × 1
-  - `kul-0.x.0.vsix` × 1
-- Open VSX listing at `https://open-vsx.org/extension/YashBhalodi/kul` shows the new version.
-- On an Open-VSX-consuming editor (VSCodium, Cursor, Windsurf, Theia/Che, Gitpod), `<editor> --install-extension YashBhalodi.kul` resolves against Open VSX, installs, and works without setting `kul.serverPath` (the extension auto-locates the right platform binary from the bundled `server/<platform>/`).
-- On upstream VSCode (which talks to Microsoft Marketplace, where KulLang is intentionally not published), users install via the released `.vsix`: download `kul-0.x.0.vsix` from the GitHub Release, `code --install-extension /path/to/kul-0.x.0.vsix`. Same bundled-binary autolocation behavior.
+  - `kul-0.x.0-<target>.vsix` × 4 (`darwin-arm64`, `darwin-x64`, `linux-x64`, `win32-x64`)
+- Open VSX listing at `https://open-vsx.org/extension/YashBhalodi/kul` shows the new version with a platform dropdown exposing all four downloads.
+- On an Open-VSX-consuming editor (VSCodium, Cursor, Windsurf, Theia/Che, Gitpod), `<editor> --install-extension YashBhalodi.kul` resolves against Open VSX, picks the matching platform `.vsix`, installs, and works without setting `kul.serverPath` (the extension auto-locates the bundled binary from `server/<platform>/`).
+- On upstream VSCode (which talks to Microsoft Marketplace, where KulLang is intentionally not published), users install via the released `.vsix`: download the matching `kul-0.x.0-<target>.vsix` from the GitHub Release, `code --install-extension /path/to/kul-0.x.0-<target>.vsix`. Same bundled-binary autolocation behavior.
 - `npm view @kullang/wasm version` returns `0.x.0`. A clean Node project can `npm install @kullang/wasm@0.x.0` and `import { check, exportGraph, format } from '@kullang/wasm'` without further setup.
 
 ### Recommended post-publish smoke
@@ -144,15 +144,15 @@ Pulls every archive artifact, copies them into a flat directory, and creates the
 
 ### `openvsx-publish`
 
-Pulls the raw `kul-lsp` binaries, stages them under `editor/vscode/server/<platform>/`, runs `npm ci`, and packages the bundled extension via `vsce package` (no global install — invoked through `npx @vscode/vsce` from the extension's `devDependencies`-resolved transitive). The packaged `.vsix` is uploaded as a workflow artifact named `kul-vsix` so `github-release` can attach it to the public Release for upstream-VSCode users.
+Runs as a 4-target matrix (`darwin-arm64`, `darwin-x64`, `linux-x64`, `win32-x64`). Each matrix entry pulls only its raw `kul-lsp` binary, stages it under `editor/vscode/server/<target>/`, `chmod +x`s it (belt-and-suspenders for vsce's zip layer), runs `npm ci`, and packages a platform-tagged extension via `vsce package --target <target>` (no global install — invoked through `npx @vscode/vsce` from the extension's `devDependencies`-resolved transitive). Each `.vsix` is uploaded as a workflow artifact named `kul-vsix-<target>` so `github-release` can attach it to the public Release.
 
-On a real publish (tag push or `dry_run: false`), the job then runs `npx ovsx publish kul-<version>.vsix -p $OVSX_PAT`. A pre-flight step fails with a readable error if `OVSX_PAT` is unset, matching the `NPM_TOKEN` failure shape. On dry-run, the package step and the artifact upload still run — only the OVSX publish is skipped, so dry-runs catch breakage before tagging.
+On a real publish (tag push or `dry_run: false`), each matrix entry runs `npx ovsx publish kul-<version>-<target>.vsix -p $OVSX_PAT`. A pre-flight step fails with a readable error if `OVSX_PAT` is unset, matching the `NPM_TOKEN` failure shape. On dry-run, the package step and the artifact upload still run — only the OVSX publish is skipped, so dry-runs catch breakage before tagging.
 
-The bundled `.vsix` carries all four platform binaries. Open VSX supports platform-specific extension splits via `--target`, but a single bundled `.vsix` is simpler at current sizes; if size becomes a concern that's a future-friendly migration path.
+Per-platform packaging is required: an "untagged" `.vsix` (no `--target`) is treated as platform-independent by Cursor's marketplace install path, which strips the `server/` directory on the assumption that platform-specific binaries are stale. The `--target` flag stamps `targetPlatform` into the manifest so the marketplace serves the matching `.vsix` to each user and preserves its bundled binary intact.
 
 ### `dry_run`
 
-`workflow_dispatch` accepts a `dry_run` input (default `true`). When true, the conditional `if:` on `github-release` and on the `openvsx-publish` publish steps evaluates false, so the pipeline builds + smoke-tests every binary, packages the `.vsix`, and uploads the artifact without publishing anything. Tag pushes always set `dry_run` effectively to false because the `if:` short-circuits on `github.event_name == 'push'`.
+`workflow_dispatch` accepts a `dry_run` input (default `true`). When true, the conditional `if:` on `github-release` and on the `openvsx-publish` publish steps evaluates false, so the pipeline builds + smoke-tests every binary, packages the four `.vsix` files, and uploads the artifacts without publishing anything. Tag pushes always set `dry_run` effectively to false because the `if:` short-circuits on `github.event_name == 'push'`.
 
 ## Troubleshooting
 
@@ -181,7 +181,7 @@ Look at the failing matrix entry. Most failures are a transient toolchain issue 
 
 ### Release exists but extension didn't publish
 
-`github-release` depends on `openvsx-publish`, so an Open VSX publish failure blocks the Release from being created in the first place. If the OVSX failure was transient (network blip, registry hiccup), fix any underlying issue and re-run the failed jobs (Actions UI → workflow run → "Re-run failed jobs"); the `kul-vsix` artifact uploaded earlier in the same job is reused. If Open VSX already accepted that version but the re-run mistakes it for a fresh attempt, you'll need to bump and re-cut — `ovsx publish` is not idempotent on the same version.
+`github-release` depends on `openvsx-publish`, so an Open VSX publish failure on any of the four matrix entries blocks the Release from being created in the first place. If the OVSX failure was transient (network blip, registry hiccup), fix any underlying issue and re-run the failed jobs (Actions UI → workflow run → "Re-run failed jobs"); the per-platform `kul-vsix-<target>` artifacts uploaded earlier in the same job are reused. If Open VSX already accepted that version-and-target but the re-run mistakes it for a fresh attempt, you'll need to bump and re-cut — `ovsx publish` is not idempotent on the same version+target.
 
 ### Need to ship a fix
 
@@ -191,4 +191,4 @@ The semver-bump-and-tag procedure is the only path forward. There's no concept o
 
 - The unified release workflow: [`.github/workflows/release.yml`](../.github/workflows/release.yml)
 - Per-PR extension lint: [`.github/workflows/vscode-extension.yml`](../.github/workflows/vscode-extension.yml)
-- Local-dev install paths for the extension: [`editor/vscode/README.md`](../editor/vscode/README.md)
+- Local-dev install paths for the extension: [`editor/vscode/DEVELOPING.md`](../editor/vscode/DEVELOPING.md)

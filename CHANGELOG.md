@@ -4,7 +4,20 @@ All notable changes to KulLang are documented here. The format is based on [Keep
 
 The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi.kul`) ship in lockstep — one tag, one set of artifacts. Per-component notes live under each version.
 
-## [0.1.0] — Unreleased
+## [0.1.1] — Unreleased
+
+Hotfix for marketplace install. `v0.1.0` shipped a single un-targeted `.vsix`; Cursor's marketplace install path treats untagged extensions as platform-independent and strips bundled platform binaries on install, leaving the extension with no language server. Fixed by publishing four `--target`-tagged `.vsix` files (one per platform) and chmoding the bundled binary on activation as a belt-and-suspenders against vsce's zip layer dropping the execute bit (#59).
+
+### `kul-vscode-extension`
+
+- **Per-platform `.vsix` publishing** — `release.yml`'s `openvsx-publish` job now runs as a 4-target matrix (`darwin-arm64`, `darwin-x64`, `linux-x64`, `win32-x64`); each entry packages a `--target`-stamped `.vsix` containing only its platform's `kul-lsp` binary. Each `.vsix` is uploaded to Open VSX and attached to the GitHub Release as `kul-<version>-<target>.vsix`.
+- **`chmodSync(serverPath, 0o755)` on activation** — the bundled-binary resolver chmods the LSP binary on Unix before the executable check, so a marketplace install with a stripped-permission binary (vsce's zip layer drops the execute bit) recovers transparently.
+
+### `kul-core`, `kul-cli`, `kul-lsp`, `@kullang/wasm`
+
+- **Lockstep version bump** — no functional changes. Bumped to keep all surfaces aligned with the VSCode extension hotfix per the [`release.yml` `verify` gate](./.github/workflows/release.yml).
+
+## [0.1.0] — 2026-05-07
 
 First public release. Everything below ships together at tag `v0.1.0`.
 
