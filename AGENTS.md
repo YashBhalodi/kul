@@ -59,6 +59,7 @@ Other recipes:
 - `just fmt` — auto-format.
 - `just lint` — clippy alone.
 - `just run -- validate examples/03-three-generations.kul` — passthrough to `cargo run -p kul-cli --`.
+- `just vscode` (or `just vscode release`) — build LSP, package the VSCode extension, and install the `.vsix`. Re-run after each code change; reload the VSCode window to pick it up. See [`editor/vscode/README.md`](./editor/vscode/README.md#install-for-development).
 
 ### Definition of done (Rust changes)
 

@@ -23,44 +23,24 @@ This extension lives inside the [kul](https://github.com/YashBhalodi/kul) repo. 
 
 ## Local development
 
-### Option A — Dev-host (fastest iteration)
+### Install for development
 
-1. Open this directory (`editor/vscode/`) in VSCode.
-2. Run `npm install` once.
-3. Press `F5` to launch an Extension Development Host window with the extension loaded. The pre-launch task compiles the TypeScript bundle.
-4. In the dev host, open any file from the repo's [`examples/`](https://github.com/YashBhalodi/kul/tree/main/examples) directory.
+A single command builds the language server, packages the extension, and installs the `.vsix` into your system VSCode:
 
-Closing the dev-host window unloads the extension. Best for iterating on the activation script — edits to `src/extension.ts` take effect on relaunch.
+```sh
+just vscode            # debug LSP build (fast)
+just vscode release    # optimized LSP build
+```
 
-### Option B — Install a local `.vsix` into your real VSCode
-
-Use this when you want the extension active across all your VSCode windows (not just the dev host) without publishing to Open VSX.
+Re-run after every code change. Reload the VSCode window once it finishes (`Cmd+Shift+P` → `Developer: Reload Window`) to pick up the new bundle. The recipe is idempotent and uses `--force` to overwrite the previously-installed extension.
 
 **One-time setup:**
 
 ```sh
-npm i -g @vscode/vsce
-cd editor/vscode
-npm install
+cd editor/vscode && npm install
 ```
 
-**Package and install:**
-
-```sh
-cd editor/vscode
-npm run package                                       # produces kul-<version>.vsix
-code --install-extension kul-<version>.vsix      # use --force to overwrite an existing install
-```
-
-`npm run package` invokes `vsce package`, which runs the `vscode:prepublish` script first (typecheck + esbuild bundle).
-
-Reload VSCode (`Cmd+Shift+P` → `Developer: Reload Window`) for the change to take effect.
-
-**Re-package after edits:**
-
-```sh
-npm run package && code --install-extension kul-<version>.vsix --force
-```
+**One-time `kul.serverPath`:** point at the locally-built LSP so the extension uses your code, not a bundled binary. Open Settings (`Cmd+,`) → search `kul.serverPath` → paste the absolute path printed by `just vscode`. To switch between debug and release, edit this setting and reload the window.
 
 **Uninstall:**
 
@@ -68,51 +48,30 @@ npm run package && code --install-extension kul-<version>.vsix --force
 code --uninstall-extension YashBhalodi.kul
 ```
 
-The generated `*.vsix` file is gitignored.
+The generated `*.vsix` is gitignored.
 
-### Option C — Test the language server locally
+### Iterate inside an Extension Development Host (no install)
 
-The extension's LSP client looks for `kul-lsp` first via the `kul.serverPath` setting and then falls back to a bundled binary. The default `npm run package` produces an **unbundled** `.vsix` (fast, no network) — perfect for local-dev install. For development you'll want to point at your locally-built binary:
+For TypeScript-only changes in `src/extension.ts`, opening `editor/vscode/` in VSCode and pressing `F5` launches an Extension Development Host with the extension loaded. Faster than `just vscode` because it skips packaging and global install — but only the dev-host window sees the extension, and language-server changes still require `cargo build -p kul-lsp` and a reload.
 
-1. Build the language server from the repo root:
+### Build a fully-bundled `.vsix` (production-style)
 
-   ```sh
-   cargo build -p kul-lsp
-   ```
-
-2. Note the absolute path of the produced binary (`<repo>/target/debug/kul-lsp`).
-
-3. Install the extension via Option A or Option B.
-
-4. In VSCode, open Settings (`Cmd+,`) → search `kul.serverPath` → paste the absolute path. (Or edit `settings.json` directly with `"kul.serverPath": "/absolute/path/to/target/debug/kul-lsp"`.)
-
-5. Reload the window (`Cmd+Shift+P` → `Developer: Reload Window`).
-
-6. Open any `examples/*.kul` file. You should see:
-
-   - Red squiggles under errors as you type (live diagnostics)
-   - Hover panels on keywords, identifiers, field names, and references
-   - Cmd+click on a person ref or marriage ref jumps to the declaration
-   - Autocomplete for keywords, field names, and enum values
-
-To debug the language server itself, set `kul.trace.server` to `messages` or `verbose` and watch the `Kul LSP` output channel (`View → Output → Kul LSP`).
-
-### Option D — Build a fully-bundled `.vsix` (production-style)
-
-Use this to package an extension that ships pre-built `kul-lsp` binaries for all four target platforms (`linux-x64`, `darwin-x64`, `darwin-arm64`, `win32-x64`) — the form that goes to Open VSX (and that ships as `kul-<version>.vsix` on every GitHub Release).
-
-This requires a published GitHub Release at tag `v<version>` (the unified release pipeline produces all binaries under one tag). For day-to-day development you don't need this — Option C with `kul.serverPath` is faster.
+The published `.vsix` (Open VSX, GitHub Releases) bundles pre-built `kul-lsp` binaries for all four target platforms (`linux-x64`, `darwin-x64`, `darwin-arm64`, `win32-x64`); end users don't need `kul.serverPath`. To produce that artifact locally:
 
 ```sh
 cd editor/vscode
 npm install
-npm run package:bundled                                # downloads binaries from the v<version> release, then vsce package
+npm run package:bundled    # downloads binaries from the v<version> GitHub Release, then vsce package
 code --install-extension kul-<version>.vsix --force
 ```
 
-End users installing the bundled `.vsix` don't need to set `kul.serverPath` — the extension auto-locates the right platform binary.
+Requires a published GitHub Release at tag `v<version>` (the release pipeline produces all binaries under one tag). For day-to-day development, `just vscode` is faster — only this flow is needed when validating the bundled-binary auto-locator.
 
 Override with `LSP_VERSION=<x.y.z> npm run fetch-server` if you need a release other than the one that matches `package.json`.
+
+### Tracing LSP traffic
+
+To debug the language server itself, set `kul.trace.server` to `messages` or `verbose` and watch the `Kul LSP` output channel (`View → Output → Kul LSP`).
 
 ## Requirements
 

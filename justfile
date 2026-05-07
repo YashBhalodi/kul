@@ -33,3 +33,11 @@ wasm:
     wasm-pack build crates/kul-wasm --target bundler --out-dir pkg --out-name kul_wasm
     node -e 'const fs=require("fs"),p="crates/kul-wasm/pkg/package.json";const j=JSON.parse(fs.readFileSync(p));j.name="@kul/wasm";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")'
     cp crates/kul-wasm/pkg/kul_wasm.d.ts crates/kul-wasm/types/kul_wasm.d.ts
+
+# Reinstall the VSCode extension end-to-end: build the LSP, package the
+# `.vsix`, and install via `code --install-extension --force`. Idempotent
+# — re-run after each code change. Reload the VSCode window afterwards
+# (Cmd+Shift+P -> "Developer: Reload Window"). Pass `release` for an
+# optimized LSP build; defaults to debug.
+vscode mode="debug":
+    editor/vscode/scripts/dev-install.sh {{mode}}
