@@ -1,12 +1,11 @@
 //! `kul export` subcommand.
 //!
-//! Wraps [`kul_core::export::export`]. Reads each input (file path or `-`
-//! for stdin), runs `check`, projects the result into the canonical
-//! envelope, and writes the JSON to stdout. Errors block: a document with
-//! any error-severity diagnostic prints the failure envelope and exits
-//! non-zero.
+//! Wraps [`kul_core::export::export`]. Reads each input file, runs
+//! `check`, projects the result into the canonical envelope, and writes
+//! the JSON to stdout. Errors block: a document with any error-severity
+//! diagnostic prints the failure envelope and exits non-zero.
 
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -37,7 +36,6 @@ pub struct Options {
     pub files: Vec<PathBuf>,
     pub format: CliExportFormat,
     pub with_positions: bool,
-    pub manifest: Option<PathBuf>,
 }
 
 pub fn run(opts: Options) -> ExitCode {
@@ -63,13 +61,9 @@ pub fn run(opts: Options) -> ExitCode {
 }
 
 fn export_one(path: &Path, opts: &Options) -> io::Result<bool> {
-    let source = read_input(path)?;
-    let label = if path == Path::new("-") {
-        "<stdin>".to_string()
-    } else {
-        path.to_string_lossy().into_owned()
-    };
-    let manifest = match load_manifest(path, opts.manifest.as_deref()) {
+    let source = std::fs::read_to_string(path)?;
+    let label = path.to_string_lossy().into_owned();
+    let manifest = match load_manifest(path) {
         Ok(m) => m,
         Err(err) => {
             eprintln!("kul: {label}: {err}");
@@ -92,14 +86,4 @@ fn export_one(path: &Path, opts: &Options) -> io::Result<bool> {
         writeln!(out, "{json}")?;
     }
     Ok(!envelope.is_ok())
-}
-
-fn read_input(path: &Path) -> io::Result<String> {
-    if path == Path::new("-") {
-        let mut buf = String::new();
-        io::stdin().read_to_string(&mut buf)?;
-        Ok(buf)
-    } else {
-        std::fs::read_to_string(path)
-    }
 }

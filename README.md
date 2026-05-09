@@ -99,7 +99,7 @@ kul export --format cytoscape family.kul      # graph viz JSON
 kul lsp                                       # speak LSP over stdio
 ```
 
-`kul validate -` and `kul export -` read from stdin; both accept multiple files in one invocation. `--format json` emits one diagnostic per line.
+`kul validate` and `kul export` accept multiple files in one invocation. `--format json` emits one diagnostic per line.
 
 ### VSCode (and forks)
 

@@ -1,11 +1,10 @@
 //! `kul format` subcommand.
 //!
 //! Wraps [`kul_core::format::format_source`]. Without `--check`, each file
-//! is rewritten in place (and stdin streams to stdout). With `--check`,
-//! nothing is modified and the process exits non-zero if any input is not
-//! already in canonical form — the right shape for a CI gate.
+//! is rewritten in place. With `--check`, nothing is modified and the
+//! process exits non-zero if any input is not already in canonical form —
+//! the right shape for a CI gate.
 
-use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -16,7 +15,6 @@ use crate::commands::manifest::load_for as load_manifest;
 pub struct Options {
     pub files: Vec<PathBuf>,
     pub check: bool,
-    pub manifest: Option<PathBuf>,
 }
 
 pub fn run(opts: Options) -> ExitCode {
@@ -43,15 +41,15 @@ enum Outcome {
 }
 
 fn format_one(path: &Path, opts: &Options) -> Outcome {
-    let is_stdin = path == Path::new("-");
-    let (source, label) = match read_input(path) {
-        Ok(x) => x,
+    let source = match std::fs::read_to_string(path) {
+        Ok(s) => s,
         Err(err) => {
             eprintln!("kul: {}: {err}", path.display());
             return Outcome::Error;
         }
     };
-    let manifest = match load_manifest(path, opts.manifest.as_deref()) {
+    let label = path.to_string_lossy().into_owned();
+    let manifest = match load_manifest(path) {
         Ok(m) => m,
         Err(err) => {
             eprintln!("kul: {label}: {err}");
@@ -76,13 +74,6 @@ fn format_one(path: &Path, opts: &Options) -> Outcome {
         }
         return Outcome::Ok;
     }
-    if is_stdin {
-        if let Err(err) = io::stdout().write_all(formatted.as_bytes()) {
-            eprintln!("kul: write stdout: {err}");
-            return Outcome::Error;
-        }
-        return Outcome::Ok;
-    }
     if formatted != source {
         if let Err(err) = std::fs::write(path, &formatted) {
             eprintln!("kul: {}: write: {err}", path.display());
@@ -90,17 +81,6 @@ fn format_one(path: &Path, opts: &Options) -> Outcome {
         }
     }
     Outcome::Ok
-}
-
-fn read_input(path: &Path) -> io::Result<(String, String)> {
-    if path == Path::new("-") {
-        let mut buf = String::new();
-        io::stdin().read_to_string(&mut buf)?;
-        Ok((buf, "<stdin>".to_string()))
-    } else {
-        let s = std::fs::read_to_string(path)?;
-        Ok((s, path.to_string_lossy().into_owned()))
-    }
 }
 
 fn has_parse_errors(diags: &[Diagnostic]) -> bool {

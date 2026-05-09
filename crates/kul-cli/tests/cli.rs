@@ -14,13 +14,6 @@ fn corpus_root() -> PathBuf {
         .join("corpus")
 }
 
-/// A `kul.yml` path to pass via `--manifest` for stdin-based subcommand
-/// tests. Reuses the examples directory's manifest so the tests don't
-/// fabricate fixtures of their own.
-fn examples_manifest() -> PathBuf {
-    examples_dir().join("kul.yml")
-}
-
 #[test]
 fn validate_valid_file_exits_zero() {
     let path = corpus_root().join("valid/01-single-person.kul");
@@ -123,31 +116,6 @@ fn validate_quiet_suppresses_ok_line() {
 }
 
 #[test]
-fn validate_stdin_reads_dash() {
-    Command::cargo_bin("kul")
-        .unwrap()
-        .args(["validate", "--manifest"])
-        .arg(examples_manifest())
-        .args(["-"])
-        .write_stdin("person alice name:\"Alice\" gender:female\n")
-        .assert()
-        .success()
-        .stdout(contains("<stdin>: ok"));
-}
-
-#[test]
-fn validate_stdin_without_manifest_errors() {
-    Command::cargo_bin("kul")
-        .unwrap()
-        .args(["validate", "-"])
-        .write_stdin("person alice name:\"Alice\" gender:female\n")
-        .assert()
-        .failure()
-        .code(1)
-        .stderr(contains("--manifest"));
-}
-
-#[test]
 fn validate_missing_manifest_alongside_file_errors() {
     let dir = tempfile_dir().join("validate-missing-manifest");
     std::fs::create_dir_all(&dir).unwrap();
@@ -218,50 +186,6 @@ fn validate_multiple_files_exits_one_if_any_fail() {
 // === `kul format` ===
 
 #[test]
-fn format_stdin_writes_canonical_form_to_stdout() {
-    let out = Command::cargo_bin("kul")
-        .unwrap()
-        .args(["format", "--manifest"])
-        .arg(examples_manifest())
-        .args(["-"])
-        .write_stdin("person alice  born:1950 name:\"Alice\" gender:female\n")
-        .output()
-        .expect("run kul format");
-    assert!(out.status.success());
-    let stdout = String::from_utf8(out.stdout).unwrap();
-    assert_eq!(
-        stdout,
-        "person alice  name:\"Alice\"  gender:female  born:1950\n"
-    );
-}
-
-#[test]
-fn format_check_passes_on_canonical_input() {
-    Command::cargo_bin("kul")
-        .unwrap()
-        .args(["format", "--check", "--manifest"])
-        .arg(examples_manifest())
-        .args(["-"])
-        .write_stdin("person alice  name:\"Alice\"  gender:female\n")
-        .assert()
-        .success();
-}
-
-#[test]
-fn format_check_fails_on_non_canonical_input() {
-    Command::cargo_bin("kul")
-        .unwrap()
-        .args(["format", "--check", "--manifest"])
-        .arg(examples_manifest())
-        .args(["-"])
-        .write_stdin("person alice name:\"Alice\" gender:female\n")
-        .assert()
-        .failure()
-        .code(1)
-        .stderr(contains("<stdin>: not formatted"));
-}
-
-#[test]
 fn format_check_passes_on_corpus_examples() {
     // Every example in the workspace must be canonical at HEAD.
     let examples_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -305,20 +229,6 @@ fn format_rewrites_file_in_place() {
     );
 }
 
-#[test]
-fn format_refuses_input_with_parse_errors() {
-    Command::cargo_bin("kul")
-        .unwrap()
-        .args(["format", "--manifest"])
-        .arg(examples_manifest())
-        .args(["-"])
-        .write_stdin("person\n")
-        .assert()
-        .failure()
-        .code(1)
-        .stderr(contains("cannot format input with parse errors"));
-}
-
 // === `kul export` ===
 
 #[test]
@@ -339,41 +249,6 @@ fn export_clean_file_emits_success_envelope_and_exits_zero() {
     assert!(env["graph"]["persons"].is_array());
     assert!(env["graph"]["marriages"].is_array());
     assert!(env["graph"]["parenthoodLinks"].is_array());
-}
-
-#[test]
-fn export_dirty_file_emits_failure_envelope_and_exits_one() {
-    let output = Command::cargo_bin("kul")
-        .unwrap()
-        .args(["export", "--manifest"])
-        .arg(examples_manifest())
-        .args(["-"])
-        .write_stdin("person alice gender:female\n")
-        .output()
-        .expect("run kul export");
-    assert_eq!(output.status.code(), Some(1), "expected exit 1");
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let env: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid json");
-    assert_eq!(env["ok"], false);
-    let diags = env["diagnostics"].as_array().expect("diagnostics array");
-    assert!(diags.iter().any(|d| d["code"] == "KUL-R03"));
-}
-
-#[test]
-fn export_stdin_succeeds_on_clean_input() {
-    let output = Command::cargo_bin("kul")
-        .unwrap()
-        .args(["export", "--manifest"])
-        .arg(examples_manifest())
-        .args(["-"])
-        .write_stdin("person alice name:\"Alice\" gender:female\n")
-        .output()
-        .expect("run kul export");
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let env: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
-    assert_eq!(env["ok"], true);
-    assert_eq!(env["graph"]["persons"][0]["id"], "alice");
 }
 
 #[test]

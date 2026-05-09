@@ -40,7 +40,7 @@ Given an input `.kul` file at path `<dir>/<file>.kul`:
 2. If `<dir>/kul.yml` does not exist, the input has no manifest and tools MUST report the situation as an error.
 3. If the manifest is malformed (fails YAML parsing or is missing the required `kul:` field), tools MUST report the parse error.
 
-**Stdin / programmatic input.** When the source is not on disk (e.g. `cat family.kul | kul validate -`, or a programmatic embedding), discovery has no path to anchor to. CLIs MUST require an explicit `--manifest <path>` flag in that case. JS-side embeddings (the `@kullang/wasm` bridge) MUST take the manifest as an argument alongside the source.
+**Programmatic input.** When the source is supplied programmatically (e.g. the `@kullang/wasm` bridge), discovery has no path to anchor to. Programmatic embeddings MUST take the manifest as an argument alongside the source.
 
 ## 14.4 What tools MUST do on missing or malformed manifest
 

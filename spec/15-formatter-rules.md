@@ -6,7 +6,7 @@ A formatter for Kul is a function `format(s) → s'` over a Kul source string. F
 
 ## 15.1 Opinionated, no configuration
 
-A conforming formatter MUST accept exactly one input — the source — and produce exactly one output. It MUST NOT consult a configuration file, environment variable, or command-line flag that alters its output. The reference CLI (`kul format`) carries flags only for *operational* concerns (`--check`, file selection, stdin); none of them change the canonical form.
+A conforming formatter MUST accept exactly one input — the source — and produce exactly one output. It MUST NOT consult a configuration file, environment variable, or command-line flag that alters its output. The reference CLI (`kul format`) carries flags only for *operational* concerns (`--check`, file selection); none of them change the canonical form.
 
 ## 15.2 Field order
 

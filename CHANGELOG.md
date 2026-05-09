@@ -4,6 +4,12 @@ All notable changes to KulLang are documented here. The format is based on [Keep
 
 The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi.kul`) ship in lockstep — one tag, one set of artifacts. Per-component notes live under each version.
 
+## [Unreleased]
+
+### `kul-cli`
+
+- **Removed stdin (`-`) input and `--manifest` flag from `validate`, `format`, `export`** (breaking) — these subcommands now accept only on-disk file paths and discover the manifest as a sibling `kul.yml` of the input. Stdin had no real users and the `--manifest` flag existed solely to anchor manifest discovery in the stdin case; both fall outside the project-shaped model the multi-file work in #63/#64 will operate on. Removing both pre-1.0 keeps the project / workspace work in those issues clean (#72). The `kul lsp` subcommand's stdio transport is unaffected; the WASM bridge already takes the manifest as an explicit argument.
+
 ## [0.1.3] — 2026-05-07
 
 CI/infrastructure release. The release pipeline now publishes the VSCode extension to the **VS Code Marketplace** alongside Open VSX. No user-facing language, library, CLI, LSP, or behavior changes; the only difference at the consumer level is that upstream VSCode users can now install via `code --install-extension YashBhalodi.kul` instead of sideloading a `.vsix` from the GitHub Release.

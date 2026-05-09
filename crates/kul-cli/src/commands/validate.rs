@@ -1,4 +1,4 @@
-use std::io::{self, Read};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -15,7 +15,6 @@ pub struct Options {
     pub quiet: bool,
     pub format: OutputFormat,
     pub no_color: bool,
-    pub manifest: Option<PathBuf>,
 }
 
 pub fn run(opts: Options) -> ExitCode {
@@ -41,16 +40,10 @@ pub fn run(opts: Options) -> ExitCode {
 }
 
 fn validate_one(path: &Path, opts: &Options) -> io::Result<bool> {
-    let (source, label) = if path == Path::new("-") {
-        let mut buf = String::new();
-        io::stdin().read_to_string(&mut buf)?;
-        (buf, "<stdin>".to_string())
-    } else {
-        let source = std::fs::read_to_string(path)?;
-        (source, path.to_string_lossy().into_owned())
-    };
+    let source = std::fs::read_to_string(path)?;
+    let label = path.to_string_lossy().into_owned();
 
-    let manifest = match load_manifest(path, opts.manifest.as_deref()) {
+    let manifest = match load_manifest(path) {
         Ok(m) => m,
         Err(err) => {
             eprintln!("kul: {label}: {err}");
