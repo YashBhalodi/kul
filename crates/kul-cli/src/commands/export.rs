@@ -12,6 +12,8 @@ use std::process::ExitCode;
 
 use kul_core::export::{ExportFormat, ExportOptions, export};
 
+use crate::commands::manifest::load_for as load_manifest;
+
 #[derive(Copy, Clone, Debug, clap::ValueEnum, PartialEq, Eq)]
 pub enum CliExportFormat {
     /// Canonical kinship-native shape — `persons`, `marriages`,
@@ -35,6 +37,7 @@ pub struct Options {
     pub files: Vec<PathBuf>,
     pub format: CliExportFormat,
     pub with_positions: bool,
+    pub manifest: Option<PathBuf>,
 }
 
 pub fn run(opts: Options) -> ExitCode {
@@ -61,7 +64,19 @@ pub fn run(opts: Options) -> ExitCode {
 
 fn export_one(path: &Path, opts: &Options) -> io::Result<bool> {
     let source = read_input(path)?;
-    let check = kul_core::check(&source);
+    let label = if path == Path::new("-") {
+        "<stdin>".to_string()
+    } else {
+        path.to_string_lossy().into_owned()
+    };
+    let manifest = match load_manifest(path, opts.manifest.as_deref()) {
+        Ok(m) => m,
+        Err(err) => {
+            eprintln!("kul: {label}: {err}");
+            return Ok(true);
+        }
+    };
+    let check = kul_core::check(&source, &manifest);
     let envelope = export(
         &source,
         &check,

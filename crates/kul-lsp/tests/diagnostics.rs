@@ -14,7 +14,25 @@ use std::time::{Duration, Instant};
 
 use kul_lsp::convert::LineIndex;
 use serde_json::Value;
-use tower_lsp::lsp_types::Position;
+use tower_lsp::lsp_types::{Position, Url};
+
+/// Set up an on-disk fixture directory with a `kul.yml` manifest. Returns
+/// `(dir, kul_path, kul_url)`. `dir` is unique per test name to keep
+/// concurrent runs isolated.
+fn fixture_layout(
+    name: &str,
+    kul_basename: &str,
+    kul_contents: &str,
+) -> (std::path::PathBuf, std::path::PathBuf, Url) {
+    let dir = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(name);
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("create fixture dir");
+    std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").expect("write kul.yml");
+    let kul_path = dir.join(kul_basename);
+    std::fs::write(&kul_path, kul_contents).expect("write fixture");
+    let url = Url::from_file_path(&kul_path).expect("file URL for fixture");
+    (dir, kul_path, url)
+}
 
 fn binary_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_BIN_EXE_kul-lsp"))
@@ -105,8 +123,7 @@ impl Drop for Handle {
     }
 }
 
-const FIXTURE: &str = "kul 1
-person dup_a name:\"A\" gender:female
+const FIXTURE: &str = "person dup_a name:\"A\" gender:female
 person dup_a name:\"A2\" gender:female
 person bad_dates name:\"B\" gender:female born:2000 died:1950
 person noname
@@ -122,6 +139,9 @@ person ref_unknown name:\"R\" gender:male
 
 #[test]
 fn publish_diagnostics_match_kul_core() {
+    let (_dir, _kul_path, kul_url) =
+        fixture_layout("publish_diagnostics_match_kul_core", "fixture.kul", FIXTURE);
+
     let mut handle = Handle::spawn();
 
     write_message(
@@ -138,8 +158,9 @@ fn publish_diagnostics_match_kul_core() {
     );
 
     let escaped = serde_json::to_string(FIXTURE).unwrap();
+    let uri_str = kul_url.as_str();
     let did_open = format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///fixture.kul","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{uri_str}","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
     );
     write_message(&mut handle.stdin, &did_open);
 
@@ -153,10 +174,10 @@ fn publish_diagnostics_match_kul_core() {
         .expect("publishDiagnostics notification");
 
     let params = &publish["params"];
-    assert_eq!(params["uri"].as_str().expect("uri"), "file:///fixture.kul");
+    assert_eq!(params["uri"].as_str().expect("uri"), uri_str);
 
     let lsp_diags = params["diagnostics"].as_array().expect("diagnostics array");
-    let core_diags = kul_core::check(FIXTURE).diagnostics;
+    let core_diags = kul_core::check(FIXTURE, &kul_core::manifest::Manifest::default()).diagnostics;
     let line_index = LineIndex::new(FIXTURE);
 
     assert_eq!(
@@ -220,6 +241,10 @@ fn publish_diagnostics_match_kul_core() {
 
 #[test]
 fn close_clears_diagnostics() {
+    let (_dir, _kul_path, kul_url) =
+        fixture_layout("close_clears_diagnostics", "c.kul", "person a\n");
+    let uri_str = kul_url.as_str();
+
     let mut handle = Handle::spawn();
 
     write_message(
@@ -234,8 +259,10 @@ fn close_clears_diagnostics() {
         r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#,
     );
 
-    let did_open = r#"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///c.kul","languageId":"kul","version":1,"text":"kul 1\nperson a\n"}}}"#;
-    write_message(&mut handle.stdin, did_open);
+    let did_open = format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{uri_str}","languageId":"kul","version":1,"text":"person a\n"}}}}}}"#
+    );
+    write_message(&mut handle.stdin, &did_open);
 
     // First publish should carry diagnostics (person `a` is missing name + gender).
     let publish = handle
@@ -251,8 +278,10 @@ fn close_clears_diagnostics() {
         .len();
     assert!(count > 0, "expected diagnostics on a malformed person");
 
-    let did_close = r#"{"jsonrpc":"2.0","method":"textDocument/didClose","params":{"textDocument":{"uri":"file:///c.kul"}}}"#;
-    write_message(&mut handle.stdin, did_close);
+    let did_close = format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didClose","params":{{"textDocument":{{"uri":"{uri_str}"}}}}}}"#
+    );
+    write_message(&mut handle.stdin, &did_close);
 
     let cleared = handle
         .recv_until(Instant::now() + Duration::from_secs(5), |v| {

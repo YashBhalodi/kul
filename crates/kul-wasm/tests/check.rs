@@ -41,7 +41,7 @@ fn read(path: &Path) -> String {
 }
 
 fn check_json(source: &str) -> String {
-    let envelope = kul_wasm::check(source);
+    let envelope = kul_wasm::check(source, kul_core::manifest::Manifest::default());
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 
@@ -74,7 +74,7 @@ macro_rules! clean_example {
         #[test]
         fn $name() {
             let path = examples_dir().join(concat!($stem, ".kul"));
-            let envelope = kul_wasm::check(&read(&path));
+            let envelope = kul_wasm::check(&read(&path), kul_core::manifest::Manifest::default());
             assert!(
                 envelope.diagnostics.is_empty(),
                 "{} produced diagnostics: {:#?}",

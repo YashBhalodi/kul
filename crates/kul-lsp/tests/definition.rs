@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
+mod common;
+
 fn binary_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_BIN_EXE_kul-lsp"))
 }
@@ -100,7 +102,7 @@ const FIXTURE: &str = "person alice name:\"A\" gender:female\n\
                         marriage m alice bob start:2010\n\
                         person kid name:\"K\" gender:other\n  birth m\n  adoption m start:2015\n";
 
-fn open_fixture(handle: &mut Handle) {
+fn open_fixture(handle: &mut Handle, uri: &str) {
     write_message(
         &mut handle.stdin,
         r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
@@ -118,18 +120,18 @@ fn open_fixture(handle: &mut Handle) {
 
     let escaped = serde_json::to_string(FIXTURE).unwrap();
     let did_open = format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///def.kul","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{uri}","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
     );
     write_message(&mut handle.stdin, &did_open);
 }
 
-fn definition_at(handle: &mut Handle, id: i64, line: u32, character: u32) -> Value {
+fn definition_at(handle: &mut Handle, uri: &str, id: i64, line: u32, character: u32) -> Value {
     let req = json!({
         "jsonrpc": "2.0",
         "id": id,
         "method": "textDocument/definition",
         "params": {
-            "textDocument": { "uri": "file:///def.kul" },
+            "textDocument": { "uri": uri },
             "position": { "line": line, "character": character }
         }
     });
@@ -142,12 +144,18 @@ fn definition_at(handle: &mut Handle, id: i64, line: u32, character: u32) -> Val
 #[test]
 fn definition_on_spouse_ref_jumps_to_person_decl() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url(
+        "definition_on_spouse_ref_jumps_to_person_decl",
+        "def.kul",
+        FIXTURE,
+    );
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // Line 2 is `marriage m alice bob ...`. `alice` starts at column 11.
-    let resp = definition_at(&mut handle, 10, 2, 11);
+    let resp = definition_at(&mut handle, uri, 10, 2, 11);
     let result = &resp["result"];
     assert!(!result.is_null(), "expected a Location, got null");
-    assert_eq!(result["uri"].as_str(), Some("file:///def.kul"));
+    assert_eq!(result["uri"].as_str(), Some(uri));
     // alice's decl is on line 0 starting at column 7.
     assert_eq!(result["range"]["start"]["line"].as_u64(), Some(0));
     assert_eq!(result["range"]["start"]["character"].as_u64(), Some(7));
@@ -156,9 +164,15 @@ fn definition_on_spouse_ref_jumps_to_person_decl() {
 #[test]
 fn definition_on_birth_marriage_ref_jumps_to_marriage_decl() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url(
+        "definition_on_birth_marriage_ref_jumps_to_marriage_decl",
+        "def.kul",
+        FIXTURE,
+    );
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // Line 4 is `  birth m`. The `m` is at column 8.
-    let resp = definition_at(&mut handle, 11, 4, 8);
+    let resp = definition_at(&mut handle, uri, 11, 4, 8);
     let result = &resp["result"];
     assert!(!result.is_null());
     // Marriage `m` decl on line 2 column 9.
@@ -169,9 +183,15 @@ fn definition_on_birth_marriage_ref_jumps_to_marriage_decl() {
 #[test]
 fn definition_on_adoption_marriage_ref_jumps_to_marriage_decl() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url(
+        "definition_on_adoption_marriage_ref_jumps_to_marriage_decl",
+        "def.kul",
+        FIXTURE,
+    );
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // Line 5 is `  adoption m start:2015`. `m` at column 11.
-    let resp = definition_at(&mut handle, 12, 5, 11);
+    let resp = definition_at(&mut handle, uri, 12, 5, 11);
     let result = &resp["result"];
     assert!(!result.is_null());
     assert_eq!(result["range"]["start"]["line"].as_u64(), Some(2));
@@ -180,17 +200,21 @@ fn definition_on_adoption_marriage_ref_jumps_to_marriage_decl() {
 #[test]
 fn definition_on_decl_id_returns_null() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url("definition_on_decl_id_returns_null", "def.kul", FIXTURE);
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // Line 0 column 7 = `alice` decl id.
-    let resp = definition_at(&mut handle, 13, 0, 7);
+    let resp = definition_at(&mut handle, uri, 13, 0, 7);
     assert!(resp["result"].is_null());
 }
 
 #[test]
 fn definition_on_keyword_returns_null() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url("definition_on_keyword_returns_null", "def.kul", FIXTURE);
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // Line 0 column 0 = `person` keyword.
-    let resp = definition_at(&mut handle, 14, 0, 0);
+    let resp = definition_at(&mut handle, uri, 14, 0, 0);
     assert!(resp["result"].is_null());
 }

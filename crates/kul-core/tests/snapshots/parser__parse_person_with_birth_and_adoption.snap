@@ -3,7 +3,6 @@ source: crates/kul-core/tests/parser.rs
 expression: "render(\"person ravi name:\\\"Ravi\\\" gender:male\\n  birth m_x\\n  adoption m_y start:1985-06-01 end:1990-12-31\\n\")"
 ---
 ast: Document {
-    version: None,
     statements: [
         Person(
             PersonStmt {

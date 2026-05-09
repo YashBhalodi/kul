@@ -227,8 +227,7 @@ fn positional_scan(preceding: &[&Token], cursor: usize) -> PositionalScan {
             | TokenKind::PersonKw
             | TokenKind::MarriageKw
             | TokenKind::BirthKw
-            | TokenKind::AdoptionKw
-            | TokenKind::KulKw => {
+            | TokenKind::AdoptionKw => {
                 iter.next();
             }
             _ => break,
@@ -292,7 +291,6 @@ struct LineInfo {
 enum LineKw {
     Person,
     Marriage,
-    Kul,
     Birth,
     Adoption,
 }
@@ -322,7 +320,6 @@ fn current_line(preceding: &[&Token]) -> LineInfo {
             let kw = match t.kind {
                 TokenKind::PersonKw => Some(LineKw::Person),
                 TokenKind::MarriageKw => Some(LineKw::Marriage),
-                TokenKind::KulKw => Some(LineKw::Kul),
                 TokenKind::BirthKw => Some(LineKw::Birth),
                 TokenKind::AdoptionKw => Some(LineKw::Adoption),
                 _ => None,
@@ -451,11 +448,6 @@ fn item(label: &str, kind: CompletionItemKind, detail: &str) -> CompletionItem {
 
 fn top_level_keywords() -> Vec<CompletionItem> {
     vec![
-        item(
-            "kul",
-            CompletionItemKind::KEYWORD,
-            "Set the language version (must be the first line)",
-        ),
         item(
             "person",
             CompletionItemKind::KEYWORD,
@@ -666,7 +658,7 @@ mod tests {
     fn top_level_start_blank_doc() {
         assert_eq!(
             run("<CURSOR>"),
-            vec!["kul".to_owned(), "person".into(), "marriage".into()]
+            vec!["person".to_owned(), "marriage".into()]
         );
     }
 
@@ -674,7 +666,6 @@ mod tests {
     fn top_level_start_after_blank_line() {
         let src = "person a name:\"A\" gender:female\n<CURSOR>";
         let labels = run(src);
-        assert!(labels.contains(&"kul".to_owned()));
         assert!(labels.contains(&"person".to_owned()));
         assert!(labels.contains(&"marriage".to_owned()));
     }

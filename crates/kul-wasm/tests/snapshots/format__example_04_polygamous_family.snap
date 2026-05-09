@@ -8,8 +8,6 @@ expression: formatted
 # - Priya is the biological daughter of Alice and Devraj.
 # - Both marriages are ongoing.
 
-kul 0.1
-
 person alice   name:"Alice Sharma"  gender:female  born:1950-04-12
 person devraj  name:"Devraj Kumar"  gender:male    born:1948-06-21
 person meera   name:"Meera"         gender:female  born:1955-03-08

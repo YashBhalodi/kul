@@ -67,7 +67,7 @@ mod tests {
     #[test]
     fn returns_empty_edit_list_when_already_canonical() {
         let source = "person alice  name:\"A\"  gender:female\n";
-        let result = kul_core::check(source);
+        let result = kul_core::check(source, &kul_core::manifest::Manifest::default());
         let edits = formatting(source, &result.diagnostics, &idx(source)).unwrap();
         assert!(edits.is_empty());
     }
@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn returns_full_doc_replacement_when_dirty() {
         let source = "person alice name:\"A\" gender:female\n";
-        let result = kul_core::check(source);
+        let result = kul_core::check(source, &kul_core::manifest::Manifest::default());
         let edits = formatting(source, &result.diagnostics, &idx(source)).unwrap();
         assert_eq!(edits.len(), 1);
         assert_eq!(
@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn refuses_to_format_input_with_parse_errors() {
         let source = "person\n";
-        let result = kul_core::check(source);
+        let result = kul_core::check(source, &kul_core::manifest::Manifest::default());
         assert!(formatting(source, &result.diagnostics, &idx(source)).is_none());
     }
 
@@ -102,7 +102,7 @@ mod tests {
     fn formats_through_validation_errors() {
         // A `person` with no fields — fires R03 but the structure is sound.
         let source = "person alice\n";
-        let result = kul_core::check(source);
+        let result = kul_core::check(source, &kul_core::manifest::Manifest::default());
         // Sanity check: there's a validator error here.
         assert!(
             result

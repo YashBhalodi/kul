@@ -14,6 +14,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
+mod common;
+
 fn binary_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_BIN_EXE_kul-lsp"))
 }
@@ -149,13 +151,16 @@ fn send_export(
 #[test]
 fn export_clean_document_returns_success_envelope() {
     let mut handle = Handle::spawn();
-    handshake(&mut handle);
-    open(
-        &mut handle,
-        "file:///clean.kul",
-        "person alice name:\"Alice\" gender:female\nperson bob name:\"Bob\" gender:male\nmarriage m alice bob start:1972\n",
+    let source = "person alice name:\"Alice\" gender:female\nperson bob name:\"Bob\" gender:male\nmarriage m alice bob start:1972\n";
+    let kul_url = common::fixture_url(
+        "export_clean_document_returns_success_envelope",
+        "clean.kul",
+        source,
     );
-    let response = send_export(&mut handle, 100, "file:///clean.kul", "json", false);
+    let uri = kul_url.as_str();
+    handshake(&mut handle);
+    open(&mut handle, uri, source);
+    let response = send_export(&mut handle, 100, uri, "json", false);
     let envelope = &response["result"];
     assert_eq!(envelope["ok"], true);
     assert_eq!(envelope["schema"], 1);
@@ -167,13 +172,16 @@ fn export_clean_document_returns_success_envelope() {
 #[test]
 fn export_dirty_document_returns_failure_envelope() {
     let mut handle = Handle::spawn();
-    handshake(&mut handle);
-    open(
-        &mut handle,
-        "file:///dirty.kul",
-        "person alice gender:female\n",
+    let source = "person alice gender:female\n";
+    let kul_url = common::fixture_url(
+        "export_dirty_document_returns_failure_envelope",
+        "dirty.kul",
+        source,
     );
-    let response = send_export(&mut handle, 200, "file:///dirty.kul", "json", false);
+    let uri = kul_url.as_str();
+    handshake(&mut handle);
+    open(&mut handle, uri, source);
+    let response = send_export(&mut handle, 200, uri, "json", false);
     let envelope = &response["result"];
     assert_eq!(envelope["ok"], false);
     assert!(
@@ -189,13 +197,16 @@ fn export_dirty_document_returns_failure_envelope() {
 #[test]
 fn export_cytoscape_format_returns_nodes_and_edges() {
     let mut handle = Handle::spawn();
-    handshake(&mut handle);
-    open(
-        &mut handle,
-        "file:///cy.kul",
-        "person alice name:\"A\" gender:female\nperson bob name:\"B\" gender:male\nmarriage m alice bob start:1972\n",
+    let source = "person alice name:\"A\" gender:female\nperson bob name:\"B\" gender:male\nmarriage m alice bob start:1972\n";
+    let kul_url = common::fixture_url(
+        "export_cytoscape_format_returns_nodes_and_edges",
+        "cy.kul",
+        source,
     );
-    let response = send_export(&mut handle, 300, "file:///cy.kul", "cytoscape", false);
+    let uri = kul_url.as_str();
+    handshake(&mut handle);
+    open(&mut handle, uri, source);
+    let response = send_export(&mut handle, 300, uri, "cytoscape", false);
     let envelope = &response["result"];
     assert_eq!(envelope["ok"], true);
     let nodes = envelope["graph"]["nodes"].as_array().expect("nodes");
@@ -208,8 +219,14 @@ fn export_cytoscape_format_returns_nodes_and_edges() {
 #[test]
 fn export_unknown_document_returns_invalid_params_error() {
     let mut handle = Handle::spawn();
+    let kul_url = common::fixture_url(
+        "export_unknown_document_returns_invalid_params_error",
+        "never-opened.kul",
+        "",
+    );
+    let uri = kul_url.as_str();
     handshake(&mut handle);
-    let response = send_export(&mut handle, 400, "file:///never-opened.kul", "json", false);
+    let response = send_export(&mut handle, 400, uri, "json", false);
     let error = &response["error"];
     assert!(!error.is_null(), "expected error response, got {response}");
     // -32602 is JSON-RPC's `Invalid Params`.

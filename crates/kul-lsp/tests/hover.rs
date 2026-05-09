@@ -9,6 +9,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
+mod common;
+
 fn binary_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_BIN_EXE_kul-lsp"))
 }
@@ -98,7 +100,7 @@ const FIXTURE: &str = "person alice name:\"Alice Doe\" gender:female born:1900-0
                         person bob name:\"Bob Smith\" gender:male\n\
                         marriage m alice bob start:2010 end:2020 end_reason:divorce\n";
 
-fn open_fixture(handle: &mut Handle) {
+fn open_fixture(handle: &mut Handle, uri: &str) {
     write_message(
         &mut handle.stdin,
         r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
@@ -117,18 +119,18 @@ fn open_fixture(handle: &mut Handle) {
 
     let escaped = serde_json::to_string(FIXTURE).unwrap();
     let did_open = format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///hov.kul","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{uri}","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
     );
     write_message(&mut handle.stdin, &did_open);
 }
 
-fn hover_at(handle: &mut Handle, id: i64, line: u32, character: u32) -> Value {
+fn hover_at(handle: &mut Handle, uri: &str, id: i64, line: u32, character: u32) -> Value {
     let req = json!({
         "jsonrpc": "2.0",
         "id": id,
         "method": "textDocument/hover",
         "params": {
-            "textDocument": { "uri": "file:///hov.kul" },
+            "textDocument": { "uri": uri },
             "position": { "line": line, "character": character }
         }
     });
@@ -141,9 +143,11 @@ fn hover_at(handle: &mut Handle, id: i64, line: u32, character: u32) -> Value {
 #[test]
 fn hover_on_person_decl_id() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url("hover_on_person_decl_id", "hov.kul", FIXTURE);
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // line 0 = `person alice ...`. Column 7 is on `alice`.
-    let resp = hover_at(&mut handle, 10, 0, 7);
+    let resp = hover_at(&mut handle, uri, 10, 0, 7);
     let body = resp["result"]["contents"]["value"]
         .as_str()
         .expect("hover markdown");
@@ -156,9 +160,11 @@ fn hover_on_person_decl_id() {
 #[test]
 fn hover_on_marriage_decl_id() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url("hover_on_marriage_decl_id", "hov.kul", FIXTURE);
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // line 2 = `marriage m alice bob ...`. Column 9 is on `m`.
-    let resp = hover_at(&mut handle, 11, 2, 9);
+    let resp = hover_at(&mut handle, uri, 11, 2, 9);
     let body = resp["result"]["contents"]["value"]
         .as_str()
         .expect("hover markdown");
@@ -171,9 +177,11 @@ fn hover_on_marriage_decl_id() {
 #[test]
 fn hover_on_keyword() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url("hover_on_keyword", "hov.kul", FIXTURE);
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // line 0 column 0 — the `person` keyword.
-    let resp = hover_at(&mut handle, 12, 0, 0);
+    let resp = hover_at(&mut handle, uri, 12, 0, 0);
     let body = resp["result"]["contents"]["value"]
         .as_str()
         .expect("hover markdown");
@@ -184,9 +192,11 @@ fn hover_on_keyword() {
 #[test]
 fn hover_on_whitespace_returns_null() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url("hover_on_whitespace_returns_null", "hov.kul", FIXTURE);
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // Far past EOL on line 0 — no node there.
-    let resp = hover_at(&mut handle, 13, 0, 200);
+    let resp = hover_at(&mut handle, uri, 13, 0, 200);
     // Some clients may receive `result: null` (no hover); we accept either
     // null or a missing field.
     let result = &resp["result"];

@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
+mod common;
+
 fn binary_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_BIN_EXE_kul-lsp"))
 }
@@ -167,10 +169,16 @@ fn initialize_advertises_semantic_tokens_legend() {
 #[test]
 fn full_request_returns_encoded_token_stream() {
     let mut handle = Handle::spawn();
+    let kul_url = common::fixture_url(
+        "full_request_returns_encoded_token_stream",
+        "tokens.kul",
+        FIXTURE,
+    );
+    let uri = kul_url.as_str();
     initialize(&mut handle);
-    open(&mut handle, "file:///tokens.kul", FIXTURE);
+    open(&mut handle, uri, FIXTURE);
 
-    let resp = semantic_tokens_full(&mut handle, 10, "file:///tokens.kul");
+    let resp = semantic_tokens_full(&mut handle, 10, uri);
     let data = resp["result"]["data"]
         .as_array()
         .expect("data is an array of u32 5-tuples");
@@ -191,9 +199,15 @@ fn full_request_returns_encoded_token_stream() {
 #[test]
 fn full_request_on_unopened_document_returns_null() {
     let mut handle = Handle::spawn();
+    let kul_url = common::fixture_url(
+        "full_request_on_unopened_document_returns_null",
+        "nope.kul",
+        "",
+    );
+    let uri = kul_url.as_str();
     initialize(&mut handle);
 
-    let resp = semantic_tokens_full(&mut handle, 11, "file:///nope.kul");
+    let resp = semantic_tokens_full(&mut handle, 11, uri);
     assert!(
         resp["result"].is_null(),
         "expected null result for unopened document, got {:?}",

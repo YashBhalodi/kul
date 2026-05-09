@@ -18,8 +18,6 @@ pub struct Token {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenKind {
-    /// `kul` — version declaration keyword.
-    KulKw,
     /// `person`
     PersonKw,
     /// `marriage`
@@ -314,7 +312,6 @@ fn next_char_boundary(bytes: &[u8], pos: usize) -> usize {
 
 fn classify_word(text: &str) -> TokenKind {
     match text {
-        "kul" => TokenKind::KulKw,
         "person" => TokenKind::PersonKw,
         "marriage" => TokenKind::MarriageKw,
         "birth" => TokenKind::BirthKw,

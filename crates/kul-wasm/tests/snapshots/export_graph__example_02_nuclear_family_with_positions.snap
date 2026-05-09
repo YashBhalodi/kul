@@ -18,8 +18,8 @@ expression: json
           "circa": false
         },
         "span": [
-          193,
-          258
+          184,
+          249
         ]
       },
       {
@@ -32,8 +32,8 @@ expression: json
           "circa": false
         },
         "span": [
-          259,
-          324
+          250,
+          315
         ]
       },
       {
@@ -46,8 +46,8 @@ expression: json
           "circa": false
         },
         "span": [
-          325,
-          410
+          316,
+          401
         ]
       }
     ],
@@ -64,8 +64,8 @@ expression: json
           "circa": false
         },
         "span": [
-          412,
-          460
+          403,
+          451
         ]
       }
     ],
@@ -75,8 +75,8 @@ expression: json
         "childId": "carol",
         "kind": "biological",
         "span": [
-          393,
-          410
+          384,
+          401
         ]
       }
     ]

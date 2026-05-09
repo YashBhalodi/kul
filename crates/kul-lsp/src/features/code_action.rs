@@ -322,7 +322,7 @@ mod tests {
     /// Run the LSP feature with a request range covering the whole
     /// document, and return the `CodeAction`s (no `Command`s expected).
     fn actions_for(source: &str) -> Vec<CodeAction> {
-        let result = kul_core::check(source);
+        let result = kul_core::check(source, &kul_core::manifest::Manifest::default());
         let resolved = result.resolved();
         let line_index = LineIndex::new(source);
         let request_range = full_doc_range(&line_index);
@@ -476,7 +476,7 @@ mod tests {
             .unwrap();
         let fixed = apply(src, action);
         // After applying, R05 should no longer fire.
-        let result = kul_core::check(&fixed);
+        let result = kul_core::check(&fixed, &kul_core::manifest::Manifest::default());
         assert!(
             !result
                 .diagnostics
@@ -498,7 +498,7 @@ mod tests {
             .find(|a| a.title.contains("Remove `end_reason:`"))
             .unwrap();
         let fixed = apply(src, action);
-        let result = kul_core::check(&fixed);
+        let result = kul_core::check(&fixed, &kul_core::manifest::Manifest::default());
         assert!(
             !result
                 .diagnostics
@@ -518,7 +518,7 @@ mod tests {
             .find(|a| a.title == "Add `gender:female`")
             .unwrap();
         let fixed = apply(src, action);
-        let result = kul_core::check(&fixed);
+        let result = kul_core::check(&fixed, &kul_core::manifest::Manifest::default());
         assert!(
             !result
                 .diagnostics
@@ -533,7 +533,7 @@ mod tests {
     fn range_filter_excludes_unrelated_lines() {
         let src = "person alice name:\"A\" gender:female\n\
                    person bob\n"; // bob missing both name AND gender
-        let result = kul_core::check(src);
+        let result = kul_core::check(src, &kul_core::manifest::Manifest::default());
         let resolved = result.resolved();
         let line_index = LineIndex::new(src);
         // Request range covering only line 0 (alice, no diagnostics).

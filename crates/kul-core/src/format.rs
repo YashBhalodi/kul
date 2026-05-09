@@ -44,7 +44,7 @@ use std::fmt::Write as _;
 
 use crate::ast::{
     AdoptionFieldKind, AdoptionSub, BirthSub, Document, EndReason, Gender, MarriageFieldKind,
-    MarriageStmt, PersonFieldKind, PersonStmt, Statement, VersionDecl,
+    MarriageStmt, PersonFieldKind, PersonStmt, Statement,
 };
 use crate::date::DateLit;
 use crate::lexer::FieldName;
@@ -60,9 +60,6 @@ use crate::lexer::FieldName;
 /// source-to-source formatting use [`format_source`].
 pub fn format(doc: &Document) -> String {
     let mut emitter = Emitter::new();
-    if let Some(v) = &doc.version {
-        emitter.emit_top_level(0, KindTag::Version, build_version_cells(v));
-    }
     for stmt in &doc.statements {
         emitter.emit_statement(stmt);
     }
@@ -80,7 +77,7 @@ pub fn format(doc: &Document) -> String {
 ///
 /// [ADR 0004]: https://github.com/YashBhalodi/kul/blob/main/docs/adr/0004-formatter-canonical-rules.md
 pub fn format_source(source: &str) -> String {
-    let result = crate::check(source);
+    let result = crate::check(source, &crate::manifest::Manifest::default());
     SourceFormatter::new(source, result.document()).run()
 }
 
@@ -100,10 +97,10 @@ struct Cell {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum CellKind {
-    /// A statement keyword: `kul`, `person`, `marriage`, `birth`, `adoption`.
+    /// A statement keyword: `person`, `marriage`, `birth`, `adoption`.
     Keyword,
-    /// A positional id (the bound id of a `person` or `marriage`, or the
-    /// version literal). Single space after.
+    /// A positional id (the bound id of a `person` or `marriage`).
+    /// Single space after.
     Positional,
     /// A reference positional in a `marriage` or `birth`/`adoption` line.
     /// Single space after.
@@ -118,7 +115,6 @@ enum CellKind {
 /// ordering and the alignment-group key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum KindTag {
-    Version,
     Person,
     Marriage,
     Birth,
@@ -134,7 +130,6 @@ fn canonical_columns(kind: KindTag) -> &'static [CellKind] {
     use CellKind::*;
     use FieldName as F;
     match kind {
-        KindTag::Version => &[Keyword, Positional, Comment],
         KindTag::Person => &[
             Keyword,
             Positional,
@@ -423,19 +418,6 @@ fn separator_between(prev: CellKind, next: CellKind) -> Sep {
 
 // === AST → cells ===
 
-fn build_version_cells(v: &VersionDecl) -> Vec<Cell> {
-    vec![
-        Cell {
-            text: "kul".to_string(),
-            col: 0,
-        },
-        Cell {
-            text: v.version.clone(),
-            col: 1,
-        },
-    ]
-}
-
 fn build_person_cells(p: &PersonStmt, inline_comment: Option<&str>) -> Vec<Cell> {
     let mut cells = Vec::with_capacity(9);
     cells.push(Cell {
@@ -679,22 +661,6 @@ impl<'a> SourceFormatter<'a> {
     fn run(mut self) -> String {
         let mut cursor_line: usize = 0;
         let mut pending_blank = false;
-
-        if let Some(v) = &self.doc.version {
-            let v_line = self.line_of_byte(v.span.start);
-            self.queue_loose_lines(cursor_line..v_line, &mut pending_blank);
-            self.close_region_if_pending(&mut pending_blank);
-            let inline = self.inline_comment_text(v_line).map(str::to_owned);
-            let mut cells = build_version_cells(v);
-            if let Some(text) = inline.as_deref() {
-                cells.push(Cell {
-                    text: text.to_string(),
-                    col: 2,
-                });
-            }
-            self.emitter.emit_top_level(0, KindTag::Version, cells);
-            cursor_line = self.line_of_byte_end(v.span.end) + 1;
-        }
 
         let stmts: Vec<(usize, usize, &Statement)> = self
             .doc
@@ -1079,7 +1045,7 @@ mod tests {
 
     #[test]
     fn format_empty_doc_is_empty_string() {
-        let result = crate::check("");
+        let result = crate::check("", &crate::manifest::Manifest::default());
         assert_eq!(format(result.document()), "");
     }
 
@@ -1247,9 +1213,7 @@ mod tests {
 
     #[test]
     fn format_source_idempotent_on_canonical_input() {
-        let canonical = "kul 0.1\n\
-            \n\
-            person alice  name:\"Alice\"  gender:female  born:1950-04-12\n\
+        let canonical = "person alice  name:\"Alice\"  gender:female  born:1950-04-12\n\
             person bo     name:\"Bob\"    gender:male    born:1948-11-30\n\
             \n\
             marriage m_alice_bo alice bo  start:1972-05-12\n";

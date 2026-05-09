@@ -8,12 +8,14 @@ use miette::{GraphicalReportHandler, GraphicalTheme};
 use serde::Serialize;
 
 use crate::OutputFormat;
+use crate::commands::manifest::load_for as load_manifest;
 
 pub struct Options {
     pub files: Vec<PathBuf>,
     pub quiet: bool,
     pub format: OutputFormat,
     pub no_color: bool,
+    pub manifest: Option<PathBuf>,
 }
 
 pub fn run(opts: Options) -> ExitCode {
@@ -48,7 +50,15 @@ fn validate_one(path: &Path, opts: &Options) -> io::Result<bool> {
         (source, path.to_string_lossy().into_owned())
     };
 
-    let result = kul_core::check(&source);
+    let manifest = match load_manifest(path, opts.manifest.as_deref()) {
+        Ok(m) => m,
+        Err(err) => {
+            eprintln!("kul: {label}: {err}");
+            return Ok(true);
+        }
+    };
+
+    let result = kul_core::check(&source, &manifest);
     match opts.format {
         OutputFormat::Human => render_human(&source, &label, &result.diagnostics, opts),
         OutputFormat::Json => render_json(&source, &label, &result.diagnostics)?,

@@ -3,7 +3,6 @@ source: crates/kul-core/tests/parser.rs
 expression: "render(\"marriage m_a_b alice bob start:1972-05-12 end:1990-08-01 end_reason:divorce\\n\")"
 ---
 ast: Document {
-    version: None,
     statements: [
         Marriage(
             MarriageStmt {

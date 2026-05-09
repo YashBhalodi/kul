@@ -1,17 +1,16 @@
 ---
 source: crates/kul-lsp/src/features/diagnostics.rs
-assertion_line: 146
 expression: lsp
 ---
 [
   {
     "range": {
       "start": {
-        "line": 2,
+        "line": 1,
         "character": 7
       },
       "end": {
-        "line": 2,
+        "line": 1,
         "character": 12
       }
     },
@@ -25,11 +24,11 @@ expression: lsp
           "uri": "file:///t.kul",
           "range": {
             "start": {
-              "line": 1,
+              "line": 0,
               "character": 7
             },
             "end": {
-              "line": 1,
+              "line": 0,
               "character": 12
             }
           }
@@ -41,11 +40,11 @@ expression: lsp
   {
     "range": {
       "start": {
-        "line": 4,
+        "line": 3,
         "character": 7
       },
       "end": {
-        "line": 4,
+        "line": 3,
         "character": 13
       }
     },
@@ -57,11 +56,11 @@ expression: lsp
   {
     "range": {
       "start": {
-        "line": 4,
+        "line": 3,
         "character": 7
       },
       "end": {
-        "line": 4,
+        "line": 3,
         "character": 13
       }
     },
@@ -73,11 +72,11 @@ expression: lsp
   {
     "range": {
       "start": {
-        "line": 5,
+        "line": 4,
         "character": 28
       },
       "end": {
-        "line": 5,
+        "line": 4,
         "character": 37
       }
     },
@@ -91,11 +90,11 @@ expression: lsp
           "uri": "file:///t.kul",
           "range": {
             "start": {
-              "line": 5,
+              "line": 4,
               "character": 18
             },
             "end": {
-              "line": 5,
+              "line": 4,
               "character": 27
             }
           }
@@ -107,11 +106,11 @@ expression: lsp
   {
     "range": {
       "start": {
-        "line": 3,
+        "line": 2,
         "character": 55
       },
       "end": {
-        "line": 3,
+        "line": 2,
         "character": 59
       }
     },
@@ -125,11 +124,11 @@ expression: lsp
           "uri": "file:///t.kul",
           "range": {
             "start": {
-              "line": 3,
+              "line": 2,
               "character": 45
             },
             "end": {
-              "line": 3,
+              "line": 2,
               "character": 49
             }
           }
@@ -141,11 +140,11 @@ expression: lsp
   {
     "range": {
       "start": {
-        "line": 5,
+        "line": 4,
         "character": 44
       },
       "end": {
-        "line": 5,
+        "line": 4,
         "character": 48
       }
     },
@@ -159,11 +158,11 @@ expression: lsp
           "uri": "file:///t.kul",
           "range": {
             "start": {
-              "line": 3,
+              "line": 2,
               "character": 55
             },
             "end": {
-              "line": 3,
+              "line": 2,
               "character": 59
             }
           }
@@ -175,11 +174,11 @@ expression: lsp
   {
     "range": {
       "start": {
-        "line": 5,
+        "line": 4,
         "character": 44
       },
       "end": {
-        "line": 5,
+        "line": 4,
         "character": 48
       }
     },
@@ -193,11 +192,11 @@ expression: lsp
           "uri": "file:///t.kul",
           "range": {
             "start": {
-              "line": 3,
+              "line": 2,
               "character": 55
             },
             "end": {
-              "line": 3,
+              "line": 2,
               "character": 59
             }
           }

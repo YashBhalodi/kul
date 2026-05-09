@@ -38,12 +38,13 @@ fn read(path: &Path) -> String {
 }
 
 fn export_graph_json(source: &str, options: ExportOptions) -> String {
-    let envelope = kul_wasm::export_with(source, options);
+    let manifest = kul_core::manifest::Manifest::default();
+    let envelope = kul_wasm::export_with(source, &manifest, options);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 
 fn core_export_json(source: &str, options: ExportOptions) -> String {
-    let check = kul_core::check(source);
+    let check = kul_core::check(source, &kul_core::manifest::Manifest::default());
     let envelope = kul_core::export::export(source, &check, options);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }

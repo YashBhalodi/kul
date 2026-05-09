@@ -138,14 +138,13 @@ mod tests {
 
     #[test]
     fn snapshot_multi_error_fixture() {
-        let source = "kul 1
-person dup_a name:\"A\" gender:female
+        let source = "person dup_a name:\"A\" gender:female
 person dup_a name:\"A2\" gender:female
 person bad_dates name:\"B\" gender:female born:2000 died:1950
 person noname
 marriage bad_self bad_dates bad_dates start:2010
 ";
-        let core = kul_core::check(source);
+        let core = kul_core::check(source, &kul_core::manifest::Manifest::default());
         let lsp = to_lsp(&url(), &core.diagnostics, &idx(source));
         insta::assert_json_snapshot!(lsp);
     }

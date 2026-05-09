@@ -31,7 +31,7 @@ fn read(path: &Path) -> String {
 }
 
 fn export_with(source: &str, options: ExportOptions) -> String {
-    let check = kul_core::check(source);
+    let check = kul_core::check(source, &kul_core::manifest::Manifest::default());
     let envelope = export(source, &check, options);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
@@ -216,12 +216,12 @@ fn failure_envelope_missing_required_field() {
 
 #[test]
 fn one_thousand_statement_export_under_budget() {
-    let mut source = String::from("kul 0.1\n");
+    let mut source = String::new();
     for i in 0..1000 {
         use std::fmt::Write as _;
         let _ = writeln!(&mut source, "person p{i} name:\"P{i}\" gender:female");
     }
-    let check = kul_core::check(&source);
+    let check = kul_core::check(&source, &kul_core::manifest::Manifest::default());
     let start = std::time::Instant::now();
     let envelope = export(&source, &check, ExportOptions::default());
     let _json = serde_json::to_string(&envelope).expect("serialize");

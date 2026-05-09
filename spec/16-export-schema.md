@@ -1,4 +1,4 @@
-## 15. Export schema
+## 16. Export schema
 
 This section is normative. It specifies the canonical JSON envelope a conforming Kul exporter MUST produce. The reference exporter is `kul export`, surfaced both as a CLI subcommand and as the public function `kul_core::export::export`.
 
@@ -252,4 +252,4 @@ For the source in [`examples/03-three-generations.kul`](../examples/03-three-gen
 
 ---
 
-← [Section 14 — Formatter rules](./14-formatter-rules.md) | [Index](./README.md)
+← [Section 15 — Formatter rules](./15-formatter-rules.md) | [Index](./README.md)

@@ -12,8 +12,6 @@ expression: formatted
 #   sub-statements derive Gen 2 and Gen 3 from their parents'
 #   marriages.
 
-kul 0.1
-
 # ---- Generation 1 (founders) ----
 person govind   name:"Govind Iyer"   gender:male    born:1900-02-14
 person lakshmi  name:"Lakshmi Iyer"  gender:female  born:1903-09-21

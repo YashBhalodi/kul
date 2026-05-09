@@ -23,8 +23,8 @@ expression: json
           "circa": false
         },
         "span": [
-          337,
-          421
+          328,
+          412
         ]
       },
       {
@@ -42,8 +42,8 @@ expression: json
           "circa": false
         },
         "span": [
-          422,
-          506
+          413,
+          497
         ]
       },
       {
@@ -56,8 +56,8 @@ expression: json
           "circa": false
         },
         "span": [
-          587,
-          674
+          578,
+          665
         ]
       },
       {
@@ -75,8 +75,8 @@ expression: json
           "circa": false
         },
         "span": [
-          675,
-          757
+          666,
+          748
         ]
       },
       {
@@ -89,8 +89,8 @@ expression: json
           "circa": false
         },
         "span": [
-          870,
-          955
+          861,
+          946
         ]
       },
       {
@@ -103,8 +103,8 @@ expression: json
           "circa": true
         },
         "span": [
-          956,
-          1057
+          947,
+          1048
         ]
       }
     ],
@@ -121,8 +121,8 @@ expression: json
           "circa": false
         },
         "span": [
-          508,
-          560
+          499,
+          551
         ]
       },
       {
@@ -143,8 +143,8 @@ expression: json
         },
         "endReason": "divorce",
         "span": [
-          759,
-          843
+          750,
+          834
         ]
       }
     ],
@@ -154,8 +154,8 @@ expression: json
         "childId": "alice",
         "kind": "biological",
         "span": [
-          655,
-          674
+          646,
+          665
         ]
       },
       {
@@ -163,8 +163,8 @@ expression: json
         "childId": "carol",
         "kind": "biological",
         "span": [
-          938,
-          955
+          929,
+          946
         ]
       },
       {
@@ -177,8 +177,8 @@ expression: json
           "circa": false
         },
         "span": [
-          1019,
-          1057
+          1010,
+          1048
         ]
       }
     ]

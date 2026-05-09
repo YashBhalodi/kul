@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
+mod common;
+
 fn binary_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_BIN_EXE_kul-lsp"))
 }
@@ -95,7 +97,7 @@ impl Drop for Handle {
     }
 }
 
-fn open_doc(handle: &mut Handle, source: &str) {
+fn open_doc(handle: &mut Handle, uri: &str, source: &str) {
     write_message(
         &mut handle.stdin,
         r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
@@ -116,18 +118,18 @@ fn open_doc(handle: &mut Handle, source: &str) {
 
     let escaped = serde_json::to_string(source).unwrap();
     let did_open = format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///c.kul","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{uri}","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
     );
     write_message(&mut handle.stdin, &did_open);
 }
 
-fn complete_at(handle: &mut Handle, id: i64, line: u32, character: u32) -> Vec<String> {
+fn complete_at(handle: &mut Handle, uri: &str, id: i64, line: u32, character: u32) -> Vec<String> {
     let req = json!({
         "jsonrpc": "2.0",
         "id": id,
         "method": "textDocument/completion",
         "params": {
-            "textDocument": { "uri": "file:///c.kul" },
+            "textDocument": { "uri": uri },
             "position": { "line": line, "character": character }
         }
     });
@@ -148,9 +150,10 @@ fn complete_at(handle: &mut Handle, id: i64, line: u32, character: u32) -> Vec<S
 #[test]
 fn top_level_keywords_at_start() {
     let mut handle = Handle::spawn();
-    open_doc(&mut handle, "");
-    let labels = complete_at(&mut handle, 10, 0, 0);
-    assert!(labels.contains(&"kul".to_owned()));
+    let kul_url = common::fixture_url("top_level_keywords_at_start", "c.kul", "");
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, "");
+    let labels = complete_at(&mut handle, uri, 10, 0, 0);
     assert!(labels.contains(&"person".to_owned()));
     assert!(labels.contains(&"marriage".to_owned()));
 }
@@ -158,9 +161,12 @@ fn top_level_keywords_at_start() {
 #[test]
 fn person_field_list_filters_present() {
     let mut handle = Handle::spawn();
-    open_doc(&mut handle, "person a name:\"A\" gender:female \n");
+    let source = "person a name:\"A\" gender:female \n";
+    let kul_url = common::fixture_url("person_field_list_filters_present", "c.kul", source);
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, source);
     // line 0, column = end of `... gender:female ` = 32
-    let labels = complete_at(&mut handle, 11, 0, 32);
+    let labels = complete_at(&mut handle, uri, 11, 0, 32);
     assert!(!labels.contains(&"name:".to_owned()));
     assert!(!labels.contains(&"gender:".to_owned()));
     assert!(labels.contains(&"family:".to_owned()));
@@ -170,9 +176,12 @@ fn person_field_list_filters_present() {
 #[test]
 fn after_gender_colon_returns_enum_values() {
     let mut handle = Handle::spawn();
-    open_doc(&mut handle, "person a name:\"A\" gender:");
+    let source = "person a name:\"A\" gender:";
+    let kul_url = common::fixture_url("after_gender_colon_returns_enum_values", "c.kul", source);
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, source);
     // line 0, column = end of `gender:` = 25
-    let labels = complete_at(&mut handle, 12, 0, 25);
+    let labels = complete_at(&mut handle, uri, 12, 0, 25);
     assert_eq!(
         labels,
         vec!["male".to_owned(), "female".into(), "other".into()]
@@ -182,21 +191,28 @@ fn after_gender_colon_returns_enum_values() {
 #[test]
 fn after_end_reason_colon_returns_divorce() {
     let mut handle = Handle::spawn();
-    open_doc(
-        &mut handle,
-        "marriage m a b start:2010 end:2020 end_reason:",
-    );
+    let source = "marriage m a b start:2010 end:2020 end_reason:";
+    let kul_url = common::fixture_url("after_end_reason_colon_returns_divorce", "c.kul", source);
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, source);
     // line 0 column = full length = 46
-    let labels = complete_at(&mut handle, 13, 0, 46);
+    let labels = complete_at(&mut handle, uri, 13, 0, 46);
     assert_eq!(labels, vec!["divorce".to_owned()]);
 }
 
 #[test]
 fn indented_under_person_returns_sub_keywords() {
     let mut handle = Handle::spawn();
-    open_doc(&mut handle, "person a name:\"A\" gender:female\n  ");
+    let source = "person a name:\"A\" gender:female\n  ";
+    let kul_url = common::fixture_url(
+        "indented_under_person_returns_sub_keywords",
+        "c.kul",
+        source,
+    );
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, source);
     // line 1 column 2 (after the indent)
-    let labels = complete_at(&mut handle, 14, 1, 2);
+    let labels = complete_at(&mut handle, uri, 14, 1, 2);
     assert!(labels.contains(&"birth".to_owned()));
     assert!(labels.contains(&"adoption".to_owned()));
 }
@@ -204,29 +220,33 @@ fn indented_under_person_returns_sub_keywords() {
 #[test]
 fn after_birth_keyword_returns_marriage_ids() {
     let mut handle = Handle::spawn();
-    open_doc(
-        &mut handle,
-        "person alice name:\"Alice\" gender:female\n\
+    let source = "person alice name:\"Alice\" gender:female\n\
          person bob name:\"Bob\" gender:male\n\
          marriage m_alice_bob alice bob start:1972\n\
-         person kid name:\"K\" gender:other\n  birth ",
-    );
+         person kid name:\"K\" gender:other\n  birth ";
+    let kul_url = common::fixture_url("after_birth_keyword_returns_marriage_ids", "c.kul", source);
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, source);
     // line 4 column 8 = right after `birth ` (2 indent + 6 keyword)
-    let labels = complete_at(&mut handle, 15, 4, 8);
+    let labels = complete_at(&mut handle, uri, 15, 4, 8);
     assert_eq!(labels, vec!["m_alice_bob".to_owned()]);
 }
 
 #[test]
 fn after_marriage_id_returns_persons_for_spouse_a() {
     let mut handle = Handle::spawn();
-    open_doc(
-        &mut handle,
-        "person alice name:\"Alice\" gender:female\n\
+    let source = "person alice name:\"Alice\" gender:female\n\
          person bob name:\"Bob\" gender:male\n\
-         marriage m ",
+         marriage m ";
+    let kul_url = common::fixture_url(
+        "after_marriage_id_returns_persons_for_spouse_a",
+        "c.kul",
+        source,
     );
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, source);
     // line 2 column 11 = right after `marriage m `
-    let labels = complete_at(&mut handle, 16, 2, 11);
+    let labels = complete_at(&mut handle, uri, 16, 2, 11);
     assert!(labels.contains(&"alice".to_owned()));
     assert!(labels.contains(&"bob".to_owned()));
 }
@@ -234,14 +254,14 @@ fn after_marriage_id_returns_persons_for_spouse_a() {
 #[test]
 fn after_spouse_a_excludes_self_marriage() {
     let mut handle = Handle::spawn();
-    open_doc(
-        &mut handle,
-        "person alice name:\"Alice\" gender:female\n\
+    let source = "person alice name:\"Alice\" gender:female\n\
          person bob name:\"Bob\" gender:male\n\
-         marriage m alice ",
-    );
+         marriage m alice ";
+    let kul_url = common::fixture_url("after_spouse_a_excludes_self_marriage", "c.kul", source);
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, source);
     // line 2 column 17 = right after `marriage m alice `
-    let labels = complete_at(&mut handle, 17, 2, 17);
+    let labels = complete_at(&mut handle, uri, 17, 2, 17);
     assert!(!labels.contains(&"alice".to_owned()));
     assert!(labels.contains(&"bob".to_owned()));
 }

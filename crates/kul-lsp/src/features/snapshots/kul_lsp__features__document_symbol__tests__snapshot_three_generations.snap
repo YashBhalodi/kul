@@ -9,21 +9,21 @@ expression: syms
     "kind": 13,
     "range": {
       "start": {
-        "line": 10,
+        "line": 8,
         "character": 0
       },
       "end": {
-        "line": 10,
+        "line": 8,
         "character": 84
       }
     },
     "selectionRange": {
       "start": {
-        "line": 10,
+        "line": 8,
         "character": 7
       },
       "end": {
-        "line": 10,
+        "line": 8,
         "character": 13
       }
     }
@@ -34,21 +34,21 @@ expression: syms
     "kind": 13,
     "range": {
       "start": {
-        "line": 11,
+        "line": 9,
         "character": 0
       },
       "end": {
-        "line": 11,
+        "line": 9,
         "character": 84
       }
     },
     "selectionRange": {
       "start": {
-        "line": 11,
+        "line": 9,
         "character": 7
       },
       "end": {
-        "line": 11,
+        "line": 9,
         "character": 11
       }
     }
@@ -59,21 +59,21 @@ expression: syms
     "kind": 24,
     "range": {
       "start": {
-        "line": 13,
+        "line": 11,
         "character": 0
       },
       "end": {
-        "line": 13,
+        "line": 11,
         "character": 52
       }
     },
     "selectionRange": {
       "start": {
-        "line": 13,
+        "line": 11,
         "character": 9
       },
       "end": {
-        "line": 13,
+        "line": 11,
         "character": 22
       }
     }
@@ -84,21 +84,21 @@ expression: syms
     "kind": 13,
     "range": {
       "start": {
-        "line": 16,
+        "line": 14,
         "character": 0
       },
       "end": {
-        "line": 17,
+        "line": 15,
         "character": 21
       }
     },
     "selectionRange": {
       "start": {
-        "line": 16,
+        "line": 14,
         "character": 7
       },
       "end": {
-        "line": 16,
+        "line": 14,
         "character": 12
       }
     },
@@ -108,21 +108,21 @@ expression: syms
         "kind": 8,
         "range": {
           "start": {
-            "line": 17,
+            "line": 15,
             "character": 2
           },
           "end": {
-            "line": 17,
+            "line": 15,
             "character": 21
           }
         },
         "selectionRange": {
           "start": {
-            "line": 17,
+            "line": 15,
             "character": 2
           },
           "end": {
-            "line": 17,
+            "line": 15,
             "character": 7
           }
         }
@@ -135,21 +135,21 @@ expression: syms
     "kind": 13,
     "range": {
       "start": {
-        "line": 18,
+        "line": 16,
         "character": 0
       },
       "end": {
-        "line": 18,
+        "line": 16,
         "character": 82
       }
     },
     "selectionRange": {
       "start": {
-        "line": 18,
+        "line": 16,
         "character": 7
       },
       "end": {
-        "line": 18,
+        "line": 16,
         "character": 10
       }
     }
@@ -160,21 +160,21 @@ expression: syms
     "kind": 24,
     "range": {
       "start": {
-        "line": 20,
+        "line": 18,
         "character": 0
       },
       "end": {
-        "line": 20,
+        "line": 18,
         "character": 84
       }
     },
     "selectionRange": {
       "start": {
-        "line": 20,
+        "line": 18,
         "character": 9
       },
       "end": {
-        "line": 20,
+        "line": 18,
         "character": 20
       }
     }
@@ -185,21 +185,21 @@ expression: syms
     "kind": 13,
     "range": {
       "start": {
-        "line": 23,
+        "line": 21,
         "character": 0
       },
       "end": {
-        "line": 24,
+        "line": 22,
         "character": 19
       }
     },
     "selectionRange": {
       "start": {
-        "line": 23,
+        "line": 21,
         "character": 7
       },
       "end": {
-        "line": 23,
+        "line": 21,
         "character": 12
       }
     },
@@ -209,21 +209,21 @@ expression: syms
         "kind": 8,
         "range": {
           "start": {
-            "line": 24,
+            "line": 22,
             "character": 2
           },
           "end": {
-            "line": 24,
+            "line": 22,
             "character": 19
           }
         },
         "selectionRange": {
           "start": {
-            "line": 24,
+            "line": 22,
             "character": 2
           },
           "end": {
-            "line": 24,
+            "line": 22,
             "character": 7
           }
         }
@@ -236,21 +236,21 @@ expression: syms
     "kind": 13,
     "range": {
       "start": {
-        "line": 25,
+        "line": 23,
         "character": 0
       },
       "end": {
-        "line": 26,
+        "line": 24,
         "character": 40
       }
     },
     "selectionRange": {
       "start": {
-        "line": 25,
+        "line": 23,
         "character": 7
       },
       "end": {
-        "line": 25,
+        "line": 23,
         "character": 11
       }
     },
@@ -261,21 +261,21 @@ expression: syms
         "kind": 8,
         "range": {
           "start": {
-            "line": 26,
+            "line": 24,
             "character": 2
           },
           "end": {
-            "line": 26,
+            "line": 24,
             "character": 40
           }
         },
         "selectionRange": {
           "start": {
-            "line": 26,
+            "line": 24,
             "character": 2
           },
           "end": {
-            "line": 26,
+            "line": 24,
             "character": 10
           }
         }

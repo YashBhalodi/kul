@@ -1,10 +1,8 @@
 ---
 source: crates/kul-core/tests/parser.rs
-assertion_line: 67
 expression: "render(\"marriage m_a_b alice bob name:\\\"oops\\\"\\nperson c name:\\\"C\\\" gender:female\\n\")"
 ---
 ast: Document {
-    version: None,
     statements: [
         Marriage(
             MarriageStmt {

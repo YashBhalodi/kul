@@ -1,18 +1,8 @@
 # 4. Top-level statements
 
-## 4.1 Version declaration
+The Kul language version is declared in the sibling project manifest `kul.yml`, not in the `.kul` source itself. See [Section 14 — Project manifest](./14-project-manifest.md).
 
-The first non-blank, non-comment line of a document MAY be a version declaration:
-
-```
-kul 0.1
-```
-
-The token following `kul` is a version number in `MAJOR.MINOR` form. A parser that does not recognize the version SHOULD report an error rather than parsing the document. If the version declaration is absent, the version is assumed to be the latest version known to the parser.
-
-A document MUST NOT contain more than one version declaration.
-
-## 4.2 Person statement
+## 4.1 Person statement
 
 A person statement declares a person and their fields, optionally followed by indented sub-statements:
 
@@ -41,7 +31,7 @@ person alice name:"Alice Sharma" family:"Sharma" given:"Alice" born:1950-04-12 g
   birth m_ramesh_sita
 ```
 
-## 4.3 Marriage statement
+## 4.2 Marriage statement
 
 A marriage statement declares a marriage between two persons:
 

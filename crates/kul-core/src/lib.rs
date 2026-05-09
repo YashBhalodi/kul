@@ -29,6 +29,7 @@ pub mod export;
 pub mod field_meta;
 pub mod format;
 pub mod lexer;
+pub mod manifest;
 pub mod node_at;
 pub mod parser;
 pub mod semantic;
@@ -39,6 +40,7 @@ use std::sync::Arc;
 
 use crate::ast::Document;
 use crate::diagnostic::Diagnostic;
+use crate::manifest::Manifest;
 use crate::semantic::ResolvedDocument;
 
 /// The version of `kul-core` linked into the consumer.
@@ -57,6 +59,11 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub struct CheckResult {
     pub resolved: ResolvedDocument,
     pub diagnostics: Vec<Diagnostic>,
+    /// The project manifest in effect for this check call. Sourced from
+    /// the caller's `kul.yml` (or [`Manifest::default`] for in-memory
+    /// callers that don't model a project). Surfaced in the export
+    /// envelope's `kul:` field.
+    pub manifest: Manifest,
 }
 
 impl CheckResult {
@@ -83,7 +90,11 @@ impl CheckResult {
 
 /// One-call entry point: lex, parse, resolve, validate, return the merged
 /// diagnostics together with the cached resolved view.
-pub fn check(source: &str) -> CheckResult {
+///
+/// The `manifest` argument carries project-level metadata — most notably
+/// the Kul language version the source targets. Adapters discover it from
+/// a sibling `kul.yml`; in-memory callers pass [`Manifest::default`].
+pub fn check(source: &str, manifest: &Manifest) -> CheckResult {
     let tokens = lexer::tokenize(source);
     let (document, mut diagnostics) = parser::parse(&tokens);
     let document = Arc::new(document);
@@ -93,5 +104,6 @@ pub fn check(source: &str) -> CheckResult {
     CheckResult {
         resolved,
         diagnostics,
+        manifest: manifest.clone(),
     }
 }

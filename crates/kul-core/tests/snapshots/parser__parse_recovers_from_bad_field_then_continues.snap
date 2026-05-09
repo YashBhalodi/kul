@@ -1,10 +1,8 @@
 ---
 source: crates/kul-core/tests/parser.rs
-assertion_line: 36
 expression: "render(\"person alice oops:bad gender:female\\nperson bob name:\\\"Bob\\\" gender:male\\n\")"
 ---
 ast: Document {
-    version: None,
     statements: [
         Person(
             PersonStmt {

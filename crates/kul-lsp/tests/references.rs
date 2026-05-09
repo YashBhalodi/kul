@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
+mod common;
+
 fn binary_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_BIN_EXE_kul-lsp"))
 }
@@ -100,7 +102,7 @@ const FIXTURE: &str = "person alice name:\"A\" gender:female\n\
                         marriage m alice bob start:1972\n\
                         person kid name:\"K\" gender:other\n  birth m\n  adoption m start:2015\n";
 
-fn open_fixture(handle: &mut Handle) {
+fn open_fixture(handle: &mut Handle, uri: &str) {
     write_message(
         &mut handle.stdin,
         r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
@@ -118,13 +120,14 @@ fn open_fixture(handle: &mut Handle) {
 
     let escaped = serde_json::to_string(FIXTURE).unwrap();
     let did_open = format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///r.kul","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{uri}","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
     );
     write_message(&mut handle.stdin, &did_open);
 }
 
 fn references_at(
     handle: &mut Handle,
+    uri: &str,
     id: i64,
     line: u32,
     character: u32,
@@ -135,7 +138,7 @@ fn references_at(
         "id": id,
         "method": "textDocument/references",
         "params": {
-            "textDocument": { "uri": "file:///r.kul" },
+            "textDocument": { "uri": uri },
             "position": { "line": line, "character": character },
             "context": { "includeDeclaration": include_declaration }
         }
@@ -149,9 +152,15 @@ fn references_at(
 #[test]
 fn references_on_person_decl_returns_spouse_position() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url(
+        "references_on_person_decl_returns_spouse_position",
+        "r.kul",
+        FIXTURE,
+    );
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // Line 0 col 7 = `alice` decl id.
-    let resp = references_at(&mut handle, 10, 0, 7, false);
+    let resp = references_at(&mut handle, uri, 10, 0, 7, false);
     let result = resp["result"].as_array().expect("array");
     assert_eq!(result.len(), 1);
     // Spouse position is on the marriage line (line 2).
@@ -161,9 +170,15 @@ fn references_on_person_decl_returns_spouse_position() {
 #[test]
 fn references_on_marriage_decl_returns_birth_and_adoption() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url(
+        "references_on_marriage_decl_returns_birth_and_adoption",
+        "r.kul",
+        FIXTURE,
+    );
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // Line 2 col 9 = `m` decl id ("marriage " is 9 chars).
-    let resp = references_at(&mut handle, 11, 2, 9, false);
+    let resp = references_at(&mut handle, uri, 11, 2, 9, false);
     let result = resp["result"].as_array().expect("array");
     assert_eq!(result.len(), 2);
 }
@@ -171,8 +186,14 @@ fn references_on_marriage_decl_returns_birth_and_adoption() {
 #[test]
 fn references_with_include_declaration_returns_decl_first() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
-    let resp = references_at(&mut handle, 12, 0, 7, true);
+    let kul_url = common::fixture_url(
+        "references_with_include_declaration_returns_decl_first",
+        "r.kul",
+        FIXTURE,
+    );
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
+    let resp = references_at(&mut handle, uri, 12, 0, 7, true);
     let result = resp["result"].as_array().expect("array");
     // `alice` has 1 ref + 1 decl = 2.
     assert_eq!(result.len(), 2);
@@ -183,8 +204,10 @@ fn references_with_include_declaration_returns_decl_first() {
 #[test]
 fn references_on_keyword_returns_null() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url("references_on_keyword_returns_null", "r.kul", FIXTURE);
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // Line 0 col 0 = `person` keyword.
-    let resp = references_at(&mut handle, 13, 0, 0, true);
+    let resp = references_at(&mut handle, uri, 13, 0, 0, true);
     assert!(resp["result"].is_null());
 }

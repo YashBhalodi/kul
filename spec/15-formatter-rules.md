@@ -1,14 +1,14 @@
-# 14. Formatter rules
+# 15. Formatter rules
 
 This section is normative. It specifies the canonical form a conforming Kul formatter MUST produce. The rules are settled in [ADR 0004](../docs/adr/0004-formatter-canonical-rules.md), which carries the rationale; this section is the contract.
 
 A formatter for Kul is a function `format(s) → s'` over a Kul source string. For every input that parses without lex or parse errors, the formatter MUST return a string that satisfies every rule in this section. Inputs that fail to parse SHOULD be rejected rather than partially formatted.
 
-## 14.1 Opinionated, no configuration
+## 15.1 Opinionated, no configuration
 
 A conforming formatter MUST accept exactly one input — the source — and produce exactly one output. It MUST NOT consult a configuration file, environment variable, or command-line flag that alters its output. The reference CLI (`kul format`) carries flags only for *operational* concerns (`--check`, file selection, stdin); none of them change the canonical form.
 
-## 14.2 Field order
+## 15.2 Field order
 
 Within a single statement or sub-statement, fields MUST appear in this order:
 
@@ -21,7 +21,7 @@ Within a single statement or sub-statement, fields MUST appear in this order:
 
 The order is positional → required → optional, in the spec-table sequence. Positional arguments — the `<id>`, the spouse identifiers, the `<marriage-ref>` — keep their grammar-mandated order; the formatter MUST NOT reorder them.
 
-## 14.3 Spacing
+## 15.3 Spacing
 
 - **Within a field**: exactly one `:` between name and value. No whitespace before or after `:`. (The lexer rejects `name : "Alice"` as a parse error, so this is reinforcement, not a separate rule.) Examples: `name:"Alice"`, `gender:female`.
 - **Between fields on a single line**: exactly two spaces. Example: `name:"Alice"  gender:female  born:1950`.
@@ -30,15 +30,15 @@ The order is positional → required → optional, in the spec-table sequence. P
 
 The two-space inter-field rule is the only unusual one. It buys visual separation between fields without per-block alignment math, and it survives copy-paste into terminals or chat logs that single-space-collapse runs.
 
-## 14.4 Indentation
+## 15.4 Indentation
 
 Sub-statements (`birth`, `adoption`) MUST be indented with exactly two ASCII spaces. Tabs are forbidden — the lexer already treats them as parse errors.
 
-## 14.5 Per-region sparse column alignment
+## 15.5 Per-region sparse column alignment
 
 The formatter MUST align columns within a *region*. A region is a maximal run of lines bounded by blank lines (or document start/end). The blank line is the only region boundary — whole-line comments, indent changes, and shape changes do NOT bound regions.
 
-A line's cells are, in order: the statement keyword; then any positional arguments in grammar order (id, spouses, marriage-ref); then any fields the line carries in the canonical order from §14.2; then optionally an inline comment as the trailing cell. Two cells have the same *kind* iff they are the same keyword, the same positional role, the same field name, or both are inline comments.
+A line's cells are, in order: the statement keyword; then any positional arguments in grammar order (id, spouses, marriage-ref); then any fields the line carries in the canonical order from §15.2; then optionally an inline comment as the trailing cell. Two cells have the same *kind* iff they are the same keyword, the same positional role, the same field name, or both are inline comments.
 
 ### Alignment groups
 
@@ -72,7 +72,7 @@ The width of each present column equals the maximum content width across the lin
 Walk the group's column sequence left to right, emitting each line per the following rules:
 
 - For the line's *first* cell (always the keyword), emit the cell content padded with trailing spaces to the column width.
-- For each subsequent column, emit the canonical inter-cell separator from §14.3 (single space after a keyword or between positionals/references, two spaces before any field or inline comment), then either:
+- For each subsequent column, emit the canonical inter-cell separator from §15.3 (single space after a keyword or between positionals/references, two spaces before any field or inline comment), then either:
   - the cell content (padded to column width if it is *not* the line's last actual cell, unpadded otherwise), if the line carries this column, or
   - whitespace of exactly the column's width, if the line does not carry this column AND the line has at least one further actual cell to its right.
 - After emitting the line's last actual cell, stop. The line MUST NOT be padded with trailing whitespace through any subsequent column slots.
@@ -92,7 +92,7 @@ The group contains both lines (same indent, same `person` keyword). Columns pres
 
 Anti-suggestion 5 of [ADR 0004](../docs/adr/0004-formatter-canonical-rules.md) — per-document alignment — remains rejected. Per-region sparse alignment is bounded by blank lines; an author who wants two stretches of same-keyword lines to NOT share columns MUST split them with a blank line. The blank line is load-bearing for layout.
 
-## 14.6 Blank-line handling
+## 15.6 Blank-line handling
 
 - A blank line between top-level statements MUST be preserved.
 - A run of more than one consecutive blank line MUST collapse to a single blank line.
@@ -100,7 +100,7 @@ Anti-suggestion 5 of [ADR 0004](../docs/adr/0004-formatter-canonical-rules.md) �
 - The output MUST NOT begin with a blank line.
 - The output MUST end with exactly one trailing newline if it is non-empty.
 
-## 14.7 Comments are opaque
+## 15.7 Comments are opaque
 
 Everything from `#` to end-of-line is preserved byte-for-byte. The formatter MUST NOT read, combine, split, reflow, or move comment text — it operates only on the part of a line *before* any `#`.
 
@@ -109,7 +109,7 @@ Two normalization rules cover whitespace adjacent to comments:
 - An end-of-line comment is separated from the preceding tokens by exactly two spaces, matching the inter-field rhythm: `name:"A"  gender:female  # note`.
 - A whole-line comment stays on its own line. Outside any `person` block it sits at column 0; under a `person` block it MAY be indented, in which case the formatter MUST emit it at the block's two-space indent.
 
-## 14.8 Idempotence
+## 15.8 Idempotence
 
 For every Kul source string `s` that parses without lex or parse errors:
 
@@ -119,7 +119,7 @@ format(format(s)) == format(s)   // byte-equal
 
 A formatter that breaks idempotence is non-conforming. Any future rule change that would break idempotence is wrong on its face.
 
-## 14.9 Round-trip
+## 15.9 Round-trip
 
 For every Kul source string `s` that parses without lex or parse errors:
 
@@ -127,8 +127,8 @@ For every Kul source string `s` that parses without lex or parse errors:
 parse(format(s)) ≡ parse(s)   // AST-equal modulo span positions
 ```
 
-The formatter is a pure presentation pass: it MUST NOT add, remove, or transform semantic content. The only thing it may rearrange is field order within a statement (per §14.2), which by construction does not change the parsed AST. Comments are preserved verbatim (§14.7); the AST itself does not model comments, so they do not appear in this equivalence.
+The formatter is a pure presentation pass: it MUST NOT add, remove, or transform semantic content. The only thing it may rearrange is field order within a statement (per §15.2), which by construction does not change the parsed AST. Comments are preserved verbatim (§15.7); the AST itself does not model comments, so they do not appear in this equivalence.
 
 ---
 
-← [Section 13 — Versioning policy](./13-versioning-policy.md) | [Section 15 — Export schema](./15-export-schema.md) | [Index](./README.md)
+← [Section 14 — Project manifest](./14-project-manifest.md) | [Section 16 — Export schema](./16-export-schema.md) | [Index](./README.md)

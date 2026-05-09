@@ -43,7 +43,7 @@ The bundled language server gives you these features automatically — no `kul.s
 
 ### Commands
 
-- **Kul: Export to JSON** — projects the current document (including unsaved edits) to the canonical kinship-native JSON envelope and prompts for a save location. Schema is normative; see [spec §15](https://github.com/YashBhalodi/kul/tree/main/spec/15-export-schema.md).
+- **Kul: Export to JSON** — projects the current document (including unsaved edits) to the canonical kinship-native JSON envelope and prompts for a save location. Schema is normative; see [spec §15](https://github.com/YashBhalodi/kul/tree/main/spec/16-export-schema.md).
 - **Kul: Export to Cytoscape JSON** — the same data projected into the `nodes` / `edges` shape loadable by Cytoscape.js, Sigma.js, vis-network, and similar tools.
 
 Both commands appear in the command palette only on `.kul` files. They surface a notification and point you at the Problems panel if the document has errors.

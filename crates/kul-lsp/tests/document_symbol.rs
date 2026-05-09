@@ -9,6 +9,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
+mod common;
+
 fn binary_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_BIN_EXE_kul-lsp"))
 }
@@ -99,7 +101,7 @@ const FIXTURE: &str = "person alice name:\"Alice\" gender:female born:1950\n\
                         marriage m alice bob start:1972 end:1990 end_reason:divorce\n\
                         person kid name:\"Kid\" gender:other\n  birth m\n";
 
-fn open_fixture(handle: &mut Handle) {
+fn open_fixture(handle: &mut Handle, uri: &str) {
     write_message(
         &mut handle.stdin,
         r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
@@ -117,18 +119,18 @@ fn open_fixture(handle: &mut Handle) {
 
     let escaped = serde_json::to_string(FIXTURE).unwrap();
     let did_open = format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///sym.kul","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{uri}","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
     );
     write_message(&mut handle.stdin, &did_open);
 }
 
-fn document_symbol(handle: &mut Handle, id: i64) -> Value {
+fn document_symbol(handle: &mut Handle, uri: &str, id: i64) -> Value {
     let req = json!({
         "jsonrpc": "2.0",
         "id": id,
         "method": "textDocument/documentSymbol",
         "params": {
-            "textDocument": { "uri": "file:///sym.kul" }
+            "textDocument": { "uri": uri }
         }
     });
     write_message(&mut handle.stdin, &req.to_string());
@@ -140,9 +142,15 @@ fn document_symbol(handle: &mut Handle, id: i64) -> Value {
 #[test]
 fn outline_lists_persons_marriages_and_nests_birth() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url(
+        "outline_lists_persons_marriages_and_nests_birth",
+        "sym.kul",
+        FIXTURE,
+    );
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
 
-    let resp = document_symbol(&mut handle, 10);
+    let resp = document_symbol(&mut handle, uri, 10);
     let result = resp["result"].as_array().expect("array of symbols");
     assert_eq!(result.len(), 4); // alice, bob, m, kid
 
@@ -171,6 +179,8 @@ fn outline_lists_persons_marriages_and_nests_birth() {
 #[test]
 fn empty_document_returns_empty_array() {
     let mut handle = Handle::spawn();
+    let kul_url = common::fixture_url("empty_document_returns_empty_array", "empty.kul", "");
+    let uri = kul_url.as_str();
     write_message(
         &mut handle.stdin,
         r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
@@ -182,15 +192,15 @@ fn empty_document_returns_empty_array() {
         &mut handle.stdin,
         r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#,
     );
-    write_message(
-        &mut handle.stdin,
-        r#"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///empty.kul","languageId":"kul","version":1,"text":""}}}"#,
+    let did_open = format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{uri}","languageId":"kul","version":1,"text":""}}}}}}"#
     );
+    write_message(&mut handle.stdin, &did_open);
     let req = json!({
         "jsonrpc": "2.0",
         "id": 11,
         "method": "textDocument/documentSymbol",
-        "params": { "textDocument": { "uri": "file:///empty.kul" } }
+        "params": { "textDocument": { "uri": uri } }
     });
     write_message(&mut handle.stdin, &req.to_string());
     let resp = handle

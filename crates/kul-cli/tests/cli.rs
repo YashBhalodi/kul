@@ -14,6 +14,13 @@ fn corpus_root() -> PathBuf {
         .join("corpus")
 }
 
+/// A `kul.yml` path to pass via `--manifest` for stdin-based subcommand
+/// tests. Reuses the examples directory's manifest so the tests don't
+/// fabricate fixtures of their own.
+fn examples_manifest() -> PathBuf {
+    examples_dir().join("kul.yml")
+}
+
 #[test]
 fn validate_valid_file_exits_zero() {
     let path = corpus_root().join("valid/01-single-person.kul");
@@ -119,11 +126,60 @@ fn validate_quiet_suppresses_ok_line() {
 fn validate_stdin_reads_dash() {
     Command::cargo_bin("kul")
         .unwrap()
-        .args(["validate", "-"])
+        .args(["validate", "--manifest"])
+        .arg(examples_manifest())
+        .args(["-"])
         .write_stdin("person alice name:\"Alice\" gender:female\n")
         .assert()
         .success()
         .stdout(contains("<stdin>: ok"));
+}
+
+#[test]
+fn validate_stdin_without_manifest_errors() {
+    Command::cargo_bin("kul")
+        .unwrap()
+        .args(["validate", "-"])
+        .write_stdin("person alice name:\"Alice\" gender:female\n")
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("--manifest"));
+}
+
+#[test]
+fn validate_missing_manifest_alongside_file_errors() {
+    let dir = tempfile_dir().join("validate-missing-manifest");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("alice.kul");
+    std::fs::write(&path, "person alice name:\"Alice\" gender:female\n").unwrap();
+    let manifest = dir.join("kul.yml");
+    let _ = std::fs::remove_file(&manifest);
+    Command::cargo_bin("kul")
+        .unwrap()
+        .args(["validate"])
+        .arg(&path)
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("missing project manifest"));
+}
+
+#[test]
+fn validate_malformed_manifest_errors() {
+    let dir = tempfile_dir().join("validate-malformed-manifest");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("alice.kul");
+    std::fs::write(&path, "person alice name:\"Alice\" gender:female\n").unwrap();
+    std::fs::write(dir.join("kul.yml"), "kul: [not-a-string]\n").unwrap();
+    Command::cargo_bin("kul")
+        .unwrap()
+        .args(["validate"])
+        .arg(&path)
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("parse"));
 }
 
 #[test]
@@ -165,7 +221,9 @@ fn validate_multiple_files_exits_one_if_any_fail() {
 fn format_stdin_writes_canonical_form_to_stdout() {
     let out = Command::cargo_bin("kul")
         .unwrap()
-        .args(["format", "-"])
+        .args(["format", "--manifest"])
+        .arg(examples_manifest())
+        .args(["-"])
         .write_stdin("person alice  born:1950 name:\"Alice\" gender:female\n")
         .output()
         .expect("run kul format");
@@ -181,7 +239,9 @@ fn format_stdin_writes_canonical_form_to_stdout() {
 fn format_check_passes_on_canonical_input() {
     Command::cargo_bin("kul")
         .unwrap()
-        .args(["format", "--check", "-"])
+        .args(["format", "--check", "--manifest"])
+        .arg(examples_manifest())
+        .args(["-"])
         .write_stdin("person alice  name:\"Alice\"  gender:female\n")
         .assert()
         .success();
@@ -191,7 +251,9 @@ fn format_check_passes_on_canonical_input() {
 fn format_check_fails_on_non_canonical_input() {
     Command::cargo_bin("kul")
         .unwrap()
-        .args(["format", "--check", "-"])
+        .args(["format", "--check", "--manifest"])
+        .arg(examples_manifest())
+        .args(["-"])
         .write_stdin("person alice name:\"Alice\" gender:female\n")
         .assert()
         .failure()
@@ -229,6 +291,7 @@ fn format_rewrites_file_in_place() {
     let path = dir.join("alice.kul");
     let dirty = "person alice born:1950 name:\"Alice\" gender:female\n";
     std::fs::write(&path, dirty).unwrap();
+    std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").unwrap();
     Command::cargo_bin("kul")
         .unwrap()
         .args(["format"])
@@ -246,7 +309,9 @@ fn format_rewrites_file_in_place() {
 fn format_refuses_input_with_parse_errors() {
     Command::cargo_bin("kul")
         .unwrap()
-        .args(["format", "-"])
+        .args(["format", "--manifest"])
+        .arg(examples_manifest())
+        .args(["-"])
         .write_stdin("person\n")
         .assert()
         .failure()
@@ -280,7 +345,9 @@ fn export_clean_file_emits_success_envelope_and_exits_zero() {
 fn export_dirty_file_emits_failure_envelope_and_exits_one() {
     let output = Command::cargo_bin("kul")
         .unwrap()
-        .args(["export", "-"])
+        .args(["export", "--manifest"])
+        .arg(examples_manifest())
+        .args(["-"])
         .write_stdin("person alice gender:female\n")
         .output()
         .expect("run kul export");
@@ -296,7 +363,9 @@ fn export_dirty_file_emits_failure_envelope_and_exits_one() {
 fn export_stdin_succeeds_on_clean_input() {
     let output = Command::cargo_bin("kul")
         .unwrap()
-        .args(["export", "-"])
+        .args(["export", "--manifest"])
+        .arg(examples_manifest())
+        .args(["-"])
         .write_stdin("person alice name:\"Alice\" gender:female\n")
         .output()
         .expect("run kul export");
