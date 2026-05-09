@@ -12,7 +12,9 @@
 
 use std::path::{Path, PathBuf};
 
+use kul_core::ast::InputFile;
 use kul_core::export::{ExportFormat, ExportOptions, export};
+use kul_core::manifest::Manifest;
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -31,8 +33,10 @@ fn read(path: &Path) -> String {
 }
 
 fn export_with(source: &str, options: ExportOptions) -> String {
-    let check = kul_core::check(source, &kul_core::manifest::Manifest::default());
-    let envelope = export(source, &check, options);
+    let inputs = vec![InputFile::new("test.kul", source)];
+    let check =
+        kul_core::check_with_manifest("kul.yml", "kul: \"0.1\"\n", &Manifest::default(), &inputs);
+    let envelope = export(&check, options);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 
@@ -221,9 +225,11 @@ fn one_thousand_statement_export_under_budget() {
         use std::fmt::Write as _;
         let _ = writeln!(&mut source, "person p{i} name:\"P{i}\" gender:female");
     }
-    let check = kul_core::check(&source, &kul_core::manifest::Manifest::default());
+    let inputs = vec![InputFile::new("perf.kul", source.clone())];
+    let check =
+        kul_core::check_with_manifest("kul.yml", "kul: \"0.1\"\n", &Manifest::default(), &inputs);
     let start = std::time::Instant::now();
-    let envelope = export(&source, &check, ExportOptions::default());
+    let envelope = export(&check, ExportOptions::default());
     let _json = serde_json::to_string(&envelope).expect("serialize");
     let elapsed = start.elapsed();
     eprintln!("1000-statement export + serialize: {elapsed:?}");

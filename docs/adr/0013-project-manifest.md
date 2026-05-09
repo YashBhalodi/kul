@@ -36,6 +36,8 @@ kul: "0.1"
 
 **Diagnostics infrastructure is deferred.** Manifest errors in this issue are reported by adapters as ad-hoc strings (CLI: stderr; LSP: synthetic LSP `Diagnostic` at byte 0..1; WASM: `tsify` deserialization failure). Promoting these to a typed `ManifestDiagnostic` with normative `KUL-Mxx` codes lands with the multi-file type-system refactor that follows this issue, when the unified diagnostic infrastructure (a `FileSpan` over both `.kul` source and `kul.yml` as different `FileId`s) needs to exist anyway.
 
+> **2026-05-09 follow-through:** the diagnostic-unification work landed in [ADR-0014](./0014-file-identity-and-per-file-namespaces.md) (issue #70). Manifest errors now flow through `Diagnostic` with normative `KUL-M01..M05` codes and `FileSpan` anchors into `kul.yml`; the adapter-level string-rendering hacks listed above are removed. See the ADR for the codes' definitions and the reasoning behind making `Diagnostic.primary` an `Option<FileSpan>` (so `KUL-M01` — manifest-not-found — has a clean home).
+
 ## Consequences
 
 **Positive.** The `.kul` grammar simplifies — `kul` is no longer a reserved keyword; the lexer drops `KulKw`; the parser drops `parse_version_decl`; the AST drops `Document.version`. The two source files that previously read `kul 0.1\n\nperson alice …` now read just `person alice …`, and the version lives in a sibling `kul.yml`.

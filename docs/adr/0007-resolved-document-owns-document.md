@@ -18,7 +18,9 @@ Three options were considered:
 
 ## Decision
 
-Option 2. `ResolvedDocument` owns an `Arc<Document>`. The id index uses owned `String` keys mapping to a private `ResolvedEntity { kind, statement_idx }` value — no lifetime parameters, no borrows into the document. Query methods (`person`, `marriage`, `entity`, `spouses_of`, `parents_of`, `node_at`) take `&self` and return references with the elided lifetime of `&self`.
+Option 2. `ResolvedDocument` owns an `Arc<Document>`. The id index is now keyed by `(FileId, owned-id-String)` mapping to a private `ResolvedEntity { kind, statement_idx }` value — no lifetime parameters, no borrows into the document. Per-id queries (`person(file, id)`, `marriage(file, id)`, `entity(file, id)`) take `&self` and a `FileId` and return references with the elided lifetime of `&self`. Cross-file iteration (`persons()`, `marriages()`, `statements()`) walks every `KulFile`; `_in(file)` variants restrict to one file.
+
+The shift from `Document` (one `.kul` file) to `Document` (a multi-file project container holding `Vec<Arc<KulFile>>`) is what [ADR-0014](./0014-file-identity-and-per-file-namespaces.md) introduces. The Arc-ownership argument here applies unchanged: `Arc<Document>` is still the shape that lets `CheckResult` cache the resolved view without a self-referential lifetime, and `KulFile` is itself held behind an `Arc` so the LSP document cache and downstream tooling can share heap buffers cheaply.
 
 `semantic::resolve` takes `Arc<Document>` and returns `(ResolvedDocument, Vec<Diagnostic>)`. `CheckResult` owns the `ResolvedDocument` directly:
 

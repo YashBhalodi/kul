@@ -13,6 +13,7 @@
 use kul_core::ast::{AdoptionSub, BirthSub, MarriageStmt, PersonStmt, Statement};
 use kul_core::date::DateLit;
 use kul_core::semantic::ResolvedDocument;
+use kul_core::span::FileId;
 use tower_lsp::lsp_types::{DocumentSymbol, SymbolKind};
 
 use crate::convert::LineIndex;
@@ -20,14 +21,15 @@ use crate::convert::LineIndex;
 /// Build the document-symbol tree for the outline view. Order mirrors source
 /// order; sub-statements nest under their parent person.
 pub fn document_symbols(
+    file: FileId,
     resolved: &ResolvedDocument,
     line_index: &LineIndex,
 ) -> Vec<DocumentSymbol> {
     resolved
-        .statements()
+        .statements_in(file)
         .map(|stmt| match stmt {
             Statement::Person(p) => person_symbol(line_index, p),
-            Statement::Marriage(m) => marriage_symbol(resolved, line_index, m),
+            Statement::Marriage(m) => marriage_symbol(file, resolved, line_index, m),
         })
         .collect()
 }
@@ -62,12 +64,13 @@ fn person_symbol(line_index: &LineIndex, p: &PersonStmt) -> DocumentSymbol {
 }
 
 fn marriage_symbol(
+    file: FileId,
     resolved: &ResolvedDocument,
     line_index: &LineIndex,
     m: &MarriageStmt,
 ) -> DocumentSymbol {
-    let a = display_name_or(resolved, &m.spouse_a.name);
-    let b = display_name_or(resolved, &m.spouse_b.name);
+    let a = display_name_or(file, resolved, &m.spouse_a.name);
+    let b = display_name_or(file, resolved, &m.spouse_b.name);
     #[allow(deprecated)]
     DocumentSymbol {
         name: format!("{a} & {b}"),
@@ -142,9 +145,9 @@ fn adoption_detail(a: &AdoptionSub) -> Option<String> {
     }
 }
 
-fn display_name_or(resolved: &ResolvedDocument, id: &str) -> String {
+fn display_name_or(file: FileId, resolved: &ResolvedDocument, id: &str) -> String {
     resolved
-        .person(id)
+        .person(file, id)
         .map(|p| p.display_name().to_owned())
         .unwrap_or_else(|| id.to_owned())
 }
@@ -158,11 +161,23 @@ mod tests {
     use std::sync::Arc;
 
     fn symbols_for(source: &str) -> Vec<DocumentSymbol> {
+        use kul_core::ast::{Document, KulFile};
+        let file = FileId::from_raw(1);
         let tokens = tokenize(source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
+        let (statements, _) = parse(&tokens, file);
+        let kf = Arc::new(KulFile {
+            name: "test.kul".into(),
+            source: source.into(),
+            statements,
+        });
+        let document = Arc::new(Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
         let line_index = LineIndex::new(source);
-        document_symbols(&resolved, &line_index)
+        document_symbols(file, &resolved, &line_index)
     }
 
     fn names(syms: &[DocumentSymbol]) -> Vec<&str> {

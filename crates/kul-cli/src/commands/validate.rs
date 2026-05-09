@@ -2,8 +2,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use kul_core::ast::InputFile;
 use kul_core::diagnostic::{Diagnostic, RelatedSpan, RenderableDiagnostic, Severity};
-use kul_core::span::{ByteSpan, SourceMap};
+use kul_core::span::{FileSpan, SourceMap};
 use miette::{GraphicalReportHandler, GraphicalTheme};
 use serde::Serialize;
 
@@ -43,18 +44,20 @@ fn validate_one(path: &Path, opts: &Options) -> io::Result<bool> {
     let source = std::fs::read_to_string(path)?;
     let label = path.to_string_lossy().into_owned();
 
-    let manifest = match load_manifest(path) {
-        Ok(m) => m,
-        Err(err) => {
-            eprintln!("kul: {label}: {err}");
-            return Ok(true);
-        }
-    };
+    let manifest = load_manifest(path);
+    let inputs = vec![InputFile::new(label.clone(), source)];
+    let mut result = kul_core::check(manifest.path_label, &manifest.yaml, &inputs);
+    // Manifest-not-found diagnostics (`KUL-M01`) come from the CLI's
+    // discovery step — `kul-core` only sees the bytes the adapter
+    // hands it. Splice them into the diagnostic list at the front so
+    // they render before the file-anchored ones.
+    let mut diagnostics = manifest.preface;
+    diagnostics.append(&mut result.diagnostics);
+    result.diagnostics = diagnostics;
 
-    let result = kul_core::check(&source, &manifest);
     match opts.format {
-        OutputFormat::Human => render_human(&source, &label, &result.diagnostics, opts),
-        OutputFormat::Json => render_json(&source, &label, &result.diagnostics)?,
+        OutputFormat::Human => render_human(&result, opts),
+        OutputFormat::Json => render_json(&result)?,
     }
 
     let has_errors = result.has_errors();
@@ -64,7 +67,7 @@ fn validate_one(path: &Path, opts: &Options) -> io::Result<bool> {
     Ok(has_errors)
 }
 
-fn render_human(source: &str, label: &str, diagnostics: &[Diagnostic], opts: &Options) {
+fn render_human(result: &kul_core::CheckResult, opts: &Options) {
     let theme = if !opts.no_color && std::io::IsTerminal::is_terminal(&std::io::stderr()) {
         GraphicalTheme::unicode()
     } else {
@@ -72,21 +75,27 @@ fn render_human(source: &str, label: &str, diagnostics: &[Diagnostic], opts: &Op
     };
     let handler = GraphicalReportHandler::new_themed(theme);
     let mut buf = String::new();
-    for diag in diagnostics {
-        let renderable = RenderableDiagnostic::new(source, label, diag);
+    let document = result.document();
+    for diag in &result.diagnostics {
+        let renderable = RenderableDiagnostic::for_diagnostic(document, diag);
         buf.clear();
         let _ = handler.render_report(&mut buf, &renderable);
         eprint!("{buf}");
     }
 }
 
-fn render_json(source: &str, label: &str, diagnostics: &[Diagnostic]) -> io::Result<()> {
-    let map = SourceMap::new(source);
+fn render_json(result: &kul_core::CheckResult) -> io::Result<()> {
     let stdout = io::stdout();
     let mut out = stdout.lock();
+    use std::collections::HashMap;
     use std::io::Write;
-    for diag in diagnostics {
-        let record = JsonDiagnostic::new(label, &map, diag);
+
+    // Lazily build per-file SourceMaps so we don't pay the cost for
+    // files the diagnostic list never anchors into.
+    let document = result.document();
+    let mut maps: HashMap<kul_core::span::FileId, SourceMap> = HashMap::new();
+    for diag in &result.diagnostics {
+        let record = JsonDiagnostic::new(document, &mut maps, diag);
         let line = serde_json::to_string(&record).expect("serialize diagnostic");
         writeln!(out, "{line}")?;
     }
@@ -98,13 +107,14 @@ struct JsonDiagnostic<'a> {
     code: &'a str,
     severity: &'static str,
     message: &'a str,
-    file: &'a str,
-    primary: JsonSpan,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    primary: Option<JsonSpan>,
     related: Vec<JsonRelated<'a>>,
 }
 
 #[derive(Serialize)]
 struct JsonSpan {
+    file: String,
     byte_start: usize,
     byte_end: usize,
     line: usize,
@@ -119,19 +129,25 @@ struct JsonRelated<'a> {
 }
 
 impl<'a> JsonDiagnostic<'a> {
-    fn new(file: &'a str, map: &SourceMap, diag: &'a Diagnostic) -> Self {
+    fn new(
+        document: &kul_core::ast::Document,
+        maps: &mut std::collections::HashMap<kul_core::span::FileId, SourceMap>,
+        diag: &'a Diagnostic,
+    ) -> Self {
         Self {
             code: diag.code,
             severity: severity_str(diag.severity),
             message: &diag.message,
-            file,
-            primary: JsonSpan::new(diag.primary, map),
+            primary: diag.primary.and_then(|s| JsonSpan::new(s, document, maps)),
             related: diag
                 .related
                 .iter()
-                .map(|r: &RelatedSpan| JsonRelated {
-                    label: &r.label,
-                    span: JsonSpan::new(r.span, map),
+                .filter_map(|r: &RelatedSpan| {
+                    let span = JsonSpan::new(r.span, document, maps)?;
+                    Some(JsonRelated {
+                        label: &r.label,
+                        span,
+                    })
                 })
                 .collect(),
         }
@@ -139,14 +155,23 @@ impl<'a> JsonDiagnostic<'a> {
 }
 
 impl JsonSpan {
-    fn new(span: ByteSpan, map: &SourceMap) -> Self {
-        let lc = map.line_col(span.start);
-        Self {
-            byte_start: span.start,
-            byte_end: span.end,
+    fn new(
+        span: FileSpan,
+        document: &kul_core::ast::Document,
+        maps: &mut std::collections::HashMap<kul_core::span::FileId, SourceMap>,
+    ) -> Option<Self> {
+        let source = document.source_of(span.file)?;
+        let map = maps
+            .entry(span.file)
+            .or_insert_with(|| SourceMap::new(source));
+        let lc = map.line_col(span.span.start);
+        Some(Self {
+            file: document.name_of(span.file).unwrap_or("").to_string(),
+            byte_start: span.span.start,
+            byte_end: span.span.end,
             line: lc.line,
             column: lc.column,
-        }
+        })
     }
 }
 

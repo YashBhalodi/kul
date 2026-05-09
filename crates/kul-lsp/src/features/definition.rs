@@ -5,6 +5,7 @@
 //! with `target: Some(_)` into the corresponding declaration `Location`.
 
 use kul_core::semantic::ResolvedDocument;
+use kul_core::span::FileId;
 use tower_lsp::lsp_types::{Location, Url};
 
 use crate::convert::LineIndex;
@@ -13,16 +14,22 @@ use crate::convert::LineIndex;
 /// when there is nothing to navigate to (declaration site, unresolved
 /// reference, keyword, field, whitespace, EOF).
 pub fn definition(
+    file: FileId,
     resolved: &ResolvedDocument,
     line_index: &LineIndex,
     uri: &Url,
     byte_offset: usize,
 ) -> Option<Location> {
-    let entity = resolved.node_at(byte_offset)?.entity_reference()?;
+    let entity = resolved
+        .node_at(file, byte_offset)?
+        .entity_reference(file)?;
     // Goto-def from a decl is a no-op; resolved refs jump to the target.
     if entity.is_decl {
         return None;
     }
+    // `entity.target` lives in the same file as the reference (per
+    // ADR-0014's per-file namespaces), so we anchor the location at the
+    // request URI rather than re-routing through `entity.ident_span.file`.
     let target_span = entity.target?.decl_span();
     Some(Location {
         uri: uri.clone(),
@@ -36,7 +43,6 @@ mod tests {
     use kul_core::lexer::tokenize;
     use kul_core::parser::parse;
     use kul_core::semantic::resolve;
-    use std::sync::Arc;
 
     fn url() -> Url {
         Url::parse("file:///t.kul").unwrap()
@@ -44,10 +50,21 @@ mod tests {
 
     fn def_at(source: &str, offset: usize) -> Option<Location> {
         let tokens = tokenize(source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
         let line_index = LineIndex::new(source);
-        definition(&resolved, &line_index, &url(), offset)
+        definition(file, &resolved, &line_index, &url(), offset)
     }
 
     fn idx(source: &str, pat: &str) -> usize {

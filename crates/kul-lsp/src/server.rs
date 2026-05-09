@@ -71,16 +71,20 @@ impl Backend {
 
     /// Translate the cached diagnostics for `uri` and publish them.
     /// Called after `did_open` and `did_change`. A no-op if the document
-    /// isn't in the cache. When the manifest failed to load, publishes
-    /// the single synthetic diagnostic that explains the failure; the
-    /// `kul-core` validation pipeline is bypassed.
+    /// isn't in the cache. Diagnostics whose primary anchor is in
+    /// another file (manifest, sibling `.kul`s once the multi-file work
+    /// lands) are filtered out — LSP can only attach squiggles to the
+    /// document the request came in for.
     async fn publish_for(&self, uri: Url, version: Option<i32>) {
         let translated = self
             .documents
-            .with(&uri, |doc| match (doc.check(), doc.manifest_diagnostic()) {
-                (Some(check), _) => diagnostics::to_lsp(&uri, &check.diagnostics, &doc.line_index),
-                (None, Some(d)) => vec![d.clone()],
-                (None, None) => Vec::new(),
+            .with(&uri, |doc| {
+                diagnostics::to_lsp(
+                    &uri,
+                    &doc.check.diagnostics,
+                    &doc.line_index,
+                    doc.kul_file_id(),
+                )
             })
             .await;
         if let Some(diags) = translated {
@@ -190,8 +194,9 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
-                let resolved = doc.check()?.resolved();
-                hover::hover(resolved, &doc.line_index, offset)
+                let file = doc.kul_file_id();
+                let resolved = doc.check.resolved();
+                hover::hover(file, resolved, &doc.line_index, offset)
             })
             .await;
         Ok(result.flatten())
@@ -207,8 +212,9 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
-                let resolved = doc.check()?.resolved();
-                definition::definition(resolved, &doc.line_index, &uri, offset)
+                let file = doc.kul_file_id();
+                let resolved = doc.check.resolved();
+                definition::definition(file, resolved, &doc.line_index, &uri, offset)
             })
             .await;
         Ok(result.flatten().map(GotoDefinitionResponse::Scalar))
@@ -220,8 +226,10 @@ impl LanguageServer for Backend {
         let actions = self
             .documents
             .with(&uri, |doc| {
-                let check = doc.check()?;
+                let file = doc.kul_file_id();
+                let check = &doc.check;
                 Some(code_action::code_actions(
+                    file,
                     check.resolved(),
                     &check.diagnostics,
                     &doc.line_index,
@@ -244,8 +252,9 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
-                let resolved = doc.check()?.resolved();
-                rename::prepare_rename(resolved, &doc.line_index, offset)
+                let file = doc.kul_file_id();
+                let resolved = doc.check.resolved();
+                rename::prepare_rename(file, resolved, &doc.line_index, offset)
             })
             .await;
         Ok(result.flatten())
@@ -262,11 +271,9 @@ impl LanguageServer for Backend {
                     .line_index
                     .byte_offset(position)
                     .ok_or(rename::RenameError::NotRenameable)?;
-                let resolved = doc
-                    .check()
-                    .ok_or(rename::RenameError::NotRenameable)?
-                    .resolved();
-                rename::rename(resolved, &doc.line_index, &uri, offset, &new_name)
+                let file = doc.kul_file_id();
+                let resolved = doc.check.resolved();
+                rename::rename(file, resolved, &doc.line_index, &uri, offset, &new_name)
             })
             .await;
         match result {
@@ -288,8 +295,9 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
-                let resolved = doc.check()?.resolved();
-                references::references(resolved, &doc.line_index, &uri, offset, include_decl)
+                let file = doc.kul_file_id();
+                let resolved = doc.check.resolved();
+                references::references(file, resolved, &doc.line_index, &uri, offset, include_decl)
             })
             .await;
         Ok(result.flatten())
@@ -303,8 +311,13 @@ impl LanguageServer for Backend {
         let symbols = self
             .documents
             .with(&uri, |doc| {
-                let resolved = doc.check()?.resolved();
-                Some(document_symbol::document_symbols(resolved, &doc.line_index))
+                let file = doc.kul_file_id();
+                let resolved = doc.check.resolved();
+                Some(document_symbol::document_symbols(
+                    file,
+                    resolved,
+                    &doc.line_index,
+                ))
             })
             .await
             .flatten();
@@ -319,8 +332,13 @@ impl LanguageServer for Backend {
         let tokens = self
             .documents
             .with(&uri, |doc| {
-                let resolved = doc.check()?.resolved();
-                Some(semantic_tokens::semantic_tokens(resolved, &doc.line_index))
+                let file = doc.kul_file_id();
+                let resolved = doc.check.resolved();
+                Some(semantic_tokens::semantic_tokens(
+                    file,
+                    resolved,
+                    &doc.line_index,
+                ))
             })
             .await
             .flatten();
@@ -332,8 +350,7 @@ impl LanguageServer for Backend {
         let edits = self
             .documents
             .with(&uri, |doc| {
-                let check = doc.check()?;
-                formatting::formatting(&doc.source, &check.diagnostics, &doc.line_index)
+                formatting::formatting(&doc.source, &doc.check.diagnostics, &doc.line_index)
             })
             .await;
         Ok(edits.flatten())
@@ -346,9 +363,11 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
-                let resolved = doc.check()?.resolved();
+                let file = doc.kul_file_id();
+                let resolved = doc.check.resolved();
                 Some(completion::complete(
                     doc.line_index.source(),
+                    file,
                     resolved,
                     offset,
                 ))

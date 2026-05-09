@@ -2,83 +2,44 @@
 //!
 //! Per [`spec/14-project-manifest.md`](../../../spec/14-project-manifest.md),
 //! the manifest for a `.kul` URI is `kul.yml` in the same directory. The
-//! LSP loads it once at `did_open` time and caches it alongside the parsed
-//! document. Editing `kul.yml` while a `.kul` URI is open requires
-//! close/reopen to take effect — issue 63's multi-file work will revisit.
+//! LSP loads it before each `kul_core::check` call and feeds the raw YAML
+//! bytes plus the resolved label into the multi-file check pipeline; the
+//! pipeline then routes `KUL-Mxx` diagnostics through the standard
+//! diagnostic channel (anchored at `FileId::MANIFEST`).
+//!
+//! Editing `kul.yml` while a `.kul` URI is open requires close/reopen to
+//! take effect from the editor's POV (file-watching is issue 63's
+//! territory); our `did_change` handler still re-loads the manifest so an
+//! external write before the next keystroke takes effect on the next
+//! check.
 
-use std::fmt;
 use std::path::PathBuf;
 
-use kul_core::manifest::Manifest;
 use tower_lsp::lsp_types::Url;
 
-/// Failure modes the LSP surfaces as a single synthetic diagnostic at byte
-/// `0..1` of the `.kul` URI.
-#[derive(Debug)]
-pub enum ManifestError {
-    /// `.kul` URI is not a `file://` URI; we have no on-disk path to
-    /// derive `kul.yml`'s location from.
-    NotAFileUrl,
-    /// `kul.yml` missing at the resolved location.
-    Missing { path: PathBuf },
-    /// `kul.yml` could not be read off disk.
-    Io { path: PathBuf, message: String },
-    /// `kul.yml` parsed but the YAML structure was malformed.
-    Parse { path: PathBuf, message: String },
-}
-
-impl ManifestError {
-    /// Diagnostic-message text. The LSP wraps this in a `Diagnostic` at
-    /// byte 0..1 of the URI; semantic and validation are skipped.
-    pub fn message(&self) -> String {
-        match self {
-            ManifestError::NotAFileUrl => {
-                "this Kul URI is not a `file://` URL; manifest discovery requires an on-disk path"
-                    .to_string()
-            }
-            ManifestError::Missing { path } => format!(
-                "missing project manifest: expected {} alongside this file (a .kul file requires a sibling kul.yml)",
-                path.display()
-            ),
-            ManifestError::Io { path, message } => {
-                format!("read {}: {message}", path.display())
-            }
-            ManifestError::Parse { path, message } => {
-                format!("parse {}: {message}", path.display())
-            }
-        }
-    }
-}
-
-impl fmt::Display for ManifestError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.message())
-    }
-}
-
-impl std::error::Error for ManifestError {}
-
-/// Resolve and load the manifest for a `.kul` URI.
+/// Resolve and load the manifest for a `.kul` URI. Returns the manifest
+/// `(label, yaml-bytes)` pair the multi-file check expects.
 ///
-/// The lookup rule is `<.kul URI parent>/kul.yml`. Non-`file://` URIs are
-/// rejected; programmatic clients must speak in terms of an on-disk path.
-pub fn load_for(uri: &Url) -> Result<Manifest, ManifestError> {
-    let kul_path = uri.to_file_path().map_err(|_| ManifestError::NotAFileUrl)?;
+/// Failure modes (URI scheme other than `file://`, missing `kul.yml`,
+/// IO errors) collapse to "no manifest body" — the LSP feeds an empty
+/// YAML string into `kul_core::check`, which returns `Manifest::default`
+/// without emitting a diagnostic. The LSP layers its own
+/// "missing/unreadable manifest" notice on top: surfacing the fact that
+/// the editor couldn't reach the file is the LSP's job, not the
+/// language core's. (Once issue 63's file-watching lands the surface for
+/// missing-on-disk will tighten.)
+pub fn manifest_yaml_for(uri: &Url) -> (String, String) {
+    let kul_path = match uri.to_file_path() {
+        Ok(p) => p,
+        Err(_) => return (uri.to_string(), String::new()),
+    };
     let parent = kul_path
         .parent()
         .unwrap_or_else(|| std::path::Path::new(""));
-    let manifest_path = parent.join("kul.yml");
-    if !manifest_path.exists() {
-        return Err(ManifestError::Missing {
-            path: manifest_path,
-        });
+    let manifest_path: PathBuf = parent.join("kul.yml");
+    let label = manifest_path.to_string_lossy().into_owned();
+    match std::fs::read_to_string(&manifest_path) {
+        Ok(yaml) => (label, yaml),
+        Err(_) => (label, String::new()),
     }
-    let raw = std::fs::read_to_string(&manifest_path).map_err(|err| ManifestError::Io {
-        path: manifest_path.clone(),
-        message: err.to_string(),
-    })?;
-    kul_core::manifest::parse(&raw).map_err(|err| ManifestError::Parse {
-        path: manifest_path,
-        message: err.message().to_string(),
-    })
 }

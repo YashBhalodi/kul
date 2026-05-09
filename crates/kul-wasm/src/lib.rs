@@ -46,11 +46,24 @@
 //! convenience layer) and [ADR-0012](../../docs/adr/0012-tsify-derived-types-committed-and-diffed.md)
 //! for the TypeScript-types-from-Rust discipline.
 
+use kul_core::ast::InputFile;
 use kul_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic};
 use kul_core::manifest::Manifest;
 use serde::Serialize;
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
+
+/// Default opaque name for the manifest the JS host hands us. The bridge
+/// receives a typed `Manifest` (not raw YAML) — we synthesize a minimal
+/// YAML body so any `.kul`-side diagnostic that anchors into the manifest
+/// has bytes to point at, and pick a stable label so failure-envelope
+/// `file:` strings make sense.
+const WASM_MANIFEST_NAME: &str = "kul.yml";
+
+/// Default opaque name for the single `.kul` input the WASM bridge
+/// receives. JS callers don't have a meaningful path to thread through;
+/// the snapshot suite freezes this string so changes are intentional.
+const WASM_INPUT_NAME: &str = "input.kul";
 
 /// JS-side return type of [`check`]. Carries the full diagnostic list —
 /// errors, warnings, and notes alike. An empty `diagnostics` array means
@@ -92,8 +105,14 @@ pub fn format_source(source: &str) -> String {
 #[wasm_bindgen(js_name = "check")]
 pub fn check(source: &str, manifest: Manifest) -> CheckEnvelope {
     console_error_panic_hook::set_once();
-    let result = kul_core::check(source, &manifest);
-    let diagnostics = kul_core::export::export_diagnostics(source, &result);
+    let inputs = vec![InputFile::new(WASM_INPUT_NAME, source)];
+    let result = kul_core::check_with_manifest(
+        WASM_MANIFEST_NAME,
+        synthesize_manifest_yaml(&manifest).as_str(),
+        &manifest,
+        &inputs,
+    );
+    let diagnostics = kul_core::export::export_diagnostics(&result);
     CheckEnvelope { diagnostics }
 }
 
@@ -112,6 +131,21 @@ pub fn export_graph(
 /// without round-tripping through `JsValue`. The wasm-bridge `exportGraph`
 /// is a thin deserializer in front of this fn.
 pub fn export_with(source: &str, manifest: &Manifest, options: ExportOptions) -> ExportEnvelope {
-    let result = kul_core::check(source, manifest);
-    kul_core::export::export(source, &result, options)
+    let inputs = vec![InputFile::new(WASM_INPUT_NAME, source)];
+    let result = kul_core::check_with_manifest(
+        WASM_MANIFEST_NAME,
+        synthesize_manifest_yaml(manifest).as_str(),
+        manifest,
+        &inputs,
+    );
+    kul_core::export::export(&result, options)
+}
+
+/// Build a minimal `kul.yml` body that round-trips a typed `Manifest`
+/// back into the bytes the diagnostic renderer needs. The JS host gives
+/// us a typed manifest; we don't want to drop the `kul:` field on the
+/// floor when a `.kul`-side diagnostic anchors into the manifest
+/// position.
+fn synthesize_manifest_yaml(m: &Manifest) -> String {
+    format!("kul: \"{}\"\n", m.kul_version)
 }

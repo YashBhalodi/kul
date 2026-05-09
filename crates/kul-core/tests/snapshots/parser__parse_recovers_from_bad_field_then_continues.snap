@@ -96,10 +96,17 @@ diagnostics: [
         code: "KUL-P04",
         severity: Error,
         message: "expected a field (`name:`, `gender:`, …) or end of line, found identifier `oops`",
-        primary: ByteSpan {
-            start: 13,
-            end: 17,
-        },
+        primary: Some(
+            FileSpan {
+                file: FileId(
+                    0,
+                ),
+                span: ByteSpan {
+                    start: 13,
+                    end: 17,
+                },
+            },
+        ),
         related: [],
         detail: None,
     },

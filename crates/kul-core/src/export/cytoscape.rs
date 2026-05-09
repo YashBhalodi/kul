@@ -197,8 +197,14 @@ mod tests {
     use crate::export::{ExportOptions, export};
 
     fn cytoscape_for(source: &str) -> CytoscapeGraph {
-        let check = crate::check(source, &crate::manifest::Manifest::default());
-        let envelope = export(source, &check, ExportOptions::default());
+        let inputs = vec![crate::ast::InputFile::new("test.kul", source)];
+        let check = crate::check_with_manifest(
+            "kul.yml",
+            "kul: \"0.1\"\n",
+            &crate::manifest::Manifest::default(),
+            &inputs,
+        );
+        let envelope = export(&check, ExportOptions::default());
         let crate::export::ExportEnvelope::Success(success) = envelope else {
             panic!("expected success envelope");
         };

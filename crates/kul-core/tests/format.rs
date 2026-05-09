@@ -15,7 +15,24 @@
 
 use std::path::{Path, PathBuf};
 
+use kul_core::ast::{InputFile, KulFile};
 use kul_core::format::{format, format_source};
+use kul_core::manifest::Manifest;
+
+fn first_kul_file(check: &kul_core::CheckResult) -> KulFile {
+    let doc = check.document();
+    let arc = doc
+        .kul_files
+        .first()
+        .expect("at least one .kul file")
+        .clone();
+    KulFile::clone(&arc)
+}
+
+fn check_one(source: &str) -> kul_core::CheckResult {
+    let inputs = vec![InputFile::new("test.kul", source)];
+    kul_core::check_with_manifest("kul.yml", "kul: \"0.1\"\n", &Manifest::default(), &inputs)
+}
 
 fn workspace_root() -> PathBuf {
     // CARGO_MANIFEST_DIR points at crates/kul-core; the workspace root is
@@ -85,14 +102,10 @@ fn format_source_is_idempotent_on_corpus() {
 fn format_source_round_trips_ast_through_corpus() {
     for path in corpus_files() {
         let source = read(&path);
-        let original_ast = kul_core::check(&source, &kul_core::manifest::Manifest::default())
-            .document()
-            .clone();
+        let original_ast = first_kul_file(&check_one(&source));
         let formatted = format_source(&source);
-        let reparsed_ast = kul_core::check(&formatted, &kul_core::manifest::Manifest::default())
-            .document()
-            .clone();
-        // `format(&Document)` is span-blind, so two ASTs that print equal
+        let reparsed_ast = first_kul_file(&check_one(&formatted));
+        // `format(&KulFile)` is span-blind, so two ASTs that print equal
         // are equal modulo span positions — exactly the equivalence we want.
         assert_eq!(
             format(&original_ast),
@@ -107,14 +120,10 @@ fn format_source_round_trips_ast_through_corpus() {
 fn format_ast_only_is_idempotent_on_corpus() {
     for path in corpus_files() {
         let source = read(&path);
-        let doc1 = kul_core::check(&source, &kul_core::manifest::Manifest::default())
-            .document()
-            .clone();
-        let printed_once = format(&doc1);
-        let doc2 = kul_core::check(&printed_once, &kul_core::manifest::Manifest::default())
-            .document()
-            .clone();
-        let printed_twice = format(&doc2);
+        let kf1 = first_kul_file(&check_one(&source));
+        let printed_once = format(&kf1);
+        let kf2 = first_kul_file(&check_one(&printed_once));
+        let printed_twice = format(&kf2);
         assert_eq!(
             printed_once,
             printed_twice,

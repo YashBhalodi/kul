@@ -38,11 +38,12 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
 use crate::CheckResult;
-use crate::ast::{EndReason, Gender, PersonStmt};
+use crate::ast::{Document, EndReason, Gender, PersonStmt};
 use crate::date::DateLit;
 use crate::diagnostic::{Diagnostic, Severity};
 use crate::semantic::ResolvedDocument;
-use crate::span::{ByteSpan, SourceMap};
+use crate::span::{ByteSpan, FileId, FileSpan, SourceMap};
+use std::collections::HashMap;
 
 /// The export schema version. Bumped only when consumers might silently
 /// mis-represent data by ignoring a new construct (e.g. a brand-new
@@ -280,7 +281,10 @@ pub struct ExportedDiagnostic {
     pub code: String,
     pub severity: &'static str,
     pub message: String,
-    pub primary: ExportedSpan,
+    /// `None` for unanchored diagnostics (e.g. `KUL-M01`); the message
+    /// carries the would-be location in that case.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub primary: Option<ExportedSpan>,
     pub related: Vec<ExportedRelated>,
 }
 
@@ -297,6 +301,10 @@ pub struct ExportedRelated {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedSpan {
+    /// Canonical name of the file this span anchors into (the
+    /// `InputFile.name` the toolchain originally fed in, or the
+    /// manifest's `manifest_name` for `KUL-Mxx` codes).
+    pub file: String,
     pub byte_start: usize,
     pub byte_end: usize,
     pub line: usize,
@@ -306,31 +314,30 @@ pub struct ExportedSpan {
 /// Project every diagnostic in a [`CheckResult`] into the wire-shape
 /// [`ExportedDiagnostic`] used by the failure envelope.
 ///
-/// `source` must be the same source that produced `check`; it is used to
-/// compute line/column anchors. The `kul-wasm` `check` bridge calls this
-/// to expose diagnostics over the JS surface without reimplementing
-/// diagnostic-to-JSON walking or [`SourceMap`] construction.
-pub fn export_diagnostics(source: &str, check: &CheckResult) -> Vec<ExportedDiagnostic> {
-    let map = SourceMap::new(source);
+/// Each diagnostic's primary [`FileSpan`] is rendered with its file's
+/// own [`SourceMap`] (built lazily and cached for the duration of the
+/// call). The `kul-wasm` `check` bridge calls this to expose diagnostics
+/// over the JS surface without reimplementing diagnostic-to-JSON walking
+/// or per-file `SourceMap` construction.
+pub fn export_diagnostics(check: &CheckResult) -> Vec<ExportedDiagnostic> {
+    let document = check.document();
+    let mut maps = SourceMapCache::new(document);
     check
         .diagnostics
         .iter()
-        .map(|d| exported_diagnostic(d, &map))
+        .map(|d| exported_diagnostic(d, document, &mut maps))
         .collect()
 }
 
 /// Project a [`CheckResult`] into an [`ExportEnvelope`].
 ///
 /// Strict on errors: any error-severity diagnostic returns a failure
-/// envelope carrying the full diagnostic list. Warnings do not block; they
-/// are not surfaced in the success envelope today (additive — a future
-/// schema bump may include them).
-///
-/// `source` is needed to compute line/column anchors on diagnostic spans;
-/// it must be the same source that produced `check`.
-pub fn export(source: &str, check: &CheckResult, options: ExportOptions) -> ExportEnvelope {
+/// envelope carrying the full diagnostic list. Warnings do not block;
+/// they are not surfaced in the success envelope today (additive — a
+/// future schema bump may include them).
+pub fn export(check: &CheckResult, options: ExportOptions) -> ExportEnvelope {
     if check.has_errors() {
-        let diagnostics = export_diagnostics(source, check);
+        let diagnostics = export_diagnostics(check);
         return ExportEnvelope::Failure(FailureEnvelope {
             ok: false,
             diagnostics,
@@ -348,6 +355,31 @@ pub fn export(source: &str, check: &CheckResult, options: ExportOptions) -> Expo
         kul: check.manifest.kul_version.clone(),
         graph,
     })
+}
+
+/// Lazily-built per-file [`SourceMap`] cache. The diagnostic list may
+/// span the manifest plus any number of `.kul` files; each file gets at
+/// most one [`SourceMap`] built on first need.
+struct SourceMapCache<'a> {
+    document: &'a Document,
+    maps: HashMap<FileId, SourceMap>,
+}
+
+impl<'a> SourceMapCache<'a> {
+    fn new(document: &'a Document) -> Self {
+        Self {
+            document,
+            maps: HashMap::new(),
+        }
+    }
+
+    fn for_file(&mut self, file: FileId) -> Option<&SourceMap> {
+        if !self.maps.contains_key(&file) {
+            let source = self.document.source_of(file)?;
+            self.maps.insert(file, SourceMap::new(source));
+        }
+        self.maps.get(&file)
+    }
 }
 
 fn build_graph(resolved: &ResolvedDocument, options: &ExportOptions) -> ExportedGraph {
@@ -457,31 +489,45 @@ fn end_reason_str(er: &EndReason) -> String {
     }
 }
 
-fn exported_diagnostic(d: &Diagnostic, map: &SourceMap) -> ExportedDiagnostic {
+fn exported_diagnostic(
+    d: &Diagnostic,
+    document: &Document,
+    maps: &mut SourceMapCache<'_>,
+) -> ExportedDiagnostic {
     ExportedDiagnostic {
         code: d.code.to_string(),
         severity: severity_str(d.severity),
         message: d.message.clone(),
-        primary: exported_span(d.primary, map),
+        primary: d.primary.and_then(|p| exported_span(p, document, maps)),
         related: d
             .related
             .iter()
-            .map(|r| ExportedRelated {
-                label: r.label.clone(),
-                span: exported_span(r.span, map),
+            .filter_map(|r| {
+                let span = exported_span(r.span, document, maps)?;
+                Some(ExportedRelated {
+                    label: r.label.clone(),
+                    span,
+                })
             })
             .collect(),
     }
 }
 
-fn exported_span(span: ByteSpan, map: &SourceMap) -> ExportedSpan {
-    let lc = map.line_col(span.start);
-    ExportedSpan {
-        byte_start: span.start,
-        byte_end: span.end,
+fn exported_span(
+    fs: FileSpan,
+    document: &Document,
+    maps: &mut SourceMapCache<'_>,
+) -> Option<ExportedSpan> {
+    let map = maps.for_file(fs.file)?;
+    let lc = map.line_col(fs.span.start);
+    let name = document.name_of(fs.file).unwrap_or("").to_string();
+    Some(ExportedSpan {
+        file: name,
+        byte_start: fs.span.start,
+        byte_end: fs.span.end,
         line: lc.line,
         column: lc.column,
-    }
+    })
 }
 
 fn severity_str(s: Severity) -> &'static str {
@@ -497,8 +543,14 @@ mod tests {
     use super::*;
 
     fn export_source(source: &str) -> ExportEnvelope {
-        let check = crate::check(source, &crate::manifest::Manifest::default());
-        export(source, &check, ExportOptions::default())
+        let inputs = vec![crate::ast::InputFile::new("test.kul", source)];
+        let check = crate::check_with_manifest(
+            "kul.yml",
+            "kul: \"0.1\"\n",
+            &crate::manifest::Manifest::default(),
+            &inputs,
+        );
+        export(&check, ExportOptions::default())
     }
 
     fn native_graph(env: ExportEnvelope) -> ExportedGraph {
@@ -530,12 +582,12 @@ mod tests {
         let manifest = crate::manifest::Manifest {
             kul_version: "0.1".to_string(),
         };
-        let check = crate::check("person alice name:\"Alice\" gender:female\n", &manifest);
-        let env = export(
+        let inputs = vec![crate::ast::InputFile::new(
+            "test.kul",
             "person alice name:\"Alice\" gender:female\n",
-            &check,
-            ExportOptions::default(),
-        );
+        )];
+        let check = crate::check_with_manifest("kul.yml", "kul: \"0.1\"\n", &manifest, &inputs);
+        let env = export(&check, ExportOptions::default());
         let ExportEnvelope::Success(s) = env else {
             panic!("expected success");
         };
@@ -550,7 +602,11 @@ mod tests {
         };
         assert!(!f.ok);
         assert!(f.diagnostics.iter().any(|d| d.code == "KUL-R03"));
-        assert!(f.diagnostics.iter().any(|d| d.primary.line >= 1));
+        assert!(
+            f.diagnostics
+                .iter()
+                .any(|d| d.primary.as_ref().map(|s| s.line >= 1).unwrap_or(false))
+        );
     }
 
     #[test]
@@ -630,9 +686,14 @@ person d name:\"D\" gender:female born:~1980
     #[test]
     fn cytoscape_format_returns_cytoscape_payload() {
         let src = "person alice name:\"A\" gender:female\n";
-        let check = crate::check(src, &crate::manifest::Manifest::default());
+        let inputs = vec![crate::ast::InputFile::new("test.kul", src)];
+        let check = crate::check_with_manifest(
+            "kul.yml",
+            "kul: \"0.1\"\n",
+            &crate::manifest::Manifest::default(),
+            &inputs,
+        );
         let env = export(
-            src,
             &check,
             ExportOptions {
                 format: ExportFormat::Cytoscape,

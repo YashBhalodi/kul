@@ -1,94 +1,55 @@
 //! Per-URI document cache.
 //!
-//! Holds the source text, the cached `kul_core::CheckResult` (or the
-//! manifest-failure diagnostic that displaces it), and a `LineIndex` for
-//! byte ↔ LSP-position conversion. All access goes through the `Documents`
-//! handle so the locking story stays in one place.
+//! The cache holds one [`OpenFile`] per open `.kul` URI. Each `OpenFile`
+//! carries the source text, a [`LineIndex`] for byte ↔ LSP-position
+//! conversion, and the cached `kul_core::CheckResult` produced by running
+//! the full pipeline (manifest validation included) over the URI's
+//! content. All access goes through the [`Documents`] handle so the
+//! locking story stays in one place.
 //!
-//! The source is stored as an [`Arc<str>`] shared with the [`LineIndex`] so
-//! a single heap buffer backs both fields.
+//! The `OpenFile` rename (from `Document`) lands alongside the multi-file
+//! refactor: `kul_core::ast::Document` now means the multi-file project
+//! container, so the LSP's per-URI cache entry needs a name that doesn't
+//! collide with it.
+//!
+//! The source is stored as an [`Arc<str>`] shared with the [`LineIndex`]
+//! so a single heap buffer backs both fields.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use kul_core::CheckResult;
-use kul_core::manifest::Manifest;
+use kul_core::span::FileId;
 use tokio::sync::RwLock;
-use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range, Url};
+use tower_lsp::lsp_types::Url;
 
 use crate::convert::LineIndex;
 
-/// Outcome of preparing a document on `did_open` / `did_change`.
+/// One open `.kul` document plus the cached check result.
 ///
-/// On success we own the full pipeline result; on a manifest failure we
-/// hold a synthetic diagnostic and skip semantic / validation. Parse-only
-/// state still allows highlighting in the editor — the parser runs without
-/// a manifest dependency.
+/// The check pipeline is run at every `did_open` / `did_change`. Manifest
+/// failures are first-class diagnostics inside `check.diagnostics` (per
+/// the file-identity refactor); the LSP no longer carries a separate
+/// "manifest failed" displacement.
 #[derive(Debug, Clone)]
-pub enum DocumentState {
-    Ok(CheckResult),
-    ManifestFailed(Diagnostic),
-}
-
-/// One open document.
-#[derive(Debug, Clone)]
-pub struct Document {
+pub struct OpenFile {
     pub source: Arc<str>,
     pub line_index: LineIndex,
-    pub state: DocumentState,
+    pub check: CheckResult,
 }
 
-impl Document {
-    fn from_source(source: String, manifest: Result<Manifest, String>) -> Self {
-        let source: Arc<str> = Arc::from(source);
-        let line_index = LineIndex::new(Arc::clone(&source));
-        let state = match manifest {
-            Ok(manifest) => DocumentState::Ok(kul_core::check(&source, &manifest)),
-            Err(message) => DocumentState::ManifestFailed(synthetic_manifest_diagnostic(message)),
-        };
-        Self {
-            source,
-            line_index,
-            state,
-        }
-    }
-
-    /// The cached `CheckResult` if the manifest loaded successfully, else
-    /// `None`. Feature handlers that need semantic info should bail when
-    /// this is `None`; the synthetic diagnostic explains the manifest
-    /// failure to the user.
-    pub fn check(&self) -> Option<&CheckResult> {
-        match &self.state {
-            DocumentState::Ok(c) => Some(c),
-            DocumentState::ManifestFailed(_) => None,
-        }
-    }
-
-    /// LSP diagnostics to publish for this document. Either the
-    /// `kul-core` diagnostics translated by the caller, or the single
-    /// synthetic manifest-failure diagnostic.
-    pub fn manifest_diagnostic(&self) -> Option<&Diagnostic> {
-        match &self.state {
-            DocumentState::ManifestFailed(d) => Some(d),
-            DocumentState::Ok(_) => None,
-        }
-    }
-}
-
-fn synthetic_manifest_diagnostic(message: String) -> Diagnostic {
-    Diagnostic {
-        range: Range {
-            start: Position::new(0, 0),
-            end: Position::new(0, 1),
-        },
-        severity: Some(DiagnosticSeverity::ERROR),
-        code: None,
-        code_description: None,
-        source: Some("kul".to_string()),
-        message,
-        related_information: None,
-        tags: None,
-        data: None,
+impl OpenFile {
+    /// The [`FileId`] of the `.kul` file inside the cached
+    /// `CheckResult.document()`. The toolchain feeds one input per URI,
+    /// so the file always sits at `FileId(1)` (the manifest occupies
+    /// `FileId::MANIFEST`).
+    pub fn kul_file_id(&self) -> FileId {
+        // First (and only) `.kul` input lives at `FileId(1)`.
+        self.check
+            .document()
+            .kul_file_ids()
+            .next()
+            .unwrap_or(FileId::MANIFEST)
     }
 }
 
@@ -97,7 +58,7 @@ fn synthetic_manifest_diagnostic(message: String) -> Diagnostic {
 /// Cheap to clone (it's an `Arc`).
 #[derive(Debug, Clone, Default)]
 pub struct Documents {
-    inner: Arc<RwLock<HashMap<Url, Document>>>,
+    inner: Arc<RwLock<HashMap<Url, OpenFile>>>,
 }
 
 impl Documents {
@@ -106,26 +67,19 @@ impl Documents {
     }
 
     pub async fn open(&self, uri: Url, source: String) {
-        let manifest = crate::manifest::load_for(&uri).map_err(|e| e.message());
+        let entry = build_open_file(&uri, source);
         let mut map = self.inner.write().await;
-        map.insert(uri, Document::from_source(source, manifest));
+        map.insert(uri, entry);
     }
 
-    /// Replace the cached document for `uri` with a freshly-parsed one. Used
-    /// by `didChange` (full sync — the whole text is sent each time). The
-    /// manifest is *not* re-loaded here; the cached one (or its failure)
-    /// from `did_open` is reused.
+    /// Replace the cached document for `uri` with a freshly-checked one.
+    /// Used by `didChange` (full sync — the whole text is sent each time).
+    /// The manifest is re-loaded from disk on every update so the
+    /// `KUL-Mxx` diagnostics reflect the manifest's current state.
     pub async fn update(&self, uri: Url, source: String) {
-        let manifest = {
-            let map = self.inner.read().await;
-            match map.get(&uri).map(|d| &d.state) {
-                Some(DocumentState::Ok(c)) => Ok(c.manifest.clone()),
-                Some(DocumentState::ManifestFailed(d)) => Err(d.message.clone()),
-                None => crate::manifest::load_for(&uri).map_err(|e| e.message()),
-            }
-        };
+        let entry = build_open_file(&uri, source);
         let mut map = self.inner.write().await;
-        map.insert(uri, Document::from_source(source, manifest));
+        map.insert(uri, entry);
     }
 
     pub async fn close(&self, uri: &Url) {
@@ -135,7 +89,7 @@ impl Documents {
 
     /// Run `f` against the cached document under `uri`, if any. Returns
     /// `None` if the document is not open.
-    pub async fn with<R>(&self, uri: &Url, f: impl FnOnce(&Document) -> R) -> Option<R> {
+    pub async fn with<R>(&self, uri: &Url, f: impl FnOnce(&OpenFile) -> R) -> Option<R> {
         let map = self.inner.read().await;
         map.get(uri).map(f)
     }
@@ -146,22 +100,52 @@ impl Documents {
     }
 }
 
+fn build_open_file(uri: &Url, source: String) -> OpenFile {
+    use kul_core::ast::InputFile;
+    let source: Arc<str> = Arc::from(source);
+    let line_index = LineIndex::new(Arc::clone(&source));
+    let label = uri.to_string();
+    let inputs = vec![InputFile::new(label, source.as_ref())];
+    let (manifest_name, manifest_yaml) = crate::manifest::manifest_yaml_for(uri);
+    let check = kul_core::check(manifest_name, &manifest_yaml, &inputs);
+    OpenFile {
+        source,
+        line_index,
+        check,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use kul_core::ast::InputFile;
+    use kul_core::manifest::Manifest;
 
     fn url(s: &str) -> Url {
         Url::parse(s).unwrap()
     }
 
-    fn make_document(source: &str) -> Document {
-        Document::from_source(source.to_string(), Ok(Manifest::default()))
+    fn make_open_file(source: &str) -> OpenFile {
+        let source_arc: Arc<str> = Arc::from(source);
+        let line_index = LineIndex::new(Arc::clone(&source_arc));
+        let inputs = vec![InputFile::new("test.kul", source)];
+        let check = kul_core::check_with_manifest(
+            "kul.yml",
+            "kul: \"0.1\"\n",
+            &Manifest::default(),
+            &inputs,
+        );
+        OpenFile {
+            source: source_arc,
+            line_index,
+            check,
+        }
     }
 
     #[tokio::test]
     async fn document_caches_source_and_check() {
         let docs = Documents::default();
-        let doc = make_document("person alice name:\"A\" gender:female\n");
+        let doc = make_open_file("person alice name:\"A\" gender:female\n");
         let mut map = docs.inner.write().await;
         map.insert(url("file:///a.kul"), doc);
         drop(map);
@@ -173,24 +157,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn manifest_failure_displaces_check() {
-        let doc = Document::from_source(
-            "person alice name:\"A\" gender:female\n".to_string(),
-            Err("missing manifest".to_string()),
-        );
-        assert!(doc.check().is_none());
-        let diag = doc.manifest_diagnostic().expect("synthetic diagnostic");
-        assert_eq!(diag.message, "missing manifest");
-        assert_eq!(diag.range.start.line, 0);
-        assert_eq!(diag.range.start.character, 0);
-        assert_eq!(diag.range.end.character, 1);
-    }
-
-    #[tokio::test]
     async fn close_drops_document() {
         let docs = Documents::default();
         let mut map = docs.inner.write().await;
-        map.insert(url("file:///a.kul"), make_document(""));
+        map.insert(url("file:///a.kul"), make_open_file(""));
         drop(map);
         assert_eq!(docs.open_count().await, 1);
         docs.close(&url("file:///a.kul")).await;

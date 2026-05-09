@@ -2,24 +2,32 @@
 //! provides the inputs; this file asserts the rendered diagnostic output.
 
 use kul_core::CheckResult;
+use kul_core::ast::InputFile;
 use kul_core::diagnostic::Diagnostic;
 
 fn check(source: &str) -> CheckResult {
-    kul_core::check(source, &kul_core::manifest::Manifest::default())
+    let inputs = vec![InputFile::new("test.kul", source)];
+    kul_core::check_with_manifest(
+        "kul.yml",
+        "kul: \"0.1\"\n",
+        &kul_core::manifest::Manifest::default(),
+        &inputs,
+    )
 }
 
 fn render_diagnostics(diags: &[Diagnostic]) -> String {
     diags
         .iter()
         .map(|d| {
+            let primary = d.primary.expect("diagnostic must have anchor in tests");
             let mut s = format!(
                 "{} [{}..{}]: {}",
-                d.code, d.primary.start, d.primary.end, d.message
+                d.code, primary.span.start, primary.span.end, d.message
             );
             for r in &d.related {
                 s.push_str(&format!(
                     "\n  related [{}..{}]: {}",
-                    r.span.start, r.span.end, r.label
+                    r.span.span.start, r.span.span.end, r.label
                 ));
             }
             s

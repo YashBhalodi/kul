@@ -5,17 +5,127 @@
 //! slice; existing variants are never reordered, renamed, or removed.
 //! References are stored as raw [`Ident`]s here; resolution happens in
 //! [`crate::semantic`].
+//!
+//! # File identity
+//!
+//! A [`KulFile`] is one parsed `.kul` source. A [`Document`] is the
+//! multi-file container the toolchain operates on: zero or more `KulFile`s
+//! plus the project manifest, each addressable by a [`crate::span::FileId`].
+//! AST nodes carry bare [`ByteSpan`]s because their owning [`KulFile`]
+//! provides file context implicitly; cross-cutting consumers (diagnostics,
+//! the resolved id index) carry [`crate::span::FileSpan`]s instead.
+
+use std::sync::Arc;
 
 use crate::date::DateLit;
 use crate::lexer::FieldName;
-use crate::span::ByteSpan;
+use crate::span::{ByteSpan, FileId};
 
-/// A `.kul` document: a sequence of top-level statements. The Kul language
-/// version is project-level metadata (see [`crate::manifest::Manifest`]),
-/// not part of the document itself.
+/// A parsed `.kul` source file.
+///
+/// One file's worth of top-level statements plus its raw source text and
+/// canonical name. The `name` is the same opaque label the consumer passed
+/// in at the toolchain edge: a path-string for the CLI, a URI-string for
+/// the LSP, whatever the JS host chose for WASM. `kul-core` does not
+/// interpret it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KulFile {
+    pub name: String,
+    pub source: String,
+    pub statements: Vec<Statement>,
+}
+
+/// One input file at the toolchain edge — a name (path / URI / opaque
+/// label) plus the raw source bytes. Public input shape for
+/// [`crate::check`]; internally each `InputFile` becomes a [`KulFile`]
+/// after lex/parse and is stored at a fresh [`FileId`] in the resulting
+/// [`Document`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InputFile {
+    pub name: String,
+    pub source: String,
+}
+
+impl InputFile {
+    pub fn new(name: impl Into<String>, source: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            source: source.into(),
+        }
+    }
+}
+
+/// One parsed Kul *project*: the manifest plus zero or more `.kul` files.
+///
+/// The manifest always lives at [`FileId::MANIFEST`] (= `FileId(0)`); the
+/// `.kul` files follow at `FileId(1..)` in input order. AST nodes inside
+/// any [`KulFile`] keep bare [`ByteSpan`]s; project-wide consumers
+/// (diagnostics, the resolved id index, kinship queries) reach for
+/// [`crate::span::FileSpan`] instead.
+///
+/// At v1 the toolchain only ever constructs N=1 `kul_files`; the multi-
+/// file shape exists so subsequent issues (cross-`.kul`-file resolution,
+/// document merging) can build on file-aware spans without further
+/// breaking changes. Each `KulFile` is held behind an [`Arc`] so callers
+/// can keep cheap shared handles (the LSP document cache, downstream
+/// tooling) without copying source bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Document {
-    pub statements: Vec<Statement>,
+    /// The manifest's name (typically the path to `kul.yml`). The manifest
+    /// is the project's identity even when its body failed to parse —
+    /// keeping the name on the [`Document`] lets diagnostics anchor at
+    /// `FileId::MANIFEST` independently of whether the YAML was usable.
+    pub manifest_name: String,
+    /// The raw `kul.yml` source bytes the manifest validator pass walked.
+    /// Empty when the manifest was missing on disk; the [`KUL-M01`] code
+    /// (`crate::diagnostic::manifest_codes`) covers that case.
+    pub manifest_source: String,
+    /// Parsed `.kul` files in input order. `kul_files[i]` lives at
+    /// `FileId(i + 1)` — the `+1` accounts for the manifest occupying
+    /// `FileId::MANIFEST`.
+    pub kul_files: Vec<Arc<KulFile>>,
+}
+
+impl Document {
+    /// Resolve a [`FileId`] to the source bytes it indexes into. Returns
+    /// `None` if the id is out of range.
+    pub fn source_of(&self, file: FileId) -> Option<&str> {
+        if file == FileId::MANIFEST {
+            return Some(self.manifest_source.as_str());
+        }
+        self.kul_file(file).map(|k| k.source.as_str())
+    }
+
+    /// Resolve a [`FileId`] to the canonical name it indexes into. Same
+    /// out-of-range semantics as [`Document::source_of`].
+    pub fn name_of(&self, file: FileId) -> Option<&str> {
+        if file == FileId::MANIFEST {
+            return Some(self.manifest_name.as_str());
+        }
+        self.kul_file(file).map(|k| k.name.as_str())
+    }
+
+    /// Resolve a [`FileId`] to a `.kul` [`KulFile`], or `None` if the id
+    /// is the manifest, out of range, or otherwise not a `.kul` file.
+    pub fn kul_file(&self, file: FileId) -> Option<&KulFile> {
+        let idx = file.as_u32().checked_sub(1)? as usize;
+        self.kul_files.get(idx).map(|a| a.as_ref())
+    }
+
+    /// Iterate every `.kul` file with its [`FileId`], in input order.
+    pub fn kul_files(&self) -> impl Iterator<Item = (FileId, &KulFile)> + '_ {
+        self.kul_files
+            .iter()
+            .enumerate()
+            .map(|(i, k)| (FileId((i + 1) as u32), k.as_ref()))
+    }
+
+    /// The [`FileId`]s of every `.kul` file, in input order. Excludes the
+    /// manifest. Useful for cross-file iteration in the resolver and the
+    /// validator.
+    pub fn kul_file_ids(&self) -> impl Iterator<Item = FileId> + '_ {
+        (0..self.kul_files.len()).map(|i| FileId((i + 1) as u32))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

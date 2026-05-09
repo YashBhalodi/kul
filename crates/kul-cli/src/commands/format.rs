@@ -1,13 +1,14 @@
 //! `kul format` subcommand.
 //!
-//! Wraps [`kul_core::format::format_source`]. Without `--check`, each file
-//! is rewritten in place. With `--check`, nothing is modified and the
-//! process exits non-zero if any input is not already in canonical form —
-//! the right shape for a CI gate.
+//! Wraps [`kul_core::format::format_source`]. Without `--check`, each
+//! file is rewritten in place. With `--check`, nothing is modified and
+//! the process exits non-zero if any input is not already in canonical
+//! form — the right shape for a CI gate.
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use kul_core::ast::InputFile;
 use kul_core::diagnostic::{Diagnostic, Severity};
 
 use crate::commands::manifest::load_for as load_manifest;
@@ -49,14 +50,15 @@ fn format_one(path: &Path, opts: &Options) -> Outcome {
         }
     };
     let label = path.to_string_lossy().into_owned();
-    let manifest = match load_manifest(path) {
-        Ok(m) => m,
-        Err(err) => {
-            eprintln!("kul: {label}: {err}");
-            return Outcome::Error;
+    let manifest = load_manifest(path);
+    if !manifest.preface.is_empty() {
+        for d in &manifest.preface {
+            eprintln!("kul: {label}: {}: {}", d.code, d.message);
         }
-    };
-    let result = kul_core::check(&source, &manifest);
+        return Outcome::Error;
+    }
+    let inputs = vec![InputFile::new(label.clone(), source.clone())];
+    let result = kul_core::check(manifest.path_label, &manifest.yaml, &inputs);
     if has_parse_errors(&result.diagnostics) {
         eprintln!("kul: {label}: cannot format input with parse errors");
         for d in &result.diagnostics {

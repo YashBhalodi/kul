@@ -30,9 +30,16 @@ fn one_thousand_statement_check_and_translate_under_budget() {
     }
 
     let start = std::time::Instant::now();
-    let core = kul_core::check(&source, &kul_core::manifest::Manifest::default());
+    let inputs = vec![kul_core::ast::InputFile::new("test.kul", source.as_str())];
+    let core = kul_core::check_with_manifest(
+        "kul.yml",
+        "kul: \"0.1\"\n",
+        &kul_core::manifest::Manifest::default(),
+        &inputs,
+    );
+    let file = core.document().kul_file_ids().next().unwrap();
     let line_index = LineIndex::new(source.as_str());
-    let _ = to_lsp(&url, &core.diagnostics, &line_index);
+    let _ = to_lsp(&url, &core.diagnostics, &line_index, file);
     let elapsed = start.elapsed();
 
     eprintln!("1000-statement parse + check + to_lsp: {elapsed:?}");

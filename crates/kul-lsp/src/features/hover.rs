@@ -9,6 +9,7 @@ use kul_core::field_meta;
 use kul_core::node_at::{KeywordKind, Node};
 use kul_core::semantic::ResolvedDocument;
 use kul_core::span::ByteSpan;
+use kul_core::span::FileId;
 use tower_lsp::lsp_types::{Hover, HoverContents, MarkupContent, MarkupKind};
 
 use crate::convert::LineIndex;
@@ -19,15 +20,16 @@ const SPEC_BASE: &str = "https://github.com/YashBhalodi/kul/blob/main/spec";
 /// nothing useful sits there. Pure: no async, no `Client`, no `tower-lsp`
 /// types beyond `lsp_types`.
 pub fn hover(
+    file: FileId,
     resolved: &ResolvedDocument,
     line_index: &LineIndex,
     byte_offset: usize,
 ) -> Option<Hover> {
-    let node = resolved.node_at(byte_offset)?;
+    let node = resolved.node_at(file, byte_offset)?;
     let (markdown, span) = match node {
         Node::Keyword(k, span) => (keyword_content(k), span),
         Node::PersonDeclId(p) => (person_panel(p), p.id.span),
-        Node::MarriageDeclId(m) => (marriage_panel(resolved, m), m.id.span),
+        Node::MarriageDeclId(m) => (marriage_panel(file, resolved, m), m.id.span),
         Node::PersonRef {
             ident,
             target: Some(p),
@@ -39,7 +41,7 @@ pub fn hover(
         Node::MarriageRef {
             ident,
             target: Some(m),
-        } => (marriage_panel(resolved, m), ident.span),
+        } => (marriage_panel(file, resolved, m), ident.span),
         Node::MarriageRef {
             ident,
             target: None,
@@ -129,9 +131,9 @@ fn person_panel(p: &PersonStmt) -> String {
     out
 }
 
-fn marriage_panel(resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
-    let spouse_a = resolved.person(&m.spouse_a.name);
-    let spouse_b = resolved.person(&m.spouse_b.name);
+fn marriage_panel(file: FileId, resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
+    let spouse_a = resolved.person(file, &m.spouse_a.name);
+    let spouse_b = resolved.person(file, &m.spouse_b.name);
     let header = match (display_name_of(spouse_a), display_name_of(spouse_b)) {
         (Some(a), Some(b)) => format!("**{} & {}** — `marriage {}`", a, b, m.id.name),
         _ => format!("**`marriage {}`**", m.id.name),
@@ -215,11 +217,23 @@ mod tests {
     use std::sync::Arc;
 
     fn hover_at(source: &str, offset: usize) -> Option<String> {
+        use kul_core::ast::{Document, KulFile};
+        let file = FileId::from_raw(1);
         let tokens = tokenize(source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
+        let (statements, _) = parse(&tokens, file);
+        let kf = Arc::new(KulFile {
+            name: "test.kul".into(),
+            source: source.into(),
+            statements,
+        });
+        let document = Arc::new(Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
         let line_index = LineIndex::new(source);
-        hover(&resolved, &line_index, offset).map(|h| match h.contents {
+        hover(file, &resolved, &line_index, offset).map(|h| match h.contents {
             HoverContents::Markup(MarkupContent { value, .. }) => value,
             _ => panic!("expected markup contents"),
         })

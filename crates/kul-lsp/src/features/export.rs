@@ -15,7 +15,7 @@ use kul_core::export::{ExportEnvelope, ExportFormat, ExportOptions, export};
 use serde::Deserialize;
 use tower_lsp::lsp_types::Url;
 
-use crate::state::Document;
+use crate::state::OpenFile;
 
 /// Request parameters for `kul/export`. Camel-case to match LSP custom
 /// requests, which conventionally mirror the protocol's casing.
@@ -42,12 +42,6 @@ pub enum ExportRequestError {
     /// The `format` field carried a value other than `"json"` or
     /// `"cytoscape"`.
     UnknownFormat(String),
-    /// The cached document has no `CheckResult` because the project
-    /// manifest (`kul.yml`) failed to load. The synthetic LSP diagnostic
-    /// already explains the cause to the user; we surface a request
-    /// error here so the export call doesn't silently succeed against a
-    /// missing manifest.
-    ManifestUnavailable,
 }
 
 impl ExportRequestError {
@@ -59,25 +53,24 @@ impl ExportRequestError {
             ExportRequestError::UnknownFormat(s) => {
                 format!("unknown export format `{s}` (expected `json` or `cytoscape`)")
             }
-            ExportRequestError::ManifestUnavailable => {
-                "cannot export: project manifest (kul.yml) failed to load — see the diagnostic on the .kul file".to_owned()
-            }
         }
     }
 }
 
-/// Pure projection: turn a cached [`Document`] plus parsed params into an
-/// envelope. Lives outside `Backend` so the integration test can exercise
-/// it without spawning the full LSP server.
+/// Pure projection: turn a cached [`OpenFile`] plus parsed params into an
+/// envelope. Lives outside `Backend` so the integration test can
+/// exercise it without spawning the full LSP server.
+///
+/// Manifest failures (KUL-Mxx) flow through the export envelope as
+/// regular failure-envelope diagnostics now (post-issue-70); this
+/// function no longer needs a separate manifest-unavailable error.
 pub fn export_for(
-    doc: &Document,
+    doc: &OpenFile,
     params: &ExportParams,
 ) -> Result<ExportEnvelope, ExportRequestError> {
     let format = parse_format(&params.format)?;
-    let check = doc.check().ok_or(ExportRequestError::ManifestUnavailable)?;
     Ok(export(
-        &doc.source,
-        check,
+        &doc.check,
         ExportOptions {
             format,
             with_positions: params.with_positions,
@@ -115,7 +108,7 @@ mod tests {
         name: &str,
         source: &str,
         params: impl FnOnce(Url) -> ExportParams,
-        f: impl FnOnce(&Document, &ExportParams) -> R,
+        f: impl FnOnce(&OpenFile, &ExportParams) -> R,
     ) -> R {
         let url = fixture_url(name);
         let docs = Documents::new();

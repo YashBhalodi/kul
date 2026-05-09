@@ -17,6 +17,7 @@ use kul_core::ast::{MarriageFieldKind, MarriageStmt, PersonStmt};
 use kul_core::diagnostic::{Diagnostic, detail};
 use kul_core::semantic::ResolvedDocument;
 use kul_core::span::ByteSpan;
+use kul_core::span::FileId;
 use tower_lsp::lsp_types::{
     CodeAction, CodeActionKind, CodeActionOrCommand, Position, Range, TextEdit, Url, WorkspaceEdit,
 };
@@ -29,6 +30,7 @@ use crate::convert::LineIndex;
 /// registry, and filters by overlap with the request range so the user
 /// only sees actions relevant to the cursor/selection.
 pub fn code_actions(
+    file: FileId,
     resolved: &ResolvedDocument,
     diagnostics: &[Diagnostic],
     line_index: &LineIndex,
@@ -42,17 +44,22 @@ pub fn code_actions(
             Some(p) => *p,
             None => continue,
         };
-        if !ranges_overlap(line_index.range(diag.primary), request_range) {
+        // Quick-fixes only fire on diagnostics anchored in the active
+        // file at a position the user is currently looking at.
+        let Some(primary) = diag.primary.filter(|p| p.file == file) else {
+            continue;
+        };
+        if !ranges_overlap(line_index.range(primary.span), request_range) {
             continue;
         }
-        for action in provider(resolved, diag, line_index, uri) {
+        for action in provider(file, resolved, diag, line_index, uri) {
             out.push(CodeActionOrCommand::CodeAction(action));
         }
     }
     out
 }
 
-type ProviderFn = fn(&ResolvedDocument, &Diagnostic, &LineIndex, &Url) -> Vec<CodeAction>;
+type ProviderFn = fn(FileId, &ResolvedDocument, &Diagnostic, &LineIndex, &Url) -> Vec<CodeAction>;
 
 /// Registry of diagnostic-code → provider. Logically a `HashMap<&str,
 /// ProviderFn>`; built lazily so it's `const`-style at the call site.
@@ -71,13 +78,20 @@ fn registry() -> HashMap<&'static str, ProviderFn> {
 /// the canonical values — so the code-action wiring stays sound when the
 /// validator's message text changes.
 fn r03_required_fields(
+    file: FileId,
     resolved: &ResolvedDocument,
     diag: &Diagnostic,
     line_index: &LineIndex,
     uri: &Url,
 ) -> Vec<CodeAction> {
     let mut out = Vec::new();
-    let Some(p) = resolved.persons().find(|p| p.id.span == diag.primary) else {
+    let Some(primary) = diag.primary else {
+        return out;
+    };
+    let Some(p) = resolved
+        .persons_in(file)
+        .find(|p| p.id.span == primary.span)
+    else {
         // R03 on marriage (missing `start:`) — deliberately no quick fix;
         // the user has to supply a date.
         return out;
@@ -86,6 +100,7 @@ fn r03_required_fields(
         Some(detail::R03_MISSING_GENDER) => {
             for value in ["male", "female", "other"] {
                 out.push(add_person_field(
+                    file,
                     p,
                     line_index,
                     uri,
@@ -97,6 +112,7 @@ fn r03_required_fields(
         }
         Some(detail::R03_MISSING_NAME) => {
             out.push(add_person_field(
+                file,
                 p,
                 line_index,
                 uri,
@@ -117,21 +133,26 @@ fn r03_required_fields(
 /// marriage; we locate it by containment (the spans aren't equal — R05
 /// anchors on the offending field, not the marriage's outer span).
 fn r05_end_consistency(
+    file: FileId,
     resolved: &ResolvedDocument,
     diag: &Diagnostic,
     line_index: &LineIndex,
     uri: &Url,
 ) -> Vec<CodeAction> {
     let mut out = Vec::new();
+    let Some(primary) = diag.primary else {
+        return out;
+    };
     let Some(m) = resolved
-        .marriages()
-        .find(|m| span_contains(m.span, diag.primary))
+        .marriages_in(file)
+        .find(|m| span_contains(m.span, primary.span))
     else {
         return out;
     };
     match diag.detail {
         Some(detail::R05_END_WITHOUT_END_REASON) => {
             out.push(add_marriage_field(
+                file,
                 m,
                 line_index,
                 uri,
@@ -142,6 +163,7 @@ fn r05_end_consistency(
         }
         Some(detail::R05_END_REASON_WITHOUT_END) => {
             if let Some(action) = remove_marriage_field(
+                file,
                 m,
                 MarriageFieldKind::EndReason(default_end_reason()),
                 line_index,
@@ -167,6 +189,7 @@ fn default_end_reason() -> kul_core::ast::EndReasonValue {
 }
 
 fn add_person_field(
+    file: FileId,
     p: &PersonStmt,
     line_index: &LineIndex,
     uri: &Url,
@@ -176,6 +199,7 @@ fn add_person_field(
 ) -> CodeAction {
     let insert_at = person_header_end(p);
     text_insertion_action(
+        file,
         line_index,
         uri,
         insert_at,
@@ -186,6 +210,7 @@ fn add_person_field(
 }
 
 fn add_marriage_field(
+    file: FileId,
     m: &MarriageStmt,
     line_index: &LineIndex,
     uri: &Url,
@@ -195,6 +220,7 @@ fn add_marriage_field(
 ) -> CodeAction {
     let insert_at = marriage_header_end(m);
     text_insertion_action(
+        file,
         line_index,
         uri,
         insert_at,
@@ -205,6 +231,7 @@ fn add_marriage_field(
 }
 
 fn remove_marriage_field(
+    file: FileId,
     m: &MarriageStmt,
     kind_to_remove: MarriageFieldKind,
     line_index: &LineIndex,
@@ -234,11 +261,16 @@ fn remove_marriage_field(
     };
     let mut changes = HashMap::new();
     changes.insert(uri.clone(), vec![edit]);
-    let lsp_diag = super::diagnostics::to_lsp_one(uri, source, line_index);
+    // Code actions only fire on diagnostics in the active file (per the
+    // overlap check in `code_actions`), so the LSP-side translation is
+    // guaranteed to succeed; bubble up an empty `diagnostics` array if
+    // the diagnostic happens to be unanchored.
+    let lsp_diag = super::diagnostics::to_lsp_one(uri, source, line_index, file);
+    let attached: Vec<tower_lsp::lsp_types::Diagnostic> = lsp_diag.into_iter().collect();
     Some(CodeAction {
         title: title.to_owned(),
         kind: Some(CodeActionKind::QUICKFIX),
-        diagnostics: Some(vec![lsp_diag]),
+        diagnostics: Some(attached),
         edit: Some(WorkspaceEdit {
             changes: Some(changes),
             ..Default::default()
@@ -248,6 +280,7 @@ fn remove_marriage_field(
 }
 
 fn text_insertion_action(
+    file: FileId,
     line_index: &LineIndex,
     uri: &Url,
     insert_at: usize,
@@ -265,11 +298,16 @@ fn text_insertion_action(
     };
     let mut changes = HashMap::new();
     changes.insert(uri.clone(), vec![edit]);
-    let lsp_diag = super::diagnostics::to_lsp_one(uri, source, line_index);
+    // Code actions only fire on diagnostics in the active file (per the
+    // overlap check in `code_actions`), so the LSP-side translation is
+    // guaranteed to succeed; bubble up an empty `diagnostics` array if
+    // the diagnostic happens to be unanchored.
+    let lsp_diag = super::diagnostics::to_lsp_one(uri, source, line_index, file);
+    let attached: Vec<tower_lsp::lsp_types::Diagnostic> = lsp_diag.into_iter().collect();
     CodeAction {
         title: title.to_owned(),
         kind: Some(CodeActionKind::QUICKFIX),
-        diagnostics: Some(vec![lsp_diag]),
+        diagnostics: Some(attached),
         edit: Some(WorkspaceEdit {
             changes: Some(changes),
             ..Default::default()
@@ -322,11 +360,19 @@ mod tests {
     /// Run the LSP feature with a request range covering the whole
     /// document, and return the `CodeAction`s (no `Command`s expected).
     fn actions_for(source: &str) -> Vec<CodeAction> {
-        let result = kul_core::check(source, &kul_core::manifest::Manifest::default());
+        let inputs = vec![kul_core::ast::InputFile::new("test.kul", source)];
+        let result = kul_core::check_with_manifest(
+            "kul.yml",
+            "kul: \"0.1\"\n",
+            &kul_core::manifest::Manifest::default(),
+            &inputs,
+        );
+        let file = result.document().kul_file_ids().next().unwrap();
         let resolved = result.resolved();
         let line_index = LineIndex::new(source);
         let request_range = full_doc_range(&line_index);
         code_actions(
+            file,
             resolved,
             &result.diagnostics,
             &line_index,
@@ -476,7 +522,12 @@ mod tests {
             .unwrap();
         let fixed = apply(src, action);
         // After applying, R05 should no longer fire.
-        let result = kul_core::check(&fixed, &kul_core::manifest::Manifest::default());
+        let result = kul_core::check_with_manifest(
+            "kul.yml",
+            "kul: \"0.1\"\n",
+            &kul_core::manifest::Manifest::default(),
+            &[kul_core::ast::InputFile::new("test.kul", &fixed)],
+        );
         assert!(
             !result
                 .diagnostics
@@ -498,7 +549,12 @@ mod tests {
             .find(|a| a.title.contains("Remove `end_reason:`"))
             .unwrap();
         let fixed = apply(src, action);
-        let result = kul_core::check(&fixed, &kul_core::manifest::Manifest::default());
+        let result = kul_core::check_with_manifest(
+            "kul.yml",
+            "kul: \"0.1\"\n",
+            &kul_core::manifest::Manifest::default(),
+            &[kul_core::ast::InputFile::new("test.kul", &fixed)],
+        );
         assert!(
             !result
                 .diagnostics
@@ -518,7 +574,12 @@ mod tests {
             .find(|a| a.title == "Add `gender:female`")
             .unwrap();
         let fixed = apply(src, action);
-        let result = kul_core::check(&fixed, &kul_core::manifest::Manifest::default());
+        let result = kul_core::check_with_manifest(
+            "kul.yml",
+            "kul: \"0.1\"\n",
+            &kul_core::manifest::Manifest::default(),
+            &[kul_core::ast::InputFile::new("test.kul", &fixed)],
+        );
         assert!(
             !result
                 .diagnostics
@@ -533,7 +594,14 @@ mod tests {
     fn range_filter_excludes_unrelated_lines() {
         let src = "person alice name:\"A\" gender:female\n\
                    person bob\n"; // bob missing both name AND gender
-        let result = kul_core::check(src, &kul_core::manifest::Manifest::default());
+        let inputs = vec![kul_core::ast::InputFile::new("test.kul", src)];
+        let result = kul_core::check_with_manifest(
+            "kul.yml",
+            "kul: \"0.1\"\n",
+            &kul_core::manifest::Manifest::default(),
+            &inputs,
+        );
+        let file = result.document().kul_file_ids().next().unwrap();
         let resolved = result.resolved();
         let line_index = LineIndex::new(src);
         // Request range covering only line 0 (alice, no diagnostics).
@@ -542,6 +610,7 @@ mod tests {
             end: line_index.position(idx(src, "\n") + 1),
         };
         let actions = code_actions(
+            file,
             resolved,
             &result.diagnostics,
             &line_index,

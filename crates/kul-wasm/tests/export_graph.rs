@@ -44,8 +44,14 @@ fn export_graph_json(source: &str, options: ExportOptions) -> String {
 }
 
 fn core_export_json(source: &str, options: ExportOptions) -> String {
-    let check = kul_core::check(source, &kul_core::manifest::Manifest::default());
-    let envelope = kul_core::export::export(source, &check, options);
+    let inputs = vec![kul_core::ast::InputFile::new("input.kul", source)];
+    let check = kul_core::check_with_manifest(
+        "kul.yml",
+        "kul: \"0.1\"\n",
+        &kul_core::manifest::Manifest::default(),
+        &inputs,
+    );
+    let envelope = kul_core::export::export(&check, options);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 

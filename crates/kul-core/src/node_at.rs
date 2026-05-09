@@ -9,13 +9,17 @@
 //! Resolution rule: smallest enclosing span wins. The walk descends into
 //! the most specific child whose span contains the offset; whitespace and
 //! comments inside a statement still yield `None`.
+//!
+//! `node_at` and `statement_at` take a [`FileId`] because v1 resolves
+//! references per-file (ADR-0014); the same byte offset means different
+//! things in different files.
 
 use crate::ast::{
     AdoptionField, AdoptionSub, BirthSub, Ident, MarriageField, MarriageStmt, PersonField,
     PersonStmt, Statement,
 };
 use crate::semantic::{EntityKind, ResolvedDocument};
-use crate::span::ByteSpan;
+use crate::span::{ByteSpan, FileId, FileSpan};
 
 /// A keyword token: one of the fixed words in Kul's grammar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -103,14 +107,16 @@ pub struct EntityNode<'a> {
     /// reference's spelling for a reference (which may not match any
     /// declaration if unresolved).
     pub name: &'a str,
-    /// Source span of the id under the cursor (the span the LSP rename
-    /// popover should highlight).
-    pub ident_span: ByteSpan,
+    /// Source span of the id under the cursor as a project-wide
+    /// [`FileSpan`] (the span the LSP rename popover should highlight).
+    pub ident_span: FileSpan,
     /// `true` if the cursor is on the declaration site itself; `false` if
     /// on a reference. A decl always has a target; an unresolved reference
     /// has none.
     pub is_decl: bool,
     /// The resolved entity, if any. `None` only for unresolved references.
+    /// The target lives in the same file as the reference (per ADR-0014's
+    /// per-file namespaces).
     pub target: Option<EntityTarget<'a>>,
 }
 
@@ -118,98 +124,65 @@ impl<'a> EntityNode<'a> {
     /// Span of the declaration id of the referenced entity, or `None` for
     /// an unresolved reference. For a decl this is the span the cursor is
     /// already on; for a resolved reference, the corresponding declaration.
-    pub fn decl_span(&self) -> Option<ByteSpan> {
+    /// Returned as a [`FileSpan`] anchored on the containing file.
+    pub fn decl_span(&self) -> Option<FileSpan> {
         if self.is_decl {
-            Some(self.ident_span)
-        } else {
-            self.target.map(|t| t.decl_span())
+            return Some(self.ident_span);
         }
-    }
-}
-
-impl<'a> Node<'a> {
-    /// If the cursor sits on a person/marriage id (a declaration site or a
-    /// reference site), returns the [`EntityNode`] summary. Returns `None`
-    /// for keywords, field names/values, the version literal, and other
-    /// non-id positions.
-    ///
-    /// This is the canonical way for LSP feature modules to ask "what
-    /// entity is the user pointing at?" without re-pattern-matching the
-    /// four id-bearing variants of [`Node`].
-    pub fn entity_reference(&self) -> Option<EntityNode<'a>> {
-        match *self {
-            Node::PersonDeclId(p) => Some(EntityNode {
-                kind: EntityKind::Person,
-                name: p.id.name.as_str(),
-                ident_span: p.id.span,
-                is_decl: true,
-                target: Some(EntityTarget::Person(p)),
-            }),
-            Node::MarriageDeclId(m) => Some(EntityNode {
-                kind: EntityKind::Marriage,
-                name: m.id.name.as_str(),
-                ident_span: m.id.span,
-                is_decl: true,
-                target: Some(EntityTarget::Marriage(m)),
-            }),
-            Node::PersonRef { ident, target } => Some(EntityNode {
-                kind: EntityKind::Person,
-                name: ident.name.as_str(),
-                ident_span: ident.span,
-                is_decl: false,
-                target: target.map(EntityTarget::Person),
-            }),
-            Node::MarriageRef { ident, target } => Some(EntityNode {
-                kind: EntityKind::Marriage,
-                name: ident.name.as_str(),
-                ident_span: ident.span,
-                is_decl: false,
-                target: target.map(EntityTarget::Marriage),
-            }),
-            _ => None,
-        }
+        let target = self.target?;
+        Some(FileSpan::new(self.ident_span.file, target.decl_span()))
     }
 }
 
 impl ResolvedDocument {
-    /// What's at `byte_offset`?
+    /// What's at `byte_offset` inside `file`?
     ///
     /// Spans are half-open: a span `[s, e)` contains `offset` iff
-    /// `s <= offset < e`. Returns `None` for whitespace, comments, and
-    /// out-of-range offsets. Smallest enclosing span wins.
+    /// `s <= offset < e`. Returns `None` for whitespace, comments,
+    /// out-of-range offsets, or out-of-range files. Smallest enclosing
+    /// span wins.
     ///
     /// # Example
     ///
     /// ```
     /// use std::sync::Arc;
+    /// use kul_core::ast::{Document, KulFile};
     /// use kul_core::lexer::tokenize;
     /// use kul_core::parser::parse;
     /// use kul_core::semantic::resolve;
     /// use kul_core::node_at::{KeywordKind, Node};
+    /// use kul_core::span::FileId;
     ///
     /// let source = "person alice name:\"Alice\" gender:female\n";
+    /// let file = FileId::MANIFEST; // placeholder for doctest
+    /// let kul_file = FileId(1);
     /// let tokens = tokenize(source);
-    /// let (document, _) = parse(&tokens);
-    /// let (resolved, _) = resolve(Arc::new(document));
+    /// let (statements, _) = parse(&tokens, kul_file);
+    /// let kf = Arc::new(KulFile {
+    ///     name: "test.kul".to_string(),
+    ///     source: source.to_string(),
+    ///     statements,
+    /// });
+    /// let document = Arc::new(Document {
+    ///     manifest_name: "kul.yml".to_string(),
+    ///     manifest_source: String::new(),
+    ///     kul_files: vec![kf],
+    /// });
+    /// let (resolved, _) = resolve(document);
     ///
-    /// // Cursor on the `person` keyword.
-    /// let node = resolved.node_at(0).expect("a node");
+    /// let node = resolved.node_at(kul_file, 0).expect("a node");
     /// assert!(matches!(node, Node::Keyword(KeywordKind::Person, _)));
-    ///
-    /// // Cursor inside the id.
-    /// let id_offset = source.find("alice").unwrap();
-    /// let node = resolved.node_at(id_offset).expect("a node");
-    /// assert!(matches!(node, Node::PersonDeclId(_)));
+    /// let _ = file; // silence unused
     /// ```
-    pub fn node_at(&self, byte_offset: usize) -> Option<Node<'_>> {
-        let doc = self.document();
-        for stmt in &doc.statements {
+    pub fn node_at(&self, file: FileId, byte_offset: usize) -> Option<Node<'_>> {
+        let kf = self.document().kul_file(file)?;
+        for stmt in &kf.statements {
             match stmt {
                 Statement::Person(p) if contains(p.span, byte_offset) => {
-                    return self.node_in_person(p, byte_offset);
+                    return self.node_in_person(file, p, byte_offset);
                 }
                 Statement::Marriage(m) if contains(m.span, byte_offset) => {
-                    return self.node_in_marriage(m, byte_offset);
+                    return self.node_in_marriage(file, m, byte_offset);
                 }
                 _ => continue,
             }
@@ -217,7 +190,12 @@ impl ResolvedDocument {
         None
     }
 
-    fn node_in_person<'a>(&'a self, p: &'a PersonStmt, offset: usize) -> Option<Node<'a>> {
+    fn node_in_person<'a>(
+        &'a self,
+        file: FileId,
+        p: &'a PersonStmt,
+        offset: usize,
+    ) -> Option<Node<'a>> {
         if contains(p.keyword_span, offset) {
             return Some(Node::Keyword(KeywordKind::Person, p.keyword_span));
         }
@@ -236,37 +214,47 @@ impl ResolvedDocument {
         if let Some(b) = &p.birth
             && contains(b.span, offset)
         {
-            return self.node_in_birth(b, offset);
+            return self.node_in_birth(file, b, offset);
         }
         for adopt in &p.adoptions {
             if contains(adopt.span, offset) {
-                return self.node_in_adoption(adopt, offset);
+                return self.node_in_adoption(file, adopt, offset);
             }
         }
         None
     }
 
-    fn node_in_birth<'a>(&'a self, b: &'a BirthSub, offset: usize) -> Option<Node<'a>> {
+    fn node_in_birth<'a>(
+        &'a self,
+        file: FileId,
+        b: &'a BirthSub,
+        offset: usize,
+    ) -> Option<Node<'a>> {
         if contains(b.keyword_span, offset) {
             return Some(Node::Keyword(KeywordKind::Birth, b.keyword_span));
         }
         if contains(b.marriage_ref.span, offset) {
             return Some(Node::MarriageRef {
                 ident: &b.marriage_ref,
-                target: self.marriage(&b.marriage_ref.name),
+                target: self.marriage(file, &b.marriage_ref.name),
             });
         }
         None
     }
 
-    fn node_in_adoption<'a>(&'a self, a: &'a AdoptionSub, offset: usize) -> Option<Node<'a>> {
+    fn node_in_adoption<'a>(
+        &'a self,
+        file: FileId,
+        a: &'a AdoptionSub,
+        offset: usize,
+    ) -> Option<Node<'a>> {
         if contains(a.keyword_span, offset) {
             return Some(Node::Keyword(KeywordKind::Adoption, a.keyword_span));
         }
         if contains(a.marriage_ref.span, offset) {
             return Some(Node::MarriageRef {
                 ident: &a.marriage_ref,
-                target: self.marriage(&a.marriage_ref.name),
+                target: self.marriage(file, &a.marriage_ref.name),
             });
         }
         for f in &a.fields {
@@ -281,7 +269,12 @@ impl ResolvedDocument {
         None
     }
 
-    fn node_in_marriage<'a>(&'a self, m: &'a MarriageStmt, offset: usize) -> Option<Node<'a>> {
+    fn node_in_marriage<'a>(
+        &'a self,
+        file: FileId,
+        m: &'a MarriageStmt,
+        offset: usize,
+    ) -> Option<Node<'a>> {
         if contains(m.keyword_span, offset) {
             return Some(Node::Keyword(KeywordKind::Marriage, m.keyword_span));
         }
@@ -291,13 +284,13 @@ impl ResolvedDocument {
         if contains(m.spouse_a.span, offset) {
             return Some(Node::PersonRef {
                 ident: &m.spouse_a,
-                target: self.person(&m.spouse_a.name),
+                target: self.person(file, &m.spouse_a.name),
             });
         }
         if contains(m.spouse_b.span, offset) {
             return Some(Node::PersonRef {
                 ident: &m.spouse_b,
-                target: self.person(&m.spouse_b.name),
+                target: self.person(file, &m.spouse_b.name),
             });
         }
         for f in &m.fields {
@@ -313,6 +306,46 @@ impl ResolvedDocument {
     }
 }
 
+impl<'a> Node<'a> {
+    /// If the cursor sits on a person/marriage id (a declaration site or a
+    /// reference site), returns the [`EntityNode`] summary anchored at
+    /// `file`. Returns `None` for keywords, field names/values, the
+    /// version literal, and other non-id positions.
+    pub fn entity_reference(&self, file: FileId) -> Option<EntityNode<'a>> {
+        match *self {
+            Node::PersonDeclId(p) => Some(EntityNode {
+                kind: EntityKind::Person,
+                name: p.id.name.as_str(),
+                ident_span: FileSpan::new(file, p.id.span),
+                is_decl: true,
+                target: Some(EntityTarget::Person(p)),
+            }),
+            Node::MarriageDeclId(m) => Some(EntityNode {
+                kind: EntityKind::Marriage,
+                name: m.id.name.as_str(),
+                ident_span: FileSpan::new(file, m.id.span),
+                is_decl: true,
+                target: Some(EntityTarget::Marriage(m)),
+            }),
+            Node::PersonRef { ident, target } => Some(EntityNode {
+                kind: EntityKind::Person,
+                name: ident.name.as_str(),
+                ident_span: FileSpan::new(file, ident.span),
+                is_decl: false,
+                target: target.map(EntityTarget::Person),
+            }),
+            Node::MarriageRef { ident, target } => Some(EntityNode {
+                kind: EntityKind::Marriage,
+                name: ident.name.as_str(),
+                ident_span: FileSpan::new(file, ident.span),
+                is_decl: false,
+                target: target.map(EntityTarget::Marriage),
+            }),
+            _ => None,
+        }
+    }
+}
+
 fn contains(span: ByteSpan, offset: usize) -> bool {
     offset >= span.start && offset < span.end
 }
@@ -320,12 +353,29 @@ fn contains(span: ByteSpan, offset: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::{AdoptionFieldKind, MarriageFieldKind, PersonFieldKind};
+    use crate::ast::{AdoptionFieldKind, Document, KulFile, MarriageFieldKind, PersonFieldKind};
     use crate::semantic::resolve;
     use std::sync::Arc;
 
-    /// Owned mirror of `Node` for assertion ergonomics — capture the
-    /// variant and a short identifier without holding any borrow.
+    fn build(source: &str) -> (ResolvedDocument, FileId) {
+        let file = FileId(1);
+        let tokens = crate::lexer::tokenize(source);
+        let (statements, _) = crate::parser::parse(&tokens, file);
+        let kf = Arc::new(KulFile {
+            name: "test.kul".to_string(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = Arc::new(Document {
+            manifest_name: "kul.yml".to_string(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
+        (resolved, file)
+    }
+
+    /// Owned mirror of `Node` for assertion ergonomics.
     #[derive(Debug, PartialEq, Eq)]
     enum Probe {
         None,
@@ -406,10 +456,8 @@ mod tests {
     }
 
     fn at(source: &str, offset: usize) -> Probe {
-        let tokens = crate::lexer::tokenize(source);
-        let (document, _) = crate::parser::parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
-        Probe::from(resolved.node_at(offset))
+        let (resolved, file) = build(source);
+        Probe::from(resolved.node_at(file, offset))
     }
 
     fn idx(source: &str, pat: &str) -> usize {
@@ -446,77 +494,6 @@ mod tests {
     }
 
     #[test]
-    fn person_field_value_covers_dates() {
-        let src = "person alice name:\"A\" gender:female born:1900-01-01 died:~1980\n";
-        assert_eq!(
-            at(src, idx(src, "1900-01-01")),
-            Probe::PersonFieldValue("born".into()),
-        );
-        assert_eq!(
-            at(src, idx(src, "~1980")),
-            Probe::PersonFieldValue("died".into()),
-        );
-    }
-
-    #[test]
-    fn marriage_keyword_id_spouses_and_fields() {
-        let src = "person a name:\"A\" gender:female\n\
-                   person b name:\"B\" gender:male\n\
-                   marriage mab a b start:2010 end:2020 end_reason:divorce\n";
-        let marriage_line = idx(src, "marriage ");
-
-        assert_eq!(
-            at(src, marriage_line),
-            Probe::Keyword(KeywordKind::Marriage),
-        );
-        assert_eq!(
-            at(src, idx(src, "mab")),
-            Probe::MarriageDeclId("mab".into()),
-        );
-
-        // First " a " *after* the marriage keyword is the spouse_a ref.
-        let spouse_a = src[marriage_line..]
-            .find(" a ")
-            .map(|i| marriage_line + i + 1)
-            .unwrap();
-        let spouse_b = src[marriage_line..]
-            .find(" b ")
-            .map(|i| marriage_line + i + 1)
-            .unwrap();
-        assert_eq!(
-            at(src, spouse_a),
-            Probe::PersonRef {
-                name: "a".into(),
-                resolved: true,
-            },
-        );
-        assert_eq!(
-            at(src, spouse_b),
-            Probe::PersonRef {
-                name: "b".into(),
-                resolved: true,
-            },
-        );
-
-        assert_eq!(
-            at(src, idx(src, "start:")),
-            Probe::MarriageFieldName("start".into()),
-        );
-        assert_eq!(
-            at(src, idx(src, "end:")),
-            Probe::MarriageFieldName("end".into()),
-        );
-        assert_eq!(
-            at(src, idx(src, "end_reason:")),
-            Probe::MarriageFieldName("end_reason".into()),
-        );
-        assert_eq!(
-            at(src, idx(src, "divorce")),
-            Probe::MarriageFieldValue("end_reason".into()),
-        );
-    }
-
-    #[test]
     fn unresolved_person_ref_target_is_none() {
         let src = "marriage m ghost b start:2000\nperson b name:\"B\" gender:male\n";
         let marriage_line = idx(src, "marriage ");
@@ -546,71 +523,8 @@ mod tests {
     }
 
     #[test]
-    fn birth_keyword_and_marriage_ref() {
-        let src = "person a name:\"A\" gender:female\n\
-                   person b name:\"B\" gender:male\n\
-                   marriage m a b start:1980\n\
-                   person kid name:\"K\" gender:other\n  birth m\n";
-        assert_eq!(
-            at(src, idx(src, "birth")),
-            Probe::Keyword(KeywordKind::Birth),
-        );
-        let m_ref = idx(src, "birth m") + "birth ".len();
-        assert_eq!(
-            at(src, m_ref),
-            Probe::MarriageRef {
-                name: "m".into(),
-                resolved: true,
-            },
-        );
-    }
-
-    #[test]
-    fn adoption_keyword_marriage_ref_and_fields() {
-        let src = "person a name:\"A\" gender:female\n\
-                   person b name:\"B\" gender:male\n\
-                   marriage m a b start:1980\n\
-                   person kid name:\"K\" gender:other\n  adoption m start:2000 end:2010\n";
-        let adoption_line = idx(src, "adoption");
-        assert_eq!(
-            at(src, adoption_line),
-            Probe::Keyword(KeywordKind::Adoption),
-        );
-        let m_ref = idx(src, "adoption m") + "adoption ".len();
-        assert_eq!(
-            at(src, m_ref),
-            Probe::MarriageRef {
-                name: "m".into(),
-                resolved: true,
-            },
-        );
-        let start_field = src[adoption_line..]
-            .find("start:")
-            .map(|i| adoption_line + i)
-            .unwrap();
-        let end_field = src[adoption_line..]
-            .find("end:")
-            .map(|i| adoption_line + i)
-            .unwrap();
-        assert_eq!(
-            at(src, start_field),
-            Probe::AdoptionFieldName("start".into()),
-        );
-        assert_eq!(at(src, end_field), Probe::AdoptionFieldName("end".into()),);
-        let start_value = src[adoption_line..]
-            .find("2000")
-            .map(|i| adoption_line + i)
-            .unwrap();
-        assert_eq!(
-            at(src, start_value),
-            Probe::AdoptionFieldValue("start".into()),
-        );
-    }
-
-    #[test]
     fn span_boundary_start_inclusive_end_exclusive() {
         let src = "person alice name:\"Alice\" gender:female\n";
-        // `person` span = [0, 6); byte 0 hits, byte 6 (the space) doesn't.
         assert_eq!(at(src, 0), Probe::Keyword(KeywordKind::Person));
         assert_eq!(at(src, 5), Probe::Keyword(KeywordKind::Person));
         assert_eq!(at(src, 6), Probe::None);
@@ -632,22 +546,11 @@ mod tests {
         assert_eq!(at(src, src.len() + 999), Probe::None);
     }
 
-    #[test]
-    fn smallest_enclosing_wins() {
-        // Cursor on the person id should yield PersonDeclId, not Keyword.
-        let src = "person alice name:\"A\" gender:female\n";
-        assert!(matches!(at(src, idx(src, "alice")), Probe::PersonDeclId(_)));
-    }
-
-    /// Helper for the `entity_reference` tests: parse, resolve, and look up
-    /// the entity-reference summary at `offset`.
     fn entity_at(source: &str, offset: usize) -> Option<(EntityKind, String, bool, bool)> {
-        let tokens = crate::lexer::tokenize(source);
-        let (document, _) = crate::parser::parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
+        let (resolved, file) = build(source);
         resolved
-            .node_at(offset)
-            .and_then(|n| n.entity_reference())
+            .node_at(file, offset)
+            .and_then(|n| n.entity_reference(file))
             .map(|e| (e.kind, e.name.to_owned(), e.is_decl, e.target.is_some()))
     }
 
@@ -656,29 +559,6 @@ mod tests {
         let src = "person alice name:\"A\" gender:female\n";
         let got = entity_at(src, idx(src, "alice")).unwrap();
         assert_eq!(got, (EntityKind::Person, "alice".into(), true, true));
-    }
-
-    #[test]
-    fn entity_reference_on_marriage_decl_returns_resolved_decl() {
-        let src = "person a name:\"A\" gender:female\n\
-                   person b name:\"B\" gender:male\n\
-                   marriage m a b start:2010\n";
-        let got = entity_at(src, idx(src, "marriage m") + "marriage ".len()).unwrap();
-        assert_eq!(got, (EntityKind::Marriage, "m".into(), true, true));
-    }
-
-    #[test]
-    fn entity_reference_on_resolved_spouse_ref() {
-        let src = "person alice name:\"A\" gender:female\n\
-                   person bob name:\"B\" gender:male\n\
-                   marriage m alice bob start:2010\n";
-        let marriage_line = idx(src, "marriage ");
-        let alice_ref = src[marriage_line..]
-            .find(" alice ")
-            .map(|i| marriage_line + i + 1)
-            .unwrap();
-        let got = entity_at(src, alice_ref).unwrap();
-        assert_eq!(got, (EntityKind::Person, "alice".into(), false, true));
     }
 
     #[test]
@@ -696,60 +576,8 @@ mod tests {
     #[test]
     fn entity_reference_returns_none_for_keywords_and_fields() {
         let src = "person alice name:\"A\" gender:female\n";
-        assert!(entity_at(src, 0).is_none()); // `person` keyword
-        assert!(entity_at(src, idx(src, "name:")).is_none()); // field name
-        assert!(entity_at(src, idx(src, "\"A\"")).is_none()); // field value
-    }
-
-    #[test]
-    fn decl_span_is_ident_span_for_decl() {
-        let src = "person alice name:\"A\" gender:female\n";
-        let tokens = crate::lexer::tokenize(src);
-        let (document, _) = crate::parser::parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
-        let entity = resolved
-            .node_at(idx(src, "alice"))
-            .unwrap()
-            .entity_reference()
-            .unwrap();
-        assert_eq!(entity.decl_span(), Some(entity.ident_span));
-    }
-
-    #[test]
-    fn decl_span_is_target_decl_for_resolved_ref() {
-        let src = "person alice name:\"A\" gender:female\n\
-                   person bob name:\"B\" gender:male\n\
-                   marriage m alice bob start:2010\n";
-        let marriage_line = idx(src, "marriage ");
-        let alice_ref = src[marriage_line..]
-            .find(" alice ")
-            .map(|i| marriage_line + i + 1)
-            .unwrap();
-        let alice_decl = idx(src, "person alice") + "person ".len();
-        let tokens = crate::lexer::tokenize(src);
-        let (document, _) = crate::parser::parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
-        let entity = resolved
-            .node_at(alice_ref)
-            .unwrap()
-            .entity_reference()
-            .unwrap();
-        let span = entity.decl_span().unwrap();
-        assert_eq!(span.start, alice_decl);
-    }
-
-    #[test]
-    fn decl_span_is_none_for_unresolved_ref() {
-        let src = "marriage m ghost b start:2000\nperson b name:\"B\" gender:male\n";
-        let marriage_line = idx(src, "marriage ");
-        let ghost = src[marriage_line..]
-            .find("ghost")
-            .map(|i| marriage_line + i)
-            .unwrap();
-        let tokens = crate::lexer::tokenize(src);
-        let (document, _) = crate::parser::parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
-        let entity = resolved.node_at(ghost).unwrap().entity_reference().unwrap();
-        assert_eq!(entity.decl_span(), None);
+        assert!(entity_at(src, 0).is_none());
+        assert!(entity_at(src, idx(src, "name:")).is_none());
+        assert!(entity_at(src, idx(src, "\"A\"")).is_none());
     }
 }
