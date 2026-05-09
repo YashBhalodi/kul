@@ -40,14 +40,12 @@
 //! [ADR 0004]: https://github.com/YashBhalodi/kul/blob/main/docs/adr/0004-formatter-canonical-rules.md
 
 use std::collections::HashMap;
-use std::fmt::Write as _;
 use std::sync::LazyLock;
 
 use crate::ast::{
     AdoptionFieldKind, AdoptionSub, BirthSub, Document, EndReason, Gender, MarriageFieldKind,
     MarriageStmt, PersonFieldKind, PersonStmt, Statement,
 };
-use crate::date::DateLit;
 use crate::field_meta::{self, StatementKind};
 use crate::lexer::FieldName;
 
@@ -496,13 +494,13 @@ fn build_person_cells(p: &PersonStmt, inline_comment: Option<&str>) -> Vec<Cell>
         PersonFieldKind::Born(d) => Some(d),
         _ => None,
     }) {
-        cells.push(field_cell(kind, FieldName::Born, &date_str(d)));
+        cells.push(field_cell(kind, FieldName::Born, &d.format_canonical()));
     }
     if let Some(d) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Died(d) => Some(d),
         _ => None,
     }) {
-        cells.push(field_cell(kind, FieldName::Died, &date_str(d)));
+        cells.push(field_cell(kind, FieldName::Died, &d.format_canonical()));
     }
     if let Some(text) = inline_comment {
         cells.push(Cell {
@@ -536,13 +534,13 @@ fn build_marriage_cells(m: &MarriageStmt, inline_comment: Option<&str>) -> Vec<C
         MarriageFieldKind::Start(d) => Some(d),
         _ => None,
     }) {
-        cells.push(field_cell(kind, FieldName::Start, &date_str(d)));
+        cells.push(field_cell(kind, FieldName::Start, &d.format_canonical()));
     }
     if let Some(d) = m.fields.iter().find_map(|f| match &f.kind {
         MarriageFieldKind::End(d) => Some(d),
         _ => None,
     }) {
-        cells.push(field_cell(kind, FieldName::End, &date_str(d)));
+        cells.push(field_cell(kind, FieldName::End, &d.format_canonical()));
     }
     if let Some(er) = m.fields.iter().find_map(|f| match &f.kind {
         MarriageFieldKind::EndReason(v) => Some(v),
@@ -627,13 +625,13 @@ fn build_sub_cells(sub: &SubRef<'_>, inline_comment: Option<&str>) -> (KindTag, 
                 AdoptionFieldKind::Start(d) => Some(d),
                 _ => None,
             }) {
-                cells.push(field_cell(kind, FieldName::Start, &date_str(d)));
+                cells.push(field_cell(kind, FieldName::Start, &d.format_canonical()));
             }
             if let Some(d) = a.fields.iter().find_map(|f| match &f.kind {
                 AdoptionFieldKind::End(d) => Some(d),
                 _ => None,
             }) {
-                cells.push(field_cell(kind, FieldName::End, &date_str(d)));
+                cells.push(field_cell(kind, FieldName::End, &d.format_canonical()));
             }
             if let Some(text) = inline_comment {
                 cells.push(Cell {
@@ -876,21 +874,6 @@ impl<'a> SourceFormatter<'a> {
 
 // === Utilities ===
 
-fn date_str(d: &DateLit) -> String {
-    let mut s = String::with_capacity(11);
-    if d.circa {
-        s.push('~');
-    }
-    write!(s, "{:04}", d.year).expect("write year");
-    if let Some(m) = d.month {
-        write!(s, "-{:02}", m).expect("write month");
-    }
-    if let Some(day) = d.day {
-        write!(s, "-{:02}", day).expect("write day");
-    }
-    s
-}
-
 fn quote_string(value: &str) -> String {
     let mut s = String::with_capacity(value.len() + 2);
     s.push('"');
@@ -1009,35 +992,9 @@ fn scan_comments(source: &str) -> Vec<Comment> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::date::DateLit;
-    use crate::span::ByteSpan;
 
     fn s(value: &str) -> String {
         value.to_owned()
-    }
-
-    #[test]
-    fn date_str_full() {
-        let d = DateLit {
-            span: ByteSpan::new(0, 0),
-            circa: false,
-            year: 1925,
-            month: Some(3),
-            day: Some(10),
-        };
-        assert_eq!(date_str(&d), "1925-03-10");
-    }
-
-    #[test]
-    fn date_str_year_only_circa() {
-        let d = DateLit {
-            span: ByteSpan::new(0, 0),
-            circa: true,
-            year: 1980,
-            month: None,
-            day: None,
-        };
-        assert_eq!(date_str(&d), "~1980");
     }
 
     #[test]

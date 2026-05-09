@@ -111,10 +111,10 @@ fn person_panel(p: &PersonStmt) -> String {
         details.push(format!("- gender: {label}"));
     }
     if let Some(b) = p.born() {
-        details.push(format!("- born: `{}`", date_repr(b)));
+        details.push(format!("- born: `{}`", b.format_canonical()));
     }
     if let Some(d) = p.died() {
-        details.push(format!("- died: `{}`", date_repr(d)));
+        details.push(format!("- died: `{}`", d.format_canonical()));
     }
     if let Some(family) = p.family() {
         details.push(format!("- family name: {}", escape(&family.value)));
@@ -143,10 +143,10 @@ fn marriage_panel(resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
         spouse_repr(&m.spouse_b.name, spouse_b),
     ));
     if let Some(start) = m.start() {
-        out.push_str(&format!("\n- start: `{}`", date_repr(start)));
+        out.push_str(&format!("\n- start: `{}`", start.format_canonical()));
     }
     if let Some(end) = m.end() {
-        out.push_str(&format!("\n- end: `{}`", date_repr(end)));
+        out.push_str(&format!("\n- end: `{}`", end.format_canonical()));
     }
     if let Some(reason) = m.end_reason() {
         let label = match &reason.value {
@@ -194,21 +194,6 @@ fn adoption_field_value_md(source: &str, f: &AdoptionField) -> String {
     let doc = field_meta::meta(f.kind.field_name()).hover_md;
     let literal = source_slice(source, f.kind.value_span());
     format!("{doc}\n\n`{literal}`")
-}
-
-fn date_repr(d: &kul_core::date::DateLit) -> String {
-    let mut s = String::new();
-    if d.circa {
-        s.push('~');
-    }
-    s.push_str(&format!("{:04}", d.year));
-    if let Some(m) = d.month {
-        s.push_str(&format!("-{m:02}"));
-    }
-    if let Some(day) = d.day {
-        s.push_str(&format!("-{day:02}"));
-    }
-    s
 }
 
 fn source_slice(source: &str, span: ByteSpan) -> &str {

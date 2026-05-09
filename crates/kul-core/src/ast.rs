@@ -67,6 +67,15 @@ impl PersonStmt {
         })
     }
 
+    /// The person's `name:` value if present, otherwise their id. The
+    /// canonical short label for tooling (LSP hover, completion details,
+    /// document-symbol headers).
+    pub fn display_name(&self) -> &str {
+        self.name()
+            .map(|n| n.value.as_str())
+            .unwrap_or(self.id.name.as_str())
+    }
+
     /// First `family:` field, or `None`.
     pub fn family(&self) -> Option<&StringValue> {
         self.fields.iter().find_map(|f| match &f.kind {
