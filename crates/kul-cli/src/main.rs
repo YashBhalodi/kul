@@ -24,7 +24,6 @@ the language server over stdio for editor integrations.
 EXAMPLES:
   kul validate family.kul
   kul validate examples/*.kul
-  cat family.kul | kul validate -
   kul validate --format json family.kul | jq .
   kul validate --quiet family.kul && echo ok
   kul format family.kul       # canonicalize the file in place
@@ -64,18 +63,12 @@ Each file is parsed and run through the validator. The validator reports the
 anchors. The exit code is 0 if every input is clean and 1 if any input had
 error diagnostics.
 
-Pass `-` as a filename to read source from standard input; the file label
-in diagnostics will be `<stdin>`.
-
 EXAMPLES:
   # Validate a single file.
   kul validate family.kul
 
   # Validate every example.
   kul validate examples/*.kul
-
-  # Read from stdin (label `<stdin>`).
-  cat family.kul | kul validate -
 
   # Quiet mode for scripts: only diagnostics, no `ok` lines.
   kul validate --quiet family.kul
@@ -109,10 +102,6 @@ Without `--check`, each file is rewritten in place. With `--check`, no file
 is modified — the command exits non-zero if any input is not already in
 canonical form, which is the right shape for a CI gate.
 
-Pass `-` as a filename to read from standard input. In default mode the
-formatted source is written to stdout; in `--check` mode the command is
-silent on success and prints `<stdin>: not formatted` to stderr if not.
-
 EXAMPLES:
   # Canonicalize a file in place.
   kul format family.kul
@@ -122,9 +111,6 @@ EXAMPLES:
 
   # CI gate: fail if anything is out of canonical form.
   kul format --check examples/*.kul
-
-  # Read from stdin, write canonical form to stdout.
-  cat family.kul | kul format -
 
 EXIT CODES:
   0  every file is in canonical form (or was successfully formatted)
@@ -160,16 +146,12 @@ The failure envelope shape is:
     \"diagnostics\": [ ... ]  // same schema as `kul validate --format json`
   }
 
-Pass `-` as a filename to read source from standard input. Multiple inputs
-write one envelope per line in input order. See
+Multiple inputs write one envelope per line in input order. See
 `spec/16-export-schema.md` for the normative schema.
 
 EXAMPLES:
   # Single file.
   kul export family.kul | jq .
-
-  # Read from stdin.
-  cat family.kul | kul export -
 
   # Batch.
   kul export examples/*.kul
@@ -195,10 +177,10 @@ ENVIRONMENT:
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// Validate one or more `.kul` files. Use `-` to read from stdin.
+    /// Validate one or more `.kul` files.
     #[command(long_about = VALIDATE_LONG_ABOUT)]
     Validate {
-        /// Files to validate. Use `-` to read from standard input.
+        /// Files to validate.
         #[arg(value_name = "FILE", required = true)]
         files: Vec<PathBuf>,
 
@@ -224,18 +206,12 @@ enum Command {
         /// into a file). This flag forces it off unconditionally.
         #[arg(long)]
         no_color: bool,
-
-        /// Path to the project manifest (`kul.yml`). When omitted, the
-        /// manifest is discovered as a sibling of the input file. Required
-        /// when input is `-` (stdin).
-        #[arg(long, value_name = "PATH")]
-        manifest: Option<PathBuf>,
     },
 
-    /// Format one or more `.kul` files. Use `-` to read from stdin.
+    /// Format one or more `.kul` files.
     #[command(long_about = FORMAT_LONG_ABOUT)]
     Format {
-        /// Files to format. Use `-` to read from standard input.
+        /// Files to format.
         #[arg(value_name = "FILE", required = true)]
         files: Vec<PathBuf>,
 
@@ -243,18 +219,12 @@ enum Command {
         /// input is not already in canonical form. Suitable for CI.
         #[arg(long)]
         check: bool,
-
-        /// Path to the project manifest (`kul.yml`). When omitted, the
-        /// manifest is discovered as a sibling of the input file. Required
-        /// when input is `-` (stdin).
-        #[arg(long, value_name = "PATH")]
-        manifest: Option<PathBuf>,
     },
 
     /// Project one or more `.kul` files to the canonical JSON envelope.
     #[command(long_about = EXPORT_LONG_ABOUT)]
     Export {
-        /// Files to export. Use `-` to read from standard input.
+        /// Files to export.
         #[arg(value_name = "FILE", required = true)]
         files: Vec<PathBuf>,
 
@@ -270,12 +240,6 @@ enum Command {
         /// Default off — keeps the envelope compact.
         #[arg(long)]
         with_positions: bool,
-
-        /// Path to the project manifest (`kul.yml`). When omitted, the
-        /// manifest is discovered as a sibling of the input file. Required
-        /// when input is `-` (stdin).
-        #[arg(long, value_name = "PATH")]
-        manifest: Option<PathBuf>,
     },
 
     /// Run the language server over stdio.
@@ -297,33 +261,23 @@ fn main() -> ExitCode {
             quiet,
             format,
             no_color,
-            manifest,
         } => commands::validate::run(commands::validate::Options {
             files,
             quiet,
             format,
             no_color,
-            manifest,
         }),
-        Command::Format {
-            files,
-            check,
-            manifest,
-        } => commands::format::run(commands::format::Options {
-            files,
-            check,
-            manifest,
-        }),
+        Command::Format { files, check } => {
+            commands::format::run(commands::format::Options { files, check })
+        }
         Command::Export {
             files,
             format,
             with_positions,
-            manifest,
         } => commands::export::run(commands::export::Options {
             files,
             format,
             with_positions,
-            manifest,
         }),
         Command::Lsp => run_lsp(),
     }
