@@ -71,9 +71,9 @@ pub fn fields_for(kind: StatementKind) -> &'static [FieldName] {
 
 const PERSON_FIELDS: &[FieldName] = &[
     FieldName::Name,
+    FieldName::Gender,
     FieldName::Family,
     FieldName::Given,
-    FieldName::Gender,
     FieldName::Born,
     FieldName::Died,
 ];
@@ -179,17 +179,18 @@ mod tests {
     }
 
     #[test]
-    fn person_fields_match_ast_enum() {
-        // Expect the field set to mirror PersonFieldKind, in the canonical
-        // formatter order. If a new variant lands, this test is the
-        // smallest signal that fields_for needs an update.
+    fn person_fields_match_spec_field_order() {
+        // The spec (§15.2) fixes the canonical field order; the formatter's
+        // canonical column layout and completion's item list both consume
+        // it from `fields_for`. If a new variant lands, this test is the
+        // smallest signal that `PERSON_FIELDS` needs an update.
         assert_eq!(
             fields_for(StatementKind::Person),
             &[
                 FieldName::Name,
+                FieldName::Gender,
                 FieldName::Family,
                 FieldName::Given,
-                FieldName::Gender,
                 FieldName::Born,
                 FieldName::Died,
             ]

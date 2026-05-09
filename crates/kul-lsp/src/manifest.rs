@@ -77,8 +77,8 @@ pub fn load_for(uri: &Url) -> Result<Manifest, ManifestError> {
         path: manifest_path.clone(),
         message: err.to_string(),
     })?;
-    serde_yaml::from_str(&raw).map_err(|err| ManifestError::Parse {
-        path: manifest_path.clone(),
-        message: format!("invalid YAML: {err}"),
+    kul_core::manifest::parse(&raw).map_err(|err| ManifestError::Parse {
+        path: manifest_path,
+        message: err.message().to_string(),
     })
 }
