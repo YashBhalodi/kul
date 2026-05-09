@@ -41,12 +41,14 @@
 
 use std::collections::HashMap;
 use std::fmt::Write as _;
+use std::sync::LazyLock;
 
 use crate::ast::{
     AdoptionFieldKind, AdoptionSub, BirthSub, Document, EndReason, Gender, MarriageFieldKind,
     MarriageStmt, PersonFieldKind, PersonStmt, Statement,
 };
 use crate::date::DateLit;
+use crate::field_meta::{self, StatementKind};
 use crate::lexer::FieldName;
 
 // === Public entry points ===
@@ -126,34 +128,71 @@ enum KindTag {
 /// line in a group; lines may *omit* optional columns (everything past the
 /// required structural prefix), in which case the formatter emits whitespace
 /// of that column's width if the line has any further cells to its right.
+///
+/// Field columns flow from [`field_meta::fields_for`] (the spec-§15.2 order)
+/// so the formatter and completion can never disagree about field order.
+/// Structural cells (keyword, positional id, spouse / marriage references,
+/// trailing comment) are formatter-only.
 fn canonical_columns(kind: KindTag) -> &'static [CellKind] {
-    use CellKind::*;
-    use FieldName as F;
+    static PERSON: LazyLock<Vec<CellKind>> = LazyLock::new(|| build_columns(KindTag::Person));
+    static MARRIAGE: LazyLock<Vec<CellKind>> = LazyLock::new(|| build_columns(KindTag::Marriage));
+    static BIRTH: LazyLock<Vec<CellKind>> = LazyLock::new(|| build_columns(KindTag::Birth));
+    static ADOPTION: LazyLock<Vec<CellKind>> = LazyLock::new(|| build_columns(KindTag::Adoption));
     match kind {
-        KindTag::Person => &[
-            Keyword,
-            Positional,
-            Field(F::Name),
-            Field(F::Gender),
-            Field(F::Family),
-            Field(F::Given),
-            Field(F::Born),
-            Field(F::Died),
-            Comment,
-        ],
-        KindTag::Marriage => &[
-            Keyword,
-            Positional,
-            Reference,
-            Reference,
-            Field(F::Start),
-            Field(F::End),
-            Field(F::EndReason),
-            Comment,
-        ],
-        KindTag::Birth => &[Keyword, Reference, Comment],
-        KindTag::Adoption => &[Keyword, Reference, Field(F::Start), Field(F::End), Comment],
+        KindTag::Person => PERSON.as_slice(),
+        KindTag::Marriage => MARRIAGE.as_slice(),
+        KindTag::Birth => BIRTH.as_slice(),
+        KindTag::Adoption => ADOPTION.as_slice(),
     }
+}
+
+/// Structural cells preceding the field columns for a kind. Same-keyword
+/// lines always carry every prefix cell.
+fn structural_prefix(kind: KindTag) -> &'static [CellKind] {
+    use CellKind::*;
+    match kind {
+        KindTag::Person => &[Keyword, Positional],
+        KindTag::Marriage => &[Keyword, Positional, Reference, Reference],
+        KindTag::Birth => &[Keyword, Reference],
+        KindTag::Adoption => &[Keyword, Reference],
+    }
+}
+
+/// `StatementKind` for line shapes that carry fields. `Birth` has no fields;
+/// it never reaches `field_meta`.
+fn statement_kind(kind: KindTag) -> Option<StatementKind> {
+    match kind {
+        KindTag::Person => Some(StatementKind::Person),
+        KindTag::Marriage => Some(StatementKind::Marriage),
+        KindTag::Adoption => Some(StatementKind::Adoption),
+        KindTag::Birth => None,
+    }
+}
+
+fn build_columns(kind: KindTag) -> Vec<CellKind> {
+    let mut out: Vec<CellKind> = structural_prefix(kind).to_vec();
+    if let Some(stmt_kind) = statement_kind(kind) {
+        for &name in field_meta::fields_for(stmt_kind) {
+            out.push(CellKind::Field(name));
+        }
+    }
+    out.push(CellKind::Comment);
+    out
+}
+
+/// Column index of `name` in `kind`'s canonical layout. Panics if the field
+/// isn't valid for the kind — callers are field-kind-typed (`PersonFieldKind`
+/// etc.) so a wrong combination is a programmer error.
+fn field_column(kind: KindTag, name: FieldName) -> u8 {
+    canonical_columns(kind)
+        .iter()
+        .position(|c| matches!(c, CellKind::Field(n) if *n == name))
+        .expect("field is part of this kind's canonical columns") as u8
+}
+
+/// Column index of the trailing comment cell — always the last column.
+fn comment_column(kind: KindTag) -> u8 {
+    (canonical_columns(kind).len() - 1) as u8
 }
 
 /// Identifies which lines share columns with each other within a region.
@@ -419,7 +458,8 @@ fn separator_between(prev: CellKind, next: CellKind) -> Sep {
 // === AST → cells ===
 
 fn build_person_cells(p: &PersonStmt, inline_comment: Option<&str>) -> Vec<Cell> {
-    let mut cells = Vec::with_capacity(9);
+    let kind = KindTag::Person;
+    let mut cells = Vec::with_capacity(canonical_columns(kind).len());
     cells.push(Cell {
         text: "person".to_string(),
         col: 0,
@@ -428,56 +468,54 @@ fn build_person_cells(p: &PersonStmt, inline_comment: Option<&str>) -> Vec<Cell>
         text: p.id.name.clone(),
         col: 1,
     });
-    // Spec table order matches the canonical column layout for `person`:
-    // col 2 = name, 3 = gender, 4 = family, 5 = given, 6 = born, 7 = died,
-    // 8 = comment.
     if let Some(s) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Name(s) => Some(s),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Name, &quote_string(&s.value), 2));
+        cells.push(field_cell(kind, FieldName::Name, &quote_string(&s.value)));
     }
     if let Some(g) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Gender(g) => Some(g),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Gender, gender_str(g.value), 3));
+        cells.push(field_cell(kind, FieldName::Gender, gender_str(g.value)));
     }
     if let Some(s) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Family(s) => Some(s),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Family, &quote_string(&s.value), 4));
+        cells.push(field_cell(kind, FieldName::Family, &quote_string(&s.value)));
     }
     if let Some(s) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Given(s) => Some(s),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Given, &quote_string(&s.value), 5));
+        cells.push(field_cell(kind, FieldName::Given, &quote_string(&s.value)));
     }
     if let Some(d) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Born(d) => Some(d),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Born, &date_str(d), 6));
+        cells.push(field_cell(kind, FieldName::Born, &date_str(d)));
     }
     if let Some(d) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Died(d) => Some(d),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Died, &date_str(d), 7));
+        cells.push(field_cell(kind, FieldName::Died, &date_str(d)));
     }
     if let Some(text) = inline_comment {
         cells.push(Cell {
             text: text.to_string(),
-            col: 8,
+            col: comment_column(kind),
         });
     }
     cells
 }
 
 fn build_marriage_cells(m: &MarriageStmt, inline_comment: Option<&str>) -> Vec<Cell> {
-    let mut cells = Vec::with_capacity(8);
+    let kind = KindTag::Marriage;
+    let mut cells = Vec::with_capacity(canonical_columns(kind).len());
     cells.push(Cell {
         text: "marriage".to_string(),
         col: 0,
@@ -498,28 +536,28 @@ fn build_marriage_cells(m: &MarriageStmt, inline_comment: Option<&str>) -> Vec<C
         MarriageFieldKind::Start(d) => Some(d),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::Start, &date_str(d), 4));
+        cells.push(field_cell(kind, FieldName::Start, &date_str(d)));
     }
     if let Some(d) = m.fields.iter().find_map(|f| match &f.kind {
         MarriageFieldKind::End(d) => Some(d),
         _ => None,
     }) {
-        cells.push(field_cell(FieldName::End, &date_str(d), 5));
+        cells.push(field_cell(kind, FieldName::End, &date_str(d)));
     }
     if let Some(er) = m.fields.iter().find_map(|f| match &f.kind {
         MarriageFieldKind::EndReason(v) => Some(v),
         _ => None,
     }) {
         cells.push(field_cell(
+            kind,
             FieldName::EndReason,
             &end_reason_str(&er.value),
-            6,
         ));
     }
     if let Some(text) = inline_comment {
         cells.push(Cell {
             text: text.to_string(),
-            col: 7,
+            col: comment_column(kind),
         });
     }
     cells
@@ -554,6 +592,7 @@ fn collect_sub_refs(p: &PersonStmt) -> Vec<SubRef<'_>> {
 fn build_sub_cells(sub: &SubRef<'_>, inline_comment: Option<&str>) -> (KindTag, Vec<Cell>) {
     match sub {
         SubRef::Birth(b) => {
+            let kind = KindTag::Birth;
             let mut cells = vec![
                 Cell {
                     text: "birth".to_string(),
@@ -567,12 +606,13 @@ fn build_sub_cells(sub: &SubRef<'_>, inline_comment: Option<&str>) -> (KindTag, 
             if let Some(text) = inline_comment {
                 cells.push(Cell {
                     text: text.to_string(),
-                    col: 2,
+                    col: comment_column(kind),
                 });
             }
-            (KindTag::Birth, cells)
+            (kind, cells)
         }
         SubRef::Adoption(a) => {
+            let kind = KindTag::Adoption;
             let mut cells = vec![
                 Cell {
                     text: "adoption".to_string(),
@@ -587,29 +627,29 @@ fn build_sub_cells(sub: &SubRef<'_>, inline_comment: Option<&str>) -> (KindTag, 
                 AdoptionFieldKind::Start(d) => Some(d),
                 _ => None,
             }) {
-                cells.push(field_cell(FieldName::Start, &date_str(d), 2));
+                cells.push(field_cell(kind, FieldName::Start, &date_str(d)));
             }
             if let Some(d) = a.fields.iter().find_map(|f| match &f.kind {
                 AdoptionFieldKind::End(d) => Some(d),
                 _ => None,
             }) {
-                cells.push(field_cell(FieldName::End, &date_str(d), 3));
+                cells.push(field_cell(kind, FieldName::End, &date_str(d)));
             }
             if let Some(text) = inline_comment {
                 cells.push(Cell {
                     text: text.to_string(),
-                    col: 4,
+                    col: comment_column(kind),
                 });
             }
-            (KindTag::Adoption, cells)
+            (kind, cells)
         }
     }
 }
 
-fn field_cell(name: FieldName, value: &str, col: u8) -> Cell {
+fn field_cell(kind: KindTag, name: FieldName, value: &str) -> Cell {
     Cell {
         text: format!("{}:{}", name.as_str(), value),
-        col,
+        col: field_column(kind, name),
     }
 }
 
