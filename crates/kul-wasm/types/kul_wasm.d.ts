@@ -107,18 +107,18 @@ export interface ExportedGraph {
  *
  * One field today (`kul_version`); the manifest schema evolves alongside
  * the Kul language version per the additivity principle. Adapters
- * (`kul-cli`, `kul-lsp`, `kul-wasm`) are responsible for parsing the
- * on-disk YAML / JS object into this struct; `kul-core` itself never
- * reads the filesystem.
+ * (`kul-cli`, `kul-lsp`, `kul-wasm`) are responsible for loading the
+ * on-disk YAML / JS object before handing it to `kul-core`; `kul-core`
+ * itself never reads the filesystem.
  *
  * Serializes / deserializes with the `kul:` field name (matches the
  * on-disk YAML schema and the JS object the WASM bridge accepts).
  */
 export interface Manifest {
     /**
-     * The Kul language version that the sibling `.kul` files conform to.
-     * Format is `MAJOR.MINOR`, matching the previously-in-grammar version
-     * literal. Surfaced in the export envelope\'s `kul:` field.
+     * The Kul language version that the sibling `.kul` files conform
+     * to. Format is `MAJOR.MINOR`, matching the previously-in-grammar
+     * version literal. Surfaced in the export envelope\'s `kul:` field.
      */
     kul: string;
 }
@@ -158,7 +158,11 @@ export interface ExportedDiagnostic {
     code: string;
     severity: string;
     message: string;
-    primary: ExportedSpan;
+    /**
+     * `None` for unanchored diagnostics (e.g. `KUL-M01`); the message
+     * carries the would-be location in that case.
+     */
+    primary?: ExportedSpan;
     related: ExportedRelated[];
 }
 
@@ -224,6 +228,12 @@ export interface ExportedRelated extends ExportedSpan {
 }
 
 export interface ExportedSpan {
+    /**
+     * Canonical name of the file this span anchors into (the
+     * `InputFile.name` the toolchain originally fed in, or the
+     * manifest\'s `manifest_name` for `KUL-Mxx` codes).
+     */
+    file: string;
     byteStart: number;
     byteEnd: number;
     line: number;
