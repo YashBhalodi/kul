@@ -177,7 +177,14 @@ fn publish_diagnostics_match_kul_core() {
     assert_eq!(params["uri"].as_str().expect("uri"), uri_str);
 
     let lsp_diags = params["diagnostics"].as_array().expect("diagnostics array");
-    let core_diags = kul_core::check(FIXTURE, &kul_core::manifest::Manifest::default()).diagnostics;
+    let inputs = vec![kul_core::ast::InputFile::new("test.kul", FIXTURE)];
+    let core_diags = kul_core::check_with_manifest(
+        "kul.yml",
+        "kul: \"0.1\"\n",
+        &kul_core::manifest::Manifest::default(),
+        &inputs,
+    )
+    .diagnostics;
     let line_index = LineIndex::new(FIXTURE);
 
     assert_eq!(
@@ -215,13 +222,14 @@ fn publish_diagnostics_match_kul_core() {
             })
             .expect("end byte");
 
+        let primary = core.primary.expect("anchored diagnostic");
         assert_eq!(
-            start_byte, core.primary.start,
+            start_byte, primary.span.start,
             "primary start mismatch for {}",
             core.code
         );
         assert_eq!(
-            end_byte, core.primary.end,
+            end_byte, primary.span.end,
             "primary end mismatch for {}",
             core.code
         );

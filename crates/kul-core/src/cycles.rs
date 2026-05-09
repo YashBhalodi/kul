@@ -12,7 +12,7 @@ use std::collections::HashMap;
 
 use crate::ast::PersonStmt;
 use crate::semantic::{ParentLink, ResolvedDocument};
-use crate::span::ByteSpan;
+use crate::span::{ByteSpan, FileId};
 
 #[derive(Debug, Clone)]
 pub struct Cycle<'a> {
@@ -26,7 +26,10 @@ pub struct Cycle<'a> {
     pub link_spans: Vec<ByteSpan>,
 }
 
-pub fn find_cycles<'a>(resolved: &'a ResolvedDocument) -> Vec<Cycle<'a>> {
+/// Find every parenthood cycle reachable from the persons in `file`.
+/// Cycles are scoped per file (parent links resolve only against the same
+/// file under ADR-0014's per-file namespaces).
+pub fn find_cycles<'a>(resolved: &'a ResolvedDocument, file: FileId) -> Vec<Cycle<'a>> {
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum Color {
         White,
@@ -34,8 +37,7 @@ pub fn find_cycles<'a>(resolved: &'a ResolvedDocument) -> Vec<Cycle<'a>> {
         Black,
     }
 
-    // Walk persons in source order so cycle reporting is deterministic.
-    let order: Vec<&'a PersonStmt> = resolved.persons().collect();
+    let order: Vec<&'a PersonStmt> = resolved.persons_in(file).collect();
     let mut color: HashMap<&'a str, Color> = order
         .iter()
         .map(|p| (p.id.name.as_str(), Color::White))
@@ -48,16 +50,13 @@ pub fn find_cycles<'a>(resolved: &'a ResolvedDocument) -> Vec<Cycle<'a>> {
             continue;
         }
 
-        // Each frame: (current node, its parent links, next-link index).
-        // `path_links[i]` is the link span that descended from path[i] to
-        // path[i+1].
         let mut path: Vec<&'a PersonStmt> = Vec::new();
         let mut path_links: Vec<ByteSpan> = Vec::new();
         let mut frames: Vec<(&'a PersonStmt, Vec<ParentLink<'a>>, usize)> = Vec::new();
 
         color.insert(start.id.name.as_str(), Color::Gray);
         path.push(start);
-        frames.push((start, resolved.parents_of(start), 0));
+        frames.push((start, resolved.parents_of(file, start), 0));
 
         while let Some((node, parents, idx)) = frames.last_mut() {
             if *idx >= parents.len() {
@@ -81,11 +80,9 @@ pub fn find_cycles<'a>(resolved: &'a ResolvedDocument) -> Vec<Cycle<'a>> {
                     color.insert(parent.id.name.as_str(), Color::Gray);
                     path.push(parent);
                     path_links.push(link.link_span);
-                    frames.push((parent, resolved.parents_of(parent), 0));
+                    frames.push((parent, resolved.parents_of(file, parent), 0));
                 }
                 Color::Gray => {
-                    // Back-edge: parent is an ancestor of node. The cycle
-                    // is `path[parent_idx..]` plus the closing edge.
                     let parent_idx = path
                         .iter()
                         .position(|&p| std::ptr::eq(p, parent))

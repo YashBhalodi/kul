@@ -5,64 +5,81 @@
 //! is the composition of every implemented rule. Rules query the document
 //! through [`ResolvedDocument`]'s typed methods — they never enumerate
 //! `document.statements` themselves.
+//!
+//! Rules walk `.kul` files one at a time (per-file namespaces, ADR-0014):
+//! references resolve only against the same file, so cross-file lookalikes
+//! (two files each declaring `alice`) are independent.
 
 use crate::ast::{EndReason, Ident, MarriageStmt, Statement};
 use crate::date::{DateLit, before_strict};
-use crate::diagnostic::{Diagnostic, detail};
+use crate::diagnostic::{Diagnostic, detail, fspan};
 use crate::lexer::FieldName;
 use crate::semantic::{EntityKind, EntityRef, ResolvedDocument};
+use crate::span::FileId;
 
 pub fn validate(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    // R02 must run first: it's the source-order pass over raw statements that
-    // reports "no entity with this id," and downstream rules already trust
-    // that resolved spouse/parent links exist. Keeping it at the top of
-    // `validate` preserves the diagnostic ordering R02-then-R03+ that callers
-    // (and snapshot tests) rely on.
-    diagnostics.extend(rule_02_unresolved_references(resolved));
-    diagnostics.extend(rule_03_required_fields(resolved));
-    diagnostics.extend(rule_04_self_marriage(resolved));
-    diagnostics.extend(rule_05_end_consistency(resolved));
-    diagnostics.extend(rule_06_died_before_born(resolved));
-    diagnostics.extend(rule_07_marriage_end_before_start(resolved));
-    diagnostics.extend(rule_08_adoption_end_before_start(resolved));
-    diagnostics.extend(rule_09_marriage_before_spouse_born(resolved));
-    diagnostics.extend(rule_10_spouse_died_before_marriage(resolved));
-    diagnostics.extend(rule_11_bio_child_born_before_parent(resolved));
-    diagnostics.extend(rule_12_adoption_before_adopter_born(resolved));
-    diagnostics.extend(rule_13_parenthood_cycles(resolved));
+    for file in resolved.document().kul_file_ids() {
+        // R02 must run first inside each file: it's the source-order pass
+        // over raw statements that reports "no entity with this id," and
+        // downstream rules already trust that resolved spouse/parent
+        // links exist. Keeping it at the top of the per-file walk
+        // preserves the diagnostic ordering R02-then-R03+ that callers
+        // (and snapshot tests) rely on.
+        diagnostics.extend(rule_02_unresolved_references(resolved, file));
+        diagnostics.extend(rule_03_required_fields(resolved, file));
+        diagnostics.extend(rule_04_self_marriage(resolved, file));
+        diagnostics.extend(rule_05_end_consistency(resolved, file));
+        diagnostics.extend(rule_06_died_before_born(resolved, file));
+        diagnostics.extend(rule_07_marriage_end_before_start(resolved, file));
+        diagnostics.extend(rule_08_adoption_end_before_start(resolved, file));
+        diagnostics.extend(rule_09_marriage_before_spouse_born(resolved, file));
+        diagnostics.extend(rule_10_spouse_died_before_marriage(resolved, file));
+        diagnostics.extend(rule_11_bio_child_born_before_parent(resolved, file));
+        diagnostics.extend(rule_12_adoption_before_adopter_born(resolved, file));
+        diagnostics.extend(rule_13_parenthood_cycles(resolved, file));
+    }
     diagnostics
 }
 
 /// Rule 2 — every marriage spouse, `birth` ref, and `adoption` ref must
-/// resolve to a declared id of the appropriate kind.
-///
-/// Iterates the raw statement list (not the per-kind resolved iterators) so
-/// diagnostics surface in source order, interleaving spouse refs and
-/// birth/adoption refs as they appear in the document.
-pub fn rule_02_unresolved_references(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+/// resolve to a declared id of the appropriate kind, *within the same
+/// file*. Cross-file references are not supported in v1; the same name
+/// appearing in another file does not satisfy resolution here.
+pub fn rule_02_unresolved_references(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for stmt in resolved.statements() {
+    for stmt in resolved.statements_in(file) {
         match stmt {
             Statement::Person(p) => {
                 if let Some(birth) = &p.birth {
-                    check_marriage_ref(resolved, &birth.marriage_ref, "birth", &mut out);
+                    check_marriage_ref(resolved, file, &birth.marriage_ref, "birth", &mut out);
                 }
                 for adoption in &p.adoptions {
-                    check_marriage_ref(resolved, &adoption.marriage_ref, "adoption", &mut out);
+                    check_marriage_ref(
+                        resolved,
+                        file,
+                        &adoption.marriage_ref,
+                        "adoption",
+                        &mut out,
+                    );
                 }
             }
             Statement::Marriage(m) => {
-                check_person_ref(resolved, &m.spouse_a, &mut out);
-                check_person_ref(resolved, &m.spouse_b, &mut out);
+                check_person_ref(resolved, file, &m.spouse_a, &mut out);
+                check_person_ref(resolved, file, &m.spouse_b, &mut out);
             }
         }
     }
     out
 }
 
-fn check_person_ref(resolved: &ResolvedDocument, ident: &Ident, out: &mut Vec<Diagnostic>) {
-    match resolved.entity(&ident.name) {
+fn check_person_ref(
+    resolved: &ResolvedDocument,
+    file: FileId,
+    ident: &Ident,
+    out: &mut Vec<Diagnostic>,
+) {
+    match resolved.entity(file, &ident.name) {
         None => {
             out.push(Diagnostic::error(
                 "KUL-R02",
@@ -70,7 +87,7 @@ fn check_person_ref(resolved: &ResolvedDocument, ident: &Ident, out: &mut Vec<Di
                     "no person with id `{}` is declared in this file — check for a typo, or add a `person {} …` declaration",
                     ident.name, ident.name
                 ),
-                ident.span,
+                fspan(file, ident.span),
             ));
         }
         Some(EntityRef {
@@ -80,6 +97,7 @@ fn check_person_ref(resolved: &ResolvedDocument, ident: &Ident, out: &mut Vec<Di
         Some(EntityRef {
             kind: EntityKind::Marriage,
             id: prior,
+            file: prior_file,
         }) => {
             out.push(
                 Diagnostic::error(
@@ -88,9 +106,12 @@ fn check_person_ref(resolved: &ResolvedDocument, ident: &Ident, out: &mut Vec<Di
                         "`{}` is a marriage, not a person — spouses must reference declared persons",
                         ident.name
                     ),
-                    ident.span,
+                    fspan(file, ident.span),
                 )
-                .with_related(prior.span, format!("`{}` declared as a marriage here", ident.name)),
+                .with_related(
+                    fspan(prior_file, prior.span),
+                    format!("`{}` declared as a marriage here", ident.name),
+                ),
             );
         }
     }
@@ -98,11 +119,12 @@ fn check_person_ref(resolved: &ResolvedDocument, ident: &Ident, out: &mut Vec<Di
 
 fn check_marriage_ref(
     resolved: &ResolvedDocument,
+    file: FileId,
     ident: &Ident,
     role: &str,
     out: &mut Vec<Diagnostic>,
 ) {
-    match resolved.entity(&ident.name) {
+    match resolved.entity(file, &ident.name) {
         None => {
             out.push(Diagnostic::error(
                 "KUL-R02",
@@ -110,7 +132,7 @@ fn check_marriage_ref(
                     "no marriage with id `{}` is declared in this file — check for a typo, or add a `marriage {} …` declaration (the `{role}` link expects a marriage id)",
                     ident.name, ident.name
                 ),
-                ident.span,
+                fspan(file, ident.span),
             ));
         }
         Some(EntityRef {
@@ -120,6 +142,7 @@ fn check_marriage_ref(
         Some(EntityRef {
             kind: EntityKind::Person,
             id: prior,
+            file: prior_file,
         }) => {
             out.push(
                 Diagnostic::error(
@@ -128,9 +151,12 @@ fn check_marriage_ref(
                         "`{}` is a person, not a marriage — `{role}` links must reference a marriage id",
                         ident.name
                     ),
-                    ident.span,
+                    fspan(file, ident.span),
                 )
-                .with_related(prior.span, format!("`{}` declared as a person here", ident.name)),
+                .with_related(
+                    fspan(prior_file, prior.span),
+                    format!("`{}` declared as a person here", ident.name),
+                ),
             );
         }
     }
@@ -141,9 +167,9 @@ fn check_marriage_ref(
 /// A `person` MUST have `name` and `gender`.
 /// A `marriage` MUST have `start`. (The two spouses are positional and
 /// enforced by the grammar — a missing spouse is a parse error.)
-pub fn rule_03_required_fields(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+pub fn rule_03_required_fields(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for p in resolved.persons() {
+    for p in resolved.persons_in(file) {
         if !p.has_field(FieldName::Name) {
             out.push(
                 Diagnostic::error(
@@ -152,7 +178,7 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
                         "person `{}` needs a `name:` field — add `name:\"…\"` to the declaration",
                         p.id.name
                     ),
-                    p.id.span,
+                    fspan(file, p.id.span),
                 )
                 .with_detail(detail::R03_MISSING_NAME),
             );
@@ -165,13 +191,13 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
                         "person `{}` needs a `gender:` field — use `gender:male`, `gender:female`, or `gender:other`",
                         p.id.name
                     ),
-                    p.id.span,
+                    fspan(file, p.id.span),
                 )
                 .with_detail(detail::R03_MISSING_GENDER),
             );
         }
     }
-    for m in resolved.marriages() {
+    for m in resolved.marriages_in(file) {
         if m.start().is_none() {
             out.push(
                 Diagnostic::error(
@@ -180,7 +206,7 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
                         "marriage `{}` needs a `start:` date — add `start:YYYY` (or a fuller `YYYY-MM-DD`)",
                         m.id.name
                     ),
-                    m.id.span,
+                    fspan(file, m.id.span),
                 )
                 .with_detail(detail::R03_MISSING_MARRIAGE_START),
             );
@@ -191,34 +217,34 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
 
 /// Rule 4 — self-marriage. A marriage's two spouse identifiers must be
 /// distinct.
-pub fn rule_04_self_marriage(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+pub fn rule_04_self_marriage(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for m in resolved.marriages() {
+    for m in resolved.marriages_in(file) {
         if m.spouse_a.name == m.spouse_b.name {
-            out.push(self_marriage_diagnostic(m));
+            out.push(self_marriage_diagnostic(file, m));
         }
     }
     out
 }
 
-fn self_marriage_diagnostic(m: &MarriageStmt) -> Diagnostic {
+fn self_marriage_diagnostic(file: FileId, m: &MarriageStmt) -> Diagnostic {
     Diagnostic::error(
         "KUL-R04",
         format!(
             "marriage `{}` lists `{}` as both spouses — spouses must be distinct people",
             m.id.name, m.spouse_a.name
         ),
-        m.spouse_b.span,
+        fspan(file, m.spouse_b.span),
     )
-    .with_related(m.spouse_a.span, "first spouse listed here")
+    .with_related(fspan(file, m.spouse_a.span), "first spouse listed here")
 }
 
 /// Rule 5 — `end` and `end_reason` must both be present or both absent.
 /// Rule 5b (KUL-R05b) — `end_reason` value must be in the v1 vocabulary
 /// (currently just `divorce`).
-pub fn rule_05_end_consistency(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+pub fn rule_05_end_consistency(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for m in resolved.marriages() {
+    for m in resolved.marriages_in(file) {
         match (m.end(), m.end_reason()) {
             (Some(end), None) => {
                 out.push(
@@ -228,15 +254,12 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
                             "marriage `{}` has an `end:` date but no `end_reason:` — add `end_reason:divorce`",
                             m.id.name
                         ),
-                        end.span,
+                        fspan(file, end.span),
                     )
                     .with_detail(detail::R05_END_WITHOUT_END_REASON),
                 );
             }
             (None, Some(reason)) => {
-                // Anchor on the field's full span (including the `end_reason:`
-                // keyword), not the value alone, so the suggestion to remove it
-                // covers the right text.
                 let field_span = m
                     .fields
                     .iter()
@@ -250,7 +273,7 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
                             "marriage `{}` has an `end_reason:` but no `end:` date — add an `end:` date or remove this field",
                             m.id.name
                         ),
-                        field_span,
+                        fspan(file, field_span),
                     )
                     .with_detail(detail::R05_END_REASON_WITHOUT_END),
                 );
@@ -263,7 +286,7 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
             out.push(Diagnostic::error(
                 "KUL-R05b",
                 format!("`end_reason:{raw}` isn't recognized — the only value in v1 is `divorce`"),
-                reason.span,
+                fspan(file, reason.span),
             ));
         }
     }
@@ -271,11 +294,12 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
 }
 
 /// Rule 6 — `person.died < person.born`.
-pub fn rule_06_died_before_born(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+pub fn rule_06_died_before_born(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     resolved
-        .persons()
+        .persons_in(file)
         .filter_map(|p| {
             temporal_violation(
+                file,
                 "KUL-R06",
                 p.died(),
                 p.born(),
@@ -288,11 +312,15 @@ pub fn rule_06_died_before_born(resolved: &ResolvedDocument) -> Vec<Diagnostic> 
 }
 
 /// Rule 7 — `marriage.end < marriage.start`.
-pub fn rule_07_marriage_end_before_start(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+pub fn rule_07_marriage_end_before_start(
+    resolved: &ResolvedDocument,
+    file: FileId,
+) -> Vec<Diagnostic> {
     resolved
-        .marriages()
+        .marriages_in(file)
         .filter_map(|m| {
             temporal_violation(
+                file,
                 "KUL-R07",
                 m.end(),
                 m.start(),
@@ -305,11 +333,15 @@ pub fn rule_07_marriage_end_before_start(resolved: &ResolvedDocument) -> Vec<Dia
 }
 
 /// Rule 8 — `adoption.end < adoption.start`.
-pub fn rule_08_adoption_end_before_start(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+pub fn rule_08_adoption_end_before_start(
+    resolved: &ResolvedDocument,
+    file: FileId,
+) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for p in resolved.persons() {
+    for p in resolved.persons_in(file) {
         for adoption in &p.adoptions {
             if let Some(d) = temporal_violation(
+                file,
                 "KUL-R08",
                 adoption.end(),
                 adoption.start(),
@@ -330,11 +362,15 @@ pub fn rule_08_adoption_end_before_start(resolved: &ResolvedDocument) -> Vec<Dia
 }
 
 /// Rule 9 — `marriage.start < S.born` for either spouse `S`.
-pub fn rule_09_marriage_before_spouse_born(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+pub fn rule_09_marriage_before_spouse_born(
+    resolved: &ResolvedDocument,
+    file: FileId,
+) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for m in resolved.marriages() {
-        for spouse in resolved.spouses_of(m) {
+    for m in resolved.marriages_in(file) {
+        for spouse in resolved.spouses_of(file, m) {
             if let Some(d) = temporal_violation(
+                file,
                 "KUL-R09",
                 m.start(),
                 spouse.born(),
@@ -355,15 +391,15 @@ pub fn rule_09_marriage_before_spouse_born(resolved: &ResolvedDocument) -> Vec<D
 }
 
 /// Rule 10 — `marriage.start > S.died` for either spouse `S`.
-pub fn rule_10_spouse_died_before_marriage(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+pub fn rule_10_spouse_died_before_marriage(
+    resolved: &ResolvedDocument,
+    file: FileId,
+) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for m in resolved.marriages() {
-        for spouse in resolved.spouses_of(m) {
-            // Of all temporal rules this is the one that anchors on the
-            // later date (the marriage `start:` is "wrong" because it
-            // came after the spouse's death, not because it came too
-            // early). Hence Anchor::Later.
+    for m in resolved.marriages_in(file) {
+        for spouse in resolved.spouses_of(file, m) {
             if let Some(d) = temporal_violation(
+                file,
                 "KUL-R10",
                 spouse.died(),
                 m.start(),
@@ -383,17 +419,20 @@ pub fn rule_10_spouse_died_before_marriage(resolved: &ResolvedDocument) -> Vec<D
     out
 }
 
-/// Rule 11 — bio child born before either bio parent. Parents are the
-/// spouses of the marriage referenced by the child's `birth` sub-statement.
-pub fn rule_11_bio_child_born_before_parent(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+/// Rule 11 — bio child born before either bio parent.
+pub fn rule_11_bio_child_born_before_parent(
+    resolved: &ResolvedDocument,
+    file: FileId,
+) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for child in resolved.persons() {
+    for child in resolved.persons_in(file) {
         let Some(birth) = &child.birth else { continue };
-        let Some(marriage) = resolved.marriage(&birth.marriage_ref.name) else {
+        let Some(marriage) = resolved.marriage(file, &birth.marriage_ref.name) else {
             continue;
         };
-        for parent in resolved.spouses_of(marriage) {
+        for parent in resolved.spouses_of(file, marriage) {
             if let Some(d) = temporal_violation(
+                file,
                 "KUL-R11",
                 child.born(),
                 parent.born(),
@@ -414,15 +453,19 @@ pub fn rule_11_bio_child_born_before_parent(resolved: &ResolvedDocument) -> Vec<
 }
 
 /// Rule 12 — `adoption.start < P.born` for either adoptive parent `P`.
-pub fn rule_12_adoption_before_adopter_born(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+pub fn rule_12_adoption_before_adopter_born(
+    resolved: &ResolvedDocument,
+    file: FileId,
+) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for child in resolved.persons() {
+    for child in resolved.persons_in(file) {
         for adoption in &child.adoptions {
-            let Some(marriage) = resolved.marriage(&adoption.marriage_ref.name) else {
+            let Some(marriage) = resolved.marriage(file, &adoption.marriage_ref.name) else {
                 continue;
             };
-            for parent in resolved.spouses_of(marriage) {
+            for parent in resolved.spouses_of(file, marriage) {
                 if let Some(d) = temporal_violation(
+                    file,
                     "KUL-R12",
                     adoption.start(),
                     parent.born(),
@@ -443,27 +486,14 @@ pub fn rule_12_adoption_before_adopter_born(resolved: &ResolvedDocument) -> Vec<
     out
 }
 
-/// Which side of the chronological pair the diagnostic anchors on. Most
-/// temporal rules anchor on the date that came too *early* (R06: `died`
-/// came before `born`). R10 is the exception — it anchors on the date
-/// that came too *late* (the marriage `start:` came after the spouse's
-/// death).
 #[derive(Copy, Clone)]
 enum Anchor {
     Earlier,
     Later,
 }
 
-/// Build a temporal-ordering violation diagnostic.
-///
-/// Fires when both dates are present and `earlier` strictly precedes
-/// `later` (i.e. the pair is genuinely out of order). The diagnostic
-/// anchors on whichever side the rule chose to highlight as "the
-/// surprising date"; the other side is carried as a related span.
-///
-/// Both message closures run only on a real violation, so the
-/// allocation-heavy `format!`s stay off the happy path.
 fn temporal_violation(
+    file: FileId,
     code: &'static str,
     earlier: Option<&DateLit>,
     later: Option<&DateLit>,
@@ -481,16 +511,18 @@ fn temporal_violation(
         Anchor::Later => (later, earlier),
     };
     Some(
-        Diagnostic::error(code, message(), primary.span)
-            .with_related(related.span, related_label()),
+        Diagnostic::error(code, message(), fspan(file, primary.span))
+            .with_related(fspan(file, related.span), related_label()),
     )
 }
 
-/// Rule 13 — no person may appear as their own ancestor in the parent graph
-/// (union of bio and adoptive parent links).
-pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+/// Rule 13 — no person may appear as their own ancestor in the parent
+/// graph (union of bio and adoptive parent links). Cycles are scoped per
+/// file (per ADR-0014), since parent links resolve only against the same
+/// file.
+pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for cycle in crate::cycles::find_cycles(resolved) {
+    for cycle in crate::cycles::find_cycles(resolved, file) {
         let head = *cycle
             .members
             .first()
@@ -512,9 +544,9 @@ pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument) -> Vec<Diagnostic>
                 parts.join(" → ")
             )
         };
-        let mut diag = Diagnostic::error("KUL-R13", message, head.id.span);
+        let mut diag = Diagnostic::error("KUL-R13", message, fspan(file, head.id.span));
         for span in cycle.link_spans {
-            diag = diag.with_related(span, "parent link in the cycle");
+            diag = diag.with_related(fspan(file, span), "parent link in the cycle");
         }
         out.push(diag);
     }

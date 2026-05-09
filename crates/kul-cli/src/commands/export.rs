@@ -9,6 +9,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use kul_core::ast::InputFile;
 use kul_core::export::{ExportFormat, ExportOptions, export};
 
 use crate::commands::manifest::load_for as load_manifest;
@@ -63,16 +64,16 @@ pub fn run(opts: Options) -> ExitCode {
 fn export_one(path: &Path, opts: &Options) -> io::Result<bool> {
     let source = std::fs::read_to_string(path)?;
     let label = path.to_string_lossy().into_owned();
-    let manifest = match load_manifest(path) {
-        Ok(m) => m,
-        Err(err) => {
-            eprintln!("kul: {label}: {err}");
-            return Ok(true);
+    let manifest = load_manifest(path);
+    if !manifest.preface.is_empty() {
+        for d in &manifest.preface {
+            eprintln!("kul: {label}: {}: {}", d.code, d.message);
         }
-    };
-    let check = kul_core::check(&source, &manifest);
+        return Ok(true);
+    }
+    let inputs = vec![InputFile::new(label, source)];
+    let check = kul_core::check(manifest.path_label, &manifest.yaml, &inputs);
     let envelope = export(
-        &source,
         &check,
         ExportOptions {
             format: opts.format.into(),

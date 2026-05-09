@@ -13,6 +13,7 @@ use kul_core::ast::{AdoptionSub, BirthSub, MarriageStmt, PersonStmt, Statement};
 use kul_core::field_meta::{self, ValueKind};
 use kul_core::semantic::ResolvedDocument;
 use kul_core::span::ByteSpan;
+use kul_core::span::FileId;
 use tower_lsp::lsp_types::{
     Position, SemanticToken, SemanticTokenType, SemanticTokens, SemanticTokensLegend,
 };
@@ -54,9 +55,13 @@ struct RawToken {
 /// Build the semantic-token stream for the document. The result is an
 /// LSP-encoded `SemanticTokens` payload — `data` is a flat `Vec<u32>` of
 /// 5-tuples after delta encoding.
-pub fn semantic_tokens(resolved: &ResolvedDocument, line_index: &LineIndex) -> SemanticTokens {
+pub fn semantic_tokens(
+    file: FileId,
+    resolved: &ResolvedDocument,
+    line_index: &LineIndex,
+) -> SemanticTokens {
     let mut raw: Vec<RawToken> = Vec::new();
-    for stmt in resolved.statements() {
+    for stmt in resolved.statements_in(file) {
         match stmt {
             Statement::Person(p) => emit_person(&mut raw, p),
             Statement::Marriage(m) => emit_marriage(&mut raw, m),
@@ -208,7 +213,6 @@ mod tests {
     use kul_core::lexer::tokenize;
     use kul_core::parser::parse;
     use kul_core::semantic::resolve;
-    use std::sync::Arc;
 
     /// Decoded view of a token: the kind name (looked up via the legend) and
     /// the literal source slice it covers. Snapshot-friendly, and a much
@@ -296,10 +300,21 @@ mod tests {
 
     fn tokens_for(source: &str) -> (SemanticTokens, Vec<Decoded>) {
         let tokens = tokenize(source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
         let line_index = LineIndex::new(source);
-        let semantic = semantic_tokens(&resolved, &line_index);
+        let semantic = semantic_tokens(file, &resolved, &line_index);
         let decoded = decode(source, &semantic);
         (semantic, decoded)
     }

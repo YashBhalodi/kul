@@ -2,10 +2,24 @@
 
 use kul_core::lexer::tokenize;
 use kul_core::parser::parse;
+use kul_core::span::FileId;
+
+/// A standalone container the parser snapshots stringify. Mirrors the
+/// shape of the pre-issue-70 `ast::Document` (a `statements` field) so
+/// the AST-only snapshots remain byte-identical across the file-identity
+/// refactor — that refactor moved `Document` to a multi-file shape, but
+/// the parser-level snapshots care only about the per-file
+/// statement-list view.
+#[derive(Debug)]
+#[allow(dead_code)]
+struct Document {
+    statements: Vec<kul_core::ast::Statement>,
+}
 
 fn render(source: &str) -> String {
     let tokens = tokenize(source);
-    let (doc, diags) = parse(&tokens);
+    let (statements, diags) = parse(&tokens, FileId::MANIFEST);
+    let doc = Document { statements };
     let mut out = String::new();
     out.push_str(&format!("ast: {doc:#?}\n"));
     out.push_str(&format!("diagnostics: {diags:#?}\n"));
@@ -103,7 +117,7 @@ fn parse_person_with_two_birth_diagnoses() {
 #[test]
 fn unquoted_string_value_message_hints_at_quotes() {
     let tokens = tokenize("person alice name:Alice gender:female\n");
-    let (_, diags) = parse(&tokens);
+    let (_, diags) = parse(&tokens, FileId::MANIFEST);
     let p07: Vec<_> = diags.iter().filter(|d| d.code == "KUL-P07").collect();
     assert_eq!(p07.len(), 1, "expected one KUL-P07, got: {diags:#?}");
     let msg = &p07[0].message;

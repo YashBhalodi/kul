@@ -55,21 +55,21 @@ mod cells;
 mod emit;
 mod source;
 
-use crate::ast::Document;
+use crate::ast::KulFile;
 
 use emit::Emitter;
 use source::SourceFormatter;
 
-/// Format a parsed `Document` to canonical Kul source.
+/// Format a parsed [`KulFile`] to canonical Kul source.
 ///
-/// The output ends with a trailing newline if the document is non-empty.
 /// Comments are not preserved — the AST doesn't model them, so the only
 /// caller who should reach for this entry point is code that builds a
-/// `Document` in memory (e.g. a code-generation tool). For
-/// source-to-source formatting use [`format_source`].
-pub fn format(doc: &Document) -> String {
+/// `KulFile` in memory (e.g. a code-generation tool). For
+/// source-to-source formatting use [`format_source`]. The output ends
+/// with a trailing newline if the file is non-empty.
+pub fn format(file: &KulFile) -> String {
     let mut emitter = Emitter::new();
-    for stmt in &doc.statements {
+    for stmt in &file.statements {
         emitter.emit_statement(stmt);
     }
     emitter.finish()
@@ -77,17 +77,25 @@ pub fn format(doc: &Document) -> String {
 
 /// Format a Kul source string to its canonical form.
 ///
-/// Comments are preserved byte-for-byte per [ADR 0004] rule 7. The function
-/// lexes and parses internally; if the parser produces a partial AST
-/// (because of recoverable parse errors), this still returns *some* output
-/// reflecting what was parseable. Callers that need to reject malformed
-/// input should run [`crate::check`] first and bail on parse-error
-/// diagnostics.
+/// Per ADR-0011, formatting is per-file (project-scoped canonicalization
+/// is out of scope). Comments are preserved byte-for-byte per
+/// [ADR 0004] rule 7. The function lexes and parses internally; if the
+/// parser produces a partial AST (because of recoverable parse errors),
+/// this still returns *some* output reflecting what was parseable.
+/// Callers that need to reject malformed input should run
+/// [`crate::check`] first and bail on parse-error diagnostics.
 ///
 /// [ADR 0004]: https://github.com/YashBhalodi/kul/blob/main/docs/adr/0004-formatter-canonical-rules.md
 pub fn format_source(source: &str) -> String {
-    let result = crate::check(source, &crate::manifest::Manifest::default());
-    SourceFormatter::new(source, result.document()).run()
+    use crate::span::FileId;
+    let tokens = crate::lexer::tokenize(source);
+    let (statements, _) = crate::parser::parse(&tokens, FileId(1));
+    let file = KulFile {
+        name: String::new(),
+        source: source.to_string(),
+        statements,
+    };
+    SourceFormatter::new(source, &file).run()
 }
 
 #[cfg(test)]
@@ -96,8 +104,12 @@ mod tests {
 
     #[test]
     fn format_empty_doc_is_empty_string() {
-        let result = crate::check("", &crate::manifest::Manifest::default());
-        assert_eq!(format(result.document()), "");
+        let file = KulFile {
+            name: String::new(),
+            source: String::new(),
+            statements: Vec::new(),
+        };
+        assert_eq!(format(&file), "");
     }
 
     #[test]

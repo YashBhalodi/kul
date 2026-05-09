@@ -58,7 +58,7 @@ One of the thirteen spec-defined checks (KUL-R01 through KUL-R13). See [`spec/04
 
 ### Diagnostic
 
-An error or warning emitted by the validator. Carries a **code** (`KUL-Rxx`), a **severity**, a **message**, a **primary span**, and optional **related** spans. Rendered to the user via `miette` (CLI) or translated to LSP diagnostics (editor).
+An error or warning emitted by the manifest validator pass, the parser, the resolver, or the validator. Carries a **code** (`KUL-Mxx` for manifest, `KUL-Lxx`/`KUL-Pxx` for lex/parse, `KUL-Rxx` for validator rules), a **severity**, a **message**, an optional **primary** [`FileSpan`](#filespan), and optional **related** spans (each anchored to a `FileSpan`). The optional primary covers `KUL-M01` (manifest-not-found) — the only diagnostic with no source position to anchor at. Rendered to the user via `miette` (CLI) or translated to LSP diagnostics (editor); the latter filters to the active URI's `FileId`.
 
 ### ExportEnvelope
 
@@ -70,7 +70,7 @@ The `kul.yml` file alongside one or more `.kul` files. Carries the Kul language 
 
 ### Manifest
 
-The typed Rust representation of the project manifest. Lives at `crates/kul-core/src/manifest.rs` as `pub struct Manifest { pub kul_version: String }`. Adapters (`kul-cli`, `kul-lsp`, `kul-wasm`) parse the on-disk YAML or JS object into this struct and pass it to `kul_core::check` — `kul-core` itself never reads the filesystem.
+The typed Rust representation of the project manifest. Lives at `crates/kul-core/src/manifest.rs` as `pub struct Manifest { pub kul_version: String }`. Adapters (`kul-cli`, `kul-lsp`, `kul-wasm`) load the on-disk YAML and hand the **raw bytes** to `kul_core::check` (or hand a typed `Manifest` to `kul_core::check_with_manifest` from the WASM bridge); `kul-core` itself never reads the filesystem. The `manifest::validate(yaml, file)` pass produces a typed `Manifest` plus diagnostics with normative `KUL-M01..M05` codes anchored at the manifest's [`FileId`](#fileid) (per [ADR-0014](./docs/adr/0014-file-identity-and-per-file-namespaces.md)).
 
 ### CheckEnvelope
 
@@ -88,17 +88,29 @@ The `schema:` integer on a success [`ExportEnvelope`](#exportenvelope). Discrimi
 
 These names appear in code, ADRs, and architecture discussion.
 
+### KulFile
+
+One parsed `.kul` source file: name, raw source bytes, and a list of **statements**. Type lives at `crates/kul-core/src/ast.rs` (introduced by [ADR-0014](./docs/adr/0014-file-identity-and-per-file-namespaces.md)). AST nodes inside a `KulFile` carry bare [`ByteSpan`](#span--bytespan)s — their owning `KulFile` provides file context implicitly.
+
 ### Document
 
-The AST root: a list of **statements**. Carries the source `&str` only by reference (`Document<'a>`). Type lives at `crates/kul-core/src/ast.rs`. The Kul language version the document targets is project-level metadata held in the [`Manifest`](#manifest), not on the AST itself.
+The multi-file project container: the [`Manifest`](#manifest) plus zero or more [`KulFile`](#kulfile)s, each addressable by a [`FileId`](#fileid). Type lives at `crates/kul-core/src/ast.rs`. Each `KulFile` is held behind an `Arc` so callers can keep cheap shared handles. At v1, the toolchain only ever constructs N=1 `kul_files`; the multi-file shape exists so subsequent issues (cross-`.kul`-file resolution, document merging) can build on file-aware spans without further breaking changes ([ADR-0014](./docs/adr/0014-file-identity-and-per-file-namespaces.md)).
 
 ### Statement
 
 The two top-level AST nodes: `Statement::Person(PersonStmt)` and `Statement::Marriage(MarriageStmt)`. Sub-statements (birth, adoption) are nested inside a `PersonStmt`, not top-level.
 
+### FileId
+
+An opaque `Copy` newtype indexing into a [`Document`](#document)'s files (`crates/kul-core/src/span.rs`). `FileId::MANIFEST` (= `FileId(0)`) is the project manifest by convention; subsequent ids are the `.kul` files in input order. Adapters and tests reach for `FileId::MANIFEST` or read ids out of an existing `FileSpan`; `FileId::from_raw(u32)` is available for fixture construction.
+
 ### Span / ByteSpan
 
-A `(start, end)` byte range into the source string. Every AST node carries one. Used for diagnostics, hover ranges, goto-definition targets, completion contexts. Type lives at `crates/kul-core/src/span.rs`.
+A `(start, end)` byte range into a single source string. Every AST node carries one. Used for hover ranges, goto-definition targets, completion contexts. Type lives at `crates/kul-core/src/span.rs`.
+
+### FileSpan
+
+A `(file: FileId, span: ByteSpan)` pair: the project-wide locator a [`Diagnostic`](#diagnostic) anchors on, and the shape of `EntityRef.span` and `EntityNode.ident_span`. Lives at `crates/kul-core/src/span.rs`. Decouples a span from the implicit "this file" context that AST nodes can rely on; introduced by [ADR-0014](./docs/adr/0014-file-identity-and-per-file-namespaces.md).
 
 ### Lexer / Parser
 
@@ -106,13 +118,13 @@ Two passes in `crates/kul-core/src/`. The lexer produces a flat token stream (`T
 
 ### Resolver
 
-The function `kul_core::semantic::resolve(&Document) -> ResolvedDocument`. Builds the id-to-statement indexes and reports unresolved references (rule 02) inline. Lives at `crates/kul-core/src/semantic.rs`.
+The function `kul_core::semantic::resolve(Arc<Document>) -> (ResolvedDocument, Vec<Diagnostic>)`. Walks every [`KulFile`](#kulfile) in the [`Document`](#document), builds the per-file id-to-statement indexes, and reports duplicate ids (R01) inline. Lives at `crates/kul-core/src/semantic.rs`.
 
 ### ResolvedDocument
 
 The **kinship-query seam** (per [ADR-0001](./docs/adr/0001-resolved-document-as-query-seam.md)). All cross-reference questions ("who are this person's parents?", "is this id declared?", "who are the spouses of this marriage?") are answered by methods on this type. Validator rules and LSP features query through it; raw AST traversal is reserved for the seam's implementation, not its callers.
 
-Owns its `Document` via `Arc<Document>` (per [ADR-0007](./docs/adr/0007-resolved-document-owns-document.md)) so the resolved view can be cached alongside other artifacts. The id index keys by owned `String` mapping to a private `ResolvedEntity { kind, statement_idx }` value; query methods rebuild the borrowed view (`&PersonStmt`, `EntityRef<'_>`) on demand.
+Owns its [`Document`](#document) via `Arc<Document>` (per [ADR-0007](./docs/adr/0007-resolved-document-owns-document.md)) so the resolved view can be cached alongside other artifacts. The id index is **per-file** (per [ADR-0014](./docs/adr/0014-file-identity-and-per-file-namespaces.md)): `resolved.person(file, id)`, `resolved.marriage(file, id)`, `resolved.entity(file, id)` all take a [`FileId`](#fileid). Iteration queries (`persons()`, `marriages()`, `statements()`) walk every `.kul` file; `_in(file)` variants restrict to one file. R01 fires only within the same file; cross-file resolution is out of scope for v1.
 
 ### Validator
 

@@ -139,6 +139,8 @@ fn validate_malformed_manifest_errors() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("alice.kul");
     std::fs::write(&path, "person alice name:\"Alice\" gender:female\n").unwrap();
+    // YAML parses (a list), but the `kul:` value isn't a recognized
+    // language version — KUL-M04 fires.
     std::fs::write(dir.join("kul.yml"), "kul: [not-a-string]\n").unwrap();
     Command::cargo_bin("kul")
         .unwrap()
@@ -147,7 +149,7 @@ fn validate_malformed_manifest_errors() {
         .assert()
         .failure()
         .code(1)
-        .stderr(contains("parse"));
+        .stderr(contains("KUL-M04"));
 }
 
 #[test]

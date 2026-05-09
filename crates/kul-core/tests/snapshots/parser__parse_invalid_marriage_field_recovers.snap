@@ -107,10 +107,17 @@ diagnostics: [
         code: "KUL-P10",
         severity: Error,
         message: "field `name` isn't valid on `marriage` — valid fields are `start:`, `end:`, and `end_reason:`",
-        primary: ByteSpan {
-            start: 25,
-            end: 29,
-        },
+        primary: Some(
+            FileSpan {
+                file: FileId(
+                    0,
+                ),
+                span: ByteSpan {
+                    start: 25,
+                    end: 29,
+                },
+            },
+        ),
         related: [],
         detail: None,
     },

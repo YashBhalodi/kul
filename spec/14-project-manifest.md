@@ -44,13 +44,19 @@ Given an input `.kul` file at path `<dir>/<file>.kul`:
 
 ## 14.4 What tools MUST do on missing or malformed manifest
 
-A conforming tool MUST report the manifest failure to its caller before any kinship validation. Each adapter chooses an appropriate channel:
+A conforming tool MUST report the manifest failure to its caller before any kinship validation. Manifest diagnostics carry normative `KUL-Mxx` codes (defined in [Section 7](./07-validation-rules.md)) and flow through the same diagnostic infrastructure as `.kul`-side rules:
 
-- `kul-cli` writes a clear stderr message and exits non-zero.
-- `kul-lsp` publishes a single synthetic LSP `Diagnostic` at byte `0..1` of the `.kul` URI explaining the manifest issue; semantic and validation are skipped (parse-only mode so syntax highlighting still works).
-- `@kullang/wasm` raises a typed exception when the JS-side manifest object fails to deserialize.
+- `KUL-M01` — manifest not found at expected path. Unanchored; the would-be path is in the message.
+- `KUL-M02` — manifest YAML malformed. Anchors at the line/column the YAML parser reported.
+- `KUL-M03` — manifest is well-formed YAML but missing the required `kul:` field. Anchors at the manifest start.
+- `KUL-M04` — manifest's `kul:` value is not a recognized Kul language version. Anchors at the value.
+- `KUL-M05` — manifest carries an unknown top-level field. Severity warning; anchors at the field key.
 
-Specific diagnostic codes for manifest errors are not normative in this spec version. The unified diagnostic infrastructure that gives manifest errors first-class `KUL-Mxx` codes lands with the multi-file refactor that follows this one.
+Each adapter chooses an appropriate surface for these diagnostics:
+
+- `kul-cli` renders them through the standard `RenderableDiagnostic` path with line/column anchors into `kul.yml`.
+- `kul-lsp` filters them out of the `.kul`-URI squiggle list (the manifest is a different file from the `.kul` file the editor has open) but they remain available through the `kul/export` failure-envelope path.
+- `@kullang/wasm` surfaces them in the `CheckEnvelope.diagnostics` array; structurally-malformed JS manifest objects continue to raise a `tsify` exception on the bridge boundary because that's a JS type error, not a content error.
 
 ---
 

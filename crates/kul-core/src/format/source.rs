@@ -7,7 +7,7 @@
 //! entry point in [`super`] uses this; the AST-only `format` entry point
 //! stays comment-free.
 
-use crate::ast::{Document, MarriageStmt, PersonStmt, Statement};
+use crate::ast::{KulFile, MarriageStmt, PersonStmt, Statement};
 
 use super::cells::{
     KindTag, build_marriage_cells, build_person_cells, build_sub_cells, collect_sub_refs,
@@ -28,7 +28,7 @@ struct Comment {
 
 pub(super) struct SourceFormatter<'a> {
     source: &'a str,
-    doc: &'a Document,
+    doc: &'a KulFile,
     line_starts: Vec<usize>,
     /// `comment_by_line[L] = index into comments`, or `usize::MAX` if line L
     /// has no comment. At most one comment per source line by construction.
@@ -38,7 +38,7 @@ pub(super) struct SourceFormatter<'a> {
 }
 
 impl<'a> SourceFormatter<'a> {
-    pub(super) fn new(source: &'a str, doc: &'a Document) -> Self {
+    pub(super) fn new(source: &'a str, doc: &'a KulFile) -> Self {
         let line_starts = compute_line_starts(source);
         let comments = scan_comments(source);
         let mut comment_by_line = vec![usize::MAX; line_starts.len()];

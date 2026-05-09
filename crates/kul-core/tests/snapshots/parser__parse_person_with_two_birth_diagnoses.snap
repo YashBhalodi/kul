@@ -91,10 +91,17 @@ diagnostics: [
         code: "KUL-P13",
         severity: Error,
         message: "a person may have at most one `birth` sub-statement",
-        primary: ByteSpan {
-            start: 56,
-            end: 67,
-        },
+        primary: Some(
+            FileSpan {
+                file: FileId(
+                    0,
+                ),
+                span: ByteSpan {
+                    start: 56,
+                    end: 67,
+                },
+            },
+        ),
         related: [],
         detail: None,
     },

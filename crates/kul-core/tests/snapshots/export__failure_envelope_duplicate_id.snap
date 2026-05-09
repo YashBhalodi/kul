@@ -10,6 +10,7 @@ expression: json
       "severity": "error",
       "message": "id `alice` is already used by another person — pick a different id (every id must be unique across all persons and marriages)",
       "primary": {
+        "file": "test.kul",
         "byteStart": 47,
         "byteEnd": 52,
         "line": 2,
@@ -18,6 +19,7 @@ expression: json
       "related": [
         {
           "label": "first declared here as a person",
+          "file": "test.kul",
           "byteStart": 7,
           "byteEnd": 12,
           "line": 1,

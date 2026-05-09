@@ -8,6 +8,7 @@
 
 use kul_core::semantic::ResolvedDocument;
 use kul_core::span::ByteSpan;
+use kul_core::span::FileId;
 use tower_lsp::lsp_types::{Location, Url};
 
 use crate::convert::LineIndex;
@@ -17,17 +18,20 @@ use crate::convert::LineIndex;
 /// (keywords, fields, whitespace, EOF). Returns `Some(empty)` when the
 /// cursor *is* on a referenceable id but nothing else uses it.
 pub fn references(
+    file: FileId,
     resolved: &ResolvedDocument,
     line_index: &LineIndex,
     uri: &Url,
     byte_offset: usize,
     include_declaration: bool,
 ) -> Option<Vec<Location>> {
-    let entity = resolved.node_at(byte_offset)?.entity_reference()?;
+    let entity = resolved
+        .node_at(file, byte_offset)?
+        .entity_reference(file)?;
 
-    let mut spans: Vec<ByteSpan> = resolved.references_to(entity.name, entity.kind);
+    let mut spans: Vec<ByteSpan> = resolved.references_to(file, entity.name, entity.kind);
     if include_declaration && let Some(d) = entity.decl_span() {
-        spans.push(d);
+        spans.push(d.span);
     }
     spans.sort_by_key(|s| s.start);
     spans.dedup();
@@ -49,7 +53,6 @@ mod tests {
     use kul_core::lexer::tokenize;
     use kul_core::parser::parse;
     use kul_core::semantic::resolve;
-    use std::sync::Arc;
 
     fn url() -> Url {
         Url::parse("file:///t.kul").unwrap()
@@ -57,10 +60,21 @@ mod tests {
 
     fn refs_at(source: &str, offset: usize, include_decl: bool) -> Option<Vec<(u32, u32)>> {
         let tokens = tokenize(source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
         let line_index = LineIndex::new(source);
-        references(&resolved, &line_index, &url(), offset, include_decl).map(|locs| {
+        references(file, &resolved, &line_index, &url(), offset, include_decl).map(|locs| {
             locs.into_iter()
                 .map(|l| (l.range.start.line, l.range.start.character))
                 .collect()
@@ -168,14 +182,34 @@ mod tests {
 
     #[test]
     fn returned_uri_matches_input() {
-        let src = "person alice name:\"A\" gender:female\n\
+        let source = "person alice name:\"A\" gender:female\n\
                    person bob name:\"B\" gender:male\n\
                    marriage m alice bob start:1972\n";
+        let src = source;
         let tokens = tokenize(src);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
         let line_index = LineIndex::new(src);
-        let locs = references(&resolved, &line_index, &url(), idx(src, "alice"), false).unwrap();
+        let locs = references(
+            file,
+            &resolved,
+            &line_index,
+            &url(),
+            idx(src, "alice"),
+            false,
+        )
+        .unwrap();
         assert!(locs.iter().all(|l| l.uri == url()));
     }
 

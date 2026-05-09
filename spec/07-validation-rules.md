@@ -26,6 +26,16 @@ For each comparison below, when a date has partial granularity it is treated as 
 
 13. **Parenthood cycle** — combining all `birth` and `adoption` parent links into a directed graph from child to parent, no person may appear as their own ancestor. (A cycle in this graph is an error.)
 
+## Manifest
+
+The following codes are reported by the project-manifest validator pass against `kul.yml` (see [Section 14](./14-project-manifest.md)). They flow through the same diagnostic infrastructure as the `KUL-Rxx` rules above.
+
+- **KUL-M01** — manifest not found at expected path. Unanchored.
+- **KUL-M02** — manifest YAML malformed. Anchors at the line/column the YAML parser reported.
+- **KUL-M03** — manifest is well-formed YAML but missing the required `kul:` field. Anchors at the manifest start.
+- **KUL-M04** — manifest's `kul:` value is not a recognized Kul language version. Anchors at the value.
+- **KUL-M05** — manifest carries an unknown top-level field. Severity warning; anchors at the field key.
+
 ## Things explicitly NOT validated in v1
 
 The following are NOT errors, even though they may indicate questionable data. Tools MAY surface them as informational hints, but they are not validation rules:

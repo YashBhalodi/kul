@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use kul_core::lexer::{is_identifier, is_reserved_word};
 use kul_core::semantic::ResolvedDocument;
 use kul_core::span::ByteSpan;
+use kul_core::span::FileId;
 use tower_lsp::lsp_types::{PrepareRenameResponse, TextEdit, Url, WorkspaceEdit};
 
 use crate::convert::LineIndex;
@@ -66,18 +67,21 @@ impl RenameError {
 /// Indicate whether a rename is possible at the cursor, and if so, what
 /// editable range the client should show in its rename popover.
 pub fn prepare_rename(
+    file: FileId,
     resolved: &ResolvedDocument,
     line_index: &LineIndex,
     byte_offset: usize,
 ) -> Option<PrepareRenameResponse> {
-    let entity = resolved.node_at(byte_offset)?.entity_reference()?;
+    let entity = resolved
+        .node_at(file, byte_offset)?
+        .entity_reference(file)?;
     // Don't advertise rename for an unresolved reference; the user would
     // type a new name and `rename` would have no decl to anchor on.
     if !entity.is_decl && entity.target.is_none() {
         return None;
     }
     Some(PrepareRenameResponse::Range(
-        line_index.range(entity.ident_span),
+        line_index.range(entity.ident_span.span),
     ))
 }
 
@@ -85,6 +89,7 @@ pub fn prepare_rename(
 /// returns a workspace edit that updates the declaration and every
 /// reference in lock-step.
 pub fn rename(
+    file: FileId,
     resolved: &ResolvedDocument,
     line_index: &LineIndex,
     uri: &Url,
@@ -92,10 +97,13 @@ pub fn rename(
     new_name: &str,
 ) -> Result<WorkspaceEdit, RenameError> {
     let entity = resolved
-        .node_at(byte_offset)
-        .and_then(|n| n.entity_reference())
+        .node_at(file, byte_offset)
+        .and_then(|n| n.entity_reference(file))
         .ok_or(RenameError::NotRenameable)?;
-    let decl_span = entity.decl_span().ok_or(RenameError::UnresolvedReference)?;
+    let decl_span = entity
+        .decl_span()
+        .ok_or(RenameError::UnresolvedReference)?
+        .span;
     let current = entity.name;
     let kind = entity.kind;
 
@@ -115,13 +123,13 @@ pub fn rename(
             proposed: new_name.to_owned(),
         });
     }
-    if resolved.entity(new_name).is_some() {
+    if resolved.entity(file, new_name).is_some() {
         return Err(RenameError::Collision {
             proposed: new_name.to_owned(),
         });
     }
 
-    let mut spans: Vec<ByteSpan> = resolved.references_to(current, kind);
+    let mut spans: Vec<ByteSpan> = resolved.references_to(file, current, kind);
     spans.push(decl_span);
     spans.sort_by_key(|s| s.start);
     spans.dedup();
@@ -148,7 +156,6 @@ mod tests {
     use kul_core::lexer::tokenize;
     use kul_core::parser::parse;
     use kul_core::semantic::resolve;
-    use std::sync::Arc;
 
     fn url() -> Url {
         Url::parse("file:///t.kul").unwrap()
@@ -164,18 +171,40 @@ mod tests {
         new_name: &str,
     ) -> Result<WorkspaceEdit, RenameError> {
         let tokens = tokenize(source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
         let line_index = LineIndex::new(source);
-        rename(&resolved, &line_index, &url(), offset, new_name)
+        rename(file, &resolved, &line_index, &url(), offset, new_name)
     }
 
     fn run_prepare(source: &str, offset: usize) -> Option<PrepareRenameResponse> {
         let tokens = tokenize(source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
         let line_index = LineIndex::new(source);
-        prepare_rename(&resolved, &line_index, offset)
+        prepare_rename(file, &resolved, &line_index, offset)
     }
 
     #[test]

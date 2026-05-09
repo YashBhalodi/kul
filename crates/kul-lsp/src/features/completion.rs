@@ -12,17 +12,19 @@ use kul_core::date::DateLit;
 use kul_core::field_meta::{self, StatementKind, ValueKind};
 use kul_core::lexer::{EnumKw, FieldName, Token, TokenKind, tokenize};
 use kul_core::semantic::ResolvedDocument;
+use kul_core::span::FileId;
 use tower_lsp::lsp_types::{CompletionItem, CompletionItemKind, InsertTextFormat};
 
 /// Build a completion item list for the cursor at `byte_offset`. Empty
 /// vec when the cursor lands somewhere we have nothing to offer.
 pub fn complete(
     source: &str,
+    file: FileId,
     resolved: &ResolvedDocument,
     byte_offset: usize,
 ) -> Vec<CompletionItem> {
     let tokens = tokenize(source);
-    match classify(source, &tokens, resolved, byte_offset) {
+    match classify(source, file, &tokens, resolved, byte_offset) {
         Context::None => Vec::new(),
         Context::TopLevelStart => top_level_keywords(),
         Context::IndentedUnderPerson => sub_statement_keywords(),
@@ -32,8 +34,8 @@ pub fn complete(
         Context::AfterGenderColon => gender_values(),
         Context::AfterEndReasonColon => end_reason_values(),
         Context::AfterStringFieldColon => quoted_value_snippet(),
-        Context::MarriageRefPosition => marriage_id_items(resolved),
-        Context::SpousePosition { exclude } => person_id_items(resolved, exclude.as_deref()),
+        Context::MarriageRefPosition => marriage_id_items(file, resolved),
+        Context::SpousePosition { exclude } => person_id_items(file, resolved, exclude.as_deref()),
     }
 }
 
@@ -68,7 +70,13 @@ enum Context {
     None,
 }
 
-fn classify(source: &str, tokens: &[Token], resolved: &ResolvedDocument, cursor: usize) -> Context {
+fn classify(
+    source: &str,
+    file: FileId,
+    tokens: &[Token],
+    resolved: &ResolvedDocument,
+    cursor: usize,
+) -> Context {
     // Skip past EOF: nothing to complete past a finished document.
     if cursor > source.len() {
         return Context::None;
@@ -107,7 +115,7 @@ fn classify(source: &str, tokens: &[Token], resolved: &ResolvedDocument, cursor:
 
     // 3. Determine the enclosing top-level statement via the
     //    `ResolvedDocument` query seam (ADR-0001).
-    let enclosing = resolved.statement_at(cursor);
+    let enclosing = resolved.statement_at(file, cursor);
 
     let scan = positional_scan(&preceding, cursor);
 
@@ -560,13 +568,13 @@ fn quoted_value_snippet() -> Vec<CompletionItem> {
 /// Every declared marriage as a completion item — used after `birth` and
 /// `adoption`. Detail shows the spouses' display names and the date span so
 /// the user can disambiguate between marriages of the same person.
-fn marriage_id_items(resolved: &ResolvedDocument) -> Vec<CompletionItem> {
+fn marriage_id_items(file: FileId, resolved: &ResolvedDocument) -> Vec<CompletionItem> {
     resolved
-        .marriages()
+        .marriages_in(file)
         .map(|m| CompletionItem {
             label: m.id.name.clone(),
             kind: Some(CompletionItemKind::EVENT),
-            detail: Some(marriage_detail(resolved, m)),
+            detail: Some(marriage_detail(file, resolved, m)),
             ..Default::default()
         })
         .collect()
@@ -575,9 +583,13 @@ fn marriage_id_items(resolved: &ResolvedDocument) -> Vec<CompletionItem> {
 /// Every declared person as a completion item — used in marriage spouse
 /// positions. `exclude` filters one id out (so spouse_b's list excludes the
 /// person already named as spouse_a, since you can't marry yourself).
-fn person_id_items(resolved: &ResolvedDocument, exclude: Option<&str>) -> Vec<CompletionItem> {
+fn person_id_items(
+    file: FileId,
+    resolved: &ResolvedDocument,
+    exclude: Option<&str>,
+) -> Vec<CompletionItem> {
     resolved
-        .persons()
+        .persons_in(file)
         .filter(|p| Some(p.id.name.as_str()) != exclude)
         .map(|p| CompletionItem {
             label: p.id.name.clone(),
@@ -588,13 +600,13 @@ fn person_id_items(resolved: &ResolvedDocument, exclude: Option<&str>) -> Vec<Co
         .collect()
 }
 
-fn marriage_detail(resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
+fn marriage_detail(file: FileId, resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
     let a = resolved
-        .person(&m.spouse_a.name)
+        .person(file, &m.spouse_a.name)
         .map(|p| p.display_name())
         .unwrap_or(m.spouse_a.name.as_str());
     let b = resolved
-        .person(&m.spouse_b.name)
+        .person(file, &m.spouse_b.name)
         .map(|p| p.display_name())
         .unwrap_or(m.spouse_b.name.as_str());
     let dates = match (
@@ -633,11 +645,23 @@ mod tests {
     }
 
     fn run(src_with_marker: &str) -> Vec<String> {
+        use kul_core::ast::{Document, KulFile};
         let (source, offset) = cursor_fixture(src_with_marker);
+        let file = FileId::from_raw(1);
         let tokens = tokenize(&source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
-        complete(&source, &resolved, offset)
+        let (statements, _) = parse(&tokens, file);
+        let kf = Arc::new(KulFile {
+            name: "test.kul".into(),
+            source: source.clone(),
+            statements,
+        });
+        let document = Arc::new(Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
+        complete(&source, file, &resolved, offset)
             .into_iter()
             .map(|c| c.label)
             .collect()
@@ -736,9 +760,20 @@ mod tests {
         use tower_lsp::lsp_types::InsertTextFormat;
         let (source, offset) = cursor_fixture("person a <CURSOR>");
         let tokens = tokenize(&source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
-        let items = complete(&source, &resolved, offset);
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
+        let items = complete(&source, file, &resolved, offset);
 
         for field in ["name:", "family:", "given:"] {
             let it = items
@@ -778,9 +813,20 @@ mod tests {
             let src = format!("person a {field}:<CURSOR>");
             let (source, offset) = cursor_fixture(&src);
             let tokens = tokenize(&source);
-            let (document, _) = parse(&tokens);
-            let (resolved, _) = resolve(Arc::new(document));
-            let items = complete(&source, &resolved, offset);
+            let file = FileId::from_raw(1);
+            let (statements, _) = parse(&tokens, file);
+            let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+                name: "test.kul".into(),
+                source: source.to_string(),
+                statements,
+            });
+            let document = std::sync::Arc::new(kul_core::ast::Document {
+                manifest_name: "kul.yml".into(),
+                manifest_source: String::new(),
+                kul_files: vec![kf],
+            });
+            let (resolved, _) = resolve(document);
+            let items = complete(&source, file, &resolved, offset);
             assert_eq!(
                 items.len(),
                 1,
@@ -842,9 +888,20 @@ mod tests {
     fn run_with_details(src_with_marker: &str) -> Vec<(String, Option<String>)> {
         let (source, offset) = cursor_fixture(src_with_marker);
         let tokens = tokenize(&source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
-        complete(&source, &resolved, offset)
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
+        complete(&source, file, &resolved, offset)
             .into_iter()
             .map(|c| (c.label, c.detail))
             .collect()
@@ -853,9 +910,20 @@ mod tests {
     fn run_kinds(src_with_marker: &str) -> Vec<(String, CompletionItemKind)> {
         let (source, offset) = cursor_fixture(src_with_marker);
         let tokens = tokenize(&source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
-        complete(&source, &resolved, offset)
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
+        complete(&source, file, &resolved, offset)
             .into_iter()
             .map(|c| (c.label, c.kind.unwrap()))
             .collect()
@@ -996,9 +1064,20 @@ mod tests {
              person kid name:\"K\" gender:other\n  birth <CURSOR>",
         );
         let tokens = tokenize(&source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
-        let items = complete(&source, &resolved, offset);
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
+        let items = complete(&source, file, &resolved, offset);
         insta::assert_json_snapshot!(items);
     }
 
@@ -1010,9 +1089,20 @@ mod tests {
              marriage m <CURSOR>",
         );
         let tokens = tokenize(&source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
-        let items = complete(&source, &resolved, offset);
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
+        let items = complete(&source, file, &resolved, offset);
         insta::assert_json_snapshot!(items);
     }
 
@@ -1025,9 +1115,20 @@ mod tests {
              marriage m alice <CURSOR>",
         );
         let tokens = tokenize(&source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
-        let items = complete(&source, &resolved, offset);
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
+        let items = complete(&source, file, &resolved, offset);
         insta::assert_json_snapshot!(items);
     }
 
@@ -1035,9 +1136,20 @@ mod tests {
     fn snapshot_top_level() {
         let (source, offset) = cursor_fixture("<CURSOR>");
         let tokens = tokenize(&source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
-        let items = complete(&source, &resolved, offset);
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
+        let items = complete(&source, file, &resolved, offset);
         insta::assert_json_snapshot!(items);
     }
 
@@ -1045,9 +1157,20 @@ mod tests {
     fn snapshot_after_gender_colon() {
         let (source, offset) = cursor_fixture("person a name:\"A\" gender:<CURSOR>");
         let tokens = tokenize(&source);
-        let (document, _) = parse(&tokens);
-        let (resolved, _) = resolve(Arc::new(document));
-        let items = complete(&source, &resolved, offset);
+        let file = FileId::from_raw(1);
+        let (statements, _) = parse(&tokens, file);
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
+            name: "test.kul".into(),
+            source: source.to_string(),
+            statements,
+        });
+        let document = std::sync::Arc::new(kul_core::ast::Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf],
+        });
+        let (resolved, _) = resolve(document);
+        let items = complete(&source, file, &resolved, offset);
         insta::assert_json_snapshot!(items);
     }
 }

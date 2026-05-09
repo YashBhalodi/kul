@@ -52,18 +52,22 @@ if (cleanResult.diagnostics.length === 0) {
 }
 
 // Narrow into a real diagnostic against a known-broken source so the TS
-// types for `code`, `severity`, `message`, and `primary.byteStart` land.
+// types for `code`, `severity`, `message`, and `primary?.byteStart` land.
+// `primary` is optional: unanchored diagnostics like `KUL-M01` carry the
+// would-be location in the message rather than a byte span.
 const broken = check('person alice gender:female\n', manifest);
 const firstDiagnostic = broken.diagnostics[0];
 if (firstDiagnostic !== undefined) {
     const code: string = firstDiagnostic.code;
     const severity: string = firstDiagnostic.severity;
     const message: string = firstDiagnostic.message;
-    const byteStart: number = firstDiagnostic.primary.byteStart;
+    const byteStart: number | undefined = firstDiagnostic.primary?.byteStart;
+    const file: string | undefined = firstDiagnostic.primary?.file;
     void code;
     void severity;
     void message;
     void byteStart;
+    void file;
 }
 
 // Type system must reject non-string inputs to `check`.

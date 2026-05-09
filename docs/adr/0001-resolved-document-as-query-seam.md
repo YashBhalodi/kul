@@ -12,16 +12,17 @@ Eleven of the thirteen validator rules ended up with the same outer loop. The cy
 
 ## Decision
 
-`ResolvedDocument` is the canonical query interface for resolved documents. All cross-reference and kinship questions are answered by methods on this type:
+`ResolvedDocument` is the canonical query interface for the resolved view of a Kul project. All cross-reference and kinship questions are answered by methods on this type. Per [ADR-0014](./0014-file-identity-and-per-file-namespaces.md) the project may now hold multiple files; per-id queries take a `FileId` so the seam works the same whether the project is one file or many:
 
-- `persons()`, `marriages()` — source-order iteration.
-- `person(id)`, `marriage(id)`, `entity(id)` — id lookup.
-- `spouses_of(&MarriageStmt)` — yields the resolved spouses, skipping unresolved refs (which rule 2 has already reported).
-- `parents_of(&PersonStmt)` — yields the union of bio + adoptive parent links, each tagged with the `&PersonStmt` of the parent and the source span of the link.
+- `persons()`, `marriages()`, `statements()` — source-order iteration across every `.kul` file in the project.
+- `persons_in(file)`, `marriages_in(file)`, `statements_in(file)` — per-file iteration.
+- `person(file, id)`, `marriage(file, id)`, `entity(file, id)` — id lookup, scoped to the file (per ADR-0014's per-file namespaces).
+- `spouses_of(file, &MarriageStmt)` — yields the resolved spouses inside `file`, skipping unresolved refs (which rule 2 has already reported).
+- `parents_of(file, &PersonStmt)` — yields the union of bio + adoptive parent links, each tagged with the `&PersonStmt` of the parent and the source span of the link.
 
-The underlying `HashMap` indexes are `pub(crate)`. Internal helpers inside the `semantic` module may still iterate `document.statements` directly when source-order traversal is the contract (e.g. rule 2, which runs as part of `resolve` itself); external callers always go through the methods.
+The underlying `HashMap<FileId, HashMap<id, ResolvedEntity>>` index is private to the `semantic` module. Internal helpers may still iterate a `KulFile`'s statements directly when source-order traversal is the contract (e.g. rule 2, which runs as part of `resolve` itself); external callers always go through the methods.
 
-`Document` itself remains accessible via `ResolvedDocument::document()` for downstream consumers that need the raw AST (e.g. a future LSP that maps file offsets to statements).
+`Document` (the multi-file project) remains accessible via `ResolvedDocument::document()` for downstream consumers that need access to source bytes by `FileId`, file names, or the `KulFile` list.
 
 ## Consequences
 

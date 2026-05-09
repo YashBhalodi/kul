@@ -1,21 +1,30 @@
 //! Hand-written recursive-descent parser for Kul.
 //!
 //! Consumes the token stream from [`crate::lexer`] and produces a
-//! [`Document`] together with parse diagnostics. On an unexpected token the
-//! parser emits a diagnostic, advances to the next newline (panic-mode
-//! recovery), and resumes parsing the next statement.
+//! [`KulFile`]'s statement list together with parse diagnostics. On an
+//! unexpected token the parser emits a diagnostic, advances to the next
+//! newline (panic-mode recovery), and resumes parsing the next statement.
+//!
+//! The parser is per-file: it is given the [`FileId`] the source belongs
+//! to and wraps every [`ByteSpan`] it emits on a diagnostic into a
+//! [`FileSpan`] anchored at that id. AST nodes themselves keep bare
+//! `ByteSpan` — their owning [`KulFile`] supplies file context.
 
 use crate::ast::{
-    AdoptionField, AdoptionFieldKind, AdoptionSub, BirthSub, Document, EndReason, EndReasonValue,
-    Gender, GenderValue, Ident, MarriageField, MarriageFieldKind, MarriageStmt, PersonField,
+    AdoptionField, AdoptionFieldKind, AdoptionSub, BirthSub, EndReason, EndReasonValue, Gender,
+    GenderValue, Ident, MarriageField, MarriageFieldKind, MarriageStmt, PersonField,
     PersonFieldKind, PersonStmt, Statement, StringValue,
 };
 use crate::date::{DateLit, DateParseError, parse_date};
-use crate::diagnostic::Diagnostic;
+use crate::diagnostic::{Diagnostic, fspan};
 use crate::lexer::{EnumKw, FieldName, Token, TokenKind};
+use crate::span::{ByteSpan, FileId};
 
-pub fn parse(tokens: &[Token]) -> (Document, Vec<Diagnostic>) {
-    Parser::new(tokens).run()
+/// Parse a token stream into top-level statements plus parse-time
+/// diagnostics. `file` is the [`FileId`] every diagnostic's primary span
+/// belongs to.
+pub fn parse(tokens: &[Token], file: FileId) -> (Vec<Statement>, Vec<Diagnostic>) {
+    Parser::new(tokens, file).run()
 }
 
 /// Outcome of parsing a single `<name>:<value>` field on a person statement.
@@ -37,28 +46,36 @@ enum PersonFieldOutcome {
 struct Parser<'a> {
     tokens: &'a [Token],
     pos: usize,
+    file: FileId,
     diagnostics: Vec<Diagnostic>,
 }
 
 impl<'a> Parser<'a> {
-    fn new(tokens: &'a [Token]) -> Self {
+    fn new(tokens: &'a [Token], file: FileId) -> Self {
         Self {
             tokens,
             pos: 0,
+            file,
             diagnostics: Vec::new(),
         }
     }
 
-    fn run(mut self) -> (Document, Vec<Diagnostic>) {
-        let mut document = Document {
-            statements: Vec::new(),
-        };
+    /// Build a [`crate::span::FileSpan`] anchored on this parser's file.
+    fn fspan(&self, span: ByteSpan) -> crate::span::FileSpan {
+        fspan(self.file, span)
+    }
+
+    fn run(mut self) -> (Vec<Statement>, Vec<Diagnostic>) {
+        let mut statements: Vec<Statement> = Vec::new();
 
         // Surface lex errors as diagnostics before discarding the tokens.
         for tok in self.tokens {
             if let TokenKind::Error(msg) = &tok.kind {
-                self.diagnostics
-                    .push(Diagnostic::error("KUL-L01", msg.clone(), tok.span));
+                self.diagnostics.push(Diagnostic::error(
+                    "KUL-L01",
+                    msg.clone(),
+                    self.fspan(tok.span),
+                ));
             }
         }
 
@@ -73,30 +90,30 @@ impl<'a> Parser<'a> {
                 }
                 TokenKind::PersonKw => {
                     if let Some(stmt) = self.parse_person_stmt() {
-                        document.statements.push(Statement::Person(stmt));
+                        statements.push(Statement::Person(stmt));
                     }
                 }
                 TokenKind::MarriageKw => {
                     if let Some(stmt) = self.parse_marriage_stmt() {
-                        document.statements.push(Statement::Marriage(stmt));
+                        statements.push(Statement::Marriage(stmt));
                     }
                 }
                 _ => {
-                    let tok = self.peek();
+                    let tok = self.peek().clone();
                     self.diagnostics.push(Diagnostic::error(
                         "KUL-P01",
                         format!(
                             "expected `person` or `marriage` (top-level statement), found {}",
                             describe_token(&tok.kind)
                         ),
-                        tok.span,
+                        self.fspan(tok.span),
                     ));
                     self.recover_to_newline();
                 }
             }
         }
 
-        (document, self.diagnostics)
+        (statements, self.diagnostics)
     }
 
     fn parse_person_stmt(&mut self) -> Option<PersonStmt> {
@@ -121,7 +138,7 @@ impl<'a> Parser<'a> {
                         "expected an identifier (the person's id) after `person`, found {}",
                         describe_token(&id_tok.kind)
                     ),
-                    id_tok.span,
+                    self.fspan(id_tok.span),
                 ));
                 self.recover_to_newline();
                 return None;
@@ -157,7 +174,7 @@ impl<'a> Parser<'a> {
                             "expected a field (`name:`, `gender:`, …) or end of line, found {}",
                             describe_token(&tok.kind)
                         ),
-                        tok.span,
+                        self.fspan(tok.span),
                     ));
                     self.recover_to_newline();
                     break;
@@ -221,7 +238,7 @@ impl<'a> Parser<'a> {
                                 self.diagnostics.push(Diagnostic::error(
                                     "KUL-P13",
                                     "a person may have at most one `birth` sub-statement",
-                                    b.span,
+                                    self.fspan(b.span),
                                 ));
                             } else {
                                 birth = Some(b);
@@ -288,7 +305,7 @@ impl<'a> Parser<'a> {
                             "expected `start:` or `end:` on adoption, found {}",
                             describe_token(&tok.kind)
                         ),
-                        tok.span,
+                        self.fspan(tok.span),
                     ));
                     self.recover_to_newline();
                     break;
@@ -321,7 +338,7 @@ impl<'a> Parser<'a> {
                     field_name.as_str(),
                     describe_token(&colon_tok.kind)
                 ),
-                colon_tok.span,
+                self.fspan(colon_tok.span),
             ));
             self.recover_to_newline();
             return None;
@@ -339,7 +356,7 @@ impl<'a> Parser<'a> {
                         "field `{}` isn't valid on `adoption` — valid fields are `start:` and `end:`",
                         field_name.as_str()
                     ),
-                    name_span,
+                    self.fspan(name_span),
                 ));
                 self.recover_to_newline();
                 return None;
@@ -390,7 +407,7 @@ impl<'a> Parser<'a> {
                             "expected a field (`start:`, `end:`, `end_reason:`) or end of line, found {}",
                             describe_token(&tok.kind)
                         ),
-                        tok.span,
+                        self.fspan(tok.span),
                     ));
                     self.recover_to_newline();
                     break;
@@ -426,7 +443,7 @@ impl<'a> Parser<'a> {
                         "expected an identifier ({role}) {ctx}, found {}",
                         describe_token(&tok.kind)
                     ),
-                    tok.span,
+                    self.fspan(tok.span),
                 ));
                 self.recover_to_newline();
                 None
@@ -451,7 +468,7 @@ impl<'a> Parser<'a> {
                     field_name.as_str(),
                     describe_token(&colon_tok.kind)
                 ),
-                colon_tok.span,
+                self.fspan(colon_tok.span),
             ));
             self.recover_to_newline();
             return None;
@@ -475,7 +492,7 @@ impl<'a> Parser<'a> {
                         "field `{}` isn't valid on `marriage` — valid fields are `start:`, `end:`, and `end_reason:`",
                         field_name.as_str()
                     ),
-                    name_span,
+                    self.fspan(name_span),
                 ));
                 self.recover_to_newline();
                 return None;
@@ -514,7 +531,7 @@ impl<'a> Parser<'a> {
                 self.diagnostics.push(Diagnostic::error(
                     code,
                     format!("invalid date for `{}:`: {}", field.as_str(), err.message()),
-                    span,
+                    self.fspan(span),
                 ));
                 None
             }
@@ -559,7 +576,7 @@ impl<'a> Parser<'a> {
                     field_name.as_str(),
                     describe_token(&colon_tok.kind)
                 ),
-                colon_tok.span,
+                self.fspan(colon_tok.span),
             ));
             self.recover_to_newline();
             return PersonFieldOutcome::Fatal;
@@ -599,7 +616,7 @@ impl<'a> Parser<'a> {
                         "field `{}` isn't valid on `person` — valid fields are `name:`, `family:`, `given:`, `gender:`, `born:`, and `died:`",
                         field_name.as_str()
                     ),
-                    name_span,
+                    self.fspan(name_span),
                 ));
                 self.recover_to_newline();
                 return PersonFieldOutcome::Fatal;
@@ -638,7 +655,7 @@ impl<'a> Parser<'a> {
                 name = field.as_str(),
                 found = describe_token(&tok.kind)
             ),
-            tok.span,
+            self.fspan(tok.span),
         ));
         // Skip the malformed value but stop at the next field keyword so a
         // following `gender:female` etc. on the same line still parses.
@@ -686,7 +703,7 @@ impl<'a> Parser<'a> {
         self.diagnostics.push(Diagnostic::error(
             code,
             format!("{}, found {}", expected(), describe_token(&tok.kind)),
-            tok.span,
+            self.fspan(tok.span),
         ));
         self.recover_to_newline();
         None

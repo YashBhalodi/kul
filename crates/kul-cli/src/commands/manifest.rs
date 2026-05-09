@@ -1,66 +1,76 @@
-//! Manifest loading for the CLI.
+//! Manifest discovery for the CLI.
 //!
-//! Each subcommand resolves the [`kul_core::manifest::Manifest`] for a
-//! given input path before calling `check`. Discovery is directory-scoped
-//! per [`spec/14-project-manifest.md`](../../../../spec/14-project-manifest.md):
-//! the manifest for `<dir>/<file>.kul` is `<dir>/kul.yml`.
+//! Each subcommand resolves the manifest for a given input path before
+//! calling `check`. Discovery is directory-scoped per
+//! [`spec/14-project-manifest.md`](../../../../spec/14-project-manifest.md):
+//! the manifest for `<dir>/<file>.kul` is `<dir>/kul.yml`. Per the
+//! file-identity refactor (issue #70), the CLI hands `kul_core::check`
+//! the **raw YAML bytes** alongside the manifest path label so manifest
+//! diagnostics flow through the standard `RenderableDiagnostic` rendering
+//! path with `KUL-Mxx` codes — the previous string-based error rendering
+//! is gone.
 
-use std::fmt;
 use std::path::{Path, PathBuf};
 
-use kul_core::manifest::Manifest;
+use kul_core::diagnostic::{Diagnostic, manifest_codes};
 
-#[derive(Debug)]
-pub enum ManifestError {
-    /// `kul.yml` missing at the resolved location.
-    Missing { path: PathBuf },
-    /// `kul.yml` could not be read off disk.
-    Io {
-        path: PathBuf,
-        source: std::io::Error,
-    },
-    /// `kul.yml` parsed but the YAML structure was malformed.
-    Parse { path: PathBuf, message: String },
+/// The discovered manifest for an input.
+///
+/// `path_label` is the canonical name `kul-core` uses for the manifest
+/// `FileId` (it shows up in JSON `file:` fields, miette source-block
+/// headings, etc.). `yaml` is the raw bytes (empty when the file was not
+/// readable). `m01` is a synthetic `KUL-M01` diagnostic the CLI prepends
+/// to the diagnostic stream when the manifest was missing on disk —
+/// that diagnostic has no anchor, so the CLI surfaces it through the
+/// standard renderer with no source-code block.
+pub struct ManifestPayload {
+    pub path_label: String,
+    pub yaml: String,
+    pub preface: Vec<Diagnostic>,
 }
 
-impl fmt::Display for ManifestError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ManifestError::Missing { path } => write!(
-                f,
-                "missing project manifest: expected {} alongside the input (a .kul file requires a sibling kul.yml)",
-                path.display()
+/// Resolve the manifest for `input` and read its bytes off disk. The
+/// returned [`ManifestPayload`] always carries a stable `path_label` so
+/// manifest-anchored diagnostics ("missing required field `kul:`")
+/// render with the right filename header.
+pub fn load_for(input: &Path) -> ManifestPayload {
+    let manifest_path = resolve_path(input);
+    let path_label = manifest_path.to_string_lossy().into_owned();
+    if !manifest_path.exists() {
+        let preface = vec![Diagnostic::unanchored_error(
+            manifest_codes::M01_MISSING,
+            format!(
+                "missing project manifest: expected {path_label} alongside the input \
+                 (a .kul file requires a sibling kul.yml)"
             ),
-            ManifestError::Io { path, source } => {
-                write!(f, "read {}: {source}", path.display())
-            }
-            ManifestError::Parse { path, message } => {
-                write!(f, "parse {}: {message}", path.display())
+        )];
+        return ManifestPayload {
+            path_label,
+            yaml: String::new(),
+            preface,
+        };
+    }
+    match std::fs::read_to_string(&manifest_path) {
+        Ok(yaml) => ManifestPayload {
+            path_label,
+            yaml,
+            preface: Vec::new(),
+        },
+        Err(err) => {
+            // Surface IO failures as M01 too; the underlying details
+            // belong in the message (the `KUL-M01` code is
+            // "manifest unavailable" in practice).
+            let preface = vec![Diagnostic::unanchored_error(
+                manifest_codes::M01_MISSING,
+                format!("failed to read project manifest {path_label}: {err}"),
+            )];
+            ManifestPayload {
+                path_label,
+                yaml: String::new(),
+                preface,
             }
         }
     }
-}
-
-impl std::error::Error for ManifestError {}
-
-/// Resolve and load the manifest for an input.
-///
-/// The manifest path is `<input parent>/kul.yml`.
-pub fn load_for(input: &Path) -> Result<Manifest, ManifestError> {
-    let manifest_path = resolve_path(input);
-    if !manifest_path.exists() {
-        return Err(ManifestError::Missing {
-            path: manifest_path,
-        });
-    }
-    let raw = std::fs::read_to_string(&manifest_path).map_err(|err| ManifestError::Io {
-        path: manifest_path.clone(),
-        source: err,
-    })?;
-    kul_core::manifest::parse(&raw).map_err(|err| ManifestError::Parse {
-        path: manifest_path,
-        message: err.message().to_string(),
-    })
 }
 
 fn resolve_path(input: &Path) -> PathBuf {
