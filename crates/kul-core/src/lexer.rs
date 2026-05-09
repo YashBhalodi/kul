@@ -339,7 +339,13 @@ fn classify_word(text: &str) -> TokenKind {
     }
 }
 
-fn is_identifier(text: &str) -> bool {
+/// Match the Kul identifier production `[A-Za-z_][A-Za-z0-9_-]*`.
+///
+/// This is the lexer's authority on what counts as a bareword identifier
+/// token; consumers that need to validate a candidate id (the LSP rename
+/// feature, future code-actions) should call this rather than re-implement
+/// the rule.
+pub fn is_identifier(text: &str) -> bool {
     let mut chars = text.chars();
     let Some(first) = chars.next() else {
         return false;
@@ -348,4 +354,77 @@ fn is_identifier(text: &str) -> bool {
         return false;
     }
     chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
+/// True iff `text` would tokenize as a reserved keyword (statement, field,
+/// or enum) rather than as an identifier.
+///
+/// Derived from [`classify_word`] so the answer stays in sync with the
+/// lexer automatically — adding a new field-name keyword to `classify_word`
+/// extends the reserved set with no further edits.
+pub fn is_reserved_word(text: &str) -> bool {
+    !matches!(
+        classify_word(text),
+        TokenKind::Ident(_) | TokenKind::Bare(_)
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_identifier, is_reserved_word};
+
+    #[test]
+    fn is_identifier_accepts_letter_underscore_digit_hyphen() {
+        assert!(is_identifier("alice"));
+        assert!(is_identifier("_underscore_first"));
+        assert!(is_identifier("a"));
+        assert!(is_identifier("alice_2"));
+        assert!(is_identifier("alice-bob"));
+        assert!(is_identifier("A"));
+    }
+
+    #[test]
+    fn is_identifier_rejects_empty_or_invalid() {
+        assert!(!is_identifier(""));
+        assert!(!is_identifier("1leading_digit"));
+        assert!(!is_identifier("-leading-hyphen"));
+        assert!(!is_identifier("has space"));
+        assert!(!is_identifier("weird!"));
+        assert!(!is_identifier("dot.in.middle"));
+    }
+
+    #[test]
+    fn is_reserved_word_covers_statement_field_and_enum_keywords() {
+        for kw in [
+            "person",
+            "marriage",
+            "birth",
+            "adoption",
+            "name",
+            "family",
+            "given",
+            "born",
+            "died",
+            "gender",
+            "start",
+            "end",
+            "end_reason",
+            "male",
+            "female",
+            "other",
+            "divorce",
+        ] {
+            assert!(is_reserved_word(kw), "expected `{kw}` to be reserved");
+        }
+    }
+
+    #[test]
+    fn is_reserved_word_rejects_normal_identifiers() {
+        for name in ["alice", "bob_42", "kul", "Person", "BIRTH"] {
+            assert!(
+                !is_reserved_word(name),
+                "expected `{name}` to NOT be reserved"
+            );
+        }
+    }
 }

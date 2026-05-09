@@ -17,6 +17,39 @@ pub struct DateLit {
 }
 
 impl DateLit {
+    /// Canonical Kul source rendering: `[~]YYYY[-MM[-DD]]`.
+    ///
+    /// The single source of truth for how a date appears in `.kul` source
+    /// after formatting and in tooling output (LSP hover, diagnostics).
+    pub fn format_canonical(&self) -> String {
+        use std::fmt::Write;
+        let mut s = String::with_capacity(11);
+        if self.circa {
+            s.push('~');
+        }
+        write!(s, "{:04}", self.year).expect("write year");
+        if let Some(m) = self.month {
+            write!(s, "-{:02}", m).expect("write month");
+        }
+        if let Some(d) = self.day {
+            write!(s, "-{:02}", d).expect("write day");
+        }
+        s
+    }
+
+    /// Year-only short form: `[~]YYYY`. Used by the LSP (completion details,
+    /// document-symbol details) to show a compact year without the
+    /// month/day noise.
+    pub fn format_year(&self) -> String {
+        use std::fmt::Write;
+        let mut s = String::with_capacity(5);
+        if self.circa {
+            s.push('~');
+        }
+        write!(s, "{:04}", self.year).expect("write year");
+        s
+    }
+
     pub fn lower_bound(&self) -> CalendarDay {
         let mut start = match (self.month, self.day) {
             (Some(m), Some(d)) => CalendarDay::new(self.year as i32, m as i32, d as i32),
@@ -273,5 +306,21 @@ mod tests {
     fn before_strict_full_dates() {
         assert!(before_strict(&d("1950-01-01"), &d("1950-01-02")));
         assert!(!before_strict(&d("1950-01-02"), &d("1950-01-02")));
+    }
+
+    #[test]
+    fn format_canonical_round_trips_each_precision() {
+        assert_eq!(d("1975-09-03").format_canonical(), "1975-09-03");
+        assert_eq!(d("1975-09").format_canonical(), "1975-09");
+        assert_eq!(d("1975").format_canonical(), "1975");
+        assert_eq!(d("~1925").format_canonical(), "~1925");
+        assert_eq!(d("~1925-12-31").format_canonical(), "~1925-12-31");
+    }
+
+    #[test]
+    fn format_year_drops_month_and_day() {
+        assert_eq!(d("1975-09-03").format_year(), "1975");
+        assert_eq!(d("~1925-12").format_year(), "~1925");
+        assert_eq!(d("1925").format_year(), "1925");
     }
 }

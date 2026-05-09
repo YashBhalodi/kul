@@ -591,15 +591,16 @@ fn person_id_items(resolved: &ResolvedDocument, exclude: Option<&str>) -> Vec<Co
 fn marriage_detail(resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
     let a = resolved
         .person(&m.spouse_a.name)
-        .and_then(|p| p.name())
-        .map(|n| n.value.clone())
-        .unwrap_or_else(|| m.spouse_a.name.clone());
+        .map(|p| p.display_name())
+        .unwrap_or(m.spouse_a.name.as_str());
     let b = resolved
         .person(&m.spouse_b.name)
-        .and_then(|p| p.name())
-        .map(|n| n.value.clone())
-        .unwrap_or_else(|| m.spouse_b.name.clone());
-    let dates = match (m.start().map(year_str), m.end().map(year_str)) {
+        .map(|p| p.display_name())
+        .unwrap_or(m.spouse_b.name.as_str());
+    let dates = match (
+        m.start().map(DateLit::format_year),
+        m.end().map(DateLit::format_year),
+    ) {
         (Some(s), Some(e)) => format!(", {s}–{e}"),
         (Some(s), None) => format!(", {s}–"),
         (None, Some(e)) => format!(", ?–{e}"),
@@ -609,23 +610,11 @@ fn marriage_detail(resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
 }
 
 fn person_detail(p: &PersonStmt) -> String {
-    let name = p
-        .name()
-        .map(|n| n.value.clone())
-        .unwrap_or_else(|| p.id.name.clone());
-    match p.born().map(year_str) {
+    let name = p.display_name();
+    match p.born().map(DateLit::format_year) {
         Some(b) => format!("{name}, b. {b}"),
-        None => name,
+        None => name.to_owned(),
     }
-}
-
-fn year_str(d: &DateLit) -> String {
-    let mut s = String::new();
-    if d.circa {
-        s.push('~');
-    }
-    s.push_str(&format!("{:04}", d.year));
-    s
 }
 
 #[cfg(test)]

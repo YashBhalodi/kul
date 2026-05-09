@@ -110,8 +110,8 @@ fn adoption_symbol(line_index: &LineIndex, a: &AdoptionSub) -> DocumentSymbol {
 }
 
 fn person_detail(p: &PersonStmt) -> Option<String> {
-    let born = p.born().map(year_str);
-    let died = p.died().map(year_str);
+    let born = p.born().map(DateLit::format_year);
+    let died = p.died().map(DateLit::format_year);
     match (born, died) {
         (Some(b), Some(d)) => Some(format!("{b}–{d}")),
         (Some(b), None) => Some(format!("b. {b}")),
@@ -121,8 +121,8 @@ fn person_detail(p: &PersonStmt) -> Option<String> {
 }
 
 fn marriage_detail(m: &MarriageStmt) -> Option<String> {
-    let start = m.start().map(year_str);
-    let end = m.end().map(year_str);
+    let start = m.start().map(DateLit::format_year);
+    let end = m.end().map(DateLit::format_year);
     match (start, end) {
         (Some(s), Some(e)) => Some(format!("{s}–{e}")),
         (Some(s), None) => Some(s),
@@ -132,8 +132,8 @@ fn marriage_detail(m: &MarriageStmt) -> Option<String> {
 }
 
 fn adoption_detail(a: &AdoptionSub) -> Option<String> {
-    let start = a.start().map(year_str);
-    let end = a.end().map(year_str);
+    let start = a.start().map(DateLit::format_year);
+    let end = a.end().map(DateLit::format_year);
     match (start, end) {
         (Some(s), Some(e)) => Some(format!("{s}–{e}")),
         (Some(s), None) => Some(s),
@@ -142,20 +142,10 @@ fn adoption_detail(a: &AdoptionSub) -> Option<String> {
     }
 }
 
-fn year_str(d: &DateLit) -> String {
-    let mut s = String::new();
-    if d.circa {
-        s.push('~');
-    }
-    s.push_str(&format!("{:04}", d.year));
-    s
-}
-
 fn display_name_or(resolved: &ResolvedDocument, id: &str) -> String {
     resolved
         .person(id)
-        .and_then(|p| p.name())
-        .map(|n| n.value.clone())
+        .map(|p| p.display_name().to_owned())
         .unwrap_or_else(|| id.to_owned())
 }
 
