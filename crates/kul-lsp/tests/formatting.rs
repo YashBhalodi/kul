@@ -9,6 +9,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
+mod common;
+
 fn binary_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_BIN_EXE_kul-lsp"))
 }
@@ -94,7 +96,7 @@ impl Drop for Handle {
     }
 }
 
-fn open_doc(handle: &mut Handle, source: &str) {
+fn open_doc(handle: &mut Handle, uri: &str, source: &str) {
     write_message(
         &mut handle.stdin,
         r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
@@ -116,18 +118,18 @@ fn open_doc(handle: &mut Handle, source: &str) {
 
     let escaped = serde_json::to_string(source).unwrap();
     let did_open = format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///fmt.kul","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{uri}","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
     );
     write_message(&mut handle.stdin, &did_open);
 }
 
-fn formatting(handle: &mut Handle, id: i64) -> Value {
+fn formatting(handle: &mut Handle, uri: &str, id: i64) -> Value {
     let req = json!({
         "jsonrpc": "2.0",
         "id": id,
         "method": "textDocument/formatting",
         "params": {
-            "textDocument": { "uri": "file:///fmt.kul" },
+            "textDocument": { "uri": uri },
             "options": { "tabSize": 2, "insertSpaces": true }
         }
     });
@@ -140,11 +142,15 @@ fn formatting(handle: &mut Handle, id: i64) -> Value {
 #[test]
 fn formatting_returns_full_doc_replacement_on_dirty_input() {
     let mut handle = Handle::spawn();
-    open_doc(
-        &mut handle,
-        "person alice born:1950 name:\"Alice\" gender:female\n",
+    let source = "person alice born:1950 name:\"Alice\" gender:female\n";
+    let kul_url = common::fixture_url(
+        "formatting_returns_full_doc_replacement_on_dirty_input",
+        "fmt.kul",
+        source,
     );
-    let resp = formatting(&mut handle, 10);
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, source);
+    let resp = formatting(&mut handle, uri, 10);
     let edits = resp["result"].as_array().expect("array of edits");
     assert_eq!(edits.len(), 1);
     let edit = &edits[0];
@@ -159,11 +165,15 @@ fn formatting_returns_full_doc_replacement_on_dirty_input() {
 #[test]
 fn formatting_returns_empty_edit_list_when_canonical() {
     let mut handle = Handle::spawn();
-    open_doc(
-        &mut handle,
-        "person alice  name:\"Alice\"  gender:female  born:1950\n",
+    let source = "person alice  name:\"Alice\"  gender:female  born:1950\n";
+    let kul_url = common::fixture_url(
+        "formatting_returns_empty_edit_list_when_canonical",
+        "fmt.kul",
+        source,
     );
-    let resp = formatting(&mut handle, 11);
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, source);
+    let resp = formatting(&mut handle, uri, 11);
     let edits = resp["result"].as_array().expect("array of edits");
     assert!(edits.is_empty());
 }
@@ -171,8 +181,15 @@ fn formatting_returns_empty_edit_list_when_canonical() {
 #[test]
 fn formatting_returns_null_when_input_has_parse_errors() {
     let mut handle = Handle::spawn();
-    open_doc(&mut handle, "person\n");
-    let resp = formatting(&mut handle, 12);
+    let source = "person\n";
+    let kul_url = common::fixture_url(
+        "formatting_returns_null_when_input_has_parse_errors",
+        "fmt.kul",
+        source,
+    );
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, source);
+    let resp = formatting(&mut handle, uri, 12);
     assert!(
         resp["result"].is_null(),
         "expected null, got {}",

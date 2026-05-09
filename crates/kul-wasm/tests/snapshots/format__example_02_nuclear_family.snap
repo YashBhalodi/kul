@@ -6,8 +6,6 @@ expression: formatted
 # Carol's `birth` sub-statement points to the marriage; her parents
 # are derived as the spouses of that marriage.
 
-kul 0.1
-
 person alice  name:"Alice Sharma"  gender:female  born:1950-04-12
 person bob    name:"Bob Sharma"    gender:male    born:1948-11-30
 person carol  name:"Carol Sharma"  gender:female  born:1975-09-03

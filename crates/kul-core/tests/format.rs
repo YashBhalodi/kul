@@ -85,9 +85,13 @@ fn format_source_is_idempotent_on_corpus() {
 fn format_source_round_trips_ast_through_corpus() {
     for path in corpus_files() {
         let source = read(&path);
-        let original_ast = kul_core::check(&source).document().clone();
+        let original_ast = kul_core::check(&source, &kul_core::manifest::Manifest::default())
+            .document()
+            .clone();
         let formatted = format_source(&source);
-        let reparsed_ast = kul_core::check(&formatted).document().clone();
+        let reparsed_ast = kul_core::check(&formatted, &kul_core::manifest::Manifest::default())
+            .document()
+            .clone();
         // `format(&Document)` is span-blind, so two ASTs that print equal
         // are equal modulo span positions — exactly the equivalence we want.
         assert_eq!(
@@ -103,9 +107,13 @@ fn format_source_round_trips_ast_through_corpus() {
 fn format_ast_only_is_idempotent_on_corpus() {
     for path in corpus_files() {
         let source = read(&path);
-        let doc1 = kul_core::check(&source).document().clone();
+        let doc1 = kul_core::check(&source, &kul_core::manifest::Manifest::default())
+            .document()
+            .clone();
         let printed_once = format(&doc1);
-        let doc2 = kul_core::check(&printed_once).document().clone();
+        let doc2 = kul_core::check(&printed_once, &kul_core::manifest::Manifest::default())
+            .document()
+            .clone();
         let printed_twice = format(&doc2);
         assert_eq!(
             printed_once,

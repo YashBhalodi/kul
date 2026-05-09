@@ -5,7 +5,7 @@ use kul_core::CheckResult;
 use kul_core::diagnostic::Diagnostic;
 
 fn check(source: &str) -> CheckResult {
-    kul_core::check(source)
+    kul_core::check(source, &kul_core::manifest::Manifest::default())
 }
 
 fn render_diagnostics(diags: &[Diagnostic]) -> String {
@@ -66,7 +66,7 @@ fn valid_single_person_is_clean() {
 }
 
 #[test]
-fn valid_version_decl_is_clean() {
+fn valid_two_persons_is_clean() {
     let src = read_corpus("valid/02-version-decl.kul");
     let result = check(&src);
     assert!(

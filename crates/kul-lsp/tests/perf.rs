@@ -23,14 +23,14 @@ use tower_lsp::lsp_types::Url;
 fn one_thousand_statement_check_and_translate_under_budget() {
     let url = Url::parse("file:///t.kul").expect("valid url");
 
-    let mut source = String::from("kul 1\n");
+    let mut source = String::new();
     for i in 0..1000 {
         use std::fmt::Write as _;
         let _ = writeln!(&mut source, "person p{i} name:\"P{i}\" gender:female");
     }
 
     let start = std::time::Instant::now();
-    let core = kul_core::check(&source);
+    let core = kul_core::check(&source, &kul_core::manifest::Manifest::default());
     let line_index = LineIndex::new(source.as_str());
     let _ = to_lsp(&url, &core.diagnostics, &line_index);
     let elapsed = start.elapsed();

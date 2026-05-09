@@ -102,6 +102,27 @@ export interface ExportedGraph {
     parenthoodLinks: ExportedParenthoodLink[];
 }
 
+/**
+ * Typed representation of a `kul.yml` manifest.
+ *
+ * One field today (`kul_version`); the manifest schema evolves alongside
+ * the Kul language version per the additivity principle. Adapters
+ * (`kul-cli`, `kul-lsp`, `kul-wasm`) are responsible for parsing the
+ * on-disk YAML / JS object into this struct; `kul-core` itself never
+ * reads the filesystem.
+ *
+ * Serializes / deserializes with the `kul:` field name (matches the
+ * on-disk YAML schema and the JS object the WASM bridge accepts).
+ */
+export interface Manifest {
+    /**
+     * The Kul language version that the sibling `.kul` files conform to.
+     * Format is `MAJOR.MINOR`, matching the previously-in-grammar version
+     * literal. Surfaced in the export envelope\'s `kul:` field.
+     */
+    kul: string;
+}
+
 export interface CytoscapeEdge {
     data: EdgeData;
 }
@@ -263,9 +284,8 @@ export interface SuccessEnvelope {
      */
     schema: number;
     /**
-     * Kul language version of the source document — either the version
-     * declared by `kul <version>` at the top of the document, or
-     * [`LANGUAGE_VERSION`] if absent.
+     * Kul language version of the source document, sourced from the
+     * project manifest\'s `kul:` field (`kul.yml`).
      */
     kul: string;
     /**
@@ -284,8 +304,8 @@ export function KUL_CORE_VERSION(): string;
 
 export function KUL_LANGUAGE_VERSION(): string;
 
-export function check(source: string): CheckEnvelope;
+export function check(source: string, manifest: Manifest): CheckEnvelope;
 
-export function exportGraph(source: string, options?: ExportOptions | null): ExportEnvelope;
+export function exportGraph(source: string, manifest: Manifest, options?: ExportOptions | null): ExportEnvelope;
 
 export function format(source: string): string;

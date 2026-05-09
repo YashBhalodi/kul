@@ -11,9 +11,12 @@ use std::process::ExitCode;
 
 use kul_core::diagnostic::{Diagnostic, Severity};
 
+use crate::commands::manifest::load_for as load_manifest;
+
 pub struct Options {
     pub files: Vec<PathBuf>,
     pub check: bool,
+    pub manifest: Option<PathBuf>,
 }
 
 pub fn run(opts: Options) -> ExitCode {
@@ -48,7 +51,14 @@ fn format_one(path: &Path, opts: &Options) -> Outcome {
             return Outcome::Error;
         }
     };
-    let result = kul_core::check(&source);
+    let manifest = match load_manifest(path, opts.manifest.as_deref()) {
+        Ok(m) => m,
+        Err(err) => {
+            eprintln!("kul: {label}: {err}");
+            return Outcome::Error;
+        }
+    };
+    let result = kul_core::check(&source, &manifest);
     if has_parse_errors(&result.diagnostics) {
         eprintln!("kul: {label}: cannot format input with parse errors");
         for d in &result.diagnostics {

@@ -20,13 +20,16 @@ import {
 const fixture = new URL('../../../../examples/03-three-generations.kul', import.meta.url);
 const source = readFileSync(fixture, 'utf8');
 
+// JS callers construct the manifest inline — discovery is the host's job.
+const manifest = { kul: '0.1' };
+
 const formatted = format(source);
 if (typeof formatted !== 'string' || formatted.length === 0) {
     console.error(`format returned non-string or empty: ${typeof formatted}, length=${formatted?.length}`);
     process.exit(1);
 }
 
-const cleanResult = check(source);
+const cleanResult = check(source, manifest);
 if (!Array.isArray(cleanResult?.diagnostics)) {
     console.error(`check returned non-array diagnostics on clean fixture: ${JSON.stringify(cleanResult)}`);
     process.exit(1);
@@ -36,7 +39,7 @@ if (cleanResult.diagnostics.length !== 0) {
     process.exit(1);
 }
 
-const brokenResult = check('person alice gender:female\n');
+const brokenResult = check('person alice gender:female\n', manifest);
 if (!Array.isArray(brokenResult?.diagnostics) || brokenResult.diagnostics.length < 1) {
     console.error(`expected broken source to produce at least one diagnostic, got: ${JSON.stringify(brokenResult)}`);
     process.exit(1);
@@ -70,7 +73,7 @@ if (!Number.isInteger(schemaVersion) || schemaVersion < 1) {
     process.exit(1);
 }
 
-const exportEnvelope = exportGraph(source);
+const exportEnvelope = exportGraph(source, manifest);
 if (exportEnvelope?.ok !== true) {
     console.error(`exportGraph on clean fixture did not produce success envelope: ${JSON.stringify(exportEnvelope)}`);
     process.exit(1);

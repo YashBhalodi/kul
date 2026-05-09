@@ -4,15 +4,12 @@
    for the prose introduction; see spec/ overall for full semantics.
    ============================================================ *)
 
-document          = [ version-decl NEWLINE ] { line } ;
+document          = { line } ;
 
 line              = blank-line | comment-line | top-statement ;
 blank-line        = NEWLINE ;
 comment-line      = comment NEWLINE ;
 comment           = "#" { any-char-except-newline } ;
-
-version-decl      = "kul" version ;
-version           = digit { digit } "." digit { digit } ;
 
 (* --- Top-level statements --- *)
 

@@ -14,6 +14,7 @@ import {
     format,
     type ExportedGraph,
     type CytoscapeGraph,
+    type Manifest,
 } from '../../pkg/kul_wasm.js';
 
 // `format` accepts a string and returns a string unconditionally
@@ -37,9 +38,14 @@ if (schemaVersion < 1) {
     throw new Error('unsupported schema');
 }
 
+// The project manifest is now a required argument — JS callers construct
+// it inline. The on-disk YAML schema is `kul: "<MAJOR.MINOR>"`; the JS
+// object mirrors that field name.
+const manifest: Manifest = { kul: '0.1' };
+
 // `check` returns `{ diagnostics }`. Empty array means clean — emptiness
 // is the discriminator (no `ok` field per ADR-0011).
-const cleanResult = check(source);
+const cleanResult = check(source, manifest);
 if (cleanResult.diagnostics.length === 0) {
     // Clean-document short-circuit: downstream consumers proceed without
     // touching the diagnostic list.
@@ -47,7 +53,7 @@ if (cleanResult.diagnostics.length === 0) {
 
 // Narrow into a real diagnostic against a known-broken source so the TS
 // types for `code`, `severity`, `message`, and `primary.byteStart` land.
-const broken = check('person alice gender:female\n');
+const broken = check('person alice gender:female\n', manifest);
 const firstDiagnostic = broken.diagnostics[0];
 if (firstDiagnostic !== undefined) {
     const code: string = firstDiagnostic.code;
@@ -62,12 +68,12 @@ if (firstDiagnostic !== undefined) {
 
 // Type system must reject non-string inputs to `check`.
 // @ts-expect-error check requires a string source
-check(42);
+check(42, manifest);
 
 // `exportGraph` accepts options as a typed object; omitting it is valid.
-const defaultExport = exportGraph(source);
-const positionedExport = exportGraph(source, { withPositions: true });
-const cytoscapeExport = exportGraph(source, { format: 'cytoscape' });
+const defaultExport = exportGraph(source, manifest);
+const positionedExport = exportGraph(source, manifest, { withPositions: true });
+const cytoscapeExport = exportGraph(source, manifest, { format: 'cytoscape' });
 
 // Discriminate success vs failure by structural narrowing — `in` checks
 // the discriminating field directly. The wire-level `ok` is a `boolean`
@@ -104,7 +110,7 @@ if ('graph' in cytoscapeExport) {
 
 // Type system must reject unknown format strings.
 // @ts-expect-error "graphviz" is not a valid ExportFormat
-exportGraph(source, { format: 'graphviz' });
+exportGraph(source, manifest, { format: 'graphviz' });
 
 // Suppress "unused binding" diagnostics in --noUnusedLocals mode.
 export const _exports = {

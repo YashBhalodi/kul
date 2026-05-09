@@ -162,7 +162,7 @@ The failure envelope shape is:
 
 Pass `-` as a filename to read source from standard input. Multiple inputs
 write one envelope per line in input order. See
-`spec/15-export-schema.md` for the normative schema.
+`spec/16-export-schema.md` for the normative schema.
 
 EXAMPLES:
   # Single file.
@@ -224,6 +224,12 @@ enum Command {
         /// into a file). This flag forces it off unconditionally.
         #[arg(long)]
         no_color: bool,
+
+        /// Path to the project manifest (`kul.yml`). When omitted, the
+        /// manifest is discovered as a sibling of the input file. Required
+        /// when input is `-` (stdin).
+        #[arg(long, value_name = "PATH")]
+        manifest: Option<PathBuf>,
     },
 
     /// Format one or more `.kul` files. Use `-` to read from stdin.
@@ -237,6 +243,12 @@ enum Command {
         /// input is not already in canonical form. Suitable for CI.
         #[arg(long)]
         check: bool,
+
+        /// Path to the project manifest (`kul.yml`). When omitted, the
+        /// manifest is discovered as a sibling of the input file. Required
+        /// when input is `-` (stdin).
+        #[arg(long, value_name = "PATH")]
+        manifest: Option<PathBuf>,
     },
 
     /// Project one or more `.kul` files to the canonical JSON envelope.
@@ -258,6 +270,12 @@ enum Command {
         /// Default off — keeps the envelope compact.
         #[arg(long)]
         with_positions: bool,
+
+        /// Path to the project manifest (`kul.yml`). When omitted, the
+        /// manifest is discovered as a sibling of the input file. Required
+        /// when input is `-` (stdin).
+        #[arg(long, value_name = "PATH")]
+        manifest: Option<PathBuf>,
     },
 
     /// Run the language server over stdio.
@@ -279,23 +297,33 @@ fn main() -> ExitCode {
             quiet,
             format,
             no_color,
+            manifest,
         } => commands::validate::run(commands::validate::Options {
             files,
             quiet,
             format,
             no_color,
+            manifest,
         }),
-        Command::Format { files, check } => {
-            commands::format::run(commands::format::Options { files, check })
-        }
+        Command::Format {
+            files,
+            check,
+            manifest,
+        } => commands::format::run(commands::format::Options {
+            files,
+            check,
+            manifest,
+        }),
         Command::Export {
             files,
             format,
             with_positions,
+            manifest,
         } => commands::export::run(commands::export::Options {
             files,
             format,
             with_positions,
+            manifest,
         }),
         Command::Lsp => run_lsp(),
     }

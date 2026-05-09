@@ -26,10 +26,6 @@ pub fn hover(
     let node = resolved.node_at(byte_offset)?;
     let (markdown, span) = match node {
         Node::Keyword(k, span) => (keyword_content(k), span),
-        Node::VersionLiteral(v) => (
-            "**Kul language version** — the version this file targets. The toolchain validates against this version's rules.".to_owned(),
-            v.version_span,
-        ),
         Node::PersonDeclId(p) => (person_panel(p), p.id.span),
         Node::MarriageDeclId(m) => (marriage_panel(resolved, m), m.id.span),
         Node::PersonRef {
@@ -85,9 +81,6 @@ pub fn hover(
 
 fn keyword_content(k: KeywordKind) -> String {
     match k {
-        KeywordKind::Kul => format!(
-            "**`kul`** — declares the language version this file uses.\n\nMust be the first non-blank line of the document.\n\n```kul\nkul 1\n```\n\n[Document structure →]({SPEC_BASE}/02-document-structure.md)"
-        ),
         KeywordKind::Person => format!(
             "**`person`** — declares an individual.\n\nGive each person a unique id, then their `name:` and `gender:`. Birth and death dates are optional.\n\n```kul\nperson alice name:\"Alice Doe\" gender:female born:1980\n```\n\n[Top-level statements →]({SPEC_BASE}/04-top-level-statements.md)"
         ),
@@ -252,14 +245,6 @@ mod tests {
     }
 
     #[test]
-    fn keyword_kul() {
-        let src = "kul 1\n";
-        let body = hover_at(src, 0).unwrap();
-        assert!(body.contains("`kul`"));
-        assert!(body.contains("Document structure"));
-    }
-
-    #[test]
     fn keyword_person_marriage_birth_adoption() {
         let src = "person a name:\"A\" gender:female\n  birth m\n  adoption m start:2000\n\
                    marriage m a a start:1980\n";
@@ -272,13 +257,6 @@ mod tests {
             let body = hover_at(src, idx(src, kw)).unwrap();
             assert!(body.contains(expected), "missing '{expected}' in:\n{body}");
         }
-    }
-
-    #[test]
-    fn version_literal() {
-        let src = "kul 1\n";
-        let body = hover_at(src, idx(src, "1")).unwrap();
-        assert!(body.contains("version"));
     }
 
     #[test]

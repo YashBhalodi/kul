@@ -60,7 +60,7 @@ First public release. Everything below ships together at tag `v0.1.0`.
 - **Node-at-cursor query** (`ResolvedDocument::node_at`) — the shared foundation for hover, go-to-definition, completion, find-references, and rename.
 - **Field metadata table** — single source of truth for per-field value shape, hover Markdown, and completion descriptions ([ADR-0005](./docs/adr/0005-field-metadata-table.md)).
 - **Diagnostic detail tags** — sub-case discrimination on a single rule for code-action providers ([ADR-0006](./docs/adr/0006-diagnostic-detail-tag.md)).
-- **Export module** (`kul_core::export`) — canonical JSON projection of a `CheckResult` into an `ExportEnvelope` (kinship-native graph or failure envelope). Strict on error-severity diagnostics; opt-in `with_positions` adds source spans on every entity. Cytoscape sub-module (`kul_core::export::cytoscape`) projects the same graph into the bipartite `nodes`/`edges` shape. Schema is normative — see [`spec/15-export-schema.md`](./spec/15-export-schema.md), [ADR-0008](./docs/adr/0008-export-kinship-native-shape.md), [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md), [ADR-0010](./docs/adr/0010-export-schema-versioning.md).
+- **Export module** (`kul_core::export`) — canonical JSON projection of a `CheckResult` into an `ExportEnvelope` (kinship-native graph or failure envelope). Strict on error-severity diagnostics; opt-in `with_positions` adds source spans on every entity. Cytoscape sub-module (`kul_core::export::cytoscape`) projects the same graph into the bipartite `nodes`/`edges` shape. Schema is normative — see [`spec/16-export-schema.md`](./spec/16-export-schema.md), [ADR-0008](./docs/adr/0008-export-kinship-native-shape.md), [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md), [ADR-0010](./docs/adr/0010-export-schema-versioning.md).
 
 ### `kul-cli`
 
@@ -84,7 +84,7 @@ First public release. Everything below ships together at tag `v0.1.0`.
 
 - **Workspace `miette` dependency narrowed** — the `fancy` feature is now enabled only in `kul-cli` (where the terminal-rendering machinery is actually used). `kul-core`, `kul-lsp`, and `kul-wasm` depend on plain `miette`, shrinking the WASM and LSP artifact sizes.
 - **Optional `tsify` feature on `kul-core`** — default-off; enables `Tsify` derives on the export-envelope types so `kul-wasm` can emit accurate TypeScript types. The CLI and LSP never pull `tsify` or `wasm-bindgen` into their builds.
-- **Export envelope JSON shape uses camelCase** — `parenthoodLinks`, `endReason`, `marriageId`, `childId`, `byteStart`, `byteEnd`, `withPositions`. JS-ecosystem convention; applied via `#[serde(rename_all = "camelCase")]` to the export structs. The CLI's `kul export --format=json` output and the WASM `exportGraph` output share one source of truth in `kul_core::export`. The Kul source language keeps its own snake_case identifiers — only the JSON projection changed. Normative in [`spec/15-export-schema.md`](./spec/15-export-schema.md).
+- **Export envelope JSON shape uses camelCase** — `parenthoodLinks`, `endReason`, `marriageId`, `childId`, `byteStart`, `byteEnd`, `withPositions`. JS-ecosystem convention; applied via `#[serde(rename_all = "camelCase")]` to the export structs. The CLI's `kul export --format=json` output and the WASM `exportGraph` output share one source of truth in `kul_core::export`. The Kul source language keeps its own snake_case identifiers — only the JSON projection changed. Normative in [`spec/16-export-schema.md`](./spec/16-export-schema.md).
 
 ### `kul-lsp`
 

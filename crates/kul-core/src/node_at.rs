@@ -12,7 +12,7 @@
 
 use crate::ast::{
     AdoptionField, AdoptionSub, BirthSub, Ident, MarriageField, MarriageStmt, PersonField,
-    PersonStmt, Statement, VersionDecl,
+    PersonStmt, Statement,
 };
 use crate::semantic::{EntityKind, ResolvedDocument};
 use crate::span::ByteSpan;
@@ -20,8 +20,6 @@ use crate::span::ByteSpan;
 /// A keyword token: one of the fixed words in Kul's grammar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeywordKind {
-    /// `kul` (in the version declaration).
-    Kul,
     /// `person` (top-level statement).
     Person,
     /// `marriage` (top-level statement).
@@ -42,8 +40,6 @@ pub enum Node<'a> {
     /// A keyword token (e.g. `person`, `birth`). The span identifies the
     /// keyword's source range so callers can highlight the right token.
     Keyword(KeywordKind, ByteSpan),
-    /// The version literal (e.g. `1`) in a `kul <v>` declaration.
-    VersionLiteral(&'a VersionDecl),
     /// The id token of a `person` declaration.
     PersonDeclId(&'a PersonStmt),
     /// The id token of a `marriage` declaration.
@@ -207,18 +203,6 @@ impl ResolvedDocument {
     /// ```
     pub fn node_at(&self, byte_offset: usize) -> Option<Node<'_>> {
         let doc = self.document();
-        if let Some(version) = &doc.version
-            && contains(version.span, byte_offset)
-        {
-            if contains(version.version_span, byte_offset) {
-                return Some(Node::VersionLiteral(version));
-            }
-            if contains(version.keyword_span, byte_offset) {
-                return Some(Node::Keyword(KeywordKind::Kul, version.keyword_span));
-            }
-            return None;
-        }
-
         for stmt in &doc.statements {
             match stmt {
                 Statement::Person(p) if contains(p.span, byte_offset) => {
@@ -346,7 +330,6 @@ mod tests {
     enum Probe {
         None,
         Keyword(KeywordKind),
-        VersionLiteral,
         PersonDeclId(String),
         MarriageDeclId(String),
         PersonRef { name: String, resolved: bool },
@@ -364,7 +347,6 @@ mod tests {
             match node {
                 None => Probe::None,
                 Some(Node::Keyword(k, _)) => Probe::Keyword(k),
-                Some(Node::VersionLiteral(_)) => Probe::VersionLiteral,
                 Some(Node::PersonDeclId(p)) => Probe::PersonDeclId(p.id.name.clone()),
                 Some(Node::MarriageDeclId(m)) => Probe::MarriageDeclId(m.id.name.clone()),
                 Some(Node::PersonRef { ident, target }) => Probe::PersonRef {
@@ -432,16 +414,6 @@ mod tests {
 
     fn idx(source: &str, pat: &str) -> usize {
         source.find(pat).expect("pattern in source")
-    }
-
-    #[test]
-    fn version_keyword_and_literal() {
-        let src = "kul 1\n";
-        assert_eq!(at(src, 0), Probe::Keyword(KeywordKind::Kul));
-        assert_eq!(at(src, 2), Probe::Keyword(KeywordKind::Kul));
-        // Whitespace between `kul` and `1` is in neither span.
-        assert_eq!(at(src, 3), Probe::None);
-        assert_eq!(at(src, 4), Probe::VersionLiteral);
     }
 
     #[test]
@@ -637,11 +609,11 @@ mod tests {
 
     #[test]
     fn span_boundary_start_inclusive_end_exclusive() {
-        let src = "kul 1\n";
-        // `kul` span = [0, 3); byte 0 hits, byte 3 (the space) doesn't.
-        assert_eq!(at(src, 0), Probe::Keyword(KeywordKind::Kul));
-        assert_eq!(at(src, 2), Probe::Keyword(KeywordKind::Kul));
-        assert_eq!(at(src, 3), Probe::None);
+        let src = "person alice name:\"Alice\" gender:female\n";
+        // `person` span = [0, 6); byte 0 hits, byte 6 (the space) doesn't.
+        assert_eq!(at(src, 0), Probe::Keyword(KeywordKind::Person));
+        assert_eq!(at(src, 5), Probe::Keyword(KeywordKind::Person));
+        assert_eq!(at(src, 6), Probe::None);
     }
 
     #[test]
@@ -655,7 +627,7 @@ mod tests {
 
     #[test]
     fn past_eof_is_none() {
-        let src = "kul 1\n";
+        let src = "person alice name:\"A\" gender:female\n";
         assert_eq!(at(src, src.len()), Probe::None);
         assert_eq!(at(src, src.len() + 999), Probe::None);
     }

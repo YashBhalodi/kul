@@ -9,6 +9,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
+mod common;
+
 fn binary_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_BIN_EXE_kul-lsp"))
 }
@@ -94,7 +96,7 @@ impl Drop for Handle {
     }
 }
 
-fn open_doc(handle: &mut Handle, source: &str) {
+fn open_doc(handle: &mut Handle, uri: &str, source: &str) {
     write_message(
         &mut handle.stdin,
         r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
@@ -116,13 +118,14 @@ fn open_doc(handle: &mut Handle, source: &str) {
 
     let escaped = serde_json::to_string(source).unwrap();
     let did_open = format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///ca.kul","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{uri}","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
     );
     write_message(&mut handle.stdin, &did_open);
 }
 
 fn code_action(
     handle: &mut Handle,
+    uri: &str,
     id: i64,
     line_start: u32,
     char_start: u32,
@@ -134,7 +137,7 @@ fn code_action(
         "id": id,
         "method": "textDocument/codeAction",
         "params": {
-            "textDocument": { "uri": "file:///ca.kul" },
+            "textDocument": { "uri": uri },
             "range": {
                 "start": { "line": line_start, "character": char_start },
                 "end": { "line": line_end, "character": char_end }
@@ -151,9 +154,12 @@ fn code_action(
 #[test]
 fn missing_gender_returns_three_quick_fixes() {
     let mut handle = Handle::spawn();
-    open_doc(&mut handle, "person alice name:\"Alice\"\n");
+    let source = "person alice name:\"Alice\"\n";
+    let kul_url = common::fixture_url("missing_gender_returns_three_quick_fixes", "ca.kul", source);
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, source);
     // Cursor on line 0 anywhere.
-    let resp = code_action(&mut handle, 10, 0, 0, 0, 12);
+    let resp = code_action(&mut handle, uri, 10, 0, 0, 0, 12);
     let actions = resp["result"].as_array().expect("array of actions");
     let titles: Vec<&str> = actions.iter().filter_map(|a| a["title"].as_str()).collect();
     assert!(titles.contains(&"Add `gender:male`"));
@@ -164,14 +170,18 @@ fn missing_gender_returns_three_quick_fixes() {
 #[test]
 fn end_without_end_reason_returns_add_divorce_fix() {
     let mut handle = Handle::spawn();
-    open_doc(
-        &mut handle,
-        "person a name:\"A\" gender:female\n\
+    let source = "person a name:\"A\" gender:female\n\
          person b name:\"B\" gender:male\n\
-         marriage m a b start:1972 end:1990\n",
+         marriage m a b start:1972 end:1990\n";
+    let kul_url = common::fixture_url(
+        "end_without_end_reason_returns_add_divorce_fix",
+        "ca.kul",
+        source,
     );
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, source);
     // Range covers line 2.
-    let resp = code_action(&mut handle, 11, 2, 0, 2, 50);
+    let resp = code_action(&mut handle, uri, 11, 2, 0, 2, 50);
     let actions = resp["result"].as_array().expect("array of actions");
     assert!(
         actions
@@ -183,13 +193,13 @@ fn end_without_end_reason_returns_add_divorce_fix() {
 #[test]
 fn no_diagnostics_returns_null_or_empty() {
     let mut handle = Handle::spawn();
-    open_doc(
-        &mut handle,
-        "person alice name:\"A\" gender:female\n\
+    let source = "person alice name:\"A\" gender:female\n\
          person bob name:\"B\" gender:male\n\
-         marriage m alice bob start:1972\n",
-    );
-    let resp = code_action(&mut handle, 12, 0, 0, 2, 80);
+         marriage m alice bob start:1972\n";
+    let kul_url = common::fixture_url("no_diagnostics_returns_null_or_empty", "ca.kul", source);
+    let uri = kul_url.as_str();
+    open_doc(&mut handle, uri, source);
+    let resp = code_action(&mut handle, uri, 12, 0, 0, 2, 80);
     // Either null or an empty array is acceptable.
     let result = &resp["result"];
     let empty = result.is_null() || result.as_array().is_some_and(|a| a.is_empty());

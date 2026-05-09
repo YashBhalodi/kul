@@ -71,12 +71,16 @@ impl Backend {
 
     /// Translate the cached diagnostics for `uri` and publish them.
     /// Called after `did_open` and `did_change`. A no-op if the document
-    /// isn't in the cache.
+    /// isn't in the cache. When the manifest failed to load, publishes
+    /// the single synthetic diagnostic that explains the failure; the
+    /// `kul-core` validation pipeline is bypassed.
     async fn publish_for(&self, uri: Url, version: Option<i32>) {
         let translated = self
             .documents
-            .with(&uri, |doc| {
-                diagnostics::to_lsp(&uri, &doc.check.diagnostics, &doc.line_index)
+            .with(&uri, |doc| match (doc.check(), doc.manifest_diagnostic()) {
+                (Some(check), _) => diagnostics::to_lsp(&uri, &check.diagnostics, &doc.line_index),
+                (None, Some(d)) => vec![d.clone()],
+                (None, None) => Vec::new(),
             })
             .await;
         if let Some(diags) = translated {
@@ -186,7 +190,7 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
-                let resolved = doc.check.resolved();
+                let resolved = doc.check()?.resolved();
                 hover::hover(resolved, &doc.line_index, offset)
             })
             .await;
@@ -203,7 +207,7 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
-                let resolved = doc.check.resolved();
+                let resolved = doc.check()?.resolved();
                 definition::definition(resolved, &doc.line_index, &uri, offset)
             })
             .await;
@@ -216,16 +220,17 @@ impl LanguageServer for Backend {
         let actions = self
             .documents
             .with(&uri, |doc| {
-                let resolved = doc.check.resolved();
-                code_action::code_actions(
-                    resolved,
-                    &doc.check.diagnostics,
+                let check = doc.check()?;
+                Some(code_action::code_actions(
+                    check.resolved(),
+                    &check.diagnostics,
                     &doc.line_index,
                     &uri,
                     range,
-                )
+                ))
             })
-            .await;
+            .await
+            .flatten();
         Ok(actions.filter(|a| !a.is_empty()))
     }
 
@@ -239,7 +244,7 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
-                let resolved = doc.check.resolved();
+                let resolved = doc.check()?.resolved();
                 rename::prepare_rename(resolved, &doc.line_index, offset)
             })
             .await;
@@ -257,7 +262,10 @@ impl LanguageServer for Backend {
                     .line_index
                     .byte_offset(position)
                     .ok_or(rename::RenameError::NotRenameable)?;
-                let resolved = doc.check.resolved();
+                let resolved = doc
+                    .check()
+                    .ok_or(rename::RenameError::NotRenameable)?
+                    .resolved();
                 rename::rename(resolved, &doc.line_index, &uri, offset, &new_name)
             })
             .await;
@@ -280,7 +288,7 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
-                let resolved = doc.check.resolved();
+                let resolved = doc.check()?.resolved();
                 references::references(resolved, &doc.line_index, &uri, offset, include_decl)
             })
             .await;
@@ -295,10 +303,11 @@ impl LanguageServer for Backend {
         let symbols = self
             .documents
             .with(&uri, |doc| {
-                let resolved = doc.check.resolved();
-                document_symbol::document_symbols(resolved, &doc.line_index)
+                let resolved = doc.check()?.resolved();
+                Some(document_symbol::document_symbols(resolved, &doc.line_index))
             })
-            .await;
+            .await
+            .flatten();
         Ok(symbols.map(DocumentSymbolResponse::Nested))
     }
 
@@ -310,10 +319,11 @@ impl LanguageServer for Backend {
         let tokens = self
             .documents
             .with(&uri, |doc| {
-                let resolved = doc.check.resolved();
-                semantic_tokens::semantic_tokens(resolved, &doc.line_index)
+                let resolved = doc.check()?.resolved();
+                Some(semantic_tokens::semantic_tokens(resolved, &doc.line_index))
             })
-            .await;
+            .await
+            .flatten();
         Ok(tokens.map(SemanticTokensResult::Tokens))
     }
 
@@ -322,7 +332,8 @@ impl LanguageServer for Backend {
         let edits = self
             .documents
             .with(&uri, |doc| {
-                formatting::formatting(&doc.source, &doc.check.diagnostics, &doc.line_index)
+                let check = doc.check()?;
+                formatting::formatting(&doc.source, &check.diagnostics, &doc.line_index)
             })
             .await;
         Ok(edits.flatten())
@@ -335,7 +346,7 @@ impl LanguageServer for Backend {
             .documents
             .with(&uri, |doc| {
                 let offset = doc.line_index.byte_offset(position)?;
-                let resolved = doc.check.resolved();
+                let resolved = doc.check()?.resolved();
                 Some(completion::complete(
                     doc.line_index.source(),
                     resolved,

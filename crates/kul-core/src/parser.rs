@@ -8,7 +8,7 @@
 use crate::ast::{
     AdoptionField, AdoptionFieldKind, AdoptionSub, BirthSub, Document, EndReason, EndReasonValue,
     Gender, GenderValue, Ident, MarriageField, MarriageFieldKind, MarriageStmt, PersonField,
-    PersonFieldKind, PersonStmt, Statement, StringValue, VersionDecl,
+    PersonFieldKind, PersonStmt, Statement, StringValue,
 };
 use crate::date::{DateLit, DateParseError, parse_date};
 use crate::diagnostic::Diagnostic;
@@ -51,7 +51,6 @@ impl<'a> Parser<'a> {
 
     fn run(mut self) -> (Document, Vec<Diagnostic>) {
         let mut document = Document {
-            version: None,
             statements: Vec::new(),
         };
 
@@ -65,14 +64,6 @@ impl<'a> Parser<'a> {
 
         // Skip any leading newlines / indents.
         self.skip_blank_lines();
-
-        // Optional version declaration (must be the first non-blank line).
-        if matches!(self.peek_kind(), TokenKind::KulKw) {
-            if let Some(v) = self.parse_version_decl() {
-                document.version = Some(v);
-            }
-            self.skip_blank_lines();
-        }
 
         loop {
             match self.peek_kind() {
@@ -106,38 +97,6 @@ impl<'a> Parser<'a> {
         }
 
         (document, self.diagnostics)
-    }
-
-    fn parse_version_decl(&mut self) -> Option<VersionDecl> {
-        let kul_tok = self.advance().clone();
-        let keyword_span = kul_tok.span;
-        let mut span = kul_tok.span;
-        let version_tok = self.peek().clone();
-        match &version_tok.kind {
-            TokenKind::Bare(v) | TokenKind::Ident(v) => {
-                self.advance();
-                span = span.merge(version_tok.span);
-                self.expect_newline_or_eof("after version declaration");
-                Some(VersionDecl {
-                    span,
-                    keyword_span,
-                    version: v.clone(),
-                    version_span: version_tok.span,
-                })
-            }
-            _ => {
-                self.diagnostics.push(Diagnostic::error(
-                    "KUL-P02",
-                    format!(
-                        "expected version literal after `kul`, found {}",
-                        describe_token(&version_tok.kind)
-                    ),
-                    version_tok.span,
-                ));
-                self.recover_to_newline();
-                None
-            }
-        }
     }
 
     fn parse_person_stmt(&mut self) -> Option<PersonStmt> {
@@ -741,27 +700,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expect_newline_or_eof(&mut self, ctx: &str) {
-        match self.peek_kind() {
-            TokenKind::Newline => {
-                self.advance();
-            }
-            TokenKind::Eof => {}
-            _ => {
-                let tok = self.peek().clone();
-                self.diagnostics.push(Diagnostic::error(
-                    "KUL-P09",
-                    format!(
-                        "expected end of line {ctx}, found {}",
-                        describe_token(&tok.kind)
-                    ),
-                    tok.span,
-                ));
-                self.recover_to_newline();
-            }
-        }
-    }
-
     fn skip_blank_lines(&mut self) {
         while matches!(self.peek_kind(), TokenKind::Newline | TokenKind::Indent) {
             self.advance();
@@ -816,7 +754,6 @@ impl<'a> Parser<'a> {
 
 fn describe_token(kind: &TokenKind) -> String {
     match kind {
-        TokenKind::KulKw => "`kul`".into(),
         TokenKind::PersonKw => "`person`".into(),
         TokenKind::MarriageKw => "`marriage`".into(),
         TokenKind::BirthKw => "`birth`".into(),

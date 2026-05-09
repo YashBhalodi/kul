@@ -197,7 +197,7 @@ mod tests {
     use crate::export::{ExportOptions, export};
 
     fn cytoscape_for(source: &str) -> CytoscapeGraph {
-        let check = crate::check(source);
+        let check = crate::check(source, &crate::manifest::Manifest::default());
         let envelope = export(source, &check, ExportOptions::default());
         let crate::export::ExportEnvelope::Success(success) = envelope else {
             panic!("expected success envelope");

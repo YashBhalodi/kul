@@ -62,7 +62,15 @@ An error or warning emitted by the validator. Carries a **code** (`KUL-Rxx`), a 
 
 ### ExportEnvelope
 
-The top-level value `kul export` (and the public `kul_core::export::export` function) emits. Either a **success envelope** carrying a `schema` number, the source's `kul` language version, and the [`ExportedGraph`](#exportedgraph), or a **failure envelope** carrying the diagnostic list. The export is strict on errors per [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md).
+The top-level value `kul export` (and the public `kul_core::export::export` function) emits. Either a **success envelope** carrying a `schema` number, the source's `kul` language version (sourced from the [`Manifest`](#manifest)), and the [`ExportedGraph`](#exportedgraph), or a **failure envelope** carrying the diagnostic list. The export is strict on errors per [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md).
+
+### Project manifest
+
+The `kul.yml` file alongside one or more `.kul` files. Carries the Kul language version the source targets and (in the future) any project-level configuration. Required: a `.kul` file without a sibling `kul.yml` is not a valid Kul project. Discovery is directory-scoped — no walk-up. Defined normatively in [`spec/14-project-manifest.md`](./spec/14-project-manifest.md); decision recorded in [ADR-0013](./docs/adr/0013-project-manifest.md).
+
+### Manifest
+
+The typed Rust representation of the project manifest. Lives at `crates/kul-core/src/manifest.rs` as `pub struct Manifest { pub kul_version: String }`. Adapters (`kul-cli`, `kul-lsp`, `kul-wasm`) parse the on-disk YAML or JS object into this struct and pass it to `kul_core::check` — `kul-core` itself never reads the filesystem.
 
 ### CheckEnvelope
 
@@ -70,7 +78,7 @@ The top-level value `@kullang/wasm`'s `check(source)` function returns. A single
 
 ### ExportedGraph
 
-The kinship-native graph projection inside a success [`ExportEnvelope`](#exportenvelope). Three flat collections — `persons`, `marriages`, `parenthood_links` — that mirror the language primitives one-to-one, with cross-references by id. Defined normatively in [`spec/15-export-schema.md`](./spec/15-export-schema.md); shape choice motivated in [ADR-0008](./docs/adr/0008-export-kinship-native-shape.md).
+The kinship-native graph projection inside a success [`ExportEnvelope`](#exportenvelope). Three flat collections — `persons`, `marriages`, `parenthood_links` — that mirror the language primitives one-to-one, with cross-references by id. Defined normatively in [`spec/16-export-schema.md`](./spec/16-export-schema.md); shape choice motivated in [ADR-0008](./docs/adr/0008-export-kinship-native-shape.md).
 
 ### Schema number
 
@@ -82,7 +90,7 @@ These names appear in code, ADRs, and architecture discussion.
 
 ### Document
 
-The AST root: a version declaration plus a list of **statements**. Carries the source `&str` only by reference (`Document<'a>`). Type lives at `crates/kul-core/src/ast.rs`.
+The AST root: a list of **statements**. Carries the source `&str` only by reference (`Document<'a>`). Type lives at `crates/kul-core/src/ast.rs`. The Kul language version the document targets is project-level metadata held in the [`Manifest`](#manifest), not on the AST itself.
 
 ### Statement
 

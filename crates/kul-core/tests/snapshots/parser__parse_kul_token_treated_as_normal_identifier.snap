@@ -1,78 +1,61 @@
 ---
 source: crates/kul-core/tests/parser.rs
-expression: "render(\"kul 0.1\\n\\nperson alice name:\\\"Alice\\\" gender:female\\n\")"
+expression: "render(\"person kul name:\\\"K\\\" gender:other\\n\")"
 ---
 ast: Document {
-    version: Some(
-        VersionDecl {
-            span: ByteSpan {
-                start: 0,
-                end: 7,
-            },
-            keyword_span: ByteSpan {
-                start: 0,
-                end: 3,
-            },
-            version: "0.1",
-            version_span: ByteSpan {
-                start: 4,
-                end: 7,
-            },
-        },
-    ),
     statements: [
         Person(
             PersonStmt {
                 span: ByteSpan {
-                    start: 9,
-                    end: 48,
+                    start: 0,
+                    end: 32,
                 },
                 keyword_span: ByteSpan {
-                    start: 9,
-                    end: 15,
+                    start: 0,
+                    end: 6,
                 },
                 id: Ident {
-                    name: "alice",
+                    name: "kul",
                     span: ByteSpan {
-                        start: 16,
-                        end: 21,
+                        start: 7,
+                        end: 10,
                     },
                 },
                 fields: [
                     PersonField {
                         span: ByteSpan {
-                            start: 22,
-                            end: 34,
+                            start: 11,
+                            end: 19,
                         },
                         name_span: ByteSpan {
-                            start: 22,
-                            end: 26,
+                            start: 11,
+                            end: 15,
                         },
                         kind: Name(
                             StringValue {
-                                value: "Alice",
+                                value: "K",
                                 span: ByteSpan {
-                                    start: 27,
-                                    end: 34,
+                                    start: 16,
+                                    end: 19,
                                 },
                             },
                         ),
                     },
                     PersonField {
                         span: ByteSpan {
-                            start: 35,
-                            end: 48,
+                            start: 20,
+                            end: 32,
                         },
                         name_span: ByteSpan {
-                            start: 35,
-                            end: 41,
+                            start: 20,
+                            end: 26,
                         },
                         kind: Gender(
                             GenderValue {
-                                value: Female,
+                                value: Other,
                                 span: ByteSpan {
-                                    start: 42,
-                                    end: 48,
+                                    start: 27,
+                                    end: 32,
                                 },
                             },
                         ),

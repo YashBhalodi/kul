@@ -2,8 +2,6 @@
 # The file is three blocks: the founders' marriage, then one block per
 # son keeping each son's marriage adjacent to its spouses.
 
-kul 0.1
-
 person ramesh  name:"Ramesh Sharma"  gender:male    born:1925-03-10
 person sita    name:"Sita Sharma"    gender:female  born:1928-07-15
 

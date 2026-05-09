@@ -8,7 +8,7 @@
 
 The formatter (`kul format`, `textDocument/formatting`) canonicalizes Kul source. Two questions decide its long-term shape: (1) what does "canonical" mean — i.e. for any two Kul documents that mean the same thing, which one does the formatter produce? (2) Should the rules be configurable?
 
-The formatter is a deep module in the Ousterhout sense: small interface (`format(&Document) -> String`), significant logic behind it, and the choices it bakes in are visible in every `.kul` file users will ever look at. Once shipped, changing them rewrites the entire ecosystem's history. This ADR settles the rules so the implementation is mechanical and the spec's normative section (`spec/14-formatter-rules.md`) mirrors a stable decision.
+The formatter is a deep module in the Ousterhout sense: small interface (`format(&Document) -> String`), significant logic behind it, and the choices it bakes in are visible in every `.kul` file users will ever look at. Once shipped, changing them rewrites the entire ecosystem's history. This ADR settles the rules so the implementation is mechanical and the spec's normative section (`spec/15-formatter-rules.md`) mirrors a stable decision.
 
 The implementation precedents we draw on:
 
@@ -87,7 +87,7 @@ parse(format(parse(s))) ≡ parse(s)   // AST-equal modulo span positions
 
 The formatter is a pure presentation pass. It never adds, removes, or transforms semantic content. Comments are preserved verbatim (rule 7) but the AST itself doesn't model comments, so they don't appear in this equivalence.
 
-### 10. Spec section `spec/14-formatter-rules.md` is normative.
+### 10. Spec section `spec/15-formatter-rules.md` is normative.
 
 The implementation in #27 ships alongside a new normative spec section restating these rules in the spec's voice. The spec is the contract; this ADR is the rationale.
 
@@ -130,7 +130,7 @@ The amendment adds a third position between "no alignment" and the still-rejecte
 
 Strict shape matching is intentional. The two alternatives — "align columns that all rows share" and "pad missing fields with whitespace" — both leak edge cases into the spec and create the surprising-diff problem this ADR set out to avoid. With strict shape matching, every block is automatically rectangular, the rule fits in one paragraph, and a field added to one statement excludes it from the surrounding block rather than re-flowing it.
 
-Idempotence and round-trip (rules 8 and 9) hold unchanged. Anti-suggestion 5 ("per-document alignment") remains in force — what the amendment adds is a smaller scope of alignment with hard, user-controlled boundaries, not the rejected version. See `spec/14-formatter-rules.md` §14.5 for the normative restatement and #35 for the ticket history.
+Idempotence and round-trip (rules 8 and 9) hold unchanged. Anti-suggestion 5 ("per-document alignment") remains in force — what the amendment adds is a smaller scope of alignment with hard, user-controlled boundaries, not the rejected version. See `spec/15-formatter-rules.md` §14.5 for the normative restatement and #35 for the ticket history.
 
 ## Amendment 2026-05-06: per-region column alignment
 
@@ -152,7 +152,7 @@ Anti-suggestion 5 ("per-document alignment") remains in force. Per-region alignm
 
 Idempotence and round-trip (rules 8 and 9) hold by construction: the alignment-group key is `(region, indent, shape, parent-scope-for-sub-statements)`; re-formatting the output uses the same regions, same shapes, same parent scopes → same group memberships → same column widths → byte-identical output. The formatter still only inserts whitespace before separators, so the parsed AST is unchanged.
 
-Corpus impact is contained: only `examples/05-married-siblings.kul` visibly changes — gaining shared columns across each son's `birth` line. Examples 01–04 are byte-identical, because their region layouts already produced one-shape-per-region groupings under the previous rule. See `spec/14-formatter-rules.md` §14.5 for the normative restatement.
+Corpus impact is contained: only `examples/05-married-siblings.kul` visibly changes — gaining shared columns across each son's `birth` line. Examples 01–04 are byte-identical, because their region layouts already produced one-shape-per-region groupings under the previous rule. See `spec/15-formatter-rules.md` §14.5 for the normative restatement.
 
 ## Amendment 2026-05-07: sparse-by-field-name column alignment
 
@@ -189,4 +189,4 @@ Idempotence and round-trip (rules 8 and 9) hold by construction: re-formatting u
 
 Corpus impact: `examples/03-three-generations.kul` Generation 2 gains alignment between alice and bob. Examples 01, 02, 04, 05 are unchanged because their regions already had uniform shapes. The change is verified end-to-end by re-running `kul format` over the corpus and asserting `format(format(s)) == format(s)` byte-equal.
 
-See `spec/14-formatter-rules.md` §14.5 for the normative restatement. This amendment supersedes the strict-shape clause of the 2026-05-05 and 2026-05-06 amendments; the rest of those amendments (per-block → per-region scope, blank-line as the only boundary, sub-statement per-parent scoping) carries forward unchanged.
+See `spec/15-formatter-rules.md` §14.5 for the normative restatement. This amendment supersedes the strict-shape clause of the 2026-05-05 and 2026-05-06 amendments; the rest of those amendments (per-block → per-region scope, blank-line as the only boundary, sub-statement per-parent scoping) carries forward unchanged.

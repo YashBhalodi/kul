@@ -9,7 +9,7 @@
 //! `lsp_types`. The encoded stream is line/character-delta-compressed per
 //! the LSP spec.
 
-use kul_core::ast::{AdoptionSub, BirthSub, MarriageStmt, PersonStmt, Statement, VersionDecl};
+use kul_core::ast::{AdoptionSub, BirthSub, MarriageStmt, PersonStmt, Statement};
 use kul_core::field_meta::{self, ValueKind};
 use kul_core::semantic::ResolvedDocument;
 use kul_core::span::ByteSpan;
@@ -56,9 +56,6 @@ struct RawToken {
 /// 5-tuples after delta encoding.
 pub fn semantic_tokens(resolved: &ResolvedDocument, line_index: &LineIndex) -> SemanticTokens {
     let mut raw: Vec<RawToken> = Vec::new();
-    if let Some(version) = &resolved.document().version {
-        emit_version(&mut raw, version);
-    }
     for stmt in resolved.statements() {
         match stmt {
             Statement::Person(p) => emit_person(&mut raw, p),
@@ -74,17 +71,6 @@ pub fn semantic_tokens(resolved: &ResolvedDocument, line_index: &LineIndex) -> S
         result_id: None,
         data: encode(&raw, line_index),
     }
-}
-
-fn emit_version(out: &mut Vec<RawToken>, v: &VersionDecl) {
-    out.push(RawToken {
-        span: v.keyword_span,
-        token_type: TT_KEYWORD,
-    });
-    out.push(RawToken {
-        span: v.version_span,
-        token_type: TT_NUMBER,
-    });
 }
 
 fn emit_person(out: &mut Vec<RawToken>, p: &PersonStmt) {
@@ -395,14 +381,11 @@ mod tests {
 
     #[test]
     fn keywords_fields_enums_dates_strings_classified() {
-        let src = "kul 0.1\n\
-                   person alice name:\"Alice\" gender:female born:1950-04-12\n\
+        let src = "person alice name:\"Alice\" gender:female born:1950-04-12\n\
                    person bob name:\"Bob\" gender:male\n\
                    marriage m alice bob start:1972 end:1990 end_reason:divorce\n";
         let (_, decoded) = tokens_for(src);
         let kinds: Vec<_> = decoded.iter().map(|d| (d.text.as_str(), d.kind)).collect();
-        assert!(kinds.contains(&("kul", "keyword")));
-        assert!(kinds.contains(&("0.1", "number")));
         assert!(kinds.contains(&("person", "keyword")));
         assert!(kinds.contains(&("marriage", "keyword")));
         assert!(kinds.contains(&("name", "property")));

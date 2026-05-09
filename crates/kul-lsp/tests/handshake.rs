@@ -153,9 +153,15 @@ fn handshake_and_did_open() {
     );
 
     write_message(&mut handle.stdin, &initialized_notification());
+    let dir = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("handshake");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("create fixture dir");
+    std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").expect("write kul.yml");
+    let kul_path = dir.join("alice.kul");
+    let kul_url = tower_lsp::lsp_types::Url::from_file_path(&kul_path).expect("file URL");
     write_message(
         &mut handle.stdin,
-        &did_open_notification("file:///alice.kul", "kul 1\nperson alice\n"),
+        &did_open_notification(kul_url.as_str(), "person alice\n"),
     );
 
     // The server emits a `window/logMessage` from `initialized`. Drain it so

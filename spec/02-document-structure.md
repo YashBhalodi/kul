@@ -1,14 +1,15 @@
 # 2. Document structure
 
-A Kul document is a sequence of **statements**, each starting on its own line. The first non-blank, non-comment line of a document MAY be a version declaration. All other top-level lines are person or marriage statements. Statement order is free; the parser performs reference resolution across the whole document.
+A Kul document is a sequence of **statements**, each starting on its own line. Top-level lines are person or marriage statements. Statement order is free; the parser performs reference resolution across the whole document.
+
+The Kul language version a document targets is metadata *about* the source, not part of the source — it lives in the project manifest `kul.yml` alongside the `.kul` file. See [Section 14 — Project manifest](./14-project-manifest.md).
 
 The valid top-level statement keywords are:
 
-| Keyword    | Meaning                                                                |
-| ---------- | ---------------------------------------------------------------------- |
-| `kul`     | Document version declaration (optional; if present, must appear first) |
-| `person`   | Person declaration                                                     |
-| `marriage` | Marriage declaration                                                   |
+| Keyword    | Meaning                |
+| ---------- | ---------------------- |
+| `person`   | Person declaration     |
+| `marriage` | Marriage declaration   |
 
 Sub-statements (`birth`, `adoption`) appear as indented continuation lines following a `person` statement; they are not valid as top-level statements. See [Section 5 — Person sub-statements](./05-person-sub-statements.md).
 

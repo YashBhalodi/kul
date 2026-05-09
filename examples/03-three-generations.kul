@@ -5,8 +5,6 @@
 # - The Alice-Bob marriage ends in divorce; Bob later dies.
 # - Ravi's birth year is approximate (~1980).
 
-kul 0.1
-
 # ---- Generation 1 (founders) ----
 person ramesh  name:"Ramesh Sharma"  gender:male    born:1925-03-10  died:2005-08-22
 person sita    name:"Sita Sharma"    gender:female  born:1928-07-15  died:2010-11-04

@@ -47,6 +47,7 @@
 //! for the TypeScript-types-from-Rust discipline.
 
 use kul_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic};
+use kul_core::manifest::Manifest;
 use serde::Serialize;
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
@@ -89,24 +90,28 @@ pub fn format_source(source: &str) -> String {
 }
 
 #[wasm_bindgen(js_name = "check")]
-pub fn check(source: &str) -> CheckEnvelope {
+pub fn check(source: &str, manifest: Manifest) -> CheckEnvelope {
     console_error_panic_hook::set_once();
-    let result = kul_core::check(source);
+    let result = kul_core::check(source, &manifest);
     let diagnostics = kul_core::export::export_diagnostics(source, &result);
     CheckEnvelope { diagnostics }
 }
 
 #[wasm_bindgen(js_name = "exportGraph")]
-pub fn export_graph(source: &str, options: Option<ExportOptions>) -> ExportEnvelope {
+pub fn export_graph(
+    source: &str,
+    manifest: Manifest,
+    options: Option<ExportOptions>,
+) -> ExportEnvelope {
     console_error_panic_hook::set_once();
-    export_with(source, options.unwrap_or_default())
+    export_with(source, &manifest, options.unwrap_or_default())
 }
 
 /// Native-callable variant of [`export_graph`]. Same semantics, but takes
 /// a typed [`ExportOptions`] so non-wasm tests can call into this crate
 /// without round-tripping through `JsValue`. The wasm-bridge `exportGraph`
 /// is a thin deserializer in front of this fn.
-pub fn export_with(source: &str, options: ExportOptions) -> ExportEnvelope {
-    let result = kul_core::check(source);
+pub fn export_with(source: &str, manifest: &Manifest, options: ExportOptions) -> ExportEnvelope {
+    let result = kul_core::check(source, manifest);
     kul_core::export::export(source, &result, options)
 }

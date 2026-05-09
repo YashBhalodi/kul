@@ -18,10 +18,10 @@ fn parse_minimal_person() {
 }
 
 #[test]
-fn parse_version_decl() {
-    insta::assert_snapshot!(render(
-        "kul 0.1\n\nperson alice name:\"Alice\" gender:female\n"
-    ));
+fn parse_kul_token_treated_as_normal_identifier() {
+    // Sanity: after the manifest refactor (issue 69), `kul` is no longer a
+    // version-decl keyword. Using it as a person id works like any other.
+    insta::assert_snapshot!(render("person kul name:\"K\" gender:other\n"));
 }
 
 #[test]

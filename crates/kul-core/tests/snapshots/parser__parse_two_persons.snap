@@ -3,7 +3,6 @@ source: crates/kul-core/tests/parser.rs
 expression: "render(\"person alice name:\\\"Alice\\\" gender:female\\nperson bob name:\\\"Bob\\\" gender:male\\n\")"
 ---
 ast: Document {
-    version: None,
     statements: [
         Person(
             PersonStmt {

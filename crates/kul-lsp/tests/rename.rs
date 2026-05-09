@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
+mod common;
+
 fn binary_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_BIN_EXE_kul-lsp"))
 }
@@ -99,7 +101,7 @@ const FIXTURE: &str = "person alice name:\"A\" gender:female\n\
                         person bob name:\"B\" gender:male\n\
                         marriage m alice bob start:1972\n";
 
-fn open_fixture(handle: &mut Handle) {
+fn open_fixture(handle: &mut Handle, uri: &str) {
     write_message(
         &mut handle.stdin,
         r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
@@ -124,18 +126,18 @@ fn open_fixture(handle: &mut Handle) {
 
     let escaped = serde_json::to_string(FIXTURE).unwrap();
     let did_open = format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///rn.kul","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{uri}","languageId":"kul","version":1,"text":{escaped}}}}}}}"#
     );
     write_message(&mut handle.stdin, &did_open);
 }
 
-fn prepare_rename_at(handle: &mut Handle, id: i64, line: u32, character: u32) -> Value {
+fn prepare_rename_at(handle: &mut Handle, uri: &str, id: i64, line: u32, character: u32) -> Value {
     let req = json!({
         "jsonrpc": "2.0",
         "id": id,
         "method": "textDocument/prepareRename",
         "params": {
-            "textDocument": { "uri": "file:///rn.kul" },
+            "textDocument": { "uri": uri },
             "position": { "line": line, "character": character }
         }
     });
@@ -145,13 +147,20 @@ fn prepare_rename_at(handle: &mut Handle, id: i64, line: u32, character: u32) ->
         .expect("prepareRename response")
 }
 
-fn rename_at(handle: &mut Handle, id: i64, line: u32, character: u32, new_name: &str) -> Value {
+fn rename_at(
+    handle: &mut Handle,
+    uri: &str,
+    id: i64,
+    line: u32,
+    character: u32,
+    new_name: &str,
+) -> Value {
     let req = json!({
         "jsonrpc": "2.0",
         "id": id,
         "method": "textDocument/rename",
         "params": {
-            "textDocument": { "uri": "file:///rn.kul" },
+            "textDocument": { "uri": uri },
             "position": { "line": line, "character": character },
             "newName": new_name
         }
@@ -165,9 +174,11 @@ fn rename_at(handle: &mut Handle, id: i64, line: u32, character: u32, new_name: 
 #[test]
 fn prepare_rename_on_decl_returns_range() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url("prepare_rename_on_decl_returns_range", "rn.kul", FIXTURE);
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // Line 0 col 7 = `alice` decl id.
-    let resp = prepare_rename_at(&mut handle, 10, 0, 7);
+    let resp = prepare_rename_at(&mut handle, uri, 10, 0, 7);
     let result = &resp["result"];
     assert!(!result.is_null());
     // Range covering "alice".
@@ -178,21 +189,27 @@ fn prepare_rename_on_decl_returns_range() {
 #[test]
 fn prepare_rename_on_keyword_returns_null() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
-    let resp = prepare_rename_at(&mut handle, 11, 0, 0);
+    let kul_url = common::fixture_url("prepare_rename_on_keyword_returns_null", "rn.kul", FIXTURE);
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
+    let resp = prepare_rename_at(&mut handle, uri, 11, 0, 0);
     assert!(resp["result"].is_null());
 }
 
 #[test]
 fn rename_returns_workspace_edit_covering_decl_and_refs() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
-    let resp = rename_at(&mut handle, 12, 0, 7, "alicia");
+    let kul_url = common::fixture_url(
+        "rename_returns_workspace_edit_covering_decl_and_refs",
+        "rn.kul",
+        FIXTURE,
+    );
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
+    let resp = rename_at(&mut handle, uri, 12, 0, 7, "alicia");
     let we = &resp["result"];
     assert!(!we.is_null());
-    let edits = we["changes"]["file:///rn.kul"]
-        .as_array()
-        .expect("array of edits");
+    let edits = we["changes"][uri].as_array().expect("array of edits");
     assert_eq!(edits.len(), 2);
     assert!(
         edits
@@ -204,8 +221,14 @@ fn rename_returns_workspace_edit_covering_decl_and_refs() {
 #[test]
 fn rename_to_reserved_keyword_returns_error() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
-    let resp = rename_at(&mut handle, 13, 0, 7, "person");
+    let kul_url = common::fixture_url(
+        "rename_to_reserved_keyword_returns_error",
+        "rn.kul",
+        FIXTURE,
+    );
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
+    let resp = rename_at(&mut handle, uri, 13, 0, 7, "person");
     assert!(resp["result"].is_null());
     assert!(!resp["error"].is_null());
     let msg = resp["error"]["message"].as_str().unwrap();
@@ -215,9 +238,11 @@ fn rename_to_reserved_keyword_returns_error() {
 #[test]
 fn rename_to_collision_returns_error() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
+    let kul_url = common::fixture_url("rename_to_collision_returns_error", "rn.kul", FIXTURE);
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
     // alice → bob would collide with the existing person `bob`.
-    let resp = rename_at(&mut handle, 14, 0, 7, "bob");
+    let resp = rename_at(&mut handle, uri, 14, 0, 7, "bob");
     assert!(resp["result"].is_null());
     assert!(!resp["error"].is_null());
 }
@@ -225,8 +250,10 @@ fn rename_to_collision_returns_error() {
 #[test]
 fn rename_to_invalid_id_returns_error() {
     let mut handle = Handle::spawn();
-    open_fixture(&mut handle);
-    let resp = rename_at(&mut handle, 15, 0, 7, "1bad");
+    let kul_url = common::fixture_url("rename_to_invalid_id_returns_error", "rn.kul", FIXTURE);
+    let uri = kul_url.as_str();
+    open_fixture(&mut handle, uri);
+    let resp = rename_at(&mut handle, uri, 15, 0, 7, "1bad");
     assert!(resp["result"].is_null());
     assert!(!resp["error"].is_null());
 }

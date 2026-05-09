@@ -10,21 +10,12 @@ use crate::date::DateLit;
 use crate::lexer::FieldName;
 use crate::span::ByteSpan;
 
-/// A `.kul` document: an optional version declaration plus a sequence of
-/// top-level statements.
+/// A `.kul` document: a sequence of top-level statements. The Kul language
+/// version is project-level metadata (see [`crate::manifest::Manifest`]),
+/// not part of the document itself.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Document {
-    pub version: Option<VersionDecl>,
     pub statements: Vec<Statement>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VersionDecl {
-    pub span: ByteSpan,
-    pub keyword_span: ByteSpan,
-    /// The raw version literal, e.g. `0.1`.
-    pub version: String,
-    pub version_span: ByteSpan,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

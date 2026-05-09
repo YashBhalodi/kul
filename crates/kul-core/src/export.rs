@@ -25,7 +25,7 @@
 //! `~1980` as `c. 1980` (or whatever they prefer) without parsing the
 //! string.
 //!
-//! See [`spec/15-export-schema.md`](../../../spec/15-export-schema.md) for
+//! See [`spec/16-export-schema.md`](../../../spec/16-export-schema.md) for
 //! the normative schema and [ADR-0008](../../../docs/adr/0008-export-kinship-native-shape.md),
 //! [ADR-0009](../../../docs/adr/0009-export-strict-on-diagnostics.md), and
 //! [ADR-0010](../../../docs/adr/0010-export-schema-versioning.md) for the
@@ -70,7 +70,7 @@ pub const LANGUAGE_VERSION: &str = "0.1";
 pub enum ExportFormat {
     /// The canonical kinship-native JSON shape — three flat collections
     /// (`persons`, `marriages`, `parenthood_links`) mirroring the
-    /// language primitives. See [`spec/15-export-schema.md`](../../../spec/15-export-schema.md).
+    /// language primitives. See [`spec/16-export-schema.md`](../../../spec/16-export-schema.md).
     #[default]
     Json,
     /// The Cytoscape JSON shape — `nodes` + `edges`, with marriages
@@ -121,9 +121,8 @@ pub struct SuccessEnvelope {
     pub ok: bool,
     /// Schema version this envelope conforms to. See [`SCHEMA_VERSION`].
     pub schema: u32,
-    /// Kul language version of the source document — either the version
-    /// declared by `kul <version>` at the top of the document, or
-    /// [`LANGUAGE_VERSION`] if absent.
+    /// Kul language version of the source document, sourced from the
+    /// project manifest's `kul:` field (`kul.yml`).
     pub kul: String,
     /// The exported graph. Either the kinship-native shape (the canonical
     /// foundation) or a derived shape such as Cytoscape, depending on
@@ -343,16 +342,10 @@ pub fn export(source: &str, check: &CheckResult, options: ExportOptions) -> Expo
         ExportFormat::Json => GraphPayload::Native(native),
         ExportFormat::Cytoscape => GraphPayload::Cytoscape(cytoscape::to_cytoscape(&native)),
     };
-    let kul = resolved
-        .document()
-        .version
-        .as_ref()
-        .map(|v| v.version.clone())
-        .unwrap_or_else(|| LANGUAGE_VERSION.to_string());
     ExportEnvelope::Success(SuccessEnvelope {
         ok: true,
         schema: SCHEMA_VERSION,
-        kul,
+        kul: check.manifest.kul_version.clone(),
         graph,
     })
 }
@@ -504,7 +497,7 @@ mod tests {
     use super::*;
 
     fn export_source(source: &str) -> ExportEnvelope {
-        let check = crate::check(source);
+        let check = crate::check(source, &crate::manifest::Manifest::default());
         export(source, &check, ExportOptions::default())
     }
 
@@ -533,8 +526,16 @@ mod tests {
     }
 
     #[test]
-    fn version_decl_propagates_to_envelope_kul_field() {
-        let env = export_source("kul 0.1\nperson alice name:\"Alice\" gender:female\n");
+    fn manifest_version_propagates_to_envelope_kul_field() {
+        let manifest = crate::manifest::Manifest {
+            kul_version: "0.1".to_string(),
+        };
+        let check = crate::check("person alice name:\"Alice\" gender:female\n", &manifest);
+        let env = export(
+            "person alice name:\"Alice\" gender:female\n",
+            &check,
+            ExportOptions::default(),
+        );
         let ExportEnvelope::Success(s) = env else {
             panic!("expected success");
         };
@@ -629,7 +630,7 @@ person d name:\"D\" gender:female born:~1980
     #[test]
     fn cytoscape_format_returns_cytoscape_payload() {
         let src = "person alice name:\"A\" gender:female\n";
-        let check = crate::check(src);
+        let check = crate::check(src, &crate::manifest::Manifest::default());
         let env = export(
             src,
             &check,

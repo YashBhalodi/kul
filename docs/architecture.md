@@ -17,10 +17,10 @@ This document uses the architecture words consistently:
 
 ## Pipeline
 
-A `.kul` source string flows through the toolchain like this:
+A `.kul` source string plus its project [`Manifest`](../CONTEXT.md#manifest) flow through the toolchain like this:
 
 ```
-source: &str
+(source: &str, manifest: &Manifest)
   │
   ▼  lexer.rs              produces tokens (flat sequence + spans)
   │
@@ -32,10 +32,10 @@ source: &str
   ▼  validator.rs          runs rules 02–13, accumulates diagnostics
   │                        rule 13 delegates to cycles.rs
   │
-  ▼  CheckResult { resolved: ResolvedDocument, diagnostics: Vec<Diagnostic> }
+  ▼  CheckResult { resolved, diagnostics, manifest }
 ```
 
-`kul_core::check(source)` is the single entry point that runs the whole pipeline. The CLI calls it once per file; the LSP calls it once per document update.
+`kul_core::check(source, &manifest)` is the single entry point that runs the whole pipeline. The CLI calls it once per file (after loading the sibling `kul.yml`); the LSP calls it once per document update (after loading the manifest at `did_open`); the WASM bridge calls it with a manifest the JS host constructed.
 
 The shape is deliberately linear. Each pass produces a strictly richer artifact; nothing earlier in the pipeline ever consults something later. This is why:
 
@@ -123,14 +123,15 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 
 | Seam                                  | File                                          | What's behind it                                                                                                |
 | ------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `kul_core::check`                    | `crates/kul-core/src/lib.rs`                 | The whole pipeline. CLI and LSP both enter here. Returns a `CheckResult` whose `resolved: ResolvedDocument` field is the cached query view (per [ADR-0007](./adr/0007-resolved-document-owns-document.md)). |
+| `kul_core::check`                    | `crates/kul-core/src/lib.rs`                 | The whole pipeline. CLI and LSP both enter here. Takes `(source: &str, manifest: &Manifest)` per [ADR-0013](./adr/0013-project-manifest.md); returns a `CheckResult` whose `resolved: ResolvedDocument` field is the cached query view (per [ADR-0007](./adr/0007-resolved-document-owns-document.md)). |
+| `Manifest` + adapters' loaders       | `crates/kul-core/src/manifest.rs`            | The project-level manifest, loaded by each adapter (CLI: from `<input>/../kul.yml`; LSP: same, at `did_open`; WASM: as a JS argument). `kul-core` itself never reads the filesystem — it consumes the typed value. Schema and discovery rule are normative ([`spec/14-project-manifest.md`](../spec/14-project-manifest.md)). |
 | `ResolvedDocument` query methods      | `crates/kul-core/src/semantic.rs`            | All kinship questions. ADR-0001 mandates queries go through this; raw AST iteration is the seam's job. Owns its `Arc<Document>` so the resolved view can be cached alongside other artifacts (no self-referential lifetime). |
 | `ResolvedDocument::node_at`           | `crates/kul-core/src/node_at.rs`             | "What's at byte offset X?" Returns a typed `Node`. Foundation for hover, definition, completion.                |
 | `ResolvedDocument::statement_at`      | `crates/kul-core/src/semantic.rs`            | "What top-level statement encloses byte offset X?" Returns `&Statement`. Coarser than `node_at` — used by completion to know whether a cursor sitting on a fresh line is "still under" the previous statement. |
 | `Node::entity_reference`              | `crates/kul-core/src/node_at.rs`             | "What entity (person / marriage) is the cursor pointing at?" Returns an `EntityNode` summary (id, kind, decl span, target). Used by goto-definition, find-references, rename. |
 | `Diagnostic` + `Severity` + code + `detail` | `crates/kul-core/src/diagnostic.rs`    | The error currency. Carries spans, codes (KUL-Rxx), related info, and (per ADR-0006) an optional sub-case tag. |
 | `field_meta::FieldMeta`               | `crates/kul-core/src/field_meta.rs`          | Per-field taxonomy: value shape, completion description, hover Markdown. Hover, completion, and semantic-tokens consume it (ADR-0005). |
-| `export::export`                      | `crates/kul-core/src/export.rs`              | Canonical JSON projection of a `CheckResult` into an `ExportEnvelope`. Strict on errors; format-dispatched (kinship-native or cytoscape). The deep module the CLI's `kul export` and the LSP's `kul/export` both call. Schema documented in [`spec/15-export-schema.md`](../spec/15-export-schema.md); shape, posture, and versioning settled in ADRs 0008–0010. |
+| `export::export`                      | `crates/kul-core/src/export.rs`              | Canonical JSON projection of a `CheckResult` into an `ExportEnvelope`. Strict on errors; format-dispatched (kinship-native or cytoscape). The deep module the CLI's `kul export` and the LSP's `kul/export` both call. Schema documented in [`spec/16-export-schema.md`](../spec/16-export-schema.md); shape, posture, and versioning settled in ADRs 0008–0010. |
 | `LineIndex`                           | `crates/kul-lsp/src/convert.rs`              | Byte ↔ LSP-position. Handles UTF-16 code units and CRLF. Holds source as `Arc<str>` so `state::Document` shares the same heap buffer.|
 | `state::Documents`                    | `crates/kul-lsp/src/state.rs`                | The LSP document cache. Thread-safe; the only path to a `Document` from inside an LSP request handler. Each cached `Document` shares one `Arc<str>` between its `source` field and the `LineIndex`.          |
 | `kul_wasm::{check, export_graph, format_source}` | `crates/kul-wasm/src/lib.rs`     | The WASM/JS surface. Three deep-module entrypoints exposed via `wasm-bindgen` with three operation-specific return shapes (per [ADR-0011](./adr/0011-wasm-surface-three-shapes-no-wrappers.md)). No convenience layer; consumers compose helpers at the call site. |
@@ -207,7 +208,7 @@ The export module (`crates/kul-core/src/export.rs`) projects every Person, Marri
 
 1. Add an optional field to the matching `Exported*` struct in `export.rs` (mark it `#[serde(skip_serializing_if = "Option::is_none")]` if not always present).
 2. Read the field via the existing `*Stmt::<field>()` accessor in the per-type builder and assign it.
-3. Document the new field in [`spec/15-export-schema.md`](../spec/15-export-schema.md) — additively, since per [ADR-0010](./adr/0010-export-schema-versioning.md) new optional fields do NOT bump the `schema` integer.
+3. Document the new field in [`spec/16-export-schema.md`](../spec/16-export-schema.md) — additively, since per [ADR-0010](./adr/0010-export-schema-versioning.md) new optional fields do NOT bump the `schema` integer.
 
 The export snapshot suite (`crates/kul-core/tests/export.rs`) auto-grows as each example file changes shape, so the new field's representation gets snapshot-locked the moment you `cargo insta accept`.
 
