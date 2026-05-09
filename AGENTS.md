@@ -70,6 +70,17 @@ A change is done when:
 3. Public items have rustdoc; clippy lints are at deny level (no `#[allow]` without a justifying comment).
 4. If a non-obvious design choice is being made, it lands as an ADR in [`docs/adr/`](./docs/adr/) — not as a code comment that a future agent might "simplify" away.
 
+## Issues, PRs, and commits
+
+The boundary of one PR is defined by one issue. Each issue represents one atomic unit of work *from a project / product perspective* — one refactor, one feature, one bug fix. PR diff size is not a constraint; what matters is the work-shape.
+
+- **One issue = one PR.** Don't split an issue's work across multiple PRs to `main`. If the work won't fit in one PR, the issue is too big — split the *issue*, not the PR.
+- **Squash and merge is the policy.** All PRs squash-merge into `main`; the resulting single commit represents the whole issue's worth of work.
+- **Within a PR, commits stay atomic from a *codebase* perspective.** Use [Conventional Commits](https://www.conventionalcommits.org/). Each commit is one logical change that compiles; the PR groups them into one product-perspective unit, and the squash collapses the group on merge.
+- **Docs, ADRs, and tests land in the same PR as the code that motivates them.** A PR that ships an ADR but not the code it documents (or vice versa) is not atomic at the product perspective — it splits one piece of work across two `main` commits.
+
+Two layers of atomicity, then: the PR / issue is atomic from a product perspective; commits inside it are atomic from a codebase perspective. The squash-merge policy collapses the second layer into the first on `main`.
+
 ## Domain vocabulary
 
 This repo is **single-context**: one [`CONTEXT.md`](./CONTEXT.md) at the repo root plus [`docs/adr/`](./docs/adr/) cover the entire project. When naming things — in issue titles, hypothesis statements, tests, PR descriptions — use the terms `CONTEXT.md` defines. Don't drift into "service / handler / component" speak; the architecture vocabulary (module / interface / seam / depth) is in [`docs/architecture.md`](./docs/architecture.md).
