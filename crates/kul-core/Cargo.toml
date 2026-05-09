@@ -12,14 +12,21 @@ rust-version.workspace = true
 workspace = true
 
 [features]
+default = ["yaml"]
 # Derive `tsify::Tsify` on the export-envelope types so the `kul-wasm`
 # adapter can emit accurate `.d.ts` files from this Rust source of truth.
 # Default-off — the CLI and LSP never pay the cost. See ADR-0012.
 tsify = ["dep:tsify", "dep:wasm-bindgen"]
+# Expose `kul_core::manifest::parse(yaml)`. The CLI and LSP turn the
+# on-disk `kul.yml` into a `Manifest` through this seam; the WASM
+# adapter receives `Manifest` as a typed JS object and never needs YAML
+# — it opts out via `default-features = false` in its Cargo.toml.
+yaml = ["dep:serde_yaml"]
 
 [dependencies]
 miette = { workspace = true }
 serde = { workspace = true }
+serde_yaml = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tsify = { workspace = true, optional = true, features = ["js"] }
 wasm-bindgen = { workspace = true, optional = true }

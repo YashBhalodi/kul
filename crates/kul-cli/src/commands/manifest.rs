@@ -57,46 +57,13 @@ pub fn load_for(input: &Path) -> Result<Manifest, ManifestError> {
         path: manifest_path.clone(),
         source: err,
     })?;
-    parse(&raw).map_err(|message| ManifestError::Parse {
+    kul_core::manifest::parse(&raw).map_err(|err| ManifestError::Parse {
         path: manifest_path,
-        message,
+        message: err.message().to_string(),
     })
 }
 
 fn resolve_path(input: &Path) -> PathBuf {
     let parent = input.parent().unwrap_or_else(|| Path::new(""));
     parent.join("kul.yml")
-}
-
-fn parse(raw: &str) -> Result<Manifest, String> {
-    serde_yaml::from_str(raw).map_err(|err| format!("invalid YAML: {err}"))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_minimal_manifest() {
-        let m = parse("kul: \"0.1\"\n").unwrap();
-        assert_eq!(m.kul_version, "0.1");
-    }
-
-    #[test]
-    fn parse_unknown_fields_are_tolerated() {
-        let m = parse("kul: \"0.1\"\nunknown: ignored\n").unwrap();
-        assert_eq!(m.kul_version, "0.1");
-    }
-
-    #[test]
-    fn parse_comments_are_dropped() {
-        let m = parse("# leading comment\nkul: \"0.1\"  # trailing\n").unwrap();
-        assert_eq!(m.kul_version, "0.1");
-    }
-
-    #[test]
-    fn parse_missing_kul_field_errors() {
-        let err = parse("foo: bar\n").unwrap_err();
-        assert!(err.contains("invalid YAML"), "unexpected error: {err}");
-    }
 }

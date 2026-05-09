@@ -643,7 +643,6 @@ dependencies = [
  "predicates",
  "serde",
  "serde_json",
- "serde_yaml",
  "tokio",
 ]
 
@@ -655,6 +654,7 @@ dependencies = [
  "miette",
  "serde",
  "serde_json",
+ "serde_yaml",
  "thiserror",
  "tsify",
  "wasm-bindgen",
@@ -668,7 +668,6 @@ dependencies = [
  "kul-core",
  "serde",
  "serde_json",
- "serde_yaml",
  "tokio",
  "tower-lsp",
  "tracing",

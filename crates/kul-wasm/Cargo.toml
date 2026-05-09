@@ -22,6 +22,9 @@ path = "src/lib.rs"
 wasm-opt = ["-Oz", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
 
 [dependencies]
+# The JS host hands `Manifest` over via `serde-wasm-bindgen`, so the
+# `yaml` feature on `kul-core` (which would pull in `serde_yaml`) is
+# intentionally not enabled here — keeps the wasm blob lean.
 kul-core = { workspace = true, features = ["tsify"] }
 wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }

@@ -19,14 +19,13 @@ name = "kul-lsp"
 path = "src/main.rs"
 
 [dependencies]
-kul-core = { workspace = true }
+kul-core = { workspace = true, features = ["yaml"] }
 tower-lsp = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml = { workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }
