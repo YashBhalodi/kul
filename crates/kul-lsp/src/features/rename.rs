@@ -13,6 +13,7 @@
 
 use std::collections::HashMap;
 
+use kul_core::lexer::{is_identifier, is_reserved_word};
 use kul_core::semantic::ResolvedDocument;
 use kul_core::span::ByteSpan;
 use tower_lsp::lsp_types::{PrepareRenameResponse, TextEdit, Url, WorkspaceEdit};
@@ -104,12 +105,12 @@ pub fn rename(
         return Ok(WorkspaceEdit::default());
     }
 
-    if !is_valid_identifier(new_name) {
+    if !is_identifier(new_name) {
         return Err(RenameError::InvalidIdentifier {
             proposed: new_name.to_owned(),
         });
     }
-    if is_reserved_keyword(new_name) {
+    if is_reserved_word(new_name) {
         return Err(RenameError::ReservedKeyword {
             proposed: new_name.to_owned(),
         });
@@ -139,45 +140,6 @@ pub fn rename(
         changes: Some(changes),
         ..Default::default()
     })
-}
-
-/// Match the Kul identifier production `[A-Za-z_][A-Za-z0-9_-]*`. Mirrors
-/// the lexer's rule for naked identifier tokens — keep them in sync.
-fn is_valid_identifier(s: &str) -> bool {
-    let mut chars = s.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    if !(first.is_ascii_alphabetic() || first == '_') {
-        return false;
-    }
-    chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-}
-
-/// Words the lexer reserves as keywords. Renaming an id to one of these
-/// would silently change the parse of any line that mentions it.
-fn is_reserved_keyword(s: &str) -> bool {
-    matches!(
-        s,
-        "kul"
-            | "person"
-            | "marriage"
-            | "birth"
-            | "adoption"
-            | "name"
-            | "family"
-            | "given"
-            | "born"
-            | "died"
-            | "gender"
-            | "start"
-            | "end"
-            | "end_reason"
-            | "male"
-            | "female"
-            | "other"
-            | "divorce"
-    )
 }
 
 #[cfg(test)]
@@ -308,6 +270,10 @@ mod tests {
     #[test]
     fn rename_to_reserved_keyword_returns_error() {
         let src = "person alice name:\"A\" gender:female\n";
+        // The reserved set is whatever `kul_core::lexer::is_reserved_word`
+        // says; this list mirrors the lexer keywords. `kul` is intentionally
+        // absent — per `kul_core::lexer` tests, `kul` is a normal identifier
+        // post-#69 manifest refactor.
         for kw in [
             "person",
             "marriage",
@@ -320,7 +286,6 @@ mod tests {
             "end",
             "end_reason",
             "divorce",
-            "kul",
             "male",
             "female",
             "other",
