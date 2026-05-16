@@ -1,0 +1,4 @@
+person b name:"B" gender:male born:1975
+  birth m_branch_a
+person partner_b name:"PB" gender:female born:1973
+marriage m_branch_b b partner_b start:1998

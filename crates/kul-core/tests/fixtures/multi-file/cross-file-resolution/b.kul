@@ -1,0 +1,3 @@
+marriage m_alice_bob alice bob start:1972
+person carol name:"Carol" gender:female born:1975
+  birth m_alice_bob

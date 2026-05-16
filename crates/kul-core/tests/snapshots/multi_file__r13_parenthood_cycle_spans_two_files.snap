@@ -1,0 +1,7 @@
+---
+source: crates/kul-core/tests/multi_file.rs
+expression: "render_diagnostics(&result, &inputs)"
+---
+KUL-R13 a.kul [147..148]: parent-link cycle: `a` → `b` → `a` — one of these `birth` or `adoption` links must be wrong
+  related a.kul [193..203]: parent link in the cycle
+  related b.kul [48..58]: parent link in the cycle

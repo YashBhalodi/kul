@@ -1,0 +1,6 @@
+# Anchor person `a` adopts via `m_branch_b` whose spouse is `b` — a child of `m_branch_a`.
+# The cycle a → b → a spans the two files.
+person a name:"A" gender:female born:1950
+  adoption m_branch_b start:2000
+person partner_a name:"PA" gender:male born:1948
+marriage m_branch_a a partner_a start:1972

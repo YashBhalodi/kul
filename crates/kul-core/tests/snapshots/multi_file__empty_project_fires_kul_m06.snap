@@ -1,0 +1,5 @@
+---
+source: crates/kul-core/tests/multi_file.rs
+expression: "render_diagnostics(&result, &inputs)"
+---
+KUL-M06 kul.yml [0..1]: project has a `kul.yml` but no `.kul` files — add at least one `.kul` file alongside the manifest
