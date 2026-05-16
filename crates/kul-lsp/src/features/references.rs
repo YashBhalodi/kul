@@ -17,6 +17,11 @@ use crate::convert::LineIndex;
 /// the cursor isn't on something the user could find references for
 /// (keywords, fields, whitespace, EOF). Returns `Some(empty)` when the
 /// cursor *is* on a referenceable id but nothing else uses it.
+///
+/// The resolver's `references_to` query is project-wide (per ADR-0015);
+/// this feature filters to the active URI's `FileId` because the LSP
+/// cache is still URI-keyed. Cross-file find-references lands with PRD
+/// 0001 slice 5 (#85), at which point this filter goes away.
 pub fn references(
     file: FileId,
     resolved: &ResolvedDocument,
@@ -29,7 +34,12 @@ pub fn references(
         .node_at(file, byte_offset)?
         .entity_reference(file)?;
 
-    let mut spans: Vec<ByteSpan> = resolved.references_to(file, entity.name, entity.kind);
+    let mut spans: Vec<ByteSpan> = resolved
+        .references_to(entity.name, entity.kind)
+        .into_iter()
+        .filter(|fs| fs.file == file)
+        .map(|fs| fs.span)
+        .collect();
     if include_declaration && let Some(d) = entity.decl_span() {
         spans.push(d.span);
     }
