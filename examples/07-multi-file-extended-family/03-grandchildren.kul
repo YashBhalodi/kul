@@ -1,0 +1,17 @@
+# Example 7 (file 3 of 3) — Third generation.
+#
+# Children of the second-generation marriages. Their `birth` links
+# reference marriage ids declared in `02-parents.kul`; under
+# project-wide resolution (ADR-0015) those references resolve to the
+# marriages in that sibling file just as cleanly as if everyone lived
+# in one file.
+
+person carol  name:"Carol Patel"  gender:female  born:1981-06-08
+  birth m_alice_bob
+person diya   name:"Diya Patel"   gender:female  born:1984-10-30
+  birth m_alice_bob
+
+person farid  name:"Farid Patel"  gender:male    born:1985-01-17
+  birth m_dev_eva
+person gita   name:"Gita Patel"   gender:female  born:~1988
+  birth m_dev_eva
