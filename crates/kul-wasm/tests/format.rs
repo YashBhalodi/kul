@@ -1,7 +1,7 @@
 //! Snapshot tests for the WASM `format` bridge.
 //!
-//! Sweeps every `examples/*.kul` and asserts the bridge round-trips the
-//! formatted source unchanged. The formatter itself is exhaustively
+//! Sweeps every `examples/*/<name>.kul` and asserts the bridge round-trips
+//! the formatted source unchanged. The formatter itself is exhaustively
 //! property-tested in `kul-core::tests::format`; these snapshots verify
 //! that the WASM seam adds no transformation. A new example file forces
 //! a corresponding snapshot review here, mirroring the corpus-contract
@@ -26,22 +26,46 @@ fn read(path: &Path) -> String {
 }
 
 macro_rules! example_snapshot {
-    ($name:ident, $stem:literal) => {
+    ($name:ident, $dir:literal, $stem:literal) => {
         #[test]
         fn $name() {
-            let path = examples_dir().join(concat!($stem, ".kul"));
+            let path = examples_dir().join($dir).join(concat!($stem, ".kul"));
             let formatted = kul_wasm::format_source(&read(&path));
             insta::assert_snapshot!(formatted);
         }
     };
 }
 
-example_snapshot!(example_01_single_couple, "01-single-couple");
-example_snapshot!(example_02_nuclear_family, "02-nuclear-family");
-example_snapshot!(example_03_three_generations, "03-three-generations");
-example_snapshot!(example_04_polygamous_family, "04-polygamous-family");
-example_snapshot!(example_05_married_siblings, "05-married-siblings");
-example_snapshot!(example_06_three_branch_dynasty, "06-three-branch-dynasty");
+example_snapshot!(
+    example_01_single_couple,
+    "01-single-couple",
+    "single-couple"
+);
+example_snapshot!(
+    example_02_nuclear_family,
+    "02-nuclear-family",
+    "nuclear-family"
+);
+example_snapshot!(
+    example_03_three_generations,
+    "03-three-generations",
+    "three-generations"
+);
+example_snapshot!(
+    example_04_polygamous_family,
+    "04-polygamous-family",
+    "polygamous-family"
+);
+example_snapshot!(
+    example_05_married_siblings,
+    "05-married-siblings",
+    "married-siblings"
+);
+example_snapshot!(
+    example_06_three_branch_dynasty,
+    "06-three-branch-dynasty",
+    "three-branch-dynasty"
+);
 
 #[test]
 fn every_example_has_a_dedicated_snapshot_test() {
@@ -49,8 +73,8 @@ fn every_example_has_a_dedicated_snapshot_test() {
         .unwrap()
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("kul"))
-        .map(|p| p.file_stem().unwrap().to_string_lossy().into_owned())
+        .filter(|p| p.is_dir())
+        .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
         .collect();
     have.sort();
     let expected = [

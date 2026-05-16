@@ -22,7 +22,7 @@ A declared individual: `person <id> name:"…" born:… died:… gender:…`. Th
 
 A declared union: `marriage <id> <spouse_a> <spouse_b> start:… end:… end_reason:…`. The two spouse positions reference declared persons by id. Marriages are identified, not anonymous — children link to a marriage by id.
 
-A person may participate in multiple marriages (sequential or concurrent — concurrent marriages are valid; see `examples/04-polygamous-family.kul`). The spec does not restrict marriages to particular gender combinations.
+A person may participate in multiple marriages (sequential or concurrent — concurrent marriages are valid; see `examples/04-polygamous-family/polygamous-family.kul`). The spec does not restrict marriages to particular gender combinations.
 
 ### Birth
 

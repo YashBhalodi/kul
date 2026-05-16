@@ -12,7 +12,7 @@ Tests in this workspace live at two layers, and both layers are load-bearing.
 
 | Crate     | Tests live at                                  | Style                                                                          |
 | --------- | ---------------------------------------------- | ------------------------------------------------------------------------------ |
-| kul-core | `crates/kul-core/tests/{lexer,parser,validator,format,export}.rs` | Integration tests; insta snapshots. `export.rs` macro-generates one snapshot per `examples/*.kul` per option matrix (default / with-positions / cytoscape). |
+| kul-core | `crates/kul-core/tests/{lexer,parser,validator,format,export}.rs` | Integration tests; insta snapshots. `export.rs` macro-generates one snapshot per `examples/*/<stem>.kul` per option matrix (default / with-positions / cytoscape). |
 | kul-cli  | `crates/kul-cli/tests/cli.rs`                 | End-to-end via `assert_cmd` + `predicates`. Covers every subcommand including `kul export` (success / failure envelopes, both formats, `--with-positions`). |
 | kul-lsp  | `crates/kul-lsp/tests/{handshake,diagnostics,hover,definition,completion,cold_start,export}.rs` | Stdio LSP client driving the real server; insta snapshots. `export.rs` covers the `kul/export` custom request end-to-end (success, failure, cytoscape, document-not-open error). |
 | kul-lsp  | `crates/kul-lsp/tests/perf.rs`                | Performance budget gates (no LSP-protocol round-trip)                          |

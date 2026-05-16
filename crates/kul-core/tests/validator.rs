@@ -358,7 +358,7 @@ fn malformed_multi_token_string_value_recovers_at_next_field() {
 #[test]
 fn rules_9_through_12_clean_on_full_example() {
     let src = std::fs::read_to_string(format!(
-        "{}/../../examples/03-three-generations.kul",
+        "{}/../../examples/03-three-generations/three-generations.kul",
         env!("CARGO_MANIFEST_DIR")
     ))
     .expect("examples file");

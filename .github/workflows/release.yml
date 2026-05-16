@@ -101,7 +101,7 @@ jobs:
           BIN="target/${{ matrix.target }}/release/kul"
           if [[ "${{ runner.os }}" == "Windows" ]]; then BIN="$BIN.exe"; fi
           "$BIN" --version
-          "$BIN" validate examples/03-three-generations.kul
+          "$BIN" validate examples/03-three-generations/three-generations.kul
       - name: Package
         id: package
         shell: bash

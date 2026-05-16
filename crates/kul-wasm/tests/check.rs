@@ -8,13 +8,13 @@
 //!   `kul-core::tests::export::failure_envelope_*` so any drift between
 //!   the CLI export envelope and the WASM `check` projection surfaces
 //!   immediately.
-//! - **Clean-corpus sweep** — every `examples/*.kul` must produce an
-//!   empty `diagnostics` array. The corpus-contract guard mirrors the
+//! - **Clean-corpus sweep** — every `examples/*/<name>.kul` must produce
+//!   an empty `diagnostics` array. The corpus-contract guard mirrors the
 //!   pattern in `kul-core::tests::export` and `format.rs`: dropping a
 //!   new example forces a snapshot review here.
 //!
-//! Broken inputs live as inline strings; the `examples/*.kul` corpus
-//! stays documentation-grade.
+//! Broken inputs live as inline strings; the `examples/*/<name>.kul`
+//! corpus stays documentation-grade.
 //!
 //! Snapshots are pretty-printed JSON of the `CheckEnvelope`.
 //!
@@ -70,35 +70,50 @@ fn failure_envelope_missing_required_field() {
 }
 
 macro_rules! clean_example {
-    ($name:ident, $stem:literal) => {
+    ($name:ident, $dir:literal, $stem:literal) => {
         #[test]
         fn $name() {
-            let path = examples_dir().join(concat!($stem, ".kul"));
+            let path = examples_dir().join($dir).join(concat!($stem, ".kul"));
             let envelope = kul_wasm::check(&read(&path), kul_core::manifest::Manifest::default());
             assert!(
                 envelope.diagnostics.is_empty(),
                 "{} produced diagnostics: {:#?}",
-                $stem,
+                $dir,
                 envelope.diagnostics
             );
         }
     };
 }
 
-clean_example!(example_01_single_couple_is_clean, "01-single-couple");
-clean_example!(example_02_nuclear_family_is_clean, "02-nuclear-family");
+clean_example!(
+    example_01_single_couple_is_clean,
+    "01-single-couple",
+    "single-couple"
+);
+clean_example!(
+    example_02_nuclear_family_is_clean,
+    "02-nuclear-family",
+    "nuclear-family"
+);
 clean_example!(
     example_03_three_generations_is_clean,
-    "03-three-generations"
+    "03-three-generations",
+    "three-generations"
 );
 clean_example!(
     example_04_polygamous_family_is_clean,
-    "04-polygamous-family"
+    "04-polygamous-family",
+    "polygamous-family"
 );
-clean_example!(example_05_married_siblings_is_clean, "05-married-siblings");
+clean_example!(
+    example_05_married_siblings_is_clean,
+    "05-married-siblings",
+    "married-siblings"
+);
 clean_example!(
     example_06_three_branch_dynasty_is_clean,
-    "06-three-branch-dynasty"
+    "06-three-branch-dynasty",
+    "three-branch-dynasty"
 );
 
 #[test]
@@ -107,8 +122,8 @@ fn every_example_has_a_dedicated_clean_check_test() {
         .unwrap()
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("kul"))
-        .map(|p| p.file_stem().unwrap().to_string_lossy().into_owned())
+        .filter(|p| p.is_dir())
+        .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
         .collect();
     have.sort();
     let expected = [
