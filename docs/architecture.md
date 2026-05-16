@@ -33,17 +33,18 @@ A project's manifest YAML plus its [`InputFile`](../CONTEXT.md#kulfile)s flow th
   │                        operates on (manifest at FileId(0); .kul files
   │                        at FileId(1..))
   │
-  ▼  semantic.rs           produces ResolvedDocument (per-file id indexes)
+  ▼  semantic.rs           produces ResolvedDocument (project-wide id index)
   │                        emits rule 01 diagnostics inline (duplicate ids,
-  │                        scoped per-file per ADR-0014)
+  │                        scoped project-wide per ADR-0015)
   │
-  ▼  validator.rs          runs rules 02–13 per file, accumulates diagnostics
-  │                        rule 13 delegates to cycles.rs (per-file)
+  ▼  validator.rs          runs rules 02–12 per file, then rule 13 once
+  │                        across the project; rule 13 delegates to cycles.rs
+  │                        which walks the project-wide parent graph
   │
   ▼  CheckResult { resolved, diagnostics, manifest }
 ```
 
-`kul_core::check(manifest_name, manifest_yaml, &[InputFile])` is the single entry point that runs the whole pipeline. The CLI calls it once per project (after reading the sibling `kul.yml` bytes off disk); the LSP calls it once per document update (re-reading the manifest each time so external edits take effect); the WASM bridge calls `check_with_manifest` with a typed manifest the JS host constructed and synthesizes a placeholder `kul.yml` body so any `.kul`-side diagnostic into the manifest still has bytes to anchor at. At v1 every consumer feeds **one** `.kul` input per call — the multi-file shape exists so [issue #63](https://github.com/YashBhalodi/kul/issues/63) can build on file-aware spans without further breaking changes (per [ADR-0014](./adr/0014-file-identity-and-per-file-namespaces.md)).
+`kul_core::check(manifest_name, manifest_yaml, &[InputFile])` is the single entry point that runs the whole pipeline. The CLI calls it once per project (after reading the sibling `kul.yml` bytes off disk); the LSP calls it once per document update (re-reading the manifest each time so external edits take effect); the WASM bridge calls `check_with_manifest` with a typed manifest the JS host constructed and synthesizes a placeholder `kul.yml` body so any `.kul`-side diagnostic into the manifest still has bytes to anchor at. The pipeline operates on `Document.kul_files` with `N>=1` consumers (per [ADR-0015](./adr/0015-global-project-namespace.md)): the resolver builds one project-wide id index, the validator threads file iteration through it, and R01/R02/R13 honour the global namespace. The CLI, LSP, and WASM adapters in this slice still feed one `.kul` input per call; the multi-file lifts at the adapter surfaces land in later slices of [PRD 0001](./prd/0001-multi-file-kul-projects.md).
 
 The shape is deliberately linear. Each pass produces a strictly richer artifact; nothing earlier in the pipeline ever consults something later. This is why:
 
@@ -134,7 +135,7 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 | `kul_core::check`                    | `crates/kul-core/src/lib.rs`                 | The whole pipeline. CLI and LSP both enter here. Takes `(manifest_name, manifest_yaml: &str, &[InputFile])` per [ADR-0013](./adr/0013-project-manifest.md) and [ADR-0014](./adr/0014-file-identity-and-per-file-namespaces.md); returns a `CheckResult` whose `resolved: ResolvedDocument` field is the cached query view (per [ADR-0007](./adr/0007-resolved-document-owns-document.md)). The WASM bridge enters via `check_with_manifest` (a typed-manifest variant) instead. |
 | `FileId` / `FileSpan`                 | `crates/kul-core/src/span.rs`                | Project-wide locators. `FileId` indexes into `Document.kul_files` (with `FileId::MANIFEST` = `FileId(0)`); `FileSpan` is the `(file, byte-range)` pair every diagnostic anchors on. AST nodes keep bare `ByteSpan` (per ADR-0014) — their owning `KulFile` provides file context implicitly. |
 | `Manifest` + adapters' loaders       | `crates/kul-core/src/manifest.rs`            | The project-level manifest, loaded by each adapter (CLI: from `<input>/../kul.yml`; LSP: same, at `did_open`; WASM: as a JS argument). `kul-core` itself never reads the filesystem — it consumes the typed value. Schema and discovery rule are normative ([`spec/14-project-manifest.md`](../spec/14-project-manifest.md)). |
-| `ResolvedDocument` query methods      | `crates/kul-core/src/semantic.rs`            | All kinship questions. ADR-0001 mandates queries go through this; raw AST iteration is the seam's job. Owns its `Arc<Document>` so the resolved view can be cached alongside other artifacts (no self-referential lifetime). |
+| `ResolvedDocument` query methods      | `crates/kul-core/src/semantic.rs`            | All kinship questions. ADR-0001 mandates queries go through this; raw AST iteration is the seam's job. Per-id lookups (`person`, `marriage`, `entity`) take a bare id (project-wide per [ADR-0015](./adr/0015-global-project-namespace.md)); per-file iteration helpers (`persons_in(file)`, etc.) keep the file parameter for per-URI LSP needs. Owns its `Arc<Document>` so the resolved view can be cached alongside other artifacts (no self-referential lifetime). |
 | `ResolvedDocument::node_at`           | `crates/kul-core/src/node_at.rs`             | "What's at byte offset X?" Returns a typed `Node`. Foundation for hover, definition, completion.                |
 | `ResolvedDocument::statement_at`      | `crates/kul-core/src/semantic.rs`            | "What top-level statement encloses byte offset X?" Returns `&Statement`. Coarser than `node_at` — used by completion to know whether a cursor sitting on a fresh line is "still under" the previous statement. |
 | `Node::entity_reference`              | `crates/kul-core/src/node_at.rs`             | "What entity (person / marriage) is the cursor pointing at?" Returns an `EntityNode` summary (id, kind, decl span, target). Used by goto-definition, find-references, rename. |

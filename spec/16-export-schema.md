@@ -4,6 +4,8 @@ This section is normative. It specifies the canonical JSON envelope a conforming
 
 The export is a one-way projection from a Kul document to a flat JSON shape suitable for downstream consumers (visualizers, web apps, scripts, generators). The `.kul` source remains the canonical artifact; the export is derived.
 
+**One envelope per project.** A Kul project (per [Section 14](./14-project-manifest.md)) is one logical namespace regardless of how many `.kul` files it spans. A conforming exporter MUST emit exactly **one** envelope per project, with the `graph`'s `persons`, `marriages`, and `parenthoodLinks` collections carrying the union of every file's contents. The export does not attribute entities to their source files; downstream consumers that care about file-of-origin track it themselves.
+
 The decisions behind this schema — its kinship-native shape, its strict-on-diagnostics posture, and its independent versioning — are recorded in [ADR-0008](../docs/adr/0008-export-kinship-native-shape.md), [ADR-0009](../docs/adr/0009-export-strict-on-diagnostics.md), and [ADR-0010](../docs/adr/0010-export-schema-versioning.md).
 
 ### 15.1 Envelope shape

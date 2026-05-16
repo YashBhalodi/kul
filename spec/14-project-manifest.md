@@ -1,8 +1,26 @@
 # 14. Project manifest
 
-A Kul **project** is a sibling pair: one `kul.yml` manifest plus one or more `.kul` files in the same directory. The manifest carries metadata *about* the source — most notably the language version the sibling `.kul` files conform to — that previously rode inside the grammar. Lifting it out keeps the DSL focused on kinship.
+A Kul **project** is a directory containing one `kul.yml` manifest plus one or more `.kul` files. The manifest carries metadata *about* the source — most notably the language version the sibling `.kul` files conform to — that previously rode inside the grammar. Lifting it out keeps the DSL focused on kinship.
 
 The manifest is **normative**: every Kul-language consumer (this toolchain today, third-party tools tomorrow) MUST honor the discovery rule and schema in this section. It is also **required**: a `.kul` file without a sibling `kul.yml` is not a valid Kul project, and tools MUST report this as an error.
+
+## 14.0 Multi-file projects
+
+Every `.kul` file in a project directory is part of one logical namespace. Each ID (`person` or `marriage`) declared in any of the project's files is visible from every file by bare name — there is no `import` statement, no namespace prefix, and no qualified-reference syntax. The file boundary is purely organizational.
+
+A single-file project is a project with `N=1` files; the multi-file case generalizes it without any grammar change. The discovery rule below applies uniformly.
+
+**Project membership**
+
+- The project root is the directory containing `kul.yml`.
+- Every `*.kul` file in that directory is a member of the project.
+- Subdirectories are not walked: they are invisible to the toolchain.
+- Files whose extension is not `.kul` (`README.md`, `.gitignore`, editor backups, etc.) are silently ignored.
+
+**Project-level constraints**
+
+- IDs are globally unique within the project. Two `.kul` files declaring the same ID is a duplicate-id error ([Section 7](./07-validation-rules.md), KUL-R01).
+- A project with `kul.yml` but zero sibling `.kul` files is an empty project and is an error (KUL-M06, defined below).
 
 ## 14.1 Filename and location
 
@@ -12,7 +30,7 @@ The manifest is **normative**: every Kul-language consumer (this toolchain today
 | Encoding                | UTF-8 (no BOM) |
 | Location relative to source | Same directory as the `.kul` file(s) it governs |
 
-The manifest does NOT walk up to ancestor directories: the manifest for a `.kul` file at `<path>/<file>.kul` is `<path>/kul.yml` and only `<path>/kul.yml`. (The multi-file refactor that follows this issue may revisit; today the rule is purely directory-scoped.)
+The manifest does NOT walk up to ancestor directories: the manifest for any `.kul` file at `<path>/<file>.kul` is `<path>/kul.yml` and only `<path>/kul.yml`. The rule is purely directory-scoped, and the project is the flat collection of `.kul` files at that level (see [14.0](#140-multi-file-projects)).
 
 ## 14.2 Schema
 
@@ -51,6 +69,7 @@ A conforming tool MUST report the manifest failure to its caller before any kins
 - `KUL-M03` — manifest is well-formed YAML but missing the required `kul:` field. Anchors at the manifest start.
 - `KUL-M04` — manifest's `kul:` value is not a recognized Kul language version. Anchors at the value.
 - `KUL-M05` — manifest carries an unknown top-level field. Severity warning; anchors at the field key.
+- `KUL-M06` — project has a `kul.yml` but zero sibling `.kul` files. Anchors at the manifest start.
 
 Each adapter chooses an appropriate surface for these diagnostics:
 

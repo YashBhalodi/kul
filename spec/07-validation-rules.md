@@ -4,8 +4,8 @@ A conforming validator MUST report all of the following as errors. A document wi
 
 ## Structural
 
-1. **Duplicate ID** — no two top-level statements (across `person` and `marriage`) may share an ID.
-2. **Unresolved reference** — every `birth` marriage reference, `adoption` marriage reference, and marriage spouse reference must resolve to a declared ID.
+1. **Duplicate ID within the project** — no two top-level statements (across `person` and `marriage`) may share an ID anywhere in the project. A Kul project (see [Section 14](./14-project-manifest.md)) is one logical namespace: an ID declared in one `.kul` file collides with the same ID declared in any sibling `.kul` file. The diagnostic anchors at the second declaration in file-discovery order (ties broken by byte offset within a file); a related-span points to the first declaration.
+2. **Unresolved reference** — every `birth` marriage reference, `adoption` marriage reference, and marriage spouse reference must resolve to a declared ID in the project. Cross-file references resolve cleanly: an ID declared in any `.kul` file of the project is visible from every file.
 3. **Required field missing** — a `person` MUST have `name` and `gender`. A `marriage` MUST have both spouses and `start`. (The positional `id` is also required and is enforced by the grammar; this rule covers the named fields.)
 4. **Self-marriage** — a marriage's two spouse references MUST be distinct identifiers.
 5. **End consistency** — a marriage's `end` field and `end_reason` field MUST both be present or both absent.
@@ -24,7 +24,7 @@ For each comparison below, when a date has partial granularity it is treated as 
 
 ## Cycles
 
-13. **Parenthood cycle** — combining all `birth` and `adoption` parent links into a directed graph from child to parent, no person may appear as their own ancestor. (A cycle in this graph is an error.)
+13. **Parenthood cycle** — combining all `birth` and `adoption` parent links across every `.kul` file in the project into a directed graph from child to parent, no person may appear as their own ancestor. (A cycle in this graph is an error.) Cycles that span multiple files are detected and reported as a single cycle.
 
 ## Manifest
 
@@ -35,6 +35,7 @@ The following codes are reported by the project-manifest validator pass against 
 - **KUL-M03** — manifest is well-formed YAML but missing the required `kul:` field. Anchors at the manifest start.
 - **KUL-M04** — manifest's `kul:` value is not a recognized Kul language version. Anchors at the value.
 - **KUL-M05** — manifest carries an unknown top-level field. Severity warning; anchors at the field key.
+- **KUL-M06** — project has a `kul.yml` but zero sibling `.kul` files. Anchors at the manifest start.
 
 ## Things explicitly NOT validated in v1
 
