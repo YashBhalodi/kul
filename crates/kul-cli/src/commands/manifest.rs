@@ -10,9 +10,10 @@
 //! path with `KUL-Mxx` codes — the previous string-based error rendering
 //! is gone.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use kul_core::diagnostic::{Diagnostic, manifest_codes};
+use kul_core::manifest::sibling_path;
 
 /// The discovered manifest for an input.
 ///
@@ -34,7 +35,7 @@ pub struct ManifestPayload {
 /// manifest-anchored diagnostics ("missing required field `kul:`")
 /// render with the right filename header.
 pub fn load_for(input: &Path) -> ManifestPayload {
-    let manifest_path = resolve_path(input);
+    let manifest_path = sibling_path(input);
     let path_label = manifest_path.to_string_lossy().into_owned();
     if !manifest_path.exists() {
         let preface = vec![Diagnostic::unanchored_error(
@@ -71,9 +72,4 @@ pub fn load_for(input: &Path) -> ManifestPayload {
             }
         }
     }
-}
-
-fn resolve_path(input: &Path) -> PathBuf {
-    let parent = input.parent().unwrap_or_else(|| Path::new(""));
-    parent.join("kul.yml")
 }

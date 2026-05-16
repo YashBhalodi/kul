@@ -13,8 +13,7 @@
 //! external write before the next keystroke takes effect on the next
 //! check.
 
-use std::path::PathBuf;
-
+use kul_core::manifest::sibling_path;
 use tower_lsp::lsp_types::Url;
 
 /// Resolve and load the manifest for a `.kul` URI. Returns the manifest
@@ -33,10 +32,7 @@ pub fn manifest_yaml_for(uri: &Url) -> (String, String) {
         Ok(p) => p,
         Err(_) => return (uri.to_string(), String::new()),
     };
-    let parent = kul_path
-        .parent()
-        .unwrap_or_else(|| std::path::Path::new(""));
-    let manifest_path: PathBuf = parent.join("kul.yml");
+    let manifest_path = sibling_path(&kul_path);
     let label = manifest_path.to_string_lossy().into_owned();
     match std::fs::read_to_string(&manifest_path) {
         Ok(yaml) => (label, yaml),

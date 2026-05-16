@@ -22,6 +22,8 @@
 //! the only manifest-related code that has no anchor in `kul.yml` (the
 //! file isn't there).
 
+use std::path::{Path, PathBuf};
+
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
@@ -31,6 +33,23 @@ use crate::diagnostic::{Diagnostic, fspan, manifest_codes};
 use crate::export::LANGUAGE_VERSION;
 #[cfg(feature = "yaml")]
 use crate::span::{ByteSpan, FileId};
+
+/// Resolve the project manifest path for a `.kul` input.
+///
+/// Per [`spec/14-project-manifest.md`](../../../spec/14-project-manifest.md)
+/// §14.3, the manifest for `<dir>/<file>.kul` is `<dir>/kul.yml` — same
+/// directory, no walk-up. This is the one authoritative encoding of the
+/// rule; CLI and LSP adapters both call it so a future spec edit (say,
+/// allowing `kul.yaml` as an alias, or supporting walk-up) lands in one
+/// place.
+///
+/// Pure path manipulation only — no filesystem IO. ADR-0014 keeps
+/// filesystem reads at the adapter layer; this function just rewrites
+/// one path into another.
+pub fn sibling_path(input: &Path) -> PathBuf {
+    let parent = input.parent().unwrap_or_else(|| Path::new(""));
+    parent.join("kul.yml")
+}
 
 /// Versions of the Kul language this `kul-core` build accepts in the
 /// manifest's `kul:` field. Today only `0.1` is recognized; new versions
@@ -317,6 +336,30 @@ fn locate_key_value(yaml: &str, key: &str) -> ByteSpan {
 #[cfg(all(test, feature = "yaml"))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sibling_path_is_kul_yml_in_same_directory() {
+        assert_eq!(
+            sibling_path(Path::new("examples/04/family.kul")),
+            PathBuf::from("examples/04/kul.yml")
+        );
+    }
+
+    #[test]
+    fn sibling_path_handles_bare_filename_without_parent() {
+        // `family.kul` has no parent — the rule is "same directory", which
+        // for a relative bare filename is the current working directory.
+        assert_eq!(
+            sibling_path(Path::new("family.kul")),
+            PathBuf::from("kul.yml")
+        );
+    }
+
+    #[test]
+    fn sibling_path_handles_absolute_paths() {
+        let got = sibling_path(Path::new("/srv/project/family.kul"));
+        assert_eq!(got, PathBuf::from("/srv/project/kul.yml"));
+    }
 
     #[test]
     fn parse_minimal_manifest() {
