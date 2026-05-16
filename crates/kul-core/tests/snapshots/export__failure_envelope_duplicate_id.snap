@@ -8,7 +8,7 @@ expression: json
     {
       "code": "KUL-R01",
       "severity": "error",
-      "message": "id `alice` is already used by another person — pick a different id (every id must be unique across all persons and marriages)",
+      "message": "id `alice` is already used by another person — pick a different id (every id must be unique across the project)",
       "primary": {
         "file": "test.kul",
         "byteStart": 47,

@@ -49,13 +49,22 @@ fn corpus_files() -> Vec<PathBuf> {
     let mut files = Vec::new();
     let examples = workspace_root().join("examples");
     if examples.is_dir() {
-        for entry in std::fs::read_dir(&examples)
+        // Each per-example subdirectory carries one or more `.kul` files
+        // alongside its `kul.yml`. Walk one level deep into every subdir.
+        for example_dir in std::fs::read_dir(&examples)
             .expect("read examples dir")
             .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.is_dir())
         {
-            let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("kul") {
-                files.push(path);
+            for entry in std::fs::read_dir(&example_dir)
+                .expect("read example subdirectory")
+                .flatten()
+            {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("kul") {
+                    files.push(path);
+                }
             }
         }
     }

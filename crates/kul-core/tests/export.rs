@@ -136,6 +136,62 @@ example_snapshot!(
     "three-branch-dynasty"
 );
 
+/// Multi-file example: every `.kul` file in the directory is part of the
+/// same project, so the export envelope holds the union of every file's
+/// persons, marriages, and parenthood links.
+fn export_multi_file(dir: &str, options: ExportOptions) -> String {
+    let mut entries: Vec<PathBuf> = std::fs::read_dir(examples_dir().join(dir))
+        .expect("read multi-file example directory")
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("kul"))
+        .collect();
+    entries.sort();
+    let inputs: Vec<InputFile> = entries
+        .iter()
+        .map(|p| {
+            InputFile::new(
+                p.file_name().unwrap().to_string_lossy().into_owned(),
+                read(p),
+            )
+        })
+        .collect();
+    let check =
+        kul_core::check_with_manifest("kul.yml", "kul: \"0.1\"\n", &Manifest::default(), &inputs);
+    let envelope = export(&check, options);
+    serde_json::to_string_pretty(&envelope).expect("serialize envelope")
+}
+
+#[test]
+fn example_07_multi_file_extended_family() {
+    let json = export_multi_file("07-multi-file-extended-family", ExportOptions::default());
+    insta::assert_snapshot!(json);
+}
+
+#[test]
+fn example_07_multi_file_extended_family_with_positions() {
+    let json = export_multi_file(
+        "07-multi-file-extended-family",
+        ExportOptions {
+            with_positions: true,
+            ..ExportOptions::default()
+        },
+    );
+    insta::assert_snapshot!(json);
+}
+
+#[test]
+fn example_07_multi_file_extended_family_cytoscape() {
+    let json = export_multi_file(
+        "07-multi-file-extended-family",
+        ExportOptions {
+            format: ExportFormat::Cytoscape,
+            ..ExportOptions::default()
+        },
+    );
+    insta::assert_snapshot!(json);
+}
+
 #[test]
 fn positions_off_by_default_omits_span_field() {
     let json = export_default("person alice name:\"A\" gender:female\n");
@@ -183,6 +239,7 @@ fn every_example_has_a_dedicated_snapshot_test() {
         "04-polygamous-family",
         "05-married-siblings",
         "06-three-branch-dynasty",
+        "07-multi-file-extended-family",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),
@@ -191,9 +248,10 @@ fn every_example_has_a_dedicated_snapshot_test() {
     );
 }
 
-/// Enumerate the per-example subdirectories of `examples/`. Each must contain
-/// exactly one `*.kul` file alongside its sibling `kul.yml`; the test asserts
-/// that invariant so the corpus shape stays uniform.
+/// Enumerate the per-example subdirectories of `examples/`. Each must
+/// carry at least one `*.kul` file alongside its sibling `kul.yml`
+/// (single-file examples have exactly one; multi-file examples have
+/// several, per [ADR-0015](../../docs/adr/0015-global-project-namespace.md)).
 fn enumerate_example_dirs() -> Vec<String> {
     std::fs::read_dir(examples_dir())
         .unwrap()
@@ -207,12 +265,10 @@ fn enumerate_example_dirs() -> Vec<String> {
                 .map(|e| e.path())
                 .filter(|f| f.extension().and_then(|s| s.to_str()) == Some("kul"))
                 .collect();
-            assert_eq!(
-                kul_files.len(),
-                1,
-                "example directory {} must contain exactly one .kul file, found {}",
+            assert!(
+                !kul_files.is_empty(),
+                "example directory {} must contain at least one .kul file",
                 p.display(),
-                kul_files.len(),
             );
             p.file_name().unwrap().to_string_lossy().into_owned()
         })

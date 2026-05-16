@@ -1,0 +1,22 @@
+---
+source: crates/kul-wasm/tests/format.rs
+expression: formatted
+---
+# Example 7 (file 2 of 3) — Second generation.
+#
+# Each child of `m_ramesh_sita` declares their bio-link via `birth
+# m_ramesh_sita` — that marriage id is declared in `01-founders.kul`,
+# in this same project. Spouses for the second-generation marriages
+# are also declared here, alongside their marriages.
+
+person alice  name:"Alice Patel"  gender:female  born:1955-07-19
+  birth m_ramesh_sita
+person bob    name:"Bob Khan"     gender:male    born:1953-11-02
+
+marriage m_alice_bob alice bob  start:1978-09-15
+
+person dev  name:"Dev Patel"  gender:male    born:1958-03-28
+  birth m_ramesh_sita
+person eva  name:"Eva Singh"  gender:female  born:1959-12-04
+
+marriage m_dev_eva dev eva  start:1982-04-22
