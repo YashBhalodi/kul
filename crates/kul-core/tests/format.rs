@@ -13,11 +13,14 @@
 //!
 //! [ADR 0004]: https://github.com/YashBhalodi/kul/blob/main/docs/adr/0004-formatter-canonical-rules.md
 
+mod common;
+
 use std::path::{Path, PathBuf};
 
-use kul_core::ast::{InputFile, KulFile};
+use kul_core::ast::KulFile;
 use kul_core::format::{format, format_source};
-use kul_core::manifest::Manifest;
+
+use crate::common::check_one;
 
 fn first_kul_file(check: &kul_core::CheckResult) -> KulFile {
     let doc = check.document();
@@ -27,11 +30,6 @@ fn first_kul_file(check: &kul_core::CheckResult) -> KulFile {
         .expect("at least one .kul file")
         .clone();
     KulFile::clone(&arc)
-}
-
-fn check_one(source: &str) -> kul_core::CheckResult {
-    let inputs = vec![InputFile::new("test.kul", source)];
-    kul_core::check_with_manifest("kul.yml", "kul: \"0.1\"\n", &Manifest::default(), &inputs)
 }
 
 fn workspace_root() -> PathBuf {

@@ -1,19 +1,11 @@
 //! Validator tests, organized per rule. The corpus under `tests/corpus/`
 //! provides the inputs; this file asserts the rendered diagnostic output.
 
-use kul_core::CheckResult;
-use kul_core::ast::InputFile;
+mod common;
+
 use kul_core::diagnostic::Diagnostic;
 
-fn check(source: &str) -> CheckResult {
-    let inputs = vec![InputFile::new("test.kul", source)];
-    kul_core::check_with_manifest(
-        "kul.yml",
-        "kul: \"0.1\"\n",
-        &kul_core::manifest::Manifest::default(),
-        &inputs,
-    )
-}
+use crate::common::check_one as check;
 
 fn render_diagnostics(diags: &[Diagnostic]) -> String {
     diags

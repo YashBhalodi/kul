@@ -10,11 +10,15 @@
 //! the difference between a useful diff (one field per line) and a wall of
 //! text — the CLI does not pretty-print, but the snapshot suite does.
 
+mod common;
+
 use std::path::{Path, PathBuf};
 
 use kul_core::ast::InputFile;
 use kul_core::export::{ExportFormat, ExportOptions, export};
 use kul_core::manifest::Manifest;
+
+use crate::common::check_one;
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -33,9 +37,7 @@ fn read(path: &Path) -> String {
 }
 
 fn export_with(source: &str, options: ExportOptions) -> String {
-    let inputs = vec![InputFile::new("test.kul", source)];
-    let check =
-        kul_core::check_with_manifest("kul.yml", "kul: \"0.1\"\n", &Manifest::default(), &inputs);
+    let check = check_one(source);
     let envelope = export(&check, options);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
