@@ -1,0 +1,6 @@
+---
+source: crates/kul-core/tests/multi_file.rs
+expression: "render_diagnostics(&result, &inputs)"
+---
+KUL-R01 second.kul [7..12]: id `alice` is already used by another person — pick a different id (every id must be unique across the project)
+  related first.kul [7..12]: first declared here as a person

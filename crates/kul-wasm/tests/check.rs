@@ -126,6 +126,11 @@ fn every_example_has_a_dedicated_clean_check_test() {
         .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
         .collect();
     have.sort();
+    // Multi-file projects (e.g. 07-multi-file-extended-family) are
+    // covered by `kul-core/tests/export.rs` via the project-wide
+    // `check_with_manifest` entry; the WASM `check` bridge takes a
+    // single source string today and the multi-file signature lift is
+    // tracked as a separate slice of PRD 0001.
     let expected = [
         "01-single-couple",
         "02-nuclear-family",
@@ -133,6 +138,7 @@ fn every_example_has_a_dedicated_clean_check_test() {
         "04-polygamous-family",
         "05-married-siblings",
         "06-three-branch-dynasty",
+        "07-multi-file-extended-family",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),

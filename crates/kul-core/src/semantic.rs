@@ -3,22 +3,30 @@
 //!
 //! [`ResolvedDocument`] is the deep query module the validator and the
 //! cycle-detector talk to. It owns the [`Document`] (via `Arc<Document>`)
-//! and a per-file id index, and exposes typed query methods (`persons`,
+//! and a project-wide id index, and exposes typed query methods (`persons`,
 //! `marriages`, `spouses_of`, `parents_of`, `person`, `marriage`); callers
 //! never touch the underlying maps. New questions about kinship belong
 //! here, not at every rule's call site.
 //!
-//! # File identity (per ADR-0014)
+//! # Project-wide namespace (ADR-0015)
 //!
-//! Per-id queries (`person(file, id)`, `marriage(file, id)`,
-//! `entity(file, id)`) take a [`FileId`] alongside the id name because v1
-//! resolves *per-file* — there is no global namespace across `.kul`
-//! files. The same id may be declared in two different files without
-//! conflict; R01 (duplicate id) fires only within a single file. Iteration
-//! queries (`persons`, `marriages`, `statements`) walk every file; the
-//! `_in(file)` variants restrict to one file (the LSP uses these to
-//! enumerate symbols inside the active document, the cycle-detector to
-//! confine analysis to one file at a time).
+//! A Kul project is a directory containing a `kul.yml` manifest plus one
+//! or more `.kul` files. Every person- or marriage-id declared in any
+//! file of the project is visible from every file — the file boundary is
+//! organizational, not semantic. Per-id queries (`person(id)`,
+//! `marriage(id)`, `entity(id)`) take only the bare id; the resolver
+//! returns the unique declaration regardless of which file owns it.
+//!
+//! Iteration queries (`persons`, `marriages`, `statements`) walk every
+//! file in source order; the `_in(file)` variants restrict to one file
+//! (the LSP uses these for per-document symbol listings and the like).
+//!
+//! `node_at(file, offset)` and `statement_at(file, offset)` keep their
+//! file parameter because byte offsets are inherently per-file.
+//!
+//! [ADR-0015](../../docs/adr/0015-global-project-namespace.md) records
+//! the supersession of ADR-0014's "Position B" (per-file namespaces) with
+//! this project-wide model.
 //!
 //! The `Arc<Document>` shape is what lets the LSP cache a single resolved
 //! view per project — the borrowed-lifetime alternative was self-
@@ -28,7 +36,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::ast::{Document, Ident, KulFile, MarriageStmt, PersonStmt, Statement};
+use crate::ast::{Document, Ident, MarriageStmt, PersonStmt, Statement};
 use crate::diagnostic::{Diagnostic, fspan};
 use crate::span::{ByteSpan, FileId, FileSpan};
 
@@ -48,7 +56,7 @@ impl EntityKind {
     }
 }
 
-/// One entry in the per-file ID index, returned by
+/// One entry in the project-wide ID index, returned by
 /// [`ResolvedDocument::entity`].
 ///
 /// Built on demand from the underlying statement when the caller asks; the
@@ -72,14 +80,16 @@ impl EntityRef<'_> {
     }
 }
 
-/// Stored entry in the resolved id index — `kind`, the id's owning file,
-/// and the position of the corresponding statement in the file's
-/// `statements`. Storing an index rather than a borrow is what lets
-/// `ResolvedDocument` own its `Document` instead of borrowing into it;
-/// query methods rebuild the borrowed [`EntityRef`] view on demand.
+/// Stored entry in the resolved id index — `kind`, the owning file, and
+/// the position of the corresponding statement in that file's
+/// `statements`. Storing the (file, index) pair rather than a borrow is
+/// what lets `ResolvedDocument` own its `Document` instead of borrowing
+/// into it; query methods rebuild the borrowed [`EntityRef`] view on
+/// demand.
 #[derive(Debug, Clone, Copy)]
 struct ResolvedEntity {
     kind: EntityKind,
+    file: FileId,
     statement_idx: usize,
 }
 
@@ -90,24 +100,27 @@ struct ResolvedEntity {
 /// type — callers do not enumerate the underlying maps. Owns its
 /// [`Document`] via `Arc<Document>`, so it is cheap to clone (refcount
 /// bump) and can be cached alongside other artifacts (the LSP document
-/// cache holds one per open URI).
+/// cache holds one per project).
 #[derive(Debug, Clone)]
 pub struct ResolvedDocument {
     document: Arc<Document>,
-    /// Per-file first-seen entity indexes, keyed by file. Populated only
-    /// for `.kul` file ids (the manifest never declares persons /
-    /// marriages). Lookups for the manifest's [`FileId`] return `None` by
-    /// virtue of the hash-map miss.
-    entities: HashMap<FileId, HashMap<String, ResolvedEntity>>,
+    /// Flat project-wide entity index. Every id declared in any `.kul`
+    /// file of the project lives here once; R01 fires before insertion on
+    /// collision, so a successful insert means the id is uniquely owned.
+    entities: HashMap<String, ResolvedEntity>,
 }
 
 /// One parent link: a directed edge `child → parent` with the source span
 /// where the link is documented (the child's `birth` or `adoption`
-/// marriage-ref).
+/// marriage-ref) and the file containing that span.
 #[derive(Debug, Clone)]
 pub struct ParentLink<'a> {
     pub parent: &'a PersonStmt,
     pub link_span: ByteSpan,
+    /// The file containing `link_span` — the child's owning file, which
+    /// may differ from the parent's owning file under project-wide
+    /// resolution.
+    pub link_file: FileId,
     pub kind: ParentLinkKind,
 }
 
@@ -137,9 +150,9 @@ impl ResolvedDocument {
     /// order, file-by-file.
     ///
     /// Use this when a caller wants to dispatch on the typed `Statement`
-    /// enum across the whole project (the export builder, the validator's
-    /// duplicate-id detection). Use [`Self::statements_in`] for a
-    /// single-file iterator.
+    /// enum across the whole project (the export builder, project-wide
+    /// validator rules). Use [`Self::statements_in`] for a single-file
+    /// iterator.
     pub fn statements(&self) -> impl Iterator<Item = &Statement> + '_ {
         self.document
             .kul_files
@@ -188,16 +201,15 @@ impl ResolvedDocument {
         })
     }
 
-    /// Look up a person by id within `file`. Returns `None` if no entity
-    /// has this id in the file, or if one does but it's a marriage. Per
-    /// ADR-0014 v1 has no cross-file namespace — callers needing to scan
-    /// every file enumerate `kul_file_ids()` themselves.
-    pub fn person(&self, file: FileId, id: &str) -> Option<&PersonStmt> {
-        let entity = self.entity_record(file, id)?;
+    /// Look up a person by id anywhere in the project. Returns `None` if
+    /// no entity has this id, or if one does but it's a marriage. Lookups
+    /// are project-wide per ADR-0015.
+    pub fn person(&self, id: &str) -> Option<&PersonStmt> {
+        let entity = self.entity_record(id)?;
         if entity.kind != EntityKind::Person {
             return None;
         }
-        let kf = self.document.kul_file(file)?;
+        let kf = self.document.kul_file(entity.file)?;
         match &kf.statements[entity.statement_idx] {
             Statement::Person(p) => Some(p),
             Statement::Marriage(_) => unreachable!(
@@ -206,14 +218,14 @@ impl ResolvedDocument {
         }
     }
 
-    /// Look up a marriage by id within `file`. Same `None` rules as
-    /// [`Self::person`].
-    pub fn marriage(&self, file: FileId, id: &str) -> Option<&MarriageStmt> {
-        let entity = self.entity_record(file, id)?;
+    /// Look up a marriage by id anywhere in the project. Same `None`
+    /// rules as [`Self::person`].
+    pub fn marriage(&self, id: &str) -> Option<&MarriageStmt> {
+        let entity = self.entity_record(id)?;
         if entity.kind != EntityKind::Marriage {
             return None;
         }
-        let kf = self.document.kul_file(file)?;
+        let kf = self.document.kul_file(entity.file)?;
         match &kf.statements[entity.statement_idx] {
             Statement::Marriage(m) => Some(m),
             Statement::Person(_) => unreachable!(
@@ -222,11 +234,11 @@ impl ResolvedDocument {
         }
     }
 
-    /// Look up an entity (person or marriage) by id within `file`,
-    /// regardless of kind. Used by reference-resolution checks.
-    pub fn entity(&self, file: FileId, id: &str) -> Option<EntityRef<'_>> {
-        let entity = self.entity_record(file, id)?;
-        let kf = self.document.kul_file(file)?;
+    /// Look up an entity (person or marriage) by id anywhere in the
+    /// project, regardless of kind. Used by reference-resolution checks.
+    pub fn entity(&self, id: &str) -> Option<EntityRef<'_>> {
+        let entity = self.entity_record(id)?;
+        let kf = self.document.kul_file(entity.file)?;
         let ident = match &kf.statements[entity.statement_idx] {
             Statement::Person(p) => &p.id,
             Statement::Marriage(m) => &m.id,
@@ -234,12 +246,12 @@ impl ResolvedDocument {
         Some(EntityRef {
             kind: entity.kind,
             id: ident,
-            file,
+            file: entity.file,
         })
     }
 
-    fn entity_record(&self, file: FileId, id: &str) -> Option<&ResolvedEntity> {
-        self.entities.get(&file)?.get(id)
+    fn entity_record(&self, id: &str) -> Option<&ResolvedEntity> {
+        self.entities.get(id)
     }
 
     /// The top-level statement the cursor is sitting in, or just past,
@@ -274,16 +286,15 @@ impl ResolvedDocument {
     /// unresolved spouses skipped (rule 2 reports them).
     ///
     /// Returns at most two persons; an empty iterator if both spouses are
-    /// unresolved. Both spouses are resolved within the same file as the
-    /// marriage (per ADR-0014's per-file namespace decision).
+    /// unresolved. Resolution is project-wide: a spouse declared in one
+    /// file is reachable from a marriage in another (per ADR-0015).
     pub fn spouses_of<'a>(
         &'a self,
-        file: FileId,
         marriage: &'a MarriageStmt,
     ) -> impl Iterator<Item = &'a PersonStmt> + 'a {
         [&marriage.spouse_a, &marriage.spouse_b]
             .into_iter()
-            .filter_map(move |ident| self.person(file, &ident.name))
+            .filter_map(move |ident| self.person(&ident.name))
     }
 
     /// Every reference site for `id` in `file`, in source order.
@@ -293,11 +304,12 @@ impl ResolvedDocument {
     /// declaration site is **not** included — callers that want it (per
     /// LSP's `includeDeclaration` flag) prepend it themselves.
     ///
-    /// Unresolved references whose name happens to match `id` are still
-    /// returned. This means rename and find-references both work on
-    /// partly- broken documents (the user is mid-edit), and rule 2's
-    /// "no person/marriage with this id" diagnostic is the right place
-    /// to surface the missing declaration — not here.
+    /// Reference sites are scoped to `file` because the LSP's per-URI
+    /// rename and find-references features iterate one file at a time;
+    /// project-wide reference enumeration is handled by the LSP layer by
+    /// calling this once per file. Unresolved references whose name
+    /// happens to match `id` are still returned, so rename and
+    /// find-references both work on partly-broken documents.
     pub fn references_to(&self, file: FileId, id: &str, kind: EntityKind) -> Vec<ByteSpan> {
         let mut out = Vec::new();
         match kind {
@@ -330,28 +342,33 @@ impl ResolvedDocument {
     }
 
     /// Biological + adoptive parents of a person, in source order, each
-    /// tagged with the link's source span and kind. Unresolved references
-    /// are skipped (rule 2 reports them). `file` is the file the person
-    /// lives in; parent lookups happen in the same file.
-    pub fn parents_of<'a>(&'a self, file: FileId, person: &PersonStmt) -> Vec<ParentLink<'a>> {
+    /// tagged with the link's source span (and the file containing it)
+    /// and the link kind. Unresolved references are skipped (rule 2
+    /// reports them). Parent lookups happen project-wide; the link's
+    /// file is the child's owning file, which may differ from the
+    /// parent's.
+    pub fn parents_of<'a>(&'a self, person: &PersonStmt) -> Vec<ParentLink<'a>> {
         let mut out = Vec::new();
+        let person_file = self.file_of_person(person);
         if let Some(birth) = &person.birth
-            && let Some(marriage) = self.marriage(file, &birth.marriage_ref.name)
+            && let Some(marriage) = self.marriage(&birth.marriage_ref.name)
         {
-            for parent in self.spouses_of(file, marriage) {
+            for parent in self.spouses_of(marriage) {
                 out.push(ParentLink {
                     parent,
                     link_span: birth.marriage_ref.span,
+                    link_file: person_file,
                     kind: ParentLinkKind::Bio,
                 });
             }
         }
         for adoption in &person.adoptions {
-            if let Some(marriage) = self.marriage(file, &adoption.marriage_ref.name) {
-                for parent in self.spouses_of(file, marriage) {
+            if let Some(marriage) = self.marriage(&adoption.marriage_ref.name) {
+                for parent in self.spouses_of(marriage) {
                     out.push(ParentLink {
                         parent,
                         link_span: adoption.marriage_ref.span,
+                        link_file: person_file,
                         kind: ParentLinkKind::Adoption,
                     });
                 }
@@ -359,81 +376,87 @@ impl ResolvedDocument {
         }
         out
     }
+
+    /// The file containing a person's declaration. Falls back to
+    /// [`FileId::MANIFEST`] if the person is somehow not in any file
+    /// (impossible under [`resolve`]'s invariants); the fallback exists
+    /// only to keep the type total.
+    fn file_of_person(&self, person: &PersonStmt) -> FileId {
+        self.entity_record(&person.id.name)
+            .map(|e| e.file)
+            .unwrap_or(FileId::MANIFEST)
+    }
 }
 
-/// Build the per-file id index for `document` and return any diagnostics
-/// that surface during construction. Takes ownership via
+/// Build the project-wide id index for `document` and return any
+/// diagnostics that surface during construction. Takes ownership via
 /// [`Arc<Document>`] — the returned [`ResolvedDocument`] holds a
 /// refcounted handle to the same allocation, so callers can keep their
 /// own clone for source-level work.
 ///
-/// Currently emits **rule 01** (duplicate ids) inline as the entity
-/// tables are populated — the duplicate check is a property of insertion
-/// order and belongs in the resolver. R01 fires only within the same
-/// file (per ADR-0014 per-file namespaces). All other spec rules
+/// Currently emits **rule 01** (duplicate ids) inline as the entity table
+/// is populated — the duplicate check is a property of insertion order
+/// and belongs in the resolver. R01 fires whenever an id is declared
+/// twice anywhere in the project. The primary span is on the second
+/// declaration (in file-discovery order, then byte offset within a file);
+/// a related-span points to the first declaration. All other spec rules
 /// (including rule 02 — unresolved references) live in
 /// [`crate::validator`] and run as a separate pass over the
 /// [`ResolvedDocument`].
 pub fn resolve(document: Arc<Document>) -> (ResolvedDocument, Vec<Diagnostic>) {
-    let mut entities: HashMap<FileId, HashMap<String, ResolvedEntity>> = HashMap::new();
+    let mut entities: HashMap<String, ResolvedEntity> = HashMap::new();
     let mut diagnostics: Vec<Diagnostic> = Vec::new();
 
     for (file, kf) in document.kul_files() {
-        let file_index = entities.entry(file).or_default();
-        resolve_file(file, kf, file_index, &mut diagnostics);
+        for (statement_idx, stmt) in kf.statements.iter().enumerate() {
+            let (kind, id) = match stmt {
+                Statement::Person(p) => (EntityKind::Person, &p.id),
+                Statement::Marriage(m) => (EntityKind::Marriage, &m.id),
+            };
+            match entities.get(id.name.as_str()) {
+                Some(prior) => {
+                    let prior_kind = prior.kind.as_str();
+                    let prior_kf = document
+                        .kul_file(prior.file)
+                        .expect("prior entity must live in a known file");
+                    let prior_ident = match &prior_kf.statements[prior.statement_idx] {
+                        Statement::Person(p) => &p.id,
+                        Statement::Marriage(m) => &m.id,
+                    };
+                    let message = if prior.kind == kind {
+                        format!(
+                            "id `{}` is already used by another {prior_kind} — pick a different id (every id must be unique across the project)",
+                            id.name
+                        )
+                    } else {
+                        format!(
+                            "id `{}` is already used by a {prior_kind} — pick a different id (every id must be unique across the project)",
+                            id.name
+                        )
+                    };
+                    diagnostics.push(
+                        Diagnostic::error("KUL-R01", message, fspan(file, id.span)).with_related(
+                            fspan(prior.file, prior_ident.span),
+                            format!("first declared here as a {prior_kind}"),
+                        ),
+                    );
+                }
+                None => {
+                    entities.insert(
+                        id.name.clone(),
+                        ResolvedEntity {
+                            kind,
+                            file,
+                            statement_idx,
+                        },
+                    );
+                }
+            }
+        }
     }
 
     let resolved = ResolvedDocument { document, entities };
     (resolved, diagnostics)
-}
-
-fn resolve_file(
-    file: FileId,
-    kf: &KulFile,
-    entities: &mut HashMap<String, ResolvedEntity>,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    for (statement_idx, stmt) in kf.statements.iter().enumerate() {
-        let (kind, id) = match stmt {
-            Statement::Person(p) => (EntityKind::Person, &p.id),
-            Statement::Marriage(m) => (EntityKind::Marriage, &m.id),
-        };
-        match entities.get(id.name.as_str()) {
-            Some(prior) => {
-                let prior_kind = prior.kind.as_str();
-                let prior_ident = match &kf.statements[prior.statement_idx] {
-                    Statement::Person(p) => &p.id,
-                    Statement::Marriage(m) => &m.id,
-                };
-                let message = if prior.kind == kind {
-                    format!(
-                        "id `{}` is already used by another {prior_kind} — pick a different id (every id must be unique across all persons and marriages)",
-                        id.name
-                    )
-                } else {
-                    format!(
-                        "id `{}` is already used by a {prior_kind} — pick a different id (every id must be unique across all persons and marriages)",
-                        id.name
-                    )
-                };
-                diagnostics.push(
-                    Diagnostic::error("KUL-R01", message, fspan(file, id.span)).with_related(
-                        fspan(file, prior_ident.span),
-                        format!("first declared here as a {prior_kind}"),
-                    ),
-                );
-            }
-            None => {
-                entities.insert(
-                    id.name.clone(),
-                    ResolvedEntity {
-                        kind,
-                        statement_idx,
-                    },
-                );
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -546,24 +569,24 @@ mod tests {
 
     #[test]
     fn person_lookup_returns_none_for_marriage_id() {
-        let (resolved, file) = resolve_source(
+        let (resolved, _) = resolve_source(
             "person a name:\"A\" gender:female\n\
              person b name:\"B\" gender:male\n\
              marriage m a b start:2000\n",
         );
-        assert!(resolved.person(file, "m").is_none());
-        assert!(resolved.marriage(file, "m").is_some());
+        assert!(resolved.person("m").is_none());
+        assert!(resolved.marriage("m").is_some());
     }
 
     #[test]
     fn marriage_lookup_returns_none_for_person_id() {
-        let (resolved, file) = resolve_source(
+        let (resolved, _) = resolve_source(
             "person a name:\"A\" gender:female\n\
              person b name:\"B\" gender:male\n\
              marriage m a b start:2000\n",
         );
-        assert!(resolved.marriage(file, "a").is_none());
-        assert!(resolved.person(file, "a").is_some());
+        assert!(resolved.marriage("a").is_none());
+        assert!(resolved.person("a").is_some());
     }
 
     fn statement_kind_at(
@@ -579,7 +602,6 @@ mod tests {
 
     #[test]
     fn statement_at_before_first_statement_returns_none() {
-        // No more `kul 1` line; whitespace before the first statement.
         let src = "  \nperson alice name:\"A\" gender:female\n";
         let (resolved, file) = resolve_source(src);
         assert_eq!(statement_kind_at(&resolved, file, 0), None);
@@ -629,10 +651,12 @@ mod tests {
     }
 
     #[test]
-    fn r01_fires_per_file_not_across_files() {
-        // Two `.kul` files each declaring `alice` — no R01 across files.
-        let src1 = "person alice name:\"A\" gender:female\n";
-        let src2 = "person alice name:\"A\" gender:female\n";
+    fn r01_fires_across_files_with_primary_on_second_decl() {
+        // Two `.kul` files each declaring `alice`. Under project-wide
+        // resolution (ADR-0015) R01 fires with the primary on the second
+        // declaration (file 2) and a related-span on the first (file 1).
+        let src1 = "person alice name:\"A1\" gender:female\n";
+        let src2 = "person alice name:\"A2\" gender:female\n";
         let kf1 = Arc::new(KulFile {
             name: "a.kul".into(),
             source: src1.into(),
@@ -649,17 +673,19 @@ mod tests {
             kul_files: vec![kf1, kf2],
         });
         let (_resolved, diags) = resolve(doc);
-        assert!(
-            !diags.iter().any(|d| d.code == "KUL-R01"),
-            "R01 must not fire across files: {diags:#?}"
-        );
+        let r01: Vec<_> = diags.iter().filter(|d| d.code == "KUL-R01").collect();
+        assert_eq!(r01.len(), 1, "expected one R01: {diags:#?}");
+        let d = r01[0];
+        let primary = d.primary.unwrap();
+        assert_eq!(primary.file, FileId(2), "primary anchored at second file");
+        assert_eq!(d.related.len(), 1, "expected one related span");
+        assert_eq!(d.related[0].span.file, FileId(1));
     }
 
     #[test]
     fn r01_fires_within_a_single_file() {
         let src = "person alice name:\"A\" gender:female\n\
                    person alice name:\"B\" gender:female\n";
-        let (_, _file) = resolve_source(src);
         let kf = Arc::new(KulFile {
             name: "a.kul".into(),
             source: src.into(),
@@ -675,5 +701,72 @@ mod tests {
             diags.iter().any(|d| d.code == "KUL-R01"),
             "R01 must fire within one file: {diags:#?}"
         );
+    }
+
+    #[test]
+    fn cross_file_reference_resolves() {
+        let src1 = "person alice name:\"A\" gender:female\n\
+                    person bob name:\"B\" gender:male\n";
+        let src2 = "marriage m alice bob start:1972\n";
+        let kf1 = Arc::new(KulFile {
+            name: "a.kul".into(),
+            source: src1.into(),
+            statements: parse(&tokenize(src1), FileId(1)).0,
+        });
+        let kf2 = Arc::new(KulFile {
+            name: "b.kul".into(),
+            source: src2.into(),
+            statements: parse(&tokenize(src2), FileId(2)).0,
+        });
+        let doc = Arc::new(Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf1, kf2],
+        });
+        let (resolved, diags) = resolve(doc);
+        assert!(diags.is_empty(), "no R01 expected: {diags:#?}");
+        assert!(resolved.person("alice").is_some());
+        assert!(resolved.person("bob").is_some());
+        assert!(resolved.marriage("m").is_some());
+        // Spouses of `m` (in file 2) resolve to persons in file 1.
+        let spouses: Vec<_> = resolved
+            .spouses_of(resolved.marriage("m").unwrap())
+            .map(|p| p.id.name.clone())
+            .collect();
+        assert_eq!(spouses, vec!["alice".to_string(), "bob".to_string()]);
+    }
+
+    #[test]
+    fn project_wide_iteration_walks_every_file() {
+        let src1 = "person alice name:\"A\" gender:female\n";
+        let src2 = "person bob name:\"B\" gender:male\n";
+        let kf1 = Arc::new(KulFile {
+            name: "a.kul".into(),
+            source: src1.into(),
+            statements: parse(&tokenize(src1), FileId(1)).0,
+        });
+        let kf2 = Arc::new(KulFile {
+            name: "b.kul".into(),
+            source: src2.into(),
+            statements: parse(&tokenize(src2), FileId(2)).0,
+        });
+        let doc = Arc::new(Document {
+            manifest_name: "kul.yml".into(),
+            manifest_source: String::new(),
+            kul_files: vec![kf1, kf2],
+        });
+        let (resolved, _) = resolve(doc);
+        let all: Vec<_> = resolved.persons().map(|p| p.id.name.clone()).collect();
+        assert_eq!(all, vec!["alice".to_string(), "bob".to_string()]);
+        let in_a: Vec<_> = resolved
+            .persons_in(FileId(1))
+            .map(|p| p.id.name.clone())
+            .collect();
+        assert_eq!(in_a, vec!["alice".to_string()]);
+        let in_b: Vec<_> = resolved
+            .persons_in(FileId(2))
+            .map(|p| p.id.name.clone())
+            .collect();
+        assert_eq!(in_b, vec!["bob".to_string()]);
     }
 }

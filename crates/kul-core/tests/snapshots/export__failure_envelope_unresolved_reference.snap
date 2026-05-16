@@ -8,7 +8,7 @@ expression: json
     {
       "code": "KUL-R02",
       "severity": "error",
-      "message": "no person with id `ghost` is declared in this file — check for a typo, or add a `person ghost …` declaration",
+      "message": "no person with id `ghost` is declared in the project — check for a typo, or add a `person ghost …` declaration",
       "primary": {
         "file": "test.kul",
         "byteStart": 57,

@@ -58,7 +58,7 @@ One of the thirteen spec-defined checks (KUL-R01 through KUL-R13). See [`spec/04
 
 ### Diagnostic
 
-An error or warning emitted by the manifest validator pass, the parser, the resolver, or the validator. Carries a **code** (`KUL-Mxx` for manifest, `KUL-Lxx`/`KUL-Pxx` for lex/parse, `KUL-Rxx` for validator rules), a **severity**, a **message**, an optional **primary** [`FileSpan`](#filespan), and optional **related** spans (each anchored to a `FileSpan`). The optional primary covers `KUL-M01` (manifest-not-found) — the only diagnostic with no source position to anchor at. Rendered to the user via `miette` (CLI) or translated to LSP diagnostics (editor); the latter filters to the active URI's `FileId`.
+An error or warning emitted by the manifest validator pass, the parser, the resolver, or the validator. Carries a **code** (`KUL-Mxx` for manifest, `KUL-Lxx`/`KUL-Pxx` for lex/parse, `KUL-Rxx` for validator rules), a **severity**, a **message**, an optional **primary** [`FileSpan`](#filespan), and optional **related** spans (each anchored to a `FileSpan`, possibly in a sibling file under project-wide resolution). The optional primary covers `KUL-M01` (manifest-not-found) — the only diagnostic with no source position to anchor at. `KUL-M06` (project has `kul.yml` but zero `.kul` files) anchors at the manifest. Rendered to the user via `miette` (CLI) or translated to LSP diagnostics (editor); the latter filters to the active URI's `FileId`.
 
 ### ExportEnvelope
 
@@ -67,6 +67,10 @@ The top-level value `kul export` (and the public `kul_core::export::export` func
 ### Project manifest
 
 The `kul.yml` file alongside one or more `.kul` files. Carries the Kul language version the source targets and (in the future) any project-level configuration. Required: a `.kul` file without a sibling `kul.yml` is not a valid Kul project. Discovery is directory-scoped — no walk-up. Defined normatively in [`spec/14-project-manifest.md`](./spec/14-project-manifest.md); decision recorded in [ADR-0013](./docs/adr/0013-project-manifest.md).
+
+### Project (project-wide namespace)
+
+A directory containing one `kul.yml` plus one or more `.kul` files. Every id declared in any of the project's `.kul` files is visible from every other file by bare name — there is no `import` statement, no namespace prefix, and no qualified-reference syntax. The file boundary is purely organizational; the project is one logical namespace. Subdirectories are not walked; non-`.kul` files are silently ignored. Defined normatively in [`spec/14-project-manifest.md`](./spec/14-project-manifest.md); decision recorded in [ADR-0015](./docs/adr/0015-global-project-namespace.md), which supersedes ADR-0014's Position B.
 
 ### Manifest
 
@@ -118,21 +122,21 @@ Two passes in `crates/kul-core/src/`. The lexer produces a flat token stream (`T
 
 ### Resolver
 
-The function `kul_core::semantic::resolve(Arc<Document>) -> (ResolvedDocument, Vec<Diagnostic>)`. Walks every [`KulFile`](#kulfile) in the [`Document`](#document), builds the per-file id-to-statement indexes, and reports duplicate ids (R01) inline. Lives at `crates/kul-core/src/semantic.rs`.
+The function `kul_core::semantic::resolve(Arc<Document>) -> (ResolvedDocument, Vec<Diagnostic>)`. Walks every [`KulFile`](#kulfile) in the [`Document`](#document), builds the project-wide id-to-statement index, and reports duplicate ids (R01) inline as the index is populated. Lives at `crates/kul-core/src/semantic.rs`.
 
 ### ResolvedDocument
 
 The **kinship-query seam** (per [ADR-0001](./docs/adr/0001-resolved-document-as-query-seam.md)). All cross-reference questions ("who are this person's parents?", "is this id declared?", "who are the spouses of this marriage?") are answered by methods on this type. Validator rules and LSP features query through it; raw AST traversal is reserved for the seam's implementation, not its callers.
 
-Owns its [`Document`](#document) via `Arc<Document>` (per [ADR-0007](./docs/adr/0007-resolved-document-owns-document.md)) so the resolved view can be cached alongside other artifacts. The id index is **per-file** (per [ADR-0014](./docs/adr/0014-file-identity-and-per-file-namespaces.md)): `resolved.person(file, id)`, `resolved.marriage(file, id)`, `resolved.entity(file, id)` all take a [`FileId`](#fileid). Iteration queries (`persons()`, `marriages()`, `statements()`) walk every `.kul` file; `_in(file)` variants restrict to one file. R01 fires only within the same file; cross-file resolution is out of scope for v1.
+Owns its [`Document`](#document) via `Arc<Document>` (per [ADR-0007](./docs/adr/0007-resolved-document-owns-document.md)) so the resolved view can be cached alongside other artifacts. The id index is **project-wide** (per [ADR-0015](./docs/adr/0015-global-project-namespace.md)): `resolved.person(id)`, `resolved.marriage(id)`, `resolved.entity(id)` take only the bare id and return the unique declaration regardless of which file owns it. Iteration queries (`persons()`, `marriages()`, `statements()`) walk every `.kul` file; `_in(file)` variants restrict to one file (the LSP uses them for per-URI symbol listings). `node_at(file, offset)` and `statement_at(file, offset)` keep their file parameter because byte offsets are inherently per-file. R01 fires across files; cross-file references resolve cleanly.
 
 ### Validator
 
-The pass that runs spec rules R02–R13 over a `ResolvedDocument`, accumulating diagnostics. Lives at `crates/kul-core/src/validator.rs`. Each rule is a function; the validator's job is to call them and collect output. (R01 — duplicate ids — is the one rule that lives inside `semantic::resolve`, because the duplicate check is a property of insertion order as the entity table is built.)
+The pass that runs spec rules R02–R13 over a `ResolvedDocument`, accumulating diagnostics. Lives at `crates/kul-core/src/validator.rs`. Each rule is a function; the validator's job is to call them and collect output. (R01 — duplicate ids — is the one rule that lives inside `semantic::resolve`, because the duplicate check is a property of insertion order as the entity table is built.) Rules R02–R12 iterate one `.kul` file at a time for deterministic source-order diagnostic grouping; R13 walks the project-wide parent graph in one pass so cross-file cycles are detected as single cycles.
 
 ### Cycle detector
 
-A standalone algorithm at `crates/kul-core/src/cycles.rs`, called by rule 13 (parenthood cycles). Pure function over the parent graph; separated from the rule because the algorithm is independently testable and the rule is a thin shell around it.
+A standalone algorithm at `crates/kul-core/src/cycles.rs`, called by rule 13 (parenthood cycles). Pure function over the project-wide parent graph; separated from the rule because the algorithm is independently testable and the rule is a thin shell around it. The graph spans every file in the project (per ADR-0015): cycles that cross file boundaries are detected just like within-file cycles.
 
 ### Node-at-cursor / `node_at`
 

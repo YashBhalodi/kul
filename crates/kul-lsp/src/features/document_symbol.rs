@@ -145,9 +145,9 @@ fn adoption_detail(a: &AdoptionSub) -> Option<String> {
     }
 }
 
-fn display_name_or(file: FileId, resolved: &ResolvedDocument, id: &str) -> String {
+fn display_name_or(_file: FileId, resolved: &ResolvedDocument, id: &str) -> String {
     resolved
-        .person(file, id)
+        .person(id)
         .map(|p| p.display_name().to_owned())
         .unwrap_or_else(|| id.to_owned())
 }

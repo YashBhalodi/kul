@@ -1,6 +1,6 @@
 # Examples
 
-Worked-example `.kul` projects that double as the **positive test corpus**. Each example is its own per-directory Kul project (one `.kul` file plus a sibling `kul.yml` manifest), and every example is exercised by integration tests in `crates/kul-core/tests/` and `crates/kul-cli/tests/` — they must always validate cleanly. If you add an example, the test suite will pull it in automatically; if you change one, snapshot tests will flag the diff.
+Worked-example Kul projects that double as the **positive test corpus**. Each example is its own per-directory Kul project (one or more `.kul` files plus a sibling `kul.yml` manifest), and every example is exercised by integration tests in `crates/kul-core/tests/` and `crates/kul-cli/tests/` — they must always validate cleanly. If you add an example, the test suite will pull it in automatically; if you change one, snapshot tests will flag the diff.
 
 | Project                                                                                                  | Demonstrates                                                                                                   |
 | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -10,10 +10,11 @@ Worked-example `.kul` projects that double as the **positive test corpus**. Each
 | [`04-polygamous-family/polygamous-family.kul`](./04-polygamous-family/polygamous-family.kul)             | Two concurrent marriages for one person; child of one of them.                                                 |
 | [`05-married-siblings/married-siblings.kul`](./05-married-siblings/married-siblings.kul)                 | Two sons of a couple, each themselves married; one block per marriage.                                         |
 | [`06-three-branch-dynasty/three-branch-dynasty.kul`](./06-three-branch-dynasty/three-branch-dynasty.kul) | Three-branch dynasty: founders, three married children, four married grandchildren spread across the branches. |
+| [`07-multi-file-extended-family/`](./07-multi-file-extended-family/)                                     | Multi-file project: three `.kul` files (founders / parents / grandchildren) sharing one project namespace with cross-file `birth` references. |
 
 ## Layout
 
-Each example is a self-contained Kul project: a numbered subdirectory of `examples/` carrying exactly one `.kul` file and a sibling `kul.yml` manifest. Per [ADR-0014](../docs/adr/0014-file-identity-and-per-file-namespaces.md) every example continues to validate within its own per-file scope.
+Each example is a self-contained Kul project: a numbered subdirectory of `examples/` carrying one or more `.kul` files plus a sibling `kul.yml` manifest. Single-file examples (01–06) keep the historical one-file-per-project shape; the multi-file example (`07-multi-file-extended-family/`) demonstrates the project-wide namespace landed by [ADR-0015](../docs/adr/0015-global-project-namespace.md) — every `.kul` file in the directory shares one logical namespace, with cross-file `birth` references resolving by bare id.
 
 ```
 examples/
@@ -23,7 +24,12 @@ examples/
 ├── 02-nuclear-family/
 │   ├── kul.yml
 │   └── nuclear-family.kul
-└── …
+├── …
+└── 07-multi-file-extended-family/
+    ├── kul.yml
+    ├── 01-founders.kul
+    ├── 02-parents.kul
+    └── 03-grandchildren.kul
 ```
 
 ## Try it
@@ -37,9 +43,10 @@ Every example must exit `0`. Anything that doesn't is either a regression or a n
 ## Conventions
 
 - Directory names: `NN-short-slug/`, where `NN` orders by complexity (smallest first).
-- The `.kul` file inside the directory drops the `NN-` prefix (e.g. `01-single-couple/single-couple.kul`).
-- Each `.kul` file starts with a `# Example N:` header comment summarizing what it demonstrates.
-- Each example is **self-contained** — every referenced ID is declared in that example's own `.kul` file.
+- Single-file examples: the `.kul` file inside the directory drops the `NN-` prefix (e.g. `01-single-couple/single-couple.kul`).
+- Multi-file examples: each `.kul` file is named by the slice of the project it carries, prefixed with `NN-` so alphabetic file order matches reading order (e.g. `01-founders.kul`, `02-parents.kul`); the directory itself carries the example number.
+- Each `.kul` file starts with a header comment summarizing what it demonstrates.
+- Each example is **self-contained** — every referenced ID is declared within that example's project directory (single file or sibling files in the same directory).
 - Each example is a **happy path** — examples must validate cleanly. Negative fixtures live next to their tests in `crates/kul-core/tests/`, not here.
 
 For the language reference, see [`spec/`](../spec/README.md). For domain vocabulary, see [`CONTEXT.md`](../CONTEXT.md).

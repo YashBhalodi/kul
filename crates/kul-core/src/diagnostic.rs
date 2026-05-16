@@ -164,6 +164,9 @@ pub mod manifest_codes {
     /// Manifest carries a top-level field the v1 schema does not know
     /// about. Severity warning. Anchors at the field key.
     pub const M05_UNKNOWN_FIELD: &str = "KUL-M05";
+    /// Project has a `kul.yml` manifest but zero sibling `.kul` files.
+    /// Anchors at the manifest start. Severity error.
+    pub const M06_EMPTY_PROJECT: &str = "KUL-M06";
 }
 
 /// Wraps a [`Diagnostic`] together with the source bytes of the file its

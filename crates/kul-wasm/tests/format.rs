@@ -67,6 +67,27 @@ example_snapshot!(
     "three-branch-dynasty"
 );
 
+// The multi-file project (per ADR-0015) is per-file from `format`'s
+// perspective — the formatter takes one source at a time even after
+// PRD 0001's signature lift (per ADR-0011's "rule of three" stance and
+// PRD 0001's explicit "format stays per-source"). Snapshot each of the
+// three files independently.
+example_snapshot!(
+    example_07_multi_file_extended_family_01_founders,
+    "07-multi-file-extended-family",
+    "01-founders"
+);
+example_snapshot!(
+    example_07_multi_file_extended_family_02_parents,
+    "07-multi-file-extended-family",
+    "02-parents"
+);
+example_snapshot!(
+    example_07_multi_file_extended_family_03_grandchildren,
+    "07-multi-file-extended-family",
+    "03-grandchildren"
+);
+
 #[test]
 fn every_example_has_a_dedicated_snapshot_test() {
     let mut have: Vec<String> = std::fs::read_dir(examples_dir())
@@ -84,6 +105,7 @@ fn every_example_has_a_dedicated_snapshot_test() {
         "04-polygamous-family",
         "05-married-siblings",
         "06-three-branch-dynasty",
+        "07-multi-file-extended-family",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),
