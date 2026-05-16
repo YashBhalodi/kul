@@ -1,8 +1,10 @@
 # ADR 0014 — File-identity types and per-file id namespaces
 
-**Status:** Accepted
+**Status:** Accepted (Position B superseded by [ADR-0015](./0015-global-project-namespace.md))
 **Date:** 2026-05-09
 **Deciders:** owner
+
+> The file-identity types and the manifest-diagnostics decision in this ADR remain in force. The "Position B — per-file namespaces" decision is superseded by [ADR-0015](./0015-global-project-namespace.md), which adopts the global-project-namespace position this ADR's "Alternatives considered" left to PRD 0001.
 
 ## Context
 
