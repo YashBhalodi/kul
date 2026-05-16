@@ -10,9 +10,10 @@
 //! the most specific child whose span contains the offset; whitespace and
 //! comments inside a statement still yield `None`.
 //!
-//! `node_at` and `statement_at` take a [`FileId`] because v1 resolves
-//! references per-file (ADR-0014); the same byte offset means different
-//! things in different files.
+//! `node_at` and `statement_at` keep their [`FileId`] parameter because
+//! byte offsets are inherently per-file. Reference targets resolve
+//! project-wide (per ADR-0015): a spouse spelled in one file's marriage
+//! can point at a person declared in a sibling file.
 
 use crate::ast::{
     AdoptionField, AdoptionSub, BirthSub, Ident, MarriageField, MarriageStmt, PersonField,
@@ -115,8 +116,8 @@ pub struct EntityNode<'a> {
     /// has none.
     pub is_decl: bool,
     /// The resolved entity, if any. `None` only for unresolved references.
-    /// The target lives in the same file as the reference (per ADR-0014's
-    /// per-file namespaces).
+    /// The target may live in a sibling file under project-wide
+    /// resolution (per ADR-0015).
     pub target: Option<EntityTarget<'a>>,
 }
 
@@ -226,7 +227,7 @@ impl ResolvedDocument {
 
     fn node_in_birth<'a>(
         &'a self,
-        file: FileId,
+        _file: FileId,
         b: &'a BirthSub,
         offset: usize,
     ) -> Option<Node<'a>> {
@@ -236,7 +237,7 @@ impl ResolvedDocument {
         if contains(b.marriage_ref.span, offset) {
             return Some(Node::MarriageRef {
                 ident: &b.marriage_ref,
-                target: self.marriage(file, &b.marriage_ref.name),
+                target: self.marriage(&b.marriage_ref.name),
             });
         }
         None
@@ -244,7 +245,7 @@ impl ResolvedDocument {
 
     fn node_in_adoption<'a>(
         &'a self,
-        file: FileId,
+        _file: FileId,
         a: &'a AdoptionSub,
         offset: usize,
     ) -> Option<Node<'a>> {
@@ -254,7 +255,7 @@ impl ResolvedDocument {
         if contains(a.marriage_ref.span, offset) {
             return Some(Node::MarriageRef {
                 ident: &a.marriage_ref,
-                target: self.marriage(file, &a.marriage_ref.name),
+                target: self.marriage(&a.marriage_ref.name),
             });
         }
         for f in &a.fields {
@@ -271,7 +272,7 @@ impl ResolvedDocument {
 
     fn node_in_marriage<'a>(
         &'a self,
-        file: FileId,
+        _file: FileId,
         m: &'a MarriageStmt,
         offset: usize,
     ) -> Option<Node<'a>> {
@@ -284,13 +285,13 @@ impl ResolvedDocument {
         if contains(m.spouse_a.span, offset) {
             return Some(Node::PersonRef {
                 ident: &m.spouse_a,
-                target: self.person(file, &m.spouse_a.name),
+                target: self.person(&m.spouse_a.name),
             });
         }
         if contains(m.spouse_b.span, offset) {
             return Some(Node::PersonRef {
                 ident: &m.spouse_b,
-                target: self.person(file, &m.spouse_b.name),
+                target: self.person(&m.spouse_b.name),
             });
         }
         for f in &m.fields {

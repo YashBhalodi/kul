@@ -6,9 +6,12 @@
 //! through [`ResolvedDocument`]'s typed methods — they never enumerate
 //! `document.statements` themselves.
 //!
-//! Rules walk `.kul` files one at a time (per-file namespaces, ADR-0014):
-//! references resolve only against the same file, so cross-file lookalikes
-//! (two files each declaring `alice`) are independent.
+//! Rules walk `.kul` files one at a time for source-order diagnostic
+//! grouping, but every cross-reference query (`entity`, `marriage`,
+//! `person`, `spouses_of`, `parents_of`) is project-wide per ADR-0015:
+//! references resolve against every file in the project, not just the
+//! current one. Rule 13 (parenthood cycles) walks the whole project's
+//! parent graph in one pass.
 
 use crate::ast::{EndReason, Ident, MarriageStmt, Statement};
 use crate::date::{DateLit, before_strict};
@@ -37,15 +40,17 @@ pub fn validate(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
         diagnostics.extend(rule_10_spouse_died_before_marriage(resolved, file));
         diagnostics.extend(rule_11_bio_child_born_before_parent(resolved, file));
         diagnostics.extend(rule_12_adoption_before_adopter_born(resolved, file));
-        diagnostics.extend(rule_13_parenthood_cycles(resolved, file));
     }
+    // R13 walks the project-wide parent graph in one pass (ADR-0015): a
+    // cycle that spans two files is detected as a single cycle, not as
+    // two separate per-file fragments.
+    diagnostics.extend(rule_13_parenthood_cycles(resolved));
     diagnostics
 }
 
 /// Rule 2 — every marriage spouse, `birth` ref, and `adoption` ref must
-/// resolve to a declared id of the appropriate kind, *within the same
-/// file*. Cross-file references are not supported in v1; the same name
-/// appearing in another file does not satisfy resolution here.
+/// resolve to a declared id of the appropriate kind anywhere in the
+/// project. Cross-file references resolve cleanly (per ADR-0015).
 pub fn rule_02_unresolved_references(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for stmt in resolved.statements_in(file) {
@@ -79,12 +84,12 @@ fn check_person_ref(
     ident: &Ident,
     out: &mut Vec<Diagnostic>,
 ) {
-    match resolved.entity(file, &ident.name) {
+    match resolved.entity(&ident.name) {
         None => {
             out.push(Diagnostic::error(
                 "KUL-R02",
                 format!(
-                    "no person with id `{}` is declared in this file — check for a typo, or add a `person {} …` declaration",
+                    "no person with id `{}` is declared in the project — check for a typo, or add a `person {} …` declaration",
                     ident.name, ident.name
                 ),
                 fspan(file, ident.span),
@@ -124,12 +129,12 @@ fn check_marriage_ref(
     role: &str,
     out: &mut Vec<Diagnostic>,
 ) {
-    match resolved.entity(file, &ident.name) {
+    match resolved.entity(&ident.name) {
         None => {
             out.push(Diagnostic::error(
                 "KUL-R02",
                 format!(
-                    "no marriage with id `{}` is declared in this file — check for a typo, or add a `marriage {} …` declaration (the `{role}` link expects a marriage id)",
+                    "no marriage with id `{}` is declared in the project — check for a typo, or add a `marriage {} …` declaration (the `{role}` link expects a marriage id)",
                     ident.name, ident.name
                 ),
                 fspan(file, ident.span),
@@ -368,7 +373,7 @@ pub fn rule_09_marriage_before_spouse_born(
 ) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for m in resolved.marriages_in(file) {
-        for spouse in resolved.spouses_of(file, m) {
+        for spouse in resolved.spouses_of(m) {
             if let Some(d) = temporal_violation(
                 file,
                 "KUL-R09",
@@ -397,7 +402,7 @@ pub fn rule_10_spouse_died_before_marriage(
 ) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for m in resolved.marriages_in(file) {
-        for spouse in resolved.spouses_of(file, m) {
+        for spouse in resolved.spouses_of(m) {
             if let Some(d) = temporal_violation(
                 file,
                 "KUL-R10",
@@ -427,10 +432,10 @@ pub fn rule_11_bio_child_born_before_parent(
     let mut out = Vec::new();
     for child in resolved.persons_in(file) {
         let Some(birth) = &child.birth else { continue };
-        let Some(marriage) = resolved.marriage(file, &birth.marriage_ref.name) else {
+        let Some(marriage) = resolved.marriage(&birth.marriage_ref.name) else {
             continue;
         };
-        for parent in resolved.spouses_of(file, marriage) {
+        for parent in resolved.spouses_of(marriage) {
             if let Some(d) = temporal_violation(
                 file,
                 "KUL-R11",
@@ -460,10 +465,10 @@ pub fn rule_12_adoption_before_adopter_born(
     let mut out = Vec::new();
     for child in resolved.persons_in(file) {
         for adoption in &child.adoptions {
-            let Some(marriage) = resolved.marriage(file, &adoption.marriage_ref.name) else {
+            let Some(marriage) = resolved.marriage(&adoption.marriage_ref.name) else {
                 continue;
             };
-            for parent in resolved.spouses_of(file, marriage) {
+            for parent in resolved.spouses_of(marriage) {
                 if let Some(d) = temporal_violation(
                     file,
                     "KUL-R12",
@@ -517,16 +522,24 @@ fn temporal_violation(
 }
 
 /// Rule 13 — no person may appear as their own ancestor in the parent
-/// graph (union of bio and adoptive parent links). Cycles are scoped per
-/// file (per ADR-0014), since parent links resolve only against the same
-/// file.
-pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
+/// graph (union of bio and adoptive parent links). The parent graph
+/// spans every file in the project (per ADR-0015); a cycle that crosses
+/// files is reported as a single cycle, with each related-span anchored
+/// at the file containing that particular parent-link.
+pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for cycle in crate::cycles::find_cycles(resolved, file) {
+    for cycle in crate::cycles::find_cycles(resolved) {
         let head = *cycle
             .members
             .first()
             .expect("cycle must have at least one member");
+        // Anchor R13's primary at the head's own declaration file —
+        // looking up the head's owning file uses the project-wide id
+        // index, which knows where every declared person lives.
+        let head_file = resolved
+            .entity(&head.id.name)
+            .map(|e| e.file)
+            .unwrap_or(FileId::MANIFEST);
         let message = if cycle.members.len() == 1 {
             format!(
                 "`{}` ends up as their own ancestor — check the `birth` and `adoption` links",
@@ -544,9 +557,9 @@ pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument, file: FileId) -> V
                 parts.join(" → ")
             )
         };
-        let mut diag = Diagnostic::error("KUL-R13", message, fspan(file, head.id.span));
-        for span in cycle.link_spans {
-            diag = diag.with_related(fspan(file, span), "parent link in the cycle");
+        let mut diag = Diagnostic::error("KUL-R13", message, fspan(head_file, head.id.span));
+        for link in cycle.link_spans {
+            diag = diag.with_related(fspan(link.file, link.span), "parent link in the cycle");
         }
         out.push(diag);
     }

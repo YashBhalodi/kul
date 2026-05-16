@@ -46,10 +46,10 @@ pub mod validator;
 use std::sync::Arc;
 
 use crate::ast::{Document, InputFile, KulFile};
-use crate::diagnostic::Diagnostic;
+use crate::diagnostic::{Diagnostic, fspan, manifest_codes};
 use crate::manifest::Manifest;
 use crate::semantic::ResolvedDocument;
-use crate::span::FileId;
+use crate::span::{ByteSpan, FileId};
 
 /// The version of `kul-core` linked into the consumer.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -135,6 +135,8 @@ pub fn check(
     let (manifest_opt, mut diagnostics) = manifest::validate(manifest_yaml, FileId::MANIFEST);
     let manifest = manifest_opt.unwrap_or_default();
 
+    check_empty_project(manifest_yaml, inputs, &mut diagnostics);
+
     let document = build_document(manifest_name, manifest_yaml, inputs, &mut diagnostics);
     let document = Arc::new(document);
 
@@ -166,6 +168,7 @@ pub fn check_with_manifest(
 ) -> CheckResult {
     let manifest_name = manifest_name.into();
     let mut diagnostics: Vec<Diagnostic> = Vec::new();
+    check_empty_project(manifest_yaml, inputs, &mut diagnostics);
     let document = build_document(manifest_name, manifest_yaml, inputs, &mut diagnostics);
     let document = Arc::new(document);
 
@@ -177,6 +180,27 @@ pub fn check_with_manifest(
         resolved,
         diagnostics,
         manifest: manifest.clone(),
+    }
+}
+
+/// Emit [`KUL-M06`](crate::diagnostic::manifest_codes::M06_EMPTY_PROJECT)
+/// when the caller has a real manifest but zero `.kul` inputs — the
+/// project is structurally empty. In-memory callers (e.g. the WASM
+/// `format` helper) that pass an empty `manifest_yaml` are exempt: they
+/// are not asserting a project, just running the pipeline against
+/// in-memory sources.
+fn check_empty_project(
+    manifest_yaml: &str,
+    inputs: &[InputFile],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if !manifest_yaml.is_empty() && inputs.is_empty() {
+        let span = ByteSpan::new(0, manifest_yaml.len().min(1));
+        diagnostics.push(Diagnostic::error(
+            manifest_codes::M06_EMPTY_PROJECT,
+            "project has a `kul.yml` but no `.kul` files — add at least one `.kul` file alongside the manifest",
+            fspan(FileId::MANIFEST, span),
+        ));
     }
 }
 

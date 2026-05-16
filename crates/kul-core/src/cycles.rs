@@ -7,6 +7,9 @@
 //!
 //! All graph traversal goes through [`ResolvedDocument::parents_of`] —
 //! this module never enumerates `document.statements` itself.
+//!
+//! The parent graph is project-wide (per ADR-0015): a cycle that spans
+//! two files is detected just like a cycle inside one file.
 
 use std::collections::HashMap;
 
@@ -15,21 +18,29 @@ use crate::semantic::{ParentLink, ResolvedDocument};
 use crate::span::{ByteSpan, FileId};
 
 #[derive(Debug, Clone)]
+pub struct CycleLink {
+    pub span: ByteSpan,
+    pub file: FileId,
+}
+
+#[derive(Debug, Clone)]
 pub struct Cycle<'a> {
     /// Persons on the cycle in traversal order. The first entry is the
     /// "first detected" node; the closing back-edge runs from the last
     /// member back to the first.
     pub members: Vec<&'a PersonStmt>,
-    /// Source spans of every parent-link forming this cycle, including
-    /// the closing back-edge — one per arrow on the path. Used as
-    /// related-info on the diagnostic.
-    pub link_spans: Vec<ByteSpan>,
+    /// Every parent-link forming this cycle, including the closing
+    /// back-edge — one per arrow on the path. Each link carries its
+    /// source span and the file containing that span (the child's
+    /// owning file, which may differ from the parent's under
+    /// project-wide resolution).
+    pub link_spans: Vec<CycleLink>,
 }
 
-/// Find every parenthood cycle reachable from the persons in `file`.
-/// Cycles are scoped per file (parent links resolve only against the same
-/// file under ADR-0014's per-file namespaces).
-pub fn find_cycles<'a>(resolved: &'a ResolvedDocument, file: FileId) -> Vec<Cycle<'a>> {
+/// Find every parenthood cycle reachable from any person in the project.
+/// The parent graph spans every `.kul` file (per ADR-0015); a cycle that
+/// crosses files is detected the same way as a within-file cycle.
+pub fn find_cycles(resolved: &ResolvedDocument) -> Vec<Cycle<'_>> {
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum Color {
         White,
@@ -37,8 +48,8 @@ pub fn find_cycles<'a>(resolved: &'a ResolvedDocument, file: FileId) -> Vec<Cycl
         Black,
     }
 
-    let order: Vec<&'a PersonStmt> = resolved.persons_in(file).collect();
-    let mut color: HashMap<&'a str, Color> = order
+    let order: Vec<&PersonStmt> = resolved.persons().collect();
+    let mut color: HashMap<&str, Color> = order
         .iter()
         .map(|p| (p.id.name.as_str(), Color::White))
         .collect();
@@ -50,13 +61,13 @@ pub fn find_cycles<'a>(resolved: &'a ResolvedDocument, file: FileId) -> Vec<Cycl
             continue;
         }
 
-        let mut path: Vec<&'a PersonStmt> = Vec::new();
-        let mut path_links: Vec<ByteSpan> = Vec::new();
-        let mut frames: Vec<(&'a PersonStmt, Vec<ParentLink<'a>>, usize)> = Vec::new();
+        let mut path: Vec<&PersonStmt> = Vec::new();
+        let mut path_links: Vec<CycleLink> = Vec::new();
+        let mut frames: Vec<(&PersonStmt, Vec<ParentLink<'_>>, usize)> = Vec::new();
 
         color.insert(start.id.name.as_str(), Color::Gray);
         path.push(start);
-        frames.push((start, resolved.parents_of(file, start), 0));
+        frames.push((start, resolved.parents_of(start), 0));
 
         while let Some((node, parents, idx)) = frames.last_mut() {
             if *idx >= parents.len() {
@@ -79,17 +90,23 @@ pub fn find_cycles<'a>(resolved: &'a ResolvedDocument, file: FileId) -> Vec<Cycl
                 Color::White => {
                     color.insert(parent.id.name.as_str(), Color::Gray);
                     path.push(parent);
-                    path_links.push(link.link_span);
-                    frames.push((parent, resolved.parents_of(file, parent), 0));
+                    path_links.push(CycleLink {
+                        span: link.link_span,
+                        file: link.link_file,
+                    });
+                    frames.push((parent, resolved.parents_of(parent), 0));
                 }
                 Color::Gray => {
                     let parent_idx = path
                         .iter()
                         .position(|&p| std::ptr::eq(p, parent))
                         .expect("Gray node must be on the path");
-                    let members: Vec<&'a PersonStmt> = path[parent_idx..].to_vec();
-                    let mut link_spans: Vec<ByteSpan> = path_links[parent_idx..].to_vec();
-                    link_spans.push(link.link_span);
+                    let members: Vec<&PersonStmt> = path[parent_idx..].to_vec();
+                    let mut link_spans: Vec<CycleLink> = path_links[parent_idx..].to_vec();
+                    link_spans.push(CycleLink {
+                        span: link.link_span,
+                        file: link.link_file,
+                    });
                     cycles.push(Cycle {
                         members,
                         link_spans,
