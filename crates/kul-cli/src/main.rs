@@ -23,7 +23,7 @@ the language server over stdio for editor integrations.
 
 EXAMPLES:
   kul validate family.kul
-  kul validate examples/*.kul
+  kul validate examples/*/*.kul
   kul validate --format json family.kul | jq .
   kul validate --quiet family.kul && echo ok
   kul format family.kul       # canonicalize the file in place
@@ -68,7 +68,7 @@ EXAMPLES:
   kul validate family.kul
 
   # Validate every example.
-  kul validate examples/*.kul
+  kul validate examples/*/*.kul
 
   # Quiet mode for scripts: only diagnostics, no `ok` lines.
   kul validate --quiet family.kul
@@ -107,10 +107,10 @@ EXAMPLES:
   kul format family.kul
 
   # Canonicalize every example.
-  kul format examples/*.kul
+  kul format examples/*/*.kul
 
   # CI gate: fail if anything is out of canonical form.
-  kul format --check examples/*.kul
+  kul format --check examples/*/*.kul
 
 EXIT CODES:
   0  every file is in canonical form (or was successfully formatted)
@@ -154,7 +154,7 @@ EXAMPLES:
   kul export family.kul | jq .
 
   # Batch.
-  kul export examples/*.kul
+  kul export examples/*/*.kul
 
 EXIT CODES:
   0  every input projected to a success envelope

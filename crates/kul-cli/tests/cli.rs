@@ -189,18 +189,22 @@ fn validate_multiple_files_exits_one_if_any_fail() {
 
 #[test]
 fn format_check_passes_on_corpus_examples() {
-    // Every example in the workspace must be canonical at HEAD.
-    let examples_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("examples");
-    let mut entries: Vec<PathBuf> = std::fs::read_dir(&examples_dir)
+    // Every example in the workspace must be canonical at HEAD. Each example
+    // lives in its own subdirectory (`examples/<dir>/<stem>.kul`) so we walk
+    // one level deep to collect every `.kul` file.
+    let mut entries: Vec<PathBuf> = std::fs::read_dir(examples_dir())
         .unwrap()
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("kul"))
+        .filter(|p| p.is_dir())
+        .flat_map(|dir| {
+            std::fs::read_dir(&dir)
+                .unwrap()
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("kul"))
+                .collect::<Vec<_>>()
+        })
         .collect();
     entries.sort();
     let mut cmd = Command::cargo_bin("kul").unwrap();
@@ -235,7 +239,9 @@ fn format_rewrites_file_in_place() {
 
 #[test]
 fn export_clean_file_emits_success_envelope_and_exits_zero() {
-    let path = examples_dir().join("01-single-couple.kul");
+    let path = examples_dir()
+        .join("01-single-couple")
+        .join("single-couple.kul");
     let output = Command::cargo_bin("kul")
         .unwrap()
         .args(["export"])
@@ -255,8 +261,12 @@ fn export_clean_file_emits_success_envelope_and_exits_zero() {
 
 #[test]
 fn export_multiple_files_emits_one_envelope_per_line() {
-    let p1 = examples_dir().join("01-single-couple.kul");
-    let p2 = examples_dir().join("02-nuclear-family.kul");
+    let p1 = examples_dir()
+        .join("01-single-couple")
+        .join("single-couple.kul");
+    let p2 = examples_dir()
+        .join("02-nuclear-family")
+        .join("nuclear-family.kul");
     let output = Command::cargo_bin("kul")
         .unwrap()
         .args(["export"])
@@ -276,7 +286,9 @@ fn export_multiple_files_emits_one_envelope_per_line() {
 
 #[test]
 fn export_multiple_files_exits_one_if_any_fail() {
-    let valid = examples_dir().join("01-single-couple.kul");
+    let valid = examples_dir()
+        .join("01-single-couple")
+        .join("single-couple.kul");
     let invalid_path = corpus_root().join("invalid/rule-03-missing-name.kul");
     let output = Command::cargo_bin("kul")
         .unwrap()
@@ -297,7 +309,9 @@ fn export_multiple_files_exits_one_if_any_fail() {
 
 #[test]
 fn export_with_positions_attaches_span_to_every_entity() {
-    let path = examples_dir().join("02-nuclear-family.kul");
+    let path = examples_dir()
+        .join("02-nuclear-family")
+        .join("nuclear-family.kul");
     let output = Command::cargo_bin("kul")
         .unwrap()
         .args(["export", "--with-positions"])
@@ -320,7 +334,9 @@ fn export_with_positions_attaches_span_to_every_entity() {
 
 #[test]
 fn export_default_omits_span_field() {
-    let path = examples_dir().join("02-nuclear-family.kul");
+    let path = examples_dir()
+        .join("02-nuclear-family")
+        .join("nuclear-family.kul");
     let output = Command::cargo_bin("kul")
         .unwrap()
         .args(["export"])
@@ -337,7 +353,9 @@ fn export_default_omits_span_field() {
 
 #[test]
 fn export_format_cytoscape_emits_nodes_and_edges() {
-    let path = examples_dir().join("02-nuclear-family.kul");
+    let path = examples_dir()
+        .join("02-nuclear-family")
+        .join("nuclear-family.kul");
     let output = Command::cargo_bin("kul")
         .unwrap()
         .args(["export", "--format", "cytoscape"])
@@ -362,7 +380,9 @@ fn export_format_cytoscape_emits_nodes_and_edges() {
 
 #[test]
 fn export_format_json_is_default_and_explicit_flag_works() {
-    let path = examples_dir().join("01-single-couple.kul");
+    let path = examples_dir()
+        .join("01-single-couple")
+        .join("single-couple.kul");
     let with_flag = Command::cargo_bin("kul")
         .unwrap()
         .args(["export", "--format", "json"])

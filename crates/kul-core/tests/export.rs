@@ -1,10 +1,10 @@
 //! Snapshot tests for the canonical JSON export.
 //!
-//! Sweeps every `examples/*.kul` to lock in the success-path schema and
-//! covers a small set of hand-crafted bad inputs for the failure envelope.
-//! The file-by-file tests double as the corpus contract: dropping a new
-//! `examples/*.kul` makes the sweep test demand a corresponding snapshot
-//! review, surfacing any unintentional schema drift.
+//! Sweeps every `examples/*/<name>.kul` to lock in the success-path schema
+//! and covers a small set of hand-crafted bad inputs for the failure
+//! envelope. The file-by-file tests double as the corpus contract: dropping
+//! a new `examples/*/<name>.kul` makes the sweep test demand a corresponding
+//! snapshot review, surfacing any unintentional schema drift.
 //!
 //! Each snapshot is the pretty-printed JSON envelope. Pretty-printing is
 //! the difference between a useful diff (one field per line) and a wall of
@@ -65,28 +65,28 @@ fn export_cytoscape(source: &str) -> String {
 }
 
 /// Generate three snapshot tests per example file — default (kinship-
-/// native, positions off), positions on, and cytoscape format. The
-/// snapshot names embed the file stem so a missing or extra example
-/// surfaces as a clearly-named snapshot.
+/// native, positions off), positions on, and cytoscape format. Each
+/// example lives in its own subdirectory (`examples/<dir>/<stem>.kul`)
+/// so the macro takes both the directory and the file stem.
 macro_rules! example_snapshot {
-    ($default_name:ident, $positions_name:ident, $cytoscape_name:ident, $stem:literal) => {
+    ($default_name:ident, $positions_name:ident, $cytoscape_name:ident, $dir:literal, $stem:literal) => {
         #[test]
         fn $default_name() {
-            let path = examples_dir().join(concat!($stem, ".kul"));
+            let path = examples_dir().join($dir).join(concat!($stem, ".kul"));
             let json = export_default(&read(&path));
             insta::assert_snapshot!(json);
         }
 
         #[test]
         fn $positions_name() {
-            let path = examples_dir().join(concat!($stem, ".kul"));
+            let path = examples_dir().join($dir).join(concat!($stem, ".kul"));
             let json = export_with_positions(&read(&path));
             insta::assert_snapshot!(json);
         }
 
         #[test]
         fn $cytoscape_name() {
-            let path = examples_dir().join(concat!($stem, ".kul"));
+            let path = examples_dir().join($dir).join(concat!($stem, ".kul"));
             let json = export_cytoscape(&read(&path));
             insta::assert_snapshot!(json);
         }
@@ -97,37 +97,43 @@ example_snapshot!(
     example_01_single_couple,
     example_01_single_couple_with_positions,
     example_01_single_couple_cytoscape,
-    "01-single-couple"
+    "01-single-couple",
+    "single-couple"
 );
 example_snapshot!(
     example_02_nuclear_family,
     example_02_nuclear_family_with_positions,
     example_02_nuclear_family_cytoscape,
-    "02-nuclear-family"
+    "02-nuclear-family",
+    "nuclear-family"
 );
 example_snapshot!(
     example_03_three_generations,
     example_03_three_generations_with_positions,
     example_03_three_generations_cytoscape,
-    "03-three-generations"
+    "03-three-generations",
+    "three-generations"
 );
 example_snapshot!(
     example_04_polygamous_family,
     example_04_polygamous_family_with_positions,
     example_04_polygamous_family_cytoscape,
-    "04-polygamous-family"
+    "04-polygamous-family",
+    "polygamous-family"
 );
 example_snapshot!(
     example_05_married_siblings,
     example_05_married_siblings_with_positions,
     example_05_married_siblings_cytoscape,
-    "05-married-siblings"
+    "05-married-siblings",
+    "married-siblings"
 );
 example_snapshot!(
     example_06_three_branch_dynasty,
     example_06_three_branch_dynasty_with_positions,
     example_06_three_branch_dynasty_cytoscape,
-    "06-three-branch-dynasty"
+    "06-three-branch-dynasty",
+    "three-branch-dynasty"
 );
 
 #[test]
@@ -164,17 +170,11 @@ marriage m alice bob start:1972
     }
 }
 
-/// Catch-all: if a new `examples/*.kul` lands without a matching test
-/// above, this fires so the contributor adds the snapshot.
+/// Catch-all: if a new `examples/<dir>/<stem>.kul` lands without a matching
+/// test above, this fires so the contributor adds the snapshot.
 #[test]
 fn every_example_has_a_dedicated_snapshot_test() {
-    let mut have: Vec<String> = std::fs::read_dir(examples_dir())
-        .unwrap()
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("kul"))
-        .map(|p| p.file_stem().unwrap().to_string_lossy().into_owned())
-        .collect();
+    let mut have: Vec<String> = enumerate_example_dirs();
     have.sort();
     let expected = [
         "01-single-couple",
@@ -189,6 +189,34 @@ fn every_example_has_a_dedicated_snapshot_test() {
         expected,
         "an example file was added or removed without updating the export snapshot list"
     );
+}
+
+/// Enumerate the per-example subdirectories of `examples/`. Each must contain
+/// exactly one `*.kul` file alongside its sibling `kul.yml`; the test asserts
+/// that invariant so the corpus shape stays uniform.
+fn enumerate_example_dirs() -> Vec<String> {
+    std::fs::read_dir(examples_dir())
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .map(|p| {
+            let kul_files: Vec<_> = std::fs::read_dir(&p)
+                .unwrap()
+                .flatten()
+                .map(|e| e.path())
+                .filter(|f| f.extension().and_then(|s| s.to_str()) == Some("kul"))
+                .collect();
+            assert_eq!(
+                kul_files.len(),
+                1,
+                "example directory {} must contain exactly one .kul file, found {}",
+                p.display(),
+                kul_files.len(),
+            );
+            p.file_name().unwrap().to_string_lossy().into_owned()
+        })
+        .collect()
 }
 
 #[test]

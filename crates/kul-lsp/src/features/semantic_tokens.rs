@@ -436,7 +436,7 @@ mod tests {
 
     #[test]
     fn tokens_are_sorted_and_non_overlapping() {
-        let src = include_str!("../../../../examples/03-three-generations.kul");
+        let src = include_str!("../../../../examples/03-three-generations/three-generations.kul");
         let (sem, _) = tokens_for(src);
         // After delta encoding, every entry has either delta_line > 0 or
         // (delta_line == 0 && delta_start > 0), and length > 0. That's
@@ -480,28 +480,28 @@ mod tests {
 
     #[test]
     fn snapshot_single_couple() {
-        let src = include_str!("../../../../examples/01-single-couple.kul");
+        let src = include_str!("../../../../examples/01-single-couple/single-couple.kul");
         let (_, decoded) = tokens_for(src);
         insta::assert_debug_snapshot!(decoded);
     }
 
     #[test]
     fn snapshot_nuclear_family() {
-        let src = include_str!("../../../../examples/02-nuclear-family.kul");
+        let src = include_str!("../../../../examples/02-nuclear-family/nuclear-family.kul");
         let (_, decoded) = tokens_for(src);
         insta::assert_debug_snapshot!(decoded);
     }
 
     #[test]
     fn snapshot_three_generations() {
-        let src = include_str!("../../../../examples/03-three-generations.kul");
+        let src = include_str!("../../../../examples/03-three-generations/three-generations.kul");
         let (_, decoded) = tokens_for(src);
         insta::assert_debug_snapshot!(decoded);
     }
 
     #[test]
     fn snapshot_polygamous_family() {
-        let src = include_str!("../../../../examples/04-polygamous-family.kul");
+        let src = include_str!("../../../../examples/04-polygamous-family/polygamous-family.kul");
         let (_, decoded) = tokens_for(src);
         insta::assert_debug_snapshot!(decoded);
     }

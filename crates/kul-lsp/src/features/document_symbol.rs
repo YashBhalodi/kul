@@ -316,28 +316,28 @@ mod tests {
 
     #[test]
     fn snapshot_three_generations() {
-        let src = include_str!("../../../../examples/03-three-generations.kul");
+        let src = include_str!("../../../../examples/03-three-generations/three-generations.kul");
         let syms = symbols_for(src);
         insta::assert_json_snapshot!(syms);
     }
 
     #[test]
     fn snapshot_single_couple() {
-        let src = include_str!("../../../../examples/01-single-couple.kul");
+        let src = include_str!("../../../../examples/01-single-couple/single-couple.kul");
         let syms = symbols_for(src);
         insta::assert_json_snapshot!(syms);
     }
 
     #[test]
     fn snapshot_nuclear_family() {
-        let src = include_str!("../../../../examples/02-nuclear-family.kul");
+        let src = include_str!("../../../../examples/02-nuclear-family/nuclear-family.kul");
         let syms = symbols_for(src);
         insta::assert_json_snapshot!(syms);
     }
 
     #[test]
     fn snapshot_polygamous_family() {
-        let src = include_str!("../../../../examples/04-polygamous-family.kul");
+        let src = include_str!("../../../../examples/04-polygamous-family/polygamous-family.kul");
         let syms = symbols_for(src);
         insta::assert_json_snapshot!(syms);
     }

@@ -74,24 +74,24 @@ fn options_cytoscape() -> ExportOptions {
 }
 
 macro_rules! example_snapshot {
-    ($default_name:ident, $positions_name:ident, $cytoscape_name:ident, $stem:literal) => {
+    ($default_name:ident, $positions_name:ident, $cytoscape_name:ident, $dir:literal, $stem:literal) => {
         #[test]
         fn $default_name() {
-            let path = examples_dir().join(concat!($stem, ".kul"));
+            let path = examples_dir().join($dir).join(concat!($stem, ".kul"));
             let json = export_graph_json(&read(&path), options_default());
             insta::assert_snapshot!(json);
         }
 
         #[test]
         fn $positions_name() {
-            let path = examples_dir().join(concat!($stem, ".kul"));
+            let path = examples_dir().join($dir).join(concat!($stem, ".kul"));
             let json = export_graph_json(&read(&path), options_with_positions());
             insta::assert_snapshot!(json);
         }
 
         #[test]
         fn $cytoscape_name() {
-            let path = examples_dir().join(concat!($stem, ".kul"));
+            let path = examples_dir().join($dir).join(concat!($stem, ".kul"));
             let json = export_graph_json(&read(&path), options_cytoscape());
             insta::assert_snapshot!(json);
         }
@@ -102,37 +102,43 @@ example_snapshot!(
     example_01_single_couple,
     example_01_single_couple_with_positions,
     example_01_single_couple_cytoscape,
-    "01-single-couple"
+    "01-single-couple",
+    "single-couple"
 );
 example_snapshot!(
     example_02_nuclear_family,
     example_02_nuclear_family_with_positions,
     example_02_nuclear_family_cytoscape,
-    "02-nuclear-family"
+    "02-nuclear-family",
+    "nuclear-family"
 );
 example_snapshot!(
     example_03_three_generations,
     example_03_three_generations_with_positions,
     example_03_three_generations_cytoscape,
-    "03-three-generations"
+    "03-three-generations",
+    "three-generations"
 );
 example_snapshot!(
     example_04_polygamous_family,
     example_04_polygamous_family_with_positions,
     example_04_polygamous_family_cytoscape,
-    "04-polygamous-family"
+    "04-polygamous-family",
+    "polygamous-family"
 );
 example_snapshot!(
     example_05_married_siblings,
     example_05_married_siblings_with_positions,
     example_05_married_siblings_cytoscape,
-    "05-married-siblings"
+    "05-married-siblings",
+    "married-siblings"
 );
 example_snapshot!(
     example_06_three_branch_dynasty,
     example_06_three_branch_dynasty_with_positions,
     example_06_three_branch_dynasty_cytoscape,
-    "06-three-branch-dynasty"
+    "06-three-branch-dynasty",
+    "three-branch-dynasty"
 );
 
 #[test]
@@ -141,8 +147,8 @@ fn every_example_has_a_dedicated_export_graph_test() {
         .unwrap()
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("kul"))
-        .map(|p| p.file_stem().unwrap().to_string_lossy().into_owned())
+        .filter(|p| p.is_dir())
+        .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
         .collect();
     have.sort();
     let expected = [
@@ -169,21 +175,27 @@ fn cross_surface_json_is_bit_identical_for_every_example_and_options_combo() {
         ("with_positions", options_with_positions),
         ("cytoscape", options_cytoscape),
     ];
-    for entry in std::fs::read_dir(examples_dir()).unwrap().flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("kul") {
+    for dir_entry in std::fs::read_dir(examples_dir()).unwrap().flatten() {
+        let dir = dir_entry.path();
+        if !dir.is_dir() {
             continue;
         }
-        let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
-        let source = read(&path);
-        for (combo_name, opts_fn) in combos {
-            let opts = opts_fn();
-            let wasm_json = export_graph_json(&source, opts);
-            let core_json = core_export_json(&source, opts);
-            assert_eq!(
-                wasm_json, core_json,
-                "wasm exportGraph and kul_core::export diverged for example {stem} with options {combo_name}"
-            );
+        for file_entry in std::fs::read_dir(&dir).unwrap().flatten() {
+            let path = file_entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("kul") {
+                continue;
+            }
+            let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
+            let source = read(&path);
+            for (combo_name, opts_fn) in combos {
+                let opts = opts_fn();
+                let wasm_json = export_graph_json(&source, opts);
+                let core_json = core_export_json(&source, opts);
+                assert_eq!(
+                    wasm_json, core_json,
+                    "wasm exportGraph and kul_core::export diverged for example {stem} with options {combo_name}"
+                );
+            }
         }
     }
 }
