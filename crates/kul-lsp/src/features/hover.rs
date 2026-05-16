@@ -131,9 +131,9 @@ fn person_panel(p: &PersonStmt) -> String {
     out
 }
 
-fn marriage_panel(file: FileId, resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
-    let spouse_a = resolved.person(file, &m.spouse_a.name);
-    let spouse_b = resolved.person(file, &m.spouse_b.name);
+fn marriage_panel(_file: FileId, resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
+    let spouse_a = resolved.person(&m.spouse_a.name);
+    let spouse_b = resolved.person(&m.spouse_b.name);
     let header = match (display_name_of(spouse_a), display_name_of(spouse_b)) {
         (Some(a), Some(b)) => format!("**{} & {}** — `marriage {}`", a, b, m.id.name),
         _ => format!("**`marriage {}`**", m.id.name),

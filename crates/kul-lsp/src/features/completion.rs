@@ -600,13 +600,13 @@ fn person_id_items(
         .collect()
 }
 
-fn marriage_detail(file: FileId, resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
+fn marriage_detail(_file: FileId, resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
     let a = resolved
-        .person(file, &m.spouse_a.name)
+        .person(&m.spouse_a.name)
         .map(|p| p.display_name())
         .unwrap_or(m.spouse_a.name.as_str());
     let b = resolved
-        .person(file, &m.spouse_b.name)
+        .person(&m.spouse_b.name)
         .map(|p| p.display_name())
         .unwrap_or(m.spouse_b.name.as_str());
     let dates = match (

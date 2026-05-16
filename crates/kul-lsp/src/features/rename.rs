@@ -123,7 +123,7 @@ pub fn rename(
             proposed: new_name.to_owned(),
         });
     }
-    if resolved.entity(file, new_name).is_some() {
+    if resolved.entity(new_name).is_some() {
         return Err(RenameError::Collision {
             proposed: new_name.to_owned(),
         });
