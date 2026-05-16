@@ -297,44 +297,47 @@ impl ResolvedDocument {
             .filter_map(move |ident| self.person(&ident.name))
     }
 
-    /// Every reference site for `id` in `file`, in source order.
+    /// Every reference site for `id` anywhere in the project, in source
+    /// order across files.
     ///
     /// `kind` selects which positions count: spouse positions for a
     /// person, `birth`/`adoption` marriage refs for a marriage. The
     /// declaration site is **not** included — callers that want it (per
     /// LSP's `includeDeclaration` flag) prepend it themselves.
     ///
-    /// Reference sites are scoped to `file` because the LSP's per-URI
-    /// rename and find-references features iterate one file at a time;
-    /// project-wide reference enumeration is handled by the LSP layer by
-    /// calling this once per file. Unresolved references whose name
-    /// happens to match `id` are still returned, so rename and
-    /// find-references both work on partly-broken documents.
-    pub fn references_to(&self, file: FileId, id: &str, kind: EntityKind) -> Vec<ByteSpan> {
+    /// Resolution is project-wide per ADR-0015: refs in any file are
+    /// returned regardless of which file declares `id` (or even when `id`
+    /// is unresolved). Per-URI consumers (LSP find-references, rename)
+    /// filter the returned [`FileSpan`]s by file at the call site.
+    /// Unresolved references whose name happens to match `id` are still
+    /// returned, so rename and find-references both work on partly-broken
+    /// documents.
+    pub fn references_to(&self, id: &str, kind: EntityKind) -> Vec<FileSpan> {
         let mut out = Vec::new();
-        match kind {
-            EntityKind::Person => {
-                for m in self.marriages_in(file) {
-                    if m.spouse_a.name == id {
-                        out.push(m.spouse_a.span);
-                    }
-                    if m.spouse_b.name == id {
-                        out.push(m.spouse_b.span);
-                    }
-                }
-            }
-            EntityKind::Marriage => {
-                for p in self.persons_in(file) {
-                    if let Some(b) = &p.birth
-                        && b.marriage_ref.name == id
-                    {
-                        out.push(b.marriage_ref.span);
-                    }
-                    for a in &p.adoptions {
-                        if a.marriage_ref.name == id {
-                            out.push(a.marriage_ref.span);
+        for (file, kf) in self.document.kul_files() {
+            for stmt in &kf.statements {
+                match (kind, stmt) {
+                    (EntityKind::Person, Statement::Marriage(m)) => {
+                        if m.spouse_a.name == id {
+                            out.push(FileSpan::new(file, m.spouse_a.span));
+                        }
+                        if m.spouse_b.name == id {
+                            out.push(FileSpan::new(file, m.spouse_b.span));
                         }
                     }
+                    (EntityKind::Marriage, Statement::Person(p)) => {
+                        if let Some(b) = &p.birth
+                            && b.marriage_ref.name == id
+                        {
+                            out.push(FileSpan::new(file, b.marriage_ref.span));
+                        }
+                        for a in &p.adoptions {
+                            if a.marriage_ref.name == id {
+                                out.push(FileSpan::new(file, a.marriage_ref.span));
+                            }
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
@@ -485,11 +488,11 @@ mod tests {
     }
 
     fn refs(source: &str, id: &str, kind: EntityKind) -> Vec<(usize, usize)> {
-        let (resolved, file) = resolve_source(source);
+        let (resolved, _file) = resolve_source(source);
         resolved
-            .references_to(file, id, kind)
+            .references_to(id, kind)
             .into_iter()
-            .map(|s| (s.start, s.end))
+            .map(|s| (s.span.start, s.span.end))
             .collect()
     }
 
@@ -557,6 +560,48 @@ mod tests {
                    person kid name:\"K\" gender:other\n  birth m\n";
         assert!(refs(src, "m", EntityKind::Person).is_empty());
         assert_eq!(refs(src, "m", EntityKind::Marriage).len(), 1);
+    }
+
+    #[test]
+    fn references_to_walks_every_file_in_the_project() {
+        // alice is declared in a.kul and referenced in both a.kul (m_self)
+        // and b.kul (m_cross). The project-wide walk returns FileSpans
+        // pointing at both files; ordering follows input order.
+        let src_a = "person alice name:\"A\" gender:female\n\
+                     person bob name:\"B\" gender:male\n\
+                     marriage m_self alice bob start:1980\n";
+        let src_b = "person carol name:\"C\" gender:female\n\
+                     marriage m_cross alice carol start:2000\n";
+        let tokens_a = tokenize(src_a);
+        let tokens_b = tokenize(src_b);
+        let file_a = FileId(1);
+        let file_b = FileId(2);
+        let (stmts_a, _) = parse(&tokens_a, file_a);
+        let (stmts_b, _) = parse(&tokens_b, file_b);
+        let document = Arc::new(Document {
+            manifest_name: "kul.yml".to_string(),
+            manifest_source: String::new(),
+            kul_files: vec![
+                Arc::new(KulFile {
+                    name: "a.kul".to_string(),
+                    source: src_a.to_string(),
+                    statements: stmts_a,
+                }),
+                Arc::new(KulFile {
+                    name: "b.kul".to_string(),
+                    source: src_b.to_string(),
+                    statements: stmts_b,
+                }),
+            ],
+        });
+        let (resolved, _) = resolve(document);
+
+        let got: Vec<FileId> = resolved
+            .references_to("alice", EntityKind::Person)
+            .into_iter()
+            .map(|fs| fs.file)
+            .collect();
+        assert_eq!(got, vec![file_a, file_b]);
     }
 
     #[test]

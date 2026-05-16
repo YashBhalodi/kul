@@ -129,7 +129,15 @@ pub fn rename(
         });
     }
 
-    let mut spans: Vec<ByteSpan> = resolved.references_to(file, current, kind);
+    // `references_to` is project-wide per ADR-0015; filter to the active
+    // URI's file because the LSP cache is still URI-keyed. Cross-file
+    // rename lands with PRD 0001 slice 5 (#85).
+    let mut spans: Vec<ByteSpan> = resolved
+        .references_to(current, kind)
+        .into_iter()
+        .filter(|fs| fs.file == file)
+        .map(|fs| fs.span)
+        .collect();
     spans.push(decl_span);
     spans.sort_by_key(|s| s.start);
     spans.dedup();
