@@ -25,7 +25,7 @@ use kul_core::ast::InputFile;
 use kul_core::semantic::ResolvedDocument;
 use kul_core::span::FileId;
 use tokio::sync::RwLock;
-use tower_lsp::lsp_types::{Position, Url};
+use tower_lsp::lsp_types::{FileChangeType, Position, Url};
 
 use crate::convert::LineIndex;
 
@@ -51,6 +51,42 @@ impl ProjectRoot {
 
     pub fn as_path(&self) -> &Path {
         &self.0
+    }
+}
+
+/// Outcome of processing a single `workspace/didChangeWatchedFiles`
+/// event. The caller in `server.rs` translates this into the right
+/// combination of project broadcasts and empty-publishes.
+///
+/// The cache mutation happens inside [`Documents::process_watcher_event`];
+/// this is just the bag of side-effects the LSP layer still owes the
+/// client (publish diagnostics, clear squiggles).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WatchAction {
+    /// The event had no effect on the cache. The static `reason` is the
+    /// label used in the debug log line (matches the codes the issue
+    /// spec calls out: `unknown-project`, `overlaid`, …).
+    Ignored { reason: &'static str },
+    /// The project was reloaded. The caller should broadcast project-wide
+    /// diagnostics via [`crate::server::Backend::publish_project`] and
+    /// additionally empty-publish each URL in `cleared` (used for the
+    /// deleted-`.kul` case so the deleted URI's squiggles go away).
+    Reloaded { cleared: Vec<Url> },
+    /// The project was evicted (manifest deleted). The caller should
+    /// empty-publish each URL in `cleared`; there's nothing to broadcast
+    /// because the project no longer exists.
+    Evicted { cleared: Vec<Url> },
+}
+
+impl WatchAction {
+    /// Human-readable action label for the debug log line. Pairs with
+    /// the URI and event kind the LSP layer logs alongside.
+    pub fn log_label(&self) -> &'static str {
+        match self {
+            WatchAction::Ignored { reason } => reason,
+            WatchAction::Reloaded { .. } => "reloaded",
+            WatchAction::Evicted { .. } => "evicted",
+        }
     }
 }
 
@@ -276,16 +312,171 @@ impl Documents {
         map.get(&root).map(f)
     }
 
+    /// Apply one `workspace/didChangeWatchedFiles` event to the cache and
+    /// return the side-effects the caller still owes the client. The
+    /// rules (see issue #86 and PRD #80):
+    ///
+    /// - `.kul` `Created` / `Changed` / `Deleted` only act when the
+    ///   parent directory is already a cached project — discovery stays
+    ///   lazy. `Changed` is ignored when the URI is currently overlaid
+    ///   so the editor buffer remains authoritative.
+    /// - `kul.yml` `Created` / `Changed` reload the cached project's
+    ///   manifest; `Deleted` evicts the project entirely (the directory
+    ///   ceases to be a project).
+    /// - Any other URI shape (not `.kul`, not `kul.yml`) is ignored.
+    pub async fn process_watcher_event(&self, uri: &Url, kind: FileChangeType) -> WatchAction {
+        let Some(classified) = classify_watched_uri(uri) else {
+            return WatchAction::Ignored {
+                reason: "unknown-file-type",
+            };
+        };
+
+        let mut map = self.inner.write().await;
+        match classified {
+            WatchedUri::Manifest { root } => apply_manifest_event(&mut map, root, kind),
+            WatchedUri::Kul { root, uri } => apply_kul_event(&mut map, root, uri, kind),
+        }
+    }
+
     #[cfg(test)]
     async fn project_count(&self) -> usize {
         self.inner.read().await.len()
     }
 }
 
+/// Classification of a URI carried in a `workspace/didChangeWatchedFiles`
+/// event. The watcher is registered for `**/*.kul` and `**/kul.yml`, so
+/// every well-formed event lands in one of the two variants — but the
+/// classifier is tolerant of malformed input (a non-`file://` URI, or a
+/// URI whose extension is neither) and reports `None` so the caller can
+/// log and skip.
+enum WatchedUri<'a> {
+    /// `.kul` file event. `root` is the file's parent directory.
+    Kul { root: ProjectRoot, uri: &'a Url },
+    /// `kul.yml` manifest event. `root` is the manifest's parent
+    /// directory (i.e. the project root the manifest belongs to).
+    Manifest { root: ProjectRoot },
+}
+
+fn classify_watched_uri(uri: &Url) -> Option<WatchedUri<'_>> {
+    let path = uri.to_file_path().ok()?;
+    let file_name = path.file_name()?.to_str()?;
+    if file_name == "kul.yml" {
+        let root = path.parent().map(Path::to_path_buf)?;
+        return Some(WatchedUri::Manifest {
+            root: ProjectRoot(root),
+        });
+    }
+    if path.extension().and_then(|s| s.to_str()) == Some("kul") {
+        let root = path.parent().map(Path::to_path_buf)?;
+        return Some(WatchedUri::Kul {
+            root: ProjectRoot(root),
+            uri,
+        });
+    }
+    None
+}
+
+fn apply_kul_event(
+    map: &mut HashMap<ProjectRoot, ProjectEntry>,
+    root: ProjectRoot,
+    uri: &Url,
+    kind: FileChangeType,
+) -> WatchAction {
+    // The project must already be cached — discovery stays lazy
+    // (issue #86 spec). A `Created` event in a directory that has a
+    // `kul.yml` but isn't yet open lands here and is ignored.
+    let Some(entry) = map.get(&root) else {
+        return WatchAction::Ignored {
+            reason: "unknown-project",
+        };
+    };
+
+    match kind {
+        FileChangeType::CREATED => {
+            let overlay = entry.overlay.clone();
+            let new_entry = build_entry(root.clone(), overlay);
+            map.insert(root, new_entry);
+            WatchAction::Reloaded {
+                cleared: Vec::new(),
+            }
+        }
+        FileChangeType::CHANGED => {
+            // Overlay wins: if the editor holds a buffer for this URI,
+            // the disk change is stale by definition — drop it.
+            if matches!(entry.overlay.get(uri), Some(Some(_))) {
+                return WatchAction::Ignored { reason: "overlaid" };
+            }
+            let overlay = entry.overlay.clone();
+            let new_entry = build_entry(root.clone(), overlay);
+            map.insert(root, new_entry);
+            WatchAction::Reloaded {
+                cleared: Vec::new(),
+            }
+        }
+        FileChangeType::DELETED => {
+            // Drop the URI from the overlay so build_entry doesn't
+            // resurrect it. The file vanished from disk, so the
+            // re-read on rebuild won't pick it up either.
+            let mut overlay = entry.overlay.clone();
+            overlay.remove(uri);
+            let new_entry = build_entry(root.clone(), overlay);
+            map.insert(root, new_entry);
+            // Empty-publish to the deleted URI so its squiggles clear.
+            WatchAction::Reloaded {
+                cleared: vec![uri.clone()],
+            }
+        }
+        _ => WatchAction::Ignored {
+            reason: "unknown-change-type",
+        },
+    }
+}
+
+fn apply_manifest_event(
+    map: &mut HashMap<ProjectRoot, ProjectEntry>,
+    root: ProjectRoot,
+    kind: FileChangeType,
+) -> WatchAction {
+    let Some(entry) = map.get(&root) else {
+        return WatchAction::Ignored {
+            reason: "unknown-project",
+        };
+    };
+    match kind {
+        FileChangeType::DELETED => {
+            // Directory ceases to be a project. Surface clearing
+            // publishes for every URI the project ever covered —
+            // both disk-discovered files and editor-overlay URIs.
+            let mut cleared: Vec<Url> = entry.urls.clone();
+            for url in entry.overlay.keys() {
+                if !cleared.contains(url) {
+                    cleared.push(url.clone());
+                }
+            }
+            cleared.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+            map.remove(&root);
+            WatchAction::Evicted { cleared }
+        }
+        FileChangeType::CREATED | FileChangeType::CHANGED => {
+            let overlay = entry.overlay.clone();
+            let new_entry = build_entry(root.clone(), overlay);
+            map.insert(root, new_entry);
+            WatchAction::Reloaded {
+                cleared: Vec::new(),
+            }
+        }
+        _ => WatchAction::Ignored {
+            reason: "unknown-change-type",
+        },
+    }
+}
+
 /// Discover the project at `root` from disk, overlay any editor buffers,
 /// and run [`kul_core::check`]. Always reads the manifest and every
-/// sibling `.kul` file fresh — file-watching is a separate slice
-/// (see PRD 0001 issue 86).
+/// sibling `.kul` file fresh; external filesystem changes reach the
+/// cache via [`Documents::process_watcher_event`] (issue #86), which
+/// also reuses this builder.
 fn build_entry(root: ProjectRoot, overlay: HashMap<Url, Option<Arc<str>>>) -> ProjectEntry {
     let (manifest_label, manifest_yaml, mut disk_files) = discover_disk(root.as_path());
 
@@ -479,5 +670,63 @@ mod tests {
         let docs = Documents::default();
         let got = docs.with_project(&url("file:///nope.kul"), |_| 1).await;
         assert!(got.is_none());
+    }
+
+    /// Build a `file://` URL for an OS-temp-directory child. Going
+    /// through [`Url::from_file_path`] keeps the URI shape valid on
+    /// Windows (which requires a drive letter) as well as Unix.
+    fn temp_file_url(child: &str) -> Url {
+        let path = std::env::temp_dir().join(child);
+        let _ = std::fs::create_dir_all(path.parent().expect("temp child has parent"));
+        Url::from_file_path(&path).expect("file URL for temp child")
+    }
+
+    #[tokio::test]
+    async fn watcher_event_for_unknown_project_is_ignored() {
+        let docs = Documents::default();
+        let action = docs
+            .process_watcher_event(
+                &temp_file_url("kul-test-never-cached/foo.kul"),
+                FileChangeType::CHANGED,
+            )
+            .await;
+        assert_eq!(
+            action,
+            WatchAction::Ignored {
+                reason: "unknown-project"
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn watcher_event_for_unknown_file_type_is_ignored() {
+        let docs = Documents::default();
+        let action = docs
+            .process_watcher_event(
+                &temp_file_url("kul-test-unknown-ext/README.md"),
+                FileChangeType::CHANGED,
+            )
+            .await;
+        assert_eq!(
+            action,
+            WatchAction::Ignored {
+                reason: "unknown-file-type"
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn watcher_change_on_overlaid_file_is_ignored() {
+        let docs = Documents::default();
+        let uri = temp_file_url("kul-test-overlay-ignore/foo.kul");
+        docs.open(
+            uri.clone(),
+            "person a name:\"A\" gender:female\n".to_owned(),
+        )
+        .await;
+        let action = docs
+            .process_watcher_event(&uri, FileChangeType::CHANGED)
+            .await;
+        assert_eq!(action, WatchAction::Ignored { reason: "overlaid" });
     }
 }
