@@ -159,16 +159,8 @@ impl ResolvedDocument {
     /// let kul_file = FileId(1);
     /// let tokens = tokenize(source);
     /// let (statements, _) = parse(&tokens, kul_file);
-    /// let kf = Arc::new(KulFile {
-    ///     name: "test.kul".to_string(),
-    ///     source: source.to_string(),
-    ///     statements,
-    /// });
-    /// let document = Arc::new(Document {
-    ///     manifest_name: "kul.yml".to_string(),
-    ///     manifest_source: String::new(),
-    ///     kul_files: vec![kf],
-    /// });
+    /// let kf = Arc::new(KulFile::new("test.kul", source, statements));
+    /// let document = Arc::new(Document::new("kul.yml", vec![kf]));
     /// let (resolved, _) = resolve(document);
     ///
     /// let node = resolved.node_at(kul_file, 0).expect("a node");
@@ -362,16 +354,8 @@ mod tests {
         let file = FileId(1);
         let tokens = crate::lexer::tokenize(source);
         let (statements, _) = crate::parser::parse(&tokens, file);
-        let kf = Arc::new(KulFile {
-            name: "test.kul".to_string(),
-            source: source.to_string(),
-            statements,
-        });
-        let document = Arc::new(Document {
-            manifest_name: "kul.yml".to_string(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        let kf = Arc::new(KulFile::new("test.kul", source, statements));
+        let document = Arc::new(Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         (resolved, file)
     }

@@ -35,6 +35,24 @@ pub struct KulFile {
     pub statements: Vec<Statement>,
 }
 
+impl KulFile {
+    /// Build a [`KulFile`] from already-parsed statements. Convenience
+    /// for callers (the pipeline in [`crate::check`], in-memory test
+    /// fixtures) that have lex/parsed a source and want a `KulFile`
+    /// without spelling out the three fields by name each time.
+    pub fn new(
+        name: impl Into<String>,
+        source: impl Into<String>,
+        statements: Vec<Statement>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            source: source.into(),
+            statements,
+        }
+    }
+}
+
 /// One input file at the toolchain edge — a name (path / URI / opaque
 /// label) plus the raw source bytes. Public input shape for
 /// [`crate::check`]; internally each `InputFile` becomes a [`KulFile`]
@@ -87,6 +105,31 @@ pub struct Document {
 }
 
 impl Document {
+    /// Build a [`Document`] without manifest source bytes. The common
+    /// shape for in-memory fixtures and test scaffolding that don't
+    /// exercise manifest-anchored diagnostic rendering. Production
+    /// callers that loaded `kul.yml` from disk should use
+    /// [`Document::with_manifest_source`] so manifest-side spans render
+    /// against the real bytes.
+    pub fn new(manifest_name: impl Into<String>, kul_files: Vec<Arc<KulFile>>) -> Self {
+        Self::with_manifest_source(manifest_name, String::new(), kul_files)
+    }
+
+    /// Build a [`Document`] with explicit `kul.yml` source bytes. Used
+    /// by the pipeline entry points so any diagnostic anchored at
+    /// [`FileId::MANIFEST`] has bytes to render against.
+    pub fn with_manifest_source(
+        manifest_name: impl Into<String>,
+        manifest_source: impl Into<String>,
+        kul_files: Vec<Arc<KulFile>>,
+    ) -> Self {
+        Self {
+            manifest_name: manifest_name.into(),
+            manifest_source: manifest_source.into(),
+            kul_files,
+        }
+    }
+
     /// Resolve a [`FileId`] to the source bytes it indexes into. Returns
     /// `None` if the id is out of range.
     pub fn source_of(&self, file: FileId) -> Option<&str> {

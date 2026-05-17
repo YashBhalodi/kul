@@ -14,25 +14,9 @@ use std::time::{Duration, Instant};
 
 use kul_lsp::convert::LineIndex;
 use serde_json::Value;
-use tower_lsp::lsp_types::{Position, Url};
+use tower_lsp::lsp_types::Position;
 
-/// Set up an on-disk fixture directory with a `kul.yml` manifest. Returns
-/// `(dir, kul_path, kul_url)`. `dir` is unique per test name to keep
-/// concurrent runs isolated.
-fn fixture_layout(
-    name: &str,
-    kul_basename: &str,
-    kul_contents: &str,
-) -> (std::path::PathBuf, std::path::PathBuf, Url) {
-    let dir = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(name);
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("create fixture dir");
-    std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").expect("write kul.yml");
-    let kul_path = dir.join(kul_basename);
-    std::fs::write(&kul_path, kul_contents).expect("write fixture");
-    let url = Url::from_file_path(&kul_path).expect("file URL for fixture");
-    (dir, kul_path, url)
-}
+mod common;
 
 fn binary_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_BIN_EXE_kul-lsp"))
@@ -139,8 +123,7 @@ person ref_unknown name:\"R\" gender:male
 
 #[test]
 fn publish_diagnostics_match_kul_core() {
-    let (_dir, _kul_path, kul_url) =
-        fixture_layout("publish_diagnostics_match_kul_core", "fixture.kul", FIXTURE);
+    let kul_url = common::fixture_url("publish_diagnostics_match_kul_core", "fixture.kul", FIXTURE);
 
     let mut handle = Handle::spawn();
 
@@ -180,7 +163,7 @@ fn publish_diagnostics_match_kul_core() {
     let inputs = vec![kul_core::ast::InputFile::new("test.kul", FIXTURE)];
     let core_diags = kul_core::check_with_manifest(
         "kul.yml",
-        "kul: \"0.1\"\n",
+        "",
         &kul_core::manifest::Manifest::default(),
         &inputs,
     )
@@ -249,8 +232,7 @@ fn publish_diagnostics_match_kul_core() {
 
 #[test]
 fn close_clears_diagnostics() {
-    let (_dir, _kul_path, kul_url) =
-        fixture_layout("close_clears_diagnostics", "c.kul", "person a\n");
+    let kul_url = common::fixture_url("close_clears_diagnostics", "c.kul", "person a\n");
     let uri_str = kul_url.as_str();
 
     let mut handle = Handle::spawn();

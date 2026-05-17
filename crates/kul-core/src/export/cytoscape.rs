@@ -200,7 +200,7 @@ mod tests {
         let inputs = vec![crate::ast::InputFile::new("test.kul", source)];
         let check = crate::check_with_manifest(
             "kul.yml",
-            "kul: \"0.1\"\n",
+            "",
             &crate::manifest::Manifest::default(),
             &inputs,
         );

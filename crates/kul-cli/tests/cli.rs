@@ -36,6 +36,17 @@ fn tempdir(name: &str) -> PathBuf {
     dir
 }
 
+/// Like [`tempdir`] but also writes a default `kul.yml` so the
+/// directory parses as a Kul project root. The shape every CLI test
+/// wants when it exercises the happy path (`validate`, `format`,
+/// `export`) — only the no-manifest negative tests still use
+/// [`tempdir`] directly.
+fn project_dir(name: &str) -> PathBuf {
+    let dir = tempdir(name);
+    std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").unwrap();
+    dir
+}
+
 // === `kul validate` ===
 
 #[test]
@@ -100,8 +111,7 @@ fn validate_quiet_suppresses_ok_line() {
 
 #[test]
 fn validate_json_format_emits_jsonl() {
-    let dir = tempdir("validate-json");
-    std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").unwrap();
+    let dir = project_dir("validate-json");
     std::fs::write(
         dir.join("alice.kul"),
         // Missing `name:` — KUL-R03 anchors at the id.
@@ -129,8 +139,7 @@ fn validate_json_format_emits_jsonl() {
 
 #[test]
 fn cross_file_duplicate_id_surfaces_r01() {
-    let dir = tempdir("cross-file-r01");
-    std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").unwrap();
+    let dir = project_dir("cross-file-r01");
     std::fs::write(
         dir.join("a.kul"),
         "person alice  name:\"Alice\"  gender:female  born:1950\n",
@@ -154,8 +163,7 @@ fn cross_file_duplicate_id_surfaces_r01() {
 
 #[test]
 fn cross_file_unresolved_reference_surfaces_r02() {
-    let dir = tempdir("cross-file-r02");
-    std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").unwrap();
+    let dir = project_dir("cross-file-r02");
     std::fs::write(
         dir.join("a.kul"),
         "person alice  name:\"Alice\"  gender:female  born:1950\n",
@@ -179,8 +187,7 @@ fn cross_file_unresolved_reference_surfaces_r02() {
 
 #[test]
 fn cross_file_parent_cycle_surfaces_r13() {
-    let dir = tempdir("cross-file-r13");
-    std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").unwrap();
+    let dir = project_dir("cross-file-r13");
     // alice's father is bob (declared in b.kul).
     std::fs::write(
         dir.join("a.kul"),
@@ -237,8 +244,7 @@ fn format_check_passes_on_every_example_project() {
 
 #[test]
 fn format_rewrites_every_kul_file_in_project() {
-    let dir = tempdir("format-multi-file");
-    std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").unwrap();
+    let dir = project_dir("format-multi-file");
     // Two files, both dirty — fields out of canonical order.
     let dirty_a = "person alice  born:1950  name:\"Alice\"  gender:female\n";
     let dirty_b = "person bob    born:1948  name:\"Bob\"    gender:male\n";
@@ -260,8 +266,7 @@ fn format_rewrites_every_kul_file_in_project() {
 
 #[test]
 fn format_check_reports_diff_without_writing() {
-    let dir = tempdir("format-check-diff");
-    std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").unwrap();
+    let dir = project_dir("format-check-diff");
     let dirty = "person alice  born:1950  name:\"Alice\"  gender:female\n";
     std::fs::write(dir.join("alice.kul"), dirty).unwrap();
     Command::cargo_bin("kul")

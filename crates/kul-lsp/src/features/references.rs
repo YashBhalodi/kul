@@ -60,31 +60,24 @@ pub fn references(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kul_core::lexer::tokenize;
-    use kul_core::parser::parse;
-    use kul_core::semantic::resolve;
+    use crate::state::test_open_file;
 
     fn url() -> Url {
         Url::parse("file:///t.kul").unwrap()
     }
 
     fn refs_at(source: &str, offset: usize, include_decl: bool) -> Option<Vec<(u32, u32)>> {
-        let tokens = tokenize(source);
-        let file = FileId::from_raw(1);
-        let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-            name: "test.kul".into(),
-            source: source.to_string(),
-            statements,
-        });
-        let document = std::sync::Arc::new(kul_core::ast::Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
-        let (resolved, _) = resolve(document);
-        let line_index = LineIndex::new(source);
-        references(file, &resolved, &line_index, &url(), offset, include_decl).map(|locs| {
+        let doc = test_open_file(source);
+        let v = doc.view();
+        references(
+            v.file,
+            v.resolved,
+            v.line_index,
+            &url(),
+            offset,
+            include_decl,
+        )
+        .map(|locs| {
             locs.into_iter()
                 .map(|l| (l.range.start.line, l.range.start.character))
                 .collect()
@@ -192,35 +185,25 @@ mod tests {
 
     #[test]
     fn returned_uri_matches_input() {
-        let source = "person alice name:\"A\" gender:female\n\
+        let src = "person alice name:\"A\" gender:female\n\
                    person bob name:\"B\" gender:male\n\
                    marriage m alice bob start:1972\n";
-        let src = source;
-        let tokens = tokenize(src);
-        let file = FileId::from_raw(1);
-        let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-            name: "test.kul".into(),
-            source: source.to_string(),
-            statements,
-        });
-        let document = std::sync::Arc::new(kul_core::ast::Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
-        let (resolved, _) = resolve(document);
-        let line_index = LineIndex::new(src);
-        let locs = references(
-            file,
-            &resolved,
-            &line_index,
+        let locs = refs_at(src, idx(src, "alice"), false).unwrap();
+        // refs_at maps Location → (line, char); re-run the underlying
+        // call to get URIs back.
+        let doc = test_open_file(src);
+        let v = doc.view();
+        let raw = references(
+            v.file,
+            v.resolved,
+            v.line_index,
             &url(),
             idx(src, "alice"),
             false,
         )
         .unwrap();
-        assert!(locs.iter().all(|l| l.uri == url()));
+        assert_eq!(raw.len(), locs.len());
+        assert!(raw.iter().all(|l| l.uri == url()));
     }
 
     #[test]

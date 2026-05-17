@@ -11,7 +11,7 @@ use std::process::ExitCode;
 
 use kul_core::export::{ExportFormat, ExportOptions, export};
 
-use crate::commands::project::load_cwd_project;
+use crate::commands::project::load_and_check;
 
 #[derive(Copy, Clone, Debug, clap::ValueEnum, PartialEq, Eq)]
 pub enum CliExportFormat {
@@ -38,15 +38,10 @@ pub struct Options {
 }
 
 pub fn run(opts: Options) -> ExitCode {
-    let project = match load_cwd_project() {
-        Ok(p) => p,
-        Err(err) => return err.report(),
+    let (_project, check) = match load_and_check() {
+        Ok(x) => x,
+        Err(code) => return code,
     };
-    let check = kul_core::check(
-        project.manifest_name,
-        &project.manifest_yaml,
-        &project.inputs,
-    );
     let envelope = export(
         &check,
         ExportOptions {

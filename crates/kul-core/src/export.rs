@@ -546,7 +546,7 @@ mod tests {
         let inputs = vec![crate::ast::InputFile::new("test.kul", source)];
         let check = crate::check_with_manifest(
             "kul.yml",
-            "kul: \"0.1\"\n",
+            "",
             &crate::manifest::Manifest::default(),
             &inputs,
         );
@@ -586,7 +586,7 @@ mod tests {
             "test.kul",
             "person alice name:\"Alice\" gender:female\n",
         )];
-        let check = crate::check_with_manifest("kul.yml", "kul: \"0.1\"\n", &manifest, &inputs);
+        let check = crate::check_with_manifest("kul.yml", "", &manifest, &inputs);
         let env = export(&check, ExportOptions::default());
         let ExportEnvelope::Success(s) = env else {
             panic!("expected success");
@@ -689,7 +689,7 @@ person d name:\"D\" gender:female born:~1980
         let inputs = vec![crate::ast::InputFile::new("test.kul", src)];
         let check = crate::check_with_manifest(
             "kul.yml",
-            "kul: \"0.1\"\n",
+            "",
             &crate::manifest::Manifest::default(),
             &inputs,
         );

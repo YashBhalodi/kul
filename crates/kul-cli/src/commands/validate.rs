@@ -14,7 +14,7 @@ use miette::{GraphicalReportHandler, GraphicalTheme};
 use serde::Serialize;
 
 use crate::OutputFormat;
-use crate::commands::project::load_cwd_project;
+use crate::commands::project::load_and_check;
 
 pub struct Options {
     pub quiet: bool,
@@ -23,15 +23,10 @@ pub struct Options {
 }
 
 pub fn run(opts: Options) -> ExitCode {
-    let project = match load_cwd_project() {
-        Ok(p) => p,
-        Err(err) => return err.report(),
+    let (_project, result) = match load_and_check() {
+        Ok(x) => x,
+        Err(code) => return code,
     };
-    let result = kul_core::check(
-        project.manifest_name,
-        &project.manifest_yaml,
-        &project.inputs,
-    );
 
     match opts.format {
         OutputFormat::Human => render_human(&result, &opts),

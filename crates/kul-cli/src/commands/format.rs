@@ -11,30 +11,18 @@ use std::process::ExitCode;
 
 use kul_core::diagnostic::{Diagnostic, Severity};
 
-use crate::commands::project::load_cwd_project;
+use crate::commands::project::load_and_check;
 
 pub struct Options {
     pub check: bool,
 }
 
 pub fn run(opts: Options) -> ExitCode {
-    let project = match load_cwd_project() {
-        Ok(p) => p,
-        Err(err) => return err.report(),
-    };
-    let cwd = match std::env::current_dir() {
-        Ok(c) => c,
-        Err(err) => {
-            eprintln!("kul: failed to read current working directory: {err}");
-            return ExitCode::from(1);
-        }
+    let (project, result) = match load_and_check() {
+        Ok(x) => x,
+        Err(code) => return code,
     };
 
-    let result = kul_core::check(
-        project.manifest_name,
-        &project.manifest_yaml,
-        &project.inputs,
-    );
     if has_parse_errors(&result.diagnostics) {
         eprintln!("kul: cannot format project with parse errors");
         for d in &result.diagnostics {
@@ -49,9 +37,8 @@ pub fn run(opts: Options) -> ExitCode {
     let mut had_error = false;
     for input in &project.inputs {
         // Per ADR-0015's flat-directory rule, every project input
-        // lives directly under the project root; its on-disk path is
-        // `<cwd>/<name>`.
-        let path: PathBuf = cwd.join(&input.name);
+        // lives directly under the project root.
+        let path: PathBuf = project.root.join(&input.name);
         let formatted = kul_core::format::format_source(&input.source);
         if formatted == input.source {
             continue;

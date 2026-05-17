@@ -67,11 +67,11 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
 
-/// Default opaque name for the manifest the JS host hands us. The bridge
-/// receives a typed `Manifest` (not raw YAML) — we synthesize a minimal
-/// YAML body so any `.kul`-side diagnostic that anchors into the manifest
-/// has bytes to point at, and pick a stable label so failure-envelope
-/// `file:` strings make sense.
+/// Default opaque name for the manifest the JS host hands us. The
+/// bridge receives a typed `Manifest` directly (not raw YAML), so
+/// there's no real `kul.yml` body to surface; we still pick a stable
+/// label so failure-envelope `file:` strings and any manifest-anchored
+/// diagnostic surface a recognizable filename.
 const WASM_MANIFEST_NAME: &str = "kul.yml";
 
 /// One `.kul` input file as the JS host hands it to the bridge — a name
@@ -135,12 +135,7 @@ pub fn format_source(source: &str) -> String {
 pub fn check(files: Vec<WasmInputFile>, manifest: Manifest) -> CheckEnvelope {
     console_error_panic_hook::set_once();
     let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    let result = kul_core::check_with_manifest(
-        WASM_MANIFEST_NAME,
-        synthesize_manifest_yaml(&manifest).as_str(),
-        &manifest,
-        &inputs,
-    );
+    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", &manifest, &inputs);
     let diagnostics = kul_core::export::export_diagnostics(&result);
     CheckEnvelope { diagnostics }
 }
@@ -166,20 +161,6 @@ pub fn export_with(
     manifest: &Manifest,
     options: ExportOptions,
 ) -> ExportEnvelope {
-    let result = kul_core::check_with_manifest(
-        WASM_MANIFEST_NAME,
-        synthesize_manifest_yaml(manifest).as_str(),
-        manifest,
-        inputs,
-    );
+    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
     kul_core::export::export(&result, options)
-}
-
-/// Build a minimal `kul.yml` body that round-trips a typed `Manifest`
-/// back into the bytes the diagnostic renderer needs. The JS host gives
-/// us a typed manifest; we don't want to drop the `kul:` field on the
-/// floor when a `.kul`-side diagnostic anchors into the manifest
-/// position.
-fn synthesize_manifest_yaml(m: &Manifest) -> String {
-    format!("kul: \"{}\"\n", m.kul_version)
 }

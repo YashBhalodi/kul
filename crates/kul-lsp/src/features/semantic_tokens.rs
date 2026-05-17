@@ -210,9 +210,7 @@ fn encode(raw: &[RawToken], line_index: &LineIndex) -> Vec<SemanticToken> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kul_core::lexer::tokenize;
-    use kul_core::parser::parse;
-    use kul_core::semantic::resolve;
+    use crate::state::test_open_file;
 
     /// Decoded view of a token: the kind name (looked up via the legend) and
     /// the literal source slice it covers. Snapshot-friendly, and a much
@@ -299,22 +297,9 @@ mod tests {
     }
 
     fn tokens_for(source: &str) -> (SemanticTokens, Vec<Decoded>) {
-        let tokens = tokenize(source);
-        let file = FileId::from_raw(1);
-        let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-            name: "test.kul".into(),
-            source: source.to_string(),
-            statements,
-        });
-        let document = std::sync::Arc::new(kul_core::ast::Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
-        let (resolved, _) = resolve(document);
-        let line_index = LineIndex::new(source);
-        let semantic = semantic_tokens(file, &resolved, &line_index);
+        let doc = test_open_file(source);
+        let v = doc.view();
+        let semantic = semantic_tokens(v.file, v.resolved, v.line_index);
         let decoded = decode(source, &semantic);
         (semantic, decoded)
     }

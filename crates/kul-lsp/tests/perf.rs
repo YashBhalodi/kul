@@ -33,7 +33,7 @@ fn one_thousand_statement_check_and_translate_under_budget() {
     let inputs = vec![kul_core::ast::InputFile::new("test.kul", source.as_str())];
     let core = kul_core::check_with_manifest(
         "kul.yml",
-        "kul: \"0.1\"\n",
+        "",
         &kul_core::manifest::Manifest::default(),
         &inputs,
     );
@@ -62,8 +62,6 @@ fn ten_files_of_one_hundred_statements_under_budget() {
     // rather than per file. If this test regresses faster than the
     // single-file 1000-statement one above, the file-count loop in the
     // resolver has acquired a cost it shouldn't have.
-    let manifest_yaml = "kul: \"0.1\"\n";
-
     let mut inputs: Vec<kul_core::ast::InputFile> = Vec::with_capacity(10);
     for f in 0..10 {
         let mut source = String::new();
@@ -83,7 +81,7 @@ fn ten_files_of_one_hundred_statements_under_budget() {
     let start = std::time::Instant::now();
     let core = kul_core::check_with_manifest(
         "kul.yml",
-        manifest_yaml,
+        "",
         &kul_core::manifest::Manifest::default(),
         &inputs,
     );
