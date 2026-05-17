@@ -1,0 +1,63 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(just check)",
+      "Bash(just test)",
+      "Bash(just fmt)",
+      "Bash(just fmt-check)",
+      "Bash(just lint)",
+      "Bash(just run *)",
+      "Bash(just wasm)",
+      "Bash(just vscode *)",
+      "Bash(cargo fmt --all -- --check)",
+      "Bash(cargo fmt --all)",
+      "Bash(cargo fmt -- *)",
+      "Bash(cargo clippy *)",
+      "Bash(cargo nextest run *)",
+      "Bash(cargo test *)",
+      "Bash(cargo build *)",
+      "Bash(cargo check *)",
+      "Bash(cargo insta pending-snapshots)",
+      "Bash(cargo insta review)",
+      "Bash(cargo insta accept)",
+      "Bash(cargo insta reject)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue list *)",
+      "Bash(gh issue comment *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh api *)",
+      "Bash(gh repo view *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/scripts/format-rs.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/scripts/clippy-crate.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/scripts/check-snap-new.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
