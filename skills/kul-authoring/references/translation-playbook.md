@@ -1,17 +1,16 @@
 # Translation playbook
 
-Five paired NL↔.kul examples covering the most common authoring shapes. Load this when starting an NL→Kul translation.
+Five paired NL↔.kul examples showing capabilities composed against real prose.
 
-## When the prose is incomplete
+## Capabilities to lean on when prose is incomplete
 
-The additivity principle is the single rule: never write a value you'd have to unwrite. Concretely:
+Kul's surface gives you several knobs for handling under-specified prose. Awareness of these is what the playbook teaches; how to deploy them on any given paragraph is the author's call.
 
-- Missing dates → omit the field. (`start:` on `marriage` is the only required date; if the prose doesn't give one, use `start:~<rough-year>` and `# circa: prose was vague`.)
-- Missing gender → use `gender:other` with a `# gender unstated in source` comment. Don't infer from a name unless you flag the inference.
-- Unnamed individuals → descriptive id (`first_wife_of_ramesh`), prose phrasing in `name:`, `# unnamed in source` comment.
-- Implicit marriage ("John and Mary had a son Tom" — never says they were married) → declare the marriage anyway, with a `# marriage implied by parenthood` comment. `birth` only points at marriages; the alternative loses parenthood.
-- Conflicting accounts → pick one for the field; record the other in a `#` comment.
-- Derived relations in prose ("Alice's uncle Ravi") → resolve to declared primitives (Ravi as Alice's mother's sibling) and add whatever marriages / births are needed to make the derivation hold.
+- **Absent fields are valid** (except `name`/`gender` on `person` and `start` on `marriage`). There is no `unknown` literal; absence is the canonical "not recorded" signal.
+- **Date granularity** can be a full date, year-month, year, or `~`-prefixed circa (±5y tolerance). Match the prose.
+- **Comments** are preserved verbatim by the formatter and can sit on any line or trailing any statement. They're the place to record provenance, inferences, or anything the language doesn't model.
+- **Parenthood requires a marriage.** A `birth` sub-statement points at a marriage id; if prose names parents without a marriage, the marriage needs to be declared too for the bio link to exist.
+- **Derived relations resolve to primitives.** Uncle, cousin, half-sibling, step-parent etc. aren't keywords — they fall out of the person + marriage + birth/adoption graph (see [`vocabulary.md`](./vocabulary.md)).
 
 ## Example 1 — Simple nuclear family
 
@@ -101,7 +100,7 @@ Granularity tracks the prose. Daughter's `born` is omitted (no `unknown` literal
 
 ## Example 5 — Cross-file split
 
-Mirrors [`examples/07-multi-file-extended-family/`](../../../examples/07-multi-file-extended-family/) (partition by generation).
+Mirrors [`examples/07-multi-file-extended-family/`](../../../examples/07-multi-file-extended-family/).
 
 > Ramesh and Sita Patel were the founders. Ramesh: born April 10, 1928, died December 3, 2010. Sita: born September 22, 1931, died June 14, 2018. They married February 18, 1952.
 >
@@ -150,4 +149,4 @@ person gita   name:"Gita Patel"   gender:female  born:~1988
   birth m_dev_eva
 ```
 
-Cross-file `birth` references (`m_ramesh_sita`, `m_alice_bob`, `m_dev_eva`) resolve by bare id; one logical namespace per directory. Partition by generation, not by surname (Bob Khan and Eva Singh marry in but stay in the generation file).
+Cross-file `birth` references (`m_ramesh_sita`, `m_alice_bob`, `m_dev_eva`) resolve by bare id — one logical namespace per directory. The split shown above is one of many the author could choose; the language imposes nothing beyond "one `kul.yml` + N `.kul` files in one directory."

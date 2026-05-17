@@ -85,8 +85,3 @@ born:~1925          # approximately 1925
 adoption  birth   born  died    divorce  end       end_reason  family  female
 gender    given   male  marriage  name    other     person      start
 ```
-
-Conventional shapes:
-
-- Person ids — lowercase given name (`alice`, `ramesh`).
-- Marriage ids — `m_<spouse_a>_<spouse_b>` (`m_alice_bob`). For same-pair remarriage, suffix `_1`, `_2`.

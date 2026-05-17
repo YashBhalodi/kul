@@ -39,12 +39,11 @@ Alice's parents are derived from the `birth m_ramesh_sita` link plus the spouses
 
 ## The one mental model: additivity
 
-**Adding new information must never require rewriting existing declarations.** Consequences:
+The language is designed so that **adding new information never requires rewriting existing declarations**. The shape of the grammar reflects this:
 
-- Missing data → **omit the field**, never invent a value. There is no `unknown` literal; absence is the canonical "not recorded" signal.
-- Dates take granularity from the prose: `1985-03-15`, `1985-03`, `1985`, or `~1985` (circa, ±5y).
-- New children are appended as their own `person` + `birth` — parents' lines are not touched.
-- Spousal death does **not** end a marriage; only `end:` + `end_reason:divorce` does. (`divorce` is the only v1 `end_reason`.)
+- All `person` fields except `name` and `gender` are optional, and absence is valid — there is no `unknown` literal. Dates have four granularities (`1985-03-15`, `1985-03`, `1985`, `~1985`), so the literal can match exactly what the source says.
+- Children are reached through their own `birth` / `adoption` sub-statements pointing at the parents' marriage. There is no `child` field on a parent, no `parent` field on a child.
+- Spousal death does not auto-end a marriage; only an explicit `end:` + `end_reason:divorce` does. The v1 `end_reason` vocabulary is `divorce` only.
 
 ## References (load on demand)
 

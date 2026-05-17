@@ -38,6 +38,6 @@ When prose names a derived relation ("Alice's uncle Ravi"), resolve it back to d
 
 ## Notes
 
-- `gender:` is required on every `person`. The enum is exactly `male | female | other`. Use `other` (with a `#` comment) when prose is silent — don't infer from a name.
-- Dates use the literal granularity in the prose: `1985-03-15`, `1985-03`, `1985`, `~1985` (circa). For "year unknown," omit the field — there is no `unknown` literal.
-- Identifier conventions in the corpus: lowercase given name for persons (`alice`, `ramesh`); `m_<a>_<b>` for marriages (`m_alice_bob`). 17 reserved keywords cannot be used as ids — see [`spec/11-reserved-keywords.md`](../../../spec/11-reserved-keywords.md).
+- `gender:` is required on every `person`. The enum is exactly `male | female | other`.
+- Dates take the granularity of the literal: `1985-03-15`, `1985-03`, `1985`, or `~1985` (circa, ±5y). Absence of a date field is valid (except `start:` on a `marriage`); there is no `unknown` literal.
+- Identifiers match `[A-Za-z_][A-Za-z0-9_-]*` and must avoid the 17 reserved keywords — see [`spec/11-reserved-keywords.md`](../../../spec/11-reserved-keywords.md).
