@@ -1,11 +1,10 @@
 //! Code actions for `textDocument/codeAction`.
 //!
-//! Quick-fixes are dispatched through a small registry keyed by diagnostic
-//! code (per ADR-0001 / PRD section "Code action registry"). Each entry
-//! maps a `KUL-Rxx` code to a provider function that, given the
-//! diagnostic and the resolved document, returns zero or more
-//! [`CodeAction`]s. Adding a new fix is one entry in the registry table
-//! plus the provider function.
+//! Quick-fixes are dispatched by a direct `match` on the diagnostic's
+//! code, one arm per `KUL-Rxx` that ships a fix. Adding a new fix is one
+//! arm plus the provider function. The compiler doesn't enforce
+//! exhaustiveness (codes are `&'static str`s, not an enum) but a missing
+//! arm means a code with no fixes — the correct outcome.
 //!
 //! The action's underlying [`WorkspaceEdit`] applies one or more text
 //! edits to the document; clients invoke them via the lightbulb in the
@@ -26,8 +25,8 @@ use crate::convert::LineIndex;
 
 /// Build the list of quick-fixes that apply at `request_range`.
 ///
-/// Walks the cached diagnostics, dispatches each one whose code is in the
-/// registry, and filters by overlap with the request range so the user
+/// Walks the cached diagnostics, dispatches each one whose code has a
+/// quick-fix, and filters by overlap with the request range so the user
 /// only sees actions relevant to the cursor/selection.
 pub fn code_actions(
     file: FileId,
@@ -37,13 +36,8 @@ pub fn code_actions(
     uri: &Url,
     request_range: Range,
 ) -> Vec<CodeActionOrCommand> {
-    let registry = registry();
     let mut out = Vec::new();
     for diag in diagnostics {
-        let provider = match registry.get(diag.code) {
-            Some(p) => *p,
-            None => continue,
-        };
         // Quick-fixes only fire on diagnostics anchored in the active
         // file at a position the user is currently looking at.
         let Some(primary) = diag.primary.filter(|p| p.file == file) else {
@@ -52,22 +46,16 @@ pub fn code_actions(
         if !ranges_overlap(line_index.range(primary.span), request_range) {
             continue;
         }
-        for action in provider(file, resolved, diag, line_index, uri) {
+        let actions: Vec<CodeAction> = match diag.code {
+            "KUL-R03" => r03_required_fields(file, resolved, diag, line_index, uri),
+            "KUL-R05" => r05_end_consistency(file, resolved, diag, line_index, uri),
+            _ => continue,
+        };
+        for action in actions {
             out.push(CodeActionOrCommand::CodeAction(action));
         }
     }
     out
-}
-
-type ProviderFn = fn(FileId, &ResolvedDocument, &Diagnostic, &LineIndex, &Url) -> Vec<CodeAction>;
-
-/// Registry of diagnostic-code → provider. Logically a `HashMap<&str,
-/// ProviderFn>`; built lazily so it's `const`-style at the call site.
-fn registry() -> HashMap<&'static str, ProviderFn> {
-    let mut m: HashMap<&'static str, ProviderFn> = HashMap::new();
-    m.insert("KUL-R03", r03_required_fields);
-    m.insert("KUL-R05", r05_end_consistency);
-    m
 }
 
 /// KUL-R03: a required field is missing on a person or marriage.
