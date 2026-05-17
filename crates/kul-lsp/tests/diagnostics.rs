@@ -180,7 +180,7 @@ fn publish_diagnostics_match_kul_core() {
     let inputs = vec![kul_core::ast::InputFile::new("test.kul", FIXTURE)];
     let core_diags = kul_core::check_with_manifest(
         "kul.yml",
-        "kul: \"0.1\"\n",
+        "",
         &kul_core::manifest::Manifest::default(),
         &inputs,
     )

@@ -15,8 +15,12 @@ use kul_core::manifest::Manifest;
 /// Run `kul_core::check_with_manifest` on a single in-memory source
 /// named `test.kul` against the default manifest. The shape every
 /// per-rule and per-feature integration test wants when it doesn't
-/// care about the manifest content or the input filename.
+/// care about the manifest content or the input filename. The empty
+/// `manifest_yaml` argument is correct here — `check_with_manifest`
+/// only consumes those bytes when rendering manifest-anchored
+/// diagnostics, and an in-memory single-input test never triggers
+/// one.
 pub fn check_one(source: &str) -> CheckResult {
     let inputs = vec![InputFile::new("test.kul", source)];
-    kul_core::check_with_manifest("kul.yml", "kul: \"0.1\"\n", &Manifest::default(), &inputs)
+    kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs)
 }

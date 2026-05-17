@@ -363,7 +363,7 @@ mod tests {
         let inputs = vec![kul_core::ast::InputFile::new("test.kul", source)];
         let result = kul_core::check_with_manifest(
             "kul.yml",
-            "kul: \"0.1\"\n",
+            "",
             &kul_core::manifest::Manifest::default(),
             &inputs,
         );
@@ -524,7 +524,7 @@ mod tests {
         // After applying, R05 should no longer fire.
         let result = kul_core::check_with_manifest(
             "kul.yml",
-            "kul: \"0.1\"\n",
+            "",
             &kul_core::manifest::Manifest::default(),
             &[kul_core::ast::InputFile::new("test.kul", &fixed)],
         );
@@ -551,7 +551,7 @@ mod tests {
         let fixed = apply(src, action);
         let result = kul_core::check_with_manifest(
             "kul.yml",
-            "kul: \"0.1\"\n",
+            "",
             &kul_core::manifest::Manifest::default(),
             &[kul_core::ast::InputFile::new("test.kul", &fixed)],
         );
@@ -576,7 +576,7 @@ mod tests {
         let fixed = apply(src, action);
         let result = kul_core::check_with_manifest(
             "kul.yml",
-            "kul: \"0.1\"\n",
+            "",
             &kul_core::manifest::Manifest::default(),
             &[kul_core::ast::InputFile::new("test.kul", &fixed)],
         );
@@ -597,7 +597,7 @@ mod tests {
         let inputs = vec![kul_core::ast::InputFile::new("test.kul", src)];
         let result = kul_core::check_with_manifest(
             "kul.yml",
-            "kul: \"0.1\"\n",
+            "",
             &kul_core::manifest::Manifest::default(),
             &inputs,
         );

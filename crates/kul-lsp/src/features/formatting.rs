@@ -69,7 +69,7 @@ mod tests {
         let source = "person alice  name:\"A\"  gender:female\n";
         let result = kul_core::check_with_manifest(
             "kul.yml",
-            "kul: \"0.1\"\n",
+            "",
             &kul_core::manifest::Manifest::default(),
             &[kul_core::ast::InputFile::new("test.kul", source)],
         );
@@ -82,7 +82,7 @@ mod tests {
         let source = "person alice name:\"A\" gender:female\n";
         let result = kul_core::check_with_manifest(
             "kul.yml",
-            "kul: \"0.1\"\n",
+            "",
             &kul_core::manifest::Manifest::default(),
             &[kul_core::ast::InputFile::new("test.kul", source)],
         );
@@ -106,7 +106,7 @@ mod tests {
         let source = "person\n";
         let result = kul_core::check_with_manifest(
             "kul.yml",
-            "kul: \"0.1\"\n",
+            "",
             &kul_core::manifest::Manifest::default(),
             &[kul_core::ast::InputFile::new("test.kul", source)],
         );
@@ -119,7 +119,7 @@ mod tests {
         let source = "person alice\n";
         let result = kul_core::check_with_manifest(
             "kul.yml",
-            "kul: \"0.1\"\n",
+            "",
             &kul_core::manifest::Manifest::default(),
             &[kul_core::ast::InputFile::new("test.kul", source)],
         );

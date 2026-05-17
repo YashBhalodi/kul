@@ -72,7 +72,7 @@ fn export_graph_json(inputs: &[InputFile], options: ExportOptions) -> String {
 fn core_export_json(inputs: &[InputFile], options: ExportOptions) -> String {
     let check = kul_core::check_with_manifest(
         "kul.yml",
-        "kul: \"0.1\"\n",
+        "",
         &kul_core::manifest::Manifest::default(),
         inputs,
     );

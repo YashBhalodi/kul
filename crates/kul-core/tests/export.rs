@@ -158,8 +158,7 @@ fn export_multi_file(dir: &str, options: ExportOptions) -> String {
             )
         })
         .collect();
-    let check =
-        kul_core::check_with_manifest("kul.yml", "kul: \"0.1\"\n", &Manifest::default(), &inputs);
+    let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
     let envelope = export(&check, options);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
@@ -312,8 +311,7 @@ fn one_thousand_statement_export_under_budget() {
         let _ = writeln!(&mut source, "person p{i} name:\"P{i}\" gender:female");
     }
     let inputs = vec![InputFile::new("perf.kul", source.clone())];
-    let check =
-        kul_core::check_with_manifest("kul.yml", "kul: \"0.1\"\n", &Manifest::default(), &inputs);
+    let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
     let start = std::time::Instant::now();
     let envelope = export(&check, ExportOptions::default());
     let _json = serde_json::to_string(&envelope).expect("serialize");
