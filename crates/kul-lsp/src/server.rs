@@ -12,12 +12,14 @@ use serde_json::json;
 use tower_lsp::jsonrpc::{Error, Result};
 use tower_lsp::lsp_types::{
     CodeActionParams, CodeActionProviderCapability, CodeActionResponse, CompletionOptions,
-    CompletionParams, CompletionResponse, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
+    CompletionParams, CompletionResponse, DidChangeTextDocumentParams, DidChangeWatchedFilesParams,
+    DidChangeWatchedFilesRegistrationOptions, DidCloseTextDocumentParams,
     DidOpenTextDocumentParams, DocumentFormattingParams, DocumentSymbolParams,
-    DocumentSymbolResponse, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
-    HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams, Location,
-    MessageType, OneOf, PrepareRenameResponse, ReferenceParams, RenameOptions, RenameParams,
-    SemanticTokensFullOptions, SemanticTokensOptions, SemanticTokensParams, SemanticTokensResult,
+    DocumentSymbolResponse, FileSystemWatcher, GlobPattern, GotoDefinitionParams,
+    GotoDefinitionResponse, Hover, HoverParams, HoverProviderCapability, InitializeParams,
+    InitializeResult, InitializedParams, Location, MessageType, OneOf, PrepareRenameResponse,
+    ReferenceParams, Registration, RenameOptions, RenameParams, SemanticTokensFullOptions,
+    SemanticTokensOptions, SemanticTokensParams, SemanticTokensResult,
     SemanticTokensServerCapabilities, ServerCapabilities, ServerInfo, TextDocumentPositionParams,
     TextDocumentSyncCapability, TextDocumentSyncKind, TextEdit, Url, WorkspaceEdit,
 };
@@ -28,7 +30,7 @@ use crate::features::{
     code_action, completion, definition, diagnostics, document_symbol, formatting, hover,
     references, rename, semantic_tokens,
 };
-use crate::state::{Documents, ProjectEntry};
+use crate::state::{Documents, ProjectEntry, WatchAction};
 
 /// The Kul language server.
 pub struct Backend {
@@ -176,6 +178,42 @@ impl LanguageServer for Backend {
         self.client
             .log_message(MessageType::INFO, "kul-lsp initialized")
             .await;
+        // Dynamically register file watchers for the two globs the
+        // project model cares about — sibling `.kul` files and the
+        // project manifest. VSCode (and any client that supports
+        // dynamic registration) performs the OS-level watching and
+        // pushes events to `did_change_watched_files`. Issue #86.
+        //
+        // Fire-and-forget via `tokio::spawn`: the registration is a
+        // request whose `await` would otherwise block the
+        // `initialized` task on a client response. A client that
+        // doesn't support dynamic registration (or never answers) must
+        // not stall the rest of the LSP lifecycle.
+        let client = self.client.clone();
+        tokio::spawn(async move {
+            let registrations = vec![Registration {
+                id: "kul-watched-files".to_owned(),
+                method: "workspace/didChangeWatchedFiles".to_owned(),
+                register_options: Some(
+                    serde_json::to_value(DidChangeWatchedFilesRegistrationOptions {
+                        watchers: vec![
+                            FileSystemWatcher {
+                                glob_pattern: GlobPattern::String("**/*.kul".to_owned()),
+                                kind: None,
+                            },
+                            FileSystemWatcher {
+                                glob_pattern: GlobPattern::String("**/kul.yml".to_owned()),
+                                kind: None,
+                            },
+                        ],
+                    })
+                    .expect("DidChangeWatchedFilesRegistrationOptions serializes"),
+                ),
+            }];
+            if let Err(e) = client.register_capability(registrations).await {
+                tracing::debug!(error = ?e, "client rejected workspace/didChangeWatchedFiles registration");
+            }
+        });
     }
 
     async fn shutdown(&self) -> Result<()> {
@@ -202,6 +240,38 @@ impl LanguageServer for Backend {
         tracing::debug!(uri = %uri, "document changed");
         self.documents.update(uri.clone(), change.text).await;
         self.publish_project(&uri, Some(version)).await;
+    }
+
+    async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
+        for event in params.changes {
+            let uri = event.uri;
+            let kind = event.typ;
+            let action = self.documents.process_watcher_event(&uri, kind).await;
+            tracing::debug!(
+                uri = %uri,
+                kind = ?kind,
+                action = action.log_label(),
+                "workspace/didChangeWatchedFiles",
+            );
+            match action {
+                WatchAction::Ignored { .. } => {}
+                WatchAction::Reloaded { cleared } => {
+                    // The project still exists — broadcast its
+                    // diagnostics. `publish_project` looks the project
+                    // up by the URI's root, which is the same root the
+                    // watcher event named.
+                    self.publish_project(&uri, None).await;
+                    for url in cleared {
+                        self.client.publish_diagnostics(url, Vec::new(), None).await;
+                    }
+                }
+                WatchAction::Evicted { cleared } => {
+                    for url in cleared {
+                        self.client.publish_diagnostics(url, Vec::new(), None).await;
+                    }
+                }
+            }
+        }
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {

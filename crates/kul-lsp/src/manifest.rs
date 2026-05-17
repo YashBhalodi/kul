@@ -7,11 +7,10 @@
 //! pipeline then routes `KUL-Mxx` diagnostics through the standard
 //! diagnostic channel (anchored at `FileId::MANIFEST`).
 //!
-//! Editing `kul.yml` while a `.kul` URI is open requires close/reopen to
-//! take effect from the editor's POV (file-watching is issue 63's
-//! territory); our `did_change` handler still re-loads the manifest so an
-//! external write before the next keystroke takes effect on the next
-//! check.
+//! Editing `kul.yml` while a `.kul` URI is open is now picked up via the
+//! `workspace/didChangeWatchedFiles` handler (issue #86); our `did_change`
+//! handler also re-loads the manifest so an external write before the next
+//! keystroke still takes effect on the next check.
 
 use kul_core::manifest::sibling_path;
 use tower_lsp::lsp_types::Url;
@@ -25,8 +24,7 @@ use tower_lsp::lsp_types::Url;
 /// without emitting a diagnostic. The LSP layers its own
 /// "missing/unreadable manifest" notice on top: surfacing the fact that
 /// the editor couldn't reach the file is the LSP's job, not the
-/// language core's. (Once issue 63's file-watching lands the surface for
-/// missing-on-disk will tighten.)
+/// language core's.
 pub fn manifest_yaml_for(uri: &Url) -> (String, String) {
     let kul_path = match uri.to_file_path() {
         Ok(p) => p,
