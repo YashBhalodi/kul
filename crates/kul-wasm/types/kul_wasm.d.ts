@@ -46,7 +46,7 @@ export interface ExportOptions {
 /**
  * JS-side return type of [`check`]. Carries the full diagnostic list —
  * errors, warnings, and notes alike. An empty `diagnostics` array means
- * a clean document; consumers discriminate on emptiness rather than an
+ * a clean project; consumers discriminate on emptiness rather than an
  * `ok` field, per [ADR-0011](../../docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md).
  *
  * Diagnostic entries reuse `kul_core::export::ExportedDiagnostic` — the
@@ -56,6 +56,19 @@ export interface ExportOptions {
  */
 export interface CheckEnvelope {
     diagnostics: ExportedDiagnostic[];
+}
+
+/**
+ * One `.kul` input file as the JS host hands it to the bridge — a name
+ * (path / URI / opaque label) plus the raw source bytes. Mirrors
+ * [`kul_core::ast::InputFile`] one-to-one; the bridge converts on the
+ * way in. The wasm-bridge type exists so `tsify` can derive a TS type
+ * without leaking the `tsify` feature dependency onto `kul-core`\'s
+ * public input shape.
+ */
+export interface WasmInputFile {
+    name: string;
+    source: string;
 }
 
 /**
@@ -314,8 +327,8 @@ export function KUL_CORE_VERSION(): string;
 
 export function KUL_LANGUAGE_VERSION(): string;
 
-export function check(source: string, manifest: Manifest): CheckEnvelope;
+export function check(files: WasmInputFile[], manifest: Manifest): CheckEnvelope;
 
-export function exportGraph(source: string, manifest: Manifest, options?: ExportOptions | null): ExportEnvelope;
+export function exportGraph(files: WasmInputFile[], manifest: Manifest, options?: ExportOptions | null): ExportEnvelope;
 
 export function format(source: string): string;

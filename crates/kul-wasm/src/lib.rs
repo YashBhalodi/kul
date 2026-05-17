@@ -10,14 +10,20 @@
 //! # JS surface
 //!
 //! - [`format_source`] — JS-visible as `format`. Reformats a Kul source
-//!   string. Always returns a string; mirrors `kul_core::format::format_source`'s
+//!   string. Takes a single `source: string`; formatting is per-file by
+//!   nature (the underlying `kul_core::format::format_source` is
+//!   single-source) whereas `check` and `exportGraph` are project-scoped
+//!   and take the full file array — see the asymmetry note below. Always
+//!   returns a string; mirrors `kul_core::format::format_source`'s
 //!   best-effort contract for partial-parse input.
 //! - [`check`] — JS-visible as `check`. Lex / parse / resolve / validate a
-//!   Kul source string and return a [`CheckEnvelope`] carrying every
-//!   diagnostic. Always succeeds; an empty `diagnostics` array means a clean
-//!   document — emptiness is the discriminator, no `ok` field.
+//!   Kul project (an array of `{name, source}` pairs handed in by the JS
+//!   host) and return a [`CheckEnvelope`] carrying every diagnostic.
+//!   Always succeeds; an empty `diagnostics` array means a clean project —
+//!   emptiness is the discriminator, no `ok` field.
 //! - [`export_graph`] — JS-visible as `exportGraph`. Lex / parse / resolve /
-//!   validate / project to the export envelope. Strict-on-errors per
+//!   validate / project the same multi-file input to the export envelope.
+//!   Strict-on-errors per
 //!   [ADR-0009](../../docs/adr/0009-export-strict-on-diagnostics.md): any
 //!   error-severity diagnostic produces a [`FailureEnvelope`]; otherwise a
 //!   [`SuccessEnvelope`] carrying the kinship-native or cytoscape graph.
@@ -27,6 +33,14 @@
 //!   The version of the Kul language this artifact understands.
 //! - [`export_schema_version`] — JS-visible as `EXPORT_SCHEMA_VERSION`.
 //!   Schema version of the export-envelope JSON.
+//!
+//! ## `format` asymmetry
+//!
+//! `check` and `exportGraph` are project-scoped — kinship resolution and
+//! validation reach across files, so the JS host hands the whole file set
+//! in. `format` rewrites one file's bytes; there is no cross-file
+//! interaction in the formatter, so it stays per-file. The JS host
+//! enumerates and reformats each file independently.
 //!
 //! # Naming
 //!
@@ -49,7 +63,7 @@
 use kul_core::ast::InputFile;
 use kul_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic};
 use kul_core::manifest::Manifest;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
 
@@ -60,14 +74,29 @@ use wasm_bindgen::prelude::*;
 /// `file:` strings make sense.
 const WASM_MANIFEST_NAME: &str = "kul.yml";
 
-/// Default opaque name for the single `.kul` input the WASM bridge
-/// receives. JS callers don't have a meaningful path to thread through;
-/// the snapshot suite freezes this string so changes are intentional.
-const WASM_INPUT_NAME: &str = "input.kul";
+/// One `.kul` input file as the JS host hands it to the bridge — a name
+/// (path / URI / opaque label) plus the raw source bytes. Mirrors
+/// [`kul_core::ast::InputFile`] one-to-one; the bridge converts on the
+/// way in. The wasm-bridge type exists so `tsify` can derive a TS type
+/// without leaking the `tsify` feature dependency onto `kul-core`'s
+/// public input shape.
+#[derive(Debug, Clone, Deserialize, Tsify)]
+#[tsify(from_wasm_abi)]
+#[serde(rename_all = "camelCase")]
+pub struct WasmInputFile {
+    pub name: String,
+    pub source: String,
+}
+
+impl From<WasmInputFile> for InputFile {
+    fn from(file: WasmInputFile) -> Self {
+        InputFile::new(file.name, file.source)
+    }
+}
 
 /// JS-side return type of [`check`]. Carries the full diagnostic list —
 /// errors, warnings, and notes alike. An empty `diagnostics` array means
-/// a clean document; consumers discriminate on emptiness rather than an
+/// a clean project; consumers discriminate on emptiness rather than an
 /// `ok` field, per [ADR-0011](../../docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md).
 ///
 /// Diagnostic entries reuse `kul_core::export::ExportedDiagnostic` — the
@@ -103,9 +132,9 @@ pub fn format_source(source: &str) -> String {
 }
 
 #[wasm_bindgen(js_name = "check")]
-pub fn check(source: &str, manifest: Manifest) -> CheckEnvelope {
+pub fn check(files: Vec<WasmInputFile>, manifest: Manifest) -> CheckEnvelope {
     console_error_panic_hook::set_once();
-    let inputs = vec![InputFile::new(WASM_INPUT_NAME, source)];
+    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
     let result = kul_core::check_with_manifest(
         WASM_MANIFEST_NAME,
         synthesize_manifest_yaml(&manifest).as_str(),
@@ -118,25 +147,30 @@ pub fn check(source: &str, manifest: Manifest) -> CheckEnvelope {
 
 #[wasm_bindgen(js_name = "exportGraph")]
 pub fn export_graph(
-    source: &str,
+    files: Vec<WasmInputFile>,
     manifest: Manifest,
     options: Option<ExportOptions>,
 ) -> ExportEnvelope {
     console_error_panic_hook::set_once();
-    export_with(source, &manifest, options.unwrap_or_default())
+    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
+    export_with(&inputs, &manifest, options.unwrap_or_default())
 }
 
 /// Native-callable variant of [`export_graph`]. Same semantics, but takes
-/// a typed [`ExportOptions`] so non-wasm tests can call into this crate
-/// without round-tripping through `JsValue`. The wasm-bridge `exportGraph`
-/// is a thin deserializer in front of this fn.
-pub fn export_with(source: &str, manifest: &Manifest, options: ExportOptions) -> ExportEnvelope {
-    let inputs = vec![InputFile::new(WASM_INPUT_NAME, source)];
+/// the already-converted [`InputFile`] slice and a typed [`ExportOptions`]
+/// so non-wasm tests can call into this crate without round-tripping
+/// through `JsValue`. The wasm-bridge `exportGraph` is a thin deserializer
+/// in front of this fn.
+pub fn export_with(
+    inputs: &[InputFile],
+    manifest: &Manifest,
+    options: ExportOptions,
+) -> ExportEnvelope {
     let result = kul_core::check_with_manifest(
         WASM_MANIFEST_NAME,
         synthesize_manifest_yaml(manifest).as_str(),
         manifest,
-        &inputs,
+        inputs,
     );
     kul_core::export::export(&result, options)
 }
