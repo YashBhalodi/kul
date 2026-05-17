@@ -205,13 +205,22 @@ impl ResolvedDocument {
     /// no entity has this id, or if one does but it's a marriage. Lookups
     /// are project-wide per ADR-0015.
     pub fn person(&self, id: &str) -> Option<&PersonStmt> {
+        self.person_with_file(id).map(|(_, p)| p)
+    }
+
+    /// Look up a person by id, project-wide, returning the declaration
+    /// together with the [`FileId`] that owns it. Same `None` rules as
+    /// [`Self::person`]. Used by the cursor seam ([`Node::PersonRef`]) so
+    /// downstream features (goto-definition, find-references, rename) can
+    /// see which file the target lives in without re-querying.
+    pub fn person_with_file(&self, id: &str) -> Option<(FileId, &PersonStmt)> {
         let entity = self.entity_record(id)?;
         if entity.kind != EntityKind::Person {
             return None;
         }
         let kf = self.document.kul_file(entity.file)?;
         match &kf.statements[entity.statement_idx] {
-            Statement::Person(p) => Some(p),
+            Statement::Person(p) => Some((entity.file, p)),
             Statement::Marriage(_) => unreachable!(
                 "entity index claims kind=Person but statement is a marriage; resolve() invariant broken"
             ),
@@ -221,13 +230,19 @@ impl ResolvedDocument {
     /// Look up a marriage by id anywhere in the project. Same `None`
     /// rules as [`Self::person`].
     pub fn marriage(&self, id: &str) -> Option<&MarriageStmt> {
+        self.marriage_with_file(id).map(|(_, m)| m)
+    }
+
+    /// File-aware sibling of [`Self::marriage`] — same shape as
+    /// [`Self::person_with_file`].
+    pub fn marriage_with_file(&self, id: &str) -> Option<(FileId, &MarriageStmt)> {
         let entity = self.entity_record(id)?;
         if entity.kind != EntityKind::Marriage {
             return None;
         }
         let kf = self.document.kul_file(entity.file)?;
         match &kf.statements[entity.statement_idx] {
-            Statement::Marriage(m) => Some(m),
+            Statement::Marriage(m) => Some((entity.file, m)),
             Statement::Person(_) => unreachable!(
                 "entity index claims kind=Marriage but statement is a person; resolve() invariant broken"
             ),

@@ -32,7 +32,7 @@ pub fn hover(
         Node::MarriageDeclId(m) => (marriage_panel(file, resolved, m), m.id.span),
         Node::PersonRef {
             ident,
-            target: Some(p),
+            target: Some((_, p)),
         } => (person_panel(p), ident.span),
         Node::PersonRef {
             ident,
@@ -40,7 +40,7 @@ pub fn hover(
         } => (unresolved_note("person", &ident.name), ident.span),
         Node::MarriageRef {
             ident,
-            target: Some(m),
+            target: Some((_, m)),
         } => (marriage_panel(file, resolved, m), ident.span),
         Node::MarriageRef {
             ident,

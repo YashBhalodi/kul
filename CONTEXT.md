@@ -146,6 +146,8 @@ The query `ResolvedDocument::node_at(byte_offset) -> Option<Node<'a>>`. Lives at
 
 The method `Node::entity_reference(&self) -> Option<EntityNode<'a>>` (in `crates/kul-core/src/node_at.rs`) collapses the four id-bearing `Node` variants (`PersonDeclId`, `MarriageDeclId`, `PersonRef`, `MarriageRef`) into a uniform summary: `kind`, `name`, `ident_span`, `is_decl`, and the resolved `target`. LSP features that key on "what entity is the user pointing at?" (goto-definition, find-references, rename) phrase themselves as a query for this summary instead of re-pattern-matching the four variants by hand.
 
+The `target` is an `EntityTarget` carrying both the resolved AST statement and the `FileId` that owns it (the `Node::PersonRef`/`MarriageRef` reference variants carry the same `(FileId, &Stmt)` pair). Under project-wide resolution (ADR-0015) that file may be a sibling of the active URI's file; `EntityNode::decl_span()` returns the correct project-wide `FileSpan` directly so feature modules do not re-query `ResolvedDocument::entity(name)` just to recover the target's file.
+
 ### Server
 
 The `tower-lsp` Backend implementation in `crates/kul-lsp/src/server.rs`. Owns the project cache, dispatches LSP requests to feature modules, advertises capabilities. `did_open` discovers the project from the opened URI (sibling `kul.yml` plus every `.kul` file in the URI's directory) and inserts one cache entry for the whole project; `did_change` mutates the URI's overlay and re-runs `kul_core::check` for the project; `did_close` flips the URI's overlay to `None` and evicts the entry when no URIs remain open. Diagnostic publishes broadcast to every project file (open or disk-only) so the Problems pane reflects project-wide health.

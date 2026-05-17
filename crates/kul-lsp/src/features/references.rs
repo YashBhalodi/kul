@@ -36,19 +36,10 @@ pub fn references(
 
     let mut spans = c.resolved.references_to(entity.name, entity.kind);
     if include_declaration && let Some(d) = entity.decl_span() {
-        // `decl_span()`'s `file` field reports the active URI's file when
-        // the cursor is on a decl, and the active URI's file again when
-        // the cursor is on a reference (the helper is conservative
-        // about cross-file lookups). Re-resolve via `entity()` to find
-        // the real decl file under project-wide namespaces.
-        if entity.is_decl {
-            spans.push(d);
-        } else if let Some(target_entity) = c.resolved.entity(entity.name) {
-            spans.push(kul_core::span::FileSpan::new(
-                target_entity.file,
-                target_entity.id.span,
-            ));
-        }
+        // `decl_span()` is project-wide aware (ADR-0015): for a reference
+        // it returns the target's `FileSpan` anchored at the target's
+        // owning file, which may be a sibling of the active URI's file.
+        spans.push(d);
     }
     spans.sort_by_key(|s| (s.file.as_u32(), s.span.start));
     spans.dedup();
@@ -246,5 +237,33 @@ mod tests {
         .unwrap();
         assert_eq!(locs.len(), 1);
         assert_eq!(locs[0].uri, marriage_url);
+    }
+
+    /// Cross-file `includeDeclaration`: a cursor on a *reference* in one
+    /// file must include the declaration in the *sibling* file when the
+    /// client asks for it. Regression test for the seam carrying the
+    /// resolved target's `FileId` (ADR-0015): if the cursor seam ever
+    /// loses the target file, this would surface the decl at the active
+    /// URI's location instead of the declaring file's.
+    #[test]
+    fn include_declaration_picks_up_sibling_file_decl() {
+        let alice_src = "person alice name:\"Alice\" gender:female\n";
+        let marriage_src = "person bob name:\"Bob\" gender:male\nmarriage m alice bob start:2010\n";
+        let entry = test_project_entry(&[("alice.kul", alice_src), ("marriage.kul", marriage_src)]);
+        let alice_url = Url::parse("file:///alice.kul").unwrap();
+        let marriage_url = Url::parse("file:///marriage.kul").unwrap();
+        // Cursor on the `alice` reference inside marriage.kul.
+        let alice_ref_offset = marriage_src.find(" alice ").unwrap() + 1;
+        let locs = references(
+            &entry,
+            &marriage_url,
+            position_for(marriage_src, alice_ref_offset),
+            true,
+        )
+        .unwrap();
+        // One reference (in marriage.kul) + the declaration (in alice.kul).
+        assert_eq!(locs.len(), 2);
+        assert!(locs.iter().any(|l| l.uri == alice_url));
+        assert!(locs.iter().any(|l| l.uri == marriage_url));
     }
 }

@@ -106,18 +106,11 @@ pub fn rename(
         .node_at(c.file, c.offset)
         .and_then(|n| n.entity_reference(c.file))
         .ok_or(RenameError::NotRenameable)?;
-    // For decls, the decl span sits at the active file. For references,
-    // resolve through the project-wide entity lookup so the decl span
-    // anchors at the *target's* file (which may be a sibling).
-    let decl_span: FileSpan = if entity.is_decl {
-        entity.ident_span
-    } else {
-        let target = c
-            .resolved
-            .entity(entity.name)
-            .ok_or(RenameError::UnresolvedReference)?;
-        FileSpan::new(target.file, target.id.span)
-    };
+    // `decl_span()` returns the project-wide anchor (ADR-0015): for a
+    // reference it points at the target's owning file directly, no
+    // re-query needed. `None` here means the cursor sits on an
+    // unresolved reference — surface that as its own error.
+    let decl_span: FileSpan = entity.decl_span().ok_or(RenameError::UnresolvedReference)?;
     let current = entity.name;
     let kind = entity.kind;
 
