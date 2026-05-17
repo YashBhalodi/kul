@@ -60,10 +60,13 @@ fn missing_manifest_returns_typed_error() {
 fn missing_manifest_rendering_is_stable() {
     let err = load(&fixture("missing-manifest")).expect_err("expected error");
     // Strip the absolute path prefix so the snapshot stays portable
-    // across checkout locations.
+    // across checkout locations, then normalize separators so the
+    // snapshot matches on Windows too (`PathBuf::Display` renders
+    // `\` on Windows, `/` on Unix).
     let rendered = err
         .to_string()
-        .replace(env!("CARGO_MANIFEST_DIR"), "<crate-root>");
+        .replace(env!("CARGO_MANIFEST_DIR"), "<crate-root>")
+        .replace('\\', "/");
     insta::assert_snapshot!(rendered);
 }
 
