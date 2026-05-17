@@ -5,53 +5,64 @@
 //! cursor on a marriage id returns every `birth`/`adoption` ref that
 //! points at that marriage. Per LSP `ReferenceContext.includeDeclaration`,
 //! the declaration site is included only when asked.
+//!
+//! With project-wide resolution (ADR-0015), `references_to` walks every
+//! file in the project. This module assembles a single `Vec<Location>`
+//! across all of them, anchoring each result at the URL its file maps
+//! to in the project entry.
 
-use kul_core::semantic::ResolvedDocument;
-use kul_core::span::ByteSpan;
-use kul_core::span::FileId;
-use tower_lsp::lsp_types::{Location, Url};
+use tower_lsp::lsp_types::{Location, Position, Url};
 
-use crate::convert::LineIndex;
+use crate::state::ProjectEntry;
 
 /// Resolve the cursor to the list of reference `Location`s, or `None` when
 /// the cursor isn't on something the user could find references for
 /// (keywords, fields, whitespace, EOF). Returns `Some(empty)` when the
 /// cursor *is* on a referenceable id but nothing else uses it.
 ///
-/// The resolver's `references_to` query is project-wide (per ADR-0015);
-/// this feature filters to the active URI's `FileId` because the LSP
-/// cache is still URI-keyed. Cross-file find-references lands with PRD
-/// 0001 slice 5 (#85), at which point this filter goes away.
+/// Results span every file in the project: rename and find-references
+/// no longer stop at the active URI's boundary.
 pub fn references(
-    file: FileId,
-    resolved: &ResolvedDocument,
-    line_index: &LineIndex,
+    entry: &ProjectEntry,
     uri: &Url,
-    byte_offset: usize,
+    position: Position,
     include_declaration: bool,
 ) -> Option<Vec<Location>> {
-    let entity = resolved
-        .node_at(file, byte_offset)?
-        .entity_reference(file)?;
+    let c = entry.cursor_for_uri(uri, position)?;
+    let entity = c
+        .resolved
+        .node_at(c.file, c.offset)?
+        .entity_reference(c.file)?;
 
-    let mut spans: Vec<ByteSpan> = resolved
-        .references_to(entity.name, entity.kind)
-        .into_iter()
-        .filter(|fs| fs.file == file)
-        .map(|fs| fs.span)
-        .collect();
+    let mut spans = c.resolved.references_to(entity.name, entity.kind);
     if include_declaration && let Some(d) = entity.decl_span() {
-        spans.push(d.span);
+        // `decl_span()`'s `file` field reports the active URI's file when
+        // the cursor is on a decl, and the active URI's file again when
+        // the cursor is on a reference (the helper is conservative
+        // about cross-file lookups). Re-resolve via `entity()` to find
+        // the real decl file under project-wide namespaces.
+        if entity.is_decl {
+            spans.push(d);
+        } else if let Some(target_entity) = c.resolved.entity(entity.name) {
+            spans.push(kul_core::span::FileSpan::new(
+                target_entity.file,
+                target_entity.id.span,
+            ));
+        }
     }
-    spans.sort_by_key(|s| s.start);
+    spans.sort_by_key(|s| (s.file.as_u32(), s.span.start));
     spans.dedup();
 
     Some(
         spans
             .into_iter()
-            .map(|s| Location {
-                uri: uri.clone(),
-                range: line_index.range(s),
+            .filter_map(|fs| {
+                let url = entry.url_for(fs.file)?;
+                let line_index = entry.line_index_for(fs.file)?;
+                Some(Location {
+                    uri: url.clone(),
+                    range: line_index.range(fs.span),
+                })
             })
             .collect(),
     )
@@ -60,24 +71,33 @@ pub fn references(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::test_open_file;
+    use crate::state::{test_open_file, test_project_entry};
+    use tower_lsp::lsp_types::Position;
 
     fn url() -> Url {
         Url::parse("file:///t.kul").unwrap()
     }
 
+    fn position_for(source: &str, offset: usize) -> Position {
+        let mut line = 0u32;
+        let mut character = 0u32;
+        for (i, b) in source.bytes().enumerate() {
+            if i == offset {
+                break;
+            }
+            if b == b'\n' {
+                line += 1;
+                character = 0;
+            } else {
+                character += 1;
+            }
+        }
+        Position { line, character }
+    }
+
     fn refs_at(source: &str, offset: usize, include_decl: bool) -> Option<Vec<(u32, u32)>> {
         let doc = test_open_file(source);
-        let v = doc.view();
-        references(
-            v.file,
-            v.resolved,
-            v.line_index,
-            &url(),
-            offset,
-            include_decl,
-        )
-        .map(|locs| {
+        references(&doc, &url(), position_for(source, offset), include_decl).map(|locs| {
             locs.into_iter()
                 .map(|l| (l.range.start.line, l.range.start.character))
                 .collect()
@@ -188,21 +208,9 @@ mod tests {
         let src = "person alice name:\"A\" gender:female\n\
                    person bob name:\"B\" gender:male\n\
                    marriage m alice bob start:1972\n";
-        let locs = refs_at(src, idx(src, "alice"), false).unwrap();
-        // refs_at maps Location → (line, char); re-run the underlying
-        // call to get URIs back.
         let doc = test_open_file(src);
-        let v = doc.view();
-        let raw = references(
-            v.file,
-            v.resolved,
-            v.line_index,
-            &url(),
-            idx(src, "alice"),
-            false,
-        )
-        .unwrap();
-        assert_eq!(raw.len(), locs.len());
+        let raw = references(&doc, &url(), position_for(src, idx(src, "alice")), false).unwrap();
+        assert!(!raw.is_empty());
         assert!(raw.iter().all(|l| l.uri == url()));
     }
 
@@ -217,5 +225,26 @@ mod tests {
         for w in got.windows(2) {
             assert!(w[0] <= w[1], "not sorted: {:?}", got);
         }
+    }
+
+    /// Cross-file find-references: a person declared in one file is
+    /// referenced in another; both files participate in the result.
+    #[test]
+    fn finds_references_across_files() {
+        let alice_src = "person alice name:\"Alice\" gender:female\n";
+        let marriage_src = "person bob name:\"Bob\" gender:male\nmarriage m alice bob start:2010\n";
+        let entry = test_project_entry(&[("alice.kul", alice_src), ("marriage.kul", marriage_src)]);
+        let alice_url = Url::parse("file:///alice.kul").unwrap();
+        let marriage_url = Url::parse("file:///marriage.kul").unwrap();
+        // Cursor on `alice` decl in alice.kul; expect one reference in marriage.kul.
+        let locs = references(
+            &entry,
+            &alice_url,
+            position_for(alice_src, alice_src.find("alice").unwrap()),
+            false,
+        )
+        .unwrap();
+        assert_eq!(locs.len(), 1);
+        assert_eq!(locs[0].uri, marriage_url);
     }
 }

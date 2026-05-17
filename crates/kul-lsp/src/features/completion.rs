@@ -34,8 +34,8 @@ pub fn complete(
         Context::AfterGenderColon => gender_values(),
         Context::AfterEndReasonColon => end_reason_values(),
         Context::AfterStringFieldColon => quoted_value_snippet(),
-        Context::MarriageRefPosition => marriage_id_items(file, resolved),
-        Context::SpousePosition { exclude } => person_id_items(file, resolved, exclude.as_deref()),
+        Context::MarriageRefPosition => marriage_id_items(resolved),
+        Context::SpousePosition { exclude } => person_id_items(resolved, exclude.as_deref()),
     }
 }
 
@@ -565,31 +565,35 @@ fn quoted_value_snippet() -> Vec<CompletionItem> {
     }]
 }
 
-/// Every declared marriage as a completion item — used after `birth` and
-/// `adoption`. Detail shows the spouses' display names and the date span so
-/// the user can disambiguate between marriages of the same person.
-fn marriage_id_items(file: FileId, resolved: &ResolvedDocument) -> Vec<CompletionItem> {
+/// Every declared marriage in the project as a completion item — used
+/// after `birth` and `adoption`. Detail shows the spouses' display
+/// names and the date span so the user can disambiguate between
+/// marriages of the same person.
+///
+/// Project-wide per ADR-0015: ids declared in sibling files are valid
+/// targets for cross-file `birth` and `adoption` references.
+fn marriage_id_items(resolved: &ResolvedDocument) -> Vec<CompletionItem> {
     resolved
-        .marriages_in(file)
+        .marriages()
         .map(|m| CompletionItem {
             label: m.id.name.clone(),
             kind: Some(CompletionItemKind::EVENT),
-            detail: Some(marriage_detail(file, resolved, m)),
+            detail: Some(marriage_detail(resolved, m)),
             ..Default::default()
         })
         .collect()
 }
 
-/// Every declared person as a completion item — used in marriage spouse
-/// positions. `exclude` filters one id out (so spouse_b's list excludes the
-/// person already named as spouse_a, since you can't marry yourself).
-fn person_id_items(
-    file: FileId,
-    resolved: &ResolvedDocument,
-    exclude: Option<&str>,
-) -> Vec<CompletionItem> {
+/// Every declared person in the project as a completion item — used in
+/// marriage spouse positions. `exclude` filters one id out (so
+/// spouse_b's list excludes the person already named as spouse_a,
+/// since you can't marry yourself).
+///
+/// Project-wide per ADR-0015: a marriage may reference a spouse
+/// declared in a sibling file.
+fn person_id_items(resolved: &ResolvedDocument, exclude: Option<&str>) -> Vec<CompletionItem> {
     resolved
-        .persons_in(file)
+        .persons()
         .filter(|p| Some(p.id.name.as_str()) != exclude)
         .map(|p| CompletionItem {
             label: p.id.name.clone(),
@@ -600,7 +604,7 @@ fn person_id_items(
         .collect()
 }
 
-fn marriage_detail(_file: FileId, resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
+fn marriage_detail(resolved: &ResolvedDocument, m: &MarriageStmt) -> String {
     let a = resolved
         .person(&m.spouse_a.name)
         .map(|p| p.display_name())
