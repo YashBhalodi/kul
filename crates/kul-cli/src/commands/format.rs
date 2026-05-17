@@ -1,88 +1,77 @@
-//! `kul format` subcommand.
+//! `kul format` subcommand — project-wide.
 //!
-//! Wraps [`kul_core::format::format_source`]. Without `--check`, each
-//! file is rewritten in place. With `--check`, nothing is modified and
-//! the process exits non-zero if any input is not already in canonical
-//! form — the right shape for a CI gate.
+//! Formats every `.kul` file in the current Kul project (CWD must
+//! hold a sibling `kul.yml`). Without `--check`, each file is
+//! rewritten in place. With `--check`, no file is modified — the
+//! command exits non-zero if any input is not already in canonical
+//! form, which is the right shape for a CI gate.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::ExitCode;
 
-use kul_core::ast::InputFile;
 use kul_core::diagnostic::{Diagnostic, Severity};
 
-use crate::commands::manifest::load_for as load_manifest;
+use crate::commands::project::load_cwd_project;
 
 pub struct Options {
-    pub files: Vec<PathBuf>,
     pub check: bool,
 }
 
 pub fn run(opts: Options) -> ExitCode {
-    let mut had_error = false;
-    let mut had_diff = false;
-    for file in &opts.files {
-        match format_one(file, &opts) {
-            Outcome::Ok => {}
-            Outcome::Diff => had_diff = true,
-            Outcome::Error => had_error = true,
-        }
-    }
-    if had_error || had_diff {
-        ExitCode::from(1)
-    } else {
-        ExitCode::SUCCESS
-    }
-}
-
-enum Outcome {
-    Ok,
-    Diff,
-    Error,
-}
-
-fn format_one(path: &Path, opts: &Options) -> Outcome {
-    let source = match std::fs::read_to_string(path) {
-        Ok(s) => s,
+    let project = match load_cwd_project() {
+        Ok(p) => p,
+        Err(err) => return err.report(),
+    };
+    let cwd = match std::env::current_dir() {
+        Ok(c) => c,
         Err(err) => {
-            eprintln!("kul: {}: {err}", path.display());
-            return Outcome::Error;
+            eprintln!("kul: failed to read current working directory: {err}");
+            return ExitCode::from(1);
         }
     };
-    let label = path.to_string_lossy().into_owned();
-    let manifest = load_manifest(path);
-    if !manifest.preface.is_empty() {
-        for d in &manifest.preface {
-            eprintln!("kul: {label}: {}: {}", d.code, d.message);
-        }
-        return Outcome::Error;
-    }
-    let inputs = vec![InputFile::new(label.clone(), source.clone())];
-    let result = kul_core::check(manifest.path_label, &manifest.yaml, &inputs);
+
+    let result = kul_core::check(
+        project.manifest_name,
+        &project.manifest_yaml,
+        &project.inputs,
+    );
     if has_parse_errors(&result.diagnostics) {
-        eprintln!("kul: {label}: cannot format input with parse errors");
+        eprintln!("kul: cannot format project with parse errors");
         for d in &result.diagnostics {
             if matches!(d.severity, Severity::Error) && is_parse_code(d.code) {
                 eprintln!("  {}: {}", d.code, d.message);
             }
         }
-        return Outcome::Error;
+        return ExitCode::from(1);
     }
-    let formatted = kul_core::format::format_source(&source);
-    if opts.check {
-        if formatted != source {
-            eprintln!("{label}: not formatted");
-            return Outcome::Diff;
+
+    let mut had_diff = false;
+    let mut had_error = false;
+    for input in &project.inputs {
+        // Per ADR-0015's flat-directory rule, every project input
+        // lives directly under the project root; its on-disk path is
+        // `<cwd>/<name>`.
+        let path: PathBuf = cwd.join(&input.name);
+        let formatted = kul_core::format::format_source(&input.source);
+        if formatted == input.source {
+            continue;
         }
-        return Outcome::Ok;
-    }
-    if formatted != source {
-        if let Err(err) = std::fs::write(path, &formatted) {
+        if opts.check {
+            eprintln!("{}: not formatted", input.name);
+            had_diff = true;
+            continue;
+        }
+        if let Err(err) = std::fs::write(&path, &formatted) {
             eprintln!("kul: {}: write: {err}", path.display());
-            return Outcome::Error;
+            had_error = true;
         }
     }
-    Outcome::Ok
+
+    if had_error || had_diff {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
 }
 
 fn has_parse_errors(diags: &[Diagnostic]) -> bool {
