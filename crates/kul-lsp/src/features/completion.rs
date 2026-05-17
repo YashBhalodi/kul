@@ -632,10 +632,7 @@ fn person_detail(p: &PersonStmt) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kul_core::lexer::tokenize;
-    use kul_core::parser::parse;
-    use kul_core::semantic::resolve;
-    use std::sync::Arc;
+    use crate::state::test_open_file;
 
     /// Take a fixture string with a `<CURSOR>` marker; return (source, offset).
     fn cursor_fixture(s: &str) -> (String, usize) {
@@ -644,16 +641,19 @@ mod tests {
         (source, offset)
     }
 
-    fn run(src_with_marker: &str) -> Vec<String> {
-        use kul_core::ast::{Document, KulFile};
+    /// Take a `<CURSOR>`-marked fixture and return the list of completion
+    /// items the LSP would surface for that cursor position. Centralises
+    /// the tokenize/parse/resolve scaffold every per-context test in this
+    /// file otherwise repeats.
+    fn complete_for(src_with_marker: &str) -> Vec<CompletionItem> {
         let (source, offset) = cursor_fixture(src_with_marker);
-        let file = FileId::from_raw(1);
-        let tokens = tokenize(&source);
-        let (statements, _) = parse(&tokens, file);
-        let kf = Arc::new(KulFile::new("test.kul", source.clone(), statements));
-        let document = Arc::new(Document::new("kul.yml", vec![kf]));
-        let (resolved, _) = resolve(document);
-        complete(&source, file, &resolved, offset)
+        let doc = test_open_file(&source);
+        let v = doc.view();
+        complete(v.line_index.source(), v.file, v.resolved, offset)
+    }
+
+    fn run(src_with_marker: &str) -> Vec<String> {
+        complete_for(src_with_marker)
             .into_iter()
             .map(|c| c.label)
             .collect()
@@ -750,18 +750,7 @@ mod tests {
     #[test]
     fn person_field_completion_wraps_string_values_in_quotes() {
         use tower_lsp::lsp_types::InsertTextFormat;
-        let (source, offset) = cursor_fixture("person a <CURSOR>");
-        let tokens = tokenize(&source);
-        let file = FileId::from_raw(1);
-        let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
-            "test.kul",
-            source.as_str(),
-            statements,
-        ));
-        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
-        let (resolved, _) = resolve(document);
-        let items = complete(&source, file, &resolved, offset);
+        let items = complete_for("person a <CURSOR>");
 
         for field in ["name:", "family:", "given:"] {
             let it = items
@@ -799,18 +788,7 @@ mod tests {
         use tower_lsp::lsp_types::InsertTextFormat;
         for field in ["name", "family", "given"] {
             let src = format!("person a {field}:<CURSOR>");
-            let (source, offset) = cursor_fixture(&src);
-            let tokens = tokenize(&source);
-            let file = FileId::from_raw(1);
-            let (statements, _) = parse(&tokens, file);
-            let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
-                "test.kul",
-                source.as_str(),
-                statements,
-            ));
-            let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
-            let (resolved, _) = resolve(document);
-            let items = complete(&source, file, &resolved, offset);
+            let items = complete_for(&src);
             assert_eq!(
                 items.len(),
                 1,
@@ -870,36 +848,14 @@ mod tests {
     }
 
     fn run_with_details(src_with_marker: &str) -> Vec<(String, Option<String>)> {
-        let (source, offset) = cursor_fixture(src_with_marker);
-        let tokens = tokenize(&source);
-        let file = FileId::from_raw(1);
-        let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
-            "test.kul",
-            source.as_str(),
-            statements,
-        ));
-        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
-        let (resolved, _) = resolve(document);
-        complete(&source, file, &resolved, offset)
+        complete_for(src_with_marker)
             .into_iter()
             .map(|c| (c.label, c.detail))
             .collect()
     }
 
     fn run_kinds(src_with_marker: &str) -> Vec<(String, CompletionItemKind)> {
-        let (source, offset) = cursor_fixture(src_with_marker);
-        let tokens = tokenize(&source);
-        let file = FileId::from_raw(1);
-        let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
-            "test.kul",
-            source.as_str(),
-            statements,
-        ));
-        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
-        let (resolved, _) = resolve(document);
-        complete(&source, file, &resolved, offset)
+        complete_for(src_with_marker)
             .into_iter()
             .map(|c| (c.label, c.kind.unwrap()))
             .collect()
@@ -1033,100 +989,40 @@ mod tests {
 
     #[test]
     fn snapshot_after_birth_keyword() {
-        let (source, offset) = cursor_fixture(
+        insta::assert_json_snapshot!(complete_for(
             "person alice name:\"Alice\" gender:female born:1950\n\
              person bob name:\"Bob\" gender:male born:1948\n\
              marriage m_alice_bob alice bob start:1972 end:1990 end_reason:divorce\n\
              person kid name:\"K\" gender:other\n  birth <CURSOR>",
-        );
-        let tokens = tokenize(&source);
-        let file = FileId::from_raw(1);
-        let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
-            "test.kul",
-            source.as_str(),
-            statements,
         ));
-        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
-        let (resolved, _) = resolve(document);
-        let items = complete(&source, file, &resolved, offset);
-        insta::assert_json_snapshot!(items);
     }
 
     #[test]
     fn snapshot_after_marriage_id_for_spouse_a() {
-        let (source, offset) = cursor_fixture(
+        insta::assert_json_snapshot!(complete_for(
             "person alice name:\"Alice\" gender:female born:1950\n\
              person bob name:\"Bob\" gender:male born:1948\n\
              marriage m <CURSOR>",
-        );
-        let tokens = tokenize(&source);
-        let file = FileId::from_raw(1);
-        let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
-            "test.kul",
-            source.as_str(),
-            statements,
         ));
-        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
-        let (resolved, _) = resolve(document);
-        let items = complete(&source, file, &resolved, offset);
-        insta::assert_json_snapshot!(items);
     }
 
     #[test]
     fn snapshot_after_spouse_a_excludes_self() {
-        let (source, offset) = cursor_fixture(
+        insta::assert_json_snapshot!(complete_for(
             "person alice name:\"Alice\" gender:female born:1950\n\
              person bob name:\"Bob\" gender:male born:1948\n\
              person carol name:\"Carol\" gender:female born:1975\n\
              marriage m alice <CURSOR>",
-        );
-        let tokens = tokenize(&source);
-        let file = FileId::from_raw(1);
-        let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
-            "test.kul",
-            source.as_str(),
-            statements,
         ));
-        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
-        let (resolved, _) = resolve(document);
-        let items = complete(&source, file, &resolved, offset);
-        insta::assert_json_snapshot!(items);
     }
 
     #[test]
     fn snapshot_top_level() {
-        let (source, offset) = cursor_fixture("<CURSOR>");
-        let tokens = tokenize(&source);
-        let file = FileId::from_raw(1);
-        let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
-            "test.kul",
-            source.as_str(),
-            statements,
-        ));
-        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
-        let (resolved, _) = resolve(document);
-        let items = complete(&source, file, &resolved, offset);
-        insta::assert_json_snapshot!(items);
+        insta::assert_json_snapshot!(complete_for("<CURSOR>"));
     }
 
     #[test]
     fn snapshot_after_gender_colon() {
-        let (source, offset) = cursor_fixture("person a name:\"A\" gender:<CURSOR>");
-        let tokens = tokenize(&source);
-        let file = FileId::from_raw(1);
-        let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
-            "test.kul",
-            source.as_str(),
-            statements,
-        ));
-        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
-        let (resolved, _) = resolve(document);
-        let items = complete(&source, file, &resolved, offset);
-        insta::assert_json_snapshot!(items);
+        insta::assert_json_snapshot!(complete_for("person a name:\"A\" gender:<CURSOR>"));
     }
 }

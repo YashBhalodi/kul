@@ -155,21 +155,12 @@ fn display_name_or(_file: FileId, resolved: &ResolvedDocument, id: &str) -> Stri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kul_core::lexer::tokenize;
-    use kul_core::parser::parse;
-    use kul_core::semantic::resolve;
-    use std::sync::Arc;
+    use crate::state::test_open_file;
 
     fn symbols_for(source: &str) -> Vec<DocumentSymbol> {
-        use kul_core::ast::{Document, KulFile};
-        let file = FileId::from_raw(1);
-        let tokens = tokenize(source);
-        let (statements, _) = parse(&tokens, file);
-        let kf = Arc::new(KulFile::new("test.kul", source, statements));
-        let document = Arc::new(Document::new("kul.yml", vec![kf]));
-        let (resolved, _) = resolve(document);
-        let line_index = LineIndex::new(source);
-        document_symbols(file, &resolved, &line_index)
+        let doc = test_open_file(source);
+        let v = doc.view();
+        document_symbols(v.file, v.resolved, v.line_index)
     }
 
     fn names(syms: &[DocumentSymbol]) -> Vec<&str> {

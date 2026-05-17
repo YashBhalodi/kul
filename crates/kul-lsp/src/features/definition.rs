@@ -40,23 +40,16 @@ pub fn definition(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kul_core::lexer::tokenize;
-    use kul_core::parser::parse;
-    use kul_core::semantic::resolve;
+    use crate::state::test_open_file;
 
     fn url() -> Url {
         Url::parse("file:///t.kul").unwrap()
     }
 
     fn def_at(source: &str, offset: usize) -> Option<Location> {
-        let tokens = tokenize(source);
-        let file = FileId::from_raw(1);
-        let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new("test.kul", source, statements));
-        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
-        let (resolved, _) = resolve(document);
-        let line_index = LineIndex::new(source);
-        definition(file, &resolved, &line_index, &url(), offset)
+        let doc = test_open_file(source);
+        let v = doc.view();
+        definition(v.file, v.resolved, v.line_index, &url(), offset)
     }
 
     fn idx(source: &str, pat: &str) -> usize {

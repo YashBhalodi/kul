@@ -345,6 +345,7 @@ fn position_lt(a: Position, b: Position) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::test_open_file;
 
     fn url() -> Url {
         Url::parse("file:///t.kul").unwrap()
@@ -360,22 +361,14 @@ mod tests {
     /// Run the LSP feature with a request range covering the whole
     /// document, and return the `CodeAction`s (no `Command`s expected).
     fn actions_for(source: &str) -> Vec<CodeAction> {
-        let inputs = vec![kul_core::ast::InputFile::new("test.kul", source)];
-        let result = kul_core::check_with_manifest(
-            "kul.yml",
-            "",
-            &kul_core::manifest::Manifest::default(),
-            &inputs,
-        );
-        let file = result.document().kul_file_ids().next().unwrap();
-        let resolved = result.resolved();
-        let line_index = LineIndex::new(source);
-        let request_range = full_doc_range(&line_index);
+        let doc = test_open_file(source);
+        let v = doc.view();
+        let request_range = full_doc_range(v.line_index);
         code_actions(
-            file,
-            resolved,
-            &result.diagnostics,
-            &line_index,
+            v.file,
+            v.resolved,
+            &doc.check.diagnostics,
+            v.line_index,
             &url(),
             request_range,
         )
@@ -522,12 +515,7 @@ mod tests {
             .unwrap();
         let fixed = apply(src, action);
         // After applying, R05 should no longer fire.
-        let result = kul_core::check_with_manifest(
-            "kul.yml",
-            "",
-            &kul_core::manifest::Manifest::default(),
-            &[kul_core::ast::InputFile::new("test.kul", &fixed)],
-        );
+        let result = test_open_file(&fixed).check;
         assert!(
             !result
                 .diagnostics
@@ -549,12 +537,7 @@ mod tests {
             .find(|a| a.title.contains("Remove `end_reason:`"))
             .unwrap();
         let fixed = apply(src, action);
-        let result = kul_core::check_with_manifest(
-            "kul.yml",
-            "",
-            &kul_core::manifest::Manifest::default(),
-            &[kul_core::ast::InputFile::new("test.kul", &fixed)],
-        );
+        let result = test_open_file(&fixed).check;
         assert!(
             !result
                 .diagnostics
@@ -574,12 +557,7 @@ mod tests {
             .find(|a| a.title == "Add `gender:female`")
             .unwrap();
         let fixed = apply(src, action);
-        let result = kul_core::check_with_manifest(
-            "kul.yml",
-            "",
-            &kul_core::manifest::Manifest::default(),
-            &[kul_core::ast::InputFile::new("test.kul", &fixed)],
-        );
+        let result = test_open_file(&fixed).check;
         assert!(
             !result
                 .diagnostics
@@ -594,26 +572,18 @@ mod tests {
     fn range_filter_excludes_unrelated_lines() {
         let src = "person alice name:\"A\" gender:female\n\
                    person bob\n"; // bob missing both name AND gender
-        let inputs = vec![kul_core::ast::InputFile::new("test.kul", src)];
-        let result = kul_core::check_with_manifest(
-            "kul.yml",
-            "",
-            &kul_core::manifest::Manifest::default(),
-            &inputs,
-        );
-        let file = result.document().kul_file_ids().next().unwrap();
-        let resolved = result.resolved();
-        let line_index = LineIndex::new(src);
+        let doc = test_open_file(src);
+        let v = doc.view();
         // Request range covering only line 0 (alice, no diagnostics).
         let request_range = Range {
-            start: line_index.position(0),
-            end: line_index.position(idx(src, "\n") + 1),
+            start: v.line_index.position(0),
+            end: v.line_index.position(idx(src, "\n") + 1),
         };
         let actions = code_actions(
-            file,
-            resolved,
-            &result.diagnostics,
-            &line_index,
+            v.file,
+            v.resolved,
+            &doc.check.diagnostics,
+            v.line_index,
             &url(),
             request_range,
         );

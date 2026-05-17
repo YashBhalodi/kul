@@ -211,21 +211,12 @@ fn escape(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kul_core::lexer::tokenize;
-    use kul_core::parser::parse;
-    use kul_core::semantic::resolve;
-    use std::sync::Arc;
+    use crate::state::test_open_file;
 
     fn hover_at(source: &str, offset: usize) -> Option<String> {
-        use kul_core::ast::{Document, KulFile};
-        let file = FileId::from_raw(1);
-        let tokens = tokenize(source);
-        let (statements, _) = parse(&tokens, file);
-        let kf = Arc::new(KulFile::new("test.kul", source, statements));
-        let document = Arc::new(Document::new("kul.yml", vec![kf]));
-        let (resolved, _) = resolve(document);
-        let line_index = LineIndex::new(source);
-        hover(file, &resolved, &line_index, offset).map(|h| match h.contents {
+        let doc = test_open_file(source);
+        let v = doc.view();
+        hover(v.file, v.resolved, v.line_index, offset).map(|h| match h.contents {
             HoverContents::Markup(MarkupContent { value, .. }) => value,
             _ => panic!("expected markup contents"),
         })

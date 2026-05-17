@@ -168,32 +168,43 @@ fn build_open_file(uri: &Url, source: String) -> OpenFile {
     }
 }
 
+/// Build an [`OpenFile`] from an in-memory `.kul` source for use in
+/// per-feature unit tests. The fixture every `features/*.rs` test
+/// module needs — wraps `source` in a single-input project against a
+/// default-typed [`Manifest`], so per-feature tests stop hand-rolling
+/// the same seven-line tokenize/parse/resolve scaffold.
+///
+/// Pair with [`OpenFile::view`] (file-level features) or
+/// [`OpenFile::cursor`] (cursor-shaped features). Tests that already
+/// hold a byte offset can read `kul_file_id()`, `check.resolved()`,
+/// and `line_index` directly off the returned value.
+#[cfg(test)]
+pub(crate) fn test_open_file(source: &str) -> OpenFile {
+    use kul_core::ast::InputFile;
+    use kul_core::manifest::Manifest;
+    let source_arc: Arc<str> = Arc::from(source);
+    let line_index = LineIndex::new(Arc::clone(&source_arc));
+    let inputs = vec![InputFile::new("test.kul", source)];
+    let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
+    OpenFile {
+        source: source_arc,
+        line_index,
+        check,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kul_core::ast::InputFile;
-    use kul_core::manifest::Manifest;
 
     fn url(s: &str) -> Url {
         Url::parse(s).unwrap()
     }
 
-    fn make_open_file(source: &str) -> OpenFile {
-        let source_arc: Arc<str> = Arc::from(source);
-        let line_index = LineIndex::new(Arc::clone(&source_arc));
-        let inputs = vec![InputFile::new("test.kul", source)];
-        let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
-        OpenFile {
-            source: source_arc,
-            line_index,
-            check,
-        }
-    }
-
     #[tokio::test]
     async fn document_caches_source_and_check() {
         let docs = Documents::default();
-        let doc = make_open_file("person alice name:\"A\" gender:female\n");
+        let doc = test_open_file("person alice name:\"A\" gender:female\n");
         let mut map = docs.inner.write().await;
         map.insert(url("file:///a.kul"), doc);
         drop(map);
@@ -208,7 +219,7 @@ mod tests {
     async fn close_drops_document() {
         let docs = Documents::default();
         let mut map = docs.inner.write().await;
-        map.insert(url("file:///a.kul"), make_open_file(""));
+        map.insert(url("file:///a.kul"), test_open_file(""));
         drop(map);
         assert_eq!(docs.open_count().await, 1);
         docs.close(&url("file:///a.kul")).await;
