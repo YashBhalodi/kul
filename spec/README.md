@@ -8,6 +8,8 @@ This is the normative specification of the Kul language, version 0.1. A conformi
 
 For background on what Kul is and why it exists, see [`../docs/vision.md`](../docs/vision.md). For the project root, see [`../README.md`](../README.md).
 
+To help an LLM agent author `.kul` from natural-language family narratives, install the [`kul-authoring`](../skills/kul-authoring/SKILL.md) skill: `npx skills add YashBhalodi/kul --skill kul-authoring`.
+
 ## How to read this spec
 
 The spec is split across fifteen sections plus a standalone formal grammar. Read sequentially for first-time orientation; jump by section once familiar.
