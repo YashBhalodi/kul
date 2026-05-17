@@ -5,12 +5,16 @@
 //! rewritten in place. With `--check`, no file is modified — the
 //! command exits non-zero if any input is not already in canonical
 //! form, which is the right shape for a CI gate.
+//!
+//! Parse errors block formatting (the formatter would produce garbage
+//! against an unparseable input); they are surfaced through the same
+//! miette renderer `validate` uses so the user sees identical output
+//! across subcommands.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use kul_core::diagnostic::{Diagnostic, Severity};
-
+use crate::commands::diag;
 use crate::commands::project::load_and_check;
 
 pub struct Options {
@@ -23,13 +27,9 @@ pub fn run(opts: Options) -> ExitCode {
         Err(code) => return code,
     };
 
-    if has_parse_errors(&result.diagnostics) {
+    if result.diagnostics.iter().any(diag::is_blocking_parse_error) {
         eprintln!("kul: cannot format project with parse errors");
-        for d in &result.diagnostics {
-            if matches!(d.severity, Severity::Error) && is_parse_code(d.code) {
-                eprintln!("  {}: {}", d.code, d.message);
-            }
-        }
+        diag::render_human_matching(&result, false, diag::is_blocking_parse_error);
         return ExitCode::from(1);
     }
 
@@ -59,14 +59,4 @@ pub fn run(opts: Options) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
-}
-
-fn has_parse_errors(diags: &[Diagnostic]) -> bool {
-    diags
-        .iter()
-        .any(|d| matches!(d.severity, Severity::Error) && is_parse_code(d.code))
-}
-
-fn is_parse_code(code: &str) -> bool {
-    code.starts_with("KUL-L") || code.starts_with("KUL-P")
 }
