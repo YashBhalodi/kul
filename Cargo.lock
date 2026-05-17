@@ -676,6 +676,7 @@ version = "0.1.3"
 dependencies = [
  "insta",
  "kul-core",
+ "kul-loader",
  "serde",
  "serde_json",
  "tokio",

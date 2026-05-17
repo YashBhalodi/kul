@@ -148,15 +148,19 @@ The method `Node::entity_reference(&self) -> Option<EntityNode<'a>>` (in `crates
 
 ### Server
 
-The `tower-lsp` Backend implementation in `crates/kul-lsp/src/server.rs`. Owns the document cache, dispatches LSP requests to feature modules, advertises capabilities.
+The `tower-lsp` Backend implementation in `crates/kul-lsp/src/server.rs`. Owns the project cache, dispatches LSP requests to feature modules, advertises capabilities. `did_open` discovers the project from the opened URI (sibling `kul.yml` plus every `.kul` file in the URI's directory) and inserts one cache entry for the whole project; `did_change` mutates the URI's overlay and re-runs `kul_core::check` for the project; `did_close` flips the URI's overlay to `None` and evicts the entry when no URIs remain open. Diagnostic publishes broadcast to every project file (open or disk-only) so the Problems pane reflects project-wide health.
 
 ### Document cache
 
-Thread-safe map from `Url` to a `Document`-with-resolved-state in `crates/kul-lsp/src/state.rs`. Each entry holds an `Arc<str>` source (shared with the [LineIndex](#lineindex)) and a `CheckResult` whose `resolved` field is the cached [`ResolvedDocument`](#resolveddocument) — so every LSP request handler reads through the same resolved view without re-running `semantic::resolve`. Updated on `did_open` / `did_change` / `did_close`.
+Project-keyed map from `ProjectRoot` (the URI's parent directory) to a [`ProjectEntry`](#projectentry) in `crates/kul-lsp/src/state.rs`. Every URI that belongs to one project shares the same cached `CheckResult` and `ResolvedDocument` — opening a second `.kul` file from the same directory does not trigger a second resolve. Updated on `did_open` / `did_change` / `did_close`; evicted when the last open URI of a project closes.
+
+### ProjectEntry
+
+The cached value in the project cache (`crates/kul-lsp/src/state.rs`). Bundles the project's [`CheckResult`](#resolveddocument), the per-file [`LineIndex`](#lineindex) slice in `FileId(1..)` order, the matching URL slice (so features can map `FileId` ↔ `Url`), and the per-URI overlay map (editor-buffer source for open URIs, `None` for files only on disk). Cross-file features (goto-definition, find-references, rename, completion) read through this single entry; the URL slice is what turns a project-wide query result into a `Vec<Location>` keyed by the right URIs.
 
 ### View / Cursor
 
-The per-request handles `OpenFile::view()` and `OpenFile::cursor(position)` return (`crates/kul-lsp/src/state.rs`). A `View` bundles the URI's `FileId`, the cached [`ResolvedDocument`](#resolveddocument), and the [`LineIndex`](#lineindex) for file-level LSP requests (document-symbol, semantic-tokens). A `Cursor` adds the byte offset for cursor-shaped requests (hover, definition, completion, references, rename, prepare-rename). Replaces the three-line `offset / file / resolved` setup every cursor-shaped request handler used to repeat inline; the UTF-16 ↔ UTF-8 conversion lives in one place. Returns `Option<Cursor<'_>>` so a stale client request past EOF resolves to `None` rather than panicking.
+The per-request handles `ProjectEntry::view_for_uri(uri)` and `ProjectEntry::cursor_for_uri(uri, position)` return (`crates/kul-lsp/src/state.rs`). A `View` bundles the URI's `FileId`, the cached [`ResolvedDocument`](#resolveddocument), and the [`LineIndex`](#lineindex) for file-level LSP requests (document-symbol, semantic-tokens). A `Cursor` adds the byte offset for cursor-shaped requests (hover, definition, completion, references, rename, prepare-rename). Replaces the three-line `offset / file / resolved` setup every cursor-shaped request handler used to repeat inline; the UTF-16 ↔ UTF-8 conversion lives in one place. Returns `Option<Cursor<'_>>` so a stale client request past EOF — or a URI that isn't part of this project — resolves to `None` rather than panicking.
 
 ### Feature module
 

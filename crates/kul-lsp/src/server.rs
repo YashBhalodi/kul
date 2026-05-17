@@ -28,7 +28,7 @@ use crate::features::{
     code_action, completion, definition, diagnostics, document_symbol, formatting, hover,
     references, rename, semantic_tokens,
 };
-use crate::state::Documents;
+use crate::state::{Documents, ProjectEntry};
 
 /// The Kul language server.
 pub struct Backend {
@@ -45,14 +45,14 @@ impl Backend {
     }
 
     /// Handler for the `kul/export` custom request. Reads the cached
-    /// `Document` for the given URI, runs the export, and returns the
+    /// project for the given URI, runs the export, and returns the
     /// envelope verbatim. Strict-on-errors is the export function's
     /// contract — this adapter does not interpret the envelope.
     pub async fn export(&self, params: ExportParams) -> Result<ExportEnvelope> {
         let uri = params.uri.clone();
         let result = self
             .documents
-            .with(&uri, |doc| export_for(doc, &params))
+            .with_project(&uri, |entry| export_for(entry, &params))
             .await;
         match result {
             None => Err(Error {
@@ -69,28 +69,53 @@ impl Backend {
         }
     }
 
-    /// Translate the cached diagnostics for `uri` and publish them.
-    /// Called after `did_open` and `did_change`. A no-op if the document
-    /// isn't in the cache. Diagnostics whose primary anchor is in
-    /// another file (manifest, sibling `.kul`s once the multi-file work
-    /// lands) are filtered out — LSP can only attach squiggles to the
-    /// document the request came in for.
-    async fn publish_for(&self, uri: Url, version: Option<i32>) {
-        let translated = self
+    /// Broadcast diagnostics for every `.kul` file in the project that
+    /// owns `uri`. The Problems pane reflects project-wide health
+    /// (issue #85): a file the user never opened still surfaces its
+    /// diagnostics as soon as a sibling file is opened.
+    ///
+    /// `active_uri_version` carries the LSP version of the URI that
+    /// triggered the broadcast (`did_open` / `did_change`). Other URIs
+    /// in the project are published with `None` because their LSP
+    /// version is not the active one.
+    async fn publish_project(&self, active_uri: &Url, active_uri_version: Option<i32>) {
+        let snapshot = self
             .documents
-            .with(&uri, |doc| {
-                diagnostics::to_lsp(
-                    &uri,
-                    &doc.check.diagnostics,
-                    &doc.line_index,
-                    doc.kul_file_id(),
-                )
-            })
+            .with_project(active_uri, collect_project_diagnostics)
             .await;
-        if let Some(diags) = translated {
-            self.client.publish_diagnostics(uri, diags, version).await;
+        let Some(snapshot) = snapshot else {
+            return;
+        };
+        for (url, diags) in snapshot {
+            let version = if &url == active_uri {
+                active_uri_version
+            } else {
+                None
+            };
+            self.client.publish_diagnostics(url, diags, version).await;
         }
     }
+}
+
+/// Collect the per-URL LSP diagnostic lists for every `.kul` file in
+/// the project entry. Each URL gets either its translated diagnostics
+/// or an empty list (so a file that just left the error state still
+/// receives a publish that clears its stale squiggles).
+fn collect_project_diagnostics(
+    entry: &ProjectEntry,
+) -> Vec<(Url, Vec<tower_lsp::lsp_types::Diagnostic>)> {
+    let mut out = Vec::with_capacity(entry.project_urls().len());
+    for url in entry.project_urls() {
+        let Some(file) = entry.file_id_for(url) else {
+            continue;
+        };
+        let Some(line_index) = entry.line_index_for(file) else {
+            continue;
+        };
+        let diags = diagnostics::to_lsp(url, &entry.check.diagnostics, line_index, file);
+        out.push((url.clone(), diags));
+    }
+    out
 }
 
 #[tower_lsp::async_trait]
@@ -164,7 +189,7 @@ impl LanguageServer for Backend {
         let source = params.text_document.text;
         tracing::info!(uri = %uri, "document opened");
         self.documents.open(uri.clone(), source).await;
-        self.publish_for(uri, Some(version)).await;
+        self.publish_project(&uri, Some(version)).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -176,15 +201,32 @@ impl LanguageServer for Backend {
         };
         tracing::debug!(uri = %uri, "document changed");
         self.documents.update(uri.clone(), change.text).await;
-        self.publish_for(uri, Some(version)).await;
+        self.publish_project(&uri, Some(version)).await;
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
         let uri = params.text_document.uri;
         tracing::info!(uri = %uri, "document closed");
-        self.documents.close(&uri).await;
-        // Clear the squiggles for this document.
-        self.client.publish_diagnostics(uri, Vec::new(), None).await;
+        let (urls, evicted) = self.documents.close(&uri).await;
+        if evicted {
+            // Last URI of the project closed: clear squiggles for every
+            // file the project ever surfaced.
+            for url in urls {
+                self.client.publish_diagnostics(url, Vec::new(), None).await;
+            }
+            // Ensure the closing URI itself sees the clearing publish,
+            // even when the project entry was never built (e.g. a
+            // close without a matching open).
+            self.client.publish_diagnostics(uri, Vec::new(), None).await;
+        } else {
+            // The closed URI's overlay flipped to `None`; the project
+            // still has open URIs. Publish a clearing list for the
+            // closed URI and refresh diagnostics for the rest.
+            self.client
+                .publish_diagnostics(uri.clone(), Vec::new(), None)
+                .await;
+            self.publish_project(&uri, None).await;
+        }
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
@@ -192,8 +234,8 @@ impl LanguageServer for Backend {
         let position = params.text_document_position_params.position;
         let result = self
             .documents
-            .with(&uri, |doc| {
-                let c = doc.cursor(position)?;
+            .with_project(&uri, |entry| {
+                let c = entry.cursor_for_uri(&uri, position)?;
                 hover::hover(c.file, c.resolved, c.line_index, c.offset)
             })
             .await;
@@ -208,10 +250,7 @@ impl LanguageServer for Backend {
         let position = params.text_document_position_params.position;
         let result = self
             .documents
-            .with(&uri, |doc| {
-                let c = doc.cursor(position)?;
-                definition::definition(c.file, c.resolved, c.line_index, &uri, c.offset)
-            })
+            .with_project(&uri, |entry| definition::definition(entry, &uri, position))
             .await;
         Ok(result.flatten().map(GotoDefinitionResponse::Scalar))
     }
@@ -221,14 +260,15 @@ impl LanguageServer for Backend {
         let range = params.range;
         let actions = self
             .documents
-            .with(&uri, |doc| {
-                let file = doc.kul_file_id();
-                let check = &doc.check;
+            .with_project(&uri, |entry| {
+                let file = entry.file_id_for(&uri)?;
+                let line_index = entry.line_index_for(file)?;
+                let check = &entry.check;
                 Some(code_action::code_actions(
                     file,
                     check.resolved(),
                     &check.diagnostics,
-                    &doc.line_index,
+                    line_index,
                     &uri,
                     range,
                 ))
@@ -246,8 +286,8 @@ impl LanguageServer for Backend {
         let position = params.position;
         let result = self
             .documents
-            .with(&uri, |doc| {
-                let c = doc.cursor(position)?;
+            .with_project(&uri, |entry| {
+                let c = entry.cursor_for_uri(&uri, position)?;
                 rename::prepare_rename(c.file, c.resolved, c.line_index, c.offset)
             })
             .await;
@@ -260,11 +300,8 @@ impl LanguageServer for Backend {
         let new_name = params.new_name;
         let result = self
             .documents
-            .with(&uri, |doc| {
-                let c = doc
-                    .cursor(position)
-                    .ok_or(rename::RenameError::NotRenameable)?;
-                rename::rename(c.file, c.resolved, c.line_index, &uri, c.offset, &new_name)
+            .with_project(&uri, |entry| {
+                rename::rename(entry, &uri, position, &new_name)
             })
             .await;
         match result {
@@ -284,16 +321,8 @@ impl LanguageServer for Backend {
         let include_decl = params.context.include_declaration;
         let result = self
             .documents
-            .with(&uri, |doc| {
-                let c = doc.cursor(position)?;
-                references::references(
-                    c.file,
-                    c.resolved,
-                    c.line_index,
-                    &uri,
-                    c.offset,
-                    include_decl,
-                )
+            .with_project(&uri, |entry| {
+                references::references(entry, &uri, position, include_decl)
             })
             .await;
         Ok(result.flatten())
@@ -306,11 +335,16 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
         let symbols = self
             .documents
-            .with(&uri, |doc| {
-                let v = doc.view();
-                document_symbol::document_symbols(v.file, v.resolved, v.line_index)
+            .with_project(&uri, |entry| {
+                let v = entry.view_for_uri(&uri)?;
+                Some(document_symbol::document_symbols(
+                    v.file,
+                    v.resolved,
+                    v.line_index,
+                ))
             })
-            .await;
+            .await
+            .flatten();
         Ok(symbols.map(DocumentSymbolResponse::Nested))
     }
 
@@ -321,11 +355,16 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
         let tokens = self
             .documents
-            .with(&uri, |doc| {
-                let v = doc.view();
-                semantic_tokens::semantic_tokens(v.file, v.resolved, v.line_index)
+            .with_project(&uri, |entry| {
+                let v = entry.view_for_uri(&uri)?;
+                Some(semantic_tokens::semantic_tokens(
+                    v.file,
+                    v.resolved,
+                    v.line_index,
+                ))
             })
-            .await;
+            .await
+            .flatten();
         Ok(tokens.map(SemanticTokensResult::Tokens))
     }
 
@@ -333,11 +372,18 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
         let edits = self
             .documents
-            .with(&uri, |doc| {
-                formatting::formatting(&doc.source, &doc.check.diagnostics, &doc.line_index)
+            .with_project(&uri, |entry| {
+                let v = entry.view_for_uri(&uri)?;
+                formatting::formatting(
+                    v.line_index.source(),
+                    &entry.check.diagnostics,
+                    v.line_index,
+                    v.file,
+                )
             })
-            .await;
-        Ok(edits.flatten())
+            .await
+            .flatten();
+        Ok(edits)
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
@@ -345,8 +391,8 @@ impl LanguageServer for Backend {
         let position = params.text_document_position.position;
         let items = self
             .documents
-            .with(&uri, |doc| {
-                let c = doc.cursor(position)?;
+            .with_project(&uri, |entry| {
+                let c = entry.cursor_for_uri(&uri, position)?;
                 Some(completion::complete(
                     c.line_index.source(),
                     c.file,

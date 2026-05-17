@@ -14,19 +14,24 @@
 //! formattable.
 
 use kul_core::diagnostic::{Diagnostic, Severity};
+use kul_core::span::FileId;
 use tower_lsp::lsp_types::{Position, Range, TextEdit};
 
 use crate::convert::LineIndex;
 
 /// Format the document if it parses cleanly. Returns `None` if the parse
-/// produced any error-severity lex/parse diagnostics; in that case the
-/// editor receives an empty response and leaves the buffer alone.
+/// produced any error-severity lex/parse diagnostics anchored at
+/// `file`; in that case the editor receives an empty response and
+/// leaves the buffer alone. Diagnostics anchored at sibling files in
+/// the same project are ignored — formatting one file does not depend
+/// on its siblings parsing.
 pub fn formatting(
     source: &str,
     diagnostics: &[Diagnostic],
     line_index: &LineIndex,
+    file: FileId,
 ) -> Option<Vec<TextEdit>> {
-    if has_parse_errors(diagnostics) {
+    if has_parse_errors(diagnostics, file) {
         return None;
     }
     let formatted = kul_core::format::format_source(source);
@@ -49,10 +54,11 @@ pub fn formatting(
     }])
 }
 
-fn has_parse_errors(diags: &[Diagnostic]) -> bool {
+fn has_parse_errors(diags: &[Diagnostic], file: FileId) -> bool {
     diags.iter().any(|d| {
         matches!(d.severity, Severity::Error)
             && (d.code.starts_with("KUL-L") || d.code.starts_with("KUL-P"))
+            && d.primary.is_some_and(|p| p.file == file)
     })
 }
 
@@ -65,7 +71,8 @@ mod tests {
     fn returns_empty_edit_list_when_already_canonical() {
         let source = "person alice  name:\"A\"  gender:female\n";
         let doc = test_open_file(source);
-        let edits = formatting(source, &doc.check.diagnostics, &doc.line_index).unwrap();
+        let v = doc.view();
+        let edits = formatting(source, &doc.check.diagnostics, v.line_index, v.file).unwrap();
         assert!(edits.is_empty());
     }
 
@@ -73,7 +80,8 @@ mod tests {
     fn returns_full_doc_replacement_when_dirty() {
         let source = "person alice name:\"A\" gender:female\n";
         let doc = test_open_file(source);
-        let edits = formatting(source, &doc.check.diagnostics, &doc.line_index).unwrap();
+        let v = doc.view();
+        let edits = formatting(source, &doc.check.diagnostics, v.line_index, v.file).unwrap();
         assert_eq!(edits.len(), 1);
         assert_eq!(
             edits[0].range.start,
@@ -92,7 +100,8 @@ mod tests {
     fn refuses_to_format_input_with_parse_errors() {
         let source = "person\n";
         let doc = test_open_file(source);
-        assert!(formatting(source, &doc.check.diagnostics, &doc.line_index).is_none());
+        let v = doc.view();
+        assert!(formatting(source, &doc.check.diagnostics, v.line_index, v.file).is_none());
     }
 
     #[test]
@@ -108,7 +117,8 @@ mod tests {
                 .any(|d| d.code.starts_with("KUL-R"))
         );
         // ...but the formatter still runs.
-        let edits = formatting(source, &doc.check.diagnostics, &doc.line_index).unwrap();
+        let v = doc.view();
+        let edits = formatting(source, &doc.check.diagnostics, v.line_index, v.file).unwrap();
         // Already canonical (`person alice\n`).
         assert!(edits.is_empty());
     }

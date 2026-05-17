@@ -15,7 +15,7 @@ use kul_core::export::{ExportEnvelope, ExportFormat, ExportOptions, export};
 use serde::Deserialize;
 use tower_lsp::lsp_types::Url;
 
-use crate::state::OpenFile;
+use crate::state::ProjectEntry;
 
 /// Request parameters for `kul/export`. Camel-case to match LSP custom
 /// requests, which conventionally mirror the protocol's casing.
@@ -57,20 +57,22 @@ impl ExportRequestError {
     }
 }
 
-/// Pure projection: turn a cached [`OpenFile`] plus parsed params into an
-/// envelope. Lives outside `Backend` so the integration test can
-/// exercise it without spawning the full LSP server.
+/// Pure projection: turn a cached [`ProjectEntry`] plus parsed params
+/// into an envelope. Lives outside `Backend` so the integration test
+/// can exercise it without spawning the full LSP server.
 ///
 /// Manifest failures (KUL-Mxx) flow through the export envelope as
 /// regular failure-envelope diagnostics now (post-issue-70); this
 /// function no longer needs a separate manifest-unavailable error.
+/// The export is project-wide: every URI in the same project produces
+/// the same envelope (one project = one graph per ADR-0015).
 pub fn export_for(
-    doc: &OpenFile,
+    entry: &ProjectEntry,
     params: &ExportParams,
 ) -> Result<ExportEnvelope, ExportRequestError> {
     let format = parse_format(&params.format)?;
     Ok(export(
-        &doc.check,
+        &entry.check,
         ExportOptions {
             format,
             with_positions: params.with_positions,

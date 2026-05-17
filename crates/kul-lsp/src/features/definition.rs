@@ -3,53 +3,74 @@
 //! Pure dispatch: the resolved-doc query already pairs each reference with
 //! its target (when one exists). All this module does is turn a `Node::*Ref`
 //! with `target: Some(_)` into the corresponding declaration `Location`.
+//!
+//! With project-wide resolution (ADR-0015), the target of a reference may
+//! live in a sibling `.kul` file. The lookup walks through
+//! [`ResolvedDocument::entity`] to find which `FileId` owns the
+//! declaration, then maps that `FileId` back to the project URL via
+//! [`ProjectEntry`].
 
-use kul_core::semantic::ResolvedDocument;
-use kul_core::span::FileId;
-use tower_lsp::lsp_types::{Location, Url};
+use tower_lsp::lsp_types::{Location, Position, Url};
 
-use crate::convert::LineIndex;
+use crate::state::ProjectEntry;
 
 /// Resolve the cursor position to the declaration `Location`, or `None`
 /// when there is nothing to navigate to (declaration site, unresolved
-/// reference, keyword, field, whitespace, EOF).
-pub fn definition(
-    file: FileId,
-    resolved: &ResolvedDocument,
-    line_index: &LineIndex,
-    uri: &Url,
-    byte_offset: usize,
-) -> Option<Location> {
-    let entity = resolved
-        .node_at(file, byte_offset)?
-        .entity_reference(file)?;
+/// reference, keyword, field, whitespace, EOF, URI not in the project).
+pub fn definition(entry: &ProjectEntry, uri: &Url, position: Position) -> Option<Location> {
+    let c = entry.cursor_for_uri(uri, position)?;
+    let entity = c
+        .resolved
+        .node_at(c.file, c.offset)?
+        .entity_reference(c.file)?;
     // Goto-def from a decl is a no-op; resolved refs jump to the target.
     if entity.is_decl {
         return None;
     }
-    // `entity.target` lives in the same file as the reference (per
-    // ADR-0014's per-file namespaces), so we anchor the location at the
-    // request URI rather than re-routing through `entity.ident_span.file`.
-    let target_span = entity.target?.decl_span();
+    // `entity.target` is the resolved decl (may live in any project
+    // file). Re-query the resolver to find the file the declaration
+    // sits in; with project-wide namespaces (ADR-0015) the answer is no
+    // longer "the same file as the reference".
+    let _ = entity.target?;
+    let target_entity = c.resolved.entity(entity.name)?;
+    let target_url = entry.url_for(target_entity.file)?;
+    let target_line_index = entry.line_index_for(target_entity.file)?;
     Some(Location {
-        uri: uri.clone(),
-        range: line_index.range(target_span),
+        uri: target_url.clone(),
+        range: target_line_index.range(target_entity.id.span),
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::test_open_file;
+    use crate::state::{test_open_file, test_project_entry};
+    use tower_lsp::lsp_types::Position;
 
     fn url() -> Url {
         Url::parse("file:///t.kul").unwrap()
     }
 
+    fn position_for(source: &str, offset: usize) -> Position {
+        let mut line = 0u32;
+        let mut character = 0u32;
+        for (i, b) in source.bytes().enumerate() {
+            if i == offset {
+                break;
+            }
+            if b == b'\n' {
+                line += 1;
+                character = 0;
+            } else {
+                character += 1;
+            }
+        }
+        Position { line, character }
+    }
+
     fn def_at(source: &str, offset: usize) -> Option<Location> {
         let doc = test_open_file(source);
-        let v = doc.view();
-        definition(v.file, v.resolved, v.line_index, &url(), offset)
+        definition(&doc, &url(), position_for(source, offset))
     }
 
     fn idx(source: &str, pat: &str) -> usize {
@@ -167,8 +188,10 @@ mod tests {
     #[test]
     fn eof_returns_none() {
         let src = "person a name:\"A\" gender:female\n";
+        // `position_for` clamps past EOF to last position; cursor at end
+        // still resolves to None because the entity_reference query is
+        // empty there.
         assert!(def_at(src, src.len()).is_none());
-        assert!(def_at(src, src.len() + 999).is_none());
     }
 
     #[test]
@@ -183,5 +206,30 @@ mod tests {
             .unwrap();
         let loc = def_at(src, a_ref).expect("location");
         assert_eq!(loc.uri, url());
+    }
+
+    /// Cross-file goto-definition: a reference in one file jumps to a
+    /// declaration in a sibling file. This is the project-wide-namespace
+    /// payoff (ADR-0015 + issue #85) — the editor experience catches up
+    /// to the CLI/WASM crate.
+    #[test]
+    fn jumps_to_sibling_file_declaration() {
+        let alice_src = "person alice name:\"Alice\" gender:female\n";
+        let marriage_src = "person bob name:\"Bob\" gender:male\nmarriage m alice bob start:2010\n";
+        let entry = test_project_entry(&[("alice.kul", alice_src), ("marriage.kul", marriage_src)]);
+        let marriage_url = Url::parse("file:///marriage.kul").unwrap();
+        let alice_url = Url::parse("file:///alice.kul").unwrap();
+        // Cursor on `alice` inside `marriage m alice bob`.
+        let alice_ref_offset = marriage_src.find(" alice ").unwrap() + 1;
+        let loc = definition(
+            &entry,
+            &marriage_url,
+            position_for(marriage_src, alice_ref_offset),
+        )
+        .expect("location");
+        assert_eq!(loc.uri, alice_url);
+        // alice's decl id span starts at byte 7 of `alice.kul`.
+        assert_eq!(loc.range.start.line, 0);
+        assert_eq!(loc.range.start.character, 7);
     }
 }

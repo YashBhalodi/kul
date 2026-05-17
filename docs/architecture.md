@@ -44,7 +44,7 @@ A project's manifest YAML plus its [`InputFile`](../CONTEXT.md#kulfile)s flow th
   ▼  CheckResult { resolved, diagnostics, manifest }
 ```
 
-`kul_core::check(manifest_name, manifest_yaml, &[InputFile])` is the single entry point that runs the whole pipeline. The CLI calls it once per project: each subcommand is CWD-rooted (no positional `<file>`), discovers the manifest and every sibling `.kul` via the shared `kul-loader` crate, and hands the bytes off in one call. The LSP calls it once per document update (re-reading the manifest each time so external edits take effect) and currently still feeds one `.kul` input per call; the project-wide LSP lift is its own follow-up slice of [PRD 0001](./prd/0001-multi-file-kul-projects.md). The WASM bridge calls `check_with_manifest` with a typed manifest the JS host constructed and synthesizes a placeholder `kul.yml` body so any `.kul`-side diagnostic into the manifest still has bytes to anchor at. The pipeline operates on `Document.kul_files` with `N>=1` consumers (per [ADR-0015](./adr/0015-global-project-namespace.md)): the resolver builds one project-wide id index, the validator threads file iteration through it, and R01/R02/R13 honour the global namespace.
+`kul_core::check(manifest_name, manifest_yaml, &[InputFile])` is the single entry point that runs the whole pipeline. The CLI calls it once per project: each subcommand is CWD-rooted (no positional `<file>`), discovers the manifest and every sibling `.kul` via the shared `kul-loader` crate, and hands the bytes off in one call. The LSP calls it once per project (not per URI — issue #85): `did_open` discovers the project from the opened URI's directory, reads every sibling `.kul` off disk, and feeds the whole set into one `check`; subsequent `did_change` and `did_close` mutate the per-URI overlay and re-run `check` for the same project. The WASM bridge calls `check_with_manifest` with a typed manifest the JS host constructed and synthesizes a placeholder `kul.yml` body so any `.kul`-side diagnostic into the manifest still has bytes to anchor at. The pipeline operates on `Document.kul_files` with `N>=1` consumers (per [ADR-0015](./adr/0015-global-project-namespace.md)): the resolver builds one project-wide id index, the validator threads file iteration through it, and R01/R02/R13 honour the global namespace.
 
 The shape is deliberately linear. Each pass produces a strictly richer artifact; nothing earlier in the pipeline ever consults something later. This is why:
 
@@ -83,11 +83,16 @@ kul-cli    ── thin binary `kul`
               output formatting.
 
 kul-lsp    ── library + binary `kul-lsp`
-              tower-lsp Backend implementation. Owns the document cache,
+              tower-lsp Backend implementation. Owns the project-keyed
+              cache (one cached check per project root, not per URI),
               implements feature modules (hover, definition, completion,
               diagnostics, export, …), translates kul-core types to LSP
-              types. Never re-implements pipeline logic — only adapts.
-              Custom requests (e.g. `kul/export`) are registered via
+              types. Cross-file features (definition, references,
+              rename, completion) are project-wide per ADR-0015;
+              diagnostics broadcast to every project file on every
+              update so the Problems pane reflects project-wide health.
+              Never re-implements pipeline logic — only adapts. Custom
+              requests (e.g. `kul/export`) are registered via
               `LspService::build().custom_method(...)` in `lib.rs`.
 
 kul-wasm   ── library (cdylib + rlib), published as `@kullang/wasm`
@@ -120,25 +125,32 @@ client (VSCode)
   │  JSON-RPC over stdio
   ▼
 server.rs::Backend::<request> handler
-  │  reads document from state::Documents
+  │  reads ProjectEntry from state::Documents
+  │  (cache key is the URI's project root, not the URI itself —
+  │   one CheckResult per project, shared by every URI in it)
   ▼
-&doc.check.resolved  (cached ResolvedDocument for this URI)
+&entry.check.resolved  (cached project-wide ResolvedDocument)
   │
-  ▼  resolved.node_at(byte_offset)  →  Option<Node<'_>>
+  ▼  resolved.node_at(entry.file_id_for(uri), byte_offset)  →  Option<Node<'_>>
   │
   ▼  features/<feature>.rs builds the response by pattern-matching
-  │  on the Node variant
+  │  on the Node variant; cross-file features resolve target FileIds
+  │  through resolved.entity(name).file, then map FileId → Url via
+  │  ProjectEntry::url_for(...)
   │
   ▼  convert.rs translates ByteSpan + types to LSP types (Range, Url, …)
   │
   ▼  Result<Response, Error>
 ```
 
-Three things make this work:
+Lifecycle: `did_open` discovers the project from the opened URI (sibling `kul.yml` plus every `.kul` file in the same directory, read off disk) and inserts one cache entry for the whole project. `did_change` mutates the overlay for the active URI and re-runs `kul_core::check` for the project. `did_close` flips the URI's overlay to `None` and evicts the entry when no URIs from the project remain open. Diagnostic publishes broadcast to every file in the project — open URIs and disk-only siblings alike — so the Problems pane reflects project-wide health (issue #85).
 
-1. The document cache (`state::Documents`) holds the full `CheckResult` — including the cached `ResolvedDocument` — per open URI. Re-parsing or re-resolving on every request would be wasteful; the cache is the source of truth (per [ADR-0007](./adr/0007-resolved-document-owns-document.md)).
+Four things make this work:
+
+1. The project cache (`state::Documents`) holds the full project-wide `CheckResult` — including the cached `ResolvedDocument` — per project root. Opening N files from one project triggers one resolve, not N (per [ADR-0007](./adr/0007-resolved-document-owns-document.md) and [ADR-0015](./adr/0015-global-project-namespace.md)).
 2. `node_at` is the shared foundation. Hover, goto-definition, and completion all start with "what's at the cursor?" — implementing it once means the three features can't disagree about it.
 3. `Node` is a typed enum, not a tag. Each LSP feature pattern-matches the variants relevant to it; the compiler enforces exhaustiveness when a new variant lands.
+4. The `ProjectEntry` carries a parallel `Vec<Url>` and `Vec<LineIndex>` keyed by `FileId`. Cross-file features (definition, references, rename) turn a project-wide query result into URI-keyed LSP responses by indexing those slices — there is no separate URI-keyed cache to keep in sync.
 
 ## The seams
 
@@ -157,7 +169,7 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 | `field_meta::FieldMeta`               | `crates/kul-core/src/field_meta.rs`          | Per-field taxonomy: value shape, completion description, hover Markdown. Hover, completion, and semantic-tokens consume it (ADR-0005). |
 | `export::export`                      | `crates/kul-core/src/export.rs`              | Canonical JSON projection of a `CheckResult` into an `ExportEnvelope`. Strict on errors; format-dispatched (kinship-native or cytoscape). The deep module the CLI's `kul export` and the LSP's `kul/export` both call. Schema documented in [`spec/16-export-schema.md`](../spec/16-export-schema.md); shape, posture, and versioning settled in ADRs 0008–0010. |
 | `LineIndex`                           | `crates/kul-lsp/src/convert.rs`              | Byte ↔ LSP-position. Handles UTF-16 code units and CRLF. Holds source as `Arc<str>` so `state::Document` shares the same heap buffer.|
-| `state::Documents`                    | `crates/kul-lsp/src/state.rs`                | The LSP document cache. Thread-safe; the only path to a `Document` from inside an LSP request handler. Each cached `Document` shares one `Arc<str>` between its `source` field and the `LineIndex`.          |
+| `state::Documents`                    | `crates/kul-lsp/src/state.rs`                | The LSP project cache. Thread-safe; the only path to a `ProjectEntry` from inside an LSP request handler. Keyed by `ProjectRoot` (one entry per project, not per URI), so multiple open URIs in one project share a single `CheckResult`. Each `ProjectEntry` carries the project-wide `LineIndex` slice and the matching `Url` slice in `FileId(1..)` order — cross-file features resolve through these.          |
 | `kul_wasm::{check, export_graph, format_source}` | `crates/kul-wasm/src/lib.rs`     | The WASM/JS surface. Three deep-module entrypoints exposed via `wasm-bindgen` with three operation-specific return shapes (per [ADR-0011](./adr/0011-wasm-surface-three-shapes-no-wrappers.md)). No convenience layer; consumers compose helpers at the call site. |
 
 If you find yourself reaching around one of these (e.g. iterating `document.statements` from a feature module), stop and consider extending the seam instead.

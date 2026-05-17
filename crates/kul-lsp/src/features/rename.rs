@@ -9,17 +9,21 @@
 //!   [`WorkspaceEdit`] covering the declaration plus every reference. The
 //!   validations match the PRD: the new name must be a syntactic
 //!   identifier, must not collide with a reserved keyword, and must not
-//!   collide with another id already in the document.
+//!   collide with another id already in the project.
+//!
+//! With project-wide resolution (ADR-0015), the workspace edit spans
+//! every file in the project. Each affected file produces one entry in
+//! `WorkspaceEdit.changes`.
 
 use std::collections::HashMap;
 
 use kul_core::lexer::{is_identifier, is_reserved_word};
 use kul_core::semantic::ResolvedDocument;
-use kul_core::span::ByteSpan;
-use kul_core::span::FileId;
-use tower_lsp::lsp_types::{PrepareRenameResponse, TextEdit, Url, WorkspaceEdit};
+use kul_core::span::{FileId, FileSpan};
+use tower_lsp::lsp_types::{Position, PrepareRenameResponse, TextEdit, Url, WorkspaceEdit};
 
 use crate::convert::LineIndex;
+use crate::state::ProjectEntry;
 
 /// What went wrong with a rename request, suitable for surfacing to the
 /// user as an LSP error message.
@@ -37,7 +41,7 @@ pub enum RenameError {
     /// `birth`, `gender`, etc.) — the parser would reject the renamed file.
     ReservedKeyword { proposed: String },
     /// The proposed name is already used by another person or marriage in
-    /// the document; renaming would produce a duplicate-id error.
+    /// the project; renaming would produce a duplicate-id error.
     Collision { proposed: String },
 }
 
@@ -58,7 +62,7 @@ impl RenameError {
                 "`{proposed}` is a reserved keyword in Kul — pick a different id"
             ),
             RenameError::Collision { proposed } => format!(
-                "`{proposed}` is already used by another person or marriage in this file — every id must be unique"
+                "`{proposed}` is already used by another person or marriage in this project — every id must be unique"
             ),
         }
     }
@@ -87,23 +91,33 @@ pub fn prepare_rename(
 
 /// Attempt to rename the id under the cursor to `new_name`. On success
 /// returns a workspace edit that updates the declaration and every
-/// reference in lock-step.
+/// reference across the entire project in lock-step.
 pub fn rename(
-    file: FileId,
-    resolved: &ResolvedDocument,
-    line_index: &LineIndex,
+    entry: &ProjectEntry,
     uri: &Url,
-    byte_offset: usize,
+    position: Position,
     new_name: &str,
 ) -> Result<WorkspaceEdit, RenameError> {
-    let entity = resolved
-        .node_at(file, byte_offset)
-        .and_then(|n| n.entity_reference(file))
+    let c = entry
+        .cursor_for_uri(uri, position)
         .ok_or(RenameError::NotRenameable)?;
-    let decl_span = entity
-        .decl_span()
-        .ok_or(RenameError::UnresolvedReference)?
-        .span;
+    let entity = c
+        .resolved
+        .node_at(c.file, c.offset)
+        .and_then(|n| n.entity_reference(c.file))
+        .ok_or(RenameError::NotRenameable)?;
+    // For decls, the decl span sits at the active file. For references,
+    // resolve through the project-wide entity lookup so the decl span
+    // anchors at the *target's* file (which may be a sibling).
+    let decl_span: FileSpan = if entity.is_decl {
+        entity.ident_span
+    } else {
+        let target = c
+            .resolved
+            .entity(entity.name)
+            .ok_or(RenameError::UnresolvedReference)?;
+        FileSpan::new(target.file, target.id.span)
+    };
     let current = entity.name;
     let kind = entity.kind;
 
@@ -123,35 +137,34 @@ pub fn rename(
             proposed: new_name.to_owned(),
         });
     }
-    if resolved.entity(new_name).is_some() {
+    if c.resolved.entity(new_name).is_some() {
         return Err(RenameError::Collision {
             proposed: new_name.to_owned(),
         });
     }
 
-    // `references_to` is project-wide per ADR-0015; filter to the active
-    // URI's file because the LSP cache is still URI-keyed. Cross-file
-    // rename lands with PRD 0001 slice 5 (#85).
-    let mut spans: Vec<ByteSpan> = resolved
-        .references_to(current, kind)
-        .into_iter()
-        .filter(|fs| fs.file == file)
-        .map(|fs| fs.span)
-        .collect();
+    // Project-wide rename. Group spans by file so each file gets one
+    // `Vec<TextEdit>` against its own LineIndex; the workspace edit
+    // surface keys those vectors by URL.
+    let mut spans: Vec<FileSpan> = c.resolved.references_to(current, kind);
     spans.push(decl_span);
-    spans.sort_by_key(|s| s.start);
+    spans.sort_by_key(|s| (s.file.as_u32(), s.span.start));
     spans.dedup();
 
-    let edits: Vec<TextEdit> = spans
-        .into_iter()
-        .map(|s| TextEdit {
-            range: line_index.range(s),
+    let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
+    for fs in spans {
+        let Some(url) = entry.url_for(fs.file) else {
+            continue;
+        };
+        let Some(line_index) = entry.line_index_for(fs.file) else {
+            continue;
+        };
+        changes.entry(url.clone()).or_default().push(TextEdit {
+            range: line_index.range(fs.span),
             new_text: new_name.to_owned(),
-        })
-        .collect();
+        });
+    }
 
-    let mut changes = HashMap::new();
-    changes.insert(uri.clone(), edits);
     Ok(WorkspaceEdit {
         changes: Some(changes),
         ..Default::default()
@@ -161,10 +174,27 @@ pub fn rename(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::test_open_file;
+    use crate::state::{test_open_file, test_project_entry};
 
     fn url() -> Url {
         Url::parse("file:///t.kul").unwrap()
+    }
+
+    fn position_for(source: &str, offset: usize) -> Position {
+        let mut line = 0u32;
+        let mut character = 0u32;
+        for (i, b) in source.bytes().enumerate() {
+            if i == offset {
+                break;
+            }
+            if b == b'\n' {
+                line += 1;
+                character = 0;
+            } else {
+                character += 1;
+            }
+        }
+        Position { line, character }
     }
 
     fn idx(source: &str, pat: &str) -> usize {
@@ -177,8 +207,7 @@ mod tests {
         new_name: &str,
     ) -> Result<WorkspaceEdit, RenameError> {
         let doc = test_open_file(source);
-        let v = doc.view();
-        rename(v.file, v.resolved, v.line_index, &url(), offset, new_name)
+        rename(&doc, &url(), position_for(source, offset), new_name)
     }
 
     fn run_prepare(source: &str, offset: usize) -> Option<PrepareRenameResponse> {
@@ -279,10 +308,6 @@ mod tests {
     #[test]
     fn rename_to_reserved_keyword_returns_error() {
         let src = "person alice name:\"A\" gender:female\n";
-        // The reserved set is whatever `kul_core::lexer::is_reserved_word`
-        // says; this list mirrors the lexer keywords. `kul` is intentionally
-        // absent — per `kul_core::lexer` tests, `kul` is a normal identifier
-        // post-#69 manifest refactor.
         for kw in [
             "person",
             "marriage",
@@ -311,7 +336,6 @@ mod tests {
     fn rename_to_existing_id_returns_error() {
         let src = "person alice name:\"A\" gender:female\n\
                    person bob name:\"B\" gender:male\n";
-        // alice → bob would collide with the existing person id.
         let err = run_rename(src, idx(src, "alice"), "bob").unwrap_err();
         assert!(matches!(err, RenameError::Collision { .. }));
     }
@@ -321,8 +345,6 @@ mod tests {
         let src = "person alice name:\"A\" gender:female\n\
                    person bob name:\"B\" gender:male\n\
                    marriage m alice bob start:1972\n";
-        // alice → m would collide with the marriage id (rule R01 cross-kind
-        // uniqueness).
         let err = run_rename(src, idx(src, "alice"), "m").unwrap_err();
         assert!(matches!(err, RenameError::Collision { .. }));
     }
@@ -355,7 +377,6 @@ mod tests {
 
     #[test]
     fn rename_error_messages_are_actionable() {
-        // Confirm each error type produces a message that names the cause.
         let invalid = RenameError::InvalidIdentifier {
             proposed: "1bad".into(),
         };
@@ -379,5 +400,29 @@ mod tests {
                    marriage m2 alice carol start:2000\n";
         let we = run_rename(src, idx(src, "alice"), "alicia").unwrap();
         insta::assert_json_snapshot!(we);
+    }
+
+    /// Cross-file rename: a person declared in one file and referenced
+    /// in another produces edits keyed by both URLs.
+    #[test]
+    fn rename_spans_every_project_file() {
+        let alice_src = "person alice name:\"Alice\" gender:female\n";
+        let marriage_src = "person bob name:\"Bob\" gender:male\nmarriage m alice bob start:2010\n";
+        let entry = test_project_entry(&[("alice.kul", alice_src), ("marriage.kul", marriage_src)]);
+        let alice_url = Url::parse("file:///alice.kul").unwrap();
+        let marriage_url = Url::parse("file:///marriage.kul").unwrap();
+        let we = rename(
+            &entry,
+            &alice_url,
+            position_for(alice_src, alice_src.find("alice").unwrap()),
+            "alicia",
+        )
+        .unwrap();
+        let changes = we.changes.unwrap();
+        assert!(changes.contains_key(&alice_url));
+        assert!(changes.contains_key(&marriage_url));
+        // One edit in alice.kul (decl) and one in marriage.kul (spouse ref).
+        assert_eq!(changes[&alice_url].len(), 1);
+        assert_eq!(changes[&marriage_url].len(), 1);
     }
 }

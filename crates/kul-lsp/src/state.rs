@@ -1,24 +1,27 @@
-//! Per-URI document cache.
+//! Project-keyed LSP cache.
 //!
-//! The cache holds one [`OpenFile`] per open `.kul` URI. Each `OpenFile`
-//! carries the source text, a [`LineIndex`] for byte ↔ LSP-position
-//! conversion, and the cached `kul_core::CheckResult` produced by running
-//! the full pipeline (manifest validation included) over the URI's
-//! content. All access goes through the [`Documents`] handle so the
-//! locking story stays in one place.
+//! A Kul project is a directory holding a `kul.yml` manifest plus one or
+//! more sibling `*.kul` files (ADR-0015). The cache holds one
+//! [`ProjectEntry`] per discovered project root; every URI that belongs to
+//! the project reads through the same cached [`kul_core::CheckResult`].
+//! The deep module here is the project lifecycle: discover on first
+//! `did_open`, refresh on every `did_open` / `did_change`, evict when the
+//! last open URI closes.
 //!
-//! The `OpenFile` rename (from `Document`) lands alongside the multi-file
-//! refactor: `kul_core::ast::Document` now means the multi-file project
-//! container, so the LSP's per-URI cache entry needs a name that doesn't
-//! collide with it.
+//! The per-URI overlay map records which URIs the editor currently holds
+//! buffers for. A `Some(Arc<str>)` entry wins over the disk source for
+//! that URI; `None` means the URI is part of the project but the buffer
+//! has gone back to disk (after `did_close`, before eviction).
 //!
-//! The source is stored as an [`Arc<str>`] shared with the [`LineIndex`]
-//! so a single heap buffer backs both fields.
+//! The previous URI-keyed cache (one cached check per URI) is gone with
+//! this slice — the cache key is the project root, not the URI.
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use kul_core::CheckResult;
+use kul_core::ast::InputFile;
 use kul_core::semantic::ResolvedDocument;
 use kul_core::span::FileId;
 use tokio::sync::RwLock;
@@ -26,79 +29,159 @@ use tower_lsp::lsp_types::{Position, Url};
 
 use crate::convert::LineIndex;
 
-/// One open `.kul` document plus the cached check result.
+/// Hashable handle to a project root directory.
 ///
-/// The check pipeline is run at every `did_open` / `did_change`. Manifest
-/// failures are first-class diagnostics inside `check.diagnostics` (per
-/// the file-identity refactor); the LSP no longer carries a separate
-/// "manifest failed" displacement.
-#[derive(Debug, Clone)]
-pub struct OpenFile {
-    pub source: Arc<str>,
-    pub line_index: LineIndex,
-    pub check: CheckResult,
-}
+/// Constructed from a `.kul` URI by taking the parent path; the LSP
+/// cache stores one [`ProjectEntry`] per `ProjectRoot`. Non-`file://`
+/// URIs (which can't be turned into a filesystem path) collapse to the
+/// URI string so each such URI ends up its own singleton project — the
+/// closest we can do without filesystem reach.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ProjectRoot(PathBuf);
 
-impl OpenFile {
-    /// The [`FileId`] of the `.kul` file inside the cached
-    /// `CheckResult.document()`. The toolchain feeds one input per URI,
-    /// so the file always sits at `FileId(1)` (the manifest occupies
-    /// `FileId::MANIFEST`).
-    pub fn kul_file_id(&self) -> FileId {
-        // First (and only) `.kul` input lives at `FileId(1)`.
-        self.check
-            .document()
-            .kul_file_ids()
-            .next()
-            .unwrap_or(FileId::MANIFEST)
+impl ProjectRoot {
+    /// Project root for a `.kul` URI: the URI's parent directory.
+    pub fn for_uri(uri: &Url) -> Self {
+        let path = uri
+            .to_file_path()
+            .ok()
+            .and_then(|p| p.parent().map(Path::to_path_buf));
+        ProjectRoot(path.unwrap_or_else(|| PathBuf::from(uri.to_string())))
     }
 
-    /// The per-URI [`View`] callers need for file-level LSP requests
-    /// that don't carry a cursor (document-symbol, semantic-tokens).
-    /// Bundles the `FileId`, the cached [`ResolvedDocument`], and the
-    /// [`LineIndex`] so the request handler stops re-deriving them.
-    pub fn view(&self) -> View<'_> {
-        View {
-            file: self.kul_file_id(),
+    pub fn as_path(&self) -> &Path {
+        &self.0
+    }
+}
+
+/// One cached project: the [`CheckResult`] plus per-file metadata
+/// (line indices and URLs in `FileId(1..)` order) and the per-URI
+/// overlay map.
+///
+/// `urls[i]` is the URL of the `.kul` file at `FileId(i + 1)`; the
+/// `+1` accounts for the manifest at `FileId::MANIFEST`. The two slices
+/// (`line_indices`, `urls`) stay in lock-step with
+/// `check.document().kul_files`.
+#[derive(Debug, Clone)]
+pub struct ProjectEntry {
+    pub root: ProjectRoot,
+    pub check: CheckResult,
+    pub line_indices: Vec<LineIndex>,
+    pub urls: Vec<Url>,
+    /// Per-URI overlay. `Some(_)` carries the editor-buffer source for an
+    /// open URI; `None` marks a URI the editor recently closed (still
+    /// known to the project, but read from disk on the next rebuild).
+    pub overlay: HashMap<Url, Option<Arc<str>>>,
+}
+
+impl ProjectEntry {
+    /// The number of URIs the editor is currently holding open from this
+    /// project. Eviction fires when this hits zero.
+    pub fn open_count(&self) -> usize {
+        self.overlay.values().filter(|s| s.is_some()).count()
+    }
+
+    /// The `FileId` of `uri` inside this project's `CheckResult`, or
+    /// `None` if the URI isn't part of the project.
+    pub fn file_id_for(&self, uri: &Url) -> Option<FileId> {
+        self.urls
+            .iter()
+            .position(|u| u == uri)
+            .map(|i| FileId::from_raw((i + 1) as u32))
+    }
+
+    /// The URL of the `.kul` file at `file`, or `None` if `file` is the
+    /// manifest or out of range.
+    pub fn url_for(&self, file: FileId) -> Option<&Url> {
+        let i = file.as_u32().checked_sub(1)? as usize;
+        self.urls.get(i)
+    }
+
+    /// The cached [`LineIndex`] for `file`, or `None` if `file` is the
+    /// manifest or out of range.
+    pub fn line_index_for(&self, file: FileId) -> Option<&LineIndex> {
+        let i = file.as_u32().checked_sub(1)? as usize;
+        self.line_indices.get(i)
+    }
+
+    /// Every URL currently part of this project, in `FileId` order.
+    pub fn project_urls(&self) -> &[Url] {
+        &self.urls
+    }
+
+    /// Build the per-URI [`View`] for cursor-less LSP requests
+    /// (document-symbol, semantic-tokens). `None` when `uri` isn't part
+    /// of the project.
+    pub fn view_for_uri(&self, uri: &Url) -> Option<View<'_>> {
+        let file = self.file_id_for(uri)?;
+        let line_index = self.line_index_for(file)?;
+        Some(View {
+            file,
             resolved: self.check.resolved(),
-            line_index: &self.line_index,
+            line_index,
+        })
+    }
+
+    /// Build the per-URI [`Cursor`] for cursor-shaped LSP requests
+    /// (hover, definition, completion, references, rename,
+    /// prepare-rename). `None` when `uri` isn't part of the project or
+    /// the position is past the document's end.
+    pub fn cursor_for_uri(&self, uri: &Url, position: Position) -> Option<Cursor<'_>> {
+        let file = self.file_id_for(uri)?;
+        let line_index = self.line_index_for(file)?;
+        let offset = line_index.byte_offset(position)?;
+        Some(Cursor {
+            file,
+            resolved: self.check.resolved(),
+            line_index,
+            offset,
+        })
+    }
+
+    /// Test-only convenience: build a `View` for the project's first
+    /// (and, in tests, only) `.kul` file. Lets per-feature unit tests
+    /// keep their existing `let v = doc.view();` line.
+    #[cfg(test)]
+    pub fn view(&self) -> View<'_> {
+        let file = FileId::from_raw(1);
+        View {
+            file,
+            resolved: self.check.resolved(),
+            line_index: self
+                .line_index_for(file)
+                .expect("test fixture has at least one .kul file"),
         }
     }
 
-    /// The per-URI [`Cursor`] for LSP requests that *do* carry a
-    /// position (hover, goto-definition, completion, prepare-rename,
-    /// rename, references). Returns `None` when `position` falls
-    /// outside the source — a stale client request after the document
-    /// has shrunk. The cursor's byte offset is the project-wide
-    /// argument every kinship-query method on [`ResolvedDocument`]
-    /// already expects.
+    /// Test-only convenience matching [`Self::view`].
+    #[cfg(test)]
     pub fn cursor(&self, position: Position) -> Option<Cursor<'_>> {
-        let offset = self.line_index.byte_offset(position)?;
+        let file = FileId::from_raw(1);
+        let line_index = self.line_index_for(file)?;
+        let offset = line_index.byte_offset(position)?;
         Some(Cursor {
-            file: self.kul_file_id(),
+            file,
             resolved: self.check.resolved(),
-            line_index: &self.line_index,
+            line_index,
             offset,
         })
     }
 }
 
-/// Resolved-document view for a single open URI without a cursor —
-/// for per-URI listing requests like `textDocument/documentSymbol`
-/// and `textDocument/semanticTokens/full`. Built once per request via
-/// [`OpenFile::view`].
+/// Resolved-document view for a single URI without a cursor — for the
+/// per-URI listing requests (`textDocument/documentSymbol`,
+/// `textDocument/semanticTokens/full`). Built once per request via
+/// [`ProjectEntry::view_for_uri`].
 pub struct View<'a> {
     pub file: FileId,
     pub resolved: &'a ResolvedDocument,
     pub line_index: &'a LineIndex,
 }
 
-/// Resolved-document view for a single open URI plus a cursor — for
+/// Resolved-document view for a single URI plus a cursor — for
 /// "what's at byte offset X?" requests (hover, goto-definition,
 /// completion, references, prepare-rename, rename). Built once per
-/// request via [`OpenFile::cursor`]; replaces the three-line
-/// `offset / file / resolved` setup every cursor-shaped handler used
-/// to repeat inline.
+/// request via [`ProjectEntry::cursor_for_uri`].
 pub struct Cursor<'a> {
     pub file: FileId,
     pub resolved: &'a ResolvedDocument,
@@ -106,12 +189,14 @@ pub struct Cursor<'a> {
     pub offset: usize,
 }
 
-/// Thread-safe handle to the open-document map.
+/// Thread-safe handle to the project cache.
 ///
-/// Cheap to clone (it's an `Arc`).
+/// Cheap to clone (it's an `Arc`). The lock is held only for the duration
+/// of one request's read or write — every request's actual work runs
+/// under a snapshot of the entry's contents.
 #[derive(Debug, Clone, Default)]
 pub struct Documents {
-    inner: Arc<RwLock<HashMap<Url, OpenFile>>>,
+    inner: Arc<RwLock<HashMap<ProjectRoot, ProjectEntry>>>,
 }
 
 impl Documents {
@@ -119,78 +204,235 @@ impl Documents {
         Self::default()
     }
 
-    pub async fn open(&self, uri: Url, source: String) {
-        let entry = build_open_file(&uri, source);
+    /// Apply a `did_open` for `uri` with `source` and re-run the project
+    /// check. Returns the URLs of every file in the project after the
+    /// update — the caller broadcasts diagnostics to each of them.
+    pub async fn open(&self, uri: Url, source: String) -> Vec<Url> {
+        let root = ProjectRoot::for_uri(&uri);
         let mut map = self.inner.write().await;
-        map.insert(uri, entry);
+        let overlay = match map.remove(&root) {
+            Some(entry) => entry.overlay,
+            None => HashMap::new(),
+        };
+        let mut overlay = overlay;
+        overlay.insert(uri, Some(Arc::from(source)));
+        let entry = build_entry(root.clone(), overlay);
+        let urls = entry.urls.clone();
+        map.insert(root, entry);
+        urls
     }
 
-    /// Replace the cached document for `uri` with a freshly-checked one.
-    /// Used by `didChange` (full sync — the whole text is sent each time).
-    /// The manifest is re-loaded from disk on every update so the
-    /// `KUL-Mxx` diagnostics reflect the manifest's current state.
-    pub async fn update(&self, uri: Url, source: String) {
-        let entry = build_open_file(&uri, source);
-        let mut map = self.inner.write().await;
-        map.insert(uri, entry);
+    /// Apply a `did_change` for `uri` with `source` and re-run the
+    /// project check. Same broadcast contract as [`Self::open`].
+    pub async fn update(&self, uri: Url, source: String) -> Vec<Url> {
+        // `did_change` is structurally the same operation as `did_open`
+        // in our model: overlay the URI's buffer, rebuild the project.
+        // Existing overlay entries for other URIs in the project carry
+        // through (they're in `entry.overlay`).
+        self.open(uri, source).await
     }
 
-    pub async fn close(&self, uri: &Url) {
+    /// Apply a `did_close` for `uri`. Removes the URI's editor buffer
+    /// (flips its overlay entry to `None`) and re-runs the project check
+    /// against disk-backed source. Returns:
+    ///
+    /// - `(urls, false)` if other URIs in the project are still open;
+    ///   the caller broadcasts an empty diagnostic publish to `uri` and
+    ///   refreshed diagnostics to the rest.
+    /// - `(urls, true)` if `uri` was the last open URI of its project;
+    ///   the project is evicted. The caller broadcasts an empty
+    ///   publish to every URL in `urls`, clearing any stale squiggles
+    ///   the Problems pane was still showing for project siblings.
+    pub async fn close(&self, uri: &Url) -> (Vec<Url>, bool) {
+        let root = ProjectRoot::for_uri(uri);
         let mut map = self.inner.write().await;
-        map.remove(uri);
+        let Some(entry) = map.remove(&root) else {
+            return (vec![uri.clone()], true);
+        };
+        let mut overlay = entry.overlay;
+        overlay.insert(uri.clone(), None);
+        let still_open = overlay.values().any(|s| s.is_some());
+        if !still_open {
+            let mut urls: Vec<Url> = overlay.into_keys().collect();
+            urls.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+            return (urls, true);
+        }
+        let new_entry = build_entry(root.clone(), overlay);
+        let urls = new_entry.urls.clone();
+        map.insert(root, new_entry);
+        (urls, false)
     }
 
-    /// Run `f` against the cached document under `uri`, if any. Returns
-    /// `None` if the document is not open.
-    pub async fn with<R>(&self, uri: &Url, f: impl FnOnce(&OpenFile) -> R) -> Option<R> {
+    /// Run `f` against the project entry that owns `uri`, if any. Used
+    /// by request handlers (hover, definition, completion, …) — every
+    /// LSP feature reads through this seam.
+    pub async fn with_project<R>(
+        &self,
+        uri: &Url,
+        f: impl FnOnce(&ProjectEntry) -> R,
+    ) -> Option<R> {
+        let root = ProjectRoot::for_uri(uri);
         let map = self.inner.read().await;
-        map.get(uri).map(f)
+        map.get(&root).map(f)
     }
 
     #[cfg(test)]
-    async fn open_count(&self) -> usize {
+    async fn project_count(&self) -> usize {
         self.inner.read().await.len()
     }
 }
 
-fn build_open_file(uri: &Url, source: String) -> OpenFile {
-    use kul_core::ast::InputFile;
-    let source: Arc<str> = Arc::from(source);
-    let line_index = LineIndex::new(Arc::clone(&source));
-    let label = uri.to_string();
-    let inputs = vec![InputFile::new(label, source.as_ref())];
-    let (manifest_name, manifest_yaml) = crate::manifest::manifest_yaml_for(uri);
-    let check = kul_core::check(manifest_name, &manifest_yaml, &inputs);
-    OpenFile {
-        source,
-        line_index,
+/// Discover the project at `root` from disk, overlay any editor buffers,
+/// and run [`kul_core::check`]. Always reads the manifest and every
+/// sibling `.kul` file fresh — file-watching is a separate slice
+/// (see PRD 0001 issue 86).
+fn build_entry(root: ProjectRoot, overlay: HashMap<Url, Option<Arc<str>>>) -> ProjectEntry {
+    let (manifest_label, manifest_yaml, mut disk_files) = discover_disk(root.as_path());
+
+    // Apply overlay overrides. Editor-open URIs (`Some`) take precedence
+    // over the disk source. URIs in overlay but absent from disk
+    // (untitled documents, files the editor created but hasn't saved)
+    // are included when their overlay entry is `Some` and dropped when
+    // it's `None`.
+    for (url, slot) in &overlay {
+        match slot {
+            Some(buf) => {
+                if let Some(found) = disk_files.iter_mut().find(|(u, _)| u == url) {
+                    found.1 = Arc::clone(buf);
+                } else {
+                    disk_files.push((url.clone(), Arc::clone(buf)));
+                }
+            }
+            None => {
+                // Closed URI: keep the disk version if it's there; drop
+                // otherwise (file vanished from disk while still open in
+                // the editor, then closed).
+                if !disk_files.iter().any(|(u, _)| u == url) {
+                    // already absent from disk; nothing to do
+                }
+            }
+        }
+    }
+
+    disk_files.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+
+    let urls: Vec<Url> = disk_files.iter().map(|(u, _)| u.clone()).collect();
+    let inputs: Vec<InputFile> = disk_files
+        .iter()
+        .map(|(u, src)| InputFile::new(url_label(u), src.as_ref()))
+        .collect();
+    let line_indices: Vec<LineIndex> = disk_files
+        .iter()
+        .map(|(_, src)| LineIndex::new(Arc::clone(src)))
+        .collect();
+
+    let check = kul_core::check(manifest_label, &manifest_yaml, &inputs);
+
+    ProjectEntry {
+        root,
         check,
+        line_indices,
+        urls,
+        overlay,
     }
 }
 
-/// Build an [`OpenFile`] from an in-memory `.kul` source for use in
-/// per-feature unit tests. The fixture every `features/*.rs` test
-/// module needs — wraps `source` in a single-input project against a
-/// default-typed [`Manifest`], so per-feature tests stop hand-rolling
-/// the same seven-line tokenize/parse/resolve scaffold.
+/// Read the manifest and every `.kul` file in `root` off disk. Returns
+/// the manifest label (path string), the manifest YAML bytes (empty
+/// when the manifest is missing or unreadable), and the sibling `.kul`
+/// files as `(Url, Arc<str>)` pairs in directory-iteration order.
 ///
-/// Pair with [`OpenFile::view`] (file-level features) or
-/// [`OpenFile::cursor`] (cursor-shaped features). Tests that already
-/// hold a byte offset can read `kul_file_id()`, `check.resolved()`,
-/// and `line_index` directly off the returned value.
-#[cfg(test)]
-pub(crate) fn test_open_file(source: &str) -> OpenFile {
-    use kul_core::ast::InputFile;
-    use kul_core::manifest::Manifest;
-    let source_arc: Arc<str> = Arc::from(source);
-    let line_index = LineIndex::new(Arc::clone(&source_arc));
-    let inputs = vec![InputFile::new("test.kul", source)];
-    let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
-    OpenFile {
-        source: source_arc,
-        line_index,
-        check,
+/// Reusing [`kul_loader::load`] directly isn't quite the right shape
+/// here: the loader returns bare-basename `InputFile`s and errors out
+/// when `kul.yml` is absent, but the LSP wants editor-shaped `Url`s and
+/// tolerates a missing manifest (existing behaviour — the file is still
+/// useful to edit; `KUL-M01` is the CLI's job to surface). The
+/// discovery rule itself — `kul.yml` in the same dir, flat
+/// enumeration, `*.kul` extension, subdirectories ignored — is the same
+/// rule [`kul_loader::load`] encodes, so this mirrors its logic.
+fn discover_disk(root: &Path) -> (String, String, Vec<(Url, Arc<str>)>) {
+    let manifest_path = root.join("kul.yml");
+    let manifest_label = manifest_path.to_string_lossy().into_owned();
+    let manifest_yaml = std::fs::read_to_string(&manifest_path).unwrap_or_default();
+
+    let mut out: Vec<(Url, Arc<str>)> = Vec::new();
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return (manifest_label, manifest_yaml, out);
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        if path.extension().and_then(|s| s.to_str()) != Some("kul") {
+            continue;
+        }
+        let Ok(source) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(url) = Url::from_file_path(&path) else {
+            continue;
+        };
+        out.push((url, Arc::from(source)));
     }
+    (manifest_label, manifest_yaml, out)
+}
+
+/// Build the [`InputFile::name`] label for a project URL. The bare file
+/// name is what `kul-core` puts in `KulFile.name`; the LSP keeps its
+/// own URL ↔ `FileId` mapping in [`ProjectEntry::urls`] so the label
+/// here is for diagnostic rendering only.
+fn url_label(url: &Url) -> String {
+    if let Ok(p) = url.to_file_path()
+        && let Some(name) = p.file_name().map(|n| n.to_string_lossy().into_owned())
+    {
+        return name;
+    }
+    url.to_string()
+}
+
+/// Build a [`ProjectEntry`] from in-memory project files for per-feature
+/// unit tests. Mirrors the fixture shape every `features/*.rs` test
+/// module needs — wraps one or more `.kul` sources in a project against
+/// a default-typed [`Manifest`].
+///
+/// The first file is at `FileId(1)` with URL `file:///<basename>`.
+#[cfg(test)]
+pub(crate) fn test_project_entry(files: &[(&str, &str)]) -> ProjectEntry {
+    use kul_core::manifest::Manifest;
+    assert!(!files.is_empty(), "test project needs at least one file");
+    let urls: Vec<Url> = files
+        .iter()
+        .map(|(name, _)| Url::parse(&format!("file:///{name}")).expect("test url"))
+        .collect();
+    let inputs: Vec<InputFile> = files
+        .iter()
+        .map(|(name, src)| InputFile::new(*name, *src))
+        .collect();
+    let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
+    let line_indices: Vec<LineIndex> = files.iter().map(|(_, src)| LineIndex::new(*src)).collect();
+    let mut overlay: HashMap<Url, Option<Arc<str>>> = HashMap::new();
+    for (url, (_, src)) in urls.iter().zip(files.iter()) {
+        overlay.insert(url.clone(), Some(Arc::from(*src)));
+    }
+    let root = ProjectRoot(PathBuf::from("/test"));
+    ProjectEntry {
+        root,
+        check,
+        line_indices,
+        urls,
+        overlay,
+    }
+}
+
+/// Single-file [`ProjectEntry`] fixture for tests that don't care about
+/// the multi-file shape. Equivalent to `test_project_entry(&[("t.kul", source)])`.
+/// The basename is `t.kul` so the resulting URL is `file:///t.kul` —
+/// the historic constant every per-feature test hardcodes for its
+/// `url()` helper, which keeps existing snapshots stable.
+#[cfg(test)]
+pub(crate) fn test_open_file(source: &str) -> ProjectEntry {
+    test_project_entry(&[("t.kul", source)])
 }
 
 #[cfg(test)]
@@ -202,34 +444,40 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn document_caches_source_and_check() {
+    async fn open_caches_under_project_root() {
         let docs = Documents::default();
-        let doc = test_open_file("person alice name:\"A\" gender:female\n");
-        let mut map = docs.inner.write().await;
-        map.insert(url("file:///a.kul"), doc);
-        drop(map);
-        let stored_source = docs
-            .with(&url("file:///a.kul"), |d| d.source.clone())
-            .await
-            .unwrap();
-        assert_eq!(&*stored_source, "person alice name:\"A\" gender:female\n");
+        let uri = url("file:///tmp/kul-test-open-cache/foo.kul");
+        let _ = std::fs::create_dir_all("/tmp/kul-test-open-cache");
+        // No manifest on disk; build_entry tolerates and uses the open
+        // URI as the only project file.
+        docs.open(
+            uri.clone(),
+            "person a name:\"A\" gender:female\n".to_owned(),
+        )
+        .await;
+        assert_eq!(docs.project_count().await, 1);
     }
 
     #[tokio::test]
-    async fn close_drops_document() {
+    async fn close_evicts_when_last_open_uri_closes() {
         let docs = Documents::default();
-        let mut map = docs.inner.write().await;
-        map.insert(url("file:///a.kul"), test_open_file(""));
-        drop(map);
-        assert_eq!(docs.open_count().await, 1);
-        docs.close(&url("file:///a.kul")).await;
-        assert_eq!(docs.open_count().await, 0);
+        let uri = url("file:///tmp/kul-test-close-evict/foo.kul");
+        let _ = std::fs::create_dir_all("/tmp/kul-test-close-evict");
+        docs.open(
+            uri.clone(),
+            "person a name:\"A\" gender:female\n".to_owned(),
+        )
+        .await;
+        assert_eq!(docs.project_count().await, 1);
+        let (_, evicted) = docs.close(&uri).await;
+        assert!(evicted);
+        assert_eq!(docs.project_count().await, 0);
     }
 
     #[tokio::test]
-    async fn with_returns_none_for_unknown() {
+    async fn with_project_returns_none_for_unknown_uri() {
         let docs = Documents::default();
-        let got = docs.with(&url("file:///nope.kul"), |_| 1).await;
+        let got = docs.with_project(&url("file:///nope.kul"), |_| 1).await;
         assert!(got.is_none());
     }
 }
