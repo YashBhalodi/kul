@@ -11,16 +11,16 @@ use std::process::ExitCode;
 
 use kul_core::diagnostic::{Diagnostic, Severity};
 
-use crate::commands::project::load_cwd_project;
+use crate::commands::project::load_and_check;
 
 pub struct Options {
     pub check: bool,
 }
 
 pub fn run(opts: Options) -> ExitCode {
-    let project = match load_cwd_project() {
-        Ok(p) => p,
-        Err(err) => return err.report(),
+    let (project, result) = match load_and_check() {
+        Ok(x) => x,
+        Err(code) => return code,
     };
     let cwd = match std::env::current_dir() {
         Ok(c) => c,
@@ -30,11 +30,6 @@ pub fn run(opts: Options) -> ExitCode {
         }
     };
 
-    let result = kul_core::check(
-        project.manifest_name,
-        &project.manifest_yaml,
-        &project.inputs,
-    );
     if has_parse_errors(&result.diagnostics) {
         eprintln!("kul: cannot format project with parse errors");
         for d in &result.diagnostics {
