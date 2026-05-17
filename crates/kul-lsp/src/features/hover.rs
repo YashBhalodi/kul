@@ -1,12 +1,18 @@
 //! Hover content for `textDocument/hover`.
 //!
-//! Pure dispatch over [`kul_core::node_at::Node`]: each variant maps to a
-//! Markdown content builder. The async `Backend::hover` method is a thin
-//! shell over [`hover`].
+//! Pure dispatch over [`kul_core::node_at::Node`]: each shape (keyword,
+//! id, field) maps to a Markdown content builder. The async
+//! `Backend::hover` method is a thin shell over [`hover`].
+//!
+//! Field-shape variants (`Person`/`Marriage`/`Adoption` ×
+//! `FieldName`/`FieldValue`) are handled uniformly through
+//! [`Node::field_node`] — the field summary the cursor seam exposes,
+//! mirroring how the entity-aware features (definition, references,
+//! rename) phrase themselves against [`Node::entity_reference`].
 
-use kul_core::ast::{AdoptionField, MarriageField, MarriageStmt, PersonField, PersonStmt};
+use kul_core::ast::{MarriageStmt, PersonStmt};
 use kul_core::field_meta;
-use kul_core::node_at::{KeywordKind, Node};
+use kul_core::node_at::{FieldNode, KeywordKind, Node};
 use kul_core::semantic::ResolvedDocument;
 use kul_core::span::ByteSpan;
 use kul_core::span::FileId;
@@ -46,30 +52,20 @@ pub fn hover(
             ident,
             target: None,
         } => (unresolved_note("marriage", &ident.name), ident.span),
-        Node::PersonFieldName(f) => (
-            field_meta::meta(f.kind.field_name()).hover_md.to_owned(),
-            f.name_span,
-        ),
-        Node::PersonFieldValue(f) => (
-            person_field_value_md(line_index.source(), f),
-            f.kind.value_span(),
-        ),
-        Node::MarriageFieldName(f) => (
-            field_meta::meta(f.kind.field_name()).hover_md.to_owned(),
-            f.name_span,
-        ),
-        Node::MarriageFieldValue(f) => (
-            marriage_field_value_md(line_index.source(), f),
-            f.kind.value_span(),
-        ),
-        Node::AdoptionFieldName(f) => (
-            field_meta::meta(f.kind.field_name()).hover_md.to_owned(),
-            f.name_span,
-        ),
-        Node::AdoptionFieldValue(f) => (
-            adoption_field_value_md(line_index.source(), f),
-            f.kind.value_span(),
-        ),
+        Node::PersonFieldName(_)
+        | Node::PersonFieldValue(_)
+        | Node::MarriageFieldName(_)
+        | Node::MarriageFieldValue(_)
+        | Node::AdoptionFieldName(_)
+        | Node::AdoptionFieldValue(_) => {
+            // Field arms are uniform per ADR-0001: a single
+            // `field_node()` accessor on the cursor seam, dispatched on
+            // is_name vs value.
+            let field = node
+                .field_node()
+                .expect("field_node returns Some for the six field Node variants");
+            field_hover(field, line_index.source())
+        }
     };
 
     Some(Hover {
@@ -79,6 +75,20 @@ pub fn hover(
         }),
         range: Some(line_index.range(span)),
     })
+}
+
+/// Render the hover panel for a field. On the `name:` side the panel is
+/// the field's spec-quoted documentation alone; on the value side it
+/// appends the literal source text in a code span so the user sees what
+/// they actually typed.
+fn field_hover(field: FieldNode, source: &str) -> (String, ByteSpan) {
+    let doc = field_meta::meta(field.name).hover_md;
+    if field.is_name {
+        (doc.to_owned(), field.name_span)
+    } else {
+        let literal = source_slice(source, field.value_span);
+        (format!("{doc}\n\n`{literal}`"), field.value_span)
+    }
 }
 
 fn keyword_content(k: KeywordKind) -> String {
@@ -178,24 +188,6 @@ fn unresolved_note(kind: &str, id: &str) -> String {
     format!(
         "**`{id}`** — no `{kind}` with this id is declared in this file.\n\nCheck for a typo, or add a `{kind} {id} …` declaration somewhere in the file.\n\nDiagnostic `KUL-R02`."
     )
-}
-
-fn person_field_value_md(source: &str, f: &PersonField) -> String {
-    let doc = field_meta::meta(f.kind.field_name()).hover_md;
-    let literal = source_slice(source, f.kind.value_span());
-    format!("{doc}\n\n`{literal}`")
-}
-
-fn marriage_field_value_md(source: &str, f: &MarriageField) -> String {
-    let doc = field_meta::meta(f.kind.field_name()).hover_md;
-    let literal = source_slice(source, f.kind.value_span());
-    format!("{doc}\n\n`{literal}`")
-}
-
-fn adoption_field_value_md(source: &str, f: &AdoptionField) -> String {
-    let doc = field_meta::meta(f.kind.field_name()).hover_md;
-    let literal = source_slice(source, f.kind.value_span());
-    format!("{doc}\n\n`{literal}`")
 }
 
 fn source_slice(source: &str, span: ByteSpan) -> &str {

@@ -19,6 +19,7 @@ use crate::ast::{
     AdoptionField, AdoptionSub, BirthSub, Ident, MarriageField, MarriageStmt, PersonField,
     PersonStmt, Statement,
 };
+use crate::lexer::FieldName;
 use crate::semantic::{EntityKind, ResolvedDocument};
 use crate::span::{ByteSpan, FileId, FileSpan};
 
@@ -162,6 +163,31 @@ impl<'a> EntityNode<'a> {
         }
         self.target.map(|t| t.decl_span())
     }
+}
+
+/// The "field at the cursor" summary: `Some` when the cursor is on a
+/// person/marriage/adoption field (the `name:` side or the value side),
+/// `None` for keywords, ids, and whitespace.
+///
+/// Returned by [`Node::field_node`]. Mirrors the [`EntityNode`] shape so
+/// LSP features that key on "what field is the user pointing at?"
+/// (hover, plus any future code-action or completion logic that's
+/// field-shape rather than statement-shape) can phrase themselves as a
+/// query for this summary instead of pattern-matching the six
+/// `*FieldName`/`*FieldValue` variants by hand.
+#[derive(Debug, Clone, Copy)]
+pub struct FieldNode {
+    /// Which field — `name`, `gender`, `start`, `end_reason`, …
+    pub name: FieldName,
+    /// Span of the `<name>:` lhs token. Use as the highlight range when
+    /// the cursor is on the field name.
+    pub name_span: ByteSpan,
+    /// Span of the value rhs. Use as the highlight range when the cursor
+    /// is on the value, or to slice the literal text out of source.
+    pub value_span: ByteSpan,
+    /// `true` if the cursor sits on the field name (`name:`); `false` if
+    /// on the value side (`"Alice"`, `female`, `1980-03-15`).
+    pub is_name: bool,
 }
 
 impl ResolvedDocument {
@@ -365,6 +391,66 @@ impl<'a> Node<'a> {
             }),
             _ => None,
         }
+    }
+
+    /// If the cursor sits on a field — any of the six
+    /// `Person`/`Marriage`/`Adoption` × `FieldName`/`FieldValue`
+    /// variants — return the field summary. Returns `None` for
+    /// keywords, id decls/refs, and whitespace.
+    pub fn field_node(&self) -> Option<FieldNode> {
+        match *self {
+            Node::PersonFieldName(f) => Some(field_node_of(
+                f.kind.field_name(),
+                f.name_span,
+                f.kind.value_span(),
+                true,
+            )),
+            Node::PersonFieldValue(f) => Some(field_node_of(
+                f.kind.field_name(),
+                f.name_span,
+                f.kind.value_span(),
+                false,
+            )),
+            Node::MarriageFieldName(f) => Some(field_node_of(
+                f.kind.field_name(),
+                f.name_span,
+                f.kind.value_span(),
+                true,
+            )),
+            Node::MarriageFieldValue(f) => Some(field_node_of(
+                f.kind.field_name(),
+                f.name_span,
+                f.kind.value_span(),
+                false,
+            )),
+            Node::AdoptionFieldName(f) => Some(field_node_of(
+                f.kind.field_name(),
+                f.name_span,
+                f.kind.value_span(),
+                true,
+            )),
+            Node::AdoptionFieldValue(f) => Some(field_node_of(
+                f.kind.field_name(),
+                f.name_span,
+                f.kind.value_span(),
+                false,
+            )),
+            _ => None,
+        }
+    }
+}
+
+fn field_node_of(
+    name: FieldName,
+    name_span: ByteSpan,
+    value_span: ByteSpan,
+    is_name: bool,
+) -> FieldNode {
+    FieldNode {
+        name,
+        name_span,
+        value_span,
+        is_name,
     }
 }
 
@@ -605,5 +691,60 @@ mod tests {
         assert!(entity_at(src, 0).is_none());
         assert!(entity_at(src, idx(src, "name:")).is_none());
         assert!(entity_at(src, idx(src, "\"A\"")).is_none());
+    }
+
+    fn field_at(source: &str, offset: usize) -> Option<(FieldName, bool)> {
+        let (resolved, file) = build(source);
+        resolved
+            .node_at(file, offset)
+            .and_then(|n| n.field_node())
+            .map(|f| (f.name, f.is_name))
+    }
+
+    #[test]
+    fn field_node_distinguishes_name_from_value_across_kinds() {
+        let src = "person alice name:\"A\" gender:female\n\
+                   person bob name:\"B\" gender:male\n\
+                   marriage m alice bob start:2010 end:2020 end_reason:divorce\n\
+                   person kid name:\"K\" gender:other\n  adoption m start:2005 end:2008\n";
+        // Person field name / value.
+        assert_eq!(
+            field_at(src, idx(src, "name:")),
+            Some((FieldName::Name, true))
+        );
+        assert_eq!(
+            field_at(src, idx(src, "\"A\"")),
+            Some((FieldName::Name, false)),
+        );
+        assert_eq!(
+            field_at(src, idx(src, "gender:")),
+            Some((FieldName::Gender, true)),
+        );
+        // Marriage field name / value.
+        assert_eq!(
+            field_at(src, idx(src, "start:")),
+            Some((FieldName::Start, true)),
+        );
+        assert_eq!(
+            field_at(src, idx(src, "2010")),
+            Some((FieldName::Start, false)),
+        );
+        assert_eq!(
+            field_at(src, idx(src, "end_reason:")),
+            Some((FieldName::EndReason, true)),
+        );
+        // Adoption field name / value — find inside the adoption line.
+        let adoption_line = idx(src, "adoption");
+        let adopt_start = src[adoption_line..].find("start:").unwrap() + adoption_line;
+        assert_eq!(field_at(src, adopt_start), Some((FieldName::Start, true)),);
+    }
+
+    #[test]
+    fn field_node_returns_none_for_keywords_ids_and_whitespace() {
+        let src = "person alice name:\"A\" gender:female\n";
+        // `person` keyword.
+        assert!(field_at(src, 0).is_none());
+        // id token.
+        assert!(field_at(src, idx(src, "alice")).is_none());
     }
 }

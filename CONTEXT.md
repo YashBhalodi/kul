@@ -148,6 +148,10 @@ The method `Node::entity_reference(&self) -> Option<EntityNode<'a>>` (in `crates
 
 The `target` is an `EntityTarget` carrying both the resolved AST statement and the `FileId` that owns it (the `Node::PersonRef`/`MarriageRef` reference variants carry the same `(FileId, &Stmt)` pair). Under project-wide resolution (ADR-0015) that file may be a sibling of the active URI's file; `EntityNode::decl_span()` returns the correct project-wide `FileSpan` directly so feature modules do not re-query `ResolvedDocument::entity(name)` just to recover the target's file.
 
+### Field-node accessor
+
+The method `Node::field_node(&self) -> Option<FieldNode>` (in `crates/kul-core/src/node_at.rs`) is the field-shape sibling of `entity_reference`. It collapses the six field-related `Node` variants (`PersonFieldName`, `PersonFieldValue`, `MarriageFieldName`, `MarriageFieldValue`, `AdoptionFieldName`, `AdoptionFieldValue`) into a uniform `FieldNode { name, name_span, value_span, is_name }` summary, so a feature module that keys on "what field is the cursor on?" (hover, plus any future code-action or completion logic that's field-shape rather than statement-shape) writes one dispatch on `is_name` instead of six match arms. Returns `None` for keywords, ids, and whitespace.
+
 ### Server
 
 The `tower-lsp` Backend implementation in `crates/kul-lsp/src/server.rs`. Owns the project cache, dispatches LSP requests to feature modules, advertises capabilities. `did_open` discovers the project from the opened URI (sibling `kul.yml` plus every `.kul` file in the URI's directory) and inserts one cache entry for the whole project; `did_change` mutates the URI's overlay and re-runs `kul_core::check` for the project; `did_close` flips the URI's overlay to `None` and evicts the entry when no URIs remain open. Diagnostic publishes broadcast to every project file (open or disk-only) so the Problems pane reflects project-wide health.
