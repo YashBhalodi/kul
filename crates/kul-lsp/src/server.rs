@@ -111,10 +111,7 @@ fn collect_project_diagnostics(
         let Some(file) = entry.file_id_for(url) else {
             continue;
         };
-        let Some(line_index) = entry.line_index_for(file) else {
-            continue;
-        };
-        let diags = diagnostics::to_lsp(url, &entry.check.diagnostics, line_index, file);
+        let diags = diagnostics::to_lsp(entry, file, &entry.check.diagnostics);
         out.push((url.clone(), diags));
     }
     out

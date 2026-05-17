@@ -270,10 +270,13 @@ impl miette::Diagnostic for RenderableDiagnostic<'_> {
             .diagnostic
             .related
             .iter()
-            // Only related spans in the same file can be rendered by the
-            // single-source miette path. Cross-file related labels would
-            // need a multi-source frontend; v1's diagnostics never
-            // produce them, so a filter is the simplest answer.
+            // miette's `SourceCode` is single-file: a related span in a
+            // sibling file cannot be drawn into the same source block.
+            // Under ADR-0015 such related spans are real (R01 duplicates
+            // across files; R02 type-mismatch against a sibling-declared
+            // id) — the CLI's renderer surfaces them as a "see also"
+            // line below the miette block instead of dropping them
+            // entirely.
             .filter(move |r| r.span.file == primary.file)
             .map(|r| miette::LabeledSpan::new_with_span(Some(r.label.clone()), r.span.span));
         Some(Box::new(std::iter::once(primary_label).chain(related)))
