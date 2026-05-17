@@ -193,10 +193,8 @@ impl LanguageServer for Backend {
         let result = self
             .documents
             .with(&uri, |doc| {
-                let offset = doc.line_index.byte_offset(position)?;
-                let file = doc.kul_file_id();
-                let resolved = doc.check.resolved();
-                hover::hover(file, resolved, &doc.line_index, offset)
+                let c = doc.cursor(position)?;
+                hover::hover(c.file, c.resolved, c.line_index, c.offset)
             })
             .await;
         Ok(result.flatten())
@@ -211,10 +209,8 @@ impl LanguageServer for Backend {
         let result = self
             .documents
             .with(&uri, |doc| {
-                let offset = doc.line_index.byte_offset(position)?;
-                let file = doc.kul_file_id();
-                let resolved = doc.check.resolved();
-                definition::definition(file, resolved, &doc.line_index, &uri, offset)
+                let c = doc.cursor(position)?;
+                definition::definition(c.file, c.resolved, c.line_index, &uri, c.offset)
             })
             .await;
         Ok(result.flatten().map(GotoDefinitionResponse::Scalar))
@@ -251,10 +247,8 @@ impl LanguageServer for Backend {
         let result = self
             .documents
             .with(&uri, |doc| {
-                let offset = doc.line_index.byte_offset(position)?;
-                let file = doc.kul_file_id();
-                let resolved = doc.check.resolved();
-                rename::prepare_rename(file, resolved, &doc.line_index, offset)
+                let c = doc.cursor(position)?;
+                rename::prepare_rename(c.file, c.resolved, c.line_index, c.offset)
             })
             .await;
         Ok(result.flatten())
@@ -267,13 +261,10 @@ impl LanguageServer for Backend {
         let result = self
             .documents
             .with(&uri, |doc| {
-                let offset = doc
-                    .line_index
-                    .byte_offset(position)
+                let c = doc
+                    .cursor(position)
                     .ok_or(rename::RenameError::NotRenameable)?;
-                let file = doc.kul_file_id();
-                let resolved = doc.check.resolved();
-                rename::rename(file, resolved, &doc.line_index, &uri, offset, &new_name)
+                rename::rename(c.file, c.resolved, c.line_index, &uri, c.offset, &new_name)
             })
             .await;
         match result {
@@ -294,10 +285,15 @@ impl LanguageServer for Backend {
         let result = self
             .documents
             .with(&uri, |doc| {
-                let offset = doc.line_index.byte_offset(position)?;
-                let file = doc.kul_file_id();
-                let resolved = doc.check.resolved();
-                references::references(file, resolved, &doc.line_index, &uri, offset, include_decl)
+                let c = doc.cursor(position)?;
+                references::references(
+                    c.file,
+                    c.resolved,
+                    c.line_index,
+                    &uri,
+                    c.offset,
+                    include_decl,
+                )
             })
             .await;
         Ok(result.flatten())
@@ -311,16 +307,10 @@ impl LanguageServer for Backend {
         let symbols = self
             .documents
             .with(&uri, |doc| {
-                let file = doc.kul_file_id();
-                let resolved = doc.check.resolved();
-                Some(document_symbol::document_symbols(
-                    file,
-                    resolved,
-                    &doc.line_index,
-                ))
+                let v = doc.view();
+                document_symbol::document_symbols(v.file, v.resolved, v.line_index)
             })
-            .await
-            .flatten();
+            .await;
         Ok(symbols.map(DocumentSymbolResponse::Nested))
     }
 
@@ -332,16 +322,10 @@ impl LanguageServer for Backend {
         let tokens = self
             .documents
             .with(&uri, |doc| {
-                let file = doc.kul_file_id();
-                let resolved = doc.check.resolved();
-                Some(semantic_tokens::semantic_tokens(
-                    file,
-                    resolved,
-                    &doc.line_index,
-                ))
+                let v = doc.view();
+                semantic_tokens::semantic_tokens(v.file, v.resolved, v.line_index)
             })
-            .await
-            .flatten();
+            .await;
         Ok(tokens.map(SemanticTokensResult::Tokens))
     }
 
@@ -362,14 +346,12 @@ impl LanguageServer for Backend {
         let items = self
             .documents
             .with(&uri, |doc| {
-                let offset = doc.line_index.byte_offset(position)?;
-                let file = doc.kul_file_id();
-                let resolved = doc.check.resolved();
+                let c = doc.cursor(position)?;
                 Some(completion::complete(
-                    doc.line_index.source(),
-                    file,
-                    resolved,
-                    offset,
+                    c.line_index.source(),
+                    c.file,
+                    c.resolved,
+                    c.offset,
                 ))
             })
             .await

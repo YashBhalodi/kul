@@ -154,6 +154,10 @@ The `tower-lsp` Backend implementation in `crates/kul-lsp/src/server.rs`. Owns t
 
 Thread-safe map from `Url` to a `Document`-with-resolved-state in `crates/kul-lsp/src/state.rs`. Each entry holds an `Arc<str>` source (shared with the [LineIndex](#lineindex)) and a `CheckResult` whose `resolved` field is the cached [`ResolvedDocument`](#resolveddocument) — so every LSP request handler reads through the same resolved view without re-running `semantic::resolve`. Updated on `did_open` / `did_change` / `did_close`.
 
+### View / Cursor
+
+The per-request handles `OpenFile::view()` and `OpenFile::cursor(position)` return (`crates/kul-lsp/src/state.rs`). A `View` bundles the URI's `FileId`, the cached [`ResolvedDocument`](#resolveddocument), and the [`LineIndex`](#lineindex) for file-level LSP requests (document-symbol, semantic-tokens). A `Cursor` adds the byte offset for cursor-shaped requests (hover, definition, completion, references, rename, prepare-rename). Replaces the three-line `offset / file / resolved` setup every cursor-shaped request handler used to repeat inline; the UTF-16 ↔ UTF-8 conversion lives in one place. Returns `Option<Cursor<'_>>` so a stale client request past EOF resolves to `None` rather than panicking.
+
 ### Feature module
 
 One per LSP feature — `crates/kul-lsp/src/features/{hover,definition,completion,diagnostics}.rs`. Each turns a typed request into a typed response by reading the document cache and querying through `ResolvedDocument` + `node_at`. None should walk the AST directly.

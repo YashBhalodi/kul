@@ -19,9 +19,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use kul_core::CheckResult;
+use kul_core::semantic::ResolvedDocument;
 use kul_core::span::FileId;
 use tokio::sync::RwLock;
-use tower_lsp::lsp_types::Url;
+use tower_lsp::lsp_types::{Position, Url};
 
 use crate::convert::LineIndex;
 
@@ -51,6 +52,58 @@ impl OpenFile {
             .next()
             .unwrap_or(FileId::MANIFEST)
     }
+
+    /// The per-URI [`View`] callers need for file-level LSP requests
+    /// that don't carry a cursor (document-symbol, semantic-tokens).
+    /// Bundles the `FileId`, the cached [`ResolvedDocument`], and the
+    /// [`LineIndex`] so the request handler stops re-deriving them.
+    pub fn view(&self) -> View<'_> {
+        View {
+            file: self.kul_file_id(),
+            resolved: self.check.resolved(),
+            line_index: &self.line_index,
+        }
+    }
+
+    /// The per-URI [`Cursor`] for LSP requests that *do* carry a
+    /// position (hover, goto-definition, completion, prepare-rename,
+    /// rename, references). Returns `None` when `position` falls
+    /// outside the source — a stale client request after the document
+    /// has shrunk. The cursor's byte offset is the project-wide
+    /// argument every kinship-query method on [`ResolvedDocument`]
+    /// already expects.
+    pub fn cursor(&self, position: Position) -> Option<Cursor<'_>> {
+        let offset = self.line_index.byte_offset(position)?;
+        Some(Cursor {
+            file: self.kul_file_id(),
+            resolved: self.check.resolved(),
+            line_index: &self.line_index,
+            offset,
+        })
+    }
+}
+
+/// Resolved-document view for a single open URI without a cursor —
+/// for per-URI listing requests like `textDocument/documentSymbol`
+/// and `textDocument/semanticTokens/full`. Built once per request via
+/// [`OpenFile::view`].
+pub struct View<'a> {
+    pub file: FileId,
+    pub resolved: &'a ResolvedDocument,
+    pub line_index: &'a LineIndex,
+}
+
+/// Resolved-document view for a single open URI plus a cursor — for
+/// "what's at byte offset X?" requests (hover, goto-definition,
+/// completion, references, prepare-rename, rename). Built once per
+/// request via [`OpenFile::cursor`]; replaces the three-line
+/// `offset / file / resolved` setup every cursor-shaped handler used
+/// to repeat inline.
+pub struct Cursor<'a> {
+    pub file: FileId,
+    pub resolved: &'a ResolvedDocument,
+    pub line_index: &'a LineIndex,
+    pub offset: usize,
 }
 
 /// Thread-safe handle to the open-document map.
