@@ -34,8 +34,11 @@ examples/
 
 ## Try it
 
+The CLI's `validate`, `format`, and `export` subcommands are CWD-rooted (issue #83) — each operates on the project rooted at the current working directory. From the repo root:
+
 ```sh
-kul validate examples/01-single-couple/single-couple.kul
+(cd examples/01-single-couple && kul validate)
+(cd examples/07-multi-file-extended-family && kul validate)  # multi-file project
 ```
 
 Every example must exit `0`. Anything that doesn't is either a regression or a new spec rule that hasn't been propagated to the corpus yet.

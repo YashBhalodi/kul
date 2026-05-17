@@ -1,18 +1,17 @@
-//! `kul export` subcommand.
+//! `kul export` subcommand — project-wide.
 //!
-//! Wraps [`kul_core::export::export`]. Reads each input file, runs
-//! `check`, projects the result into the canonical envelope, and writes
-//! the JSON to stdout. Errors block: a document with any error-severity
-//! diagnostic prints the failure envelope and exits non-zero.
+//! Reads every `.kul` file in the current Kul project (CWD must hold
+//! a sibling `kul.yml`), runs `check` on the union, and writes one
+//! envelope to stdout carrying every person, marriage, and
+//! parenthood-link in the project. Errors block: any error-severity
+//! diagnostic produces the failure envelope and a non-zero exit.
 
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use kul_core::ast::InputFile;
 use kul_core::export::{ExportFormat, ExportOptions, export};
 
-use crate::commands::manifest::load_for as load_manifest;
+use crate::commands::project::load_cwd_project;
 
 #[derive(Copy, Clone, Debug, clap::ValueEnum, PartialEq, Eq)]
 pub enum CliExportFormat {
@@ -34,45 +33,20 @@ impl From<CliExportFormat> for ExportFormat {
 }
 
 pub struct Options {
-    pub files: Vec<PathBuf>,
     pub format: CliExportFormat,
     pub with_positions: bool,
 }
 
 pub fn run(opts: Options) -> ExitCode {
-    let mut had_error = false;
-    for file in &opts.files {
-        match export_one(file, &opts) {
-            Ok(file_had_error) => {
-                if file_had_error {
-                    had_error = true;
-                }
-            }
-            Err(err) => {
-                eprintln!("kul: {}: {err}", file.display());
-                had_error = true;
-            }
-        }
-    }
-    if had_error {
-        ExitCode::from(1)
-    } else {
-        ExitCode::SUCCESS
-    }
-}
-
-fn export_one(path: &Path, opts: &Options) -> io::Result<bool> {
-    let source = std::fs::read_to_string(path)?;
-    let label = path.to_string_lossy().into_owned();
-    let manifest = load_manifest(path);
-    if !manifest.preface.is_empty() {
-        for d in &manifest.preface {
-            eprintln!("kul: {label}: {}: {}", d.code, d.message);
-        }
-        return Ok(true);
-    }
-    let inputs = vec![InputFile::new(label, source)];
-    let check = kul_core::check(manifest.path_label, &manifest.yaml, &inputs);
+    let project = match load_cwd_project() {
+        Ok(p) => p,
+        Err(err) => return err.report(),
+    };
+    let check = kul_core::check(
+        project.manifest_name,
+        &project.manifest_yaml,
+        &project.inputs,
+    );
     let envelope = export(
         &check,
         ExportOptions {
@@ -81,10 +55,15 @@ fn export_one(path: &Path, opts: &Options) -> io::Result<bool> {
         },
     );
     let json = serde_json::to_string(&envelope).expect("serialize export envelope");
-    {
-        let stdout = io::stdout();
-        let mut out = stdout.lock();
-        writeln!(out, "{json}")?;
+    let stdout = io::stdout();
+    let mut out = stdout.lock();
+    if let Err(err) = writeln!(out, "{json}") {
+        eprintln!("kul: failed to write envelope: {err}");
+        return ExitCode::from(1);
     }
-    Ok(!envelope.is_ok())
+    if envelope.is_ok() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
+    }
 }

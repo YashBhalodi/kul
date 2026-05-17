@@ -1,0 +1,22 @@
+[package]
+name = "kul-loader"
+description = "Filesystem project loader for the Kul language toolchain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+kul-core = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }

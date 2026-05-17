@@ -6,7 +6,7 @@
 | Project manifest      | `kul.yml` (one per directory; required — see [Section 14](./14-project-manifest.md)) |
 | Encoding              | UTF-8 (no BOM)                                                               |
 | Line endings          | LF or CRLF (parser MUST accept either)                                       |
-| CLI binary            | `kul` (e.g., `kul validate family.kul`)                                      |
+| CLI binary            | `kul` (CWD-rooted: `cd my-project && kul validate`)                          |
 
 A Kul document MAY be empty (zero statements). Such a document represents the empty family and is valid. The project manifest is still required even for an empty document.
 

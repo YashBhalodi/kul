@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -13,29 +12,28 @@ const VERSION_STRING: &str = concat!(
 );
 
 const TOP_LONG_ABOUT: &str = "\
-Kul language CLI — parse, validate, format, and export .kul documents.
+Kul language CLI — parse, validate, format, and export Kul projects.
 
-A Kul document describes a family: persons, marriages, biological births,
-and adoptions. `kul validate` parses a document and reports the 13
-spec-defined errors with line/column anchors. `kul export` projects a
-clean document into a JSON graph for downstream consumers. `kul lsp` runs
-the language server over stdio for editor integrations.
+A Kul *project* is a directory holding a `kul.yml` manifest plus one or
+more sibling `.kul` files. `kul validate`, `kul format`, and
+`kul export` all operate on the project rooted at the current working
+directory — no positional file argument is taken. `kul lsp` runs the
+language server over stdio for editor integrations.
 
 EXAMPLES:
-  kul validate family.kul
-  kul validate examples/*/*.kul
-  kul validate --format json family.kul | jq .
-  kul validate --quiet family.kul && echo ok
-  kul format family.kul       # canonicalize the file in place
-  kul format --check family.kul  # CI gate: non-zero if not canonical
-  kul export family.kul | jq .   # project clean document to JSON
-  kul lsp                      # speak LSP over stdio (editor integrations)
+  cd examples/07-multi-file-extended-family && kul validate
+  cd my-family && kul validate --format json | jq .
+  cd my-family && kul format          # canonicalize every .kul in place
+  cd my-family && kul format --check  # CI gate: non-zero if anything is dirty
+  cd my-family && kul export | jq .   # project graph to JSON
+  kul lsp                              # speak LSP over stdio (editor integrations)
 
 EXIT CODES:
-  0  every input validated/formatted/exported cleanly
-  1  at least one input had error diagnostics, or (under --check) was not
+  0  project validated/formatted/exported cleanly
+  1  one or more files had error diagnostics, the project root was not a
+     Kul project (no `kul.yml`), or (under `--check`) some file was not
      in canonical form
-  2  CLI usage error (e.g. unknown flag, missing argument)
+  2  CLI usage error (e.g. unknown flag)
 
 SEE ALSO:
   Spec ........ https://github.com/YashBhalodi/kul/tree/main/spec
@@ -56,28 +54,26 @@ struct Cli {
 }
 
 const VALIDATE_LONG_ABOUT: &str = "\
-Validate one or more .kul files against the Kul language specification.
+Validate every `.kul` file in the current Kul project.
 
-Each file is parsed and run through the validator. The validator reports the
-13 spec-defined errors (KUL-R01 through KUL-R13) with file/line/column
-anchors. The exit code is 0 if every input is clean and 1 if any input had
-error diagnostics.
+The project is the directory containing `kul.yml` — the command is run
+from that directory and takes no positional argument. Every `.kul` file
+sibling of `kul.yml` is parsed and run through the validator in one
+pass; project-wide rules (cross-file duplicate ids, cross-file
+references, cross-file cycle detection) fire here.
 
 EXAMPLES:
-  # Validate a single file.
-  kul validate family.kul
+  # From a project root.
+  kul validate
 
-  # Validate every example.
-  kul validate examples/*/*.kul
-
-  # Quiet mode for scripts: only diagnostics, no `ok` lines.
-  kul validate --quiet family.kul
+  # Quiet mode for scripts: only diagnostics, no `ok` line.
+  kul validate --quiet
 
   # Machine-readable output (one JSON object per diagnostic, jsonl).
-  kul validate --format json family.kul
+  kul validate --format json
 
   # Force colorless output (useful in CI logs).
-  kul validate --no-color family.kul
+  kul validate --no-color
 
 JSON OUTPUT (--format json):
   Each diagnostic is one JSON object on its own line, with this schema:
@@ -86,45 +82,52 @@ JSON OUTPUT (--format json):
     \"code\":     \"KUL-R03\",
     \"severity\": \"error\",
     \"message\":  \"person `alice` is missing required field `name`\",
-    \"file\":     \"family.kul\",
-    \"primary\":  { \"byte_start\": 7, \"byte_end\": 12,
+    \"primary\":  { \"file\": \"alice.kul\",
+                    \"byte_start\": 7, \"byte_end\": 12,
                     \"line\": 1, \"column\": 8 },
     \"related\":  [ { \"label\": \"prior declaration\",
+                      \"file\": \"bob.kul\",
                       \"byte_start\": …, \"byte_end\": …,
                       \"line\": …, \"column\": … } ]
   }
 ";
 
 const FORMAT_LONG_ABOUT: &str = "\
-Format one or more `.kul` files in canonical form (per ADR 0004).
+Canonicalize every `.kul` file in the current Kul project (per ADR
+0004).
 
-Without `--check`, each file is rewritten in place. With `--check`, no file
-is modified — the command exits non-zero if any input is not already in
-canonical form, which is the right shape for a CI gate.
+The project is the directory containing `kul.yml` — the command is run
+from that directory and takes no positional argument. Without
+`--check`, each `.kul` file is rewritten in place. With `--check`, no
+file is modified — the command exits non-zero if any input is not
+already in canonical form, which is the right shape for a CI gate.
 
 EXAMPLES:
-  # Canonicalize a file in place.
-  kul format family.kul
+  # From a project root.
+  kul format
 
-  # Canonicalize every example.
-  kul format examples/*/*.kul
-
-  # CI gate: fail if anything is out of canonical form.
-  kul format --check examples/*/*.kul
+  # CI gate.
+  kul format --check
 
 EXIT CODES:
-  0  every file is in canonical form (or was successfully formatted)
-  1  at least one input had parse errors, or (under --check) was not in
-     canonical form
+  0  every file in the project is in canonical form (or was
+     successfully formatted)
+  1  the project had parse errors, or (under `--check`) at least one
+     file was not in canonical form
   2  CLI usage error
 ";
 
 const EXPORT_LONG_ABOUT: &str = "\
-Project a `.kul` document into the canonical JSON envelope.
+Project the current Kul project to the canonical JSON envelope.
 
-The export is **strict**: any error-severity diagnostic blocks projection
-and the failure envelope (carrying the diagnostics) is written to stdout
-with a non-zero exit code. Warnings do not block.
+The project is the directory containing `kul.yml` — the command is run
+from that directory and takes no positional argument. The export is
+**strict**: any error-severity diagnostic blocks projection and the
+failure envelope (carrying the diagnostics) is written to stdout with
+a non-zero exit code. Warnings do not block.
+
+One envelope is written for the whole project, carrying the union of
+every file's persons, marriages, and parenthood links.
 
 The success envelope shape is:
 
@@ -146,20 +149,15 @@ The failure envelope shape is:
     \"diagnostics\": [ ... ]  // same schema as `kul validate --format json`
   }
 
-Multiple inputs write one envelope per line in input order. See
-`spec/16-export-schema.md` for the normative schema.
+See `spec/16-export-schema.md` for the normative schema.
 
 EXAMPLES:
-  # Single file.
-  kul export family.kul | jq .
-
-  # Batch.
-  kul export examples/*/*.kul
+  kul export | jq .
 
 EXIT CODES:
-  0  every input projected to a success envelope
-  1  at least one input failed (errors blocked the projection, or the file
-     could not be read)
+  0  project projected to a success envelope
+  1  errors blocked the projection, or the project could not be
+     loaded
   2  CLI usage error
 ";
 
@@ -177,14 +175,10 @@ ENVIRONMENT:
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// Validate one or more `.kul` files.
+    /// Validate every `.kul` file in the current Kul project.
     #[command(long_about = VALIDATE_LONG_ABOUT)]
     Validate {
-        /// Files to validate.
-        #[arg(value_name = "FILE", required = true)]
-        files: Vec<PathBuf>,
-
-        /// Suppress per-file `<path>: ok` lines on success.
+        /// Suppress the `ok` line on success.
         ///
         /// Diagnostics are still printed; only the success line is suppressed.
         /// Useful for scripts that only care about the exit code.
@@ -208,26 +202,18 @@ enum Command {
         no_color: bool,
     },
 
-    /// Format one or more `.kul` files.
+    /// Format every `.kul` file in the current Kul project.
     #[command(long_about = FORMAT_LONG_ABOUT)]
     Format {
-        /// Files to format.
-        #[arg(value_name = "FILE", required = true)]
-        files: Vec<PathBuf>,
-
         /// Verify formatting without modifying files. Exits non-zero if any
         /// input is not already in canonical form. Suitable for CI.
         #[arg(long)]
         check: bool,
     },
 
-    /// Project one or more `.kul` files to the canonical JSON envelope.
+    /// Project the current Kul project to the canonical JSON envelope.
     #[command(long_about = EXPORT_LONG_ABOUT)]
     Export {
-        /// Files to export.
-        #[arg(value_name = "FILE", required = true)]
-        files: Vec<PathBuf>,
-
         /// Output format. `json` (default) is the canonical
         /// kinship-native shape; alternative shapes land additively as
         /// follow-up issues.
@@ -257,25 +243,19 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
     match cli.command {
         Command::Validate {
-            files,
             quiet,
             format,
             no_color,
         } => commands::validate::run(commands::validate::Options {
-            files,
             quiet,
             format,
             no_color,
         }),
-        Command::Format { files, check } => {
-            commands::format::run(commands::format::Options { files, check })
-        }
+        Command::Format { check } => commands::format::run(commands::format::Options { check }),
         Command::Export {
-            files,
             format,
             with_positions,
         } => commands::export::run(commands::export::Options {
-            files,
             format,
             with_positions,
         }),

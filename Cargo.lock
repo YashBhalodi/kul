@@ -638,6 +638,7 @@ dependencies = [
  "clap",
  "insta",
  "kul-core",
+ "kul-loader",
  "kul-lsp",
  "miette",
  "predicates",
@@ -658,6 +659,15 @@ dependencies = [
  "thiserror",
  "tsify",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kul-loader"
+version = "0.1.3"
+dependencies = [
+ "insta",
+ "kul-core",
+ "thiserror",
 ]
 
 [[package]]

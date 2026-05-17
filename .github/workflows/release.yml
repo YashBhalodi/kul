@@ -98,10 +98,12 @@ jobs:
         shell: bash
         run: |
           set -e
-          BIN="target/${{ matrix.target }}/release/kul"
+          BIN="$PWD/target/${{ matrix.target }}/release/kul"
           if [[ "${{ runner.os }}" == "Windows" ]]; then BIN="$BIN.exe"; fi
           "$BIN" --version
-          "$BIN" validate examples/03-three-generations/three-generations.kul
+          # CLI subcommands are CWD-rooted (issue #83) — run from the
+          # example project directory rather than passing a path.
+          (cd examples/03-three-generations && "$BIN" validate)
       - name: Package
         id: package
         shell: bash

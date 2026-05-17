@@ -1,70 +1,57 @@
+//! `kul validate` subcommand — project-wide.
+//!
+//! Validates every `.kul` file in the current Kul project (CWD must
+//! hold a sibling `kul.yml`). Reports every diagnostic — cross-file or
+//! not — in one run.
+
+use std::collections::HashMap;
 use std::io;
-use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use kul_core::ast::InputFile;
 use kul_core::diagnostic::{Diagnostic, RelatedSpan, RenderableDiagnostic, Severity};
 use kul_core::span::{FileSpan, SourceMap};
 use miette::{GraphicalReportHandler, GraphicalTheme};
 use serde::Serialize;
 
 use crate::OutputFormat;
-use crate::commands::manifest::load_for as load_manifest;
+use crate::commands::project::load_cwd_project;
 
 pub struct Options {
-    pub files: Vec<PathBuf>,
     pub quiet: bool,
     pub format: OutputFormat,
     pub no_color: bool,
 }
 
 pub fn run(opts: Options) -> ExitCode {
-    let mut had_error = false;
-    for file in &opts.files {
-        match validate_one(file, &opts) {
-            Ok(file_had_error) => {
-                if file_had_error {
-                    had_error = true;
-                }
-            }
-            Err(err) => {
-                eprintln!("kul: {}: {err}", file.display());
-                had_error = true;
-            }
-        }
-    }
-    if had_error {
-        ExitCode::from(1)
-    } else {
-        ExitCode::SUCCESS
-    }
-}
-
-fn validate_one(path: &Path, opts: &Options) -> io::Result<bool> {
-    let source = std::fs::read_to_string(path)?;
-    let label = path.to_string_lossy().into_owned();
-
-    let manifest = load_manifest(path);
-    let inputs = vec![InputFile::new(label.clone(), source)];
-    let mut result = kul_core::check(manifest.path_label, &manifest.yaml, &inputs);
-    // Manifest-not-found diagnostics (`KUL-M01`) come from the CLI's
-    // discovery step — `kul-core` only sees the bytes the adapter
-    // hands it. Splice them into the diagnostic list at the front so
-    // they render before the file-anchored ones.
-    let mut diagnostics = manifest.preface;
-    diagnostics.append(&mut result.diagnostics);
-    result.diagnostics = diagnostics;
+    let project = match load_cwd_project() {
+        Ok(p) => p,
+        Err(err) => return err.report(),
+    };
+    let result = kul_core::check(
+        project.manifest_name,
+        &project.manifest_yaml,
+        &project.inputs,
+    );
 
     match opts.format {
-        OutputFormat::Human => render_human(&result, opts),
-        OutputFormat::Json => render_json(&result)?,
+        OutputFormat::Human => render_human(&result, &opts),
+        OutputFormat::Json => {
+            if let Err(err) = render_json(&result) {
+                eprintln!("kul: failed to render diagnostics: {err}");
+                return ExitCode::from(1);
+            }
+        }
     }
 
     let has_errors = result.has_errors();
     if !has_errors && !opts.quiet && opts.format == OutputFormat::Human {
-        println!("{label}: ok");
+        println!("ok");
     }
-    Ok(has_errors)
+    if has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
 }
 
 fn render_human(result: &kul_core::CheckResult, opts: &Options) {
@@ -87,12 +74,11 @@ fn render_human(result: &kul_core::CheckResult, opts: &Options) {
 fn render_json(result: &kul_core::CheckResult) -> io::Result<()> {
     let stdout = io::stdout();
     let mut out = stdout.lock();
-    use std::collections::HashMap;
     use std::io::Write;
 
+    let document = result.document();
     // Lazily build per-file SourceMaps so we don't pay the cost for
     // files the diagnostic list never anchors into.
-    let document = result.document();
     let mut maps: HashMap<kul_core::span::FileId, SourceMap> = HashMap::new();
     for diag in &result.diagnostics {
         let record = JsonDiagnostic::new(document, &mut maps, diag);
@@ -131,7 +117,7 @@ struct JsonRelated<'a> {
 impl<'a> JsonDiagnostic<'a> {
     fn new(
         document: &kul_core::ast::Document,
-        maps: &mut std::collections::HashMap<kul_core::span::FileId, SourceMap>,
+        maps: &mut HashMap<kul_core::span::FileId, SourceMap>,
         diag: &'a Diagnostic,
     ) -> Self {
         Self {
@@ -158,7 +144,7 @@ impl JsonSpan {
     fn new(
         span: FileSpan,
         document: &kul_core::ast::Document,
-        maps: &mut std::collections::HashMap<kul_core::span::FileId, SourceMap>,
+        maps: &mut HashMap<kul_core::span::FileId, SourceMap>,
     ) -> Option<Self> {
         let source = document.source_of(span.file)?;
         let map = maps
