@@ -90,7 +90,7 @@ The graph is the kinship-native projection: three flat collections, one per lang
 ```
 
 - `id` MUST be the declared id of the marriage.
-- `spouses` MUST be a two-element array of person ids in declaration order.
+- `spouses` MUST be a two-element array of person ids in declaration order. The first entry is the marriage's **host** (see [§4.2](./04-top-level-statements.md#42-marriage-statement)).
 - `start` MUST be a [date object](#156-date-object) (always present — rule R03).
 - `end` MUST be present iff the source declared an `end:` field. Per rule R05, `end` and `endReason` are paired.
 - `endReason` MUST be the value as written in source (currently the only valid value is `"divorce"`).

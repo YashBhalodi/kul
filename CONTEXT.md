@@ -44,6 +44,10 @@ Any `key:value` pair on a Person, Marriage, Birth, or Adoption. Fields are optio
 
 A resolved Person on either side of a Marriage. The function `ResolvedDocument::spouses_of(&MarriageStmt)` yields them; if a spouse-id was unresolved, it's silently skipped (rule 02 has already reported it).
 
+### Host (of a marriage)
+
+The first-listed spouse in a Marriage's declaration (`marriage <id> <host> <joining-spouse> …`). A structural role downstream consumers (renderers, exports, queries) use for ordering and layout — the spec names the role, consumer documentation defines its visual semantics. The second spouse "joins the host's family." Authors who want to change the host swap the two spouse identifiers; there is no override field. Defined normatively in [`spec/04-top-level-statements.md`](./spec/04-top-level-statements.md#42-marriage-statement) §4.2.
+
 ### Parent
 
 A resolved Person derived from either a `birth` link (biological) or an `adoption` link (adoptive). The function `ResolvedDocument::parents_of(&PersonStmt)` yields the union; each is tagged with the link type.

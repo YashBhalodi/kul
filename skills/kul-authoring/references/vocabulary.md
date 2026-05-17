@@ -15,7 +15,7 @@ Maps natural-language kinship terms to Kul. Most everyday terms are **derived** 
 
 | Natural-language term                            | Declared / derived | How it surfaces in Kul                                                                              |
 | ------------------------------------------------ | ------------------ | --------------------------------------------------------------------------------------------------- |
-| Spouse / husband / wife                          | Declared           | `marriage` with the two persons.                                                                    |
+| Spouse / husband / wife                          | Declared           | `marriage` with the two persons; the first-listed is the marriage's host (structural anchor).        |
 | Ex-spouse / divorced                             | Declared           | `marriage … end:<date> end_reason:divorce`.                                                         |
 | Widow / widower                                  | Derived            | Surviving spouse of a marriage whose other spouse has a `died:` date and no `end:` recorded.        |
 | Child / son / daughter                           | Derived            | A `person` with a `birth` (bio) or `adoption` (adoptive) sub-statement pointing at parents' marriage. |
