@@ -26,6 +26,19 @@ Three generations. Alice is the biological daughter of Ramesh and Sita. Alice an
 
 Devraj is concurrently married to Meera and Alice. Priya is the biological daughter of Alice and Devraj. Exercises: concurrent marriages for one spouse (polygamy); cross-family naming.
 
+## 8.5 Host effect across a multi-family chain
+
+[`../examples/05-married-siblings/married-siblings.kul`](../examples/05-married-siblings/married-siblings.kul)
+
+Two sons (Arjun, Vikram), each born of `m_ramesh_sita`, themselves marry into other families. The two child-marriages list the Sharma-born sibling first:
+
+```
+marriage m_arjun_priya  arjun  priya   start:1975-11-04
+marriage m_vikram_nisha vikram nisha   start:1980-03-22
+```
+
+Per [Section 4.2](./04-top-level-statements.md#42-marriage-statement), `arjun` and `vikram` are the **hosts** of their respective marriages; `priya` and `nisha` join. The host position is what threads the founders' marriage `m_ramesh_sita` through to each child-marriage as one continuous structural chain (parent marriage → host → child marriage). Swapping the spouse identifiers in either marriage would make the in-law the host, breaking the chain at that branch — visible to any layout consumer that follows the host edge. Exercises: deliberate host choice; multi-family layout consequence.
+
 ---
 
 ← [Section 7 — Validation rules](./07-validation-rules.md) | [Index](./README.md) | Next → [Section 9 — Edge cases](./09-edge-cases.md)

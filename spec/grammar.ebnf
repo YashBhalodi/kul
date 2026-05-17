@@ -17,6 +17,7 @@ top-statement     = person-stmt | marriage-stmt ;
 
 person-stmt       = "person" person-id { person-field } NEWLINE { person-sub-statement } ;
 marriage-stmt     = "marriage" marriage-id person-ref person-ref { marriage-field } NEWLINE ;
+                    (* The first person-ref is the marriage's host; see spec/04-top-level-statements.md §4.2. *)
 
 (* --- Person sub-statements (only valid as indented continuation of a person-stmt) --- *)
 

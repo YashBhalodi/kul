@@ -39,7 +39,9 @@ A marriage statement declares a marriage between two persons:
 marriage <id> <spouse-a> <spouse-b> <field>...
 ```
 
-Where `<id>` is an identifier unique within the document, and `<spouse-a>` and `<spouse-b>` are identifiers referring to declared persons. The `<id>` and the two spouse identifiers are positional and required. The order of the two spouse identifiers carries no semantic significance.
+Where `<id>` is an identifier unique within the document, and `<spouse-a>` and `<spouse-b>` are identifiers referring to declared persons. The `<id>` and the two spouse identifiers are positional and required.
+
+The first-listed spouse is the marriage's **host**: the structural role downstream consumers (renderers, exports, queries) use for ordering and layout. The second-listed spouse joins the host's family. The spec does not prescribe how the host role is presented; consumer documentation defines its semantics. Authors who want to change the host swap the two spouse identifiers.
 
 Fields:
 
