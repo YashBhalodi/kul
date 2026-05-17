@@ -11,6 +11,7 @@ Kul's surface gives you several knobs for handling under-specified prose. Awaren
 - **Comments** are preserved verbatim by the formatter and can sit on any line or trailing any statement. They're the place to record provenance, inferences, or anything the language doesn't model.
 - **Parenthood requires a marriage.** A `birth` sub-statement points at a marriage id; if prose names parents without a marriage, the marriage needs to be declared too for the bio link to exist.
 - **Derived relations resolve to primitives.** Uncle, cousin, half-sibling, step-parent etc. aren't keywords — they fall out of the person + marriage + birth/adoption graph (see [`vocabulary.md`](./vocabulary.md)).
+- **Spouse order picks the host.** The first-listed spouse is the marriage's host (the structural anchor downstream renderers use for layout); the second joins. When prose says "X married Y," put X first. When neither is named first naturally, prefer the spouse who anchors the family being narrated (e.g. the bio-child of the prior marriage).
 
 ## Example 1 — Simple nuclear family
 

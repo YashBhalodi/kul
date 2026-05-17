@@ -24,6 +24,8 @@ marriage <id> <spouse_a> <spouse_b>  start:…  [end:… end_reason:divorce]
 
 That's the entire surface. **Everything else — children, parents, siblings, half-siblings, cousins, uncles, in-laws, step-relations — is derived** from the person + marriage + birth/adoption graph. There is no `child` keyword, no `parent` field, no `sibling` declaration. See [`references/vocabulary.md`](./references/vocabulary.md) for the full NL→Kul mapping table.
 
+In a `marriage`, the first-listed spouse is the marriage's **host**; the second joins the host's family. Pick the host deliberately — it's the structural anchor downstream renderers and exports use for layout. To change the host, swap the two spouse identifiers.
+
 A minimal worked snippet:
 
 ```

@@ -41,7 +41,7 @@ marriage m_alice_bob alice bob  start:1972-05-12  end:1990-08-01  end_reason:div
 | `end`        | no              | date | Date marriage ended. Absence means ongoing or ended only by spousal death.     |
 | `end_reason` | iff `end` given | enum | Required iff `end` is present. v1 vocabulary: `divorce`.                       |
 
-Spouse positions must be distinct. Spouse order has no semantic meaning. Spousal death does not auto-end a marriage (see [spec §6.2 — active marriage at time T](https://github.com/YashBhalodi/kul/blob/main/spec/06-semantics.md#62-active-marriage-at-time-t)).
+Spouse positions must be distinct. The first-listed spouse is the marriage's **host** — the structural role downstream renderers and exports use for ordering and layout; the second joins the host's family. To change the host, swap the two spouse identifiers (no override field). See [spec §4.2 — marriage statement](https://github.com/YashBhalodi/kul/blob/main/spec/04-top-level-statements.md#42-marriage-statement). Spousal death does not auto-end a marriage (see [spec §6.2 — active marriage at time T](https://github.com/YashBhalodi/kul/blob/main/spec/06-semantics.md#62-active-marriage-at-time-t)).
 
 ## `birth` (sub-statement)
 
