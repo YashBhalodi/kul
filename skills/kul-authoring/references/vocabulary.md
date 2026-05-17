@@ -40,4 +40,4 @@ When prose names a derived relation ("Alice's uncle Ravi"), resolve it back to d
 
 - `gender:` is required on every `person`. The enum is exactly `male | female | other`.
 - Dates take the granularity of the literal: `1985-03-15`, `1985-03`, `1985`, or `~1985` (circa, ±5y). Absence of a date field is valid (except `start:` on a `marriage`); there is no `unknown` literal.
-- Identifiers match `[A-Za-z_][A-Za-z0-9_-]*` and must avoid the 17 reserved keywords — see [`spec/11-reserved-keywords.md`](../../../spec/11-reserved-keywords.md).
+- Identifiers match `[A-Za-z_][A-Za-z0-9_-]*` and must avoid the 17 reserved keywords — see [spec §11 — reserved keywords](https://github.com/YashBhalodi/kul/blob/main/spec/11-reserved-keywords.md).

@@ -14,7 +14,7 @@ Kul's surface gives you several knobs for handling under-specified prose. Awaren
 
 ## Example 1 — Simple nuclear family
 
-Mirrors [`examples/02-nuclear-family/`](../../../examples/02-nuclear-family/nuclear-family.kul).
+Mirrors [examples/02-nuclear-family](https://github.com/YashBhalodi/kul/blob/main/examples/02-nuclear-family/nuclear-family.kul).
 
 > Alice Sharma was born on April 12, 1950. Her husband Bob Sharma was born on November 30, 1948. They married on May 12, 1972. They had one daughter, Carol Sharma, born September 3, 1975.
 
@@ -31,7 +31,7 @@ marriage m_alice_bob alice bob  start:1972-05-12
 
 ## Example 2 — Three generations with derived relations, divorce, adoption, circa date
 
-Mirrors [`examples/03-three-generations/`](../../../examples/03-three-generations/three-generations.kul).
+Mirrors [examples/03-three-generations](https://github.com/YashBhalodi/kul/blob/main/examples/03-three-generations/three-generations.kul).
 
 > Ramesh and Sita Sharma were Alice's parents. Ramesh was born March 10, 1925; Sita July 15, 1928. They married June 10, 1948. Ramesh died August 22, 2005; Sita November 4, 2010.
 >
@@ -100,7 +100,7 @@ Granularity tracks the prose. Daughter's `born` is omitted (no `unknown` literal
 
 ## Example 5 — Cross-file split
 
-Mirrors [`examples/07-multi-file-extended-family/`](../../../examples/07-multi-file-extended-family/).
+Mirrors [examples/07-multi-file-extended-family](https://github.com/YashBhalodi/kul/tree/main/examples/07-multi-file-extended-family).
 
 > Ramesh and Sita Patel were the founders. Ramesh: born April 10, 1928, died December 3, 2010. Sita: born September 22, 1931, died June 14, 2018. They married February 18, 1952.
 >

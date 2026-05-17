@@ -1,6 +1,6 @@
 # Syntax
 
-Condensed reference for Kul 0.1. Normative source: [`spec/03..06`](../../../spec/03-lexical-structure.md), [`spec/11`](../../../spec/11-reserved-keywords.md), [`spec/12`](../../../spec/12-formal-grammar.md), [`spec/grammar.ebnf`](../../../spec/grammar.ebnf). One micro-example per construct.
+Condensed reference for Kul 0.1. Normative source: [spec sections 3–6](https://github.com/YashBhalodi/kul/tree/main/spec) — lexical structure, top-level statements, sub-statements, semantics — plus [reserved keywords](https://github.com/YashBhalodi/kul/blob/main/spec/11-reserved-keywords.md), [formal grammar](https://github.com/YashBhalodi/kul/blob/main/spec/12-formal-grammar.md), and the standalone [grammar.ebnf](https://github.com/YashBhalodi/kul/blob/main/spec/grammar.ebnf). One micro-example per construct.
 
 ## Document shape
 
@@ -41,7 +41,7 @@ marriage m_alice_bob alice bob  start:1972-05-12  end:1990-08-01  end_reason:div
 | `end`        | no              | date | Date marriage ended. Absence means ongoing or ended only by spousal death.     |
 | `end_reason` | iff `end` given | enum | Required iff `end` is present. v1 vocabulary: `divorce`.                       |
 
-Spouse positions must be distinct. Spouse order has no semantic meaning. Spousal death does not auto-end a marriage (see [`spec/06-semantics.md`](../../../spec/06-semantics.md) §6.2).
+Spouse positions must be distinct. Spouse order has no semantic meaning. Spousal death does not auto-end a marriage (see [spec §6.2 — active marriage at time T](https://github.com/YashBhalodi/kul/blob/main/spec/06-semantics.md#62-active-marriage-at-time-t)).
 
 ## `birth` (sub-statement)
 
@@ -79,7 +79,7 @@ born:~1925          # approximately 1925
 
 ## Identifiers
 
-`[A-Za-z_][A-Za-z0-9_-]*`, case-sensitive. Must not match one of the 17 reserved keywords ([`spec/11`](../../../spec/11-reserved-keywords.md)):
+`[A-Za-z_][A-Za-z0-9_-]*`, case-sensitive. Must not match one of the 17 reserved keywords ([spec §11](https://github.com/YashBhalodi/kul/blob/main/spec/11-reserved-keywords.md)):
 
 ```
 adoption  birth   born  died    divorce  end       end_reason  family  female

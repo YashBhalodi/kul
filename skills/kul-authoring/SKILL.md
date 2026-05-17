@@ -11,7 +11,7 @@ when_to_use: |
 
 # Authoring Kul
 
-Kul is a small declarative language for kinship — persons, marriages, biological birth, and adoption, with first-class chronology. The canonical artifact is a `.kul` file plus a sibling `kul.yml` manifest. The normative source is [`spec/`](../../spec/README.md); the worked corpus is [`examples/`](../../examples/).
+Kul is a small declarative language for kinship — persons, marriages, biological birth, and adoption, with first-class chronology. The canonical artifact is a `.kul` file plus a sibling `kul.yml` manifest. The normative source is the [Kul language spec](https://github.com/YashBhalodi/kul/tree/main/spec); the worked corpus is the [examples directory](https://github.com/YashBhalodi/kul/tree/main/examples).
 
 ## The four primitives
 
