@@ -1,0 +1,6 @@
+---
+source: crates/kul-loader/tests/loader.rs
+expression: rendered
+---
+not a Kul project root: no kul.yml in <crate-root>/tests/fixtures/missing-manifest
+  (a Kul project is a directory containing a sibling kul.yml; the loader checked <crate-root>/tests/fixtures/missing-manifest/kul.yml)
