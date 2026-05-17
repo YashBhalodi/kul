@@ -66,6 +66,11 @@ fn manifest_path(root: &Path) -> PathBuf {
 /// [`InputFile`] per `.kul` file in lexicographic order.
 #[derive(Debug, Clone)]
 pub struct LoadedProject {
+    /// Path the loader read this project from — the directory holding
+    /// `kul.yml` plus the `.kul` files. Surfaced so callers that need
+    /// to write back to disk (e.g. `kul format`) don't re-derive it
+    /// from CWD, since the loader already established it.
+    pub root: PathBuf,
     /// Path-string label for the manifest, e.g. `"./kul.yml"`. This is
     /// what `kul_core::check` will surface as the manifest's filename
     /// in diagnostics.
@@ -190,6 +195,7 @@ pub fn load(root: &Path) -> Result<LoadedProject, ProjectLoadError> {
 
     let manifest_name = manifest.to_string_lossy().into_owned();
     Ok(LoadedProject {
+        root: root.to_path_buf(),
         manifest_name,
         manifest_yaml,
         inputs,

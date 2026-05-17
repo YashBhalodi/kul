@@ -22,13 +22,6 @@ pub fn run(opts: Options) -> ExitCode {
         Ok(x) => x,
         Err(code) => return code,
     };
-    let cwd = match std::env::current_dir() {
-        Ok(c) => c,
-        Err(err) => {
-            eprintln!("kul: failed to read current working directory: {err}");
-            return ExitCode::from(1);
-        }
-    };
 
     if has_parse_errors(&result.diagnostics) {
         eprintln!("kul: cannot format project with parse errors");
@@ -44,9 +37,8 @@ pub fn run(opts: Options) -> ExitCode {
     let mut had_error = false;
     for input in &project.inputs {
         // Per ADR-0015's flat-directory rule, every project input
-        // lives directly under the project root; its on-disk path is
-        // `<cwd>/<name>`.
-        let path: PathBuf = cwd.join(&input.name);
+        // lives directly under the project root.
+        let path: PathBuf = project.root.join(&input.name);
         let formatted = kul_core::format::format_source(&input.source);
         if formatted == input.source {
             continue;
