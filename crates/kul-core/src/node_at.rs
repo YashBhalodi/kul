@@ -19,6 +19,7 @@ use crate::ast::{
     AdoptionField, AdoptionSub, BirthSub, Ident, MarriageField, MarriageStmt, PersonField,
     PersonStmt, Statement,
 };
+use crate::lexer::FieldName;
 use crate::semantic::{EntityKind, ResolvedDocument};
 use crate::span::{ByteSpan, FileId, FileSpan};
 
@@ -50,14 +51,21 @@ pub enum Node<'a> {
     /// The id token of a `marriage` declaration.
     MarriageDeclId(&'a MarriageStmt),
     /// A reference to a person (currently: spouse positions in a marriage).
+    ///
+    /// `target` carries the file the declaration lives in alongside the
+    /// AST node — under project-wide resolution (ADR-0015) that file may
+    /// be a sibling of the reference's file. `None` when the reference is
+    /// unresolved (R02 reports it).
     PersonRef {
         ident: &'a Ident,
-        target: Option<&'a PersonStmt>,
+        target: Option<(FileId, &'a PersonStmt)>,
     },
     /// A reference to a marriage (in `birth` or `adoption` sub-statements).
+    /// `target` follows the same `(FileId, &Stmt)` shape as
+    /// [`Node::PersonRef`].
     MarriageRef {
         ident: &'a Ident,
-        target: Option<&'a MarriageStmt>,
+        target: Option<(FileId, &'a MarriageStmt)>,
     },
     /// The lhs (`name:`, `gender:`, …) of a person field.
     PersonFieldName(&'a PersonField),
@@ -76,19 +84,41 @@ pub enum Node<'a> {
 
 /// The resolved entity — a person or a marriage — referred to from a
 /// [`Node`]. Sibling type to [`EntityNode`].
+///
+/// Each variant carries both the AST statement and the [`FileId`] of the
+/// `.kul` file that declares it. Under project-wide resolution
+/// (ADR-0015), the declaration's file may differ from the file the
+/// reference (or the cursor) sits in — feature modules that need the
+/// declaration's location read `file` directly instead of re-querying
+/// [`ResolvedDocument::entity`].
 #[derive(Debug, Clone, Copy)]
 pub enum EntityTarget<'a> {
-    Person(&'a PersonStmt),
-    Marriage(&'a MarriageStmt),
+    Person {
+        file: FileId,
+        stmt: &'a PersonStmt,
+    },
+    Marriage {
+        file: FileId,
+        stmt: &'a MarriageStmt,
+    },
 }
 
 impl<'a> EntityTarget<'a> {
-    /// Span of the entity's declaration id (the id token after `person` /
-    /// `marriage`). The anchor LSP features (definition, rename) point at.
-    pub fn decl_span(self) -> ByteSpan {
+    /// The file the resolved declaration lives in.
+    pub fn file(self) -> FileId {
         match self {
-            EntityTarget::Person(p) => p.id.span,
-            EntityTarget::Marriage(m) => m.id.span,
+            EntityTarget::Person { file, .. } | EntityTarget::Marriage { file, .. } => file,
+        }
+    }
+
+    /// The declaration's id span, as a project-wide [`FileSpan`] anchored
+    /// at the file that owns the declaration (not the file the reference
+    /// sits in). This is the anchor goto-definition jumps to and rename
+    /// includes in its workspace edit.
+    pub fn decl_span(self) -> FileSpan {
+        match self {
+            EntityTarget::Person { file, stmt } => FileSpan::new(file, stmt.id.span),
+            EntityTarget::Marriage { file, stmt } => FileSpan::new(file, stmt.id.span),
         }
     }
 }
@@ -124,15 +154,40 @@ pub struct EntityNode<'a> {
 impl<'a> EntityNode<'a> {
     /// Span of the declaration id of the referenced entity, or `None` for
     /// an unresolved reference. For a decl this is the span the cursor is
-    /// already on; for a resolved reference, the corresponding declaration.
-    /// Returned as a [`FileSpan`] anchored on the containing file.
+    /// already on; for a resolved reference, the corresponding declaration
+    /// in the file that owns it (which may be a sibling of the active
+    /// URI's file under ADR-0015).
     pub fn decl_span(&self) -> Option<FileSpan> {
         if self.is_decl {
             return Some(self.ident_span);
         }
-        let target = self.target?;
-        Some(FileSpan::new(self.ident_span.file, target.decl_span()))
+        self.target.map(|t| t.decl_span())
     }
+}
+
+/// The "field at the cursor" summary: `Some` when the cursor is on a
+/// person/marriage/adoption field (the `name:` side or the value side),
+/// `None` for keywords, ids, and whitespace.
+///
+/// Returned by [`Node::field_node`]. Mirrors the [`EntityNode`] shape so
+/// LSP features that key on "what field is the user pointing at?"
+/// (hover, plus any future code-action or completion logic that's
+/// field-shape rather than statement-shape) can phrase themselves as a
+/// query for this summary instead of pattern-matching the six
+/// `*FieldName`/`*FieldValue` variants by hand.
+#[derive(Debug, Clone, Copy)]
+pub struct FieldNode {
+    /// Which field — `name`, `gender`, `start`, `end_reason`, …
+    pub name: FieldName,
+    /// Span of the `<name>:` lhs token. Use as the highlight range when
+    /// the cursor is on the field name.
+    pub name_span: ByteSpan,
+    /// Span of the value rhs. Use as the highlight range when the cursor
+    /// is on the value, or to slice the literal text out of source.
+    pub value_span: ByteSpan,
+    /// `true` if the cursor sits on the field name (`name:`); `false` if
+    /// on the value side (`"Alice"`, `female`, `1980-03-15`).
+    pub is_name: bool,
 }
 
 impl ResolvedDocument {
@@ -229,7 +284,7 @@ impl ResolvedDocument {
         if contains(b.marriage_ref.span, offset) {
             return Some(Node::MarriageRef {
                 ident: &b.marriage_ref,
-                target: self.marriage(&b.marriage_ref.name),
+                target: self.marriage_with_file(&b.marriage_ref.name),
             });
         }
         None
@@ -247,7 +302,7 @@ impl ResolvedDocument {
         if contains(a.marriage_ref.span, offset) {
             return Some(Node::MarriageRef {
                 ident: &a.marriage_ref,
-                target: self.marriage(&a.marriage_ref.name),
+                target: self.marriage_with_file(&a.marriage_ref.name),
             });
         }
         for f in &a.fields {
@@ -277,13 +332,13 @@ impl ResolvedDocument {
         if contains(m.spouse_a.span, offset) {
             return Some(Node::PersonRef {
                 ident: &m.spouse_a,
-                target: self.person(&m.spouse_a.name),
+                target: self.person_with_file(&m.spouse_a.name),
             });
         }
         if contains(m.spouse_b.span, offset) {
             return Some(Node::PersonRef {
                 ident: &m.spouse_b,
-                target: self.person(&m.spouse_b.name),
+                target: self.person_with_file(&m.spouse_b.name),
             });
         }
         for f in &m.fields {
@@ -311,31 +366,91 @@ impl<'a> Node<'a> {
                 name: p.id.name.as_str(),
                 ident_span: FileSpan::new(file, p.id.span),
                 is_decl: true,
-                target: Some(EntityTarget::Person(p)),
+                target: Some(EntityTarget::Person { file, stmt: p }),
             }),
             Node::MarriageDeclId(m) => Some(EntityNode {
                 kind: EntityKind::Marriage,
                 name: m.id.name.as_str(),
                 ident_span: FileSpan::new(file, m.id.span),
                 is_decl: true,
-                target: Some(EntityTarget::Marriage(m)),
+                target: Some(EntityTarget::Marriage { file, stmt: m }),
             }),
             Node::PersonRef { ident, target } => Some(EntityNode {
                 kind: EntityKind::Person,
                 name: ident.name.as_str(),
                 ident_span: FileSpan::new(file, ident.span),
                 is_decl: false,
-                target: target.map(EntityTarget::Person),
+                target: target.map(|(file, stmt)| EntityTarget::Person { file, stmt }),
             }),
             Node::MarriageRef { ident, target } => Some(EntityNode {
                 kind: EntityKind::Marriage,
                 name: ident.name.as_str(),
                 ident_span: FileSpan::new(file, ident.span),
                 is_decl: false,
-                target: target.map(EntityTarget::Marriage),
+                target: target.map(|(file, stmt)| EntityTarget::Marriage { file, stmt }),
             }),
             _ => None,
         }
+    }
+
+    /// If the cursor sits on a field — any of the six
+    /// `Person`/`Marriage`/`Adoption` × `FieldName`/`FieldValue`
+    /// variants — return the field summary. Returns `None` for
+    /// keywords, id decls/refs, and whitespace.
+    pub fn field_node(&self) -> Option<FieldNode> {
+        match *self {
+            Node::PersonFieldName(f) => Some(field_node_of(
+                f.kind.field_name(),
+                f.name_span,
+                f.kind.value_span(),
+                true,
+            )),
+            Node::PersonFieldValue(f) => Some(field_node_of(
+                f.kind.field_name(),
+                f.name_span,
+                f.kind.value_span(),
+                false,
+            )),
+            Node::MarriageFieldName(f) => Some(field_node_of(
+                f.kind.field_name(),
+                f.name_span,
+                f.kind.value_span(),
+                true,
+            )),
+            Node::MarriageFieldValue(f) => Some(field_node_of(
+                f.kind.field_name(),
+                f.name_span,
+                f.kind.value_span(),
+                false,
+            )),
+            Node::AdoptionFieldName(f) => Some(field_node_of(
+                f.kind.field_name(),
+                f.name_span,
+                f.kind.value_span(),
+                true,
+            )),
+            Node::AdoptionFieldValue(f) => Some(field_node_of(
+                f.kind.field_name(),
+                f.name_span,
+                f.kind.value_span(),
+                false,
+            )),
+            _ => None,
+        }
+    }
+}
+
+fn field_node_of(
+    name: FieldName,
+    name_span: ByteSpan,
+    value_span: ByteSpan,
+    is_name: bool,
+) -> FieldNode {
+    FieldNode {
+        name,
+        name_span,
+        value_span,
+        is_name,
     }
 }
 
@@ -367,8 +482,16 @@ mod tests {
         Keyword(KeywordKind),
         PersonDeclId(String),
         MarriageDeclId(String),
-        PersonRef { name: String, resolved: bool },
-        MarriageRef { name: String, resolved: bool },
+        PersonRef {
+            name: String,
+            resolved: bool,
+            target_file: Option<FileId>,
+        },
+        MarriageRef {
+            name: String,
+            resolved: bool,
+            target_file: Option<FileId>,
+        },
         PersonFieldName(String),
         PersonFieldValue(String),
         MarriageFieldName(String),
@@ -387,10 +510,12 @@ mod tests {
                 Some(Node::PersonRef { ident, target }) => Probe::PersonRef {
                     name: ident.name.clone(),
                     resolved: target.is_some(),
+                    target_file: target.map(|(file, _)| file),
                 },
                 Some(Node::MarriageRef { ident, target }) => Probe::MarriageRef {
                     name: ident.name.clone(),
                     resolved: target.is_some(),
+                    target_file: target.map(|(file, _)| file),
                 },
                 Some(Node::PersonFieldName(f)) => {
                     Probe::PersonFieldName(person_field_label(&f.kind).into())
@@ -491,6 +616,7 @@ mod tests {
             Probe::PersonRef {
                 name: "ghost".into(),
                 resolved: false,
+                target_file: None,
             },
         );
     }
@@ -503,6 +629,7 @@ mod tests {
             Probe::MarriageRef {
                 name: "m_nope".into(),
                 resolved: false,
+                target_file: None,
             },
         );
     }
@@ -564,5 +691,60 @@ mod tests {
         assert!(entity_at(src, 0).is_none());
         assert!(entity_at(src, idx(src, "name:")).is_none());
         assert!(entity_at(src, idx(src, "\"A\"")).is_none());
+    }
+
+    fn field_at(source: &str, offset: usize) -> Option<(FieldName, bool)> {
+        let (resolved, file) = build(source);
+        resolved
+            .node_at(file, offset)
+            .and_then(|n| n.field_node())
+            .map(|f| (f.name, f.is_name))
+    }
+
+    #[test]
+    fn field_node_distinguishes_name_from_value_across_kinds() {
+        let src = "person alice name:\"A\" gender:female\n\
+                   person bob name:\"B\" gender:male\n\
+                   marriage m alice bob start:2010 end:2020 end_reason:divorce\n\
+                   person kid name:\"K\" gender:other\n  adoption m start:2005 end:2008\n";
+        // Person field name / value.
+        assert_eq!(
+            field_at(src, idx(src, "name:")),
+            Some((FieldName::Name, true))
+        );
+        assert_eq!(
+            field_at(src, idx(src, "\"A\"")),
+            Some((FieldName::Name, false)),
+        );
+        assert_eq!(
+            field_at(src, idx(src, "gender:")),
+            Some((FieldName::Gender, true)),
+        );
+        // Marriage field name / value.
+        assert_eq!(
+            field_at(src, idx(src, "start:")),
+            Some((FieldName::Start, true)),
+        );
+        assert_eq!(
+            field_at(src, idx(src, "2010")),
+            Some((FieldName::Start, false)),
+        );
+        assert_eq!(
+            field_at(src, idx(src, "end_reason:")),
+            Some((FieldName::EndReason, true)),
+        );
+        // Adoption field name / value — find inside the adoption line.
+        let adoption_line = idx(src, "adoption");
+        let adopt_start = src[adoption_line..].find("start:").unwrap() + adoption_line;
+        assert_eq!(field_at(src, adopt_start), Some((FieldName::Start, true)),);
+    }
+
+    #[test]
+    fn field_node_returns_none_for_keywords_ids_and_whitespace() {
+        let src = "person alice name:\"A\" gender:female\n";
+        // `person` keyword.
+        assert!(field_at(src, 0).is_none());
+        // id token.
+        assert!(field_at(src, idx(src, "alice")).is_none());
     }
 }

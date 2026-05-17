@@ -49,6 +49,12 @@ impl ProjectRoot {
         ProjectRoot(path.unwrap_or_else(|| PathBuf::from(uri.to_string())))
     }
 
+    /// Construct a project root from a filesystem path directly. Used by
+    /// integration-test fixtures that hand-build a [`ProjectEntry`].
+    pub fn from_path(path: PathBuf) -> Self {
+        ProjectRoot(path)
+    }
+
     pub fn as_path(&self) -> &Path {
         &self.0
     }

@@ -298,6 +298,59 @@ fn format_outside_project_root_errors() {
         .stderr(contains("not a Kul project root"));
 }
 
+/// When parse errors block formatting, the user sees the same miette
+/// rendering `kul validate` would have produced — diagnostic code,
+/// source span, caret anchor — plus the "cannot format" header line.
+/// Regression test for the shared diagnostic renderer (`commands::diag`)
+/// being wired into `format`.
+#[test]
+fn format_with_parse_errors_renders_miette_report() {
+    let dir = project_dir("format-parse-error");
+    // `person` keyword missing the required id — KUL-P02 / KUL-P03 fires.
+    std::fs::write(dir.join("broken.kul"), "person\n").unwrap();
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .arg("format")
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("cannot format project with parse errors"))
+        // miette produces a `[KUL-Pxx]` code annotation in its report.
+        .stderr(contains("KUL-P"));
+}
+
+/// A cross-file duplicate id (R01) carries a related-span anchored in
+/// the *other* file. miette's single-source renderer can't draw it into
+/// the same source block, so the shared CLI renderer appends a
+/// `see also: <file>:<line>:<col> — …` footnote. Regression test
+/// for that line surfacing under `kul validate`.
+#[test]
+fn validate_cross_file_duplicate_emits_see_also_footnote() {
+    let dir = project_dir("validate-cross-file-r01");
+    std::fs::write(
+        dir.join("a.kul"),
+        "person alice name:\"Alice A\" gender:female\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("b.kul"),
+        "person alice name:\"Alice B\" gender:male\n",
+    )
+    .unwrap();
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .arg("validate")
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("KUL-R01"))
+        // The "see also" footnote anchors at the *other* file's path.
+        .stderr(contains("see also:"))
+        .stderr(contains("a.kul"));
+}
+
 // === `kul export` ===
 
 #[test]

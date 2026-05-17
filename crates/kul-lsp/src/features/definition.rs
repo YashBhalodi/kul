@@ -27,17 +27,14 @@ pub fn definition(entry: &ProjectEntry, uri: &Url, position: Position) -> Option
     if entity.is_decl {
         return None;
     }
-    // `entity.target` is the resolved decl (may live in any project
-    // file). Re-query the resolver to find the file the declaration
-    // sits in; with project-wide namespaces (ADR-0015) the answer is no
-    // longer "the same file as the reference".
-    let _ = entity.target?;
-    let target_entity = c.resolved.entity(entity.name)?;
-    let target_url = entry.url_for(target_entity.file)?;
-    let target_line_index = entry.line_index_for(target_entity.file)?;
+    // The cursor seam carries the resolved target's owning file directly
+    // (ADR-0015), so no second resolver query is needed.
+    let decl = entity.decl_span()?;
+    let target_url = entry.url_for(decl.file)?;
+    let target_line_index = entry.line_index_for(decl.file)?;
     Some(Location {
         uri: target_url.clone(),
-        range: target_line_index.range(target_entity.id.span),
+        range: target_line_index.range(decl.span),
     })
 }
 
