@@ -31,6 +31,10 @@ VSCode (or any [Open VSX](https://open-vsx.org/) consumer — VSCodium, Cursor, 
 
 File issues at **[github.com/YashBhalodi/kul/issues](https://github.com/YashBhalodi/kul/issues)** — bugs, language proposals, and editor-feature requests all go there. Please skim the [language spec](https://github.com/YashBhalodi/kul/tree/main/spec) and [examples](https://github.com/YashBhalodi/kul/tree/main/examples) before filing a language proposal.
 
+## AI authoring is separate
+
+If you're looking for AI-assisted `.kul` authoring, that's delivered as a separate [agentskills.io](https://agentskills.io)-compliant skill — not as a VSCode command. This extension is the *tooling* surface (diagnostics, formatting, export); the [`kul-authoring`](https://github.com/YashBhalodi/kul/tree/main/skills/kul-authoring) skill is the *authoring* surface for LLM agents. Install it into your project with `npx skills add YashBhalodi/kul --skill kul-authoring` and any agentskills.io-compliant agent (Claude Code, Cursor, Copilot, Codex CLI, Gemini CLI, …) will pick it up.
+
 ## Resources
 
 - **Repository**: [github.com/YashBhalodi/kul](https://github.com/YashBhalodi/kul)

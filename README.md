@@ -142,6 +142,16 @@ A single `--target bundler` ESM build — works in Vite, Webpack 5+, Next.js, Tu
 - [`examples/`](./examples/) — worked `.kul` documents, smallest first, exercising the full feature surface: nuclear families, divorce, retroactive adoption, polygamy, and partial dates.
 - [`docs/architecture.md`](./docs/architecture.md) — the implementation map: pipeline stages, seams, and "where to add X" recipes.
 
+## AI authoring
+
+Have an LLM agent fluent in Kul. The [`kul-authoring`](./skills/kul-authoring/SKILL.md) skill teaches any [agentskills.io](https://agentskills.io)-compliant agent (Claude Code, Cursor, Copilot, Codex CLI, Gemini CLI, and others) to translate natural-language family narratives into idiomatic `.kul` source. Install it into your `.kul`-authoring project with:
+
+```sh
+npx skills add YashBhalodi/kul --skill kul-authoring
+```
+
+The skill is generate-only — validation, formatting, and export remain tooling concerns handled via the CLI / VSCode extension.
+
 ## Compared to GEDCOM
 
 <details>

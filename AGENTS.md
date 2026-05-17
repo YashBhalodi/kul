@@ -21,6 +21,7 @@ docs/
 spec/          — Kul 0.1 language specification (the normative source of truth)
 editor/vscode/ — VSCode extension (LSP-backed, marketplace-publishable)
 examples/      — `.kul` corpus used as both docs and the positive test corpus
+skills/        — agentskills.io-compliant skills delivered separately via `npx skills add` (see `skills/kul-authoring/`)
 CONTEXT.md     — domain glossary; canonical vocabulary for the project
 ```
 
@@ -36,6 +37,7 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 | Add a test or perf budget           | [`docs/testing.md`](./docs/testing.md)                                                                                             |
 | Cut a release                       | [`docs/release.md`](./docs/release.md)                                                                                             |
 | Triage / file an issue              | [`docs/agents/issue-tracker.md`](./docs/agents/issue-tracker.md), [`docs/agents/triage-labels.md`](./docs/agents/triage-labels.md) |
+| Help an AI agent author Kul         | [`skills/kul-authoring/`](./skills/kul-authoring/SKILL.md)                                                                          |
 
 ## Rust development
 
@@ -69,6 +71,7 @@ A change is done when:
 2. New behavior is covered by tests in the appropriate crate. Snapshot tests (via `insta`) are the default for parser / validator / LSP-feature output — see [`docs/testing.md`](./docs/testing.md) and [ADR-0003](./docs/adr/0003-snapshot-tests-as-primary-validation.md).
 3. Public items have rustdoc; clippy lints are at deny level (no `#[allow]` without a justifying comment).
 4. If a non-obvious design choice is being made, it lands as an ADR in [`docs/adr/`](./docs/adr/) — not as a code comment that a future agent might "simplify" away.
+5. If your change touches `spec/`, the kinship section of `CONTEXT.md`, or `examples/`, update [`skills/kul-authoring/`](./skills/kul-authoring/SKILL.md) accordingly in the same PR.
 
 ## Issues, PRs, and commits
 
