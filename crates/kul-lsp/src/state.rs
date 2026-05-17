@@ -672,12 +672,21 @@ mod tests {
         assert!(got.is_none());
     }
 
+    /// Build a `file://` URL for an OS-temp-directory child. Going
+    /// through [`Url::from_file_path`] keeps the URI shape valid on
+    /// Windows (which requires a drive letter) as well as Unix.
+    fn temp_file_url(child: &str) -> Url {
+        let path = std::env::temp_dir().join(child);
+        let _ = std::fs::create_dir_all(path.parent().expect("temp child has parent"));
+        Url::from_file_path(&path).expect("file URL for temp child")
+    }
+
     #[tokio::test]
     async fn watcher_event_for_unknown_project_is_ignored() {
         let docs = Documents::default();
         let action = docs
             .process_watcher_event(
-                &url("file:///never/cached/foo.kul"),
+                &temp_file_url("kul-test-never-cached/foo.kul"),
                 FileChangeType::CHANGED,
             )
             .await;
@@ -693,7 +702,10 @@ mod tests {
     async fn watcher_event_for_unknown_file_type_is_ignored() {
         let docs = Documents::default();
         let action = docs
-            .process_watcher_event(&url("file:///tmp/README.md"), FileChangeType::CHANGED)
+            .process_watcher_event(
+                &temp_file_url("kul-test-unknown-ext/README.md"),
+                FileChangeType::CHANGED,
+            )
             .await;
         assert_eq!(
             action,
@@ -706,8 +718,7 @@ mod tests {
     #[tokio::test]
     async fn watcher_change_on_overlaid_file_is_ignored() {
         let docs = Documents::default();
-        let uri = url("file:///tmp/kul-test-overlay-ignore/foo.kul");
-        let _ = std::fs::create_dir_all("/tmp/kul-test-overlay-ignore");
+        let uri = temp_file_url("kul-test-overlay-ignore/foo.kul");
         docs.open(
             uri.clone(),
             "person a name:\"A\" gender:female\n".to_owned(),
