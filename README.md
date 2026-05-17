@@ -90,16 +90,19 @@ kul --version
 
 Pre-built `kul` and `kul-lsp` binaries for Linux (x86_64), macOS (Intel + Apple Silicon), and Windows (x86_64) ship attached to each [GitHub Release](https://github.com/YashBhalodi/kul/releases).
 
+A Kul project is a directory: a `kul.yml` manifest plus one or more sibling `.kul` files. The CLI subcommands operate on the project rooted at the current working directory — `cd` into the project, then run:
+
 ```sh
-kul validate family.kul                       # 13 spec-defined errors with line/col anchors
-kul format family.kul                         # canonicalize in place
-kul format --check family.kul                 # CI gate (non-zero if not canonical)
-kul export family.kul                         # kinship-native JSON
-kul export --format cytoscape family.kul      # graph viz JSON
+cd my-family                                  # directory holding kul.yml + N .kul files
+kul validate                                  # 13 spec-defined errors with line/col anchors, across every file
+kul format                                    # canonicalize every .kul file in place
+kul format --check                            # CI gate (non-zero if anything is not canonical)
+kul export                                    # one kinship-native JSON envelope for the whole project
+kul export --format cytoscape                 # graph viz JSON
 kul lsp                                       # speak LSP over stdio
 ```
 
-`kul validate` and `kul export` accept multiple files in one invocation. `--format json` emits one diagnostic per line.
+`--format json` emits one diagnostic per line.
 
 ### VSCode (and forks)
 
