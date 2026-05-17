@@ -89,104 +89,64 @@ fn parse_format(s: &str) -> Result<ExportFormat, ExportRequestError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::Documents;
+    use crate::state::test_open_file;
 
-    /// Set up a unique on-disk fixture directory plus its `kul.yml` and
-    /// return the URL. Each call creates a fresh directory so concurrent
-    /// tests don't trip over each other.
-    fn fixture_url(name: &str) -> Url {
-        let dir = std::env::temp_dir().join("kul_lsp_export_unit").join(name);
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).expect("create fixture dir");
-        std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").expect("write kul.yml");
-        let kul_path = dir.join("t.kul");
-        std::fs::write(&kul_path, "").expect("write kul fixture");
-        Url::from_file_path(&kul_path).expect("file URL")
+    /// `export_for` consumes only the cached `OpenFile` and the parsed
+    /// params; the params' URI is decorative for these tests, so we
+    /// reuse one stable opaque URL across the suite and let
+    /// `test_open_file` build the cached check from in-memory source.
+    fn dummy_uri() -> Url {
+        Url::parse("file:///dummy.kul").unwrap()
     }
 
-    async fn run_export<R>(
-        name: &str,
-        source: &str,
-        params: impl FnOnce(Url) -> ExportParams,
-        f: impl FnOnce(&OpenFile, &ExportParams) -> R,
-    ) -> R {
-        let url = fixture_url(name);
-        let docs = Documents::new();
-        docs.open(url.clone(), source.to_owned()).await;
-        let params = params(url.clone());
-        docs.with(&url, |doc| f(doc, &params))
-            .await
-            .expect("doc should be open")
-    }
-
-    fn json_params(uri: Url) -> ExportParams {
+    fn json_params() -> ExportParams {
         ExportParams {
-            uri,
+            uri: dummy_uri(),
             format: "json".into(),
             with_positions: false,
         }
     }
 
-    #[tokio::test]
-    async fn export_clean_document_returns_success_envelope() {
-        let env = run_export(
-            "clean_doc",
-            "person alice name:\"A\" gender:female\n",
-            json_params,
-            export_for,
-        )
-        .await
-        .expect("ok");
+    #[test]
+    fn export_clean_document_returns_success_envelope() {
+        let doc = test_open_file("person alice name:\"A\" gender:female\n");
+        let env = export_for(&doc, &json_params()).expect("ok");
         assert!(env.is_ok(), "expected success envelope");
     }
 
-    #[tokio::test]
-    async fn export_dirty_document_returns_failure_envelope() {
-        let env = run_export(
-            "dirty_doc",
-            "person alice gender:female\n",
-            json_params,
-            export_for,
-        )
-        .await
-        .expect("ok");
+    #[test]
+    fn export_dirty_document_returns_failure_envelope() {
+        let doc = test_open_file("person alice gender:female\n");
+        let env = export_for(&doc, &json_params()).expect("ok");
         assert!(!env.is_ok(), "expected failure envelope");
     }
 
-    #[tokio::test]
-    async fn export_cytoscape_format_routes_through_transformer() {
-        let env = run_export(
-            "cytoscape_doc",
+    #[test]
+    fn export_cytoscape_format_routes_through_transformer() {
+        let doc = test_open_file(
             "person alice name:\"A\" gender:female\nperson bob name:\"B\" gender:male\nmarriage m alice bob start:1972\n",
-            |uri| ExportParams {
-                uri,
-                format: "cytoscape".into(),
-                with_positions: false,
-            },
-            export_for,
-        )
-        .await
-        .expect("ok");
+        );
+        let params = ExportParams {
+            uri: dummy_uri(),
+            format: "cytoscape".into(),
+            with_positions: false,
+        };
+        let env = export_for(&doc, &params).expect("ok");
         let ExportEnvelope::Success(s) = env else {
             panic!("expected success");
         };
         assert!(s.graph.as_cytoscape().is_some());
     }
 
-    #[tokio::test]
-    async fn unknown_format_returns_request_error() {
-        let err = run_export(
-            "unknown_format",
-            "person alice name:\"A\" gender:female\n",
-            |uri| ExportParams {
-                uri,
-                format: "graphviz".into(),
-                with_positions: false,
-            },
-            export_for,
-        )
-        .await
-        .expect_err("expected error");
+    #[test]
+    fn unknown_format_returns_request_error() {
+        let doc = test_open_file("person alice name:\"A\" gender:female\n");
+        let params = ExportParams {
+            uri: dummy_uri(),
+            format: "graphviz".into(),
+            with_positions: false,
+        };
+        let err = export_for(&doc, &params).expect_err("expected error");
         assert!(matches!(err, ExportRequestError::UnknownFormat(_)));
         assert!(err.message().contains("graphviz"));
     }
