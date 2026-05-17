@@ -131,12 +131,70 @@ pub fn check(
     manifest_yaml: &str,
     inputs: &[InputFile],
 ) -> CheckResult {
-    let manifest_name = manifest_name.into();
     let (manifest_opt, mut diagnostics) = manifest::validate(manifest_yaml, FileId::MANIFEST);
     let manifest = manifest_opt.unwrap_or_default();
+    // The yaml-path gate: an empty `manifest_yaml` signals an
+    // in-memory caller (e.g. ad-hoc tests) that isn't asserting a Kul
+    // project, so we skip M06. A non-empty yaml means a real manifest
+    // was supplied; zero `.kul` inputs alongside it is structurally
+    // an empty project.
+    if !manifest_yaml.is_empty() && inputs.is_empty() {
+        diagnostics.push(empty_project_diagnostic(manifest_yaml.len().min(1)));
+    }
+    run_pipeline(
+        manifest_name.into(),
+        manifest_yaml,
+        manifest,
+        inputs,
+        diagnostics,
+    )
+}
 
-    check_empty_project(manifest_yaml, inputs, &mut diagnostics);
+/// Variant of [`check`] for callers that already have a typed
+/// [`Manifest`] in hand (the WASM bridge: the JS host hands a typed
+/// manifest object across the ABI). Skips the `KUL-Mxx` validator pass —
+/// the caller is responsible for routing structural manifest errors
+/// through whichever surface its protocol prefers (the WASM bridge
+/// raises a `tsify` exception for structurally-malformed manifests; an
+/// already-typed manifest can't fail those checks).
+///
+/// `manifest_yaml` may be empty — the bytes are used only to render
+/// any `.kul`-side diagnostic that anchors into `kul.yml`. A typed
+/// [`Manifest`] argument is itself the project-assertion, so M06 fires
+/// here whenever `inputs` is empty (regardless of whether the caller
+/// also supplied source bytes for rendering).
+pub fn check_with_manifest(
+    manifest_name: impl Into<String>,
+    manifest_yaml: &str,
+    manifest: &Manifest,
+    inputs: &[InputFile],
+) -> CheckResult {
+    let mut diagnostics: Vec<Diagnostic> = Vec::new();
+    if inputs.is_empty() {
+        diagnostics.push(empty_project_diagnostic(manifest_yaml.len().min(1)));
+    }
+    run_pipeline(
+        manifest_name.into(),
+        manifest_yaml,
+        manifest.clone(),
+        inputs,
+        diagnostics,
+    )
+}
 
+/// Shared tail of [`check`] and [`check_with_manifest`]. Lex/parses
+/// every input into a [`Document`], resolves, validates, and assembles
+/// the [`CheckResult`]. The caller is responsible for sourcing the
+/// typed [`Manifest`] (and any manifest-pass / empty-project
+/// diagnostics) — once both have been derived, the rest of the
+/// pipeline is identical regardless of where the manifest came from.
+fn run_pipeline(
+    manifest_name: String,
+    manifest_yaml: &str,
+    manifest: Manifest,
+    inputs: &[InputFile],
+    mut diagnostics: Vec<Diagnostic>,
+) -> CheckResult {
     let document = build_document(manifest_name, manifest_yaml, inputs, &mut diagnostics);
     let document = Arc::new(document);
 
@@ -151,57 +209,17 @@ pub fn check(
     }
 }
 
-/// Variant of [`check`] for callers that already have a typed
-/// [`Manifest`] in hand (the WASM bridge: the JS host hands a typed
-/// manifest object across the ABI). Skips the `KUL-Mxx` validator pass —
-/// the caller is responsible for routing structural manifest errors
-/// through whichever surface its protocol prefers (the WASM bridge
-/// raises a `tsify` exception for structurally-malformed manifests; an
-/// already-typed manifest can't fail those checks). `manifest_yaml` may
-/// be empty; only its bytes are used as the manifest source for any
-/// `.kul`-side diagnostic that anchors into `kul.yml`.
-pub fn check_with_manifest(
-    manifest_name: impl Into<String>,
-    manifest_yaml: &str,
-    manifest: &Manifest,
-    inputs: &[InputFile],
-) -> CheckResult {
-    let manifest_name = manifest_name.into();
-    let mut diagnostics: Vec<Diagnostic> = Vec::new();
-    check_empty_project(manifest_yaml, inputs, &mut diagnostics);
-    let document = build_document(manifest_name, manifest_yaml, inputs, &mut diagnostics);
-    let document = Arc::new(document);
-
-    let (resolved, resolve_diags) = semantic::resolve(document);
-    diagnostics.extend(resolve_diags);
-    diagnostics.extend(validator::validate(&resolved));
-
-    CheckResult {
-        resolved,
-        diagnostics,
-        manifest: manifest.clone(),
-    }
-}
-
-/// Emit [`KUL-M06`](crate::diagnostic::manifest_codes::M06_EMPTY_PROJECT)
-/// when the caller has a real manifest but zero `.kul` inputs — the
-/// project is structurally empty. In-memory callers (e.g. the WASM
-/// `format` helper) that pass an empty `manifest_yaml` are exempt: they
-/// are not asserting a project, just running the pipeline against
-/// in-memory sources.
-fn check_empty_project(
-    manifest_yaml: &str,
-    inputs: &[InputFile],
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    if !manifest_yaml.is_empty() && inputs.is_empty() {
-        let span = ByteSpan::new(0, manifest_yaml.len().min(1));
-        diagnostics.push(Diagnostic::error(
-            manifest_codes::M06_EMPTY_PROJECT,
-            "project has a `kul.yml` but no `.kul` files — add at least one `.kul` file alongside the manifest",
-            fspan(FileId::MANIFEST, span),
-        ));
-    }
+/// Build the [`KUL-M06`](crate::diagnostic::manifest_codes::M06_EMPTY_PROJECT)
+/// "project has a manifest but no `.kul` files" diagnostic. The span
+/// anchors at byte 0 of the manifest source; the caller passes the
+/// length the span should cover (1 byte when source bytes exist; 0
+/// when the caller's manifest is bytes-less, e.g. the WASM bridge).
+fn empty_project_diagnostic(span_len: usize) -> Diagnostic {
+    Diagnostic::error(
+        manifest_codes::M06_EMPTY_PROJECT,
+        "project has a `kul.yml` but no `.kul` files — add at least one `.kul` file alongside the manifest",
+        fspan(FileId::MANIFEST, ByteSpan::new(0, span_len)),
+    )
 }
 
 fn build_document(
@@ -216,15 +234,11 @@ fn build_document(
         let tokens = lexer::tokenize(&input.source);
         let (statements, parse_diags) = parser::parse(&tokens, file);
         diagnostics.extend(parse_diags);
-        kul_files.push(Arc::new(KulFile {
-            name: input.name.clone(),
-            source: input.source.clone(),
+        kul_files.push(Arc::new(KulFile::new(
+            input.name.clone(),
+            input.source.clone(),
             statements,
-        }));
+        )));
     }
-    Document {
-        manifest_name,
-        manifest_source: manifest_yaml.to_string(),
-        kul_files,
-    }
+    Document::with_manifest_source(manifest_name, manifest_yaml, kul_files)
 }

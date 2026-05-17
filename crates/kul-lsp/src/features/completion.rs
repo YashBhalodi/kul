@@ -650,16 +650,8 @@ mod tests {
         let file = FileId::from_raw(1);
         let tokens = tokenize(&source);
         let (statements, _) = parse(&tokens, file);
-        let kf = Arc::new(KulFile {
-            name: "test.kul".into(),
-            source: source.clone(),
-            statements,
-        });
-        let document = Arc::new(Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        let kf = Arc::new(KulFile::new("test.kul", source.clone(), statements));
+        let document = Arc::new(Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         complete(&source, file, &resolved, offset)
             .into_iter()
@@ -762,16 +754,12 @@ mod tests {
         let tokens = tokenize(&source);
         let file = FileId::from_raw(1);
         let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-            name: "test.kul".into(),
-            source: source.to_string(),
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
+            "test.kul",
+            source.as_str(),
             statements,
-        });
-        let document = std::sync::Arc::new(kul_core::ast::Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        ));
+        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         let items = complete(&source, file, &resolved, offset);
 
@@ -815,16 +803,12 @@ mod tests {
             let tokens = tokenize(&source);
             let file = FileId::from_raw(1);
             let (statements, _) = parse(&tokens, file);
-            let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-                name: "test.kul".into(),
-                source: source.to_string(),
+            let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
+                "test.kul",
+                source.as_str(),
                 statements,
-            });
-            let document = std::sync::Arc::new(kul_core::ast::Document {
-                manifest_name: "kul.yml".into(),
-                manifest_source: String::new(),
-                kul_files: vec![kf],
-            });
+            ));
+            let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
             let (resolved, _) = resolve(document);
             let items = complete(&source, file, &resolved, offset);
             assert_eq!(
@@ -890,16 +874,12 @@ mod tests {
         let tokens = tokenize(&source);
         let file = FileId::from_raw(1);
         let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-            name: "test.kul".into(),
-            source: source.to_string(),
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
+            "test.kul",
+            source.as_str(),
             statements,
-        });
-        let document = std::sync::Arc::new(kul_core::ast::Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        ));
+        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         complete(&source, file, &resolved, offset)
             .into_iter()
@@ -912,16 +892,12 @@ mod tests {
         let tokens = tokenize(&source);
         let file = FileId::from_raw(1);
         let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-            name: "test.kul".into(),
-            source: source.to_string(),
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
+            "test.kul",
+            source.as_str(),
             statements,
-        });
-        let document = std::sync::Arc::new(kul_core::ast::Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        ));
+        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         complete(&source, file, &resolved, offset)
             .into_iter()
@@ -1066,16 +1042,12 @@ mod tests {
         let tokens = tokenize(&source);
         let file = FileId::from_raw(1);
         let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-            name: "test.kul".into(),
-            source: source.to_string(),
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
+            "test.kul",
+            source.as_str(),
             statements,
-        });
-        let document = std::sync::Arc::new(kul_core::ast::Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        ));
+        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         let items = complete(&source, file, &resolved, offset);
         insta::assert_json_snapshot!(items);
@@ -1091,16 +1063,12 @@ mod tests {
         let tokens = tokenize(&source);
         let file = FileId::from_raw(1);
         let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-            name: "test.kul".into(),
-            source: source.to_string(),
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
+            "test.kul",
+            source.as_str(),
             statements,
-        });
-        let document = std::sync::Arc::new(kul_core::ast::Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        ));
+        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         let items = complete(&source, file, &resolved, offset);
         insta::assert_json_snapshot!(items);
@@ -1117,16 +1085,12 @@ mod tests {
         let tokens = tokenize(&source);
         let file = FileId::from_raw(1);
         let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-            name: "test.kul".into(),
-            source: source.to_string(),
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
+            "test.kul",
+            source.as_str(),
             statements,
-        });
-        let document = std::sync::Arc::new(kul_core::ast::Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        ));
+        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         let items = complete(&source, file, &resolved, offset);
         insta::assert_json_snapshot!(items);
@@ -1138,16 +1102,12 @@ mod tests {
         let tokens = tokenize(&source);
         let file = FileId::from_raw(1);
         let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-            name: "test.kul".into(),
-            source: source.to_string(),
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
+            "test.kul",
+            source.as_str(),
             statements,
-        });
-        let document = std::sync::Arc::new(kul_core::ast::Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        ));
+        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         let items = complete(&source, file, &resolved, offset);
         insta::assert_json_snapshot!(items);
@@ -1159,16 +1119,12 @@ mod tests {
         let tokens = tokenize(&source);
         let file = FileId::from_raw(1);
         let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-            name: "test.kul".into(),
-            source: source.to_string(),
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new(
+            "test.kul",
+            source.as_str(),
             statements,
-        });
-        let document = std::sync::Arc::new(kul_core::ast::Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        ));
+        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         let items = complete(&source, file, &resolved, offset);
         insta::assert_json_snapshot!(items);

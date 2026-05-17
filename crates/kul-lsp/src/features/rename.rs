@@ -181,16 +181,8 @@ mod tests {
         let tokens = tokenize(source);
         let file = FileId::from_raw(1);
         let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-            name: "test.kul".into(),
-            source: source.to_string(),
-            statements,
-        });
-        let document = std::sync::Arc::new(kul_core::ast::Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new("test.kul", source, statements));
+        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         let line_index = LineIndex::new(source);
         rename(file, &resolved, &line_index, &url(), offset, new_name)
@@ -200,16 +192,8 @@ mod tests {
         let tokens = tokenize(source);
         let file = FileId::from_raw(1);
         let (statements, _) = parse(&tokens, file);
-        let kf = std::sync::Arc::new(kul_core::ast::KulFile {
-            name: "test.kul".into(),
-            source: source.to_string(),
-            statements,
-        });
-        let document = std::sync::Arc::new(kul_core::ast::Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        let kf = std::sync::Arc::new(kul_core::ast::KulFile::new("test.kul", source, statements));
+        let document = std::sync::Arc::new(kul_core::ast::Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         let line_index = LineIndex::new(source);
         prepare_rename(file, &resolved, &line_index, offset)

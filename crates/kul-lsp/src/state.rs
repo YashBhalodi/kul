@@ -129,12 +129,7 @@ mod tests {
         let source_arc: Arc<str> = Arc::from(source);
         let line_index = LineIndex::new(Arc::clone(&source_arc));
         let inputs = vec![InputFile::new("test.kul", source)];
-        let check = kul_core::check_with_manifest(
-            "kul.yml",
-            "kul: \"0.1\"\n",
-            &Manifest::default(),
-            &inputs,
-        );
+        let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
         OpenFile {
             source: source_arc,
             line_index,

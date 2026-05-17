@@ -473,16 +473,8 @@ mod tests {
         let file = FileId(1);
         let tokens = tokenize(source);
         let (statements, _) = parse(&tokens, file);
-        let kf = Arc::new(KulFile {
-            name: "test.kul".to_string(),
-            source: source.to_string(),
-            statements,
-        });
-        let document = Arc::new(Document {
-            manifest_name: "kul.yml".to_string(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        let kf = Arc::new(KulFile::new("test.kul", source, statements));
+        let document = Arc::new(Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         (resolved, file)
     }
@@ -578,22 +570,13 @@ mod tests {
         let file_b = FileId(2);
         let (stmts_a, _) = parse(&tokens_a, file_a);
         let (stmts_b, _) = parse(&tokens_b, file_b);
-        let document = Arc::new(Document {
-            manifest_name: "kul.yml".to_string(),
-            manifest_source: String::new(),
-            kul_files: vec![
-                Arc::new(KulFile {
-                    name: "a.kul".to_string(),
-                    source: src_a.to_string(),
-                    statements: stmts_a,
-                }),
-                Arc::new(KulFile {
-                    name: "b.kul".to_string(),
-                    source: src_b.to_string(),
-                    statements: stmts_b,
-                }),
+        let document = Arc::new(Document::new(
+            "kul.yml",
+            vec![
+                Arc::new(KulFile::new("a.kul", src_a, stmts_a)),
+                Arc::new(KulFile::new("b.kul", src_b, stmts_b)),
             ],
-        });
+        ));
         let (resolved, _) = resolve(document);
 
         let got: Vec<FileId> = resolved
@@ -702,21 +685,17 @@ mod tests {
         // declaration (file 2) and a related-span on the first (file 1).
         let src1 = "person alice name:\"A1\" gender:female\n";
         let src2 = "person alice name:\"A2\" gender:female\n";
-        let kf1 = Arc::new(KulFile {
-            name: "a.kul".into(),
-            source: src1.into(),
-            statements: parse(&tokenize(src1), FileId(1)).0,
-        });
-        let kf2 = Arc::new(KulFile {
-            name: "b.kul".into(),
-            source: src2.into(),
-            statements: parse(&tokenize(src2), FileId(2)).0,
-        });
-        let doc = Arc::new(Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf1, kf2],
-        });
+        let kf1 = Arc::new(KulFile::new(
+            "a.kul",
+            src1,
+            parse(&tokenize(src1), FileId(1)).0,
+        ));
+        let kf2 = Arc::new(KulFile::new(
+            "b.kul",
+            src2,
+            parse(&tokenize(src2), FileId(2)).0,
+        ));
+        let doc = Arc::new(Document::new("kul.yml", vec![kf1, kf2]));
         let (_resolved, diags) = resolve(doc);
         let r01: Vec<_> = diags.iter().filter(|d| d.code == "KUL-R01").collect();
         assert_eq!(r01.len(), 1, "expected one R01: {diags:#?}");
@@ -731,16 +710,12 @@ mod tests {
     fn r01_fires_within_a_single_file() {
         let src = "person alice name:\"A\" gender:female\n\
                    person alice name:\"B\" gender:female\n";
-        let kf = Arc::new(KulFile {
-            name: "a.kul".into(),
-            source: src.into(),
-            statements: parse(&tokenize(src), FileId(1)).0,
-        });
-        let doc = Arc::new(Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        let kf = Arc::new(KulFile::new(
+            "a.kul",
+            src,
+            parse(&tokenize(src), FileId(1)).0,
+        ));
+        let doc = Arc::new(Document::new("kul.yml", vec![kf]));
         let (_resolved, diags) = resolve(doc);
         assert!(
             diags.iter().any(|d| d.code == "KUL-R01"),
@@ -753,21 +728,17 @@ mod tests {
         let src1 = "person alice name:\"A\" gender:female\n\
                     person bob name:\"B\" gender:male\n";
         let src2 = "marriage m alice bob start:1972\n";
-        let kf1 = Arc::new(KulFile {
-            name: "a.kul".into(),
-            source: src1.into(),
-            statements: parse(&tokenize(src1), FileId(1)).0,
-        });
-        let kf2 = Arc::new(KulFile {
-            name: "b.kul".into(),
-            source: src2.into(),
-            statements: parse(&tokenize(src2), FileId(2)).0,
-        });
-        let doc = Arc::new(Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf1, kf2],
-        });
+        let kf1 = Arc::new(KulFile::new(
+            "a.kul",
+            src1,
+            parse(&tokenize(src1), FileId(1)).0,
+        ));
+        let kf2 = Arc::new(KulFile::new(
+            "b.kul",
+            src2,
+            parse(&tokenize(src2), FileId(2)).0,
+        ));
+        let doc = Arc::new(Document::new("kul.yml", vec![kf1, kf2]));
         let (resolved, diags) = resolve(doc);
         assert!(diags.is_empty(), "no R01 expected: {diags:#?}");
         assert!(resolved.person("alice").is_some());
@@ -785,21 +756,17 @@ mod tests {
     fn project_wide_iteration_walks_every_file() {
         let src1 = "person alice name:\"A\" gender:female\n";
         let src2 = "person bob name:\"B\" gender:male\n";
-        let kf1 = Arc::new(KulFile {
-            name: "a.kul".into(),
-            source: src1.into(),
-            statements: parse(&tokenize(src1), FileId(1)).0,
-        });
-        let kf2 = Arc::new(KulFile {
-            name: "b.kul".into(),
-            source: src2.into(),
-            statements: parse(&tokenize(src2), FileId(2)).0,
-        });
-        let doc = Arc::new(Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf1, kf2],
-        });
+        let kf1 = Arc::new(KulFile::new(
+            "a.kul",
+            src1,
+            parse(&tokenize(src1), FileId(1)).0,
+        ));
+        let kf2 = Arc::new(KulFile::new(
+            "b.kul",
+            src2,
+            parse(&tokenize(src2), FileId(2)).0,
+        ));
+        let doc = Arc::new(Document::new("kul.yml", vec![kf1, kf2]));
         let (resolved, _) = resolve(doc);
         let all: Vec<_> = resolved.persons().map(|p| p.id.name.clone()).collect();
         assert_eq!(all, vec!["alice".to_string(), "bob".to_string()]);

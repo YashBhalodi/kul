@@ -221,16 +221,8 @@ mod tests {
         let file = FileId::from_raw(1);
         let tokens = tokenize(source);
         let (statements, _) = parse(&tokens, file);
-        let kf = Arc::new(KulFile {
-            name: "test.kul".into(),
-            source: source.into(),
-            statements,
-        });
-        let document = Arc::new(Document {
-            manifest_name: "kul.yml".into(),
-            manifest_source: String::new(),
-            kul_files: vec![kf],
-        });
+        let kf = Arc::new(KulFile::new("test.kul", source, statements));
+        let document = Arc::new(Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
         let line_index = LineIndex::new(source);
         hover(file, &resolved, &line_index, offset).map(|h| match h.contents {
