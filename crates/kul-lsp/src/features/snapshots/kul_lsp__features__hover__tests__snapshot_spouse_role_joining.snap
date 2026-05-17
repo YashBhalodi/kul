@@ -1,0 +1,9 @@
+---
+source: crates/kul-lsp/src/features/hover.rs
+expression: body
+---
+**Bob** — `person bob`
+
+- gender: male
+
+Joining spouse in marriage `m`.

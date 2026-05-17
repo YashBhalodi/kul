@@ -10,7 +10,7 @@
 //! mirroring how the entity-aware features (definition, references,
 //! rename) phrase themselves against [`Node::entity_reference`].
 
-use kul_core::ast::{MarriageStmt, PersonStmt};
+use kul_core::ast::{MarriageStmt, PersonStmt, Statement};
 use kul_core::field_meta;
 use kul_core::node_at::{FieldNode, KeywordKind, Node};
 use kul_core::semantic::ResolvedDocument;
@@ -39,7 +39,14 @@ pub fn hover(
         Node::PersonRef {
             ident,
             target: Some((_, p)),
-        } => (person_panel(p), ident.span),
+        } => {
+            let mut panel = person_panel(p);
+            if let Some(role) = spouse_role_line(resolved, file, byte_offset) {
+                panel.push_str("\n\n");
+                panel.push_str(&role);
+            }
+            (panel, ident.span)
+        }
         Node::PersonRef {
             ident,
             target: None,
@@ -97,7 +104,7 @@ fn keyword_content(k: KeywordKind) -> String {
             "**`person`** — declares an individual.\n\nGive each person a unique id, then their `name:` and `gender:`. Birth and death dates are optional.\n\n```kul\nperson alice name:\"Alice Doe\" gender:female born:1980\n```\n\n[Top-level statements →]({SPEC_BASE}/04-top-level-statements.md)"
         ),
         KeywordKind::Marriage => format!(
-            "**`marriage`** — declares a marriage between two people.\n\nGive each marriage a unique id, the two spouses' ids, and a `start:` date. Add `end:` and `end_reason:` if it ended.\n\n```kul\nmarriage m_alice_bob alice bob start:2010 end:2020 end_reason:divorce\n```\n\n[Top-level statements →]({SPEC_BASE}/04-top-level-statements.md)"
+            "**`marriage`** — declares a marriage between two people.\n\nGive each marriage a unique id, the two spouses' ids, and a `start:` date. Add `end:` and `end_reason:` if it ended.\n\nThe first-listed spouse is the marriage's host; the second joins the host's family.\n\n```kul\nmarriage m_alice_bob alice bob start:2010 end:2020 end_reason:divorce\n```\n\n[Top-level statements →]({SPEC_BASE}/04-top-level-statements.md)"
         ),
         KeywordKind::Birth => format!(
             "**`birth`** — links a person to their biological parents.\n\nIndent under a person and give the marriage id of the biological parents. Each person has at most one `birth`.\n\n```kul\nperson kid name:\"Kid\" gender:other\n  birth m_alice_bob\n```\n\n[Person sub-statements →]({SPEC_BASE}/05-person-sub-statements.md)"
@@ -150,7 +157,7 @@ fn marriage_panel(_file: FileId, resolved: &ResolvedDocument, m: &MarriageStmt) 
     };
     let mut out = header;
     out.push_str(&format!(
-        "\n\n- spouses: {} & {}",
+        "\n\n- spouses: {} (host) & {}",
         spouse_repr(&m.spouse_a.name, spouse_a),
         spouse_repr(&m.spouse_b.name, spouse_b),
     ));
@@ -181,6 +188,23 @@ fn spouse_repr(id: &str, target: Option<&PersonStmt>) -> String {
             None => format!("`{id}`"),
         },
         None => format!("`{id}` *(not declared)*"),
+    }
+}
+
+fn spouse_role_line(
+    resolved: &ResolvedDocument,
+    file: FileId,
+    byte_offset: usize,
+) -> Option<String> {
+    let Statement::Marriage(m) = resolved.statement_at(file, byte_offset)? else {
+        return None;
+    };
+    if m.spouse_a.span.start <= byte_offset && byte_offset < m.spouse_a.span.end {
+        Some(format!("Host of marriage `{}`.", m.id.name))
+    } else if m.spouse_b.span.start <= byte_offset && byte_offset < m.spouse_b.span.end {
+        Some(format!("Joining spouse in marriage `{}`.", m.id.name))
+    } else {
+        None
     }
 }
 
@@ -394,6 +418,78 @@ mod tests {
                    person b name:\"Bob Smith\" gender:male\n\
                    marriage m a b start:2010-06-15 end:2020-04-01 end_reason:divorce\n";
         let body = hover_at(src, idx(src, "marriage m") + "marriage ".len()).unwrap();
+        insta::assert_snapshot!(body);
+    }
+
+    #[test]
+    fn marriage_keyword_hover_mentions_host_rule() {
+        let src = "marriage m a a start:1980\n";
+        let body = hover_at(src, idx(src, "marriage")).unwrap();
+        assert!(
+            body.contains("host"),
+            "marriage keyword hover should mention host rule:\n{body}"
+        );
+    }
+
+    #[test]
+    fn spouse_a_hover_marks_host_role() {
+        let src = "person alice name:\"Alice\" gender:female\n\
+                   person bob name:\"Bob\" gender:male\n\
+                   marriage m alice bob start:2010\n";
+        let marriage_line = idx(src, "marriage ");
+        let alice_ref = src[marriage_line..]
+            .find(" alice ")
+            .map(|i| marriage_line + i + 1)
+            .unwrap();
+        let body = hover_at(src, alice_ref).unwrap();
+        assert!(
+            body.contains("Host of marriage `m`"),
+            "spouse_a hover should mark host role:\n{body}"
+        );
+    }
+
+    #[test]
+    fn spouse_b_hover_marks_joining_role() {
+        let src = "person alice name:\"Alice\" gender:female\n\
+                   person bob name:\"Bob\" gender:male\n\
+                   marriage m alice bob start:2010\n";
+        let marriage_line = idx(src, "marriage ");
+        let bob_ref = src[marriage_line..]
+            .find(" bob")
+            .map(|i| marriage_line + i + 1)
+            .unwrap();
+        let body = hover_at(src, bob_ref).unwrap();
+        assert!(
+            body.contains("Joining spouse in marriage `m`"),
+            "spouse_b hover should mark joining role:\n{body}"
+        );
+    }
+
+    #[test]
+    fn snapshot_spouse_role_host() {
+        let src = "person alice name:\"Alice\" gender:female\n\
+                   person bob name:\"Bob\" gender:male\n\
+                   marriage m alice bob start:2010\n";
+        let marriage_line = idx(src, "marriage ");
+        let alice_ref = src[marriage_line..]
+            .find(" alice ")
+            .map(|i| marriage_line + i + 1)
+            .unwrap();
+        let body = hover_at(src, alice_ref).unwrap();
+        insta::assert_snapshot!(body);
+    }
+
+    #[test]
+    fn snapshot_spouse_role_joining() {
+        let src = "person alice name:\"Alice\" gender:female\n\
+                   person bob name:\"Bob\" gender:male\n\
+                   marriage m alice bob start:2010\n";
+        let marriage_line = idx(src, "marriage ");
+        let bob_ref = src[marriage_line..]
+            .find(" bob")
+            .map(|i| marriage_line + i + 1)
+            .unwrap();
+        let body = hover_at(src, bob_ref).unwrap();
         insta::assert_snapshot!(body);
     }
 }

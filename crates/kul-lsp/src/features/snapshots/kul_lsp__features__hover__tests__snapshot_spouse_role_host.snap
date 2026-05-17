@@ -1,0 +1,9 @@
+---
+source: crates/kul-lsp/src/features/hover.rs
+expression: body
+---
+**Alice** — `person alice`
+
+- gender: female
+
+Host of marriage `m`.
