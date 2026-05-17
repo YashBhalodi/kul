@@ -15,11 +15,14 @@ import {
     type ExportedGraph,
     type CytoscapeGraph,
     type Manifest,
+    type WasmInputFile,
 } from '../../pkg/kul_wasm.js';
 
 // `format` accepts a string and returns a string unconditionally
 // (best-effort even on partial-parse input — mirrors
-// `kul_core::format::format_source`'s contract).
+// `kul_core::format::format_source`'s contract). `format` stays
+// per-file: the asymmetry with `check` / `exportGraph` is intentional
+// (formatting has no cross-file interaction).
 const source: string = 'person alice name:"A" gender:female\n';
 const formatted: string = format(source);
 
@@ -43,19 +46,34 @@ if (schemaVersion < 1) {
 // object mirrors that field name.
 const manifest: Manifest = { kul: '0.1' };
 
+// `check` and `exportGraph` take an array of `{name, source}` pairs —
+// the JS host enumerates the project's `.kul` files itself, the bridge
+// no longer hard-codes a single opaque file name.
+const singleFile: WasmInputFile[] = [{ name: 'input.kul', source }];
+
 // `check` returns `{ diagnostics }`. Empty array means clean — emptiness
 // is the discriminator (no `ok` field per ADR-0011).
-const cleanResult = check(source, manifest);
+const cleanResult = check(singleFile, manifest);
 if (cleanResult.diagnostics.length === 0) {
     // Clean-document short-circuit: downstream consumers proceed without
     // touching the diagnostic list.
 }
 
+// Multi-file invocation: the JS host hands the whole project across the
+// ABI, mirroring how a project's `.kul` files live alongside `kul.yml`
+// on disk. Cross-file id references resolve.
+const multiFile: WasmInputFile[] = [
+    { name: 'people.kul', source: 'person alice name:"Alice" gender:female\n' },
+    { name: 'marriages.kul', source: 'person bob name:"Bob" gender:male\nmarriage m alice bob start:1970\n' },
+];
+const multiResult = check(multiFile, manifest);
+void multiResult.diagnostics.length;
+
 // Narrow into a real diagnostic against a known-broken source so the TS
 // types for `code`, `severity`, `message`, and `primary?.byteStart` land.
 // `primary` is optional: unanchored diagnostics like `KUL-M01` carry the
 // would-be location in the message rather than a byte span.
-const broken = check('person alice gender:female\n', manifest);
+const broken = check([{ name: 'input.kul', source: 'person alice gender:female\n' }], manifest);
 const firstDiagnostic = broken.diagnostics[0];
 if (firstDiagnostic !== undefined) {
     const code: string = firstDiagnostic.code;
@@ -70,14 +88,19 @@ if (firstDiagnostic !== undefined) {
     void file;
 }
 
-// Type system must reject non-string inputs to `check`.
-// @ts-expect-error check requires a string source
-check(42, manifest);
+// Type system must reject a bare string where an array is expected.
+// @ts-expect-error check requires an array of input files
+check('person alice gender:female\n', manifest);
+
+// Type system must reject malformed file entries.
+// @ts-expect-error check entries require both `name` and `source`
+check([{ name: 'input.kul' }], manifest);
 
 // `exportGraph` accepts options as a typed object; omitting it is valid.
-const defaultExport = exportGraph(source, manifest);
-const positionedExport = exportGraph(source, manifest, { withPositions: true });
-const cytoscapeExport = exportGraph(source, manifest, { format: 'cytoscape' });
+const defaultExport = exportGraph(singleFile, manifest);
+const positionedExport = exportGraph(singleFile, manifest, { withPositions: true });
+const cytoscapeExport = exportGraph(singleFile, manifest, { format: 'cytoscape' });
+const multiFileExport = exportGraph(multiFile, manifest);
 
 // Discriminate success vs failure by structural narrowing — `in` checks
 // the discriminating field directly. The wire-level `ok` is a `boolean`
@@ -114,7 +137,7 @@ if ('graph' in cytoscapeExport) {
 
 // Type system must reject unknown format strings.
 // @ts-expect-error "graphviz" is not a valid ExportFormat
-exportGraph(source, manifest, { format: 'graphviz' });
+exportGraph(singleFile, manifest, { format: 'graphviz' });
 
 // Suppress "unused binding" diagnostics in --noUnusedLocals mode.
 export const _exports = {
@@ -123,10 +146,12 @@ export const _exports = {
     langVersion,
     schemaVersion,
     cleanResult,
+    multiResult,
     broken,
     defaultExport,
     positionedExport,
     cytoscapeExport,
+    multiFileExport,
     firstPersonName,
     parenthoodLinkCount,
     cytoscapeNodeCount,

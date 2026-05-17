@@ -1,6 +1,6 @@
 //! Snapshot tests for the WASM `check` bridge.
 //!
-//! Two contracts:
+//! Three contracts:
 //!
 //! - **Failure shapes** — three hand-crafted broken sources (duplicate id,
 //!   unresolved reference, missing required field) lock the diagnostic
@@ -8,10 +8,16 @@
 //!   `kul-core::tests::export::failure_envelope_*` so any drift between
 //!   the CLI export envelope and the WASM `check` projection surfaces
 //!   immediately.
-//! - **Clean-corpus sweep** — every `examples/*/<name>.kul` must produce
-//!   an empty `diagnostics` array. The corpus-contract guard mirrors the
-//!   pattern in `kul-core::tests::export` and `format.rs`: dropping a
-//!   new example forces a snapshot review here.
+//! - **Clean-corpus sweep** — every `examples/*/` directory must produce
+//!   an empty `diagnostics` array. Single-file examples pass a one-element
+//!   array; the multi-file example
+//!   (`07-multi-file-extended-family`) exercises the array-based
+//!   signature with every `.kul` file in the directory. Dropping a new
+//!   example forces an update here.
+//! - **Multi-file failure** — a cross-file `KUL-R02` (`marriage` references
+//!   an id declared in a different file) locks the file-aware diagnostic
+//!   shape: the `primary.file` field must carry the offending file's
+//!   name, not the file that declared the referenced id.
 //!
 //! Broken inputs live as inline strings; the `examples/*/<name>.kul`
 //! corpus stays documentation-grade.
@@ -23,6 +29,8 @@
 //! rather than a uniform `{ ok, ... }` envelope.
 
 use std::path::{Path, PathBuf};
+
+use kul_wasm::WasmInputFile;
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -40,9 +48,36 @@ fn read(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()))
 }
 
+fn input(name: &str, source: &str) -> WasmInputFile {
+    WasmInputFile {
+        name: name.into(),
+        source: source.into(),
+    }
+}
+
 fn check_json(source: &str) -> String {
-    let envelope = kul_wasm::check(source, kul_core::manifest::Manifest::default());
+    let files = vec![input("input.kul", source)];
+    let envelope = kul_wasm::check(files, kul_core::manifest::Manifest::default());
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
+}
+
+fn check_multi_file_json(files: Vec<WasmInputFile>) -> String {
+    let envelope = kul_wasm::check(files, kul_core::manifest::Manifest::default());
+    serde_json::to_string_pretty(&envelope).expect("serialize envelope")
+}
+
+fn multi_file_inputs(dir: &str) -> Vec<WasmInputFile> {
+    let mut entries: Vec<PathBuf> = std::fs::read_dir(examples_dir().join(dir))
+        .unwrap_or_else(|err| panic!("read {dir} dir: {err}"))
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("kul"))
+        .collect();
+    entries.sort();
+    entries
+        .iter()
+        .map(|p| input(&p.file_name().unwrap().to_string_lossy(), &read(p)))
+        .collect()
 }
 
 #[test]
@@ -69,12 +104,26 @@ fn failure_envelope_missing_required_field() {
     insta::assert_snapshot!(check_json(src));
 }
 
+/// A `marriage` declared in `b.kul` references a `person` declared in
+/// `a.kul` but typo'd as `ghost`. The diagnostic's `primary.file` must
+/// point at `b.kul` (where the bad reference lives), not `a.kul`. Locks
+/// the per-file anchoring that the array-based signature unlocks.
+#[test]
+fn failure_envelope_unresolved_reference_across_files() {
+    let files = vec![
+        input("a.kul", "person alice name:\"Alice\" gender:female\n"),
+        input("b.kul", "marriage m alice ghost start:1972\n"),
+    ];
+    insta::assert_snapshot!(check_multi_file_json(files));
+}
+
 macro_rules! clean_example {
     ($name:ident, $dir:literal, $stem:literal) => {
         #[test]
         fn $name() {
             let path = examples_dir().join($dir).join(concat!($stem, ".kul"));
-            let envelope = kul_wasm::check(&read(&path), kul_core::manifest::Manifest::default());
+            let files = vec![input(concat!($stem, ".kul"), &read(&path))];
+            let envelope = kul_wasm::check(files, kul_core::manifest::Manifest::default());
             assert!(
                 envelope.diagnostics.is_empty(),
                 "{} produced diagnostics: {:#?}",
@@ -117,6 +166,17 @@ clean_example!(
 );
 
 #[test]
+fn example_07_multi_file_extended_family_is_clean() {
+    let files = multi_file_inputs("07-multi-file-extended-family");
+    let envelope = kul_wasm::check(files, kul_core::manifest::Manifest::default());
+    assert!(
+        envelope.diagnostics.is_empty(),
+        "07-multi-file-extended-family produced diagnostics: {:#?}",
+        envelope.diagnostics
+    );
+}
+
+#[test]
 fn every_example_has_a_dedicated_clean_check_test() {
     let mut have: Vec<String> = std::fs::read_dir(examples_dir())
         .unwrap()
@@ -126,11 +186,6 @@ fn every_example_has_a_dedicated_clean_check_test() {
         .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
         .collect();
     have.sort();
-    // Multi-file projects (e.g. 07-multi-file-extended-family) are
-    // covered by `kul-core/tests/export.rs` via the project-wide
-    // `check_with_manifest` entry; the WASM `check` bridge takes a
-    // single source string today and the multi-file signature lift is
-    // tracked as a separate slice of PRD 0001.
     let expected = [
         "01-single-couple",
         "02-nuclear-family",

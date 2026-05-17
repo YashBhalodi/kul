@@ -1,16 +1,21 @@
 //! Snapshot + cross-surface tests for the WASM `exportGraph` bridge.
 //!
-//! Two contracts:
+//! Three contracts:
 //!
 //! - **Per-example snapshots** lock the envelope shape per option combo
 //!   (default, `withPositions: true`, `format: "cytoscape"`). Mirrors the
 //!   matrix in `kul-core::tests::export` so any drift between the CLI
-//!   export envelope and the WASM bridge surfaces immediately.
+//!   export envelope and the WASM bridge surfaces immediately. The
+//!   multi-file example (`07-multi-file-extended-family`) is included to
+//!   exercise the array-based signature end-to-end.
 //! - **Cross-surface bit-identical** asserts that the pretty-printed JSON
 //!   from the WASM bridge equals the pretty-printed JSON from a direct
 //!   `kul_core::export::export` call for every example × every option
-//!   combo. WASM `check` has no CLI counterpart, but `exportGraph` does,
-//!   and the two surfaces must speak the same JSON.
+//!   combo, including the multi-file case. WASM `check` has no CLI
+//!   counterpart, but `exportGraph` does, and the two surfaces must speak
+//!   the same JSON regardless of how many files the project holds.
+//! - **Failure round-trip** confirms strict-on-errors produces a byte-for-
+//!   byte identical failure envelope across the two surfaces.
 //!
 //! See [ADR-0011](../../../docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md)
 //! — `exportGraph` exists so JS-ecosystem consumers can reach
@@ -19,7 +24,9 @@
 
 use std::path::{Path, PathBuf};
 
+use kul_core::ast::InputFile;
 use kul_core::export::{ExportFormat, ExportOptions};
+use kul_wasm::WasmInputFile;
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -37,19 +44,37 @@ fn read(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()))
 }
 
-fn export_graph_json(source: &str, options: ExportOptions) -> String {
+fn project_inputs(dir: &Path) -> Vec<InputFile> {
+    let mut entries: Vec<PathBuf> = std::fs::read_dir(dir)
+        .unwrap_or_else(|err| panic!("read {}: {err}", dir.display()))
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("kul"))
+        .collect();
+    entries.sort();
+    entries
+        .iter()
+        .map(|p| {
+            InputFile::new(
+                p.file_name().unwrap().to_string_lossy().into_owned(),
+                read(p),
+            )
+        })
+        .collect()
+}
+
+fn export_graph_json(inputs: &[InputFile], options: ExportOptions) -> String {
     let manifest = kul_core::manifest::Manifest::default();
-    let envelope = kul_wasm::export_with(source, &manifest, options);
+    let envelope = kul_wasm::export_with(inputs, &manifest, options);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 
-fn core_export_json(source: &str, options: ExportOptions) -> String {
-    let inputs = vec![kul_core::ast::InputFile::new("input.kul", source)];
+fn core_export_json(inputs: &[InputFile], options: ExportOptions) -> String {
     let check = kul_core::check_with_manifest(
         "kul.yml",
         "kul: \"0.1\"\n",
         &kul_core::manifest::Manifest::default(),
-        &inputs,
+        inputs,
     );
     let envelope = kul_core::export::export(&check, options);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
@@ -78,21 +103,24 @@ macro_rules! example_snapshot {
         #[test]
         fn $default_name() {
             let path = examples_dir().join($dir).join(concat!($stem, ".kul"));
-            let json = export_graph_json(&read(&path), options_default());
+            let inputs = vec![InputFile::new(concat!($stem, ".kul"), read(&path))];
+            let json = export_graph_json(&inputs, options_default());
             insta::assert_snapshot!(json);
         }
 
         #[test]
         fn $positions_name() {
             let path = examples_dir().join($dir).join(concat!($stem, ".kul"));
-            let json = export_graph_json(&read(&path), options_with_positions());
+            let inputs = vec![InputFile::new(concat!($stem, ".kul"), read(&path))];
+            let json = export_graph_json(&inputs, options_with_positions());
             insta::assert_snapshot!(json);
         }
 
         #[test]
         fn $cytoscape_name() {
             let path = examples_dir().join($dir).join(concat!($stem, ".kul"));
-            let json = export_graph_json(&read(&path), options_cytoscape());
+            let inputs = vec![InputFile::new(concat!($stem, ".kul"), read(&path))];
+            let json = export_graph_json(&inputs, options_cytoscape());
             insta::assert_snapshot!(json);
         }
     };
@@ -141,6 +169,30 @@ example_snapshot!(
     "three-branch-dynasty"
 );
 
+/// Multi-file example: snapshots assert the WASM bridge unions persons,
+/// marriages, and parenthood links across every `.kul` file in the
+/// project, with the same envelope shape as the single-file path.
+#[test]
+fn example_07_multi_file_extended_family() {
+    let inputs = project_inputs(&examples_dir().join("07-multi-file-extended-family"));
+    let json = export_graph_json(&inputs, options_default());
+    insta::assert_snapshot!(json);
+}
+
+#[test]
+fn example_07_multi_file_extended_family_with_positions() {
+    let inputs = project_inputs(&examples_dir().join("07-multi-file-extended-family"));
+    let json = export_graph_json(&inputs, options_with_positions());
+    insta::assert_snapshot!(json);
+}
+
+#[test]
+fn example_07_multi_file_extended_family_cytoscape() {
+    let inputs = project_inputs(&examples_dir().join("07-multi-file-extended-family"));
+    let json = export_graph_json(&inputs, options_cytoscape());
+    insta::assert_snapshot!(json);
+}
+
 #[test]
 fn every_example_has_a_dedicated_export_graph_test() {
     let mut have: Vec<String> = std::fs::read_dir(examples_dir())
@@ -151,12 +203,6 @@ fn every_example_has_a_dedicated_export_graph_test() {
         .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
         .collect();
     have.sort();
-    // Multi-file projects (07-multi-file-extended-family) are covered
-    // by `kul-core/tests/export.rs`'s multi-file snapshot test (which
-    // calls `check_with_manifest` with an array of inputs). The WASM
-    // `exportGraph` bridge takes a single source string today; the
-    // multi-file signature lift is tracked as a separate slice of
-    // PRD 0001.
     let expected = [
         "01-single-couple",
         "02-nuclear-family",
@@ -187,32 +233,52 @@ fn cross_surface_json_is_bit_identical_for_every_example_and_options_combo() {
         if !dir.is_dir() {
             continue;
         }
-        for file_entry in std::fs::read_dir(&dir).unwrap().flatten() {
-            let path = file_entry.path();
-            if path.extension().and_then(|s| s.to_str()) != Some("kul") {
-                continue;
-            }
-            let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
-            let source = read(&path);
-            for (combo_name, opts_fn) in combos {
-                let opts = opts_fn();
-                let wasm_json = export_graph_json(&source, opts);
-                let core_json = core_export_json(&source, opts);
-                assert_eq!(
-                    wasm_json, core_json,
-                    "wasm exportGraph and kul_core::export diverged for example {stem} with options {combo_name}"
-                );
-            }
+        let inputs = project_inputs(&dir);
+        let project_label = dir.file_name().unwrap().to_string_lossy().into_owned();
+        for (combo_name, opts_fn) in combos {
+            let opts = opts_fn();
+            let wasm_json = export_graph_json(&inputs, opts);
+            let core_json = core_export_json(&inputs, opts);
+            assert_eq!(
+                wasm_json, core_json,
+                "wasm exportGraph and kul_core::export diverged for project {project_label} with options {combo_name}"
+            );
         }
     }
 }
 
+/// The wasm-bridge `exportGraph` is implemented in terms of
+/// [`kul_wasm::export_with`], which the Rust-side snapshots above call
+/// directly. This smoke test instead drives the public wasm-ABI signature
+/// (`Vec<WasmInputFile>`) to confirm the `WasmInputFile` → `InputFile`
+/// conversion is wired up correctly and produces the same envelope.
+#[test]
+fn wasm_abi_signature_round_trips_to_export_with() {
+    let path = examples_dir()
+        .join("01-single-couple")
+        .join("single-couple.kul");
+    let source = read(&path);
+    let manifest = kul_core::manifest::Manifest::default();
+    let files = vec![WasmInputFile {
+        name: "single-couple.kul".into(),
+        source: source.clone(),
+    }];
+    let via_abi = kul_wasm::export_graph(files, manifest.clone(), None);
+    let via_native = kul_wasm::export_with(
+        &[InputFile::new("single-couple.kul", source)],
+        &manifest,
+        ExportOptions::default(),
+    );
+    let abi_json = serde_json::to_string_pretty(&via_abi).expect("abi");
+    let native_json = serde_json::to_string_pretty(&via_native).expect("native");
+    assert_eq!(abi_json, native_json);
+}
+
 #[test]
 fn failure_envelope_for_broken_source_is_bit_identical() {
-    // Sanity: the strict-on-errors path also round-trips byte-for-byte.
-    let src = "person alice gender:female\n";
-    let wasm_json = export_graph_json(src, options_default());
-    let core_json = core_export_json(src, options_default());
+    let inputs = vec![InputFile::new("input.kul", "person alice gender:female\n")];
+    let wasm_json = export_graph_json(&inputs, options_default());
+    let core_json = core_export_json(&inputs, options_default());
     assert_eq!(wasm_json, core_json);
     assert!(
         wasm_json.contains("\"ok\": false"),
