@@ -48,7 +48,7 @@ Kul is **not** a GEDCOM replacement, **not** for genealogy research, and **not**
 
 ![KulLang in VSCode — syntax highlighting on a three-generation example](./editor/vscode/images/screenshot.png)
 
-Open a `.kul` file in VSCode (or VSCodium / Cursor / Windsurf / Theia / Gitpod / Kiro — the extension is on [Open VSX](https://open-vsx.org/extension/YashBhalodi/kul)) and you get live diagnostics, hover, go-to-definition, find-references, rename, completion, formatting, document outline, and one-click export to JSON or Cytoscape graph format — all backed by the same `kul-core` engine the CLI runs.
+Open a `.kul` file in VSCode (or VSCodium / Cursor / Windsurf / Theia / Gitpod / Kiro — the extension is published to both the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=YashBhalodi.kul) and [Open VSX](https://open-vsx.org/extension/YashBhalodi/kul)) and you get live diagnostics, hover, go-to-definition, find-references, rename, completion, formatting, document outline, and one-click export to JSON or Cytoscape graph format — all backed by the same `kul-core` engine the CLI runs.
 
 For other editors, point any LSP client at the `kul-lsp` binary.
 
@@ -104,16 +104,15 @@ kul lsp                                       # speak LSP over stdio
 
 ### VSCode (and forks)
 
-The extension is published to [Open VSX](https://open-vsx.org/extension/YashBhalodi/kul) and bundles the language server. Most Open VSX-aware editors (VSCodium, Cursor, Windsurf, Theia/Che, Gitpod, Kiro) install it directly:
+The extension is published to both the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=YashBhalodi.kul) and [Open VSX](https://open-vsx.org/extension/YashBhalodi/kul); each ships with the matching platform's `kul-lsp` binary bundled, so no extra setup is required. Upstream VSCode resolves against the Marketplace; Open VSX-aware editors (VSCodium, Cursor, Windsurf, Theia/Che, Gitpod, Kiro) resolve against Open VSX. Either way, the same one-liner works:
 
 ```sh
 <editor> --install-extension YashBhalodi.kul
 ```
 
-If you're on Microsoft's official VSCode (not a fork), the built-in Extensions tab queries the Microsoft Marketplace, where KulLang is not published. Install it manually:
+Or search for **KulLang** in the editor's Extensions panel.
 
-1. Open the [latest GitHub Release](https://github.com/YashBhalodi/kul/releases/latest) and download the `kul-<version>.vsix` asset.
-2. Run `code --install-extension /path/to/kul-<version>.vsix`.
+Prefer to sideload? Each [GitHub Release](https://github.com/YashBhalodi/kul/releases/latest) attaches per-platform `kul-<version>-<target>.vsix` files (`darwin-arm64`, `darwin-x64`, `linux-x64`, `win32-x64`); pick the one matching your OS and install with `code --install-extension /path/to/kul-<version>-<target>.vsix`.
 
 ### Browser / Node
 

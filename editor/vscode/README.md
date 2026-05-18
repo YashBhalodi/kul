@@ -25,7 +25,7 @@ Open a `.kul` file and you get diagnostics, hover docs, format-on-save, go-to-de
 
 ## Requirements
 
-VSCode (or any [Open VSX](https://open-vsx.org/) consumer — VSCodium, Cursor, Windsurf, Theia, Gitpod) 1.85 or later.
+VSCode 1.85 or later — installs from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=YashBhalodi.kul) — or any [Open VSX](https://open-vsx.org/extension/YashBhalodi/kul) consumer (VSCodium, Cursor, Windsurf, Theia, Gitpod, Kiro) on the same version floor.
 
 ## Feedback and bug reports
 
