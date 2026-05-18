@@ -12,8 +12,6 @@ A small, formally-specified DSL for modeling human families — persons, marriag
 ## A family in plain text
 
 ```
-kul 0.1
-
 # ---- Generation 1 ----
 person ramesh  name:"Ramesh Sharma"  gender:male    born:1925-03-10  died:2005-08-22
 person sita    name:"Sita Sharma"    gender:female  born:1928-07-15  died:2010-11-04
@@ -34,7 +32,7 @@ person ravi   name:"Ravi Sharma"   gender:male    born:~1980
   adoption m_alice_bob  start:1985-06-01
 ```
 
-Three generations, a divorce, and a retroactive adoption — in twelve declarations a human can read top-to-bottom. The whole language is small enough to learn in one sitting; rigorous enough that an independent parser can be implemented from [the spec](./spec/README.md) alone.
+Three generations, a divorce, and a retroactive adoption — in eleven declarations a human can read top-to-bottom. The whole language is small enough to learn in one sitting; rigorous enough that an independent parser can be implemented from [the spec](./spec/README.md) alone.
 
 ## Why a new language
 
@@ -126,12 +124,13 @@ npm install @kullang/wasm
 ```ts
 import { check, exportGraph, format } from '@kullang/wasm';
 
-const source = 'kul 0.1\nperson alice name:"Alice" gender:female\n';
+const manifest = { kul: '0.1' };
+const files = [{ name: 'family.kul', source: 'person alice name:"Alice" gender:female\n' }];
 
-check(source);                                  // { diagnostics: [] } ← empty = clean
-exportGraph(source);                            // { ok: true, schema: 1, kul: "0.1", graph: { … } }
-exportGraph(source, { format: 'cytoscape' });   // { ok: true, …, graph: { nodes, edges } }
-format(source);                                 // canonicalized source
+check(files, manifest);                                    // { diagnostics: [] } ← empty = clean
+exportGraph(files, manifest);                              // { ok: true, schema: 1, kul: "0.1", graph: { … } }
+exportGraph(files, manifest, { format: 'cytoscape' });     // { ok: true, …, graph: { nodes, edges } }
+format(files[0].source);                                   // canonicalized source (per-file)
 ```
 
 A single `--target bundler` ESM build — works in Vite, Webpack 5+, Next.js, Turbopack, SvelteKit, Nuxt, Astro out of the box. The exported envelope is byte-identical to `kul export --format=json` — same shape on the server and in the browser.

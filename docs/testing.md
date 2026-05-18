@@ -86,13 +86,16 @@ See [`examples/README.md`](../examples/README.md) for the corpus conventions.
 Failing-validation cases live next to the test that exercises them — *not* in the examples corpus. The conventional pattern is an inline `&str` literal:
 
 ```rust
+mod common;
+use common::check_one;
+
 #[test]
 fn rule_07_rejects_marriage_with_self() {
-    let source = "kul 0.1
+    let source = "\
 person a name:\"A\" gender:female
 marriage m_self a a start:2000-01-01
 ";
-    let diagnostics = kul_core::check(source).diagnostics;
+    let diagnostics = check_one(source).diagnostics;
     insta::assert_yaml_snapshot!(diagnostics);
 }
 ```
