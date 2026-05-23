@@ -662,6 +662,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "kul-layout"
+version = "0.2.0"
+dependencies = [
+ "insta",
+ "kul-core",
+ "kul-render",
+ "serde",
+ "serde_yaml",
+]
+
+[[package]]
 name = "kul-loader"
 version = "0.2.0"
 dependencies = [
@@ -676,7 +687,10 @@ version = "0.2.0"
 dependencies = [
  "insta",
  "kul-core",
+ "kul-layout",
  "kul-loader",
+ "kul-render",
+ "kul-svg",
  "serde",
  "serde_json",
  "tokio",
@@ -693,6 +707,16 @@ dependencies = [
  "kul-core",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "kul-svg"
+version = "0.2.0"
+dependencies = [
+ "insta",
+ "kul-core",
+ "kul-layout",
+ "kul-render",
 ]
 
 [[package]]

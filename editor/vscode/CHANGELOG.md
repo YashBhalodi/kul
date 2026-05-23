@@ -2,6 +2,12 @@
 
 All notable changes to the **KulLang** VSCode extension are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- New command **`Kul: Show Preview`** (`kul.preview.show`) opens a canonical-visual preview panel beside the active editor. Renders the active `.kul` document as theme-tracking SVG (light, dark, high-contrast). Debounced re-render (~300 ms) on edits; HTML error banner for documents with diagnostics. Backed by the LSP's new `kul/render` request. Tracks issue #125.
+
 ## [0.1.3] — 2026-05-07
 
 The extension is now published to the **VS Code Marketplace** in addition to Open VSX. Upstream VSCode users can install with `code --install-extension YashBhalodi.kul` directly, instead of sideloading a `.vsix` from the GitHub Release. Open-VSX-consuming editors (VSCodium, Cursor, Windsurf, Theia/Che, Gitpod) continue to install from Open VSX as before. No extension behavior changes (#62).

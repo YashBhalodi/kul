@@ -81,12 +81,17 @@
     "commands": [
       {
         "command": "kul.export.json",
-        "title": "Kul: Export to JSON",
+        "title": "Export to JSON",
         "category": "Kul"
       },
       {
         "command": "kul.export.cytoscape",
-        "title": "Kul: Export to Cytoscape JSON",
+        "title": "Export to Cytoscape JSON",
+        "category": "Kul"
+      },
+      {
+        "command": "kul.preview.show",
+        "title": "Show Preview",
         "category": "Kul"
       }
     ],
@@ -98,6 +103,10 @@
         },
         {
           "command": "kul.export.cytoscape",
+          "when": "editorLangId == kul"
+        },
+        {
+          "command": "kul.preview.show",
           "when": "editorLangId == kul"
         }
       ]

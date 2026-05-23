@@ -1,0 +1,25 @@
+[package]
+name = "kul-svg"
+description = "Theme-agnostic SVG emitter for the canonical UI pattern: turns a kul-layout PositionedShape into an SVG string with semantic CSS classes"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+kul-layout = { workspace = true }
+kul-render = { workspace = true }
+
+[dev-dependencies]
+kul-core = { workspace = true }
+kul-render = { workspace = true }
+kul-layout = { workspace = true }
+insta = { workspace = true }

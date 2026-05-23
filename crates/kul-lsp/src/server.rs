@@ -26,6 +26,7 @@ use tower_lsp::lsp_types::{
 use tower_lsp::{Client, LanguageServer};
 
 use crate::features::export::{ExportParams, ExportRequestError, export_for};
+use crate::features::render::{RenderParams, RenderRequestError, RenderResponse, render_for};
 use crate::features::{
     code_action, completion, definition, diagnostics, document_symbol, formatting, hover,
     references, rename, semantic_tokens,
@@ -68,6 +69,31 @@ impl Backend {
                 data: None,
             }),
             Some(Ok(envelope)) => Ok(envelope),
+        }
+    }
+
+    /// Handler for the `kul/render` custom request. Reads the cached
+    /// project for the given URI, runs the kul-render → kul-layout →
+    /// kul-svg pipeline, and returns either the SVG string (success)
+    /// or the upstream diagnostic list (failure).
+    pub async fn render(&self, params: RenderParams) -> Result<RenderResponse> {
+        let uri = params.uri.clone();
+        let result = self
+            .documents
+            .with_project(&uri, |entry| render_for(entry, &params))
+            .await;
+        match result {
+            None => Err(Error {
+                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
+                message: RenderRequestError::DocumentNotOpen.message().into(),
+                data: None,
+            }),
+            Some(Err(e)) => Err(Error {
+                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
+                message: e.message().into(),
+                data: None,
+            }),
+            Some(Ok(response)) => Ok(response),
         }
     }
 
@@ -160,7 +186,13 @@ impl LanguageServer for Backend {
                     "kulExport": {
                         "formats": ["json", "cytoscape"],
                         "supportsPositions": true,
-                    }
+                    },
+                    "kulRender": {
+                        // Canonical visual is theme-agnostic; the
+                        // emitted SVG uses semantic CSS classes (see
+                        // ADR-0019 / ADR-0020).
+                        "format": "svg",
+                    },
                 })),
                 ..Default::default()
             },
