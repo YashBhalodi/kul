@@ -35,6 +35,10 @@ Solid line = birth. Dashed line = adoption. Applies to every parent-child connec
 ### P6. Recursive nesting at inter-family connections
 When a Kul document describes multiple intermarried families, each joining spouse's *birth family* sub-tree nests adjacent to the host tree at the joining spouse's connection point. Sub-trees nest further recursively.
 
+Recursion terminates structurally: B's birth-family sub-tree nests at A's tree only if B's birth family is not already part of the current rendering context. If it is — cousin marriage (P11) is the simplest case, but it generalizes to any chain where a joining spouse's birth family is already being rendered — P11's within-family cross-edge applies instead, and no nested sub-tree is emitted. Combined with P2 (one canonical card per person), this guarantees finite, non-redundant nesting at any document size: the maximum depth equals the number of distinct birth families along the chain of joining spouses, never more.
+
+Visual complexity at scale (renderer cost at 5,000 cards, level-of-detail, panning, virtualization) is renderer policy under P14, not a pattern concern.
+
 *Rationale:* cross-tree edges stay short by construction; the layout makes inter-family structure visually obvious. Linear arrangement (trees side-by-side without nesting) was rejected because it produces long crossing edges.
 
 ### P7. Static, deterministic rendering
@@ -47,6 +51,10 @@ In the current Kul spec, `end:` corresponds to divorce only — death is not mar
 
 When a past ended marriage produced children, the moved-out spouse leaves a **ghost** at the historical marriage location in the host family. The ghost is visually distinct (dotted border, faded fill, ↺ badge); its only purpose is to anchor the children's birth edges. Past marriages without children leave no visual trace (the marriage stays in the data; the renderer omits it).
 
+The marriage bar's canonical location is the host's birth-family slot at the position the host occupied within their birth family *at the time the marriage was declared*. This location is fixed at declaration and does not relocate due to later events (divorce, remarriage, death). The host's *canonical card* sits at that slot if the host hasn't moved on (no newer current intimacy); otherwise the host leaves a *ghost* there. The joining spouse occupies the adjacent slot — canonically if they haven't moved on, as a ghost otherwise. If the host has no birth family (no `birth` sub-statement), the marriage bar becomes a *floating mini-component* sortable per P12.
+
+*Worked example (`examples/03`):* Alice hosts Bob; Alice's marriage stays at Alice's slot in Ramesh+Sita's tree (Alice hasn't moved on, so her canonical card sits there); Bob has no birth family and the marriage has ended, so Bob leaves a ghost adjacent to Alice; Carol and Ravi's edges attach to that bar.
+
 ### P9. Birth/adoption edges connect to the marriage bar
 A child's birth or adoption edge attaches to the marriage bar of their parents' marriage — not to either parent card individually. This matches Kul's data model (`birth m_xxx` references the marriage id, not the parent ids).
 
@@ -56,15 +64,23 @@ A ghost connects only to the marriage/adoption bar it anchors. The person's othe
 ### P11. Absorb rule applies uniformly at every scale
 The absorb rule (first-declared spouse hosts; joining spouse's card moves adjacent; their birth-edge becomes a cross-edge) applies identically across families, within a single family (cousin marriages), and at any structural scale. There is no special case for within-family marriages — the same mechanism produces a within-family cross-edge instead of a cross-tree one.
 
+Operationally for cousin marriage: the joining cousin's canonical card moves adjacent to the host (per P3); the cousin's original sibling-row position does *not* render — siblings re-pack just as they would for a cross-tree joining spouse, since P11 is "the same mechanism" without special cases. The cousin's birth-edge becomes a within-family cross-edge from the new adjacent-to-host position back to their parents' marriage bar; edge style stays solid (P5).
+
+The sibling-marriage degenerate case (both spouses are children of the same marriage) is representable by the same mechanism: the host stays at their sibling-row position; the joining sibling moves adjacent to the host within the same row; both birth-edges attach to the same parents' marriage bar — the host's normally and the joining sibling's as a within-family cross-edge.
+
+Cross-edge *routing* (geometry, collision avoidance) is renderer policy, not part of the pattern.
+
 ### P12. Multiple unrelated lineages arrange in source order
-When a Kul document describes multiple lineages with no intermarriage between them (separate connected components in the graph), the components arrange left-to-right by the source position of each component's first-declared marriage.
+When a Kul document describes multiple lineages with no intermarriage between them (separate connected components in the graph), the components arrange left-to-right by the source position of the component's **first relevant declaration**: a marriage if the component has one, otherwise a person, otherwise — for floating ghost-marriage mini-components per P8's fallback — the underlying marriage. Components mix freely in source order; there is no "orphans-last" bucket.
+
+The same ordering rule applies recursively within a component to nested sub-trees: when a host has multiple joining spouses each bringing a birth-family sub-tree (P6), those sub-trees arrange in joining-spouse declaration order.
 
 *Rationale:* consistent with P3's source-order semantic. Author controls via declaration order — the same control mechanism used for the host rule.
 
 ### P13. Missing data renders as absence
 Missing optional fields render as absence — no placeholders, no "Unknown" stubs, no allocated visual space. Required-field gaps are not a case the canonical pattern designs for (R03 ensures valid documents carry name and gender).
 
-Orphan persons (declared with no edges of any kind) render as single-card components and arrange with other components per P12.
+Orphan persons (declared with no edges of any kind) render as single-card components *and sort with all other components by the rule in P12*.
 
 ### P14. Scale-invariant pattern
 The pattern is scale-invariant. The same rules produce coherent layouts at 5 persons, 50 persons, or 5,000. Level-of-detail, zoom, panning, virtualization, and aggregation are renderer-side policy and not part of the canonical pattern.
@@ -81,7 +97,9 @@ The only canonical card-appearance variation is canonical (solid border, full op
 *Rationale:* cultural / political neutrality; visual uniformity focuses attention on structure; composability lets renderers opt into richer chrome without forking the pattern.
 
 ### P16. Most-recent adoption is canonical; past adoptive families get a child-anchoring ghost
-When a person has multiple `adoption` sub-statements, the most recent (by `start:` date, falling back to source order) determines the canonical adoptive family; the child's canonical card lives there. Past adoptive families display a *ghost of the child* connected to the past adoption marriage by a dashed edge. The ghost is mute (P10).
+When a person has multiple `adoption` sub-statements, the most recent (by `start:` date, falling back to source order) determines the canonical adoptive family; the child's canonical card lives there. **Each** past adoptive family displays a *ghost of the child* connected to the past adoption marriage by a dashed edge — three past adoptions produce three ghosts, one per past adoptive family. The ghost is mute (P10).
+
+Each past adoption marriage's bar is rendered at the canonical location defined by P8 (host's birth-family slot, or floating mini-component if the host has no birth family), **even when no other rule would surface it** — the child-ghost is the load-bearing reason that bar must exist.
 
 A biological `birth` link, if present, renders as a solid cross-edge from the canonical card to the birth marriage (P5).
 
