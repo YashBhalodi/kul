@@ -1,0 +1,25 @@
+[package]
+name = "kul-layout"
+description = "Positioning pass for the canonical UI pattern: turns a kul-render RenderShape into a PositionedShape (cards, bars, edge polylines in absolute pixel coordinates)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+kul-render = { workspace = true }
+
+[dev-dependencies]
+kul-core = { workspace = true }
+kul-render = { workspace = true }
+insta = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
