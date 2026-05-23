@@ -88,6 +88,11 @@
         "command": "kul.export.cytoscape",
         "title": "Kul: Export to Cytoscape JSON",
         "category": "Kul"
+      },
+      {
+        "command": "kul.preview.show",
+        "title": "Kul: Show Preview",
+        "category": "Kul"
       }
     ],
     "menus": {
@@ -98,6 +103,10 @@
         },
         {
           "command": "kul.export.cytoscape",
+          "when": "editorLangId == kul"
+        },
+        {
+          "command": "kul.preview.show",
           "when": "editorLangId == kul"
         }
       ]

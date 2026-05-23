@@ -9,6 +9,12 @@ import {
 } from "vscode-languageclient/node";
 
 let client: LanguageClient | undefined;
+let previewPanel: vscode.WebviewPanel | undefined;
+let previewDebounce: NodeJS.Timeout | undefined;
+let previewListener: vscode.Disposable | undefined;
+let previewUri: vscode.Uri | undefined;
+
+const PREVIEW_DEBOUNCE_MS = 300;
 
 export async function activate(
     context: vscode.ExtensionContext,
@@ -67,6 +73,9 @@ export async function activate(
         ),
         vscode.commands.registerCommand("kul.export.cytoscape", () =>
             runExport("cytoscape"),
+        ),
+        vscode.commands.registerCommand("kul.preview.show", () =>
+            showPreview(context),
         ),
     );
 }
@@ -149,7 +158,171 @@ function defaultExportFilename(
     return vscode.Uri.file(path.join(dir, `${stem}${suffix}`));
 }
 
+interface RenderResponse {
+    ok: boolean;
+    svg?: string;
+    diagnostics?: { code: string }[];
+}
+
+async function showPreview(
+    context: vscode.ExtensionContext,
+): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.languageId !== "kul") {
+        await vscode.window.showWarningMessage(
+            "Kul preview only works on .kul files.",
+        );
+        return;
+    }
+    if (!client) {
+        await vscode.window.showWarningMessage(
+            "Kul LSP is not running — open a `.kul` file to start the server.",
+        );
+        return;
+    }
+
+    previewUri = editor.document.uri;
+
+    if (previewPanel) {
+        previewPanel.reveal(vscode.ViewColumn.Beside, /* preserveFocus */ true);
+        void refreshPreview(previewUri);
+        return;
+    }
+
+    previewPanel = vscode.window.createWebviewPanel(
+        "kul.preview",
+        "Kul: Preview",
+        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+        {
+            enableScripts: true,
+            localResourceRoots: [
+                vscode.Uri.joinPath(context.extensionUri, "media"),
+            ],
+        },
+    );
+
+    const cssUri = previewPanel.webview.asWebviewUri(
+        vscode.Uri.joinPath(context.extensionUri, "media", "preview.css"),
+    );
+    previewPanel.webview.html = previewHtml(
+        cssUri,
+        previewPanel.webview.cspSource,
+    );
+
+    previewPanel.onDidDispose(() => {
+        previewPanel = undefined;
+        previewListener?.dispose();
+        previewListener = undefined;
+        if (previewDebounce) {
+            clearTimeout(previewDebounce);
+            previewDebounce = undefined;
+        }
+    });
+
+    // Debounced re-render on document changes in the project that
+    // owns the active URI.
+    previewListener = vscode.workspace.onDidChangeTextDocument((event) => {
+        if (!previewUri) {
+            return;
+        }
+        if (event.document.languageId !== "kul") {
+            return;
+        }
+        // Re-render if the changed document is the previewed URI or
+        // a sibling .kul in the same directory (project-wide per
+        // ADR-0015).
+        const previewDir = path.dirname(previewUri.fsPath);
+        const changedDir = path.dirname(event.document.uri.fsPath);
+        if (changedDir !== previewDir) {
+            return;
+        }
+        if (previewDebounce) {
+            clearTimeout(previewDebounce);
+        }
+        previewDebounce = setTimeout(() => {
+            previewDebounce = undefined;
+            if (previewUri) {
+                void refreshPreview(previewUri);
+            }
+        }, PREVIEW_DEBOUNCE_MS);
+    });
+
+    // Initial render.
+    await refreshPreview(previewUri);
+}
+
+async function refreshPreview(uri: vscode.Uri): Promise<void> {
+    if (!previewPanel || !client) {
+        return;
+    }
+    let response: RenderResponse;
+    try {
+        response = await client.sendRequest<RenderResponse>("kul/render", {
+            uri: uri.toString(),
+        });
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        await previewPanel.webview.postMessage({
+            type: "renderError",
+            message: `Kul render failed: ${message}`,
+            diagnosticCount: 0,
+        });
+        return;
+    }
+    if (response.ok && response.svg) {
+        await previewPanel.webview.postMessage({
+            type: "render",
+            svg: response.svg,
+        });
+    } else {
+        const count = response.diagnostics?.length ?? 0;
+        await previewPanel.webview.postMessage({
+            type: "renderError",
+            message: `Document has ${count} issue${count === 1 ? "" : "s"} — see the Problems panel.`,
+            diagnosticCount: count,
+        });
+    }
+}
+
+function previewHtml(cssUri: vscode.Uri, cspSource: string): string {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'unsafe-inline';">
+<link rel="stylesheet" href="${cssUri}">
+<title>Kul Preview</title>
+</head>
+<body>
+<div id="root"></div>
+<script>
+(function () {
+    const root = document.getElementById('root');
+    window.addEventListener('message', function (event) {
+        const msg = event.data;
+        if (!msg || typeof msg !== 'object') { return; }
+        if (msg.type === 'render') {
+            root.innerHTML = msg.svg;
+        } else if (msg.type === 'renderError') {
+            const banner = document.createElement('div');
+            banner.className = 'kul-error-banner';
+            banner.textContent = msg.message;
+            root.innerHTML = '';
+            root.appendChild(banner);
+        }
+    });
+}());
+</script>
+</body>
+</html>`;
+}
+
 export async function deactivate(): Promise<void> {
+    previewListener?.dispose();
+    previewPanel?.dispose();
+    if (previewDebounce) {
+        clearTimeout(previewDebounce);
+    }
     await client?.stop();
     client = undefined;
 }
