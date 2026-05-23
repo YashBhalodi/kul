@@ -63,14 +63,16 @@ kul-core   ── library (no_std-friendly intent, but uses std for now)
 
 kul-loader ── library
               Shared filesystem entry point: given a project-root path,
-              returns (manifest YAML, Vec<InputFile>) or a typed
-              ProjectLoadError. Encapsulates kul.yml discovery, *.kul
-              enumeration (flat directory per ADR-0015), and IO error
-              variants. The CLI calls it once per subcommand; the LSP
-              will call it during project discovery in its multi-file
-              slice. Lives outside kul-core (which forbids filesystem
-              IO) and outside kul-cli (which already depends on
-              kul-lsp).
+              encapsulates kul.yml discovery, *.kul enumeration (flat
+              directory per ADR-0015), and IO error handling once. Two
+              entry points over the same discovery rule: `load` (strict;
+              returns typed ProjectLoadError, used by the CLI) and
+              `discover` (lenient; swallows missing-manifest / unreadable
+              files into empty results, used by the LSP). Both share one
+              internal directory-walk helper so the discovery rule lives
+              in exactly one place. Lives outside kul-core (which forbids
+              filesystem IO) and outside kul-cli (which already depends
+              on kul-lsp).
 
 kul-cli    ── thin binary `kul`
               Four CWD-rooted subcommands: `validate` (renders
@@ -160,7 +162,7 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 | ------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `kul_core::check`                    | `crates/kul-core/src/lib.rs`                 | The whole pipeline. CLI and LSP both enter here. Takes `(manifest_name, manifest_yaml: &str, &[InputFile])` per [ADR-0013](./adr/0013-project-manifest.md) and [ADR-0014](./adr/0014-file-identity-and-per-file-namespaces.md); returns a `CheckResult` whose `resolved: ResolvedDocument` field is the cached query view (per [ADR-0007](./adr/0007-resolved-document-owns-document.md)). The WASM bridge enters via `check_with_manifest` (a typed-manifest variant) instead. |
 | `FileId` / `FileSpan`                 | `crates/kul-core/src/span.rs`                | Project-wide locators. `FileId` indexes into `Document.kul_files` (with `FileId::MANIFEST` = `FileId(0)`); `FileSpan` is the `(file, byte-range)` pair every diagnostic anchors on. AST nodes keep bare `ByteSpan` (per ADR-0014) — their owning `KulFile` provides file context implicitly. |
-| `Manifest` + adapters' loaders       | `crates/kul-core/src/manifest.rs`, `crates/kul-loader/src/lib.rs` | The project-level manifest, loaded by each adapter. The shared `kul-loader` crate (a project root → `(manifest_yaml, Vec<InputFile>)` plus typed errors) is what the CLI uses for every subcommand; the LSP will adopt it in its multi-file slice. The WASM bridge receives a typed manifest as a JS argument — it does not go through the loader. `kul-core` itself never reads the filesystem — it consumes the typed value. The directory-scoped discovery rule (spec/14.3) lives once as `kul_core::manifest::sibling_path` (for per-file lookups: the LSP receives a `.kul` URI, asks for its sibling manifest); `kul-loader::load` is the project-root counterpart. Schema and discovery rule are normative ([`spec/14-project-manifest.md`](../spec/14-project-manifest.md)). |
+| `Manifest` + adapters' loaders       | `crates/kul-core/src/manifest.rs`, `crates/kul-loader/src/lib.rs` | The project-level manifest, loaded by each adapter. The shared `kul-loader` crate is the single seam for project-root → (manifest YAML + `.kul` files) discovery: `load` (strict, typed errors — used by the CLI) and `discover` (lenient — used by the LSP, which tolerates missing manifests so editor sessions stay usable). Both share one directory-walk helper so the discovery rule lives once. The WASM bridge receives a typed manifest as a JS argument — it does not go through the loader. `kul-core` itself never reads the filesystem — it consumes the typed value. The directory-scoped discovery rule (spec/14.3) lives once as `kul_core::manifest::sibling_path` (for per-file lookups: the LSP receives a `.kul` URI, asks for its sibling manifest); `kul-loader::{load,discover}` is the project-root counterpart. Schema and discovery rule are normative ([`spec/14-project-manifest.md`](../spec/14-project-manifest.md)). |
 | `ResolvedDocument` query methods      | `crates/kul-core/src/semantic.rs`            | All kinship questions. ADR-0001 mandates queries go through this; raw AST iteration is the seam's job. Per-id lookups (`person`, `marriage`, `entity`) take a bare id (project-wide per [ADR-0015](./adr/0015-global-project-namespace.md)); per-file iteration helpers (`persons_in(file)`, etc.) keep the file parameter for per-URI LSP needs. Owns its `Arc<Document>` so the resolved view can be cached alongside other artifacts (no self-referential lifetime). |
 | `ResolvedDocument::node_at`           | `crates/kul-core/src/node_at.rs`             | "What's at byte offset X?" Returns a typed `Node`. Foundation for hover, definition, completion.                |
 | `ResolvedDocument::statement_at`      | `crates/kul-core/src/semantic.rs`            | "What top-level statement encloses byte offset X?" Returns `&Statement`. Coarser than `node_at` — used by completion to know whether a cursor sitting on a fresh line is "still under" the previous statement. |
