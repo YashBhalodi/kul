@@ -34,6 +34,7 @@ pub async fn run() {
     let stdout = tokio::io::stdout();
     let (service, socket) = LspService::build(server::Backend::new)
         .custom_method("kul/export", server::Backend::export)
+        .custom_method("kul/render", server::Backend::render)
         .finish();
     Server::new(stdin, stdout, socket).serve(service).await;
 }
