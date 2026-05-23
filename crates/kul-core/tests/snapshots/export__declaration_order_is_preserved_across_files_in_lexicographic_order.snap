@@ -1,0 +1,54 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "person_ids": [
+    "alice",
+    "bob",
+    "kid",
+    "carol",
+    "dave",
+    "eve"
+  ],
+  "marriages": [
+    {
+      "id": "m_alice_bob",
+      "spouses": [
+        "alice",
+        "bob"
+      ]
+    },
+    {
+      "id": "m_alice_carol",
+      "spouses": [
+        "alice",
+        "carol"
+      ]
+    },
+    {
+      "id": "m_dave_eve",
+      "spouses": [
+        "dave",
+        "eve"
+      ]
+    }
+  ],
+  "parenthood_links": [
+    {
+      "child_id": "kid",
+      "marriage_id": "m_alice_bob",
+      "kind": "biological"
+    },
+    {
+      "child_id": "kid",
+      "marriage_id": "m_alice_carol",
+      "kind": "adoptive"
+    },
+    {
+      "child_id": "kid",
+      "marriage_id": "m_dave_eve",
+      "kind": "adoptive"
+    }
+  ]
+}

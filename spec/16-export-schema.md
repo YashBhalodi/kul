@@ -56,6 +56,8 @@ The graph is the kinship-native projection: three flat collections, one per lang
 - Cross-references MUST be by id only. Embedded objects (e.g. inlining the spouses inside a marriage object) MUST NOT appear.
 - Derived projections (e.g. `person.children`, `person.siblings`, `marriage.duration`) MUST NOT appear. Consumers compose these views from the flat collections.
 
+**Declaration order.** A conforming exporter MUST emit `persons`, `marriages`, and `parenthoodLinks` in **declaration order**. For a project (per [Section 14](./14-project-manifest.md)) spanning multiple `.kul` files, declaration order is files sorted **lexicographically by file name**, then in-file source position. Within a single file it is source position only. Within `parenthoodLinks` the entries MUST be grouped by child in person-declaration order; for each child, the `birth` link (if any) MUST come first, followed by `adoption` links in their source-declared order. This determinism enables renderer-side tie-breaking for the canonical UI pattern (see [`docs/canonical-ui-pattern.md`](../docs/canonical-ui-pattern.md)), which falls back on declaration order when its layout rules leave a choice (e.g. arranging unrelated lineages or ordering multiple marriages of the same person).
+
 ### 15.3 Person object
 
 ```json

@@ -303,6 +303,118 @@ fn failure_envelope_missing_required_field() {
     insta::assert_snapshot!(json);
 }
 
+/// Pin the declaration-order contract from `spec/16-export-schema.md` §15.2:
+/// `persons`, `marriages`, and `parenthoodLinks` MUST appear in declaration
+/// order across files (lexicographic by file name) and within each file
+/// (source position).
+///
+/// Fixture layout — `a_family.kul` lexicographically precedes
+/// `b_family.kul`, so even though the prompt-reading order of the
+/// `InputFile` vec is irrelevant (the loader sorts on disk; here we feed
+/// the slice already in lex order to mirror that), `a_family.kul`'s
+/// declarations MUST appear first in every collection. The fixture
+/// exercises:
+///
+/// - A person (`alice`) appearing as a spouse in two marriages — one
+///   declared in each file.
+/// - A child (`kid`) with a `birth` link and two `adoption`
+///   sub-statements, pinning the per-child sub-order (`birth` first, then
+///   `adoption`s in source order).
+/// - Interleaved person ids across files.
+///
+/// The snapshot is a projection (`(id, ordering-relevant-fields)`) so it
+/// locks down order without churning on date / span / envelope detail.
+#[test]
+fn declaration_order_is_preserved_across_files_in_lexicographic_order() {
+    // a_family.kul: contains alice + her first marriage (to bob), and the
+    // adoptive child whose `birth` references that marriage. Alice also
+    // appears as a spouse in `m_alice_carol`, declared later in b_family.
+    let a_family = "\
+person alice name:\"Alice\" gender:female born:1950
+person bob name:\"Bob\" gender:male born:1948
+person kid name:\"Kid\" gender:other born:1980
+  birth m_alice_bob
+  adoption m_alice_carol start:1985
+  adoption m_dave_eve start:1990
+marriage m_alice_bob alice bob start:1972
+";
+    // b_family.kul: continues with persons used by the adoptions, and
+    // declares alice's second marriage plus an unrelated marriage that
+    // hosts kid's second adoption.
+    let b_family = "\
+person carol name:\"Carol\" gender:female born:1955
+person dave name:\"Dave\" gender:male born:1952
+person eve name:\"Eve\" gender:female born:1958
+marriage m_alice_carol alice carol start:1985
+marriage m_dave_eve dave eve start:1980
+";
+    // The loader sorts files lexicographically before handing them to
+    // `check`; we mirror that ordering here so the test inputs match what
+    // the on-disk path produces.
+    let inputs = vec![
+        InputFile::new("a_family.kul", a_family),
+        InputFile::new("b_family.kul", b_family),
+    ];
+    let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
+    let envelope = export(&check, ExportOptions::default());
+    let projection = project_ordering(&envelope);
+    let json = serde_json::to_string_pretty(&projection).expect("serialize projection");
+    insta::assert_snapshot!(json);
+}
+
+/// A flat, ordering-only view of an export envelope. The snapshot in
+/// [`declaration_order_is_preserved_across_files_in_lexicographic_order`]
+/// asserts this projection so it doesn't drift on unrelated detail.
+#[derive(serde::Serialize)]
+struct OrderingProjection {
+    person_ids: Vec<String>,
+    marriages: Vec<MarriageOrdering>,
+    parenthood_links: Vec<ParenthoodOrdering>,
+}
+
+#[derive(serde::Serialize)]
+struct MarriageOrdering {
+    id: String,
+    spouses: [String; 2],
+}
+
+#[derive(serde::Serialize)]
+struct ParenthoodOrdering {
+    child_id: String,
+    marriage_id: String,
+    kind: String,
+}
+
+fn project_ordering(envelope: &kul_core::export::ExportEnvelope) -> OrderingProjection {
+    let kul_core::export::ExportEnvelope::Success(success) = envelope else {
+        panic!("expected success envelope; got failure");
+    };
+    let graph = success
+        .graph
+        .as_native()
+        .expect("expected native graph payload");
+    OrderingProjection {
+        person_ids: graph.persons.iter().map(|p| p.id.clone()).collect(),
+        marriages: graph
+            .marriages
+            .iter()
+            .map(|m| MarriageOrdering {
+                id: m.id.clone(),
+                spouses: m.spouses.clone(),
+            })
+            .collect(),
+        parenthood_links: graph
+            .parenthood_links
+            .iter()
+            .map(|l| ParenthoodOrdering {
+                child_id: l.child_id.clone(),
+                marriage_id: l.marriage_id.clone(),
+                kind: l.kind.to_string(),
+            })
+            .collect(),
+    }
+}
+
 #[test]
 fn one_thousand_statement_export_under_budget() {
     let mut source = String::new();
