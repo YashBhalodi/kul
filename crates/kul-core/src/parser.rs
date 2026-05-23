@@ -99,14 +99,14 @@ impl<'a> Parser<'a> {
                     }
                 }
                 _ => {
-                    let tok = self.peek().clone();
+                    let span = self.peek().span;
+                    let description = describe_token(&self.peek().kind);
                     self.diagnostics.push(Diagnostic::error(
                         "KUL-P01",
                         format!(
-                            "expected `person` or `marriage` (top-level statement), found {}",
-                            describe_token(&tok.kind)
+                            "expected `person` or `marriage` (top-level statement), found {description}"
                         ),
-                        self.fspan(tok.span),
+                        self.fspan(span),
                     ));
                     self.recover_to_newline();
                 }
@@ -167,14 +167,14 @@ impl<'a> Parser<'a> {
                     }
                 },
                 _ => {
-                    let tok = self.peek().clone();
+                    let span = self.peek().span;
+                    let description = describe_token(&self.peek().kind);
                     self.diagnostics.push(Diagnostic::error(
                         "KUL-P04",
                         format!(
-                            "expected a field (`name:`, `gender:`, …) or end of line, found {}",
-                            describe_token(&tok.kind)
+                            "expected a field (`name:`, `gender:`, …) or end of line, found {description}"
                         ),
-                        self.fspan(tok.span),
+                        self.fspan(span),
                     ));
                     self.recover_to_newline();
                     break;
@@ -298,14 +298,12 @@ impl<'a> Parser<'a> {
                     }
                 }
                 _ => {
-                    let tok = self.peek().clone();
+                    let span = self.peek().span;
+                    let description = describe_token(&self.peek().kind);
                     self.diagnostics.push(Diagnostic::error(
                         "KUL-P04",
-                        format!(
-                            "expected `start:` or `end:` on adoption, found {}",
-                            describe_token(&tok.kind)
-                        ),
-                        self.fspan(tok.span),
+                        format!("expected `start:` or `end:` on adoption, found {description}"),
+                        self.fspan(span),
                     ));
                     self.recover_to_newline();
                     break;
@@ -400,14 +398,14 @@ impl<'a> Parser<'a> {
                     }
                 }
                 _ => {
-                    let tok = self.peek().clone();
+                    let span = self.peek().span;
+                    let description = describe_token(&self.peek().kind);
                     self.diagnostics.push(Diagnostic::error(
                         "KUL-P04",
                         format!(
-                            "expected a field (`start:`, `end:`, `end_reason:`) or end of line, found {}",
-                            describe_token(&tok.kind)
+                            "expected a field (`start:`, `end:`, `end_reason:`) or end of line, found {description}"
                         ),
-                        self.fspan(tok.span),
+                        self.fspan(span),
                     ));
                     self.recover_to_newline();
                     break;

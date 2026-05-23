@@ -160,7 +160,7 @@ fn classify(
         // (spouse_b), then field list.
         (false, false, Some(LineKw::Marriage)) => {
             let existing = match enclosing {
-                Some(Statement::Marriage(m)) => existing_marriage_fields(m),
+                Some(Statement::Marriage(m)) => m.declared_field_names().collect::<Vec<_>>(),
                 _ => Vec::new(),
             };
             if scan.past_positionals {
@@ -186,7 +186,7 @@ fn classify(
         // a marriage's, so position 0 gets nothing).
         (false, false, Some(LineKw::Person)) => match enclosing {
             Some(Statement::Person(p)) => Context::PersonFieldList {
-                existing: existing_person_fields(p),
+                existing: p.declared_field_names().collect::<Vec<_>>(),
             },
             _ => Context::None,
         },
@@ -195,10 +195,10 @@ fn classify(
         // line) — depends on what the enclosing statement is.
         (false, _, _) => match enclosing {
             Some(Statement::Person(p)) => Context::PersonFieldList {
-                existing: existing_person_fields(p),
+                existing: p.declared_field_names().collect::<Vec<_>>(),
             },
             Some(Statement::Marriage(m)) => Context::MarriageFieldList {
-                existing: existing_marriage_fields(m),
+                existing: m.declared_field_names().collect::<Vec<_>>(),
             },
             None => Context::None,
         },
@@ -421,14 +421,6 @@ fn cursor_inside_string_or_comment(source: &str, cursor: usize) -> bool {
     in_string
 }
 
-fn existing_person_fields(p: &PersonStmt) -> Vec<FieldName> {
-    p.fields.iter().map(|f| f.kind.field_name()).collect()
-}
-
-fn existing_marriage_fields(m: &MarriageStmt) -> Vec<FieldName> {
-    m.fields.iter().map(|f| f.kind.field_name()).collect()
-}
-
 fn existing_adoption_fields_at_line(p: &PersonStmt, line: &LineInfo) -> Vec<FieldName> {
     let Some(kw_span) = line.first_kw_span else {
         return Vec::new();
@@ -442,7 +434,7 @@ fn existing_adoption_fields_at_line(p: &PersonStmt, line: &LineInfo) -> Vec<Fiel
     else {
         return Vec::new();
     };
-    adopt.fields.iter().map(|f| f.kind.field_name()).collect()
+    adopt.declared_field_names().collect()
 }
 
 fn item(label: &str, kind: CompletionItemKind, detail: &str) -> CompletionItem {

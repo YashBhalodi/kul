@@ -125,6 +125,7 @@ impl CheckResult {
 /// Only available when the `yaml` feature is enabled (the default; WASM
 /// builds opt out and use [`check_with_manifest`] instead, since the JS
 /// host hands the bridge a typed manifest, not raw YAML).
+#[must_use = "CheckResult carries the pipeline's diagnostics — inspect them to surface errors"]
 #[cfg(feature = "yaml")]
 pub fn check(
     manifest_name: impl Into<String>,
@@ -163,6 +164,7 @@ pub fn check(
 /// [`Manifest`] argument is itself the project-assertion, so M06 fires
 /// here whenever `inputs` is empty (regardless of whether the caller
 /// also supplied source bytes for rendering).
+#[must_use = "CheckResult carries the pipeline's diagnostics — inspect them to surface errors"]
 pub fn check_with_manifest(
     manifest_name: impl Into<String>,
     manifest_yaml: &str,

@@ -269,6 +269,13 @@ impl PersonStmt {
         })
     }
 
+    /// Iterator over the `FieldName` of every parsed field on this person,
+    /// in source order. Excludes `malformed_fields` (which the parser
+    /// records separately for R03's "writer attempted this field" check).
+    pub fn declared_field_names(&self) -> impl Iterator<Item = FieldName> + '_ {
+        self.fields.iter().map(|f| f.kind.field_name())
+    }
+
     /// True if `name` was either parsed cleanly or attempted-but-malformed.
     /// Used by R03 to avoid emitting "missing required field" when the
     /// writer clearly typed the field but got the value wrong (e.g.
@@ -323,6 +330,12 @@ impl AdoptionSub {
             AdoptionFieldKind::End(d) => Some(d),
             _ => None,
         })
+    }
+
+    /// Iterator over the `FieldName` of every parsed field on this
+    /// adoption, in source order.
+    pub fn declared_field_names(&self) -> impl Iterator<Item = FieldName> + '_ {
+        self.fields.iter().map(|f| f.kind.field_name())
     }
 }
 
@@ -456,6 +469,12 @@ impl MarriageStmt {
             MarriageFieldKind::EndReason(v) => Some(v),
             _ => None,
         })
+    }
+
+    /// Iterator over the `FieldName` of every parsed field on this
+    /// marriage, in source order.
+    pub fn declared_field_names(&self) -> impl Iterator<Item = FieldName> + '_ {
+        self.fields.iter().map(|f| f.kind.field_name())
     }
 }
 
