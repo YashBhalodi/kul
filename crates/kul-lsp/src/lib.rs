@@ -19,7 +19,6 @@
 
 pub mod convert;
 pub mod features;
-pub mod manifest;
 pub mod server;
 pub mod state;
 
