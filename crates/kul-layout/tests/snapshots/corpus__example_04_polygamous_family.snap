@@ -1,0 +1,62 @@
+---
+source: crates/kul-layout/tests/corpus.rs
+expression: yaml
+---
+width: 588.0
+height: 272.0
+cards:
+- person_id: devraj
+  kind: canonical
+  x: 24.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Devraj Kumar
+- person_id: meera
+  kind: canonical
+  x: 214.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Meera
+- person_id: alice
+  kind: canonical
+  x: 404.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Alice Sharma
+- person_id: priya
+  kind: canonical
+  x: 214.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Priya Kumar
+bars:
+- marriage_id: m_devraj_meera
+  x: 190.0
+  y: 51.0
+  width: 18.0
+  height: 10.0
+  ended: false
+- marriage_id: m_devraj_alice
+  x: 380.0
+  y: 51.0
+  width: 18.0
+  height: 10.0
+  ended: false
+edges:
+- kind: birth
+  routing: in_tree
+  child_id: priya
+  marriage_id: m_devraj_alice
+  points:
+  - - 389.0
+    - 61.0
+  - - 389.0
+    - 156.0
+  - - 294.0
+    - 156.0
+  - - 294.0
+    - 184.0
