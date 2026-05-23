@@ -1,0 +1,20 @@
+---
+source: crates/kul-svg/tests/corpus.rs
+expression: svg
+---
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 398 272" width="398" height="272">
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 199 61 L 199 156 L 199 156 L 199 184"/>
+<rect class="kul-bar" x="190" y="51" width="18" height="10"/>
+<g class="kul-card kul-card--canonical">
+<rect x="24" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="104" y="56" text-anchor="middle" dominant-baseline="central">Alice Sharma</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="214" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="294" y="56" text-anchor="middle" dominant-baseline="central">Bob Sharma</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="119" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="199" y="216" text-anchor="middle" dominant-baseline="central">Carol Sharma</text>
+</g>
+</svg>

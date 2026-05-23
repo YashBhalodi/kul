@@ -67,8 +67,20 @@ fn layout_example(dir: &str) -> String {
 }
 
 #[test]
+fn example_02_nuclear_family() {
+    let yaml = layout_example("02-nuclear-family");
+    insta::assert_snapshot!(yaml);
+}
+
+#[test]
 fn example_03_three_generations() {
     let yaml = layout_example("03-three-generations");
+    insta::assert_snapshot!(yaml);
+}
+
+#[test]
+fn example_04_polygamous_family() {
+    let yaml = layout_example("04-polygamous-family");
     insta::assert_snapshot!(yaml);
 }
 
