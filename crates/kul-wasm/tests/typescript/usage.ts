@@ -12,6 +12,7 @@ import {
     check,
     exportGraph,
     format,
+    renderSvg,
     type ExportedGraph,
     type CytoscapeGraph,
     type Manifest,
@@ -139,6 +140,38 @@ if ('graph' in cytoscapeExport) {
 // @ts-expect-error "graphviz" is not a valid ExportFormat
 exportGraph(singleFile, manifest, { format: 'graphviz' });
 
+// `renderSvg` runs the full canonical-visual pipeline (kul-render →
+// kul-layout → kul-svg) and returns a tagged envelope. Same input
+// shape as `check` / `exportGraph` (files + manifest); no options in
+// v1. The success arm carries an SVG string; the failure arm carries
+// the same `ExportedDiagnostic` shape `exportGraph`'s failure
+// envelope produces. The wire-level `ok` is a `boolean` rather than a
+// literal, so structural narrowing (`'svg' in env`) is the right tool
+// — mirrors the discrimination pattern used for `exportGraph` above.
+const renderedClean = renderSvg(singleFile, manifest);
+let renderedSvg = '';
+let renderFailureCode = '';
+if ('svg' in renderedClean) {
+    renderedSvg = renderedClean.svg;
+} else {
+    renderFailureCode = renderedClean.diagnostics[0]?.code ?? '';
+}
+
+// Failure-arm exercise: the same broken source `check` rejected
+// produces an `ok: false` envelope here.
+const renderedBroken = renderSvg(
+    [{ name: 'input.kul', source: 'person alice gender:female\n' }],
+    manifest,
+);
+if ('diagnostics' in renderedBroken) {
+    renderFailureCode = renderedBroken.diagnostics[0]?.code ?? renderFailureCode;
+}
+
+// Type system must reject a bare string where an array is expected,
+// matching `check` / `exportGraph`'s signature.
+// @ts-expect-error renderSvg requires an array of input files
+renderSvg('person alice name:"A" gender:female\n', manifest);
+
 // Suppress "unused binding" diagnostics in --noUnusedLocals mode.
 export const _exports = {
     formatted,
@@ -155,4 +188,6 @@ export const _exports = {
     firstPersonName,
     parenthoodLinkCount,
     cytoscapeNodeCount,
+    renderedSvg,
+    renderFailureCode,
 };

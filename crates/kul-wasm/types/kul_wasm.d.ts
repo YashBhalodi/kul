@@ -44,6 +44,24 @@ export interface ExportOptions {
 }
 
 /**
+ * Failure arm of [`RenderEnvelope`]. Same diagnostic shape as the
+ * failure path of [`export_graph`]; consumers narrowing on `ok: false`
+ * reuse the diagnostic-rendering code they already have.
+ */
+export interface RenderFailure {
+    /**
+     * Always `false`. Consumer-facing discriminator.
+     */
+    ok: boolean;
+    /**
+     * Every diagnostic the validator produced — errors, warnings, and
+     * notes alike — so the consumer sees the full picture of why the
+     * render refused.
+     */
+    diagnostics: ExportedDiagnostic[];
+}
+
+/**
  * JS-side return type of [`check`]. Carries the full diagnostic list —
  * errors, warnings, and notes alike. An empty `diagnostics` array means
  * a clean project; consumers discriminate on emptiness rather than an
@@ -57,6 +75,18 @@ export interface ExportOptions {
 export interface CheckEnvelope {
     diagnostics: ExportedDiagnostic[];
 }
+
+/**
+ * JS-side return type of [`render_svg`]. Untagged success/failure
+ * discriminated by `ok`, bit-identical at the JSON level to
+ * `kul_lsp::features::render::RenderResponse` — the two adapters
+ * independently construct the same envelope so JS consumers and LSP
+ * clients see the same bytes regardless of how the pipeline is
+ * invoked. Rule-of-three: the two adapters declare their own
+ * envelopes today; a shared crate emerges only when a third
+ * independent consumer materializes.
+ */
+export type RenderEnvelope = RenderSuccess | RenderFailure;
 
 /**
  * One `.kul` input file as the JS host hands it to the bridge — a name
@@ -87,6 +117,21 @@ export type NodeData = PersonNodeData | MarriageNodeData;
  * `exportGraph` uses on its options input.
  */
 export type ExportFormat = "json" | "cytoscape";
+
+/**
+ * Success arm of [`RenderEnvelope`]. Carries the rendered SVG string.
+ */
+export interface RenderSuccess {
+    /**
+     * Always `true`. Consumer-facing discriminator.
+     */
+    ok: boolean;
+    /**
+     * The rendered SVG string. Theme-agnostic — semantic CSS classes
+     * only, no inline colours. See kul-svg for the class vocabulary.
+     */
+    svg: string;
+}
 
 /**
  * The Cytoscape JSON graph shape.
@@ -332,3 +377,5 @@ export function check(files: WasmInputFile[], manifest: Manifest): CheckEnvelope
 export function exportGraph(files: WasmInputFile[], manifest: Manifest, options?: ExportOptions | null): ExportEnvelope;
 
 export function format(source: string): string;
+
+export function renderSvg(files: WasmInputFile[], manifest: Manifest): RenderEnvelope;
