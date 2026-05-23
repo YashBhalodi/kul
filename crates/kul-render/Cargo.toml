@@ -1,6 +1,6 @@
 [package]
 name = "kul-render"
-description = "Stage 2 of the canonical renderer pipeline: ExportEnvelope → RenderShape"
+description = "Canonical UI pattern as data: projects the kinship-native ExportEnvelope into a RenderShape that surface renderers can consume"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

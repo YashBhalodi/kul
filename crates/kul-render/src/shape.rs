@@ -1,17 +1,21 @@
-//! [`RenderShape`] — the canonical-UI-pattern data shape Stage 2 emits.
+//! [`RenderShape`] — the canonical UI pattern's data form.
 //!
-//! All pre-derived layout-meaningful facts (generation index, ghosts,
-//! component grouping, P6 nested birth-family sub-trees) live in this
-//! shape so a Stage 3 layout engine never has to re-derive them. See
-//! [ADR-0017](../../docs/adr/0017-render-shape-schema-and-versioning.md)
-//! for the schema-versioning contract.
+//! Where the kinship-native export is shaped to mirror what the source
+//! *says*, this shape is shaped to mirror what the canonical UI
+//! pattern *draws*. Every layout-meaningful fact the pattern's
+//! principles compute — generation index, canonical vs. ghost slot,
+//! component grouping, P6 nested birth-family sub-trees — is a field
+//! in the shape, so a surface renderer becomes a walker of the data
+//! rather than a re-implementer of the pattern. The schema-versioning
+//! contract is in [ADR-0017](../../docs/adr/0017-render-shape-schema-and-versioning.md).
 
 use kul_core::export::{ExportedDate, ExportedDiagnostic};
 use serde::Serialize;
 
-/// Top-level [`RenderShape`]. Either a success payload (the layout-ready
-/// graph) or a failure payload (the same diagnostic list the input
-/// [`kul_core::export::ExportEnvelope::Failure`] carried).
+/// Top-level [`RenderShape`]. Either a success payload (the
+/// pattern-shaped graph) or a failure payload (the same diagnostic
+/// list the input [`kul_core::export::ExportEnvelope::Failure`]
+/// carried).
 ///
 /// Untagged at the wire level: the `ok` boolean discriminates without
 /// the consumer having to inspect other keys.
@@ -40,9 +44,9 @@ impl RenderShape {
     }
 }
 
-/// Success envelope. Carries the layout-ready components and edges plus
-/// the same `schema` / `kul` discriminators the export envelope uses (per
-/// [ADR-0010](../../docs/adr/0010-export-schema-versioning.md)).
+/// Success envelope. Carries the pattern-shaped components and edges
+/// plus the same `schema` / `kul` discriminators the export envelope
+/// uses (per [ADR-0010](../../docs/adr/0010-export-schema-versioning.md)).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SuccessRender {
@@ -51,9 +55,9 @@ pub struct SuccessRender {
     /// Render-shape schema version. See
     /// [`crate::RENDER_SCHEMA_VERSION`].
     pub schema: u32,
-    /// Kul language version of the source document — surfaced through
+    /// Kul language version of the source document — passed through
     /// from the input [`kul_core::export::ExportEnvelope::Success`] so
-    /// Stage 3 renderers can warn on version drift without re-reading the
+    /// consumers can warn on version drift without re-reading the
     /// manifest.
     pub kul: String,
     /// Top-level layout components, in P12 order: by the source position
@@ -173,8 +177,9 @@ pub struct MarriageBar {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_reason: Option<String>,
     /// `true` iff the marriage carries an `end:` field. Per P8 this is
-    /// the canonical "ended" predicate (death is on the person, not the
-    /// marriage); surfaced here so Stage 3 doesn't have to re-derive it.
+    /// the canonical "ended" predicate (death is on the person, not
+    /// the marriage); reified here so consumers don't have to re-
+    /// derive it from `end.is_some()`.
     pub ended: bool,
     /// Joining spouse's birth-family sub-tree (P6 recursive nesting),
     /// when the joining spouse has a birth family that isn't already
@@ -185,8 +190,9 @@ pub struct MarriageBar {
     pub joining_nested_birth_family: Option<Box<MarriageBranch>>,
 }
 
-/// One canonical or ghost card slot. The single visual primitive Stage 3
-/// renders into the canonical UI pattern's "uniform card" (P15).
+/// One canonical or ghost card slot. The single visual primitive
+/// downstream surfaces render into the canonical UI pattern's
+/// "uniform card" (P15).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CardSlot {
@@ -222,8 +228,9 @@ pub enum SlotKind {
     Ghost { reason: GhostReason },
 }
 
-/// Why a ghost card was emitted. The discriminator Stage 3 keys on for
-/// the dotted-border / faded-fill / `↺`-badge visual vocabulary.
+/// Why a ghost card was emitted. The discriminator a surface
+/// renderer keys on for the dotted-border / faded-fill / `↺`-badge
+/// visual vocabulary.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GhostReason {
@@ -240,10 +247,11 @@ pub enum GhostReason {
 /// One parent-child edge.
 ///
 /// Birth edges are solid; adoption edges dashed (P5). Cross-component
-/// edges (a child whose canonical family is in one component but whose
-/// other parent-link points to a marriage in another component) are
-/// represented here uniformly — Stage 3 chooses routing based on
-/// whether the endpoints sit in the same component.
+/// edges (a child whose canonical family is in one component but
+/// whose other parent-link points to a marriage in another component)
+/// are represented here uniformly — routing geometry is renderer
+/// policy, decided downstream based on whether the endpoints sit in
+/// the same component.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Edge {

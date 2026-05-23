@@ -1,9 +1,9 @@
-//! Stage 2 algorithm: kinship-native → [`RenderShape`].
+//! The kinship-native → [`RenderShape`] projection algorithm.
 //!
 //! Reads the kinship-native graph (persons, marriages, parenthood
 //! links) and produces the hierarchical card-slot tree plus the flat
-//! edge list defined in [`crate::shape`]. Implements every canonical UI
-//! pattern principle (P1–P16) — the design rationale lives in
+//! edge list defined in [`crate::shape`]. Realises every canonical UI
+//! pattern principle (P1–P16) — the normative description lives in
 //! [`docs/canonical-ui-pattern.md`](../../docs/canonical-ui-pattern.md).
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -85,9 +85,9 @@ impl<'a> PersonFacts<'a> {
 
     fn canonical_adoption(&self) -> Option<&str> {
         // Most-recent: pick the latest `start:` among declared
-        // adoptions, with declaration-order tiebreak. Stage 2 does the
-        // sort here so Stage 3 layout never re-derives "which adoption
-        // is canonical" (per P16).
+        // adoptions, with declaration-order tiebreak. The sort runs
+        // up front in `Index::new` so callers never re-derive "which
+        // adoption is canonical" per P16.
         if self.adoption_marriages.is_empty() {
             return None;
         }
@@ -410,8 +410,8 @@ impl UnionFind {
     }
 }
 
-/// Stage 2's top-level "build components" pass. Produces components in
-/// P12 order (source position of each component's first relevant
+/// Top-level "build components" pass. Produces components in P12
+/// order (source position of each component's first relevant
 /// declaration).
 fn build_components(index: &Index<'_>) -> Vec<Component> {
     let n_persons = index.persons.len();

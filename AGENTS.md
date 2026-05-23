@@ -8,7 +8,7 @@ Conventions, layout, and workflow for anyone (human or AI) working in this repos
 crates/
   kul-core/   — library: lexer, parser, AST, semantic, validator, diagnostics, node-at-cursor query, formatter, export
   kul-loader/ — library: project filesystem loader shared by `kul-cli` and `kul-lsp` (no `kul-core` dependency on disk IO)
-  kul-render/ — library: Stage 2 of the renderer pipeline — `ExportEnvelope` → `RenderShape` per the canonical UI pattern (ADR-0016, ADR-0017)
+  kul-render/ — library: the canonical UI pattern as data — projects `ExportEnvelope` into `RenderShape` for surface renderers to consume (ADR-0016, ADR-0017)
   kul-cli/    — binary `kul`: `kul validate`, `kul format`, `kul export`, `kul lsp` subcommands
   kul-lsp/    — library + binary `kul-lsp`: LSP adapter over kul-core (handles standard capabilities plus the `kul/export` custom request)
   kul-wasm/   — library (cdylib): WASM adapter over kul-core, published as `@kullang/wasm` (npm) and `kul-wasm.tar.gz` (GitHub Release). Surface is `check`, `exportGraph`, `format` (per ADR-0011).

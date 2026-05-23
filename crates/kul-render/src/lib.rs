@@ -1,36 +1,49 @@
-//! Stage 2 of the canonical renderer pipeline.
+//! The canonical UI pattern as data.
 //!
-//! Transforms the kinship-native [`ExportEnvelope`] (Stage 1) into a
-//! [`RenderShape`] that realizes every canonical UI pattern principle
-//! (P1–P16). The output is hierarchical card slots plus a flat edge list,
-//! with generation indices computed and ghost cards (P8 past marriages,
-//! P16 past adoptions) emitted up front so Stage 3 layout engines never
-//! re-derive layout-meaningful facts.
+//! `kul-core::export` produces a kinship-native graph — `persons`,
+//! `marriages`, `parenthood_links` — mirroring the language primitives
+//! one-to-one. That shape is faithful to what the source *says*; it is
+//! not yet shaped for what the canonical UI pattern
+//! ([`docs/canonical-ui-pattern.md`](../../docs/canonical-ui-pattern.md))
+//! *draws*. This crate is the projection between the two: input is the
+//! kinship-native [`ExportEnvelope`], output is a [`RenderShape`] whose
+//! hierarchy and primitives (components, marriage branches, card slots,
+//! ghost cards, P6 nested birth-family sub-trees) match the pattern's
+//! data form one-to-one.
+//!
+//! Every pattern decision — which spouse is canonical and which is a
+//! ghost (P8, P16), which slot lives at which generation row (P1),
+//! how components arrange in source order (P12), where P6 recursive
+//! nesting terminates (P11) — is computed up front and surfaced as
+//! data, so a surface renderer (VSCode preview, web visualizer,
+//! anything else downstream) becomes a walker of the shape, not a
+//! re-implementer of the pattern.
 //!
 //! # Two surfaces
 //!
-//! - [`compute`] — full pipeline. Takes a [`CheckResult`], calls
-//!   [`kul_core::export::export`] with positions on, then transforms the
-//!   resulting envelope. The shape every downstream renderer wants.
-//! - [`transform`] — pure transformer over an already-exported envelope.
-//!   Surfaced so fabricated [`ExportEnvelope`] fixtures can drive the
-//!   transformation in tests without having to round-trip through a `.kul`
-//!   source.
+//! - [`compute`] — convenience entry point. Takes a [`CheckResult`],
+//!   calls [`kul_core::export::export`] with positions on, then runs
+//!   [`transform`] over the resulting envelope. The shape every
+//!   downstream consumer wants when starting from a checked project.
+//! - [`transform`] — pure transformer over an already-exported
+//!   envelope. Surfaced so fabricated [`ExportEnvelope`] fixtures can
+//!   drive the projection in tests without having to round-trip
+//!   through a `.kul` source.
 //!
-//! The internal flow is deliberately staged: Stage 2 reads only the
-//! kinship-native shape (the audit in #117 verified that shape carries
-//! every fact Stage 2 needs); it never reaches back into the AST or
-//! [`kul_core::semantic::ResolvedDocument`]. That keeps the crate
-//! boundary clean and the canonical UI pattern co-evolvable independent
-//! of the rest of the toolchain — see [ADR
-//! 0016](../../docs/adr/0016-kul-render-crate-boundary.md).
+//! The kinship-native shape is the only thing read here — never the
+//! AST or [`kul_core::semantic::ResolvedDocument`]. The audit in
+//! [#117] verified that shape carries every fact the canonical UI
+//! pattern needs, and the rationale for keeping it that way is
+//! recorded in [ADR-0016](../../docs/adr/0016-kul-render-crate-boundary.md).
 //!
 //! # Failure handling
 //!
 //! If the input [`ExportEnvelope`] is a failure envelope, [`transform`]
 //! and [`compute`] return [`RenderShape::Failure`] carrying the same
-//! diagnostics — the canonical UI pattern only meaningfully applies to a
-//! valid document.
+//! diagnostics — the canonical UI pattern only meaningfully applies to
+//! a valid document.
+//!
+//! [#117]: https://github.com/YashBhalodi/kul/issues/117
 
 pub mod shape;
 
@@ -55,13 +68,14 @@ pub use shape::{
 /// additions. See [ADR-0017](../../docs/adr/0017-render-shape-schema-and-versioning.md).
 pub const RENDER_SCHEMA_VERSION: u32 = 1;
 
-/// Run the full Stage-1-plus-Stage-2 pipeline against a checked project.
+/// Run the export-then-project pipeline against a checked project and
+/// return its [`RenderShape`].
 ///
-/// Calls [`kul_core::export::export`] with `with_positions: true` (Stage 2
-/// surfaces source spans on every slot so a Stage 3 renderer can map
-/// clicks back to the source) and feeds the resulting envelope through
-/// [`transform`]. If the export fails, the failure envelope's diagnostics
-/// pass through verbatim.
+/// Calls [`kul_core::export::export`] with `with_positions: true` —
+/// source spans propagate through to the render shape so a surface
+/// renderer can map a click on a card back to its source declaration —
+/// then feeds the envelope through [`transform`]. If the export fails,
+/// the failure envelope's diagnostics pass through verbatim.
 pub fn compute(check: &CheckResult) -> RenderShape {
     let envelope = export(
         check,
@@ -75,10 +89,10 @@ pub fn compute(check: &CheckResult) -> RenderShape {
 
 /// Project a kinship-native [`ExportEnvelope`] into a [`RenderShape`].
 ///
-/// Pure transformer. Stage 2 reads only the kinship-native graph
-/// (`persons`, `marriages`, `parenthoodLinks`); the envelope's
-/// `cytoscape` shape is rejected (Cytoscape is a sibling Stage-2-style
-/// projection, not an input to this one). See
+/// Pure transformer. Reads only the kinship-native graph (`persons`,
+/// `marriages`, `parenthoodLinks`); the envelope's `cytoscape` shape
+/// is rejected — Cytoscape is a sibling projection of the kinship-
+/// native graph, not an input to this one. See
 /// [ADR-0016](../../docs/adr/0016-kul-render-crate-boundary.md).
 pub fn transform(envelope: &ExportEnvelope) -> RenderShape {
     match envelope {

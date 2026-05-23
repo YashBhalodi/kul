@@ -194,8 +194,8 @@ fn empty_document_yields_empty_shape() {
 }
 
 /// Failure envelopes pass through verbatim: the render shape carries
-/// the same diagnostic list so a Stage 3 host can render either kind
-/// of result without first checking the input variant.
+/// the same diagnostic list so a surface renderer can handle either
+/// kind of result without first checking the input variant.
 #[test]
 fn failure_envelope_passes_through_with_diagnostics() {
     let envelope = ExportEnvelope::Failure(FailureEnvelope {
