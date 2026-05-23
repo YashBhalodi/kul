@@ -168,6 +168,34 @@ example_snapshot!(
     "06-three-branch-dynasty",
     "three-branch-dynasty"
 );
+example_snapshot!(
+    example_08_divorce_and_remarriage,
+    example_08_divorce_and_remarriage_with_positions,
+    example_08_divorce_and_remarriage_cytoscape,
+    "08-divorce-and-remarriage",
+    "divorce-and-remarriage"
+);
+example_snapshot!(
+    example_09_multi_adoption,
+    example_09_multi_adoption_with_positions,
+    example_09_multi_adoption_cytoscape,
+    "09-multi-adoption",
+    "multi-adoption"
+);
+example_snapshot!(
+    example_10_disconnected_lineages_and_orphan,
+    example_10_disconnected_lineages_and_orphan_with_positions,
+    example_10_disconnected_lineages_and_orphan_cytoscape,
+    "10-disconnected-lineages-and-orphan",
+    "disconnected-lineages-and-orphan"
+);
+example_snapshot!(
+    example_11_cousin_marriage,
+    example_11_cousin_marriage_with_positions,
+    example_11_cousin_marriage_cytoscape,
+    "11-cousin-marriage",
+    "cousin-marriage"
+);
 
 /// Multi-file example: snapshots assert the WASM bridge unions persons,
 /// marriages, and parenthood links across every `.kul` file in the
@@ -211,6 +239,10 @@ fn every_example_has_a_dedicated_export_graph_test() {
         "05-married-siblings",
         "06-three-branch-dynasty",
         "07-multi-file-extended-family",
+        "08-divorce-and-remarriage",
+        "09-multi-adoption",
+        "10-disconnected-lineages-and-orphan",
+        "11-cousin-marriage",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),

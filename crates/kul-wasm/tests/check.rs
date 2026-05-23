@@ -164,6 +164,26 @@ clean_example!(
     "06-three-branch-dynasty",
     "three-branch-dynasty"
 );
+clean_example!(
+    example_08_divorce_and_remarriage_is_clean,
+    "08-divorce-and-remarriage",
+    "divorce-and-remarriage"
+);
+clean_example!(
+    example_09_multi_adoption_is_clean,
+    "09-multi-adoption",
+    "multi-adoption"
+);
+clean_example!(
+    example_10_disconnected_lineages_and_orphan_is_clean,
+    "10-disconnected-lineages-and-orphan",
+    "disconnected-lineages-and-orphan"
+);
+clean_example!(
+    example_11_cousin_marriage_is_clean,
+    "11-cousin-marriage",
+    "cousin-marriage"
+);
 
 #[test]
 fn example_07_multi_file_extended_family_is_clean() {
@@ -194,6 +214,10 @@ fn every_example_has_a_dedicated_clean_check_test() {
         "05-married-siblings",
         "06-three-branch-dynasty",
         "07-multi-file-extended-family",
+        "08-divorce-and-remarriage",
+        "09-multi-adoption",
+        "10-disconnected-lineages-and-orphan",
+        "11-cousin-marriage",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),

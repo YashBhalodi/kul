@@ -1,0 +1,35 @@
+# Example 9: Multiple adoptions for one child (P16).
+#
+# - Sam is biologically born to Ravi and Priya (1982).
+# - Sam is first adopted by Anita and Bharat in 1985 (`m_anita_bharat`).
+# - Sam is later adopted by Chen and Dara in 1992 (`m_chen_dara`).
+#
+# P16 designates the **most-recent** adoption as canonical: Sam's
+# canonical card sits in `m_chen_dara`'s children row. Each earlier
+# adoptive family displays a *child-ghost* of Sam at the past
+# adoption's bar, connected by a dashed adoption edge. Per P16 the
+# bar of `m_anita_bharat` is rendered even though no other rule would
+# surface it — the child-ghost is the load-bearing reason it must
+# exist. A solid biological cross-edge from Sam's canonical card to
+# `m_ravi_priya` completes the picture.
+
+# ---- Biological origin ----
+person ravi   name:"Ravi Mehta"   gender:male    born:1958-01-14
+person priya  name:"Priya Mehta"  gender:female  born:1960-04-22
+marriage m_ravi_priya ravi priya  start:1980-11-10
+
+# ---- First (now past) adoptive family ----
+person anita   name:"Anita Rao"   gender:female  born:1952-06-08
+person bharat  name:"Bharat Rao"  gender:male    born:1950-12-30
+marriage m_anita_bharat anita bharat  start:1975-03-22
+
+# ---- Second (canonical) adoptive family ----
+person chen  name:"Chen Liu"  gender:male    born:1955-09-09
+person dara  name:"Dara Liu"  gender:female  born:1957-02-17
+marriage m_chen_dara chen dara  start:1980-07-04
+
+# ---- Sam: bio + two adoptions in declaration order ----
+person sam  name:"Sam"  gender:other  born:1982-05-19
+  birth m_ravi_priya
+  adoption m_anita_bharat  start:1985-04-01
+  adoption m_chen_dara     start:1992-08-15

@@ -1,0 +1,196 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "alice",
+        "name": "Alice Reyes",
+        "gender": "female",
+        "born": {
+          "value": "1950-04-12",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          778,
+          845
+        ]
+      },
+      {
+        "id": "bob",
+        "name": "Bob Singh",
+        "gender": "male",
+        "born": {
+          "value": "1948-11-30",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          846,
+          913
+        ]
+      },
+      {
+        "id": "charlie",
+        "name": "Charlie Park",
+        "gender": "male",
+        "born": {
+          "value": "1949-02-22",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          914,
+          981
+        ]
+      },
+      {
+        "id": "eva",
+        "name": "Eva Larsen",
+        "gender": "female",
+        "born": {
+          "value": "1953-08-04",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          982,
+          1049
+        ]
+      },
+      {
+        "id": "carol",
+        "name": "Carol Singh",
+        "gender": "female",
+        "born": {
+          "value": "1975-09-03",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1250,
+          1334
+        ]
+      },
+      {
+        "id": "felix",
+        "name": "Felix Singh",
+        "gender": "male",
+        "born": {
+          "value": "1994-03-11",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1529,
+          1611
+        ]
+      },
+      {
+        "id": "diana",
+        "name": "Diana Park",
+        "gender": "female",
+        "born": {
+          "value": "1997-07-29",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1612,
+          1700
+        ]
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_alice_bob",
+        "spouses": [
+          "alice",
+          "bob"
+        ],
+        "start": {
+          "value": "1972-05-12",
+          "precision": "day",
+          "circa": false
+        },
+        "end": {
+          "value": "1990-08-01",
+          "precision": "day",
+          "circa": false
+        },
+        "endReason": "divorce",
+        "span": [
+          1098,
+          1182
+        ]
+      },
+      {
+        "id": "m_bob_eva",
+        "spouses": [
+          "bob",
+          "eva"
+        ],
+        "start": {
+          "value": "1992-06-15",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1360,
+          1416
+        ]
+      },
+      {
+        "id": "m_alice_charlie",
+        "spouses": [
+          "alice",
+          "charlie"
+        ],
+        "start": {
+          "value": "1995-10-20",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1417,
+          1473
+        ]
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_alice_bob",
+        "childId": "carol",
+        "kind": "biological",
+        "span": [
+          1317,
+          1334
+        ]
+      },
+      {
+        "marriageId": "m_bob_eva",
+        "childId": "felix",
+        "kind": "biological",
+        "span": [
+          1596,
+          1611
+        ]
+      },
+      {
+        "marriageId": "m_alice_charlie",
+        "childId": "diana",
+        "kind": "biological",
+        "span": [
+          1679,
+          1700
+        ]
+      }
+    ]
+  }
+}

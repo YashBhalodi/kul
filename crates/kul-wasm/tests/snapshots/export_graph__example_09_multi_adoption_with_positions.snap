@@ -1,0 +1,200 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "ravi",
+        "name": "Ravi Mehta",
+        "gender": "male",
+        "born": {
+          "value": "1958-01-14",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          792,
+          856
+        ]
+      },
+      {
+        "id": "priya",
+        "name": "Priya Mehta",
+        "gender": "female",
+        "born": {
+          "value": "1960-04-22",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          857,
+          921
+        ]
+      },
+      {
+        "id": "anita",
+        "name": "Anita Rao",
+        "gender": "female",
+        "born": {
+          "value": "1952-06-08",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1019,
+          1083
+        ]
+      },
+      {
+        "id": "bharat",
+        "name": "Bharat Rao",
+        "gender": "male",
+        "born": {
+          "value": "1950-12-30",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1084,
+          1148
+        ]
+      },
+      {
+        "id": "chen",
+        "name": "Chen Liu",
+        "gender": "male",
+        "born": {
+          "value": "1955-09-09",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1252,
+          1312
+        ]
+      },
+      {
+        "id": "dara",
+        "name": "Dara Liu",
+        "gender": "female",
+        "born": {
+          "value": "1957-02-17",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1313,
+          1373
+        ]
+      },
+      {
+        "id": "sam",
+        "name": "Sam",
+        "gender": "other",
+        "born": {
+          "value": "1982-05-19",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1482,
+          1644
+        ]
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_ravi_priya",
+        "spouses": [
+          "ravi",
+          "priya"
+        ],
+        "start": {
+          "value": "1980-11-10",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          922,
+          972
+        ]
+      },
+      {
+        "id": "m_anita_bharat",
+        "spouses": [
+          "anita",
+          "bharat"
+        ],
+        "start": {
+          "value": "1975-03-22",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1149,
+          1203
+        ]
+      },
+      {
+        "id": "m_chen_dara",
+        "spouses": [
+          "chen",
+          "dara"
+        ],
+        "start": {
+          "value": "1980-07-04",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1374,
+          1422
+        ]
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_ravi_priya",
+        "childId": "sam",
+        "kind": "biological",
+        "span": [
+          1538,
+          1556
+        ]
+      },
+      {
+        "marriageId": "m_anita_bharat",
+        "childId": "sam",
+        "kind": "adoptive",
+        "start": {
+          "value": "1985-04-01",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1559,
+          1600
+        ]
+      },
+      {
+        "marriageId": "m_chen_dara",
+        "childId": "sam",
+        "kind": "adoptive",
+        "start": {
+          "value": "1992-08-15",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1603,
+          1644
+        ]
+      }
+    ]
+  }
+}

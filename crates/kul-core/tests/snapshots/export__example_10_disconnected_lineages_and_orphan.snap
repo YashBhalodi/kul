@@ -1,0 +1,121 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "ramesh",
+        "name": "Ramesh Iyer",
+        "gender": "male",
+        "born": {
+          "value": "1925-01-10",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "sita",
+        "name": "Sita Iyer",
+        "gender": "female",
+        "born": {
+          "value": "1928-04-22",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "arjun",
+        "name": "Arjun Iyer",
+        "gender": "male",
+        "born": {
+          "value": "1950-08-30",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "zara",
+        "name": "Zara Khan",
+        "gender": "female",
+        "born": {
+          "value": "1965-11-04",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "hiro",
+        "name": "Hiro Kato",
+        "gender": "male",
+        "born": {
+          "value": "1932-03-09",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "yuki",
+        "name": "Yuki Kato",
+        "gender": "female",
+        "born": {
+          "value": "1934-09-21",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "mei",
+        "name": "Mei Kato",
+        "gender": "female",
+        "born": {
+          "value": "1958-12-11",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_ramesh_sita",
+        "spouses": [
+          "ramesh",
+          "sita"
+        ],
+        "start": {
+          "value": "1948-06-15",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_hiro_yuki",
+        "spouses": [
+          "hiro",
+          "yuki"
+        ],
+        "start": {
+          "value": "1956-05-04",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_ramesh_sita",
+        "childId": "arjun",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_hiro_yuki",
+        "childId": "mei",
+        "kind": "biological"
+      }
+    ]
+  }
+}

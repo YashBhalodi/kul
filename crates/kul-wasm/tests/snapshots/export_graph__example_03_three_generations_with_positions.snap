@@ -23,8 +23,8 @@ expression: json
           "circa": false
         },
         "span": [
-          328,
-          412
+          1094,
+          1178
         ]
       },
       {
@@ -42,8 +42,8 @@ expression: json
           "circa": false
         },
         "span": [
-          413,
-          497
+          1179,
+          1263
         ]
       },
       {
@@ -56,8 +56,8 @@ expression: json
           "circa": false
         },
         "span": [
-          578,
-          665
+          1344,
+          1431
         ]
       },
       {
@@ -75,8 +75,8 @@ expression: json
           "circa": false
         },
         "span": [
-          666,
-          748
+          1432,
+          1514
         ]
       },
       {
@@ -89,8 +89,8 @@ expression: json
           "circa": false
         },
         "span": [
-          861,
-          946
+          1627,
+          1712
         ]
       },
       {
@@ -103,8 +103,8 @@ expression: json
           "circa": true
         },
         "span": [
-          947,
-          1048
+          1713,
+          1814
         ]
       }
     ],
@@ -121,8 +121,8 @@ expression: json
           "circa": false
         },
         "span": [
-          499,
-          551
+          1265,
+          1317
         ]
       },
       {
@@ -143,8 +143,8 @@ expression: json
         },
         "endReason": "divorce",
         "span": [
-          750,
-          834
+          1516,
+          1600
         ]
       }
     ],
@@ -154,8 +154,8 @@ expression: json
         "childId": "alice",
         "kind": "biological",
         "span": [
-          646,
-          665
+          1412,
+          1431
         ]
       },
       {
@@ -163,8 +163,8 @@ expression: json
         "childId": "carol",
         "kind": "biological",
         "span": [
-          929,
-          946
+          1695,
+          1712
         ]
       },
       {
@@ -177,8 +177,8 @@ expression: json
           "circa": false
         },
         "span": [
-          1010,
-          1048
+          1776,
+          1814
         ]
       }
     ]
