@@ -378,31 +378,21 @@ mod tests {
             .and_then(|m| m.values().next())
             .and_then(|v| v.first())
             .expect("action has an edit");
-        // Ranges are LSP positions; for tests we use ASCII so byte=col.
-        let start = byte_offset_for_position(source, edit.range.start);
-        let end = byte_offset_for_position(source, edit.range.end);
+        // Route through LineIndex (the same UTF-16 ↔ byte-offset seam the
+        // production pipeline uses) so the test doesn't drift from real
+        // conversion behavior.
+        let line_index = LineIndex::new(source);
+        let start = line_index
+            .byte_offset(edit.range.start)
+            .expect("edit start within source");
+        let end = line_index
+            .byte_offset(edit.range.end)
+            .expect("edit end within source");
         let mut out = String::with_capacity(source.len() + edit.new_text.len());
         out.push_str(&source[..start]);
         out.push_str(&edit.new_text);
         out.push_str(&source[end..]);
         out
-    }
-
-    fn byte_offset_for_position(source: &str, pos: Position) -> usize {
-        let mut line = 0u32;
-        let mut col = 0u32;
-        for (i, c) in source.char_indices() {
-            if line == pos.line && col == pos.character {
-                return i;
-            }
-            if c == '\n' {
-                line += 1;
-                col = 0;
-            } else {
-                col += c.len_utf16() as u32;
-            }
-        }
-        source.len()
     }
 
     #[test]
