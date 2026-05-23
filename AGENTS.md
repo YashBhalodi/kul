@@ -32,6 +32,7 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 | Understand the language             | [`spec/`](./spec/README.md)                                                                                                        |
 | Understand the codebase shape       | [`docs/architecture.md`](./docs/architecture.md)                                                                                   |
 | Understand the domain vocabulary    | [`CONTEXT.md`](./CONTEXT.md)                                                                                                       |
+| Understand cross-cutting coding principles | [`CODING_STANDARDS.md`](./CODING_STANDARDS.md)                                                                              |
 | Understand a major design decision  | [`docs/adr/`](./docs/adr/)                                                                                                         |
 | Understand product scope of an epic | [`docs/prd/`](./docs/prd/)                                                                                                         |
 | Add a test or perf budget           | [`docs/testing.md`](./docs/testing.md)                                                                                             |
@@ -68,7 +69,7 @@ Other recipes:
 A change is done when:
 
 1. `just check` is green.
-2. New behavior is covered by tests in the appropriate crate. Snapshot tests (via `insta`) are the default for parser / validator / LSP-feature output — see [`docs/testing.md`](./docs/testing.md) and [ADR-0003](./docs/adr/0003-snapshot-tests-as-primary-validation.md).
+2. New behavior is covered by tests in the appropriate crate. Snapshot tests (via `insta`) are the default for parser / validator / LSP-feature output — see [`docs/testing.md`](./docs/testing.md) for layout/mechanics, [`CODING_STANDARDS.md`](./CODING_STANDARDS.md) for the behavior-not-implementation principle, and [ADR-0003](./docs/adr/0003-snapshot-tests-as-primary-validation.md).
 3. Public items have rustdoc; clippy lints are at deny level (no `#[allow]` without a justifying comment).
 4. If a non-obvious design choice is being made, it lands as an ADR in [`docs/adr/`](./docs/adr/) — not as a code comment that a future agent might "simplify" away.
 5. If your change touches `spec/`, the kinship section of `CONTEXT.md`, or `examples/`, update [`skills/kul-authoring/`](./skills/kul-authoring/SKILL.md) accordingly in the same PR.
