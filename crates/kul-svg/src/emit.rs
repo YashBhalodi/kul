@@ -67,13 +67,16 @@ fn write_card(out: &mut String, card: &PositionedCard) {
     } else {
         ""
     };
+    // Soft corner radius — pure visual polish, consumers can override
+    // via CSS (`rect { rx: 0 }`) for a sharper look.
     let _ = write!(
         out,
-        r#"<rect x="{x}" y="{y}" width="{w}" height="{h}"{dash}/>"#,
+        r#"<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" ry="{r}"{dash}/>"#,
         x = fmt_num(card.x),
         y = fmt_num(card.y),
         w = fmt_num(card.width),
         h = fmt_num(card.height),
+        r = fmt_num(CARD_CORNER_RADIUS),
     );
     let label_x = card.x + card.width / 2.0;
     let label_y = card.y + card.height / 2.0;
@@ -125,17 +128,80 @@ fn write_edge(out: &mut String, edge: &PositionedEdge) {
         EdgeKind::Adoption => r#" stroke-dasharray="6 4""#,
         EdgeKind::Birth => "",
     };
-    let mut pts = String::with_capacity(edge.points.len() * 12);
-    for (i, (x, y)) in edge.points.iter().enumerate() {
-        if i > 0 {
-            pts.push(' ');
-        }
-        let _ = write!(pts, "{},{}", fmt_num(*x), fmt_num(*y));
-    }
+    let d = polyline_to_rounded_path(&edge.points, EDGE_CORNER_RADIUS);
     let _ = write!(
         out,
-        r#"<polyline class="kul-edge {kind_class} {routing_class}" fill="none" points="{pts}"{dash}/>"#,
+        r#"<path class="kul-edge {kind_class} {routing_class}" fill="none" d="{d}"{dash}/>"#,
     );
+}
+
+/// Card-corner radius in pixels. Visual polish — surface stylesheets
+/// can override via CSS (`rect { rx: 0 }`).
+const CARD_CORNER_RADIUS: f64 = 8.0;
+
+/// Edge-corner radius in pixels. The polyline's 90° bends become
+/// quadratic-Bézier arcs of this radius; consumers wanting hard
+/// corners can target the `kul-edge` class and re-emit, but the
+/// default canonical visual is soft.
+const EDGE_CORNER_RADIUS: f64 = 10.0;
+
+/// Convert an orthogonal polyline (each segment axis-aligned) into an
+/// SVG path string with each interior corner rounded by a
+/// quadratic-Bézier arc of approximately `radius` pixels.
+///
+/// Two-point polylines pass through as a straight line; a polyline
+/// whose adjacent segments are shorter than `2 * radius` shrinks the
+/// arc to fit. Returned string is the contents of the `d=` attribute.
+fn polyline_to_rounded_path(points: &[(f64, f64)], radius: f64) -> String {
+    if points.is_empty() {
+        return String::new();
+    }
+    let mut path = String::with_capacity(points.len() * 16);
+    let _ = write!(path, "M {} {}", fmt_num(points[0].0), fmt_num(points[0].1));
+    if points.len() == 1 {
+        return path;
+    }
+    if points.len() == 2 {
+        let _ = write!(path, " L {} {}", fmt_num(points[1].0), fmt_num(points[1].1));
+        return path;
+    }
+    for i in 1..points.len() - 1 {
+        let prev = points[i - 1];
+        let here = points[i];
+        let next = points[i + 1];
+        let dx_in = here.0 - prev.0;
+        let dy_in = here.1 - prev.1;
+        let len_in = (dx_in * dx_in + dy_in * dy_in).sqrt();
+        let dx_out = next.0 - here.0;
+        let dy_out = next.1 - here.1;
+        let len_out = (dx_out * dx_out + dy_out * dy_out).sqrt();
+        if len_in == 0.0 || len_out == 0.0 {
+            // Degenerate: emit a hard corner.
+            let _ = write!(path, " L {} {}", fmt_num(here.0), fmt_num(here.1));
+            continue;
+        }
+        // Effective radius can't exceed half of either adjacent
+        // segment, so the arcs never overlap each other or shoot
+        // past the segment endpoints.
+        let r = radius.min(len_in / 2.0).min(len_out / 2.0);
+        let arrive_x = here.0 - dx_in / len_in * r;
+        let arrive_y = here.1 - dy_in / len_in * r;
+        let depart_x = here.0 + dx_out / len_out * r;
+        let depart_y = here.1 + dy_out / len_out * r;
+        let _ = write!(
+            path,
+            " L {} {} Q {} {} {} {}",
+            fmt_num(arrive_x),
+            fmt_num(arrive_y),
+            fmt_num(here.0),
+            fmt_num(here.1),
+            fmt_num(depart_x),
+            fmt_num(depart_y),
+        );
+    }
+    let last = points[points.len() - 1];
+    let _ = write!(path, " L {} {}", fmt_num(last.0), fmt_num(last.1));
+    path
 }
 
 /// Format a float without trailing zeros or trailing decimal points.
