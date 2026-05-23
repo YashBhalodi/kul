@@ -410,7 +410,11 @@ fn build_parenthood_links(
     resolved: &ResolvedDocument,
     options: &ExportOptions,
 ) -> Vec<ExportedParenthoodLink> {
-    let mut out = Vec::new();
+    let capacity = resolved
+        .persons()
+        .map(|p| usize::from(p.birth.is_some()) + p.adoptions.len())
+        .sum();
+    let mut out: Vec<ExportedParenthoodLink> = Vec::with_capacity(capacity);
     for p in resolved.persons() {
         if let Some(birth) = &p.birth {
             out.push(ExportedParenthoodLink {
