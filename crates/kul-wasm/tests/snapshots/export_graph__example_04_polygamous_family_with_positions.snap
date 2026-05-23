@@ -79,14 +79,14 @@ expression: json
         },
         "span": [
           497,
-          552
+          551
         ]
       },
       {
-        "id": "m_alice_devraj",
+        "id": "m_devraj_alice",
         "spouses": [
-          "alice",
-          "devraj"
+          "devraj",
+          "alice"
         ],
         "start": {
           "value": "1992-02-14",
@@ -94,14 +94,14 @@ expression: json
           "circa": false
         },
         "span": [
-          553,
-          608
+          552,
+          606
         ]
       }
     ],
     "parenthoodLinks": [
       {
-        "marriageId": "m_alice_devraj",
+        "marriageId": "m_devraj_alice",
         "childId": "priya",
         "kind": "biological",
         "span": [

@@ -73,7 +73,7 @@ expression: json
       },
       {
         "data": {
-          "id": "m:m_alice_devraj",
+          "id": "m:m_devraj_alice",
           "type": "marriage",
           "start": {
             "value": "1992-02-14",
@@ -100,21 +100,21 @@ expression: json
       },
       {
         "data": {
-          "source": "m:m_alice_devraj",
-          "target": "p:alice",
-          "type": "spouse"
-        }
-      },
-      {
-        "data": {
-          "source": "m:m_alice_devraj",
+          "source": "m:m_devraj_alice",
           "target": "p:devraj",
           "type": "spouse"
         }
       },
       {
         "data": {
-          "source": "m:m_alice_devraj",
+          "source": "m:m_devraj_alice",
+          "target": "p:alice",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_devraj_alice",
           "target": "p:priya",
           "type": "biological_child"
         }

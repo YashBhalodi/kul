@@ -60,30 +60,16 @@ expression: json
     },
     {
       "id": "comp-2",
-      "sourceOrder": 553,
+      "sourceOrder": 552,
       "kind": {
         "type": "familyTree",
         "root": {
           "bar": {
-            "marriageId": "m_alice_devraj",
+            "marriageId": "m_devraj_alice",
             "generation": 0,
-            "hostId": "alice",
-            "joiningId": "devraj",
+            "hostId": "devraj",
+            "joiningId": "alice",
             "hostSlot": {
-              "personId": "alice",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 0,
-              "name": "Alice Sharma",
-              "gender": "female",
-              "born": {
-                "value": "1950-04-12",
-                "precision": "day",
-                "circa": false
-              }
-            },
-            "joiningSlot": {
               "personId": "devraj",
               "kind": {
                 "kind": "canonical"
@@ -93,6 +79,20 @@ expression: json
               "gender": "male",
               "born": {
                 "value": "1948-06-21",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "joiningSlot": {
+              "personId": "alice",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Alice Sharma",
+              "gender": "female",
+              "born": {
+                "value": "1950-04-12",
                 "precision": "day",
                 "circa": false
               }
@@ -131,7 +131,7 @@ expression: json
     {
       "kind": "birth",
       "childId": "priya",
-      "marriageId": "m_alice_devraj"
+      "marriageId": "m_devraj_alice"
     }
   ]
 }

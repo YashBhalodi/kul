@@ -63,10 +63,10 @@ expression: json
         }
       },
       {
-        "id": "m_alice_devraj",
+        "id": "m_devraj_alice",
         "spouses": [
-          "alice",
-          "devraj"
+          "devraj",
+          "alice"
         ],
         "start": {
           "value": "1992-02-14",
@@ -77,7 +77,7 @@ expression: json
     ],
     "parenthoodLinks": [
       {
-        "marriageId": "m_alice_devraj",
+        "marriageId": "m_devraj_alice",
         "childId": "priya",
         "kind": "biological"
       }

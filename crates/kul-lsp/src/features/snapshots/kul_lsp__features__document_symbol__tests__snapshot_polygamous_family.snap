@@ -104,7 +104,7 @@ expression: syms
     },
     "children": [
       {
-        "name": "birth m_alice_devraj",
+        "name": "birth m_devraj_alice",
         "kind": 8,
         "range": {
           "start": {
@@ -140,7 +140,7 @@ expression: syms
       },
       "end": {
         "line": 13,
-        "character": 55
+        "character": 54
       }
     },
     "selectionRange": {
@@ -155,7 +155,7 @@ expression: syms
     }
   },
   {
-    "name": "Alice Sharma & Devraj Kumar",
+    "name": "Devraj Kumar & Alice Sharma",
     "detail": "1992",
     "kind": 24,
     "range": {
@@ -165,7 +165,7 @@ expression: syms
       },
       "end": {
         "line": 14,
-        "character": 55
+        "character": 54
       }
     },
     "selectionRange": {
