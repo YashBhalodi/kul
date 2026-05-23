@@ -1,0 +1,137 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 497,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "bar": {
+            "marriageId": "m_devraj_meera",
+            "generation": 0,
+            "hostId": "devraj",
+            "joiningId": "meera",
+            "hostSlot": {
+              "personId": "devraj",
+              "kind": {
+                "kind": "ghost",
+                "reason": "pastMarriage"
+              },
+              "generation": 0,
+              "name": "Devraj Kumar",
+              "gender": "male",
+              "born": {
+                "value": "1948-06-21",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "joiningSlot": {
+              "personId": "meera",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Meera",
+              "gender": "female",
+              "born": {
+                "value": "1955-03-08",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "start": {
+              "value": "1990-01-01",
+              "precision": "day",
+              "circa": false
+            },
+            "ended": false
+          },
+          "children": []
+        }
+      }
+    },
+    {
+      "id": "comp-2",
+      "sourceOrder": 553,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "bar": {
+            "marriageId": "m_alice_devraj",
+            "generation": 0,
+            "hostId": "alice",
+            "joiningId": "devraj",
+            "hostSlot": {
+              "personId": "alice",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Alice Sharma",
+              "gender": "female",
+              "born": {
+                "value": "1950-04-12",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "joiningSlot": {
+              "personId": "devraj",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Devraj Kumar",
+              "gender": "male",
+              "born": {
+                "value": "1948-06-21",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "start": {
+              "value": "1992-02-14",
+              "precision": "day",
+              "circa": false
+            },
+            "ended": false
+          },
+          "children": [
+            {
+              "slot": {
+                "personId": "priya",
+                "kind": {
+                  "kind": "canonical"
+                },
+                "generation": 1,
+                "name": "Priya Kumar",
+                "gender": "female",
+                "born": {
+                  "value": "1994-12-01",
+                  "precision": "day",
+                  "circa": false
+                }
+              },
+              "hostedMarriages": []
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "priya",
+      "marriageId": "m_alice_devraj"
+    }
+  ]
+}

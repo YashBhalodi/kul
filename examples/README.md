@@ -11,6 +11,10 @@ Worked-example Kul projects that double as the **positive test corpus**. Each ex
 | [`05-married-siblings/married-siblings.kul`](./05-married-siblings/married-siblings.kul)                 | Two sons of a couple, each themselves married; one block per marriage.                                         |
 | [`06-three-branch-dynasty/three-branch-dynasty.kul`](./06-three-branch-dynasty/three-branch-dynasty.kul) | Three-branch dynasty: founders, three married children, four married grandchildren spread across the branches. |
 | [`07-multi-file-extended-family/`](./07-multi-file-extended-family/)                                     | Multi-file project: three `.kul` files (founders / parents / grandchildren) sharing one project namespace with cross-file `birth` references. |
+| [`08-divorce-and-remarriage/divorce-and-remarriage.kul`](./08-divorce-and-remarriage/divorce-and-remarriage.kul)                         | Divorce, both ex-spouses remarry with new children; P8 child-anchoring ghosts for the past marriage. |
+| [`09-multi-adoption/multi-adoption.kul`](./09-multi-adoption/multi-adoption.kul)                         | Multiple adoptions for one child; P16 selects the most-recent as canonical and emits a child-ghost at each past adoption. |
+| [`10-disconnected-lineages-and-orphan/disconnected-lineages-and-orphan.kul`](./10-disconnected-lineages-and-orphan/disconnected-lineages-and-orphan.kul) | Three disconnected components (two lineages plus a P13 orphan) sorted in source order per P12. |
+| [`11-cousin-marriage/cousin-marriage.kul`](./11-cousin-marriage/cousin-marriage.kul)                     | First-cousin marriage exercising P11's within-family absorb rule. |
 
 ## Layout
 

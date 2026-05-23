@@ -1,0 +1,180 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 1030,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "bar": {
+            "marriageId": "m_ramesh_sita",
+            "generation": 0,
+            "hostId": "ramesh",
+            "joiningId": "sita",
+            "hostSlot": {
+              "personId": "ramesh",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Ramesh Iyer",
+              "gender": "male",
+              "born": {
+                "value": "1925-01-10",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "joiningSlot": {
+              "personId": "sita",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Sita Iyer",
+              "gender": "female",
+              "born": {
+                "value": "1928-04-22",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "start": {
+              "value": "1948-06-15",
+              "precision": "day",
+              "circa": false
+            },
+            "ended": false
+          },
+          "children": [
+            {
+              "slot": {
+                "personId": "arjun",
+                "kind": {
+                  "kind": "canonical"
+                },
+                "generation": 1,
+                "name": "Arjun Iyer",
+                "gender": "male",
+                "born": {
+                  "value": "1950-08-30",
+                  "precision": "day",
+                  "circa": false
+                }
+              },
+              "hostedMarriages": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "comp-2",
+      "sourceOrder": 1226,
+      "kind": {
+        "type": "orphanPerson",
+        "card": {
+          "personId": "zara",
+          "kind": {
+            "kind": "canonical"
+          },
+          "generation": 0,
+          "name": "Zara Khan",
+          "gender": "female",
+          "born": {
+            "value": "1965-11-04",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      }
+    },
+    {
+      "id": "comp-3",
+      "sourceOrder": 1452,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "bar": {
+            "marriageId": "m_hiro_yuki",
+            "generation": 0,
+            "hostId": "hiro",
+            "joiningId": "yuki",
+            "hostSlot": {
+              "personId": "hiro",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Hiro Kato",
+              "gender": "male",
+              "born": {
+                "value": "1932-03-09",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "joiningSlot": {
+              "personId": "yuki",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Yuki Kato",
+              "gender": "female",
+              "born": {
+                "value": "1934-09-21",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "start": {
+              "value": "1956-05-04",
+              "precision": "day",
+              "circa": false
+            },
+            "ended": false
+          },
+          "children": [
+            {
+              "slot": {
+                "personId": "mei",
+                "kind": {
+                  "kind": "canonical"
+                },
+                "generation": 1,
+                "name": "Mei Kato",
+                "gender": "female",
+                "born": {
+                  "value": "1958-12-11",
+                  "precision": "day",
+                  "circa": false
+                }
+              },
+              "hostedMarriages": []
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "arjun",
+      "marriageId": "m_ramesh_sita"
+    },
+    {
+      "kind": "birth",
+      "childId": "mei",
+      "marriageId": "m_hiro_yuki"
+    }
+  ]
+}

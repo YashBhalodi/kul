@@ -1,0 +1,165 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "govind",
+        "name": "Govind Iyer",
+        "gender": "male",
+        "born": {
+          "value": "1900-02-14",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "lakshmi",
+        "name": "Lakshmi Iyer",
+        "gender": "female",
+        "born": {
+          "value": "1903-09-21",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "arjun",
+        "name": "Arjun Iyer",
+        "gender": "male",
+        "born": {
+          "value": "1925-04-10",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "indira",
+        "name": "Indira Iyer",
+        "gender": "female",
+        "born": {
+          "value": "1928-11-12",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "bharat",
+        "name": "Bharat Iyer",
+        "gender": "male",
+        "born": {
+          "value": "1928-09-15",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "janaki",
+        "name": "Janaki Iyer",
+        "gender": "female",
+        "born": {
+          "value": "1930-04-28",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "maya",
+        "name": "Maya Iyer",
+        "gender": "female",
+        "born": {
+          "value": "1948-07-09",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "nikhil",
+        "name": "Nikhil Iyer",
+        "gender": "male",
+        "born": {
+          "value": "1952-01-23",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_govind_lakshmi",
+        "spouses": [
+          "govind",
+          "lakshmi"
+        ],
+        "start": {
+          "value": "1922-05-30",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_arjun_indira",
+        "spouses": [
+          "arjun",
+          "indira"
+        ],
+        "start": {
+          "value": "1947-06-18",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_bharat_janaki",
+        "spouses": [
+          "bharat",
+          "janaki"
+        ],
+        "start": {
+          "value": "1950-11-19",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_maya_nikhil",
+        "spouses": [
+          "maya",
+          "nikhil"
+        ],
+        "start": {
+          "value": "1975-08-14",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_govind_lakshmi",
+        "childId": "arjun",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_govind_lakshmi",
+        "childId": "bharat",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_arjun_indira",
+        "childId": "maya",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_bharat_janaki",
+        "childId": "nikhil",
+        "kind": "biological"
+      }
+    ]
+  }
+}

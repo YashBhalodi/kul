@@ -1,0 +1,196 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 334,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "bar": {
+            "marriageId": "m_ramesh_sita",
+            "generation": 0,
+            "hostId": "ramesh",
+            "joiningId": "sita",
+            "hostSlot": {
+              "personId": "ramesh",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Ramesh Sharma",
+              "gender": "male",
+              "born": {
+                "value": "1925-03-10",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "joiningSlot": {
+              "personId": "sita",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Sita Sharma",
+              "gender": "female",
+              "born": {
+                "value": "1928-07-15",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "start": {
+              "value": "1948-06-10",
+              "precision": "day",
+              "circa": false
+            },
+            "ended": false
+          },
+          "children": [
+            {
+              "slot": {
+                "personId": "arjun",
+                "kind": {
+                  "kind": "canonical"
+                },
+                "generation": 1,
+                "name": "Arjun Sharma",
+                "gender": "male",
+                "born": {
+                  "value": "1950-04-12",
+                  "precision": "day",
+                  "circa": false
+                }
+              },
+              "hostedMarriages": [
+                {
+                  "bar": {
+                    "marriageId": "m_arjun_priya",
+                    "generation": 1,
+                    "hostId": "arjun",
+                    "joiningId": "priya",
+                    "hostSlot": {
+                      "personId": "arjun",
+                      "kind": {
+                        "kind": "canonical"
+                      },
+                      "generation": 1,
+                      "name": "Arjun Sharma",
+                      "gender": "male",
+                      "born": {
+                        "value": "1950-04-12",
+                        "precision": "day",
+                        "circa": false
+                      }
+                    },
+                    "joiningSlot": {
+                      "personId": "priya",
+                      "kind": {
+                        "kind": "canonical"
+                      },
+                      "generation": 1,
+                      "name": "Priya Sharma",
+                      "gender": "female",
+                      "born": {
+                        "value": "1952-08-19",
+                        "precision": "day",
+                        "circa": false
+                      }
+                    },
+                    "start": {
+                      "value": "1975-11-04",
+                      "precision": "day",
+                      "circa": false
+                    },
+                    "ended": false
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "slot": {
+                "personId": "vikram",
+                "kind": {
+                  "kind": "canonical"
+                },
+                "generation": 1,
+                "name": "Vikram Sharma",
+                "gender": "male",
+                "born": {
+                  "value": "1955-02-28",
+                  "precision": "day",
+                  "circa": false
+                }
+              },
+              "hostedMarriages": [
+                {
+                  "bar": {
+                    "marriageId": "m_vikram_nisha",
+                    "generation": 1,
+                    "hostId": "vikram",
+                    "joiningId": "nisha",
+                    "hostSlot": {
+                      "personId": "vikram",
+                      "kind": {
+                        "kind": "canonical"
+                      },
+                      "generation": 1,
+                      "name": "Vikram Sharma",
+                      "gender": "male",
+                      "born": {
+                        "value": "1955-02-28",
+                        "precision": "day",
+                        "circa": false
+                      }
+                    },
+                    "joiningSlot": {
+                      "personId": "nisha",
+                      "kind": {
+                        "kind": "canonical"
+                      },
+                      "generation": 1,
+                      "name": "Nisha Sharma",
+                      "gender": "female",
+                      "born": {
+                        "value": "1957-06-15",
+                        "precision": "day",
+                        "circa": false
+                      }
+                    },
+                    "start": {
+                      "value": "1980-03-22",
+                      "precision": "day",
+                      "circa": false
+                    },
+                    "ended": false
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "arjun",
+      "marriageId": "m_ramesh_sita"
+    },
+    {
+      "kind": "birth",
+      "childId": "vikram",
+      "marriageId": "m_ramesh_sita"
+    }
+  ]
+}

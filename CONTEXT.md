@@ -92,6 +92,18 @@ The kinship-native graph projection inside a success [`ExportEnvelope`](#exporte
 
 The `schema:` integer on a success [`ExportEnvelope`](#exportenvelope). Discriminator for the structural shape of the envelope; bumped only when consumers might silently mis-represent data by ignoring a new construct. Independent of the language version (the `kul:` field). Policy in [ADR-0010](./docs/adr/0010-export-schema-versioning.md).
 
+### Render shape
+
+The top-level value `kul_render::compute` and `kul_render::transform` emit — the canonical UI pattern's data form for a checked Kul project. Where [`ExportEnvelope`](#exportenvelope) is shaped to mirror what the source *says* (kinship-native), the render shape is shaped to mirror what the canonical UI pattern *draws*: components, marriage branches, card slots, ghosts, P6 nested birth-family sub-trees. Either a success payload (`components`, `edges`, plus the `schema` / `kul` discriminators) or a failure payload (the same diagnostic list the input envelope carried). Defined at `crates/kul-render/src/shape.rs`; the principles it realizes (P1–P16) live in [`docs/canonical-ui-pattern.md`](./docs/canonical-ui-pattern.md); crate-boundary rationale in [ADR-0016](./docs/adr/0016-kul-render-crate-boundary.md); schema-versioning policy in [ADR-0017](./docs/adr/0017-render-shape-schema-and-versioning.md). Surface renderers (VSCode preview panel, web visualizer, …) consume it.
+
+### Card slot
+
+One person's position in a render shape — `personId`, `kind` (`canonical` or `ghost { reason }`), generation row, and the export-envelope display fields. Card slots come in two visual flavors per [`docs/canonical-ui-pattern.md`](./docs/canonical-ui-pattern.md) §P15: canonical (solid border, full opacity) and ghost (see [`Ghost slot`](#ghost-slot)). Hierarchical placement (parent `Component`, `MarriageBranch`, or `PersonCard`) anchors the slot in the canonical-pattern tree; the explicit `generation` field is the layout row.
+
+### Ghost slot
+
+A card slot with `kind: ghost`. Mute per [P10](./docs/canonical-ui-pattern.md#p10-ghosts-are-mute): connects only to the marriage/adoption bar it anchors. Two reasons surface here today: `pastMarriage` (P8 — a spouse of an ended marriage whose children need an anchor at the historical bar, or a host who has moved on to a newer current intimacy) and `pastAdoption` (P16 — a child-ghost at a past adoptive family, mirrored from the most-recent adoption that owns the canonical card). New reasons land additively per [ADR-0017](./docs/adr/0017-render-shape-schema-and-versioning.md) without bumping the render-shape schema.
+
 ## Implementation vocabulary
 
 These names appear in code, ADRs, and architecture discussion.

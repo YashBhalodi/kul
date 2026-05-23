@@ -1,0 +1,37 @@
+# Example 10: Disconnected lineages and a P13 orphan, sorted by source
+# order (P12 + P13).
+#
+# Three independent graph components share a single Kul document and
+# arrange left-to-right by the source position of each component's
+# first relevant declaration (a marriage if the component has one,
+# else the person itself):
+#
+# - Component 1 (line ~17): the Iyer family — a founder couple plus
+#   one child.
+# - Component 2 (line ~24): Zara — a P13 orphan, declared with no
+#   edges of any kind. Renders as a single-card component.
+# - Component 3 (line ~27): the Kato family — a different founder
+#   couple, declared after Zara, with one child.
+#
+# P12 forbids an "orphans-last" bucket: Zara renders **between** the
+# two lineages because her declaration falls between them. P13
+# specifies orphans render as single cards and sort by the same key.
+
+# ---- Lineage 1: the Iyer family ----
+person ramesh  name:"Ramesh Iyer"  gender:male    born:1925-01-10
+person sita    name:"Sita Iyer"    gender:female  born:1928-04-22
+marriage m_ramesh_sita ramesh sita  start:1948-06-15
+
+person arjun  name:"Arjun Iyer"  gender:male  born:1950-08-30
+  birth m_ramesh_sita
+
+# ---- Orphan (P13): Zara is declared with no edges ----
+person zara  name:"Zara Khan"  gender:female  born:1965-11-04
+
+# ---- Lineage 2: the Kato family ----
+person hiro  name:"Hiro Kato"  gender:male    born:1932-03-09
+person yuki  name:"Yuki Kato"  gender:female  born:1934-09-21
+marriage m_hiro_yuki hiro yuki  start:1956-05-04
+
+person mei  name:"Mei Kato"  gender:female  born:1958-12-11
+  birth m_hiro_yuki

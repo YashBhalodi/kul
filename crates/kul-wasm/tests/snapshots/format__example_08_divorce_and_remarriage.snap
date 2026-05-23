@@ -1,0 +1,40 @@
+---
+source: crates/kul-wasm/tests/format.rs
+expression: formatted
+---
+# Example 8: Clean divorce, remarriage, and child-anchoring ghosts (P8).
+#
+# - Alice and Bob marry in 1972 and have a daughter Carol.
+# - The marriage ends in divorce in 1990.
+# - Alice later marries Charlie in 1995 and they have a daughter Diana.
+# - Bob later marries Eva in 1992 and they have a son Felix.
+#
+# This is the canonical workout for P8's child-anchoring ghosts:
+# Alice's and Bob's canonical cards live at their respective current
+# intimacies (m_alice_charlie and m_bob_eva). At their past marriage
+# m_alice_bob, both Alice and Bob render as ghosts so Carol's birth
+# edge has an anchor. Carol's canonical card sits in the m_alice_bob
+# children row — she is unaffected by her parents' subsequent moves.
+
+# ---- Generation 1 (founders, no birth families) ----
+person alice    name:"Alice Reyes"   gender:female  born:1950-04-12
+person bob      name:"Bob Singh"     gender:male    born:1948-11-30
+person charlie  name:"Charlie Park"  gender:male    born:1949-02-22
+person eva      name:"Eva Larsen"    gender:female  born:1953-08-04
+
+# ---- First marriage: Alice + Bob, ended ----
+marriage m_alice_bob alice bob  start:1972-05-12  end:1990-08-01  end_reason:divorce
+
+# ---- Generation 2: Carol (bio child of the ended marriage) ----
+person carol  name:"Carol Singh"  gender:female  born:1975-09-03
+  birth m_alice_bob
+
+# ---- Remarriages ----
+marriage m_bob_eva       bob   eva      start:1992-06-15
+marriage m_alice_charlie alice charlie  start:1995-10-20
+
+# ---- Generation 2: children of the remarriages ----
+person felix  name:"Felix Singh"  gender:male    born:1994-03-11
+  birth m_bob_eva
+person diana  name:"Diana Park"   gender:female  born:1997-07-29
+  birth m_alice_charlie

@@ -1,0 +1,111 @@
+---
+source: crates/kul-render/tests/transform.rs
+expression: render_pretty(&envelope)
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 0,
+      "kind": {
+        "type": "orphanPerson",
+        "card": {
+          "personId": "alice",
+          "kind": {
+            "kind": "canonical"
+          },
+          "generation": 0,
+          "name": "Alice",
+          "gender": "female"
+        }
+      }
+    },
+    {
+      "id": "comp-2",
+      "sourceOrder": 0,
+      "kind": {
+        "type": "orphanPerson",
+        "card": {
+          "personId": "bob",
+          "kind": {
+            "kind": "canonical"
+          },
+          "generation": 0,
+          "name": "Bob",
+          "gender": "male"
+        }
+      }
+    },
+    {
+      "id": "comp-3",
+      "sourceOrder": 0,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "bar": {
+            "marriageId": "m_alice_bob",
+            "generation": 0,
+            "hostId": "alice",
+            "joiningId": "bob",
+            "hostSlot": {
+              "personId": "alice",
+              "kind": {
+                "kind": "ghost",
+                "reason": "pastMarriage"
+              },
+              "generation": 0,
+              "name": "Alice",
+              "gender": "female"
+            },
+            "joiningSlot": {
+              "personId": "bob",
+              "kind": {
+                "kind": "ghost",
+                "reason": "pastMarriage"
+              },
+              "generation": 0,
+              "name": "Bob",
+              "gender": "male"
+            },
+            "start": {
+              "value": "1972",
+              "precision": "year",
+              "circa": false
+            },
+            "end": {
+              "value": "1990",
+              "precision": "year",
+              "circa": false
+            },
+            "endReason": "divorce",
+            "ended": true
+          },
+          "children": [
+            {
+              "slot": {
+                "personId": "carol",
+                "kind": {
+                  "kind": "canonical"
+                },
+                "generation": 1,
+                "name": "Carol",
+                "gender": "female"
+              },
+              "hostedMarriages": []
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "carol",
+      "marriageId": "m_alice_bob"
+    }
+  ]
+}

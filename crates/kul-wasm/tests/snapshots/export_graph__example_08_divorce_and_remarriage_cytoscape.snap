@@ -1,0 +1,208 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "nodes": [
+      {
+        "data": {
+          "id": "p:alice",
+          "type": "person",
+          "name": "Alice Reyes",
+          "gender": "female",
+          "born": {
+            "value": "1950-04-12",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:bob",
+          "type": "person",
+          "name": "Bob Singh",
+          "gender": "male",
+          "born": {
+            "value": "1948-11-30",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:charlie",
+          "type": "person",
+          "name": "Charlie Park",
+          "gender": "male",
+          "born": {
+            "value": "1949-02-22",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:eva",
+          "type": "person",
+          "name": "Eva Larsen",
+          "gender": "female",
+          "born": {
+            "value": "1953-08-04",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:carol",
+          "type": "person",
+          "name": "Carol Singh",
+          "gender": "female",
+          "born": {
+            "value": "1975-09-03",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:felix",
+          "type": "person",
+          "name": "Felix Singh",
+          "gender": "male",
+          "born": {
+            "value": "1994-03-11",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:diana",
+          "type": "person",
+          "name": "Diana Park",
+          "gender": "female",
+          "born": {
+            "value": "1997-07-29",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_alice_bob",
+          "type": "marriage",
+          "start": {
+            "value": "1972-05-12",
+            "precision": "day",
+            "circa": false
+          },
+          "end": {
+            "value": "1990-08-01",
+            "precision": "day",
+            "circa": false
+          },
+          "endReason": "divorce"
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_bob_eva",
+          "type": "marriage",
+          "start": {
+            "value": "1992-06-15",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_alice_charlie",
+          "type": "marriage",
+          "start": {
+            "value": "1995-10-20",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "source": "m:m_alice_bob",
+          "target": "p:alice",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_alice_bob",
+          "target": "p:bob",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_bob_eva",
+          "target": "p:bob",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_bob_eva",
+          "target": "p:eva",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_alice_charlie",
+          "target": "p:alice",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_alice_charlie",
+          "target": "p:charlie",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_alice_bob",
+          "target": "p:carol",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_bob_eva",
+          "target": "p:felix",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_alice_charlie",
+          "target": "p:diana",
+          "type": "biological_child"
+        }
+      }
+    ]
+  }
+}

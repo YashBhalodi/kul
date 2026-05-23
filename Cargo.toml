@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/kul-core",
     "crates/kul-loader",
+    "crates/kul-render",
     "crates/kul-cli",
     "crates/kul-lsp",
     "crates/kul-wasm",
@@ -26,6 +27,7 @@ all = { level = "deny", priority = -1 }
 # blob lean — a workspace dep with defaults-on would prevent that.
 kul-core = { path = "crates/kul-core", version = "0.2.0", default-features = false }
 kul-loader = { path = "crates/kul-loader", version = "0.2.0" }
+kul-render = { path = "crates/kul-render", version = "0.2.0" }
 kul-lsp = { path = "crates/kul-lsp", version = "0.2.0" }
 miette = "7"
 thiserror = "2"

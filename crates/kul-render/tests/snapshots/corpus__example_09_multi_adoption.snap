@@ -1,0 +1,225 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 922,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "bar": {
+            "marriageId": "m_ravi_priya",
+            "generation": 0,
+            "hostId": "ravi",
+            "joiningId": "priya",
+            "hostSlot": {
+              "personId": "ravi",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Ravi Mehta",
+              "gender": "male",
+              "born": {
+                "value": "1958-01-14",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "joiningSlot": {
+              "personId": "priya",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Priya Mehta",
+              "gender": "female",
+              "born": {
+                "value": "1960-04-22",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "start": {
+              "value": "1980-11-10",
+              "precision": "day",
+              "circa": false
+            },
+            "ended": false
+          },
+          "children": []
+        }
+      }
+    },
+    {
+      "id": "comp-2",
+      "sourceOrder": 1149,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "bar": {
+            "marriageId": "m_anita_bharat",
+            "generation": 0,
+            "hostId": "anita",
+            "joiningId": "bharat",
+            "hostSlot": {
+              "personId": "anita",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Anita Rao",
+              "gender": "female",
+              "born": {
+                "value": "1952-06-08",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "joiningSlot": {
+              "personId": "bharat",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Bharat Rao",
+              "gender": "male",
+              "born": {
+                "value": "1950-12-30",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "start": {
+              "value": "1975-03-22",
+              "precision": "day",
+              "circa": false
+            },
+            "ended": false
+          },
+          "children": [
+            {
+              "slot": {
+                "personId": "sam",
+                "kind": {
+                  "kind": "ghost",
+                  "reason": "pastAdoption"
+                },
+                "generation": 1,
+                "name": "Sam",
+                "gender": "other",
+                "born": {
+                  "value": "1982-05-19",
+                  "precision": "day",
+                  "circa": false
+                }
+              },
+              "hostedMarriages": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "comp-3",
+      "sourceOrder": 1374,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "bar": {
+            "marriageId": "m_chen_dara",
+            "generation": 0,
+            "hostId": "chen",
+            "joiningId": "dara",
+            "hostSlot": {
+              "personId": "chen",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Chen Liu",
+              "gender": "male",
+              "born": {
+                "value": "1955-09-09",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "joiningSlot": {
+              "personId": "dara",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Dara Liu",
+              "gender": "female",
+              "born": {
+                "value": "1957-02-17",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "start": {
+              "value": "1980-07-04",
+              "precision": "day",
+              "circa": false
+            },
+            "ended": false
+          },
+          "children": [
+            {
+              "slot": {
+                "personId": "sam",
+                "kind": {
+                  "kind": "canonical"
+                },
+                "generation": 1,
+                "name": "Sam",
+                "gender": "other",
+                "born": {
+                  "value": "1982-05-19",
+                  "precision": "day",
+                  "circa": false
+                }
+              },
+              "hostedMarriages": []
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "sam",
+      "marriageId": "m_ravi_priya"
+    },
+    {
+      "kind": "adoption",
+      "childId": "sam",
+      "marriageId": "m_anita_bharat",
+      "start": {
+        "value": "1985-04-01",
+        "precision": "day",
+        "circa": false
+      }
+    },
+    {
+      "kind": "adoption",
+      "childId": "sam",
+      "marriageId": "m_chen_dara",
+      "start": {
+        "value": "1992-08-15",
+        "precision": "day",
+        "circa": false
+      }
+    }
+  ]
+}

@@ -6,6 +6,14 @@ The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi
 
 ## [Unreleased]
 
+### `kul-render`
+
+- **New crate** owning the canonical UI pattern as data — projects the kinship-native [`ExportEnvelope`](./crates/kul-core/src/export.rs) into a `RenderShape` that realizes every canonical UI pattern principle (P1–P16). Two public entry points: `compute(&CheckResult) -> RenderShape` (runs `kul_core::export::export` with positions on, then projects) and `transform(&ExportEnvelope) -> RenderShape` (pure projection over an already-exported envelope, surfaced for fixture-driven tests). Output is hierarchical card slots (`Component → MarriageBranch → PersonCard → MarriageBranch …`) plus a flat edge list; generation indices, ghost emission (P8 past-marriage, P16 past-adoption), and P6 cross-component nesting are all baked in so a surface renderer (VSCode preview, web visualizer, …) reads the shape rather than re-deriving pattern decisions. Schema-versioned independently of the export envelope as `RENDER_SCHEMA_VERSION = 1` per [ADR-0010](./docs/adr/0010-export-schema-versioning.md)'s pattern. Crate-boundary rationale in [ADR-0016](./docs/adr/0016-kul-render-crate-boundary.md); shape and versioning in [ADR-0017](./docs/adr/0017-render-shape-schema-and-versioning.md) (#121).
+
+### `examples/`
+
+- Four new principle-complete examples extend the corpus to exercise canonical-UI-pattern cases the existing 01–07 don't surface: `08-divorce-and-remarriage/` (P8 child-anchoring ghosts after a clean divorce + both spouses remarrying with new children), `09-multi-adoption/` (P16 most-recent-adoption-canonical with child-ghosts at past adoptive families), `10-disconnected-lineages-and-orphan/` (P12 source-order arrangement of multiple components plus a P13 declared-with-no-edges orphan rendering as a single-card component between the lineages), and `11-cousin-marriage/` (P11 within-family absorb rule producing a within-family cross-edge). Example 03 gains a header-comment audit note calling out the P8 mechanic and the consequence that Bob becomes an orphan-component card (#121).
+
 ## [0.2.0] — 2026-05-18
 
 The "multi-file projects" release. A Kul project is now formally a directory carrying a `kul.yml` manifest and one or more sibling `.kul` files; ids resolve project-wide across every file ([ADR-0015](./docs/adr/0015-global-project-namespace.md)); the CLI, LSP, and WASM surfaces all speak the project shape end-to-end. Three pre-1.0 breaking changes land together to crystallize the model — the **CLI subcommands drop their positional `<FILE>` and run CWD-rooted**, the **WASM `check` / `exportGraph` take an array of `{name, source}`**, and the **`kul X.Y` line moves from the `.kul` grammar into `kul.yml`**. Six new manifest validation codes (`KUL-M01..M06`) surface manifest-shape errors through the same diagnostic infrastructure as the thirteen `KUL-Rxx` rules. The Kul *language* version is unchanged at `0.1`.

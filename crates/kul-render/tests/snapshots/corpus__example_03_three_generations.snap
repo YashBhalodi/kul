@@ -1,0 +1,228 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 1265,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "bar": {
+            "marriageId": "m_ramesh_sita",
+            "generation": 0,
+            "hostId": "ramesh",
+            "joiningId": "sita",
+            "hostSlot": {
+              "personId": "ramesh",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Ramesh Sharma",
+              "gender": "male",
+              "born": {
+                "value": "1925-03-10",
+                "precision": "day",
+                "circa": false
+              },
+              "died": {
+                "value": "2005-08-22",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "joiningSlot": {
+              "personId": "sita",
+              "kind": {
+                "kind": "canonical"
+              },
+              "generation": 0,
+              "name": "Sita Sharma",
+              "gender": "female",
+              "born": {
+                "value": "1928-07-15",
+                "precision": "day",
+                "circa": false
+              },
+              "died": {
+                "value": "2010-11-04",
+                "precision": "day",
+                "circa": false
+              }
+            },
+            "start": {
+              "value": "1948-06-10",
+              "precision": "day",
+              "circa": false
+            },
+            "ended": false
+          },
+          "children": [
+            {
+              "slot": {
+                "personId": "alice",
+                "kind": {
+                  "kind": "canonical"
+                },
+                "generation": 1,
+                "name": "Alice Sharma",
+                "gender": "female",
+                "born": {
+                  "value": "1950-04-12",
+                  "precision": "day",
+                  "circa": false
+                }
+              },
+              "hostedMarriages": [
+                {
+                  "bar": {
+                    "marriageId": "m_alice_bob",
+                    "generation": 1,
+                    "hostId": "alice",
+                    "joiningId": "bob",
+                    "hostSlot": {
+                      "personId": "alice",
+                      "kind": {
+                        "kind": "canonical"
+                      },
+                      "generation": 1,
+                      "name": "Alice Sharma",
+                      "gender": "female",
+                      "born": {
+                        "value": "1950-04-12",
+                        "precision": "day",
+                        "circa": false
+                      }
+                    },
+                    "joiningSlot": {
+                      "personId": "bob",
+                      "kind": {
+                        "kind": "ghost",
+                        "reason": "pastMarriage"
+                      },
+                      "generation": 1,
+                      "name": "Bob Sharma",
+                      "gender": "male",
+                      "born": {
+                        "value": "1948-11-30",
+                        "precision": "day",
+                        "circa": false
+                      },
+                      "died": {
+                        "value": "2020-03-15",
+                        "precision": "day",
+                        "circa": false
+                      }
+                    },
+                    "start": {
+                      "value": "1972-05-12",
+                      "precision": "day",
+                      "circa": false
+                    },
+                    "end": {
+                      "value": "1990-08-01",
+                      "precision": "day",
+                      "circa": false
+                    },
+                    "endReason": "divorce",
+                    "ended": true
+                  },
+                  "children": [
+                    {
+                      "slot": {
+                        "personId": "carol",
+                        "kind": {
+                          "kind": "canonical"
+                        },
+                        "generation": 2,
+                        "name": "Carol Sharma",
+                        "gender": "female",
+                        "born": {
+                          "value": "1975-09-03",
+                          "precision": "day",
+                          "circa": false
+                        }
+                      },
+                      "hostedMarriages": []
+                    },
+                    {
+                      "slot": {
+                        "personId": "ravi",
+                        "kind": {
+                          "kind": "canonical"
+                        },
+                        "generation": 2,
+                        "name": "Ravi Sharma",
+                        "gender": "male",
+                        "born": {
+                          "value": "1980",
+                          "precision": "year",
+                          "circa": true
+                        }
+                      },
+                      "hostedMarriages": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "comp-2",
+      "sourceOrder": 1432,
+      "kind": {
+        "type": "orphanPerson",
+        "card": {
+          "personId": "bob",
+          "kind": {
+            "kind": "canonical"
+          },
+          "generation": 0,
+          "name": "Bob Sharma",
+          "gender": "male",
+          "born": {
+            "value": "1948-11-30",
+            "precision": "day",
+            "circa": false
+          },
+          "died": {
+            "value": "2020-03-15",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "alice",
+      "marriageId": "m_ramesh_sita"
+    },
+    {
+      "kind": "birth",
+      "childId": "carol",
+      "marriageId": "m_alice_bob"
+    },
+    {
+      "kind": "adoption",
+      "childId": "ravi",
+      "marriageId": "m_alice_bob",
+      "start": {
+        "value": "1985-06-01",
+        "precision": "day",
+        "circa": false
+      }
+    }
+  ]
+}
