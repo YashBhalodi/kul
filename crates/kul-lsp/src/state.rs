@@ -537,42 +537,27 @@ fn build_entry(root: ProjectRoot, overlay: HashMap<Url, Option<Arc<str>>>) -> Pr
 /// Read the manifest and every `.kul` file in `root` off disk. Returns
 /// the manifest label (path string), the manifest YAML bytes (empty
 /// when the manifest is missing or unreadable), and the sibling `.kul`
-/// files as `(Url, Arc<str>)` pairs in directory-iteration order.
+/// files as `(Url, Arc<str>)` pairs in lexicographic order.
 ///
-/// Reusing [`kul_loader::load`] directly isn't quite the right shape
-/// here: the loader returns bare-basename `InputFile`s and errors out
-/// when `kul.yml` is absent, but the LSP wants editor-shaped `Url`s and
-/// tolerates a missing manifest (existing behaviour — the file is still
-/// useful to edit; `KUL-M01` is the CLI's job to surface). The
-/// discovery rule itself — `kul.yml` in the same dir, flat
-/// enumeration, `*.kul` extension, subdirectories ignored — is the same
-/// rule [`kul_loader::load`] encodes, so this mirrors its logic.
+/// Thin adapter over [`kul_loader::discover`] — the lenient sibling of
+/// the strict [`kul_loader::load`] the CLI uses. The discovery rule
+/// itself (flat directory, `*.kul` only, subdirectories ignored,
+/// missing-manifest tolerated, unreadable files silently skipped) lives
+/// once, in the loader; this function only adapts the loader's
+/// path-shaped output to the LSP's URL-shaped cache. URI overlay
+/// handling and the post-overlay re-sort are the caller's job
+/// (see [`build_entry`]).
 fn discover_disk(root: &Path) -> (String, String, Vec<(Url, Arc<str>)>) {
-    let manifest_path = root.join("kul.yml");
-    let manifest_label = manifest_path.to_string_lossy().into_owned();
-    let manifest_yaml = std::fs::read_to_string(&manifest_path).unwrap_or_default();
-
-    let mut out: Vec<(Url, Arc<str>)> = Vec::new();
-    let Ok(entries) = std::fs::read_dir(root) else {
-        return (manifest_label, manifest_yaml, out);
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-            continue;
-        }
-        if path.extension().and_then(|s| s.to_str()) != Some("kul") {
-            continue;
-        }
-        let Ok(source) = std::fs::read_to_string(&path) else {
-            continue;
-        };
-        let Ok(url) = Url::from_file_path(&path) else {
-            continue;
-        };
-        out.push((url, Arc::from(source)));
-    }
-    (manifest_label, manifest_yaml, out)
+    let project = kul_loader::discover(root);
+    let files: Vec<(Url, Arc<str>)> = project
+        .files
+        .into_iter()
+        .filter_map(|f| {
+            let url = Url::from_file_path(&f.path).ok()?;
+            Some((url, Arc::from(f.source)))
+        })
+        .collect();
+    (project.manifest_name, project.manifest_yaml, files)
 }
 
 /// Build the [`InputFile::name`] label for a project URL. The bare file
