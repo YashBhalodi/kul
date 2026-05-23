@@ -17,7 +17,7 @@ The pattern's visual baseline is the classical descendency family tree.
 *Alternatives considered:* marriage-centric (junction nodes, rejected as too unfamiliar); person-centric ego-style (fan chart, rejected for temporal implicitness and poor multi-family scaling); force-directed network (rejected for hiding kinship behind generic edges).
 
 ### P2. One canonical card per person
-Each person renders as exactly one *canonical* card. Visual duplicates (ghosts) exist only under the narrow conditions specified in P8 and P16.
+Each person renders as exactly one *canonical* card, which may host one or more marriage bars (P8). Visual duplicates (ghosts) exist only under the narrow conditions specified in P8 and P16.
 
 ### P3. First-declared spouse hosts
 In a `marriage <id> <spouse_a> <spouse_b>` statement, `spouse_a` is the host; `spouse_b` joins the host's family tree. The host stays in their own canonical position; the joining spouse's canonical card sits adjacent to the host within the host's family. The joining spouse's birth-family connection becomes a cross-tree edge (P6).
@@ -45,7 +45,9 @@ Visual complexity at scale (renderer cost at 5,000 cards, level-of-detail, panni
 Given a Kul document, the canonical pattern produces exactly one layout. No interactivity, no view parameters, no user-selected focus. Surfaces may add interactivity on top of the canonical view; that is a presentational extension, not part of the pattern.
 
 ### P8. Canonical card at current intimacy; child-anchoring ghost for past marriages
-A person's canonical card is positioned at their *current intimacy*: the host family of their most-recent un-ended marriage, or their birth family if no current marriage exists. A marriage is "ended" if it carries an `end:` field.
+A person's canonical card is positioned at their *current intimacy*: the host family of their first-declared un-ended marriage, or their birth family if no current marriage exists. A marriage is "ended" if it carries an `end:` field.
+
+A person may have multiple concurrent un-ended marriages (polygamy / polyamory). All of the person's un-ended marriages share one canonical anchor: the bar of each additional un-ended marriage branches from the same canonical card, and each co-spouse appears canonically adjacent to the polygamous person. No ghost is emitted for any current intimacy — the ghost vocabulary is reserved for *past* (ended) intimacies. Mixed-role concurrent marriages (a person host in some and joining in others) are language-admissible; the canonical placement still follows "first-declared un-ended participation wins," with the structural treatment of relocated bars tracked separately in [issue #144](https://github.com/YashBhalodi/kul/issues/144).
 
 In the current Kul spec, `end:` corresponds to divorce only — death is not marked on the marriage but on the deceased spouse's `died:` field. A widow's marriage therefore has no `end:` and she remains in the host family. If a future spec extension broadens what `end:` can carry, the rule applies uniformly without changes.
 
@@ -54,6 +56,8 @@ When a past ended marriage produced children, the moved-out spouse leaves a **gh
 The marriage bar's canonical location is the host's birth-family slot at the position the host occupied within their birth family *at the time the marriage was declared*. This location is fixed at declaration and does not relocate due to later events (divorce, remarriage, death). The host's *canonical card* sits at that slot if the host hasn't moved on (no newer current intimacy); otherwise the host leaves a *ghost* there. The joining spouse occupies the adjacent slot — canonically if they haven't moved on, as a ghost otherwise. If the host has no birth family (no `birth` sub-statement), the marriage bar becomes a *floating mini-component* sortable per P12.
 
 *Worked example (`examples/03`):* Alice hosts Bob; Alice's marriage stays at Alice's slot in Ramesh+Sita's tree (Alice hasn't moved on, so her canonical card sits there); Bob has no birth family and the marriage has ended, so Bob leaves a ghost adjacent to Alice; Carol and Ravi's edges attach to that bar.
+
+*Worked example (`examples/04`):* Devraj hosts Meera (`m_devraj_meera`, 1990) and Alice (`m_devraj_alice`, 1992), both ongoing. Devraj has one canonical card at his first-declared marriage's anchor (a floating mini-component because he has no birth family); both bars branch from that card; Meera and Alice each appear canonically as a co-spouse adjacent to Devraj. Neither marriage emits a past-marriage ghost — both are current. Priya hangs below `m_devraj_alice`'s bar (P9: child edges attach to the specific marriage bar of their parents' marriage).
 
 ### P9. Birth/adoption edges connect to the marriage bar
 A child's birth or adoption edge attaches to the marriage bar of their parents' marriage — not to either parent card individually. This matches Kul's data model (`birth m_xxx` references the marriage id, not the parent ids).

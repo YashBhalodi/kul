@@ -107,6 +107,11 @@ example_snapshot!(
     "11-cousin-marriage",
     "cousin-marriage"
 );
+example_snapshot!(
+    example_12_polygamy_with_birth_family,
+    "12-polygamy-with-birth-family",
+    "polygamy-with-birth-family"
+);
 
 #[test]
 fn every_example_has_a_dedicated_snapshot_test() {
@@ -130,6 +135,7 @@ fn every_example_has_a_dedicated_snapshot_test() {
         "09-multi-adoption",
         "10-disconnected-lineages-and-orphan",
         "11-cousin-marriage",
+        "12-polygamy-with-birth-family",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),

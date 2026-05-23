@@ -4,7 +4,7 @@ expression: render_pretty(&envelope)
 ---
 {
   "ok": true,
-  "schema": 1,
+  "schema": 2,
   "kul": "0.1",
   "components": [
     {
@@ -13,81 +13,89 @@ expression: render_pretty(&envelope)
       "kind": {
         "type": "familyTree",
         "root": {
-          "bar": {
-            "marriageId": "m_alice_bob",
-            "generation": 1,
-            "hostId": "alice",
-            "joiningId": "bob",
-            "hostSlot": {
-              "personId": "alice",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 1,
-              "name": "Alice",
-              "gender": "female"
+          "slot": {
+            "personId": "alice",
+            "kind": {
+              "kind": "canonical"
             },
-            "joiningSlot": {
-              "personId": "bob",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 1,
-              "name": "Bob",
-              "gender": "male"
-            },
-            "start": {
-              "value": "1972",
-              "precision": "year",
-              "circa": false
-            },
-            "ended": false,
-            "joiningNestedBirthFamily": {
+            "generation": 0,
+            "name": "Alice",
+            "gender": "female"
+          },
+          "hostedMarriages": [
+            {
               "bar": {
-                "marriageId": "m_bob_parents",
-                "generation": 0,
-                "hostId": "bob_dad",
-                "joiningId": "bob_mom",
-                "hostSlot": {
-                  "personId": "bob_dad",
+                "marriageId": "m_alice_bob",
+                "generation": 1,
+                "hostId": "alice",
+                "joiningId": "bob",
+                "joiningSlot": {
+                  "personId": "bob",
                   "kind": {
                     "kind": "canonical"
                   },
-                  "generation": 0,
-                  "name": "Bob's Dad",
+                  "generation": 1,
+                  "name": "Bob",
                   "gender": "male"
                 },
-                "joiningSlot": {
-                  "personId": "bob_mom",
-                  "kind": {
-                    "kind": "canonical"
-                  },
-                  "generation": 0,
-                  "name": "Bob's Mom",
-                  "gender": "female"
-                },
                 "start": {
-                  "value": "1945",
+                  "value": "1972",
                   "precision": "year",
                   "circa": false
                 },
-                "ended": false
+                "ended": false,
+                "joiningNestedBirthFamily": {
+                  "slot": {
+                    "personId": "bob_dad",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 0,
+                    "name": "Bob's Dad",
+                    "gender": "male"
+                  },
+                  "hostedMarriages": [
+                    {
+                      "bar": {
+                        "marriageId": "m_bob_parents",
+                        "generation": 0,
+                        "hostId": "bob_dad",
+                        "joiningId": "bob_mom",
+                        "joiningSlot": {
+                          "personId": "bob_mom",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 0,
+                          "name": "Bob's Mom",
+                          "gender": "female"
+                        },
+                        "start": {
+                          "value": "1945",
+                          "precision": "year",
+                          "circa": false
+                        },
+                        "ended": false
+                      },
+                      "children": []
+                    }
+                  ]
+                }
               },
-              "children": []
-            }
-          },
-          "children": [
-            {
-              "slot": {
-                "personId": "kid",
-                "kind": {
-                  "kind": "canonical"
-                },
-                "generation": 2,
-                "name": "Kid",
-                "gender": "other"
-              },
-              "hostedMarriages": []
+              "children": [
+                {
+                  "slot": {
+                    "personId": "kid",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 2,
+                    "name": "Kid",
+                    "gender": "other"
+                  },
+                  "hostedMarriages": []
+                }
+              ]
             }
           ]
         }

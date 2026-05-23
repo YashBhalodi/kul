@@ -8,8 +8,8 @@
 //! resulting positions back into a [`crate::PositionedShape`].
 
 use kul_render::{
-    CardSlot, Component, ComponentKind, Edge, EdgeKind as RenderEdgeKind, MarriageBar,
-    MarriageBranch, PersonCard, SlotKind as RenderSlotKind, SuccessRender,
+    CardSlot, Component, ComponentKind, Edge, EdgeKind as RenderEdgeKind, MarriageBar, PersonCard,
+    SlotKind as RenderSlotKind, SuccessRender,
 };
 
 use crate::metrics::LayoutConfig;
@@ -28,8 +28,7 @@ pub(crate) fn lay_out(success: &SuccessRender, config: &LayoutConfig) -> Positio
 }
 
 /// A virtual layout node Walker positions. Each `Node` is one cluster:
-/// either a single card, or a card-bar-card host cluster, or a floating
-/// top-level bar with two adjacent cards.
+/// either a single card, or a card-bar-card host cluster.
 struct Node {
     /// Anchor type: what visual primitive this cluster is.
     kind: NodeKind,
@@ -42,18 +41,13 @@ struct Node {
 }
 
 enum NodeKind {
-    /// A floating top-level marriage (P8 fallback or a component root):
-    /// bar with host + joining cards adjacent. No anchor person card
-    /// above it on the same row.
-    RootMarriage {
-        bar: Box<MarriageBar>,
-        host_slot: Box<CardSlot>,
-        joining_slot: Box<CardSlot>,
-    },
-    /// A canonical person card; may host one or more marriages (each
-    /// adding a bar + joining card to the cluster's right). Children
-    /// are the union of all hosted marriages' children, in declaration
-    /// order across marriages.
+    /// A person card (canonical or ghost); may host one or more
+    /// marriages (each adding a bar + joining card to the cluster's
+    /// right). Children are the union of all hosted marriages'
+    /// children, in declaration order across marriages. This variant
+    /// covers both the root case (a FamilyTree's root PersonCard, per
+    /// ADR-0021) and the child case (a hosted person inside a
+    /// MarriageBranch).
     PersonHost {
         card: Box<PersonCard>,
         /// One entry per hosted marriage, in declaration order.
@@ -87,7 +81,7 @@ impl<'a> Builder<'a> {
 
     fn add_component(&mut self, component: &Component) {
         let root = match &component.kind {
-            ComponentKind::FamilyTree { root } => self.build_branch_root(root),
+            ComponentKind::FamilyTree { root } => self.build_person_root(root),
             ComponentKind::OrphanPerson { card } => self.push_orphan((**card).clone()),
         };
         self.roots.push(root);
@@ -107,31 +101,15 @@ impl<'a> Builder<'a> {
         self.nodes.len() - 1
     }
 
-    fn build_branch_root(&mut self, branch: &MarriageBranch) -> usize {
-        let bar = branch.bar.clone();
-        let generation = bar.generation;
-        let host_slot = bar.host_slot.clone();
-        let joining_slot = bar.joining_slot.clone();
-        let width =
-            self.config.card_width * 2.0 + self.config.bar_gap * 2.0 + self.config.bar_width;
-        let idx = self.nodes.len();
-        self.nodes.push(Node {
-            kind: NodeKind::RootMarriage {
-                bar: Box::new(bar),
-                host_slot: Box::new(host_slot),
-                joining_slot: Box::new(joining_slot),
-            },
-            width,
-            generation,
-            children: Vec::new(),
-        });
-        let children = self.build_children(&branch.children);
-        self.nodes[idx].children = children;
-        idx
-    }
-
-    fn build_children(&mut self, children: &[PersonCard]) -> Vec<usize> {
-        children.iter().map(|c| self.build_person(c)).collect()
+    /// Build a FamilyTree's root PersonCard. Same code path as a
+    /// child PersonCard inside a MarriageBranch — `build_person`
+    /// already handles N hosted marriages via `NodeKind::PersonHost`
+    /// (and the leaf-shape via `NodeKind::PersonLeaf`). A
+    /// ghost-rooted PersonCard flows through the same path; its
+    /// `slot.kind` carries the ghost discriminator and `push_card`
+    /// translates the visual styling.
+    fn build_person_root(&mut self, card: &PersonCard) -> usize {
+        self.build_person(card)
     }
 
     fn build_person(&mut self, card: &PersonCard) -> usize {
@@ -247,45 +225,6 @@ impl<'a> Builder<'a> {
             let cluster_left = positions[i].x - node.width / 2.0 + offset_x;
             let row_top = offset_y + node.generation as f64 * config.row_height;
             match &node.kind {
-                NodeKind::RootMarriage {
-                    bar,
-                    host_slot,
-                    joining_slot,
-                } => {
-                    let host_x = cluster_left;
-                    let bar_x = host_x + config.card_width + config.bar_gap;
-                    let bar_center_x = bar_x + config.bar_width / 2.0;
-                    let bar_y = row_top + (config.card_height - config.bar_height) / 2.0;
-                    let joining_x = bar_x + config.bar_width + config.bar_gap;
-                    push_card(
-                        &mut cards,
-                        &mut card_tops,
-                        host_x,
-                        row_top,
-                        host_slot,
-                        config,
-                    );
-                    bars.push(PositionedBar {
-                        marriage_id: bar.marriage_id.clone(),
-                        x: bar_x,
-                        y: bar_y,
-                        width: config.bar_width,
-                        height: config.bar_height,
-                        ended: bar.ended,
-                    });
-                    bar_centers.insert(
-                        bar.marriage_id.clone(),
-                        (bar_center_x, bar_y + config.bar_height),
-                    );
-                    push_card(
-                        &mut cards,
-                        &mut card_tops,
-                        joining_x,
-                        row_top,
-                        joining_slot,
-                        config,
-                    );
-                }
                 NodeKind::PersonHost { card, hosted } => {
                     let host_x = cluster_left;
                     push_card(

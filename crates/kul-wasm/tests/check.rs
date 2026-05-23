@@ -184,6 +184,11 @@ clean_example!(
     "11-cousin-marriage",
     "cousin-marriage"
 );
+clean_example!(
+    example_12_polygamy_with_birth_family_is_clean,
+    "12-polygamy-with-birth-family",
+    "polygamy-with-birth-family"
+);
 
 #[test]
 fn example_07_multi_file_extended_family_is_clean() {
@@ -218,6 +223,7 @@ fn every_example_has_a_dedicated_clean_check_test() {
         "09-multi-adoption",
         "10-disconnected-lineages-and-orphan",
         "11-cousin-marriage",
+        "12-polygamy-with-birth-family",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),

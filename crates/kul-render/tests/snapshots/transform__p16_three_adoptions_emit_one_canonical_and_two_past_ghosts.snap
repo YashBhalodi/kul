@@ -4,7 +4,7 @@ expression: render_pretty(&envelope)
 ---
 {
   "ok": true,
-  "schema": 1,
+  "schema": 2,
   "kul": "0.1",
   "components": [
     {
@@ -13,49 +13,53 @@ expression: render_pretty(&envelope)
       "kind": {
         "type": "familyTree",
         "root": {
-          "bar": {
-            "marriageId": "m_a",
+          "slot": {
+            "personId": "a1",
+            "kind": {
+              "kind": "canonical"
+            },
             "generation": 0,
-            "hostId": "a1",
-            "joiningId": "a2",
-            "hostSlot": {
-              "personId": "a1",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 0,
-              "name": "A1",
-              "gender": "female"
-            },
-            "joiningSlot": {
-              "personId": "a2",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 0,
-              "name": "A2",
-              "gender": "male"
-            },
-            "start": {
-              "value": "1970",
-              "precision": "year",
-              "circa": false
-            },
-            "ended": false
+            "name": "A1",
+            "gender": "female"
           },
-          "children": [
+          "hostedMarriages": [
             {
-              "slot": {
-                "personId": "kid",
-                "kind": {
-                  "kind": "ghost",
-                  "reason": "pastAdoption"
+              "bar": {
+                "marriageId": "m_a",
+                "generation": 0,
+                "hostId": "a1",
+                "joiningId": "a2",
+                "joiningSlot": {
+                  "personId": "a2",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "A2",
+                  "gender": "male"
                 },
-                "generation": 1,
-                "name": "Kid",
-                "gender": "other"
+                "start": {
+                  "value": "1970",
+                  "precision": "year",
+                  "circa": false
+                },
+                "ended": false
               },
-              "hostedMarriages": []
+              "children": [
+                {
+                  "slot": {
+                    "personId": "kid",
+                    "kind": {
+                      "kind": "ghost",
+                      "reason": "pastAdoption"
+                    },
+                    "generation": 1,
+                    "name": "Kid",
+                    "gender": "other"
+                  },
+                  "hostedMarriages": []
+                }
+              ]
             }
           ]
         }
@@ -67,49 +71,53 @@ expression: render_pretty(&envelope)
       "kind": {
         "type": "familyTree",
         "root": {
-          "bar": {
-            "marriageId": "m_b",
+          "slot": {
+            "personId": "b1",
+            "kind": {
+              "kind": "canonical"
+            },
             "generation": 0,
-            "hostId": "b1",
-            "joiningId": "b2",
-            "hostSlot": {
-              "personId": "b1",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 0,
-              "name": "B1",
-              "gender": "female"
-            },
-            "joiningSlot": {
-              "personId": "b2",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 0,
-              "name": "B2",
-              "gender": "male"
-            },
-            "start": {
-              "value": "1975",
-              "precision": "year",
-              "circa": false
-            },
-            "ended": false
+            "name": "B1",
+            "gender": "female"
           },
-          "children": [
+          "hostedMarriages": [
             {
-              "slot": {
-                "personId": "kid",
-                "kind": {
-                  "kind": "ghost",
-                  "reason": "pastAdoption"
+              "bar": {
+                "marriageId": "m_b",
+                "generation": 0,
+                "hostId": "b1",
+                "joiningId": "b2",
+                "joiningSlot": {
+                  "personId": "b2",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "B2",
+                  "gender": "male"
                 },
-                "generation": 1,
-                "name": "Kid",
-                "gender": "other"
+                "start": {
+                  "value": "1975",
+                  "precision": "year",
+                  "circa": false
+                },
+                "ended": false
               },
-              "hostedMarriages": []
+              "children": [
+                {
+                  "slot": {
+                    "personId": "kid",
+                    "kind": {
+                      "kind": "ghost",
+                      "reason": "pastAdoption"
+                    },
+                    "generation": 1,
+                    "name": "Kid",
+                    "gender": "other"
+                  },
+                  "hostedMarriages": []
+                }
+              ]
             }
           ]
         }
@@ -121,48 +129,52 @@ expression: render_pretty(&envelope)
       "kind": {
         "type": "familyTree",
         "root": {
-          "bar": {
-            "marriageId": "m_c",
+          "slot": {
+            "personId": "c1",
+            "kind": {
+              "kind": "canonical"
+            },
             "generation": 0,
-            "hostId": "c1",
-            "joiningId": "c2",
-            "hostSlot": {
-              "personId": "c1",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 0,
-              "name": "C1",
-              "gender": "female"
-            },
-            "joiningSlot": {
-              "personId": "c2",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 0,
-              "name": "C2",
-              "gender": "male"
-            },
-            "start": {
-              "value": "1978",
-              "precision": "year",
-              "circa": false
-            },
-            "ended": false
+            "name": "C1",
+            "gender": "female"
           },
-          "children": [
+          "hostedMarriages": [
             {
-              "slot": {
-                "personId": "kid",
-                "kind": {
-                  "kind": "canonical"
+              "bar": {
+                "marriageId": "m_c",
+                "generation": 0,
+                "hostId": "c1",
+                "joiningId": "c2",
+                "joiningSlot": {
+                  "personId": "c2",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "C2",
+                  "gender": "male"
                 },
-                "generation": 1,
-                "name": "Kid",
-                "gender": "other"
+                "start": {
+                  "value": "1978",
+                  "precision": "year",
+                  "circa": false
+                },
+                "ended": false
               },
-              "hostedMarriages": []
+              "children": [
+                {
+                  "slot": {
+                    "personId": "kid",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Kid",
+                    "gender": "other"
+                  },
+                  "hostedMarriages": []
+                }
+              ]
             }
           ]
         }

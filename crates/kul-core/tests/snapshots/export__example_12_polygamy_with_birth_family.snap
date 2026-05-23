@@ -1,0 +1,123 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "ramesh",
+        "name": "Ramesh Kumar",
+        "gender": "male",
+        "born": {
+          "value": "1920-03-15",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "sita",
+        "name": "Sita Kumar",
+        "gender": "female",
+        "born": {
+          "value": "1922-08-22",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "devraj",
+        "name": "Devraj Kumar",
+        "gender": "male",
+        "born": {
+          "value": "1948-06-21",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "meera",
+        "name": "Meera",
+        "gender": "female",
+        "born": {
+          "value": "1955-03-08",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "alice",
+        "name": "Alice Sharma",
+        "gender": "female",
+        "born": {
+          "value": "1950-04-12",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "priya",
+        "name": "Priya Kumar",
+        "gender": "female",
+        "born": {
+          "value": "1994-12-01",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_ramesh_sita",
+        "spouses": [
+          "ramesh",
+          "sita"
+        ],
+        "start": {
+          "value": "1945-06-10",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_devraj_meera",
+        "spouses": [
+          "devraj",
+          "meera"
+        ],
+        "start": {
+          "value": "1990-01-01",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_devraj_alice",
+        "spouses": [
+          "devraj",
+          "alice"
+        ],
+        "start": {
+          "value": "1992-02-14",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_ramesh_sita",
+        "childId": "devraj",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_devraj_alice",
+        "childId": "priya",
+        "kind": "biological"
+      }
+    ]
+  }
+}

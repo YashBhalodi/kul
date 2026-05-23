@@ -1,0 +1,80 @@
+---
+source: crates/kul-render/tests/transform.rs
+expression: render_pretty(&envelope)
+---
+{
+  "ok": true,
+  "schema": 2,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 0,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "devraj",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Devraj",
+            "gender": "male"
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_devraj_meera",
+                "generation": 0,
+                "hostId": "devraj",
+                "joiningId": "meera",
+                "joiningSlot": {
+                  "personId": "meera",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Meera",
+                  "gender": "female"
+                },
+                "start": {
+                  "value": "1990",
+                  "precision": "year",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": []
+            },
+            {
+              "bar": {
+                "marriageId": "m_devraj_alice",
+                "generation": 0,
+                "hostId": "devraj",
+                "joiningId": "alice",
+                "joiningSlot": {
+                  "personId": "alice",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Alice",
+                  "gender": "female"
+                },
+                "start": {
+                  "value": "1995",
+                  "precision": "year",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": []
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": []
+}

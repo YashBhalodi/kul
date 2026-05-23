@@ -4,7 +4,7 @@ expression: json
 ---
 {
   "ok": true,
-  "schema": 1,
+  "schema": 2,
   "kul": "0.1",
   "components": [
     {
@@ -13,63 +13,67 @@ expression: json
       "kind": {
         "type": "familyTree",
         "root": {
-          "bar": {
-            "marriageId": "m_alice_bob",
+          "slot": {
+            "personId": "alice",
+            "kind": {
+              "kind": "canonical"
+            },
             "generation": 0,
-            "hostId": "alice",
-            "joiningId": "bob",
-            "hostSlot": {
-              "personId": "alice",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 0,
-              "name": "Alice Sharma",
-              "gender": "female",
-              "born": {
-                "value": "1950-04-12",
-                "precision": "day",
-                "circa": false
-              }
-            },
-            "joiningSlot": {
-              "personId": "bob",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 0,
-              "name": "Bob Sharma",
-              "gender": "male",
-              "born": {
-                "value": "1948-11-30",
-                "precision": "day",
-                "circa": false
-              }
-            },
-            "start": {
-              "value": "1972-05-12",
+            "name": "Alice Sharma",
+            "gender": "female",
+            "born": {
+              "value": "1950-04-12",
               "precision": "day",
               "circa": false
-            },
-            "ended": false
+            }
           },
-          "children": [
+          "hostedMarriages": [
             {
-              "slot": {
-                "personId": "carol",
-                "kind": {
-                  "kind": "canonical"
+              "bar": {
+                "marriageId": "m_alice_bob",
+                "generation": 0,
+                "hostId": "alice",
+                "joiningId": "bob",
+                "joiningSlot": {
+                  "personId": "bob",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Bob Sharma",
+                  "gender": "male",
+                  "born": {
+                    "value": "1948-11-30",
+                    "precision": "day",
+                    "circa": false
+                  }
                 },
-                "generation": 1,
-                "name": "Carol Sharma",
-                "gender": "female",
-                "born": {
-                  "value": "1975-09-03",
+                "start": {
+                  "value": "1972-05-12",
                   "precision": "day",
                   "circa": false
-                }
+                },
+                "ended": false
               },
-              "hostedMarriages": []
+              "children": [
+                {
+                  "slot": {
+                    "personId": "carol",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Carol Sharma",
+                    "gender": "female",
+                    "born": {
+                      "value": "1975-09-03",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
             }
           ]
         }

@@ -1,0 +1,182 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "nodes": [
+      {
+        "data": {
+          "id": "p:ramesh",
+          "type": "person",
+          "name": "Ramesh Kumar",
+          "gender": "male",
+          "born": {
+            "value": "1920-03-15",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:sita",
+          "type": "person",
+          "name": "Sita Kumar",
+          "gender": "female",
+          "born": {
+            "value": "1922-08-22",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:devraj",
+          "type": "person",
+          "name": "Devraj Kumar",
+          "gender": "male",
+          "born": {
+            "value": "1948-06-21",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:meera",
+          "type": "person",
+          "name": "Meera",
+          "gender": "female",
+          "born": {
+            "value": "1955-03-08",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:alice",
+          "type": "person",
+          "name": "Alice Sharma",
+          "gender": "female",
+          "born": {
+            "value": "1950-04-12",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:priya",
+          "type": "person",
+          "name": "Priya Kumar",
+          "gender": "female",
+          "born": {
+            "value": "1994-12-01",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_ramesh_sita",
+          "type": "marriage",
+          "start": {
+            "value": "1945-06-10",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_devraj_meera",
+          "type": "marriage",
+          "start": {
+            "value": "1990-01-01",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_devraj_alice",
+          "type": "marriage",
+          "start": {
+            "value": "1992-02-14",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "source": "m:m_ramesh_sita",
+          "target": "p:ramesh",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_ramesh_sita",
+          "target": "p:sita",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_devraj_meera",
+          "target": "p:devraj",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_devraj_meera",
+          "target": "p:meera",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_devraj_alice",
+          "target": "p:devraj",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_devraj_alice",
+          "target": "p:alice",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_ramesh_sita",
+          "target": "p:devraj",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_devraj_alice",
+          "target": "p:priya",
+          "type": "biological_child"
+        }
+      }
+    ]
+  }
+}

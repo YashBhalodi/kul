@@ -1,6 +1,6 @@
 # ADR 0017 — `RenderShape` schema and versioning
 
-**Status:** Accepted
+**Status:** Accepted (partially superseded by ADR-0021)
 **Date:** 2026-05-23
 **Deciders:** owner
 

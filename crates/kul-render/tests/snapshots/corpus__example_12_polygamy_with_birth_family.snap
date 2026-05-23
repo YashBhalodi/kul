@@ -9,7 +9,7 @@ expression: json
   "components": [
     {
       "id": "comp-1",
-      "sourceOrder": 334,
+      "sourceOrder": 983,
       "kind": {
         "type": "familyTree",
         "root": {
@@ -19,10 +19,10 @@ expression: json
               "kind": "canonical"
             },
             "generation": 0,
-            "name": "Ramesh Sharma",
+            "name": "Ramesh Kumar",
             "gender": "male",
             "born": {
-              "value": "1925-03-10",
+              "value": "1920-03-15",
               "precision": "day",
               "circa": false
             }
@@ -40,16 +40,16 @@ expression: json
                     "kind": "canonical"
                   },
                   "generation": 0,
-                  "name": "Sita Sharma",
+                  "name": "Sita Kumar",
                   "gender": "female",
                   "born": {
-                    "value": "1928-07-15",
+                    "value": "1922-08-22",
                     "precision": "day",
                     "circa": false
                   }
                 },
                 "start": {
-                  "value": "1948-06-10",
+                  "value": "1945-06-10",
                   "precision": "day",
                   "circa": false
                 },
@@ -58,15 +58,15 @@ expression: json
               "children": [
                 {
                   "slot": {
-                    "personId": "arjun",
+                    "personId": "devraj",
                     "kind": {
                       "kind": "canonical"
                     },
                     "generation": 1,
-                    "name": "Arjun Sharma",
+                    "name": "Devraj Kumar",
                     "gender": "male",
                     "born": {
-                      "value": "1950-04-12",
+                      "value": "1948-06-21",
                       "precision": "day",
                       "circa": false
                     }
@@ -74,79 +74,79 @@ expression: json
                   "hostedMarriages": [
                     {
                       "bar": {
-                        "marriageId": "m_arjun_priya",
+                        "marriageId": "m_devraj_meera",
                         "generation": 1,
-                        "hostId": "arjun",
-                        "joiningId": "priya",
+                        "hostId": "devraj",
+                        "joiningId": "meera",
                         "joiningSlot": {
-                          "personId": "priya",
+                          "personId": "meera",
                           "kind": {
                             "kind": "canonical"
                           },
                           "generation": 1,
-                          "name": "Priya Sharma",
+                          "name": "Meera",
                           "gender": "female",
                           "born": {
-                            "value": "1952-08-19",
+                            "value": "1955-03-08",
                             "precision": "day",
                             "circa": false
                           }
                         },
                         "start": {
-                          "value": "1975-11-04",
+                          "value": "1990-01-01",
                           "precision": "day",
                           "circa": false
                         },
                         "ended": false
                       },
                       "children": []
-                    }
-                  ]
-                },
-                {
-                  "slot": {
-                    "personId": "vikram",
-                    "kind": {
-                      "kind": "canonical"
                     },
-                    "generation": 1,
-                    "name": "Vikram Sharma",
-                    "gender": "male",
-                    "born": {
-                      "value": "1955-02-28",
-                      "precision": "day",
-                      "circa": false
-                    }
-                  },
-                  "hostedMarriages": [
                     {
                       "bar": {
-                        "marriageId": "m_vikram_nisha",
+                        "marriageId": "m_devraj_alice",
                         "generation": 1,
-                        "hostId": "vikram",
-                        "joiningId": "nisha",
+                        "hostId": "devraj",
+                        "joiningId": "alice",
                         "joiningSlot": {
-                          "personId": "nisha",
+                          "personId": "alice",
                           "kind": {
                             "kind": "canonical"
                           },
                           "generation": 1,
-                          "name": "Nisha Sharma",
+                          "name": "Alice Sharma",
                           "gender": "female",
                           "born": {
-                            "value": "1957-06-15",
+                            "value": "1950-04-12",
                             "precision": "day",
                             "circa": false
                           }
                         },
                         "start": {
-                          "value": "1980-03-22",
+                          "value": "1992-02-14",
                           "precision": "day",
                           "circa": false
                         },
                         "ended": false
                       },
-                      "children": []
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "priya",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Priya Kumar",
+                            "gender": "female",
+                            "born": {
+                              "value": "1994-12-01",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
                     }
                   ]
                 }
@@ -160,13 +160,13 @@ expression: json
   "edges": [
     {
       "kind": "birth",
-      "childId": "arjun",
+      "childId": "devraj",
       "marriageId": "m_ramesh_sita"
     },
     {
       "kind": "birth",
-      "childId": "vikram",
-      "marriageId": "m_ramesh_sita"
+      "childId": "priya",
+      "marriageId": "m_devraj_alice"
     }
   ]
 }

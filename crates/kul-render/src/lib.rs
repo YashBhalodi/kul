@@ -66,7 +66,14 @@ pub use shape::{
 /// optional field, a new ghost reason, or a new component kind value
 /// does NOT bump the schema — consumers treat them as forward-compatible
 /// additions. See [ADR-0017](../../docs/adr/0017-render-shape-schema-and-versioning.md).
-pub const RENDER_SCHEMA_VERSION: u32 = 1;
+///
+/// Bumped from `1` to `2` by
+/// [ADR-0021](../../docs/adr/0021-render-shape-family-tree-rooted-at-person-card.md):
+/// `ComponentKind::FamilyTree.root` flipped from `MarriageBranch` to
+/// `PersonCard` and `MarriageBar.host_slot` was dropped. Both are
+/// structural changes that would silently mis-represent data for
+/// schema-1 consumers.
+pub const RENDER_SCHEMA_VERSION: u32 = 2;
 
 /// Run the export-then-project pipeline against a checked project and
 /// return its [`RenderShape`].

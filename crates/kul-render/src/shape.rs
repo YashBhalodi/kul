@@ -101,12 +101,18 @@ pub struct Component {
 
 /// What a [`Component`] is shaped like at its root.
 ///
-/// Three variants cover every canonical case:
+/// Two variants cover every canonical case:
 ///
-/// - [`ComponentKind::FamilyTree`] — a marriage and its descendants.
-///   The marriage at the root is either a floating mini-component
-///   (P8 fallback: host has no birth family) or a marriage whose host's
-///   canonical-family root is itself the root of this component.
+/// - [`ComponentKind::FamilyTree`] — a `PersonCard` and its
+///   descendants. The root `PersonCard` is the outermost canonical
+///   host of the component, with one or more marriage bars branching
+///   from its slot (per P2 + P8 — a person with concurrent un-ended
+///   marriages shares one canonical anchor for all of them). For the
+///   past-ended floating-bar fallback (no canonical host, e.g.
+///   `examples/08`'s `m_alice_bob` after both spouses moved on), the
+///   root `PersonCard` is a *ghost* — `slot.kind = Ghost { reason:
+///   PastMarriage }` — rooted at the declared host. See
+///   [ADR-0021](../../docs/adr/0021-render-shape-family-tree-rooted-at-person-card.md).
 /// - [`ComponentKind::OrphanPerson`] — a single canonical card with no
 ///   anchor (P13 declared-with-no-edges orphans, plus the P8 fallback
 ///   case of a joining spouse whose marriage ended and who has no birth
@@ -117,7 +123,7 @@ pub struct Component {
 // `clippy::large-enum-variant`. The boxing is invisible on the wire
 // (serde flattens `Box<T>` transparently).
 pub enum ComponentKind {
-    FamilyTree { root: Box<MarriageBranch> },
+    FamilyTree { root: Box<PersonCard> },
     OrphanPerson { card: Box<CardSlot> },
 }
 
@@ -153,6 +159,15 @@ pub struct PersonCard {
 }
 
 /// A marriage bar in the layout.
+///
+/// The host face of every bar is implicit — it is the parent
+/// [`PersonCard.slot`] in the tree (the bar branches from that
+/// card per P8's "the bar's canonical location is the host's
+/// birth-family slot"). Only the joining slot is duplicated on the
+/// bar because a joining spouse may be canonical at this bar or a
+/// ghost (P8); the host slot's canonical/ghost state is the parent
+/// `PersonCard.slot.kind`. See
+/// [ADR-0021](../../docs/adr/0021-render-shape-family-tree-rooted-at-person-card.md).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarriageBar {
@@ -162,14 +177,14 @@ pub struct MarriageBar {
     /// canonical generation under the canonical-family graph.
     pub generation: u32,
     /// Source-declaration id of the host (first-listed spouse, P3).
+    /// Kept for consumers cross-referencing by id; the host's
+    /// `CardSlot` is the parent `PersonCard.slot`.
     pub host_id: String,
     /// Source-declaration id of the joining spouse (second-listed, P3).
     pub joining_id: String,
-    /// Slot for the host at the bar — canonical if the host hasn't
-    /// moved on (no newer current intimacy), ghost otherwise (P8).
-    pub host_slot: CardSlot,
-    /// Slot for the joining spouse at the bar — same canonical/ghost
-    /// rule as `host_slot`.
+    /// Slot for the joining spouse at the bar — canonical if the
+    /// joining spouse's canonical card is this bar (P8), ghost
+    /// otherwise.
     pub joining_slot: CardSlot,
     pub start: ExportedDate,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -185,9 +200,12 @@ pub struct MarriageBar {
     /// when the joining spouse has a birth family that isn't already
     /// being rendered in this component's context. Per P6 termination,
     /// this is `None` when the recursion would re-enter the current
-    /// rendering context (cousin / sibling marriage, P11).
+    /// rendering context (cousin / sibling marriage, P11). The
+    /// sub-tree is shaped exactly like a top-level
+    /// [`ComponentKind::FamilyTree`]: a `PersonCard` rooted at the
+    /// birth-family's outermost canonical host.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub joining_nested_birth_family: Option<Box<MarriageBranch>>,
+    pub joining_nested_birth_family: Option<Box<PersonCard>>,
 }
 
 /// One canonical or ghost card slot. The single visual primitive

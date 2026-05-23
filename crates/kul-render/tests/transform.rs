@@ -3,8 +3,8 @@
 //!
 //! These cover edge cases the public `examples/` corpus doesn't
 //! naturally surface — P6 cross-component nesting, P16 with three or
-//! more adoptions, the polygamy-with-most-recent rule from P8, and
-//! the failure-envelope passthrough.
+//! more adoptions, pure-host polygamy collapsing onto one canonical
+//! card (P8 + P2, ADR-0021), and the failure-envelope passthrough.
 
 use kul_core::export::{
     ExportEnvelope, ExportedDate, ExportedDiagnostic, ExportedGraph, ExportedMarriage,
@@ -136,23 +136,78 @@ fn p16_three_adoptions_emit_one_canonical_and_two_past_ghosts() {
     insta::assert_snapshot!(render_pretty(&envelope));
 }
 
-/// P8 polygamy: two un-ended concurrent marriages. The most-recent
-/// (latest `start:`) is the primary; the other shows the person as a
-/// ghost. Declaration-order tiebreak applies on equal `start:` dates.
+/// P8 + P2 (ADR-0021): pure-host polygamy collapses onto one
+/// canonical card. Devraj hosts two concurrent un-ended marriages
+/// (`m_devraj_meera`, `m_devraj_alice`); the render shape produces
+/// one component whose root `PersonCard` is Devraj's single
+/// canonical card with both bars in `hosted_marriages`. Each
+/// co-spouse appears canonically as the joining slot of her own bar.
+/// No ghost is emitted — both marriages are current intimacies.
 #[test]
-fn p8_polygamy_picks_most_recent_unended_as_primary() {
+fn p8_pure_host_polygamy_shares_canonical_anchor() {
     let envelope = success(ExportedGraph {
         persons: vec![
-            person("d", "Devraj", "male"),
-            person("m", "Meera", "female"),
-            person("a", "Alice", "female"),
+            person("devraj", "Devraj", "male"),
+            person("meera", "Meera", "female"),
+            person("alice", "Alice", "female"),
         ],
         marriages: vec![
-            marriage("m_d_m", "d", "m", 1990),
-            marriage("m_a_d", "a", "d", 1995),
+            marriage("m_devraj_meera", "devraj", "meera", 1990),
+            marriage("m_devraj_alice", "devraj", "alice", 1995),
         ],
         parenthood_links: vec![],
     });
+    let shape = transform(&envelope);
+    let success = shape.as_success().expect("success envelope");
+
+    assert_eq!(
+        success.components.len(),
+        1,
+        "pure-host polygamy collapses onto one component, got {}: {}",
+        success.components.len(),
+        serde_json::to_string_pretty(&shape).unwrap()
+    );
+    let component = &success.components[0];
+    let root = match &component.kind {
+        kul_render::ComponentKind::FamilyTree { root } => root,
+        kul_render::ComponentKind::OrphanPerson { .. } => {
+            panic!("expected FamilyTree, got OrphanPerson")
+        }
+    };
+    assert_eq!(root.slot.person_id, "devraj");
+    assert!(
+        matches!(root.slot.kind, kul_render::SlotKind::Canonical),
+        "root PersonCard should be Devraj's canonical card, got: {:?}",
+        root.slot.kind
+    );
+    assert_eq!(
+        root.hosted_marriages.len(),
+        2,
+        "Devraj's single canonical card should host both un-ended bars",
+    );
+    let marriage_ids: Vec<&str> = root
+        .hosted_marriages
+        .iter()
+        .map(|m| m.bar.marriage_id.as_str())
+        .collect();
+    assert_eq!(marriage_ids, vec!["m_devraj_meera", "m_devraj_alice"]);
+    for branch in &root.hosted_marriages {
+        assert!(
+            !branch.bar.ended,
+            "neither bar is ended (both are current intimacies)",
+        );
+        assert!(
+            matches!(
+                branch.bar.joining_slot.kind,
+                kul_render::SlotKind::Canonical
+            ),
+            "co-spouse joining slot is canonical (no ghost for current intimacy): {:?}",
+            branch.bar.joining_slot.kind,
+        );
+    }
+
+    // Lock the full structural shape as well, so future regressions
+    // surface as a snapshot diff rather than only an assert failure.
     insta::assert_snapshot!(render_pretty(&envelope));
 }
 

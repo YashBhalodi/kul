@@ -67,10 +67,12 @@ struct PersonFacts<'a> {
     /// [`PersonFacts::canonical_adoption`] which applies the
     /// `start:`-date sort with declaration-order tiebreak per P16.
     adoption_marriages: Vec<String>,
-    /// Most-recent un-ended marriage index (by `start:` date, declaration
-    /// order tiebreak) — the marriage that determines current intimacy
-    /// per P8. `None` if every marriage carries `end:` or this person
-    /// has no marriages.
+    /// First-declared un-ended marriage index (by source order across
+    /// hosted ∪ joined) — the marriage that determines current
+    /// intimacy per P8 (amended by ADR-0021). `None` if every marriage
+    /// carries `end:` or this person has no marriages. Field name kept
+    /// for stability across the rule change; the semantics is now
+    /// "first-declared un-ended participation wins."
     primary_marriage: Option<usize>,
     /// Generation index under the canonical-family graph. Computed
     /// fixpoint-style: roots at 0, child = max(canonical-family
@@ -184,31 +186,21 @@ impl<'a> Index<'a> {
             });
         }
 
-        // Primary marriage: most-recent un-ended across hosted ∪ joined.
-        // P8 normative rule. Ties broken by declaration order so the
-        // output stays deterministic when two marriages share a `start:`.
+        // Primary marriage: first-declared un-ended across hosted ∪
+        // joined (P8 amended by ADR-0021 — was "most-recent un-ended"
+        // before #142). Source order across the union: a person's
+        // hosted_marriages and joined_marriages each hold marriage
+        // indices in declaration order, and marriage indices grow with
+        // source position in the export, so the minimum index across
+        // the union is the first-declared un-ended participation.
         for facts in persons.iter_mut() {
-            let mut best: Option<(SortableDate, usize, usize)> = None;
-            for &m in facts
+            facts.primary_marriage = facts
                 .hosted_marriages
                 .iter()
                 .chain(facts.joined_marriages.iter())
-            {
-                let marriage = &graph.marriages[m];
-                if marriage.end.is_some() {
-                    continue;
-                }
-                let key = SortableDate::from(&marriage.start);
-                let candidate = (key, m, m);
-                if best
-                    .as_ref()
-                    .map(|b| candidate.0 > b.0 || (candidate.0 == b.0 && candidate.1 < b.1))
-                    .unwrap_or(true)
-                {
-                    best = Some(candidate);
-                }
-            }
-            facts.primary_marriage = best.map(|(_, m, _)| m);
+                .copied()
+                .filter(|&m| graph.marriages[m].end.is_none())
+                .min();
         }
 
         let mut index = Self {
@@ -442,6 +434,26 @@ fn build_components(index: &Index<'_>) -> Vec<Component> {
         }
     }
 
+    // Each person unifies with every un-ended marriage they
+    // participate in (host or join). For pure-host polygamy this
+    // collapses N concurrent bars into one component anchored at the
+    // polygamous person — the structural foundation for P2's
+    // "one canonical card hosts N bars" amendment (ADR-0021).
+    // Past-ended marriages still unify through `bar_anchor` /
+    // `canonical_location` below; only the *current intimacy* unions
+    // are added here.
+    for (i, facts) in index.persons.iter().enumerate() {
+        for &m in facts
+            .hosted_marriages
+            .iter()
+            .chain(facts.joined_marriages.iter())
+        {
+            if index.graph.marriages[m].end.is_none() {
+                uf.union(i, m_idx(m));
+            }
+        }
+    }
+
     // Each person's canonical-card anchor unifies them with the
     // marriage they anchor to.
     for (i, facts) in index.persons.iter().enumerate() {
@@ -508,8 +520,9 @@ fn build_one_component(index: &Index<'_>, members: &ComponentMembers) -> Compone
         .or_else(|| earliest_person.map(|(byte, _)| byte))
         .unwrap_or(0);
 
-    // Two shapes per P13 / P8: a family tree (rooted by a floating
-    // marriage) or an orphan person (lone card).
+    // Two shapes per P13 / P8: a family tree (rooted by a PersonCard —
+    // canonical or, for the past-ended floating-bar fallback, ghost) or
+    // an orphan person (lone card).
     if members.marriages.is_empty() {
         // Lone orphan card. By construction there's exactly one person
         // here — an unanchored person becomes its own component.
@@ -526,18 +539,18 @@ fn build_one_component(index: &Index<'_>, members: &ComponentMembers) -> Compone
         };
     }
 
-    // Find the visible root of the component. A marriage is the
-    // outer-most "true root" iff (a) it has no bar-anchor (P8 floating
-    // mini-comp) and (b) it is not the canonical-family of any
-    // joining spouse in this component — i.e. P6 doesn't nest *it*
-    // inside another marriage's joining-slot. The cousin-marriage
-    // exception (P11) is captured by `in_context` later; here we just
-    // pick the marriage that's at the outermost layer.
+    // Find the visible root of the component. The root is a
+    // `PersonCard`: the outermost canonical host of the outermost
+    // floating marriage in the component. "Outermost floating" means:
+    // (a) no bar-anchor (P8 floating mini-comp) and (b) not the
+    // canonical-family of any joining spouse in this component — P6
+    // doesn't nest *it* inside another marriage's joining-slot.
     //
-    // A component may contain multiple "true roots" (e.g. polygamy
-    // where two distinct floating mini-comps share a person but
-    // neither nests inside the other). In that case we pick the
-    // earliest-declared.
+    // When multiple "true roots" exist (e.g. polygamy where a person
+    // floats N bars), the union-find above has already collapsed them
+    // into one component; we pick the earliest-declared root marriage,
+    // which is the polygamous host's primary (first-declared un-ended)
+    // anchor per ADR-0021.
     let nested_targets: HashSet<String> = members
         .marriages
         .iter()
@@ -590,9 +603,11 @@ fn build_one_component(index: &Index<'_>, members: &ComponentMembers) -> Compone
     // cousin / sibling marriage (P11) — terminate the nesting; if not,
     // pull the birth family in as a nested sub-tree at the joining
     // spouse's connection point (true P6 nest).
-    let in_context = compute_main_walk_reachable(index, root_marriage_idx);
+    let root_host_id = index.graph.marriages[root_marriage_idx].spouses[0].as_str();
+    let in_context = compute_main_walk_reachable(index, root_host_id, root_marriage_idx);
+
     let mut visited = HashSet::new();
-    let root = Box::new(build_marriage_branch(
+    let root = Box::new(build_person_root(
         index,
         root_marriage_idx,
         &mut visited,
@@ -606,17 +621,122 @@ fn build_one_component(index: &Index<'_>, members: &ComponentMembers) -> Compone
     }
 }
 
+/// Build the root `PersonCard` of a `FamilyTree` component.
+///
+/// The root is the outermost canonical host of the component. Three
+/// shapes:
+///
+/// - The host's canonical card is `ChildOf(root_marriage)` — they
+///   haven't moved on (no newer current intimacy) and the floating
+///   bar is their first-declared un-ended participation. Root
+///   PersonCard is canonical, with `hosted_marriages` carrying the
+///   floating un-ended bars in declaration order.
+/// - The host's canonical card is `HostOfFloating(root_marriage)` —
+///   the host has no birth family; same canonical-rooted shape.
+/// - The host has moved on (canonical lives elsewhere) and the
+///   floating bar is past-ended — there is no canonical host, so the
+///   root PersonCard is a ghost (`SlotKind::Ghost { reason:
+///   PastMarriage }`) rooted at the declared host. Carries the
+///   past-ended bar in `hosted_marriages` as a single entry so the
+///   child edges still anchor (Q12 A.1 from #142's grilling notes).
+fn build_person_root(
+    index: &Index<'_>,
+    root_marriage_idx: usize,
+    visited: &mut HashSet<usize>,
+    in_context: &HashSet<usize>,
+) -> PersonCard {
+    let host_id = index.graph.marriages[root_marriage_idx].spouses[0].as_str();
+    let host_facts = index
+        .person(host_id)
+        .expect("root marriage's host must be a declared person");
+
+    // Decide whether the root PersonCard is canonical or ghost. The
+    // root marriage has no bar-anchor (it's a floating mini-comp), so
+    // the host's canonical card either sits at this floating bar
+    // (canonical root) or lives elsewhere — in which case the bar is
+    // past-ended (the host moved on), and the root is a ghost.
+    let host_is_canonical_here = matches!(
+        index.canonical_location(host_facts),
+        CanonicalLocation::HostOfFloating(ref m) if m == &index.graph.marriages[root_marriage_idx].id,
+    );
+
+    let slot = if host_is_canonical_here {
+        canonical_card_slot(host_facts)
+    } else {
+        // Ghost-rooted: the PersonCard sits on the same generation row
+        // as the bar it hosts (not one row below — that's the
+        // child-ghost rule in `ghost_card_slot`). The bar is the
+        // host's slot in their absent birth family, and the ghost
+        // takes the host's spot at that slot.
+        let bar_gen = bar_generation(index, &index.graph.marriages[root_marriage_idx]);
+        card_slot(
+            host_facts,
+            SlotKind::Ghost {
+                reason: GhostReason::PastMarriage,
+            },
+            bar_gen,
+        )
+    };
+
+    let hosted_marriages = if host_is_canonical_here {
+        // All of the host's un-ended hosted marriages (P8 amendment —
+        // polygamy collapses onto one canonical card). The root
+        // marriage is the first-declared un-ended; the rest are
+        // additional concurrent intimacies in declaration order.
+        // `build_hosted_marriages` already visits in declaration order
+        // and skips ones already visited.
+        build_hosted_marriages(index, host_facts, visited, in_context)
+    } else {
+        // Ghost-rooted: only the past-ended root bar surfaces here.
+        // The host's other (canonical) participations live in their
+        // own component anchored at the canonical card.
+        vec![build_marriage_branch(
+            index,
+            root_marriage_idx,
+            visited,
+            in_context,
+        )]
+    };
+
+    PersonCard {
+        slot,
+        hosted_marriages,
+    }
+}
+
 /// Precompute the set of marriage indices the main tree-walk would
-/// visit from `root_idx`: the root marriage itself, the hosted
-/// marriages of each canonical child, and recursively. Used as the
-/// P11 termination set for `build_nested_birth_family` — a joining
+/// visit from the root PersonCard: the root host's hosted marriages,
+/// each canonical child's hosted marriages, and recursively. Used as
+/// the P11 termination set for `build_nested_birth_family` — a joining
 /// spouse's birth family that's already in this set is in the
 /// current rendering context (cousin / sibling marriage) and doesn't
 /// nest; one that isn't gets pulled in as a nested sub-tree (true P6
 /// nest).
-fn compute_main_walk_reachable(index: &Index<'_>, root_idx: usize) -> HashSet<usize> {
+fn compute_main_walk_reachable(
+    index: &Index<'_>,
+    root_host_id: &str,
+    root_marriage_idx: usize,
+) -> HashSet<usize> {
     let mut reachable: HashSet<usize> = HashSet::new();
-    let mut stack: Vec<usize> = vec![root_idx];
+    let mut stack: Vec<usize> = Vec::new();
+
+    // Seed with the root host's hosted marriages (canonical-rooted
+    // path), or the root marriage itself (ghost-rooted path: the
+    // host's canonical lives elsewhere so their other hosted
+    // marriages don't belong to this component's walk).
+    if let Some(host_facts) = index.person(root_host_id)
+        && matches!(
+            index.canonical_location(host_facts),
+            CanonicalLocation::HostOfFloating(ref m) if m == &index.graph.marriages[root_marriage_idx].id,
+        )
+    {
+        for &h in &host_facts.hosted_marriages {
+            stack.push(h);
+        }
+    } else {
+        stack.push(root_marriage_idx);
+    }
+
     while let Some(m_idx) = stack.pop() {
         if !reachable.insert(m_idx) {
             continue;
@@ -663,15 +783,13 @@ fn build_marriage_branch(
     let host_id = &marriage.spouses[0];
     let joining_id = &marriage.spouses[1];
 
-    let host_slot = bar_slot(index, host_id, marriage, BarPosition::Host);
-    let joining_slot = bar_slot(index, joining_id, marriage, BarPosition::Joining);
+    let joining_slot = bar_joining_slot(index, joining_id, marriage);
 
     let bar = MarriageBar {
         marriage_id: marriage.id.clone(),
         generation: bar_generation(index, marriage),
         host_id: host_id.clone(),
         joining_id: joining_id.clone(),
-        host_slot,
         joining_slot,
         start: marriage.start.clone(),
         end: marriage.end.clone(),
@@ -696,12 +814,16 @@ fn build_marriage_branch(
 /// recursion would re-enter the current rendering context (P11 cousin /
 /// sibling marriage — the birth family is already a sibling structure
 /// in this component, reachable through the main walk).
+///
+/// Shaped exactly like a top-level [`ComponentKind::FamilyTree`] —
+/// the returned `PersonCard` is the outermost canonical host of the
+/// nested family, with the birth-family bar in its `hosted_marriages`.
 fn build_nested_birth_family(
     index: &Index<'_>,
     joining_id: &str,
     visited: &mut HashSet<usize>,
     in_context: &HashSet<usize>,
-) -> Option<Box<MarriageBranch>> {
+) -> Option<Box<PersonCard>> {
     let facts = index.person(joining_id)?;
     let family_id = facts.canonical_family()?;
     let &family_idx = index.marriages_by_id.get(family_id)?;
@@ -716,7 +838,7 @@ fn build_nested_birth_family(
     if visited.contains(&family_idx) {
         return None;
     }
-    Some(Box::new(build_marriage_branch(
+    Some(Box::new(build_person_root(
         index, family_idx, visited, in_context,
     )))
 }
@@ -791,56 +913,70 @@ fn build_hosted_marriages(
         if visited.contains(&m) {
             continue;
         }
+        // Only attach bars that belong to this PersonCard's component.
+        // A past-ended bar whose host has moved on lives in its own
+        // ghost-rooted component (Q12 A.1); it must not duplicate
+        // under the host's canonical PersonCard.
+        if !host_anchors_bar_here(index, host, m) {
+            continue;
+        }
         out.push(build_marriage_branch(index, m, visited, in_context));
     }
     out
 }
 
-/// Card kind at a marriage bar. Position discriminates host (the
-/// spouse's slot at their own birth-family slot) from joining (the
-/// spouse's slot adjacent to the host).
-#[derive(Debug, Clone, Copy)]
-enum BarPosition {
-    Host,
-    Joining,
+/// True iff this canonical PersonCard for `host` should carry the
+/// given bar as a `hosted_marriage`.
+///
+/// - An un-ended bar always anchors at the host's canonical card,
+///   regardless of primary-vs-secondary in the polygamy cluster
+///   (P2 + P8 amended by ADR-0021).
+/// - A past-ended bar anchors here only if the host has *not* moved
+///   on (no newer current intimacy) and the bar's canonical location
+///   matches this PersonCard's slot — same condition the old
+///   `bar_slot` used to decide host-slot canonicality.
+fn host_anchors_bar_here(index: &Index<'_>, host: &PersonFacts<'_>, marriage_idx: usize) -> bool {
+    let marriage = &index.graph.marriages[marriage_idx];
+    let location = index.canonical_location(host);
+
+    if marriage.end.is_none() {
+        // Un-ended bar: anchors at the canonical card iff that card
+        // is the polygamy hub for this host's current intimacies.
+        // The hub is `ChildOf(canonical_family)` for a host with a
+        // birth family or `HostOfFloating(primary)` for a host
+        // without one — i.e. anywhere except `JoiningOf` (where the
+        // host is the *joining* spouse, not the host) or `Orphan`.
+        return matches!(
+            location,
+            CanonicalLocation::ChildOf(_) | CanonicalLocation::HostOfFloating(_),
+        );
+    }
+
+    // Past-ended bar: same predicate as the old `bar_slot` host-slot
+    // canonical check.
+    let bar_anchor = index.bar_anchor(marriage);
+    match location {
+        CanonicalLocation::ChildOf(ref family) => bar_anchor.as_deref() == Some(family.as_str()),
+        CanonicalLocation::HostOfFloating(ref m) => m == &marriage.id,
+        _ => false,
+    }
 }
 
-/// Build a `CardSlot` for a spouse at the given marriage's bar.
+/// Build the joining spouse's `CardSlot` for a marriage bar.
 ///
-/// Per P8, the slot is canonical iff this spouse's canonical card
-/// physically lives at the bar's location. That is:
-///
-/// - Host position: canonical iff the host's
-///   `canonical_location` resolves to the children row of the host's
-///   canonical family (because the bar sits at exactly that slot), or
-///   iff the host's canonical lives at this floating mini-component's
-///   bar.
-/// - Joining position: canonical iff the joining spouse's
-///   `canonical_location` is `JoiningOf(this marriage)`.
-///
-/// Any other case is a past-marriage ghost (the canonical card is
+/// Per P8, the joining slot is canonical iff the joining spouse's
+/// canonical card physically lives at this bar — i.e.
+/// `canonical_location` resolves to `JoiningOf(this marriage)`. Any
+/// other case is a past-marriage ghost (the canonical card is
 /// somewhere else).
-fn bar_slot(
-    index: &Index<'_>,
-    person_id: &str,
-    marriage: &ExportedMarriage,
-    position: BarPosition,
-) -> CardSlot {
+fn bar_joining_slot(index: &Index<'_>, joining_id: &str, marriage: &ExportedMarriage) -> CardSlot {
     let facts = index
-        .person(person_id)
+        .person(joining_id)
         .expect("spouse must be a declared person");
-    let loc = index.canonical_location(facts);
-    let bar_anchor = index.bar_anchor(marriage);
-    let canonical = match (position, &loc) {
-        (BarPosition::Host, CanonicalLocation::ChildOf(family))
-            if bar_anchor.as_deref() == Some(family.as_str()) =>
-        {
-            true
-        }
-        (BarPosition::Host, CanonicalLocation::HostOfFloating(m)) if m == &marriage.id => true,
-        (BarPosition::Joining, CanonicalLocation::JoiningOf(m)) if m == &marriage.id => true,
-        _ => false,
-    };
+    let canonical = matches!(
+        index.canonical_location(facts),
+        CanonicalLocation::JoiningOf(ref m) if m == &marriage.id,
+    );
     let kind = if canonical {
         SlotKind::Canonical
     } else {

@@ -4,7 +4,7 @@ expression: render_pretty(&envelope)
 ---
 {
   "ok": true,
-  "schema": 1,
+  "schema": 2,
   "kul": "0.1",
   "components": [
     {
@@ -45,56 +45,60 @@ expression: render_pretty(&envelope)
       "kind": {
         "type": "familyTree",
         "root": {
-          "bar": {
-            "marriageId": "m_alice_bob",
+          "slot": {
+            "personId": "alice",
+            "kind": {
+              "kind": "ghost",
+              "reason": "pastMarriage"
+            },
             "generation": 0,
-            "hostId": "alice",
-            "joiningId": "bob",
-            "hostSlot": {
-              "personId": "alice",
-              "kind": {
-                "kind": "ghost",
-                "reason": "pastMarriage"
-              },
-              "generation": 0,
-              "name": "Alice",
-              "gender": "female"
-            },
-            "joiningSlot": {
-              "personId": "bob",
-              "kind": {
-                "kind": "ghost",
-                "reason": "pastMarriage"
-              },
-              "generation": 0,
-              "name": "Bob",
-              "gender": "male"
-            },
-            "start": {
-              "value": "1972",
-              "precision": "year",
-              "circa": false
-            },
-            "end": {
-              "value": "1990",
-              "precision": "year",
-              "circa": false
-            },
-            "endReason": "divorce",
-            "ended": true
+            "name": "Alice",
+            "gender": "female"
           },
-          "children": [
+          "hostedMarriages": [
             {
-              "slot": {
-                "personId": "carol",
-                "kind": {
-                  "kind": "canonical"
+              "bar": {
+                "marriageId": "m_alice_bob",
+                "generation": 0,
+                "hostId": "alice",
+                "joiningId": "bob",
+                "joiningSlot": {
+                  "personId": "bob",
+                  "kind": {
+                    "kind": "ghost",
+                    "reason": "pastMarriage"
+                  },
+                  "generation": 0,
+                  "name": "Bob",
+                  "gender": "male"
                 },
-                "generation": 1,
-                "name": "Carol",
-                "gender": "female"
+                "start": {
+                  "value": "1972",
+                  "precision": "year",
+                  "circa": false
+                },
+                "end": {
+                  "value": "1990",
+                  "precision": "year",
+                  "circa": false
+                },
+                "endReason": "divorce",
+                "ended": true
               },
-              "hostedMarriages": []
+              "children": [
+                {
+                  "slot": {
+                    "personId": "carol",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Carol",
+                    "gender": "female"
+                  },
+                  "hostedMarriages": []
+                }
+              ]
             }
           ]
         }

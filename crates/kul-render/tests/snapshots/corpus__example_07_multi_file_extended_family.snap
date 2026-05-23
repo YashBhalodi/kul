@@ -4,7 +4,7 @@ expression: json
 ---
 {
   "ok": true,
-  "schema": 1,
+  "schema": 2,
   "kul": "0.1",
   "components": [
     {
@@ -13,244 +13,220 @@ expression: json
       "kind": {
         "type": "familyTree",
         "root": {
-          "bar": {
-            "marriageId": "m_ramesh_sita",
+          "slot": {
+            "personId": "ramesh",
+            "kind": {
+              "kind": "canonical"
+            },
             "generation": 0,
-            "hostId": "ramesh",
-            "joiningId": "sita",
-            "hostSlot": {
-              "personId": "ramesh",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 0,
-              "name": "Ramesh Patel",
-              "gender": "male",
-              "born": {
-                "value": "1928-04-10",
-                "precision": "day",
-                "circa": false
-              },
-              "died": {
-                "value": "2010-12-03",
-                "precision": "day",
-                "circa": false
-              }
-            },
-            "joiningSlot": {
-              "personId": "sita",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 0,
-              "name": "Sita Patel",
-              "gender": "female",
-              "born": {
-                "value": "1931-09-22",
-                "precision": "day",
-                "circa": false
-              },
-              "died": {
-                "value": "2018-06-14",
-                "precision": "day",
-                "circa": false
-              }
-            },
-            "start": {
-              "value": "1952-02-18",
+            "name": "Ramesh Patel",
+            "gender": "male",
+            "born": {
+              "value": "1928-04-10",
               "precision": "day",
               "circa": false
             },
-            "ended": false
+            "died": {
+              "value": "2010-12-03",
+              "precision": "day",
+              "circa": false
+            }
           },
-          "children": [
+          "hostedMarriages": [
             {
-              "slot": {
-                "personId": "alice",
-                "kind": {
-                  "kind": "canonical"
+              "bar": {
+                "marriageId": "m_ramesh_sita",
+                "generation": 0,
+                "hostId": "ramesh",
+                "joiningId": "sita",
+                "joiningSlot": {
+                  "personId": "sita",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Sita Patel",
+                  "gender": "female",
+                  "born": {
+                    "value": "1931-09-22",
+                    "precision": "day",
+                    "circa": false
+                  },
+                  "died": {
+                    "value": "2018-06-14",
+                    "precision": "day",
+                    "circa": false
+                  }
                 },
-                "generation": 1,
-                "name": "Alice Patel",
-                "gender": "female",
-                "born": {
-                  "value": "1955-07-19",
+                "start": {
+                  "value": "1952-02-18",
                   "precision": "day",
                   "circa": false
-                }
+                },
+                "ended": false
               },
-              "hostedMarriages": [
+              "children": [
                 {
-                  "bar": {
-                    "marriageId": "m_alice_bob",
+                  "slot": {
+                    "personId": "alice",
+                    "kind": {
+                      "kind": "canonical"
+                    },
                     "generation": 1,
-                    "hostId": "alice",
-                    "joiningId": "bob",
-                    "hostSlot": {
-                      "personId": "alice",
-                      "kind": {
-                        "kind": "canonical"
-                      },
-                      "generation": 1,
-                      "name": "Alice Patel",
-                      "gender": "female",
-                      "born": {
-                        "value": "1955-07-19",
-                        "precision": "day",
-                        "circa": false
-                      }
-                    },
-                    "joiningSlot": {
-                      "personId": "bob",
-                      "kind": {
-                        "kind": "canonical"
-                      },
-                      "generation": 1,
-                      "name": "Bob Khan",
-                      "gender": "male",
-                      "born": {
-                        "value": "1953-11-02",
-                        "precision": "day",
-                        "circa": false
-                      }
-                    },
-                    "start": {
-                      "value": "1978-09-15",
+                    "name": "Alice Patel",
+                    "gender": "female",
+                    "born": {
+                      "value": "1955-07-19",
                       "precision": "day",
                       "circa": false
-                    },
-                    "ended": false
+                    }
                   },
-                  "children": [
+                  "hostedMarriages": [
                     {
-                      "slot": {
-                        "personId": "carol",
-                        "kind": {
-                          "kind": "canonical"
+                      "bar": {
+                        "marriageId": "m_alice_bob",
+                        "generation": 1,
+                        "hostId": "alice",
+                        "joiningId": "bob",
+                        "joiningSlot": {
+                          "personId": "bob",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Bob Khan",
+                          "gender": "male",
+                          "born": {
+                            "value": "1953-11-02",
+                            "precision": "day",
+                            "circa": false
+                          }
                         },
-                        "generation": 2,
-                        "name": "Carol Patel",
-                        "gender": "female",
-                        "born": {
-                          "value": "1981-06-08",
+                        "start": {
+                          "value": "1978-09-15",
                           "precision": "day",
                           "circa": false
-                        }
-                      },
-                      "hostedMarriages": []
-                    },
-                    {
-                      "slot": {
-                        "personId": "diya",
-                        "kind": {
-                          "kind": "canonical"
                         },
-                        "generation": 2,
-                        "name": "Diya Patel",
-                        "gender": "female",
-                        "born": {
-                          "value": "1984-10-30",
-                          "precision": "day",
-                          "circa": false
-                        }
+                        "ended": false
                       },
-                      "hostedMarriages": []
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "carol",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Carol Patel",
+                            "gender": "female",
+                            "born": {
+                              "value": "1981-06-08",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        },
+                        {
+                          "slot": {
+                            "personId": "diya",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Diya Patel",
+                            "gender": "female",
+                            "born": {
+                              "value": "1984-10-30",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
                     }
                   ]
-                }
-              ]
-            },
-            {
-              "slot": {
-                "personId": "dev",
-                "kind": {
-                  "kind": "canonical"
                 },
-                "generation": 1,
-                "name": "Dev Patel",
-                "gender": "male",
-                "born": {
-                  "value": "1958-03-28",
-                  "precision": "day",
-                  "circa": false
-                }
-              },
-              "hostedMarriages": [
                 {
-                  "bar": {
-                    "marriageId": "m_dev_eva",
+                  "slot": {
+                    "personId": "dev",
+                    "kind": {
+                      "kind": "canonical"
+                    },
                     "generation": 1,
-                    "hostId": "dev",
-                    "joiningId": "eva",
-                    "hostSlot": {
-                      "personId": "dev",
-                      "kind": {
-                        "kind": "canonical"
-                      },
-                      "generation": 1,
-                      "name": "Dev Patel",
-                      "gender": "male",
-                      "born": {
-                        "value": "1958-03-28",
-                        "precision": "day",
-                        "circa": false
-                      }
-                    },
-                    "joiningSlot": {
-                      "personId": "eva",
-                      "kind": {
-                        "kind": "canonical"
-                      },
-                      "generation": 1,
-                      "name": "Eva Singh",
-                      "gender": "female",
-                      "born": {
-                        "value": "1959-12-04",
-                        "precision": "day",
-                        "circa": false
-                      }
-                    },
-                    "start": {
-                      "value": "1982-04-22",
+                    "name": "Dev Patel",
+                    "gender": "male",
+                    "born": {
+                      "value": "1958-03-28",
                       "precision": "day",
                       "circa": false
-                    },
-                    "ended": false
+                    }
                   },
-                  "children": [
+                  "hostedMarriages": [
                     {
-                      "slot": {
-                        "personId": "farid",
-                        "kind": {
-                          "kind": "canonical"
+                      "bar": {
+                        "marriageId": "m_dev_eva",
+                        "generation": 1,
+                        "hostId": "dev",
+                        "joiningId": "eva",
+                        "joiningSlot": {
+                          "personId": "eva",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Eva Singh",
+                          "gender": "female",
+                          "born": {
+                            "value": "1959-12-04",
+                            "precision": "day",
+                            "circa": false
+                          }
                         },
-                        "generation": 2,
-                        "name": "Farid Patel",
-                        "gender": "male",
-                        "born": {
-                          "value": "1985-01-17",
+                        "start": {
+                          "value": "1982-04-22",
                           "precision": "day",
                           "circa": false
-                        }
-                      },
-                      "hostedMarriages": []
-                    },
-                    {
-                      "slot": {
-                        "personId": "gita",
-                        "kind": {
-                          "kind": "canonical"
                         },
-                        "generation": 2,
-                        "name": "Gita Patel",
-                        "gender": "female",
-                        "born": {
-                          "value": "1988",
-                          "precision": "year",
-                          "circa": true
-                        }
+                        "ended": false
                       },
-                      "hostedMarriages": []
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "farid",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Farid Patel",
+                            "gender": "male",
+                            "born": {
+                              "value": "1985-01-17",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        },
+                        {
+                          "slot": {
+                            "personId": "gita",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Gita Patel",
+                            "gender": "female",
+                            "born": {
+                              "value": "1988",
+                              "precision": "year",
+                              "circa": true
+                            }
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
                     }
                   ]
                 }

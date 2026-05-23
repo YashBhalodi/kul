@@ -4,7 +4,7 @@ expression: json
 ---
 {
   "ok": true,
-  "schema": 1,
+  "schema": 2,
   "kul": "0.1",
   "components": [
     {
@@ -13,470 +13,376 @@ expression: json
       "kind": {
         "type": "familyTree",
         "root": {
-          "bar": {
-            "marriageId": "m_govind_lakshmi",
+          "slot": {
+            "personId": "govind",
+            "kind": {
+              "kind": "canonical"
+            },
             "generation": 0,
-            "hostId": "govind",
-            "joiningId": "lakshmi",
-            "hostSlot": {
-              "personId": "govind",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 0,
-              "name": "Govind Iyer",
-              "gender": "male",
-              "born": {
-                "value": "1900-02-14",
-                "precision": "day",
-                "circa": false
-              }
-            },
-            "joiningSlot": {
-              "personId": "lakshmi",
-              "kind": {
-                "kind": "canonical"
-              },
-              "generation": 0,
-              "name": "Lakshmi Iyer",
-              "gender": "female",
-              "born": {
-                "value": "1903-09-21",
-                "precision": "day",
-                "circa": false
-              }
-            },
-            "start": {
-              "value": "1922-05-30",
+            "name": "Govind Iyer",
+            "gender": "male",
+            "born": {
+              "value": "1900-02-14",
               "precision": "day",
               "circa": false
-            },
-            "ended": false
+            }
           },
-          "children": [
+          "hostedMarriages": [
             {
-              "slot": {
-                "personId": "arjun",
-                "kind": {
-                  "kind": "canonical"
+              "bar": {
+                "marriageId": "m_govind_lakshmi",
+                "generation": 0,
+                "hostId": "govind",
+                "joiningId": "lakshmi",
+                "joiningSlot": {
+                  "personId": "lakshmi",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Lakshmi Iyer",
+                  "gender": "female",
+                  "born": {
+                    "value": "1903-09-21",
+                    "precision": "day",
+                    "circa": false
+                  }
                 },
-                "generation": 1,
-                "name": "Arjun Iyer",
-                "gender": "male",
-                "born": {
-                  "value": "1925-04-10",
+                "start": {
+                  "value": "1922-05-30",
                   "precision": "day",
                   "circa": false
-                }
+                },
+                "ended": false
               },
-              "hostedMarriages": [
+              "children": [
                 {
-                  "bar": {
-                    "marriageId": "m_arjun_indira",
+                  "slot": {
+                    "personId": "arjun",
+                    "kind": {
+                      "kind": "canonical"
+                    },
                     "generation": 1,
-                    "hostId": "arjun",
-                    "joiningId": "indira",
-                    "hostSlot": {
-                      "personId": "arjun",
-                      "kind": {
-                        "kind": "canonical"
-                      },
-                      "generation": 1,
-                      "name": "Arjun Iyer",
-                      "gender": "male",
-                      "born": {
-                        "value": "1925-04-10",
-                        "precision": "day",
-                        "circa": false
-                      }
-                    },
-                    "joiningSlot": {
-                      "personId": "indira",
-                      "kind": {
-                        "kind": "canonical"
-                      },
-                      "generation": 1,
-                      "name": "Indira Iyer",
-                      "gender": "female",
-                      "born": {
-                        "value": "1928-11-12",
-                        "precision": "day",
-                        "circa": false
-                      }
-                    },
-                    "start": {
-                      "value": "1947-06-18",
+                    "name": "Arjun Iyer",
+                    "gender": "male",
+                    "born": {
+                      "value": "1925-04-10",
                       "precision": "day",
                       "circa": false
-                    },
-                    "ended": false
+                    }
                   },
-                  "children": [
+                  "hostedMarriages": [
                     {
-                      "slot": {
-                        "personId": "dilip",
-                        "kind": {
-                          "kind": "canonical"
+                      "bar": {
+                        "marriageId": "m_arjun_indira",
+                        "generation": 1,
+                        "hostId": "arjun",
+                        "joiningId": "indira",
+                        "joiningSlot": {
+                          "personId": "indira",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Indira Iyer",
+                          "gender": "female",
+                          "born": {
+                            "value": "1928-11-12",
+                            "precision": "day",
+                            "circa": false
+                          }
                         },
-                        "generation": 2,
-                        "name": "Dilip Iyer",
-                        "gender": "male",
-                        "born": {
-                          "value": "1948-08-05",
+                        "start": {
+                          "value": "1947-06-18",
                           "precision": "day",
                           "circa": false
-                        }
-                      },
-                      "hostedMarriages": [
-                        {
-                          "bar": {
-                            "marriageId": "m_dilip_hema",
-                            "generation": 2,
-                            "hostId": "dilip",
-                            "joiningId": "hema",
-                            "hostSlot": {
-                              "personId": "dilip",
-                              "kind": {
-                                "kind": "canonical"
-                              },
-                              "generation": 2,
-                              "name": "Dilip Iyer",
-                              "gender": "male",
-                              "born": {
-                                "value": "1948-08-05",
-                                "precision": "day",
-                                "circa": false
-                              }
-                            },
-                            "joiningSlot": {
-                              "personId": "hema",
-                              "kind": {
-                                "kind": "canonical"
-                              },
-                              "generation": 2,
-                              "name": "Hema Iyer",
-                              "gender": "female",
-                              "born": {
-                                "value": "1950-12-03",
-                                "precision": "day",
-                                "circa": false
-                              }
-                            },
-                            "start": {
-                              "value": "1970-02-14",
-                              "precision": "day",
-                              "circa": false
-                            },
-                            "ended": false
-                          },
-                          "children": []
-                        }
-                      ]
-                    },
-                    {
-                      "slot": {
-                        "personId": "eshwar",
-                        "kind": {
-                          "kind": "canonical"
                         },
-                        "generation": 2,
-                        "name": "Eshwar Iyer",
-                        "gender": "male",
-                        "born": {
-                          "value": "1950-03-22",
-                          "precision": "day",
-                          "circa": false
-                        }
+                        "ended": false
                       },
-                      "hostedMarriages": [
+                      "children": [
                         {
-                          "bar": {
-                            "marriageId": "m_eshwar_ila",
+                          "slot": {
+                            "personId": "dilip",
+                            "kind": {
+                              "kind": "canonical"
+                            },
                             "generation": 2,
-                            "hostId": "eshwar",
-                            "joiningId": "ila",
-                            "hostSlot": {
-                              "personId": "eshwar",
-                              "kind": {
-                                "kind": "canonical"
-                              },
-                              "generation": 2,
-                              "name": "Eshwar Iyer",
-                              "gender": "male",
-                              "born": {
-                                "value": "1950-03-22",
-                                "precision": "day",
-                                "circa": false
-                              }
-                            },
-                            "joiningSlot": {
-                              "personId": "ila",
-                              "kind": {
-                                "kind": "canonical"
-                              },
-                              "generation": 2,
-                              "name": "Ila Iyer",
-                              "gender": "female",
-                              "born": {
-                                "value": "1952-07-09",
-                                "precision": "day",
-                                "circa": false
-                              }
-                            },
-                            "start": {
-                              "value": "1972-10-30",
+                            "name": "Dilip Iyer",
+                            "gender": "male",
+                            "born": {
+                              "value": "1948-08-05",
                               "precision": "day",
                               "circa": false
-                            },
-                            "ended": false
+                            }
                           },
-                          "children": []
+                          "hostedMarriages": [
+                            {
+                              "bar": {
+                                "marriageId": "m_dilip_hema",
+                                "generation": 2,
+                                "hostId": "dilip",
+                                "joiningId": "hema",
+                                "joiningSlot": {
+                                  "personId": "hema",
+                                  "kind": {
+                                    "kind": "canonical"
+                                  },
+                                  "generation": 2,
+                                  "name": "Hema Iyer",
+                                  "gender": "female",
+                                  "born": {
+                                    "value": "1950-12-03",
+                                    "precision": "day",
+                                    "circa": false
+                                  }
+                                },
+                                "start": {
+                                  "value": "1970-02-14",
+                                  "precision": "day",
+                                  "circa": false
+                                },
+                                "ended": false
+                              },
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "slot": {
+                            "personId": "eshwar",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Eshwar Iyer",
+                            "gender": "male",
+                            "born": {
+                              "value": "1950-03-22",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": [
+                            {
+                              "bar": {
+                                "marriageId": "m_eshwar_ila",
+                                "generation": 2,
+                                "hostId": "eshwar",
+                                "joiningId": "ila",
+                                "joiningSlot": {
+                                  "personId": "ila",
+                                  "kind": {
+                                    "kind": "canonical"
+                                  },
+                                  "generation": 2,
+                                  "name": "Ila Iyer",
+                                  "gender": "female",
+                                  "born": {
+                                    "value": "1952-07-09",
+                                    "precision": "day",
+                                    "circa": false
+                                  }
+                                },
+                                "start": {
+                                  "value": "1972-10-30",
+                                  "precision": "day",
+                                  "circa": false
+                                },
+                                "ended": false
+                              },
+                              "children": []
+                            }
+                          ]
                         }
                       ]
                     }
                   ]
-                }
-              ]
-            },
-            {
-              "slot": {
-                "personId": "bharat",
-                "kind": {
-                  "kind": "canonical"
                 },
-                "generation": 1,
-                "name": "Bharat Iyer",
-                "gender": "male",
-                "born": {
-                  "value": "1928-09-15",
-                  "precision": "day",
-                  "circa": false
-                }
-              },
-              "hostedMarriages": [
                 {
-                  "bar": {
-                    "marriageId": "m_bharat_janaki",
+                  "slot": {
+                    "personId": "bharat",
+                    "kind": {
+                      "kind": "canonical"
+                    },
                     "generation": 1,
-                    "hostId": "bharat",
-                    "joiningId": "janaki",
-                    "hostSlot": {
-                      "personId": "bharat",
-                      "kind": {
-                        "kind": "canonical"
-                      },
-                      "generation": 1,
-                      "name": "Bharat Iyer",
-                      "gender": "male",
-                      "born": {
-                        "value": "1928-09-15",
-                        "precision": "day",
-                        "circa": false
-                      }
-                    },
-                    "joiningSlot": {
-                      "personId": "janaki",
-                      "kind": {
-                        "kind": "canonical"
-                      },
-                      "generation": 1,
-                      "name": "Janaki Iyer",
-                      "gender": "female",
-                      "born": {
-                        "value": "1930-04-28",
-                        "precision": "day",
-                        "circa": false
-                      }
-                    },
-                    "start": {
-                      "value": "1950-11-19",
+                    "name": "Bharat Iyer",
+                    "gender": "male",
+                    "born": {
+                      "value": "1928-09-15",
                       "precision": "day",
                       "circa": false
-                    },
-                    "ended": false
+                    }
                   },
-                  "children": [
+                  "hostedMarriages": [
                     {
-                      "slot": {
-                        "personId": "mohan",
-                        "kind": {
-                          "kind": "canonical"
+                      "bar": {
+                        "marriageId": "m_bharat_janaki",
+                        "generation": 1,
+                        "hostId": "bharat",
+                        "joiningId": "janaki",
+                        "joiningSlot": {
+                          "personId": "janaki",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Janaki Iyer",
+                          "gender": "female",
+                          "born": {
+                            "value": "1930-04-28",
+                            "precision": "day",
+                            "circa": false
+                          }
                         },
-                        "generation": 2,
-                        "name": "Mohan Iyer",
-                        "gender": "male",
-                        "born": {
-                          "value": "1951-06-04",
+                        "start": {
+                          "value": "1950-11-19",
                           "precision": "day",
                           "circa": false
-                        }
+                        },
+                        "ended": false
                       },
-                      "hostedMarriages": [
+                      "children": [
                         {
-                          "bar": {
-                            "marriageId": "m_mohan_jyoti",
+                          "slot": {
+                            "personId": "mohan",
+                            "kind": {
+                              "kind": "canonical"
+                            },
                             "generation": 2,
-                            "hostId": "mohan",
-                            "joiningId": "jyoti",
-                            "hostSlot": {
-                              "personId": "mohan",
-                              "kind": {
-                                "kind": "canonical"
-                              },
-                              "generation": 2,
-                              "name": "Mohan Iyer",
-                              "gender": "male",
-                              "born": {
-                                "value": "1951-06-04",
-                                "precision": "day",
-                                "circa": false
-                              }
-                            },
-                            "joiningSlot": {
-                              "personId": "jyoti",
-                              "kind": {
-                                "kind": "canonical"
-                              },
-                              "generation": 2,
-                              "name": "Jyoti Iyer",
-                              "gender": "female",
-                              "born": {
-                                "value": "1953-01-17",
-                                "precision": "day",
-                                "circa": false
-                              }
-                            },
-                            "start": {
-                              "value": "1974-03-08",
+                            "name": "Mohan Iyer",
+                            "gender": "male",
+                            "born": {
+                              "value": "1951-06-04",
                               "precision": "day",
                               "circa": false
-                            },
-                            "ended": false
+                            }
                           },
-                          "children": []
+                          "hostedMarriages": [
+                            {
+                              "bar": {
+                                "marriageId": "m_mohan_jyoti",
+                                "generation": 2,
+                                "hostId": "mohan",
+                                "joiningId": "jyoti",
+                                "joiningSlot": {
+                                  "personId": "jyoti",
+                                  "kind": {
+                                    "kind": "canonical"
+                                  },
+                                  "generation": 2,
+                                  "name": "Jyoti Iyer",
+                                  "gender": "female",
+                                  "born": {
+                                    "value": "1953-01-17",
+                                    "precision": "day",
+                                    "circa": false
+                                  }
+                                },
+                                "start": {
+                                  "value": "1974-03-08",
+                                  "precision": "day",
+                                  "circa": false
+                                },
+                                "ended": false
+                              },
+                              "children": []
+                            }
+                          ]
                         }
                       ]
                     }
                   ]
-                }
-              ]
-            },
-            {
-              "slot": {
-                "personId": "chitra",
-                "kind": {
-                  "kind": "canonical"
                 },
-                "generation": 1,
-                "name": "Chitra Iyer",
-                "gender": "female",
-                "born": {
-                  "value": "1931-12-25",
-                  "precision": "day",
-                  "circa": false
-                }
-              },
-              "hostedMarriages": [
                 {
-                  "bar": {
-                    "marriageId": "m_chitra_karan",
+                  "slot": {
+                    "personId": "chitra",
+                    "kind": {
+                      "kind": "canonical"
+                    },
                     "generation": 1,
-                    "hostId": "chitra",
-                    "joiningId": "karan",
-                    "hostSlot": {
-                      "personId": "chitra",
-                      "kind": {
-                        "kind": "canonical"
-                      },
-                      "generation": 1,
-                      "name": "Chitra Iyer",
-                      "gender": "female",
-                      "born": {
-                        "value": "1931-12-25",
-                        "precision": "day",
-                        "circa": false
-                      }
-                    },
-                    "joiningSlot": {
-                      "personId": "karan",
-                      "kind": {
-                        "kind": "canonical"
-                      },
-                      "generation": 1,
-                      "name": "Karan Iyer",
-                      "gender": "male",
-                      "born": {
-                        "value": "1929-10-14",
-                        "precision": "day",
-                        "circa": false
-                      }
-                    },
-                    "start": {
-                      "value": "1952-08-22",
+                    "name": "Chitra Iyer",
+                    "gender": "female",
+                    "born": {
+                      "value": "1931-12-25",
                       "precision": "day",
                       "circa": false
-                    },
-                    "ended": false
+                    }
                   },
-                  "children": [
+                  "hostedMarriages": [
                     {
-                      "slot": {
-                        "personId": "gaurav",
-                        "kind": {
-                          "kind": "canonical"
+                      "bar": {
+                        "marriageId": "m_chitra_karan",
+                        "generation": 1,
+                        "hostId": "chitra",
+                        "joiningId": "karan",
+                        "joiningSlot": {
+                          "personId": "karan",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Karan Iyer",
+                          "gender": "male",
+                          "born": {
+                            "value": "1929-10-14",
+                            "precision": "day",
+                            "circa": false
+                          }
                         },
-                        "generation": 2,
-                        "name": "Gaurav Iyer",
-                        "gender": "male",
-                        "born": {
-                          "value": "1953-05-11",
+                        "start": {
+                          "value": "1952-08-22",
                           "precision": "day",
                           "circa": false
-                        }
+                        },
+                        "ended": false
                       },
-                      "hostedMarriages": [
+                      "children": [
                         {
-                          "bar": {
-                            "marriageId": "m_gaurav_kamala",
+                          "slot": {
+                            "personId": "gaurav",
+                            "kind": {
+                              "kind": "canonical"
+                            },
                             "generation": 2,
-                            "hostId": "gaurav",
-                            "joiningId": "kamala",
-                            "hostSlot": {
-                              "personId": "gaurav",
-                              "kind": {
-                                "kind": "canonical"
-                              },
-                              "generation": 2,
-                              "name": "Gaurav Iyer",
-                              "gender": "male",
-                              "born": {
-                                "value": "1953-05-11",
-                                "precision": "day",
-                                "circa": false
-                              }
-                            },
-                            "joiningSlot": {
-                              "personId": "kamala",
-                              "kind": {
-                                "kind": "canonical"
-                              },
-                              "generation": 2,
-                              "name": "Kamala Iyer",
-                              "gender": "female",
-                              "born": {
-                                "value": "1955-09-30",
-                                "precision": "day",
-                                "circa": false
-                              }
-                            },
-                            "start": {
-                              "value": "1975-12-05",
+                            "name": "Gaurav Iyer",
+                            "gender": "male",
+                            "born": {
+                              "value": "1953-05-11",
                               "precision": "day",
                               "circa": false
-                            },
-                            "ended": false
+                            }
                           },
-                          "children": []
+                          "hostedMarriages": [
+                            {
+                              "bar": {
+                                "marriageId": "m_gaurav_kamala",
+                                "generation": 2,
+                                "hostId": "gaurav",
+                                "joiningId": "kamala",
+                                "joiningSlot": {
+                                  "personId": "kamala",
+                                  "kind": {
+                                    "kind": "canonical"
+                                  },
+                                  "generation": 2,
+                                  "name": "Kamala Iyer",
+                                  "gender": "female",
+                                  "born": {
+                                    "value": "1955-09-30",
+                                    "precision": "day",
+                                    "circa": false
+                                  }
+                                },
+                                "start": {
+                                  "value": "1975-12-05",
+                                  "precision": "day",
+                                  "circa": false
+                                },
+                                "ended": false
+                              },
+                              "children": []
+                            }
+                          ]
                         }
                       ]
                     }
