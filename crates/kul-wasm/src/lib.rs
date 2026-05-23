@@ -27,6 +27,12 @@
 //!   [ADR-0009](../../docs/adr/0009-export-strict-on-diagnostics.md): any
 //!   error-severity diagnostic produces a [`FailureEnvelope`]; otherwise a
 //!   [`SuccessEnvelope`] carrying the kinship-native or cytoscape graph.
+//! - [`render_svg`] — JS-visible as `renderSvg`. Run the same canonical
+//!   render pipeline the LSP's `kul/render` request runs
+//!   (`kul_render::compute` → `kul_layout::layout` → `kul_svg::render`)
+//!   and return a [`RenderEnvelope`]. Success → `{ ok: true, svg: string }`;
+//!   failure (any error-severity diagnostic) → `{ ok: false, diagnostics: [...] }`.
+//!   JSON shape is bit-identical to `kul_lsp::features::render::RenderResponse`.
 //! - [`kul_core_version`] — JS-visible as `KUL_CORE_VERSION`. The version
 //!   of the `kul-core` crate compiled into this artifact.
 //! - [`kul_language_version`] — JS-visible as `KUL_LANGUAGE_VERSION`.
@@ -63,6 +69,9 @@
 use kul_core::ast::InputFile;
 use kul_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic};
 use kul_core::manifest::Manifest;
+use kul_layout::{LayoutConfig, layout};
+use kul_render::{RenderShape, compute};
+use kul_svg::{ThemeConfig, render};
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
@@ -163,4 +172,80 @@ pub fn export_with(
 ) -> ExportEnvelope {
     let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
     kul_core::export::export(&result, options)
+}
+
+/// JS-side return type of [`render_svg`]. Untagged success/failure
+/// discriminated by `ok`, bit-identical at the JSON level to
+/// `kul_lsp::features::render::RenderResponse` — the two adapters
+/// independently construct the same envelope so JS consumers and LSP
+/// clients see the same bytes regardless of how the pipeline is
+/// invoked. Rule-of-three: the two adapters declare their own
+/// envelopes today; a shared crate emerges only when a third
+/// independent consumer materializes.
+#[derive(Debug, Clone, Serialize, Tsify)]
+#[tsify(into_wasm_abi)]
+#[serde(untagged)]
+pub enum RenderEnvelope {
+    Success(RenderSuccess),
+    Failure(RenderFailure),
+}
+
+/// Success arm of [`RenderEnvelope`]. Carries the rendered SVG string.
+#[derive(Debug, Clone, Serialize, Tsify)]
+#[tsify(into_wasm_abi)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderSuccess {
+    /// Always `true`. Consumer-facing discriminator.
+    pub ok: bool,
+    /// The rendered SVG string. Theme-agnostic — semantic CSS classes
+    /// only, no inline colours. See kul-svg for the class vocabulary.
+    pub svg: String,
+}
+
+/// Failure arm of [`RenderEnvelope`]. Same diagnostic shape as the
+/// failure path of [`export_graph`]; consumers narrowing on `ok: false`
+/// reuse the diagnostic-rendering code they already have.
+#[derive(Debug, Clone, Serialize, Tsify)]
+#[tsify(into_wasm_abi)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderFailure {
+    /// Always `false`. Consumer-facing discriminator.
+    pub ok: bool,
+    /// Every diagnostic the validator produced — errors, warnings, and
+    /// notes alike — so the consumer sees the full picture of why the
+    /// render refused.
+    pub diagnostics: Vec<ExportedDiagnostic>,
+}
+
+#[wasm_bindgen(js_name = "renderSvg")]
+pub fn render_svg(files: Vec<WasmInputFile>, manifest: Manifest) -> RenderEnvelope {
+    console_error_panic_hook::set_once();
+    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
+    render_svg_with(&inputs, &manifest)
+}
+
+/// Native-callable variant of [`render_svg`]. Same semantics, but takes
+/// the already-converted [`InputFile`] slice so non-wasm tests can call
+/// into this crate without round-tripping through `JsValue`. The wasm-
+/// bridge `renderSvg` is a thin deserializer in front of this fn.
+///
+/// Runs the same pipeline the LSP's `kul/render` handler runs
+/// ([`kul_render::compute`] → [`kul_layout::layout`] → [`kul_svg::render`])
+/// with the default [`LayoutConfig`] and [`ThemeConfig`]; no options are
+/// surfaced in v1 (see [ADR-0011](../../docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md)
+/// — no convenience layer on the bridge).
+pub fn render_svg_with(inputs: &[InputFile], manifest: &Manifest) -> RenderEnvelope {
+    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+    let shape = compute(&result);
+    match shape {
+        RenderShape::Failure(f) => RenderEnvelope::Failure(RenderFailure {
+            ok: false,
+            diagnostics: f.diagnostics,
+        }),
+        RenderShape::Success(_) => {
+            let positioned = layout(&shape, &LayoutConfig::default());
+            let svg = render(&positioned, &ThemeConfig::default());
+            RenderEnvelope::Success(RenderSuccess { ok: true, svg })
+        }
+    }
 }

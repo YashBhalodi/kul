@@ -1,4 +1,4 @@
-# ADR 0011 — WASM surface is three operations, three return shapes, no convenience layer
+# ADR 0011 — WASM surface is operation-specific shapes, no convenience layer
 
 **Status:** Accepted
 **Date:** 2026-05-06
@@ -17,11 +17,12 @@ The convenience-helpers question has the symmetric pull. Every consumer will eve
 
 ## Decision
 
-The WASM surface is exactly three `#[wasm_bindgen]` functions plus three version-metadata getters. Each operation returns the shape that mirrors its underlying `kul-core` semantics:
+The WASM surface is a small set of `#[wasm_bindgen]` operations plus three version-metadata getters. Each operation returns the shape that mirrors its underlying `kul-core` (or downstream pipeline) semantics — no uniform envelope is forced over the surface:
 
 - **`check(source) -> { diagnostics }`.** Always succeeds. An empty `diagnostics` array is the discriminator — there is no `ok` field, because emptiness already carries that information unambiguously.
 - **`exportGraph(source, options?) -> SuccessEnvelope | FailureEnvelope`.** A tagged union with `ok: true` / `ok: false`, bit-identical to what `kul export --format=json` (or `--format=cytoscape`) emits. Strict on errors per [ADR-0009](./0009-export-strict-on-diagnostics.md).
 - **`format(source) -> string`.** Returns a string unconditionally — best-effort even on partial-parse input, mirroring `kul_core::format::format_source`'s contract. Callers that want to reject malformed input run `check` first.
+- **`renderSvg(files, manifest) -> RenderSuccess | RenderFailure`.** A tagged union mirroring `exportGraph`'s shape: success carries the SVG string, failure carries the same `ExportedDiagnostic` list. JSON is bit-identical to the LSP's `kul/render` response. See the 2026-05-23 amendment below.
 
 Plus three version constants exposed as zero-arg functions (wasm-bindgen does not currently support `&'static str` consts at the top level): `KUL_CORE_VERSION()`, `KUL_LANGUAGE_VERSION()`, `EXPORT_SCHEMA_VERSION()`. Consumers negotiate compatibility on these without parsing an envelope.
 
@@ -45,3 +46,13 @@ The implementation discipline that backs this decision is in [`crates/kul-wasm/s
 - **"Make `exportGraph` return a partial graph on errors."** Same answer as [ADR-0009](./0009-export-strict-on-diagnostics.md): the strict envelope is the foundation; partial-render UX is a consumer concern. The WASM bridge inherits the CLI's contract verbatim — no per-surface UX policy in the bridge.
 - **"Throw JS exceptions on validation errors."** Errors are part of the contract, not exceptions to it. The structured envelope (`FailureEnvelope`) is how the API surfaces them. The panic hook (`console_error_panic_hook`) only triggers on genuine `kul-core` bugs, not expected failure modes.
 - **"Hand-write a fluent JS façade in `crates/kul-wasm/src/js/`."** Doubles the surface — every function gains a Rust signature *and* a JS wrapper, both of which need to stay in sync. The wasm-bindgen output IS the public surface; one source of truth.
+
+## Amendments
+
+### 2026-05-23 — `renderSvg` added (issue #126)
+
+The canonical visual pipeline (`kul_render::compute` → `kul_layout::layout` → `kul_svg::render`) shipped behind the LSP's `kul/render` custom request in [PRD 0002](../prd/0002-canonical-ui-pattern-visual-renderer.md)'s v1 slice. JS-ecosystem consumers (web playground, future web app) could reach the pipeline only by shelling out to the LSP or reimplementing it. This amendment extends the WASM surface with a fourth operation, `renderSvg(files, manifest) -> RenderSuccess | RenderFailure`, whose JSON shape is bit-identical to `kul_lsp::features::render::RenderResponse` (enforced by a cross-surface snapshot test).
+
+This is an extension of the principle, not a reversal. The original decision's spine — operation-specific shapes that mirror what each underlying call actually does, plus no convenience layer — applies to `renderSvg` verbatim. The three anti-suggestions above remain accurate: no uniform envelope, no `byId`-style helpers, no partial-graph fallback, no exception-based errors, no hand-written JS façade. The title and decision section are amended in place to drop the "three" count; the surface is now small but not literally three.
+
+The rule-of-three on shared envelope types fires here: `RenderResponse` (LSP) and `RenderEnvelope` (wasm) are the first two consumers of "an envelope around `{ ok, svg | diagnostics }`". A third independent consumer would justify lifting them into a common crate; until then, the two adapters declare their own envelopes and a snapshot test enforces bit-identity at the JSON level.

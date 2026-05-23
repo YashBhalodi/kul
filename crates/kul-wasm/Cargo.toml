@@ -26,6 +26,9 @@ wasm-opt = ["-Oz", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
 # `yaml` feature on `kul-core` (which would pull in `serde_yaml`) is
 # intentionally not enabled here — keeps the wasm blob lean.
 kul-core = { workspace = true, features = ["tsify"] }
+kul-render = { workspace = true }
+kul-layout = { workspace = true }
+kul-svg = { workspace = true }
 wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }
 serde = { workspace = true }
@@ -35,4 +38,7 @@ tsify = { workspace = true, features = ["js"] }
 [dev-dependencies]
 insta = { workspace = true }
 kul-core = { workspace = true }
+kul-render = { workspace = true }
+kul-layout = { workspace = true }
+kul-svg = { workspace = true }
 serde_json = { workspace = true }
