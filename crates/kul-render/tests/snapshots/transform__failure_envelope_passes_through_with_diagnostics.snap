@@ -1,0 +1,15 @@
+---
+source: crates/kul-render/tests/transform.rs
+expression: render_pretty(&envelope)
+---
+{
+  "ok": false,
+  "diagnostics": [
+    {
+      "code": "KUL-R02",
+      "severity": "error",
+      "message": "unresolved reference `ghost`",
+      "related": []
+    }
+  ]
+}

@@ -686,6 +686,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "kul-render"
+version = "0.2.0"
+dependencies = [
+ "insta",
+ "kul-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "kul-wasm"
 version = "0.2.0"
 dependencies = [

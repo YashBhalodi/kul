@@ -1,0 +1,23 @@
+[package]
+name = "kul-render"
+description = "Stage 2 of the canonical renderer pipeline: ExportEnvelope → RenderShape"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+kul-core = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+serde_json = { workspace = true }

@@ -1,0 +1,11 @@
+---
+source: crates/kul-render/tests/transform.rs
+expression: render_pretty(&envelope)
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "components": [],
+  "edges": []
+}
