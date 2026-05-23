@@ -33,6 +33,7 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 | Understand the codebase shape       | [`docs/architecture.md`](./docs/architecture.md)                                                                                   |
 | Understand the domain vocabulary    | [`CONTEXT.md`](./CONTEXT.md)                                                                                                       |
 | Understand cross-cutting coding principles | [`CODING_STANDARDS.md`](./CODING_STANDARDS.md)                                                                              |
+| Understand how Kul renders visually | [`docs/canonical-ui-pattern.md`](./docs/canonical-ui-pattern.md)                                                                   |
 | Understand a major design decision  | [`docs/adr/`](./docs/adr/)                                                                                                         |
 | Understand product scope of an epic | [`docs/prd/`](./docs/prd/)                                                                                                         |
 | Add a test or perf budget           | [`docs/testing.md`](./docs/testing.md)                                                                                             |
