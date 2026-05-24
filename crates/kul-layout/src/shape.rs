@@ -29,6 +29,11 @@ pub struct PositionedShape {
     pub bars: Vec<PositionedBar>,
     /// Every parent-child edge, with computed polyline geometry.
     pub edges: Vec<PositionedEdge>,
+    /// Every fan connector — the trunk + branch + drops geometry that
+    /// links a polygamy hub to each of its concurrent marriage bars
+    /// (ADR-0027). One entry per hub. Empty when no person hosts ≥2
+    /// concurrent marriages.
+    pub fan_connectors: Vec<PositionedFanConnector>,
 }
 
 /// One positioned person card. The visual primitive surface renderers
@@ -118,6 +123,35 @@ pub enum EdgeKind {
     Birth,
     /// Dashed (P5).
     Adoption,
+}
+
+/// Fan-connector geometry linking a polygamy hub to each of its
+/// concurrent marriage bars (ADR-0027). The fan kicks in whenever a
+/// person hosts ≥2 concurrent marriages; for monogamy (N=1) the
+/// classical hub-and-flanks layout still applies and no fan connector
+/// is emitted.
+///
+/// One fan per hub. The geometry is decomposed into orthogonal
+/// segments so the emitter can render each as its own polyline
+/// without retracing: a vertical trunk down from the hub card's
+/// bottom-midpoint, a horizontal branch spanning the per-marriage
+/// column centres, and a vertical drop from the branch to each
+/// marriage bar's top-midpoint. The visual weight matches the
+/// marriage bar (a thicker stroke than the birth / adoption edges)
+/// so the fan reads as one continuous "hub manifold," not as a stack
+/// of independent edges.
+#[derive(Debug, Clone)]
+pub struct PositionedFanConnector {
+    /// Source-declaration id of the polygamy hub. Stable across renders.
+    pub hub_id: String,
+    /// One polyline per orthogonal segment, in draw order. The first
+    /// segment is the trunk-plus-branch path
+    /// (hub bottom → trunk elbow → branch ends); each subsequent
+    /// segment is a per-bar drop (branch row → bar top-midpoint).
+    /// Splitting the fan into segments avoids the polyline-retrace
+    /// problem that a single connected path would have at the
+    /// branch / drop intersections.
+    pub segments: Vec<Vec<(f64, f64)>>,
 }
 
 /// How an edge is routed. Both variants emit the **same** orthogonal

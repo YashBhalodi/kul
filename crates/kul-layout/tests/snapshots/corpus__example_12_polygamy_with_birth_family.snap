@@ -3,79 +3,112 @@ source: crates/kul-layout/tests/corpus.rs
 expression: yaml
 ---
 width: 460.0
-height: 272.0
+height: 432.0
 cards:
+- person_id: ramesh
+  kind: canonical
+  x: 55.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Ramesh Kumar
+- person_id: sita
+  kind: canonical
+  x: 245.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Sita Kumar
 - person_id: devraj
   kind: canonical
   x: 150.0
-  y: 24.0
+  y: 184.0
   width: 160.0
   height: 64.0
   name: Devraj Kumar
 - person_id: meera
   kind: canonical
   x: 24.0
-  y: 104.0
+  y: 264.0
   width: 160.0
   height: 64.0
   name: Meera
 - person_id: alice
   kind: canonical
   x: 276.0
-  y: 104.0
+  y: 264.0
   width: 160.0
   height: 64.0
   name: Alice Sharma
 - person_id: priya
   kind: canonical
   x: 261.0
-  y: 184.0
+  y: 344.0
   width: 160.0
   height: 64.0
   name: Priya Kumar
 bars:
+- marriage_id: m_ramesh_sita
+  x: 221.0
+  y: 51.0
+  width: 18.0
+  height: 10.0
+  ended: false
 - marriage_id: m_devraj_meera
   x: 190.0
-  y: 131.0
+  y: 291.0
   width: 18.0
   height: 10.0
   ended: false
 - marriage_id: m_devraj_alice
   x: 252.0
-  y: 131.0
+  y: 291.0
   width: 18.0
   height: 10.0
   ended: false
 edges:
 - kind: birth
   routing: in_tree
+  child_id: devraj
+  marriage_id: m_ramesh_sita
+  points:
+  - - 230.0
+    - 61.0
+  - - 230.0
+    - 156.0
+  - - 230.0
+    - 156.0
+  - - 230.0
+    - 184.0
+- kind: birth
+  routing: in_tree
   child_id: priya
   marriage_id: m_devraj_alice
   points:
   - - 261.0
-    - 141.0
+    - 301.0
   - - 261.0
-    - 156.0
+    - 316.0
   - - 341.0
-    - 156.0
+    - 316.0
   - - 341.0
-    - 184.0
+    - 344.0
 fan_connectors:
 - hub_id: devraj
   segments:
   - - - 230.0
-      - 88.0
+      - 248.0
     - - 230.0
-      - 117.0
+      - 277.0
   - - - 199.0
-      - 117.0
+      - 277.0
     - - 261.0
-      - 117.0
+      - 277.0
   - - - 199.0
-      - 117.0
+      - 277.0
     - - 199.0
-      - 131.0
+      - 291.0
   - - - 261.0
-      - 117.0
+      - 277.0
     - - 261.0
-      - 131.0
+      - 291.0

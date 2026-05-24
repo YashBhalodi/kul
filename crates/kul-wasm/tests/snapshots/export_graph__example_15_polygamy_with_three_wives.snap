@@ -1,0 +1,138 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "devraj",
+        "name": "Devraj Kumar",
+        "gender": "male",
+        "born": {
+          "value": "1948-06-21",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "meera",
+        "name": "Meera",
+        "gender": "female",
+        "born": {
+          "value": "1955-03-08",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "alice",
+        "name": "Alice Sharma",
+        "gender": "female",
+        "born": {
+          "value": "1950-04-12",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "diana",
+        "name": "Diana Roy",
+        "gender": "female",
+        "born": {
+          "value": "1960-09-15",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "asha",
+        "name": "Asha Kumar",
+        "gender": "female",
+        "born": {
+          "value": "1991-04-12",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "priya",
+        "name": "Priya Kumar",
+        "gender": "female",
+        "born": {
+          "value": "1994-12-01",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "rohan",
+        "name": "Rohan Kumar",
+        "gender": "male",
+        "born": {
+          "value": "1996-07-22",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_devraj_meera",
+        "spouses": [
+          "devraj",
+          "meera"
+        ],
+        "start": {
+          "value": "1990-01-01",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_devraj_alice",
+        "spouses": [
+          "devraj",
+          "alice"
+        ],
+        "start": {
+          "value": "1992-02-14",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_devraj_diana",
+        "spouses": [
+          "devraj",
+          "diana"
+        ],
+        "start": {
+          "value": "1994-08-30",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_devraj_meera",
+        "childId": "asha",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_devraj_alice",
+        "childId": "priya",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_devraj_diana",
+        "childId": "rohan",
+        "kind": "biological"
+      }
+    ]
+  }
+}

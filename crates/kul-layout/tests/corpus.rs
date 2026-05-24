@@ -16,8 +16,8 @@ use kul_core::CheckResult;
 use kul_core::ast::InputFile;
 use kul_core::manifest::Manifest;
 use kul_layout::{
-    EdgeRouting, LayoutConfig, PositionedBar, PositionedCard, PositionedEdge, PositionedShape,
-    SlotKind, layout,
+    EdgeRouting, LayoutConfig, PositionedBar, PositionedCard, PositionedEdge,
+    PositionedFanConnector, PositionedShape, SlotKind, layout,
 };
 use kul_render::{GhostReason, compute};
 use serde::Serialize;
@@ -127,6 +127,12 @@ fn example_11_cousin_marriage() {
 }
 
 #[test]
+fn example_12_polygamy_with_birth_family() {
+    let yaml = layout_example("12-polygamy-with-birth-family");
+    insta::assert_snapshot!(yaml);
+}
+
+#[test]
 fn example_13_inter_family_marriage() {
     let yaml = layout_example("13-inter-family-marriage");
     insta::assert_snapshot!(yaml);
@@ -135,6 +141,12 @@ fn example_13_inter_family_marriage() {
 #[test]
 fn example_14_grand_nested_inter_family() {
     let yaml = layout_example("14-grand-nested-inter-family");
+    insta::assert_snapshot!(yaml);
+}
+
+#[test]
+fn example_15_polygamy_with_three_wives() {
+    let yaml = layout_example("15-polygamy-with-three-wives");
     insta::assert_snapshot!(yaml);
 }
 
@@ -152,6 +164,8 @@ struct PositionedDump {
     cards: Vec<CardDump>,
     bars: Vec<BarDump>,
     edges: Vec<EdgeDump>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    fan_connectors: Vec<FanConnectorDump>,
 }
 
 #[derive(Serialize)]
@@ -184,6 +198,12 @@ struct EdgeDump {
     points: Vec<(f64, f64)>,
 }
 
+#[derive(Serialize)]
+struct FanConnectorDump {
+    hub_id: String,
+    segments: Vec<Vec<(f64, f64)>>,
+}
+
 impl From<&PositionedShape> for PositionedDump {
     fn from(s: &PositionedShape) -> Self {
         Self {
@@ -192,6 +212,20 @@ impl From<&PositionedShape> for PositionedDump {
             cards: s.cards.iter().map(CardDump::from).collect(),
             bars: s.bars.iter().map(BarDump::from).collect(),
             edges: s.edges.iter().map(EdgeDump::from).collect(),
+            fan_connectors: s
+                .fan_connectors
+                .iter()
+                .map(FanConnectorDump::from)
+                .collect(),
+        }
+    }
+}
+
+impl From<&PositionedFanConnector> for FanConnectorDump {
+    fn from(f: &PositionedFanConnector) -> Self {
+        Self {
+            hub_id: f.hub_id.clone(),
+            segments: f.segments.clone(),
         }
     }
 }

@@ -30,7 +30,7 @@ Maps natural-language kinship terms to Kul. Most everyday terms are **derived** 
 | In-laws (mother-in-law, brother-in-law, …)       | Derived            | Spouse's relatives.                                                                                 |
 | Founder / root ancestor                          | Derived (implicit) | `person` with no `birth` sub-statement.                                                             |
 | Foundling (unknown bio parents)                  | Derived (implicit) | `person` with `adoption` sub-statement(s) but no `birth`.                                           |
-| Polygamous spouse / co-spouse                    | Declared           | Multiple `marriage` statements for the same person (concurrent marriages are permitted).            |
+| Polygamous spouse / co-spouse                    | Declared           | Multiple `marriage` statements for the same person (concurrent marriages are permitted). A person with ≥2 un-ended marriages is the **polygamy hub** and must be listed as host (first spouse) in every concurrent un-ended marriage (`KUL-R14`); the renderer surfaces them as a fan ([ADR-0027](https://github.com/YashBhalodi/kul/blob/main/docs/adr/0027-fan-primitive-for-polygamy-hubs.md)). |
 | Same-pair remarriage                             | Declared           | Two `marriage`s with the same spouses, distinct ids (`m_x_y_1`, `m_x_y_2`).                         |
 | Friend / godparent / fiancé / cohabiting partner | Not modeled        | Outside v1 scope. Record as a `#` comment if load-bearing.                                          |
 

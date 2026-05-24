@@ -123,6 +123,12 @@ fn example_11_cousin_marriage() {
 }
 
 #[test]
+fn example_12_polygamy_with_birth_family() {
+    let svg = render_example("12-polygamy-with-birth-family");
+    insta::assert_snapshot!(svg);
+}
+
+#[test]
 fn example_13_inter_family_marriage() {
     let svg = render_example("13-inter-family-marriage");
     insta::assert_snapshot!(svg);
@@ -131,5 +137,11 @@ fn example_13_inter_family_marriage() {
 #[test]
 fn example_14_grand_nested_inter_family() {
     let svg = render_example("14-grand-nested-inter-family");
+    insta::assert_snapshot!(svg);
+}
+
+#[test]
+fn example_15_polygamy_with_three_wives() {
+    let svg = render_example("15-polygamy-with-three-wives");
     insta::assert_snapshot!(svg);
 }

@@ -19,6 +19,7 @@ fn empty_shape() -> PositionedShape {
         cards: Vec::new(),
         bars: Vec::new(),
         edges: Vec::new(),
+        fan_connectors: Vec::new(),
     }
 }
 

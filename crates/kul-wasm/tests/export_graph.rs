@@ -217,6 +217,13 @@ example_snapshot!(
     "14-grand-nested-inter-family",
     "grand-nested-inter-family"
 );
+example_snapshot!(
+    example_15_polygamy_with_three_wives,
+    example_15_polygamy_with_three_wives_with_positions,
+    example_15_polygamy_with_three_wives_cytoscape,
+    "15-polygamy-with-three-wives",
+    "polygamy-with-three-wives"
+);
 
 /// Multi-file example: snapshots assert the WASM bridge unions persons,
 /// marriages, and parenthood links across every `.kul` file in the
@@ -267,6 +274,7 @@ fn every_example_has_a_dedicated_export_graph_test() {
         "12-polygamy-with-birth-family",
         "13-inter-family-marriage",
         "14-grand-nested-inter-family",
+        "15-polygamy-with-three-wives",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),

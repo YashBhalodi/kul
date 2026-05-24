@@ -199,6 +199,11 @@ clean_example!(
     "14-grand-nested-inter-family",
     "grand-nested-inter-family"
 );
+clean_example!(
+    example_15_polygamy_with_three_wives_is_clean,
+    "15-polygamy-with-three-wives",
+    "polygamy-with-three-wives"
+);
 
 #[test]
 fn example_07_multi_file_extended_family_is_clean() {
@@ -236,6 +241,7 @@ fn every_example_has_a_dedicated_clean_check_test() {
         "12-polygamy-with-birth-family",
         "13-inter-family-marriage",
         "14-grand-nested-inter-family",
+        "15-polygamy-with-three-wives",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),
