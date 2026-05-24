@@ -58,6 +58,9 @@ fn write_card(out: &mut String, card: &PositionedCard) {
         SlotKind::Ghost {
             reason: GhostReason::PastAdoption,
         } => ("kul-card--ghost", Some("↺")),
+        SlotKind::Ghost {
+            reason: GhostReason::PastBirth,
+        } => ("kul-card--ghost", Some("↺")),
     };
     let _ = write!(out, r#"<g class="kul-card {kind_class}">"#);
     // Ghost cards ship with stroke-dasharray inline (structural, per

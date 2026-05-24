@@ -77,7 +77,21 @@ expression: render_pretty(&envelope)
                         },
                         "ended": false
                       },
-                      "children": []
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "bob",
+                            "kind": {
+                              "kind": "ghost",
+                              "reason": "pastBirth"
+                            },
+                            "generation": 1,
+                            "name": "Bob",
+                            "gender": "male"
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
                     }
                   ]
                 }

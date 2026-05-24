@@ -61,6 +61,13 @@ cards:
   width: 160.0
   height: 64.0
   name: Janaki Iyer
+- person_id: nikhil
+  kind: ghost:past_birth
+  x: 501.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Nikhil Iyer
 bars:
 - marriage_id: m_govind_lakshmi
   x: 381.0
@@ -127,7 +134,7 @@ edges:
   - - 104.0
     - 344.0
 - kind: birth
-  routing: cross_tree
+  routing: in_tree
   child_id: nikhil
   marriage_id: m_bharat_janaki
   points:
@@ -135,7 +142,7 @@ edges:
     - 221.0
   - - 581.0
     - 316.0
-  - - 294.0
+  - - 581.0
     - 316.0
-  - - 294.0
+  - - 581.0
     - 344.0

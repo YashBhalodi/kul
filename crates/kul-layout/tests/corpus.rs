@@ -206,6 +206,9 @@ impl From<&PositionedCard> for CardDump {
             SlotKind::Ghost {
                 reason: GhostReason::PastAdoption,
             } => "ghost:past_adoption".to_owned(),
+            SlotKind::Ghost {
+                reason: GhostReason::PastBirth,
+            } => "ghost:past_birth".to_owned(),
         };
         Self {
             person_id: c.person_id.clone(),

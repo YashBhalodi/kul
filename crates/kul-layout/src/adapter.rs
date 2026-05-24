@@ -93,13 +93,13 @@ struct Builder<'a> {
     /// but whose pair isn't here are the displaced-child / P11 case:
     /// route them as [`EdgeRouting::CrossTree`].
     structural_edges: std::collections::HashSet<(String, String)>,
-    /// node_index → marriage_id, populated only for P16 past-adoption
-    /// ghost children. The edge router consults this so the dashed
-    /// adoption edge from a past adoption's bar terminates on the
-    /// local child-ghost rather than crossing the canvas to the
+    /// node_index → marriage_id, populated for every P16 child-ghost
+    /// (past-adoption and past-bio). The edge router consults this so
+    /// the parent-child edge from a past intimacy's bar terminates on
+    /// the local child-ghost rather than crossing the canvas to the
     /// canonical card — without it the ghost would render as a visual
     /// orphan, contradicting its load-bearing role as a local anchor.
-    past_adoption_ghost_marriage: std::collections::HashMap<usize, String>,
+    child_ghost_marriage: std::collections::HashMap<usize, String>,
 }
 
 impl<'a> Builder<'a> {
@@ -109,7 +109,7 @@ impl<'a> Builder<'a> {
             nodes: Vec::new(),
             roots: Vec::new(),
             structural_edges: std::collections::HashSet::new(),
-            past_adoption_ghost_marriage: std::collections::HashMap::new(),
+            child_ghost_marriage: std::collections::HashMap::new(),
         }
     }
 
@@ -239,15 +239,16 @@ impl<'a> Builder<'a> {
                 if matches!(
                     child.slot.kind,
                     RenderSlotKind::Ghost {
-                        reason: GhostReason::PastAdoption,
+                        reason: GhostReason::PastAdoption | GhostReason::PastBirth,
                     },
                 ) {
                     // P16: this ghost is the child-anchor for the past
-                    // adoption represented by `marriage.bar`. Edge
-                    // routing keys on (child_id, marriage_id) so the
-                    // dashed adoption edge lands here rather than on
-                    // the distant canonical card.
-                    self.past_adoption_ghost_marriage
+                    // intimacy represented by `marriage.bar` (past
+                    // adoption or past bio). Edge routing keys on
+                    // (child_id, marriage_id) so the parent-child edge
+                    // lands here rather than on the distant canonical
+                    // card.
+                    self.child_ghost_marriage
                         .insert(child_idx, marriage.bar.marriage_id.clone());
                 }
                 children.push(child_idx);
@@ -281,7 +282,7 @@ impl<'a> Builder<'a> {
             nodes,
             roots,
             structural_edges,
-            past_adoption_ghost_marriage,
+            child_ghost_marriage,
         } = self;
 
         let walker_input: Vec<InputNode> = nodes
@@ -334,10 +335,11 @@ impl<'a> Builder<'a> {
         // Track each canonical / leaf card's top-center for edge routing.
         let mut card_tops: std::collections::HashMap<String, (f64, f64)> =
             std::collections::HashMap::new();
-        // P16 past-adoption ghost positions, keyed by
-        // (person_id, marriage_id). Consulted ahead of `card_tops` so
-        // the dashed adoption edge from a past adoption terminates on
-        // the local ghost, not the distant canonical card.
+        // P16 child-ghost positions (past-adoption and past-bio),
+        // keyed by (person_id, marriage_id). Consulted ahead of
+        // `card_tops` so the parent-child edge from a past intimacy
+        // terminates on the local ghost, not the distant canonical
+        // card.
         let mut ghost_card_tops: std::collections::HashMap<(String, String), (f64, f64)> =
             std::collections::HashMap::new();
 
@@ -393,7 +395,7 @@ impl<'a> Builder<'a> {
                         &card.slot,
                         config,
                     );
-                    if let Some(marriage_id) = past_adoption_ghost_marriage.get(&i) {
+                    if let Some(marriage_id) = child_ghost_marriage.get(&i) {
                         ghost_card_tops.insert(
                             (card.slot.person_id.clone(), marriage_id.clone()),
                             (cluster_left + config.card_width / 2.0, row_top),
@@ -456,7 +458,7 @@ fn push_card(
         // attaches to the bar). P16 child-ghosts get their own
         // (person_id, marriage_id) index built alongside this map —
         // see `ghost_card_tops` in `finish()` — because the ghost IS
-        // the edge's child endpoint at the past adoption's row.
+        // the edge's child endpoint at the past intimacy's row.
         tops.insert(slot.person_id.clone(), (x + config.card_width / 2.0, y));
     }
     cards.push(PositionedCard {
@@ -486,10 +488,11 @@ fn route_edges(
         let &(bar_cx, bar_by) = bar_centers
             .get(&edge.marriage_id)
             .expect("every render edge's marriage must have a positioned bar");
-        // P16: when a child has a past-adoption ghost at this
-        // marriage's children row, the dashed adoption edge attaches
-        // to the local ghost rather than the canonical card — the
-        // ghost is materialised precisely to be the local anchor.
+        // P16: when a child has a child-ghost (past-adoption or
+        // past-bio) at this marriage's children row, the parent-child
+        // edge attaches to the local ghost rather than the canonical
+        // card — the ghost is materialised precisely to be the local
+        // anchor.
         let Some(&(card_cx, card_top)) = ghost_card_tops
             .get(&(edge.child_id.clone(), edge.marriage_id.clone()))
             .or_else(|| card_tops.get(&edge.child_id))

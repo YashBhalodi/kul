@@ -194,7 +194,26 @@ expression: json
                         },
                         "ended": false
                       },
-                      "children": []
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "nikhil",
+                            "kind": {
+                              "kind": "ghost",
+                              "reason": "pastBirth"
+                            },
+                            "generation": 2,
+                            "name": "Nikhil Iyer",
+                            "gender": "male",
+                            "born": {
+                              "value": "1952-01-23",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
                     }
                   ]
                 }

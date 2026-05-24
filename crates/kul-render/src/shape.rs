@@ -260,6 +260,11 @@ pub enum GhostReason {
     /// card lives at the most-recent adoption; each prior adoption's
     /// bar gets one child-ghost connected by a dashed edge.
     PastAdoption,
+    /// P16 ghost: child-ghost at the bio family when P8's canonical
+    /// chain selects a different intimacy (any adoption demotes the
+    /// bio family from current to past). The bio marriage's bar gets
+    /// one child-ghost in its children row connected by a solid edge.
+    PastBirth,
 }
 
 /// One parent-child edge.

@@ -141,7 +141,26 @@ expression: json
                                 },
                                 "ended": false
                               },
-                              "children": []
+                              "children": [
+                                {
+                                  "slot": {
+                                    "personId": "bob",
+                                    "kind": {
+                                      "kind": "ghost",
+                                      "reason": "pastBirth"
+                                    },
+                                    "generation": 1,
+                                    "name": "Bob Sharma",
+                                    "gender": "male",
+                                    "born": {
+                                      "value": "1949-11-30",
+                                      "precision": "day",
+                                      "circa": false
+                                    }
+                                  },
+                                  "hostedMarriages": []
+                                }
+                              ]
                             }
                           ]
                         }
