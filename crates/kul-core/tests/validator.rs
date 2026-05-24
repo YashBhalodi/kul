@@ -314,6 +314,128 @@ fn rule_13_mixed_bio_adoption() {
     insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
 }
 
+#[test]
+fn rule_14_mixed_role_concurrent() {
+    let src = read_corpus("invalid/rule-14-mixed-role-concurrent.kul");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_14_pure_join_concurrent() {
+    let src = read_corpus("invalid/rule-14-pure-join-concurrent.kul");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_14_mutually_polygamous() {
+    let src = read_corpus("invalid/rule-14-mutually-polygamous.kul");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_14_monogamy_is_clean() {
+    // N=1 un-ended marriage — the rule does not fire even though the
+    // joining spouse is not the host.
+    let src = "\
+person alice name:\"Alice\" gender:female
+person bob   name:\"Bob\"   gender:male
+
+marriage m_alice_bob alice bob start:1990-01-01
+";
+    let result = check(src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn rule_14_sequential_mixed_role_is_clean() {
+    // alice hosts an ended marriage (m_alice_bob) and is the joining
+    // spouse in a current marriage (m_devraj_alice). un_ended_count for
+    // alice is 1 → not a polygamy hub → R14 does not fire.
+    let src = "\
+person alice  name:\"Alice\"  gender:female
+person bob    name:\"Bob\"    gender:male
+person devraj name:\"Devraj\" gender:male
+
+marriage m_alice_bob    alice  bob    start:1980-01-01 end:1988-06-01 end_reason:divorce
+marriage m_devraj_alice devraj alice  start:1995-06-15
+";
+    let result = check(src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn rule_14_all_ended_is_clean() {
+    // Two marriages that both have ended — un_ended_count is zero for
+    // every person, so R14 cannot fire.
+    let src = "\
+person alice  name:\"Alice\"  gender:female
+person bob    name:\"Bob\"    gender:male
+person devraj name:\"Devraj\" gender:male
+
+marriage m_alice_bob    alice  bob    start:1980-01-01 end:1988-06-01 end_reason:divorce
+marriage m_devraj_alice devraj alice  start:1990-01-01 end:1998-04-12 end_reason:divorce
+";
+    let result = check(src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn rule_14_pure_host_concurrent_n2_is_clean() {
+    // Devraj hosts two un-ended marriages — the polygamy hub is also
+    // the host of every concurrent marriage, so R14 is satisfied.
+    let src = "\
+person alice  name:\"Alice\"  gender:female
+person devraj name:\"Devraj\" gender:male
+person meera  name:\"Meera\"  gender:female
+
+marriage m_devraj_meera devraj meera  start:1990-01-01
+marriage m_devraj_alice devraj alice  start:1992-02-14
+";
+    let result = check(src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn rule_14_pure_host_concurrent_n3_is_clean() {
+    // Same shape as N=2 with a third un-ended marriage. R14 stays
+    // satisfied at every concurrent N when the hub hosts each one.
+    let src = "\
+person alice  name:\"Alice\"  gender:female
+person devraj name:\"Devraj\" gender:male
+person meera  name:\"Meera\"  gender:female
+person priya  name:\"Priya\"  gender:female
+
+marriage m_devraj_meera devraj meera  start:1990-01-01
+marriage m_devraj_alice devraj alice  start:1992-02-14
+marriage m_devraj_priya devraj priya  start:1995-08-22
+";
+    let result = check(src);
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}
+
 /// When a string-field value fails to parse, the parser should still mark
 /// the field as attempted so the validator's required-field check (R03)
 /// doesn't add a misleading "missing field" diagnostic on top of the parse

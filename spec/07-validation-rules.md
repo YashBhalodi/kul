@@ -26,6 +26,10 @@ For each comparison below, when a date has partial granularity it is treated as 
 
 13. **Parenthood cycle** — combining all `birth` and `adoption` parent links across every `.kul` file in the project into a directed graph from child to parent, no person may appear as their own ancestor. (A cycle in this graph is an error.) Cycles that span multiple files are detected and reported as a single cycle.
 
+## Polygamy
+
+14. **Polygamy hub must host all un-ended marriages** — for each person `p`, let `un_ended_count` be the number of marriages where `p` is a spouse and the marriage has no `end:` field. If `un_ended_count ≥ 2`, `p` MUST be the [host](./04-top-level-statements.md#42-marriage-statement) (first-listed spouse) in every one of those un-ended marriages. The diagnostic anchors at the offending marriage's `<id>` token; one diagnostic per offending marriage. See [ADR-0026](../docs/adr/0026-polygamy-hub-equals-host.md).
+
 ## Manifest
 
 The following codes are reported by the project-manifest validator pass against `kul.yml` (see [Section 14](./14-project-manifest.md)). They flow through the same diagnostic infrastructure as the `KUL-Rxx` rules above.

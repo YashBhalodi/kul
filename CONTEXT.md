@@ -48,6 +48,10 @@ A resolved Person on either side of a Marriage. The function `ResolvedDocument::
 
 The first-listed spouse in a Marriage's declaration (`marriage <id> <host> <joining-spouse> …`). A structural role downstream consumers (renderers, exports, queries) use for ordering and layout — the spec names the role, the [canonical UI pattern](./docs/canonical-ui-pattern.md) (P3) defines its visual semantics. The second spouse "joins the host's family." Authors who want to change the host swap the two spouse identifiers; there is no override field. Defined normatively in [`spec/04-top-level-statements.md`](./spec/04-top-level-statements.md#42-marriage-statement) §4.2.
 
+### Polygamy hub
+
+A person with ≥2 un-ended marriages. The canonical UI pattern (and the fan rendering primitive) treats the hub as the visual anchor for all of their concurrent intimacies. Rule R14 ensures the polygamy hub is also the declared [host](#host-of-a-marriage) of every concurrent marriage they participate in, so "hub" and "host" coincide by language invariant rather than by renderer repair. See [ADR-0026](./docs/adr/0026-polygamy-hub-equals-host.md).
+
 ### Parent
 
 A resolved Person derived from either a `birth` link (biological) or an `adoption` link (adoptive). The function `ResolvedDocument::parents_of(&PersonStmt)` yields the union; each is tagged with the link type.
@@ -58,7 +62,7 @@ The inverse of parent. There is no `child` declaration in the language — child
 
 ### Validator rule
 
-One of the thirteen spec-defined checks (KUL-R01 through KUL-R13). See [`spec/04-validation-rules.md`](./spec/07-validation-rules.md). In code, each rule lives as a function in `crates/kul-core/src/validator.rs` named `rule_NN_<short_name>`; tests follow the same pattern.
+One of the fourteen spec-defined checks (KUL-R01 through KUL-R14). See [`spec/04-validation-rules.md`](./spec/07-validation-rules.md). In code, each rule lives as a function in `crates/kul-core/src/validator.rs` named `rule_NN_<short_name>`; tests follow the same pattern.
 
 ### Diagnostic
 
