@@ -85,8 +85,20 @@ fn example_04_polygamous_family() {
 }
 
 #[test]
+fn example_06_three_branch_dynasty() {
+    let yaml = layout_example("06-three-branch-dynasty");
+    insta::assert_snapshot!(yaml);
+}
+
+#[test]
 fn example_08_divorce_and_remarriage() {
     let yaml = layout_example("08-divorce-and-remarriage");
+    insta::assert_snapshot!(yaml);
+}
+
+#[test]
+fn example_10_disconnected_lineages_and_orphan() {
+    let yaml = layout_example("10-disconnected-lineages-and-orphan");
     insta::assert_snapshot!(yaml);
 }
 
