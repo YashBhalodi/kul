@@ -35,12 +35,24 @@ struct Node {
     /// Horizontal extent of the cluster.
     width: f64,
     /// Surface layout row (0 = top). Computed bottom-up per ADR-0023
-    /// as `max(host_card.slot.generation, 1 + max(nested.visual_row))`
-    /// so cross-tree birth edges from a P6 (grand-)nested birth-family
-    /// bar to its joining spouse always flow top-to-bottom regardless
-    /// of nesting depth. For leaves, orphans, and hosts with no P6
-    /// nesting this collapses to the data-level generation from
-    /// `RenderShape::CardSlot.generation`.
+    /// and refined by ADR-0024:
+    ///
+    /// ```text
+    /// visual_row(cluster) = max(
+    ///     host_card.slot.generation,
+    ///     1 + max(visual_row(nested)) for nesting marriages,
+    ///     min(visual_row(child)) - 1,
+    /// )
+    /// ```
+    ///
+    /// The nesting clause pushes a host *down* to make room for any
+    /// P6 (grand-)nested sub-tree. The descendant-pull clause pulls a
+    /// host *down* to sit one row above its closest descendant, so
+    /// kin-symmetric ancestors across an inter-family marriage align
+    /// on the same visual row. For leaves, orphans, and hosts whose
+    /// descendants haven't been pushed below their data-level row by
+    /// any nesting upstream, both extra clauses collapse to
+    /// `host_card.slot.generation`.
     visual_row: u32,
     /// Children clusters (in declaration order).
     children: Vec<usize>,
@@ -241,17 +253,22 @@ impl<'a> Builder<'a> {
                 children.push(child_idx);
             }
         }
-        // ADR-0023: fold the host's surface row up from any P6 nested
-        // sub-trees. Empty `nested_root_indices` collapses the formula
-        // to `host_generation` so non-nesting clusters stay byte-
-        // identical with the pre-ADR-0023 snapshots.
+        // ADR-0023 + ADR-0024: fold the host's surface row up from any
+        // P6 nested sub-trees (push down) *and* from the shallowest
+        // descendant (pull down so peer-relationship ancestors align
+        // across an inter-family marriage). Both children and nested
+        // roots have already been built by the recursion above, so
+        // their `visual_row` values are final.
         let nested_max_row = nested_root_indices
             .iter()
             .map(|&i| self.nodes[i].visual_row)
             .max();
-        let visual_row = match nested_max_row {
-            Some(row) => host_generation.max(row + 1),
-            None => host_generation,
+        let child_min_row = children.iter().map(|&i| self.nodes[i].visual_row).min();
+        let visual_row = match (nested_max_row, child_min_row) {
+            (Some(n), Some(c)) => host_generation.max(n + 1).max(c.saturating_sub(1)),
+            (Some(n), None) => host_generation.max(n + 1),
+            (None, Some(c)) => host_generation.max(c.saturating_sub(1)),
+            (None, None) => host_generation,
         };
         self.nodes[idx].children = children;
         self.nodes[idx].visual_row = visual_row;

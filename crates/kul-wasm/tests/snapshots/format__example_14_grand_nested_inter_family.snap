@@ -31,21 +31,31 @@ expression: formatted
 # right. The grand-nested cluster therefore sits at the rightmost end
 # of the canvas.
 #
-# Visual rows (ADR-0023 — `kul-layout` cascades `visual_row` so
-# cross-tree birth edges always flow top-to-bottom):
+# Visual rows (ADR-0023 + ADR-0024 — `kul-layout` cascades `visual_row`
+# bottom-up so cross-tree birth edges always flow top-to-bottom *and*
+# kin-symmetric ancestors across an inter-family marriage land on the
+# same row):
 #
-# - Row 0: Rajesh + Saroj + m_host_parents (host top) | Ramprasad +
-#   Sunita + m_lata_parents (grand-nested top, the deepest sibling
-#   root, packed rightmost via ADR-0022).
-# - Row 1: Mahesh + Lata + m_bob_parents — the outer nested cluster,
-#   shifted down one row so Lata sits below her parents' bar.
-# - Row 2: Alice + m_alice_bob + Bob — the host tree's descendant row
-#   shifted down two rows to accommodate the grand-nest depth on the
-#   right, so Bob (the joining slot at m_alice_bob) sits below his
-#   parents' bar at m_bob_parents on row 1.
+# - Row 0: Ramprasad + Sunita + m_lata_parents alone — the deepest
+#   sibling root, packed rightmost via ADR-0022. Nothing else sits at
+#   row 0; the host-tree founders shift down via ADR-0024's
+#   descendant-pull clause so they align with Kiran's other set of
+#   grandparents one row below.
+# - Row 1: Rajesh + Saroj + m_host_parents (host) | Mahesh + Lata +
+#   m_bob_parents (outer nested). Both are kin-symmetric grandparents
+#   of Kiran and now render on the same row. Pre-ADR-0024 the host
+#   founders sat at row 0 while Mahesh + Lata sat at row 1, even
+#   though they describe peer relationships from Kiran's perspective.
+# - Row 2: Alice + m_alice_bob + Bob. Bob (the joining slot at
+#   m_alice_bob) sits below his parents' bar at m_bob_parents on
+#   row 1; Alice sits below m_host_parents on row 1 — a single-gutter
+#   drop on the host side, where pre-ADR-0024 it was a two-gutter
+#   plunge.
 # - Row 3: Kiran — m_alice_bob's child, below the m_alice_bob bar.
 #
-# Cross-tree birth edges (both flow top-to-bottom):
+# Cross-tree birth edges (both flow top-to-bottom; the bus rows are
+# unchanged in conceptual terms — each edge still busses through the
+# gutter between its bar's row and its child's row):
 #
 # - Lata's birth edge: m_lata_parents bar (row 0) → Lata canonical
 #   card (row 1, joining slot of m_bob_parents), bussing through the
@@ -53,6 +63,11 @@ expression: formatted
 # - Bob's birth edge: m_bob_parents bar (row 1) → Bob canonical card
 #   (row 2, joining slot of m_alice_bob), bussing through the
 #   gen-1/gen-2 gutter.
+# - Alice's birth edge: m_host_parents bar (row 1) → Alice canonical
+#   card (row 2). Pre-ADR-0024 Alice's edge plunged two gutters
+#   because m_host_parents stayed pinned at row 0; ADR-0024 collapses
+#   that to a single-gutter drop by aligning m_host_parents with
+#   m_bob_parents on row 1.
 
 # ---- Host side founders ----
 person rajesh  name:"Rajesh Patel"  gender:male    born:1900-04-11
