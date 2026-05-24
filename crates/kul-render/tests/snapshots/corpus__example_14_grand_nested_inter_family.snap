@@ -9,7 +9,7 @@ expression: json
   "components": [
     {
       "id": "comp-1",
-      "sourceOrder": 2850,
+      "sourceOrder": 3750,
       "kind": {
         "type": "familyTree",
         "root": {
