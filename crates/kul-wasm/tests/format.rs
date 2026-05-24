@@ -117,6 +117,11 @@ example_snapshot!(
     "13-inter-family-marriage",
     "inter-family-marriage"
 );
+example_snapshot!(
+    example_14_grand_nested_inter_family,
+    "14-grand-nested-inter-family",
+    "grand-nested-inter-family"
+);
 
 #[test]
 fn every_example_has_a_dedicated_snapshot_test() {
@@ -142,6 +147,7 @@ fn every_example_has_a_dedicated_snapshot_test() {
         "11-cousin-marriage",
         "12-polygamy-with-birth-family",
         "13-inter-family-marriage",
+        "14-grand-nested-inter-family",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),
