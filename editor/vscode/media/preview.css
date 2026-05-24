@@ -70,8 +70,10 @@ svg {
     fill-opacity: 0.6;
 }
 
-/* Parent-child edges. Dasharray (P5 birth vs adoption) ships inline
- * from kul-svg; only colour and stroke width are theming. */
+/* Edges. Dasharray (P5 birth vs adoption) ships inline from kul-svg;
+ * only colour and stroke width are theming. Birth / adoption /
+ * marriage all share the base routing CSS; the modifier classes add
+ * the per-kind visual distinction. */
 .kul-edge {
     stroke: var(--vscode-editor-foreground);
     stroke-width: 1.5;
@@ -79,4 +81,12 @@ svg {
 
 .kul-edge--adoption {
     stroke: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+}
+
+/* Marriage edge (ADR-0027): solid, thick. One per concurrent marriage
+ * of a polygamy hub, fanning from the hub card to each co-spouse.
+ * Heavier stroke carries the marriage-bar visual weight so polygamy
+ * reads as distinct from the thin birth / adoption edges. */
+.kul-edge--marriage {
+    stroke-width: 3.5;
 }

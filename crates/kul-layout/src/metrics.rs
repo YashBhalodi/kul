@@ -35,16 +35,6 @@ pub struct LayoutConfig {
     pub bus_drop: f64,
     /// Outer canvas padding around the bounding box on every side.
     pub padding: f64,
-    /// Vertical fraction of [`Self::row_height`] the fan primitive
-    /// drops co-spouses below the polygamy hub (ADR-0027). The hub
-    /// sits at row R; each co-spouse + marriage bar sits at row
-    /// `R + fan_drop_fraction` (a localized sub-row offset). Children
-    /// of each marriage then hang from the co-spouse's row at the
-    /// next full row down. `0.5` puts the co-spouses halfway between
-    /// the hub row and the standard children row, leaving room for
-    /// the fan-connector polyline plus the bar geometry without
-    /// stretching the canvas height per-polygamy.
-    pub fan_drop_fraction: f64,
 }
 
 impl Default for LayoutConfig {
@@ -59,7 +49,6 @@ impl Default for LayoutConfig {
             row_height: 160.0,
             bus_drop: 28.0,
             padding: 24.0,
-            fan_drop_fraction: 0.5,
         }
     }
 }

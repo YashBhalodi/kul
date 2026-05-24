@@ -7,8 +7,7 @@
 use std::fmt::Write;
 
 use kul_layout::{
-    EdgeKind, EdgeRouting, PositionedBar, PositionedCard, PositionedEdge, PositionedFanConnector,
-    PositionedShape, SlotKind,
+    EdgeKind, EdgeRouting, PositionedBar, PositionedCard, PositionedEdge, PositionedShape, SlotKind,
 };
 use kul_render::GhostReason;
 
@@ -28,13 +27,6 @@ pub struct ThemeConfig {
 pub(crate) fn render(positioned: &PositionedShape, _config: &ThemeConfig) -> String {
     let mut out = String::with_capacity(2048);
     write_open(&mut out, positioned);
-    // Fan connectors render *under* bars + cards (so the bar visually
-    // terminates the drop) but *above* edges so a child's birth edge
-    // doesn't draw through the fan's trunk. The class is independent
-    // of the edge classes — fans are not parent-child edges.
-    for fan in &positioned.fan_connectors {
-        write_fan_connector(&mut out, fan);
-    }
     for edge in &positioned.edges {
         write_edge(&mut out, edge);
     }
@@ -124,27 +116,11 @@ fn write_bar(out: &mut String, bar: &PositionedBar) {
     );
 }
 
-fn write_fan_connector(out: &mut String, fan: &PositionedFanConnector) {
-    // One `<path>` per segment so the rounded-corner helper can treat
-    // each polyline independently. The `fan-connector` class carries
-    // the visual styling (matches the marriage-bar stroke weight per
-    // ADR-0027 / ADR-0019); no inline `stroke=` or `fill=` colour
-    // beyond the structural `fill="none"` that any stroked path
-    // wants.
-    for segment in &fan.segments {
-        let d = polyline_to_rounded_path(segment, EDGE_CORNER_RADIUS);
-        let _ = write!(
-            out,
-            r#"<path class="kul-fan-connector" data-hub-id="{hub}" fill="none" d="{d}"/>"#,
-            hub = escape_xml(&fan.hub_id),
-        );
-    }
-}
-
 fn write_edge(out: &mut String, edge: &PositionedEdge) {
     let kind_class = match edge.kind {
         EdgeKind::Birth => "kul-edge--birth",
         EdgeKind::Adoption => "kul-edge--adoption",
+        EdgeKind::Marriage => "kul-edge--marriage",
     };
     let routing_class = match edge.routing {
         EdgeRouting::InTree => "kul-edge--in-tree",
@@ -152,9 +128,12 @@ fn write_edge(out: &mut String, edge: &PositionedEdge) {
     };
     // Adoption edges ship with stroke-dasharray inline (structural,
     // per P5 — see ADR-0019 §"Edge dasharrays are structural").
+    // Marriage edges (ADR-0027) are solid like birth edges; the
+    // visual distinction is stroke weight (set by the consuming
+    // stylesheet against `kul-edge--marriage`).
     let dash = match edge.kind {
         EdgeKind::Adoption => r#" stroke-dasharray="6 4""#,
-        EdgeKind::Birth => "",
+        EdgeKind::Birth | EdgeKind::Marriage => "",
     };
     let d = polyline_to_rounded_path(&edge.points, EDGE_CORNER_RADIUS);
     let _ = write!(

@@ -56,36 +56,45 @@ Replace the existing hub-and-flanks cluster for `hosted_marriages.len() >= 2`
 with a **fan-from-top-hub** primitive that scales from N=2 to any N:
 
 - **Hub on top, alone, at row R** (the host's data-level generation).
-  The hub card occupies its own cluster; no bars share its row.
-- **Co-spouses at row `R + fan_drop_fraction`**, one per hosted
-  marriage in declaration order. Each co-spouse cluster is a walker
-  child of the hub; the bar for that marriage sits adjacent to the
-  co-spouse card on the side facing the hub's vertical axis (the
-  first co-spouse renders as `[Spouse][bar]`, every other co-spouse
-  as `[bar][Spouse]`, so the bars cluster toward the centerline).
-- **Fan connector** — trunk from the hub's bottom-midpoint plus
-  horizontal branch spanning the per-bar drops plus per-bar drops
-  from the branch to each bar's top-midpoint. Decomposed into
-  separate orthogonal segments (one trunk, one branch, N drops) so
-  the SVG emitter renders each as its own polyline without retracing
-  at the branch / drop intersections.
+  The hub card occupies its own cluster; nothing else shares its row.
+- **Co-spouses at row R+1**, one per hosted marriage in declaration
+  order. Each co-spouse is a single-card walker child of the hub on
+  the standard child generation row. There is no marriage bar and no
+  R+ε sub-row — the co-spouse is reached by a thick **marriage edge**
+  (see below) the same way a birth edge reaches a child.
+- **Marriage edge** — one routed `<path>` per hosted marriage, from
+  the hub card's bottom-midpoint to the co-spouse card's top-midpoint,
+  using the **same orthogonal hub-bottom → horizontal bus → spouse-top
+  geometry as a birth edge**. The only difference from a birth edge is
+  the stroke weight (~3-4px vs birth's 1.5px) and the CSS modifier
+  (`kul-edge--marriage`). The fan visual emerges from N marriage edges
+  fanning out of the single hub-bottom point — it is not a dedicated
+  trunk-branch geometry.
 - **Children of each marriage** are walker children of the
-  corresponding co-spouse cluster, so each marriage's children hang
-  in their own column below their bar (P9). Half-siblings render in
-  distinct sub-trees, one per bar.
+  corresponding co-spouse, so each marriage's children hang in their
+  own column below their co-spouse at row R+2 (P9). Half-siblings
+  render in distinct sub-trees, one per co-spouse. Because no bar is
+  emitted for a polygamy marriage, a child's birth/adoption edge
+  anchors at the co-spouse card's bottom-midpoint (the same point the
+  marriage edge terminates above the co-spouse), so the couple → child
+  lineage reads as one continuous chain hub → co-spouse → child.
 
 Monogamy (`hosted_marriages.len() == 1`) is unchanged: the classical
 hub-and-flanks cluster (host card + bar + joining card on one row)
-still applies.
+still applies, and the marriage still renders as a `<rect class="kul-bar">`
+between the two adjacent spouse cards. **Bars are emitted only for
+monogamy.**
 
-`visual_row` in the layout adapter switches from `u32` to `f64`. The
-fractional row position the fan needs (`R + fan_drop_fraction`, with
-the default `fan_drop_fraction = 0.5`) flows through the descendant-
-pull arithmetic from ADR-0023 / ADR-0024 without special-casing —
-the cascade formula becomes `max(host.gen, 1.0 + nested.visual_row,
-min(child.visual_row) - 1.0)` over floats. For the no-fan corpus
-every cluster's `visual_row` is an integer and the snapshots stay
-byte-identical.
+`visual_row` in the layout adapter is `f64` (carried forward from the
+first cut of this ADR; kept for future fractional-row primitives).
+Every cluster in the v1 corpus — including every polygamy fan — lands
+on an integer row, so the no-polygamy snapshots stay byte-identical.
+Descendants of a polygamy hub are visually one row deeper than their
+canonical-family `slot.generation` predicts (the co-spouse occupies
+the row that, in a monogamy, would host the marriage's children); the
+adapter threads a `min_visual_row` floor through the recursive build
+so this single extra row cascades through the descendant-pull
+arithmetic from ADR-0023 / ADR-0024 without special-casing.
 
 `RenderShape` **does not change**. ADR-0021 already gave the polygamy
 hub the right shape — one canonical `PersonCard` carrying `N` bars
@@ -93,37 +102,44 @@ in `hosted_marriages`. The fan is a layout-level concept;
 `RENDER_SCHEMA_VERSION` stays at `2` (no additive shape change per
 ADR-0017).
 
-`PositionedShape` gains one additive field: `fan_connectors:
-Vec<PositionedFanConnector>`, one entry per polygamy hub, each
-carrying the trunk-branch-drops segments in absolute pixel
-coordinates. `kul-svg` emits each segment as a `<path
-class="kul-fan-connector">` with the marriage-bar visual weight
-(~3-4px stroke).
+`PositionedShape` gains **no new field**. The marriage edge reuses the
+existing `PositionedEdge` infrastructure: `EdgeKind` gains a `Marriage`
+variant alongside `Birth` and `Adoption`, and the layout pass emits
+one `PositionedEdge { kind: Marriage, .. }` per hosted marriage of a
+polygamy hub. `kul-svg` picks the `kul-edge--marriage` CSS modifier in
+its existing `write_edge`; the surface stylesheet sets the heavier
+stroke weight.
 
 ## Consequences
 
-- **Examples 04 and 12 snapshots regenerate** across `kul-render`
-  (no structural shape change but the test rerun confirms the fan
-  is layout-only), `kul-layout`, and `kul-svg`. Both rerender from
-  hub-and-flanks to fan-from-top-hub.
-- **New example 15 (`15-polygamy-with-three-wives/`)** exercises
-  N=3 polygamy with one child per marriage, demonstrating that
-  half-siblings render in distinct sub-trees below their own bars.
-- **Layout adapter gains a fractional sub-row mechanism.**
-  `visual_row` is `f64`; `fan_drop_fraction` is a new
-  `LayoutConfig` field defaulted to `0.5`. The visual-row cascade
-  per ADR-0023 / ADR-0024 generalises naturally — the fan adds no
-  special case to the descendant-pull arithmetic.
-- **SVG visual vocabulary gains one element**: `kul-fan-connector`,
-  with stroke-width matching the marriage-bar weight (~3-4px),
-  distinct from `.kul-edge--birth` (1.5px solid) and
-  `.kul-edge--adoption` (1.5px dashed). Surfaces theme the fan
-  alongside the bar so the two read as one continuous "hub
-  manifold."
+- **Examples 04 and 12 snapshots regenerate** across `kul-layout` and
+  `kul-svg` (the `kul-render` structural shape is unchanged). Both
+  rerender from hub-and-flanks to fan-from-top-hub: the polygamy hub
+  sits alone on its row, each co-spouse on the next row down reached
+  by a thick `kul-edge--marriage` path, with no bar rect and no fan-
+  connector segments.
+- **Example 15 (`15-polygamy-with-three-wives/`)** exercises N=3
+  polygamy with one child per marriage, demonstrating that
+  half-siblings render in distinct sub-trees below their own
+  co-spouse. The three marriage edges fan out of one hub-bottom point
+  (the middle edge routes straight down, the outer two jog left and
+  right) — the fan shape with no dedicated trunk.
+- **No bars for polygamy marriages.** `PositionedShape.bars` carries
+  one rect per monogamy marriage only; polygamy marriages are pure
+  edges. A polygamy hub that is *also* a monogamy host in a different
+  generation (none in the corpus today) would still emit its
+  monogamy bar normally.
+- **SVG visual vocabulary unifies on the edge.** `kul-edge--marriage`
+  is a sibling modifier of `kul-edge--birth` / `kul-edge--adoption`,
+  sharing all the routing CSS (orthogonal right-angle, rounded
+  corners, the `kul-edge--in-tree` routing class). The only delta is
+  stroke weight (~3-4px) — polygamy reads as distinct from the thin
+  birth (1.5px solid) and adoption (1.5px dashed) edges while staying
+  inside one coherent edge vocabulary.
 - **Composition with P6 is unchanged** (ADR-0025). A co-spouse with
   a declared birth family composes via the existing bio-anchor
   ghost mechanism: ghost-{co-spouse} lives in the bio family's
-  children row; the canonical card lives in the fan's joining slot;
+  children row; the canonical card lives in the fan's co-spouse slot;
   no cross-canvas edge (P10 mute). The fan is just the host
   context — bio anchoring is independent.
 - **The `relocated_joining_bars` field never lands.** R14 (ADR-0026)
@@ -132,6 +148,20 @@ class="kul-fan-connector">` with the marriage-bar visual weight
 
 ## Anti-suggestions (do not re-propose)
 
+- **"Trunk + branch + per-bar drop fan connector with a bar per
+  co-spouse."** Considered, and *shipped in the first cut of #165*: the
+  hub dropped a trunk to a horizontal branch, the branch spanned the
+  per-marriage column centres, and a vertical drop landed on each
+  marriage bar's top-midpoint; each co-spouse carried its own bar at an
+  R+ε sub-row. Rejected on review because the edge-as-path treatment
+  unifies polygamy visually with the rest of the edge vocabulary
+  (birth, adoption) and removes a bespoke geometry: a polygamy marriage
+  is now exactly one `kul-edge--marriage` path routed like a birth
+  edge, no separate `PositionedFanConnector` type, no `kul-fan-connector`
+  CSS class, no bar rect, no `fan_drop_fraction` sub-row. The fan visual
+  emerges from N edges fanning out of the hub, not from a dedicated
+  trunk. Do not re-introduce the trunk-branch-drop decomposition or the
+  per-co-spouse bar at N≥2.
 - **"Hub-and-flanks for N=2 only; new primitive at N≥3."** Considered
   (Stance B); rejected because Stance A wants a uniform primitive so
   polygamy is visually distinct from monogamy at any N — including
@@ -144,31 +174,24 @@ class="kul-fan-connector">` with the marriage-bar visual weight
 - **"Vertically-extended hub (hub card spans multiple rows)."**
   Considered for any N. Rejected — at N=2 it looks like monogamy
   with a taller hub (no visual distinction); at N≥3 child routing
-  from sibling bars collides at the hub's edges. The fan separates
-  hub from co-spouses so each marriage's column stays clean.
+  from sibling co-spouses collides at the hub's edges. The fan
+  separates hub from co-spouses so each marriage's column stays clean.
 - **"Compound polygamy block (decorative grouping rectangle around
-  the hub + bars + co-spouses)."** Considered as a primitive.
-  Rejected as a primitive — it's decoration, not geometry. The fan
-  is the geometry; a future render-time toggle could add a
-  decorative grouping element on top without committing the
-  canonical pattern.
+  the hub + co-spouses)."** Considered as a primitive. Rejected as a
+  primitive — it's decoration, not geometry. The fan is the geometry;
+  a future render-time toggle could add a decorative grouping element
+  on top without committing the canonical pattern.
 - **"Renderer-level relocation per the scrapped #163."** Considered
   before R14 was on the table; rejected because R14 (ADR-0026)
   eliminates the divergence that motivated relocation. The hub is
   the host by language invariant; the fan's semantics are
   unambiguous because the language guarantees clean input.
-- **"Make children hang directly below their bar (snap-to-bar
+- **"Make children hang directly below the hub (snap-to-hub
   centering)."** Considered for tightening the visual association
-  between bar and children. Rejected — the walker centres each
-  child cluster below its parent cluster, and forcing children to
-  snap below the bar would break the walker's collision-avoidance
-  guarantees. The edge router already attaches each child's edge to
-  its specific marriage bar (P9), so the bar-to-child association
-  is unambiguous even when the child's column is offset from the
-  bar's exact x-position.
-- **"Vary `fan_drop_fraction` per cluster based on local density."**
-  Speculative; deferred. A constant fraction (0.5) keeps every
-  polygamy hub rendering the same way, which preserves the
-  pattern's claim to scale-invariance (P14). Revisit only when a
-  corpus example surfaces a density that the constant can't
-  accommodate.
+  between a marriage and its children. Rejected — the walker centres
+  each child cluster below its parent cluster (the co-spouse), and
+  forcing children to snap below the hub would break the walker's
+  collision-avoidance guarantees and re-merge half-siblings into one
+  column. Each marriage's children hang below their own co-spouse;
+  the birth edge anchors at the co-spouse's bottom-midpoint, so the
+  marriage-to-child association is unambiguous (P9).

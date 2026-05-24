@@ -16,8 +16,8 @@ use kul_core::CheckResult;
 use kul_core::ast::InputFile;
 use kul_core::manifest::Manifest;
 use kul_layout::{
-    EdgeRouting, LayoutConfig, PositionedBar, PositionedCard, PositionedEdge,
-    PositionedFanConnector, PositionedShape, SlotKind, layout,
+    EdgeRouting, LayoutConfig, PositionedBar, PositionedCard, PositionedEdge, PositionedShape,
+    SlotKind, layout,
 };
 use kul_render::{GhostReason, compute};
 use serde::Serialize;
@@ -164,8 +164,6 @@ struct PositionedDump {
     cards: Vec<CardDump>,
     bars: Vec<BarDump>,
     edges: Vec<EdgeDump>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    fan_connectors: Vec<FanConnectorDump>,
 }
 
 #[derive(Serialize)]
@@ -198,12 +196,6 @@ struct EdgeDump {
     points: Vec<(f64, f64)>,
 }
 
-#[derive(Serialize)]
-struct FanConnectorDump {
-    hub_id: String,
-    segments: Vec<Vec<(f64, f64)>>,
-}
-
 impl From<&PositionedShape> for PositionedDump {
     fn from(s: &PositionedShape) -> Self {
         Self {
@@ -212,20 +204,6 @@ impl From<&PositionedShape> for PositionedDump {
             cards: s.cards.iter().map(CardDump::from).collect(),
             bars: s.bars.iter().map(BarDump::from).collect(),
             edges: s.edges.iter().map(EdgeDump::from).collect(),
-            fan_connectors: s
-                .fan_connectors
-                .iter()
-                .map(FanConnectorDump::from)
-                .collect(),
-        }
-    }
-}
-
-impl From<&PositionedFanConnector> for FanConnectorDump {
-    fn from(f: &PositionedFanConnector) -> Self {
-        Self {
-            hub_id: f.hub_id.clone(),
-            segments: f.segments.clone(),
         }
     }
 }
@@ -274,6 +252,7 @@ impl From<&PositionedEdge> for EdgeDump {
         let kind = match e.kind {
             kul_layout::EdgeKind::Birth => "birth".to_owned(),
             kul_layout::EdgeKind::Adoption => "adoption".to_owned(),
+            kul_layout::EdgeKind::Marriage => "marriage".to_owned(),
         };
         let routing = match e.routing {
             EdgeRouting::InTree => "in_tree".to_owned(),

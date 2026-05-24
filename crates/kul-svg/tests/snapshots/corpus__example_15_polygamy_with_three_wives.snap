@@ -2,44 +2,39 @@
 source: crates/kul-svg/tests/corpus.rs
 expression: svg
 ---
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 682 272" width="682" height="272">
-<path class="kul-fan-connector" data-hub-id="devraj" fill="none" d="M 341 88 L 341 117"/>
-<path class="kul-fan-connector" data-hub-id="devraj" fill="none" d="M 199 117 L 483 117"/>
-<path class="kul-fan-connector" data-hub-id="devraj" fill="none" d="M 199 117 L 199 131"/>
-<path class="kul-fan-connector" data-hub-id="devraj" fill="none" d="M 261 117 L 261 131"/>
-<path class="kul-fan-connector" data-hub-id="devraj" fill="none" d="M 483 117 L 483 131"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 199 141 L 199 148.5 Q 199 156 191.5 156 L 129 156 Q 119 156 119 166 L 119 184"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 261 141 L 261 148.5 Q 261 156 268.5 156 L 331 156 Q 341 156 341 166 L 341 184"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 483 141 L 483 148.5 Q 483 156 490.5 156 L 553 156 Q 563 156 563 166 L 563 184"/>
-<rect class="kul-bar" x="190" y="131" width="18" height="10"/>
-<rect class="kul-bar" x="252" y="131" width="18" height="10"/>
-<rect class="kul-bar" x="474" y="131" width="18" height="10"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 592 432" width="592" height="432">
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 104 248 L 104 316 L 104 316 L 104 344"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 296 248 L 296 316 L 296 316 L 296 344"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 488 248 L 488 316 L 488 316 L 488 344"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 296 88 L 296 146 Q 296 156 286 156 L 114 156 Q 104 156 104 166 L 104 184"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 296 88 L 296 156 L 296 156 L 296 184"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 296 88 L 296 146 Q 296 156 306 156 L 478 156 Q 488 156 488 166 L 488 184"/>
 <g class="kul-card kul-card--canonical">
-<rect x="261" y="24" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="341" y="56" text-anchor="middle" dominant-baseline="central">Devraj Kumar</text>
+<rect x="216" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="296" y="56" text-anchor="middle" dominant-baseline="central">Devraj Kumar</text>
 </g>
 <g class="kul-card kul-card--canonical">
-<rect x="24" y="104" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="104" y="136" text-anchor="middle" dominant-baseline="central">Meera</text>
+<rect x="24" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Meera</text>
 </g>
 <g class="kul-card kul-card--canonical">
-<rect x="39" y="184" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="119" y="216" text-anchor="middle" dominant-baseline="central">Asha Kumar</text>
+<rect x="24" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="104" y="376" text-anchor="middle" dominant-baseline="central">Asha Kumar</text>
 </g>
 <g class="kul-card kul-card--canonical">
-<rect x="276" y="104" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="356" y="136" text-anchor="middle" dominant-baseline="central">Alice Sharma</text>
+<rect x="216" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="296" y="216" text-anchor="middle" dominant-baseline="central">Alice Sharma</text>
 </g>
 <g class="kul-card kul-card--canonical">
-<rect x="261" y="184" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="341" y="216" text-anchor="middle" dominant-baseline="central">Priya Kumar</text>
+<rect x="216" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="296" y="376" text-anchor="middle" dominant-baseline="central">Priya Kumar</text>
 </g>
 <g class="kul-card kul-card--canonical">
-<rect x="498" y="104" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="578" y="136" text-anchor="middle" dominant-baseline="central">Diana Roy</text>
+<rect x="408" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="488" y="216" text-anchor="middle" dominant-baseline="central">Diana Roy</text>
 </g>
 <g class="kul-card kul-card--canonical">
-<rect x="483" y="184" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="563" y="216" text-anchor="middle" dominant-baseline="central">Rohan Kumar</text>
+<rect x="408" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="488" y="376" text-anchor="middle" dominant-baseline="central">Rohan Kumar</text>
 </g>
 </svg>

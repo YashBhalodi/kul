@@ -25,15 +25,19 @@ pub struct PositionedShape {
     /// cards first by component-source-order, then ghosts adjacent to
     /// their anchoring bars).
     pub cards: Vec<PositionedCard>,
-    /// Every positioned marriage / adoption bar.
+    /// Every positioned marriage / adoption bar. Monogamy
+    /// (`hosted_marriages.len() == 1`) emits one bar per marriage between
+    /// the two spouse cards. Polygamy (`hosted_marriages.len() >= 2`)
+    /// emits **no** bars — each concurrent marriage renders as a
+    /// thick [`EdgeKind::Marriage`] edge between hub and co-spouse
+    /// instead (ADR-0027).
     pub bars: Vec<PositionedBar>,
-    /// Every parent-child edge, with computed polyline geometry.
+    /// Every edge — birth, adoption, and marriage — with computed
+    /// polyline geometry. Birth and adoption edges connect a marriage
+    /// bar (monogamy) or a co-spouse card (polygamy) to one of the
+    /// couple's children; marriage edges (polygamy only) connect the
+    /// hub card to each co-spouse card per ADR-0027.
     pub edges: Vec<PositionedEdge>,
-    /// Every fan connector — the trunk + branch + drops geometry that
-    /// links a polygamy hub to each of its concurrent marriage bars
-    /// (ADR-0027). One entry per hub. Empty when no person hosts ≥2
-    /// concurrent marriages.
-    pub fan_connectors: Vec<PositionedFanConnector>,
 }
 
 /// One positioned person card. The visual primitive surface renderers
@@ -116,42 +120,28 @@ pub struct PositionedEdge {
     pub points: Vec<(f64, f64)>,
 }
 
-/// What kind of parent-child edge this is (P5).
+/// What kind of edge this is. Birth and adoption edges connect a
+/// marriage to one of its children (P5). Marriage edges connect a
+/// polygamy hub to each of its concurrent co-spouses (ADR-0027) —
+/// only emitted when `hosted_marriages.len() >= 2`; monogamy renders
+/// the marriage with a [`PositionedBar`] between adjacent spouse cards
+/// instead, with no marriage edge.
 #[derive(Debug, Clone, Copy)]
 pub enum EdgeKind {
-    /// Solid (P5).
+    /// Solid, thin (P5).
     Birth,
-    /// Dashed (P5).
+    /// Dashed, thin (P5).
     Adoption,
-}
-
-/// Fan-connector geometry linking a polygamy hub to each of its
-/// concurrent marriage bars (ADR-0027). The fan kicks in whenever a
-/// person hosts ≥2 concurrent marriages; for monogamy (N=1) the
-/// classical hub-and-flanks layout still applies and no fan connector
-/// is emitted.
-///
-/// One fan per hub. The geometry is decomposed into orthogonal
-/// segments so the emitter can render each as its own polyline
-/// without retracing: a vertical trunk down from the hub card's
-/// bottom-midpoint, a horizontal branch spanning the per-marriage
-/// column centres, and a vertical drop from the branch to each
-/// marriage bar's top-midpoint. The visual weight matches the
-/// marriage bar (a thicker stroke than the birth / adoption edges)
-/// so the fan reads as one continuous "hub manifold," not as a stack
-/// of independent edges.
-#[derive(Debug, Clone)]
-pub struct PositionedFanConnector {
-    /// Source-declaration id of the polygamy hub. Stable across renders.
-    pub hub_id: String,
-    /// One polyline per orthogonal segment, in draw order. The first
-    /// segment is the trunk-plus-branch path
-    /// (hub bottom → trunk elbow → branch ends); each subsequent
-    /// segment is a per-bar drop (branch row → bar top-midpoint).
-    /// Splitting the fan into segments avoids the polyline-retrace
-    /// problem that a single connected path would have at the
-    /// branch / drop intersections.
-    pub segments: Vec<Vec<(f64, f64)>>,
+    /// Solid, thick. Connects a polygamy hub to one of its
+    /// concurrent co-spouses; one edge per hosted marriage when the
+    /// hub has ≥2 un-ended marriages (ADR-0027). The hub card sits
+    /// alone on its data-level generation row; each co-spouse sits on
+    /// the next row down; the marriage edge routes hub-bottom →
+    /// horizontal bus → co-spouse-top using the same orthogonal right-
+    /// angle geometry as a birth edge. Visually distinguished from
+    /// birth / adoption by a thicker stroke (set by the consuming
+    /// surface stylesheet via the `kul-edge--marriage` class).
+    Marriage,
 }
 
 /// How an edge is routed. Both variants emit the **same** orthogonal

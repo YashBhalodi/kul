@@ -2,12 +2,12 @@
 source: crates/kul-layout/tests/corpus.rs
 expression: yaml
 ---
-width: 460.0
-height: 272.0
+width: 400.0
+height: 432.0
 cards:
 - person_id: devraj
   kind: canonical
-  x: 150.0
+  x: 120.0
   y: 24.0
   width: 160.0
   height: 64.0
@@ -15,67 +15,62 @@ cards:
 - person_id: meera
   kind: canonical
   x: 24.0
-  y: 104.0
+  y: 184.0
   width: 160.0
   height: 64.0
   name: Meera
 - person_id: alice
   kind: canonical
-  x: 276.0
-  y: 104.0
+  x: 216.0
+  y: 184.0
   width: 160.0
   height: 64.0
   name: Alice Sharma
 - person_id: priya
   kind: canonical
-  x: 261.0
-  y: 184.0
+  x: 216.0
+  y: 344.0
   width: 160.0
   height: 64.0
   name: Priya Kumar
-bars:
-- marriage_id: m_devraj_meera
-  x: 190.0
-  y: 131.0
-  width: 18.0
-  height: 10.0
-  ended: false
-- marriage_id: m_devraj_alice
-  x: 252.0
-  y: 131.0
-  width: 18.0
-  height: 10.0
-  ended: false
+bars: []
 edges:
 - kind: birth
   routing: in_tree
   child_id: priya
   marriage_id: m_devraj_alice
   points:
-  - - 261.0
-    - 141.0
-  - - 261.0
+  - - 296.0
+    - 248.0
+  - - 296.0
+    - 316.0
+  - - 296.0
+    - 316.0
+  - - 296.0
+    - 344.0
+- kind: marriage
+  routing: in_tree
+  child_id: meera
+  marriage_id: m_devraj_meera
+  points:
+  - - 200.0
+    - 88.0
+  - - 200.0
     - 156.0
-  - - 341.0
+  - - 104.0
     - 156.0
-  - - 341.0
+  - - 104.0
     - 184.0
-fan_connectors:
-- hub_id: devraj
-  segments:
-  - - - 230.0
-      - 88.0
-    - - 230.0
-      - 117.0
-  - - - 199.0
-      - 117.0
-    - - 261.0
-      - 117.0
-  - - - 199.0
-      - 117.0
-    - - 199.0
-      - 131.0
-  - - - 261.0
-      - 117.0
-    - - 261.0
-      - 131.0
+- kind: marriage
+  routing: in_tree
+  child_id: alice
+  marriage_id: m_devraj_alice
+  points:
+  - - 200.0
+    - 88.0
+  - - 200.0
+    - 156.0
+  - - 296.0
+    - 156.0
+  - - 296.0
+    - 184.0

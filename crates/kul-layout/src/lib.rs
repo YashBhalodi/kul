@@ -45,8 +45,7 @@ mod shape;
 
 pub use metrics::LayoutConfig;
 pub use shape::{
-    EdgeKind, EdgeRouting, PositionedBar, PositionedCard, PositionedEdge, PositionedFanConnector,
-    PositionedShape, SlotKind,
+    EdgeKind, EdgeRouting, PositionedBar, PositionedCard, PositionedEdge, PositionedShape, SlotKind,
 };
 
 use kul_render::RenderShape;

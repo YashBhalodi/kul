@@ -25,7 +25,8 @@
 //!
 //! - `kul-card`, `kul-card--canonical`, `kul-card--ghost`
 //! - `kul-bar`, `kul-bar--ended`
-//! - `kul-edge`, `kul-edge--birth`, `kul-edge--adoption`
+//! - `kul-edge`, `kul-edge--birth`, `kul-edge--adoption`,
+//!   `kul-edge--marriage` (thick polygamy-hub fan edge, ADR-0027)
 //! - `kul-label-name`, `kul-ghost-badge`
 
 mod emit;

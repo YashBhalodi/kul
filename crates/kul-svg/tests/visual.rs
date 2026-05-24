@@ -19,7 +19,6 @@ fn empty_shape() -> PositionedShape {
         cards: Vec::new(),
         bars: Vec::new(),
         edges: Vec::new(),
-        fan_connectors: Vec::new(),
     }
 }
 
@@ -148,6 +147,35 @@ fn birth_edge_emits_birth_class_no_dasharray() {
     assert!(
         !svg.contains("stroke-dasharray"),
         "birth edge must not ship a dasharray: {svg}"
+    );
+}
+
+#[test]
+fn marriage_edge_emits_marriage_class_no_dasharray() {
+    // ADR-0027 marriage edge: solid, thick (stroke weight set by the
+    // consuming stylesheet via `kul-edge--marriage`), shares routing
+    // CSS with birth / adoption — only the `--marriage` modifier
+    // differs.
+    let mut shape = empty_shape();
+    shape.edges.push(PositionedEdge {
+        kind: EdgeKind::Marriage,
+        routing: EdgeRouting::InTree,
+        child_id: "alice".to_owned(),
+        marriage_id: "m_devraj_alice".to_owned(),
+        points: vec![(0.0, 0.0), (50.0, 50.0)],
+    });
+    let svg = render(&shape, &ThemeConfig::default());
+    assert!(
+        svg.contains("kul-edge--marriage"),
+        "expected marriage modifier: {svg}"
+    );
+    assert!(
+        svg.contains("kul-edge "),
+        "expected base `kul-edge` class shared with birth / adoption: {svg}"
+    );
+    assert!(
+        !svg.contains("stroke-dasharray"),
+        "marriage edge must be solid (no dasharray): {svg}"
     );
 }
 
