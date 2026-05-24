@@ -1,0 +1,243 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "rajesh",
+        "name": "Rajesh Patel",
+        "gender": "male",
+        "born": {
+          "value": "1900-04-11",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2716,
+          2782
+        ]
+      },
+      {
+        "id": "saroj",
+        "name": "Saroj Patel",
+        "gender": "female",
+        "born": {
+          "value": "1903-09-02",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2783,
+          2849
+        ]
+      },
+      {
+        "id": "ramprasad",
+        "name": "Ramprasad Verma",
+        "gender": "male",
+        "born": {
+          "value": "1898-01-17",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2948,
+          3020
+        ]
+      },
+      {
+        "id": "sunita",
+        "name": "Sunita Verma",
+        "gender": "female",
+        "born": {
+          "value": "1902-06-23",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          3021,
+          3093
+        ]
+      },
+      {
+        "id": "mahesh",
+        "name": "Mahesh Sharma",
+        "gender": "male",
+        "born": {
+          "value": "1921-07-19",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          3195,
+          3262
+        ]
+      },
+      {
+        "id": "lata",
+        "name": "Lata Sharma",
+        "gender": "female",
+        "born": {
+          "value": "1924-02-28",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          3263,
+          3353
+        ]
+      },
+      {
+        "id": "alice",
+        "name": "Alice Patel",
+        "gender": "female",
+        "born": {
+          "value": "1948-03-22",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          3444,
+          3531
+        ]
+      },
+      {
+        "id": "bob",
+        "name": "Bob Sharma",
+        "gender": "male",
+        "born": {
+          "value": "1949-11-30",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          3532,
+          3618
+        ]
+      },
+      {
+        "id": "kiran",
+        "name": "Kiran Patel",
+        "gender": "female",
+        "born": {
+          "value": "1975-04-18",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          3694,
+          3778
+        ]
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_host_parents",
+        "spouses": [
+          "rajesh",
+          "saroj"
+        ],
+        "start": {
+          "value": "1925-12-05",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2850,
+          2904
+        ]
+      },
+      {
+        "id": "m_lata_parents",
+        "spouses": [
+          "ramprasad",
+          "sunita"
+        ],
+        "start": {
+          "value": "1923-04-30",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          3094,
+          3152
+        ]
+      },
+      {
+        "id": "m_bob_parents",
+        "spouses": [
+          "mahesh",
+          "lata"
+        ],
+        "start": {
+          "value": "1946-08-14",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          3354,
+          3406
+        ]
+      },
+      {
+        "id": "m_alice_bob",
+        "spouses": [
+          "alice",
+          "bob"
+        ],
+        "start": {
+          "value": "1972-06-10",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          3620,
+          3668
+        ]
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_lata_parents",
+        "childId": "lata",
+        "kind": "biological",
+        "span": [
+          3333,
+          3353
+        ]
+      },
+      {
+        "marriageId": "m_host_parents",
+        "childId": "alice",
+        "kind": "biological",
+        "span": [
+          3511,
+          3531
+        ]
+      },
+      {
+        "marriageId": "m_bob_parents",
+        "childId": "bob",
+        "kind": "biological",
+        "span": [
+          3599,
+          3618
+        ]
+      },
+      {
+        "marriageId": "m_alice_bob",
+        "childId": "kiran",
+        "kind": "biological",
+        "span": [
+          3761,
+          3778
+        ]
+      }
+    ]
+  }
+}

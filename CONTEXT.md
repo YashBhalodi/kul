@@ -98,7 +98,7 @@ The top-level value `kul_render::compute` and `kul_render::transform` emit — t
 
 ### Card slot
 
-One person's position in a render shape — `personId`, `kind` (`canonical` or `ghost { reason }`), generation row, and the export-envelope display fields. Card slots come in two visual flavors per [`docs/canonical-ui-pattern.md`](./docs/canonical-ui-pattern.md) §P15: canonical (solid border, full opacity) and ghost (see [`Ghost slot`](#ghost-slot)). Hierarchical placement (parent `Component`, `MarriageBranch`, or `PersonCard`) anchors the slot in the canonical-pattern tree; the explicit `generation` field is the layout row.
+One person's position in a render shape — `personId`, `kind` (`canonical` or `ghost { reason }`), generation row, and the export-envelope display fields. Card slots come in two visual flavors per [`docs/canonical-ui-pattern.md`](./docs/canonical-ui-pattern.md) §P15: canonical (solid border, full opacity) and ghost (see [`Ghost slot`](#ghost-slot)). Hierarchical placement (parent `Component`, `MarriageBranch`, or `PersonCard`) anchors the slot in the canonical-pattern tree; the explicit `generation` field is the structural data-level row computed in `kul-render`; the surface layout row is assigned in `kul-layout` per ADR-0023 and may shift down to accommodate P6 nesting depth.
 
 ### Ghost slot
 

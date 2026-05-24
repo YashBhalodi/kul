@@ -1,0 +1,148 @@
+---
+source: crates/kul-layout/tests/corpus.rs
+expression: yaml
+---
+width: 1162.0
+height: 592.0
+cards:
+- person_id: rajesh
+  kind: canonical
+  x: 24.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Rajesh Patel
+- person_id: saroj
+  kind: canonical
+  x: 214.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Saroj Patel
+- person_id: alice
+  kind: canonical
+  x: 24.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Alice Patel
+- person_id: bob
+  kind: canonical
+  x: 214.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Bob Sharma
+- person_id: mahesh
+  kind: canonical
+  x: 406.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Mahesh Sharma
+- person_id: lata
+  kind: canonical
+  x: 596.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Lata Sharma
+- person_id: ramprasad
+  kind: canonical
+  x: 788.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Ramprasad Verma
+- person_id: sunita
+  kind: canonical
+  x: 978.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Sunita Verma
+- person_id: kiran
+  kind: canonical
+  x: 119.0
+  y: 504.0
+  width: 160.0
+  height: 64.0
+  name: Kiran Patel
+bars:
+- marriage_id: m_host_parents
+  x: 190.0
+  y: 51.0
+  width: 18.0
+  height: 10.0
+  ended: false
+- marriage_id: m_alice_bob
+  x: 190.0
+  y: 371.0
+  width: 18.0
+  height: 10.0
+  ended: false
+- marriage_id: m_bob_parents
+  x: 572.0
+  y: 211.0
+  width: 18.0
+  height: 10.0
+  ended: false
+- marriage_id: m_lata_parents
+  x: 954.0
+  y: 51.0
+  width: 18.0
+  height: 10.0
+  ended: false
+edges:
+- kind: birth
+  routing: cross_tree
+  child_id: lata
+  marriage_id: m_lata_parents
+  points:
+  - - 963.0
+    - 61.0
+  - - 963.0
+    - 156.0
+  - - 676.0
+    - 156.0
+  - - 676.0
+    - 184.0
+- kind: birth
+  routing: in_tree
+  child_id: alice
+  marriage_id: m_host_parents
+  points:
+  - - 199.0
+    - 61.0
+  - - 199.0
+    - 316.0
+  - - 104.0
+    - 316.0
+  - - 104.0
+    - 344.0
+- kind: birth
+  routing: cross_tree
+  child_id: bob
+  marriage_id: m_bob_parents
+  points:
+  - - 581.0
+    - 221.0
+  - - 581.0
+    - 316.0
+  - - 294.0
+    - 316.0
+  - - 294.0
+    - 344.0
+- kind: birth
+  routing: in_tree
+  child_id: kiran
+  marriage_id: m_alice_bob
+  points:
+  - - 199.0
+    - 381.0
+  - - 199.0
+    - 476.0
+  - - 199.0
+    - 476.0
+  - - 199.0
+    - 504.0

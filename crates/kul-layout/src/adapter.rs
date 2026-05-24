@@ -34,8 +34,14 @@ struct Node {
     kind: NodeKind,
     /// Horizontal extent of the cluster.
     width: f64,
-    /// Generation row (0 = top).
-    generation: u32,
+    /// Surface layout row (0 = top). Computed bottom-up per ADR-0023
+    /// as `max(host_card.slot.generation, 1 + max(nested.visual_row))`
+    /// so cross-tree birth edges from a P6 (grand-)nested birth-family
+    /// bar to its joining spouse always flow top-to-bottom regardless
+    /// of nesting depth. For leaves, orphans, and hosts with no P6
+    /// nesting this collapses to the data-level generation from
+    /// `RenderShape::CardSlot.generation`.
+    visual_row: u32,
     /// Children clusters (in declaration order).
     children: Vec<usize>,
 }
@@ -118,14 +124,14 @@ impl<'a> Builder<'a> {
     }
 
     fn push_orphan(&mut self, card: CardSlot) -> usize {
-        let generation = card.generation;
+        let visual_row = card.generation;
         let width = self.config.card_width;
         self.nodes.push(Node {
             kind: NodeKind::Orphan {
                 card: Box::new(card),
             },
             width,
-            generation,
+            visual_row,
             children: Vec::new(),
         });
         self.nodes.len() - 1
@@ -143,7 +149,7 @@ impl<'a> Builder<'a> {
     }
 
     fn build_person(&mut self, card: &PersonCard) -> usize {
-        let generation = card.slot.generation;
+        let host_generation = card.slot.generation;
         if card.hosted_marriages.is_empty() {
             let idx = self.nodes.len();
             self.nodes.push(Node {
@@ -151,7 +157,7 @@ impl<'a> Builder<'a> {
                     card: Box::new(card.clone()),
                 },
                 width: self.config.card_width,
-                generation,
+                visual_row: host_generation,
                 children: Vec::new(),
             });
             return idx;
@@ -177,7 +183,8 @@ impl<'a> Builder<'a> {
                 hosted,
             },
             width,
-            generation,
+            // Provisional — recomputed below once nested roots are built.
+            visual_row: host_generation,
             children: Vec::new(),
         });
 
@@ -187,7 +194,15 @@ impl<'a> Builder<'a> {
         // edge routing can distinguish displaced-child relationships
         // (P11, [`EdgeRouting::CrossTree`]) from the standard
         // descendency-tree shape (P1, [`EdgeRouting::InTree`]).
+        //
+        // ADR-0023: as we recurse into each P6 nested root we collect
+        // its node index so the host's `visual_row` can be folded as
+        // `max(host_generation, 1 + max(nested.visual_row))` after the
+        // bottom-up traversal completes. Building nesteds (and their
+        // descendants) before the fold guarantees each nested's
+        // `visual_row` is final by the time we read it.
         let mut children: Vec<usize> = Vec::new();
+        let mut nested_root_indices: Vec<usize> = Vec::new();
         for marriage in &card.hosted_marriages {
             // P6: if this marriage's joining spouse carries a nested
             // birth-family sub-tree, push it as an additional Walker
@@ -201,6 +216,7 @@ impl<'a> Builder<'a> {
                 self.roots.push(nested_expected);
                 let nested_actual = self.build_person(nested);
                 debug_assert_eq!(nested_expected, nested_actual);
+                nested_root_indices.push(nested_actual);
             }
             for child in &marriage.children {
                 self.structural_edges.insert((
@@ -225,7 +241,20 @@ impl<'a> Builder<'a> {
                 children.push(child_idx);
             }
         }
+        // ADR-0023: fold the host's surface row up from any P6 nested
+        // sub-trees. Empty `nested_root_indices` collapses the formula
+        // to `host_generation` so non-nesting clusters stay byte-
+        // identical with the pre-ADR-0023 snapshots.
+        let nested_max_row = nested_root_indices
+            .iter()
+            .map(|&i| self.nodes[i].visual_row)
+            .max();
+        let visual_row = match nested_max_row {
+            Some(row) => host_generation.max(row + 1),
+            None => host_generation,
+        };
         self.nodes[idx].children = children;
+        self.nodes[idx].visual_row = visual_row;
         idx
     }
 
@@ -261,8 +290,8 @@ impl<'a> Builder<'a> {
             if right > max_x {
                 max_x = right;
             }
-            if node.generation > max_gen {
-                max_gen = node.generation;
+            if node.visual_row > max_gen {
+                max_gen = node.visual_row;
             }
         }
         if !min_x.is_finite() {
@@ -297,7 +326,7 @@ impl<'a> Builder<'a> {
 
         for (i, node) in nodes.iter().enumerate() {
             let cluster_left = positions[i].x - node.width / 2.0 + offset_x;
-            let row_top = offset_y + node.generation as f64 * config.row_height;
+            let row_top = offset_y + node.visual_row as f64 * config.row_height;
             match &node.kind {
                 NodeKind::PersonHost { card, hosted } => {
                     let host_x = cluster_left;

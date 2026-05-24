@@ -132,6 +132,12 @@ fn example_13_inter_family_marriage() {
     insta::assert_snapshot!(yaml);
 }
 
+#[test]
+fn example_14_grand_nested_inter_family() {
+    let yaml = layout_example("14-grand-nested-inter-family");
+    insta::assert_snapshot!(yaml);
+}
+
 // ---- Serialisable mirror ------------------------------------------------
 //
 // `PositionedShape` is intentionally not `Serialize` (ADR-0018). The

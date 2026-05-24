@@ -127,3 +127,9 @@ fn example_13_inter_family_marriage() {
     let svg = render_example("13-inter-family-marriage");
     insta::assert_snapshot!(svg);
 }
+
+#[test]
+fn example_14_grand_nested_inter_family() {
+    let svg = render_example("14-grand-nested-inter-family");
+    insta::assert_snapshot!(svg);
+}
