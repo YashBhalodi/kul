@@ -1,0 +1,195 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 2,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 1460,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "rajesh",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Rajesh Patel",
+            "gender": "male",
+            "born": {
+              "value": "1920-04-11",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_host_parents",
+                "generation": 0,
+                "hostId": "rajesh",
+                "joiningId": "saroj",
+                "joiningSlot": {
+                  "personId": "saroj",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Saroj Patel",
+                  "gender": "female",
+                  "born": {
+                    "value": "1923-09-02",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1945-12-05",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "alice",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Alice Patel",
+                    "gender": "female",
+                    "born": {
+                      "value": "1948-03-22",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": [
+                    {
+                      "bar": {
+                        "marriageId": "m_alice_bob",
+                        "generation": 1,
+                        "hostId": "alice",
+                        "joiningId": "bob",
+                        "joiningSlot": {
+                          "personId": "bob",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Bob Sharma",
+                          "gender": "male",
+                          "born": {
+                            "value": "1949-11-30",
+                            "precision": "day",
+                            "circa": false
+                          }
+                        },
+                        "start": {
+                          "value": "1972-06-10",
+                          "precision": "day",
+                          "circa": false
+                        },
+                        "ended": false,
+                        "joiningNestedBirthFamily": {
+                          "slot": {
+                            "personId": "mahesh",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 0,
+                            "name": "Mahesh Sharma",
+                            "gender": "male",
+                            "born": {
+                              "value": "1921-07-19",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": [
+                            {
+                              "bar": {
+                                "marriageId": "m_bob_parents",
+                                "generation": 0,
+                                "hostId": "mahesh",
+                                "joiningId": "lata",
+                                "joiningSlot": {
+                                  "personId": "lata",
+                                  "kind": {
+                                    "kind": "canonical"
+                                  },
+                                  "generation": 0,
+                                  "name": "Lata Sharma",
+                                  "gender": "female",
+                                  "born": {
+                                    "value": "1924-02-28",
+                                    "precision": "day",
+                                    "circa": false
+                                  }
+                                },
+                                "start": {
+                                  "value": "1946-08-14",
+                                  "precision": "day",
+                                  "circa": false
+                                },
+                                "ended": false
+                              },
+                              "children": []
+                            }
+                          ]
+                        }
+                      },
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "kiran",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Kiran Patel",
+                            "gender": "female",
+                            "born": {
+                              "value": "1975-04-18",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "alice",
+      "marriageId": "m_host_parents"
+    },
+    {
+      "kind": "birth",
+      "childId": "bob",
+      "marriageId": "m_bob_parents"
+    },
+    {
+      "kind": "birth",
+      "childId": "kiran",
+      "marriageId": "m_alice_bob"
+    }
+  ]
+}

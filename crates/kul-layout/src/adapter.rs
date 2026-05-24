@@ -96,11 +96,25 @@ impl<'a> Builder<'a> {
     }
 
     fn add_component(&mut self, component: &Component) {
-        let root = match &component.kind {
-            ComponentKind::FamilyTree { root } => self.build_person_root(root),
-            ComponentKind::OrphanPerson { card } => self.push_orphan((**card).clone()),
-        };
-        self.roots.push(root);
+        match &component.kind {
+            ComponentKind::FamilyTree { root } => {
+                // Pre-register the top root index so it sits at the
+                // *front* of `self.roots` for this component. Any P6
+                // nested birth-family sub-trees discovered during the
+                // DFS pre-order recursion in `build_person` push their
+                // roots onto `self.roots` immediately after, so each
+                // nested sub-tree packs to the right of the host tree
+                // (and grand-nesteds adjacent to their parent nested).
+                let expected = self.nodes.len();
+                self.roots.push(expected);
+                let actual = self.build_person_root(root);
+                debug_assert_eq!(expected, actual);
+            }
+            ComponentKind::OrphanPerson { card } => {
+                let orphan = self.push_orphan((**card).clone());
+                self.roots.push(orphan);
+            }
+        }
     }
 
     fn push_orphan(&mut self, card: CardSlot) -> usize {
@@ -175,6 +189,19 @@ impl<'a> Builder<'a> {
         // descendency-tree shape (P1, [`EdgeRouting::InTree`]).
         let mut children: Vec<usize> = Vec::new();
         for marriage in &card.hosted_marriages {
+            // P6: if this marriage's joining spouse carries a nested
+            // birth-family sub-tree, push it as an additional Walker
+            // root *before* descending into the marriage's children
+            // (ADR-0022 sibling-root packing, DFS pre-order). Walker's
+            // multi-root pass places it adjacent to the host tree on
+            // the right; any grand-nesteds discovered inside this
+            // sub-tree push themselves further right in turn.
+            if let Some(nested) = &marriage.bar.joining_nested_birth_family {
+                let nested_expected = self.nodes.len();
+                self.roots.push(nested_expected);
+                let nested_actual = self.build_person(nested);
+                debug_assert_eq!(nested_expected, nested_actual);
+            }
             for child in &marriage.children {
                 self.structural_edges.insert((
                     marriage.bar.marriage_id.clone(),
@@ -407,14 +434,12 @@ fn route_edges(
 ) -> Vec<PositionedEdge> {
     let mut out = Vec::with_capacity(render_edges.len());
     for edge in render_edges {
-        let Some(&(bar_cx, bar_by)) = bar_centers.get(&edge.marriage_id) else {
-            // The bar isn't positioned in this layout pass — the
-            // joining-spouse's nested birth-family case (F8). A true
-            // cross-tree edge (this issue, F5) has *both* endpoints
-            // positioned; only the displaced-child relationship is
-            // missing from the structural tree.
-            continue;
-        };
+        // P6 (ADR-0022): nested birth-family bars are positioned as
+        // additional Walker roots, so every render edge's marriage id
+        // is in `bar_centers`. The old F8 silent-drop branch is gone.
+        let &(bar_cx, bar_by) = bar_centers
+            .get(&edge.marriage_id)
+            .expect("every render edge's marriage must have a positioned bar");
         // P16: when a child has a past-adoption ghost at this
         // marriage's children row, the dashed adoption edge attaches
         // to the local ghost rather than the canonical card — the

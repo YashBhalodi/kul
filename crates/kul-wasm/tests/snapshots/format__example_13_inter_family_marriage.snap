@@ -1,0 +1,51 @@
+---
+source: crates/kul-wasm/tests/format.rs
+expression: formatted
+---
+# Example 13: Inter-family marriage — P6's recursive nesting at its
+# minimal pure-case scale.
+#
+# - Host side, generation 0: Rajesh and Saroj Patel (founders, no
+#   declared parents).
+# - Bob's side, generation 0: Mahesh and Lata Sharma (founders, no
+#   declared parents).
+# - Generation 1: Alice (bio child of m_host_parents) and Bob (bio
+#   child of m_bob_parents) meet and marry. Alice was declared first
+#   among the two, so Alice hosts; Bob joins.
+# - Generation 2: their child Kiran.
+#
+# Two unrelated birth families collide via m_alice_bob. Per P6, Bob's
+# birth-family sub-tree nests adjacent to Alice's host tree at Bob's
+# joining-slot connection point: Mahesh + Lata + the m_bob_parents bar
+# sit immediately to the right of the host tree at generation 0, with
+# Bob's birth edge running from his canonical card (the joining slot
+# of m_alice_bob, Alice's side) **back** to m_bob_parents as a
+# cross-tree edge through the gen-0/gen-1 gutter.
+#
+# Bob himself does *not* render in the nested sub-tree's children row.
+# His canonical card lives at m_alice_bob; the nested sub-tree only
+# carries his parents and their marriage bar. P11 termination does not
+# fire here — the two birth families share no people, so Bob's birth
+# family is genuinely outside the main walk.
+
+# ---- Generation 0, host side ----
+person rajesh  name:"Rajesh Patel"  gender:male    born:1920-04-11
+person saroj   name:"Saroj Patel"   gender:female  born:1923-09-02
+marriage m_host_parents rajesh saroj  start:1945-12-05
+
+# ---- Generation 0, Bob's side ----
+person mahesh  name:"Mahesh Sharma"  gender:male    born:1921-07-19
+person lata    name:"Lata Sharma"    gender:female  born:1924-02-28
+marriage m_bob_parents mahesh lata  start:1946-08-14
+
+# ---- Generation 1: Alice and Bob, the inter-family couple ----
+person alice  name:"Alice Patel"  gender:female  born:1948-03-22
+  birth m_host_parents
+person bob    name:"Bob Sharma"   gender:male    born:1949-11-30
+  birth m_bob_parents
+
+marriage m_alice_bob alice bob  start:1972-06-10
+
+# ---- Generation 2: their child ----
+person kiran  name:"Kiran Patel"  gender:female  born:1975-04-18
+  birth m_alice_bob

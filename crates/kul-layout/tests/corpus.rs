@@ -126,6 +126,12 @@ fn example_11_cousin_marriage() {
     insta::assert_snapshot!(yaml);
 }
 
+#[test]
+fn example_13_inter_family_marriage() {
+    let yaml = layout_example("13-inter-family-marriage");
+    insta::assert_snapshot!(yaml);
+}
+
 // ---- Serialisable mirror ------------------------------------------------
 //
 // `PositionedShape` is intentionally not `Serialize` (ADR-0018). The
