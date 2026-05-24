@@ -84,6 +84,12 @@ fn example_04_polygamous_family() {
     insta::assert_snapshot!(yaml);
 }
 
+#[test]
+fn example_08_divorce_and_remarriage() {
+    let yaml = layout_example("08-divorce-and-remarriage");
+    insta::assert_snapshot!(yaml);
+}
+
 // ---- Serialisable mirror ------------------------------------------------
 //
 // `PositionedShape` is intentionally not `Serialize` (ADR-0018). The
