@@ -99,6 +99,12 @@ fn example_08_divorce_and_remarriage() {
 }
 
 #[test]
+fn example_09_multi_adoption() {
+    let svg = render_example("09-multi-adoption");
+    insta::assert_snapshot!(svg);
+}
+
+#[test]
 fn example_10_disconnected_lineages_and_orphan() {
     let svg = render_example("10-disconnected-lineages-and-orphan");
     insta::assert_snapshot!(svg);
