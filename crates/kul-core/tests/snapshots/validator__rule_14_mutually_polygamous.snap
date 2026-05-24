@@ -1,0 +1,7 @@
+---
+source: crates/kul-core/tests/validator.rs
+expression: render_diagnostics(&result.diagnostics)
+---
+KUL-R14 [640..651]: bob has 2 concurrent un-ended marriages; he must be the declared host (first spouse) in all of them.
+Currently: marriage m_alice_bob alice bob ...
+Fix:       marriage m_alice_bob bob alice ...

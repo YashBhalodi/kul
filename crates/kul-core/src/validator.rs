@@ -13,7 +13,7 @@
 //! current one. Rule 13 (parenthood cycles) walks the whole project's
 //! parent graph in one pass.
 
-use crate::ast::{EndReason, Ident, MarriageStmt, Statement};
+use crate::ast::{EndReason, Gender, Ident, MarriageStmt, PersonStmt, Statement};
 use crate::date::{DateLit, before_strict};
 use crate::diagnostic::{Diagnostic, detail, fspan};
 use crate::lexer::FieldName;
@@ -45,6 +45,11 @@ pub fn validate(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     // cycle that spans two files is detected as a single cycle, not as
     // two separate per-file fragments.
     diagnostics.extend(rule_13_parenthood_cycles(resolved));
+    // R14 walks marriages project-wide in source order: a polygamy hub
+    // (≥2 un-ended marriages) MUST be the host (first-listed spouse) in
+    // every one of those marriages, so authoring stays the single source
+    // of truth for who the hub is (ADR-0026).
+    diagnostics.extend(rule_14_polygamy_hub_must_host(resolved));
     diagnostics
 }
 
@@ -519,6 +524,116 @@ fn temporal_violation(
         Diagnostic::error(code, message(), fspan(file, primary.span))
             .with_related(fspan(file, related.span), related_label()),
     )
+}
+
+/// Rule 14 — polygamy hub must host all un-ended marriages.
+///
+/// For each person `p`, count their un-ended marriages (marriages where
+/// `p` is a spouse and the marriage has no `end:`). If that count is
+/// ≥ 2, `p` is a **polygamy hub** and MUST be the declared host
+/// (first-listed spouse) of every one of those un-ended marriages. The
+/// rule fires once per offending marriage — the marriages where the hub
+/// is the joining spouse rather than the host.
+///
+/// Walks marriages in project-wide source order so diagnostics group
+/// stably for snapshot tests. See [`crate::diagnostic::detail`] — R14
+/// has a single sub-case and no detail tag. ADR-0026 records the
+/// reasoning: aligning the per-person "polygamy hub" concept with the
+/// per-marriage "host" concept by language invariant rather than by
+/// renderer repair.
+pub fn rule_14_polygamy_hub_must_host(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+    // Cache un-ended-marriage counts per person id. A polygamy hub is
+    // any person with count ≥ 2; the cache means the per-marriage loop
+    // below stays a single pass rather than re-walking every marriage
+    // for each spouse it touches.
+    let mut un_ended_count: std::collections::HashMap<&str, usize> =
+        std::collections::HashMap::new();
+    for m in resolved.marriages() {
+        if m.end().is_some() {
+            continue;
+        }
+        // Only count marriages where both spouse positions resolve to
+        // a person. R02 already condemns marriages with unresolved or
+        // wrong-kind spouses; folding those into the hub count would
+        // cascade R02 into a misleading R14 on an otherwise clean
+        // sibling marriage.
+        let spouses: Vec<&PersonStmt> = resolved.spouses_of(m).collect();
+        if spouses.len() != 2 {
+            continue;
+        }
+        if spouses[0].id.name == spouses[1].id.name {
+            // R04 already reports self-marriage; counting both sides
+            // would inflate the count and mask R04 with an R14.
+            continue;
+        }
+        for spouse in spouses {
+            *un_ended_count.entry(spouse.id.name.as_str()).or_insert(0) += 1;
+        }
+    }
+    let mut out = Vec::new();
+    for (file, kf) in resolved.document().kul_files() {
+        for stmt in &kf.statements {
+            let Statement::Marriage(m) = stmt else {
+                continue;
+            };
+            if m.end().is_some() {
+                continue;
+            }
+            // The joining spouse (spouse_b) is the only candidate for
+            // an R14 violation on this marriage — spouse_a is host by
+            // definition. R14 fires when the joining spouse is a hub
+            // (≥2 un-ended marriages) and therefore should have been
+            // the first-listed spouse instead.
+            //
+            // Skip marriages whose spouse positions don't both resolve
+            // to a person: R02 already reports unresolved / wrong-kind
+            // refs, and R14 layered on top would be a cascading
+            // diagnostic rather than a distinct violation.
+            if resolved.person(&m.spouse_a.name).is_none() {
+                continue;
+            }
+            let Some(hub_person) = resolved.person(&m.spouse_b.name) else {
+                continue;
+            };
+            let hub_count = un_ended_count
+                .get(hub_person.id.name.as_str())
+                .copied()
+                .unwrap_or(0);
+            if hub_count < 2 {
+                continue;
+            }
+            out.push(polygamy_hub_diagnostic(file, m, hub_person, hub_count));
+        }
+    }
+    out
+}
+
+fn polygamy_hub_diagnostic(
+    file: FileId,
+    m: &MarriageStmt,
+    hub: &PersonStmt,
+    hub_count: usize,
+) -> Diagnostic {
+    let pronoun = match hub.gender().map(|g| g.value) {
+        Some(Gender::Female) => "she",
+        Some(Gender::Male) => "he",
+        Some(Gender::Other) | None => "they",
+    };
+    // The Fix line shows the spouses swapped: the hub moves to first
+    // position. The `...` placeholder elides field text so the message
+    // stays compact regardless of how many fields the marriage carries.
+    let message = format!(
+        "{name} has {hub_count} concurrent un-ended marriages; {pronoun} must be the declared host (first spouse) in all of them.\nCurrently: marriage {id} {a} {b} ...\nFix:       marriage {id} {hub_name} {other} ...",
+        name = hub.id.name,
+        hub_count = hub_count,
+        pronoun = pronoun,
+        id = m.id.name,
+        a = m.spouse_a.name,
+        b = m.spouse_b.name,
+        hub_name = hub.id.name,
+        other = m.spouse_a.name,
+    );
+    Diagnostic::error("KUL-R14", message, fspan(file, m.id.span))
 }
 
 /// Rule 13 — no person may appear as their own ancestor in the parent

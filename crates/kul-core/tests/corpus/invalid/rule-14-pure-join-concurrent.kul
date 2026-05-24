@@ -1,0 +1,10 @@
+# Pure-join concurrent: alice is the joining spouse in two un-ended
+# marriages (hosted by bob and devraj respectively). un_ended_count for
+# alice is 2 → alice is a polygamy hub but is host of neither. R14
+# fires on both marriages.
+person alice  name:"Alice"  gender:female
+person bob    name:"Bob"    gender:male
+person devraj name:"Devraj" gender:male
+
+marriage m_bob_alice     bob     alice  start:1990-01-01
+marriage m_devraj_alice  devraj  alice  start:1995-06-15

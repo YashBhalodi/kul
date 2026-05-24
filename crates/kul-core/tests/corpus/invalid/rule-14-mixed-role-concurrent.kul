@@ -1,0 +1,10 @@
+# Mixed-role concurrent polygamy: alice hosts m_alice_bob and is the
+# joining spouse in m_devraj_alice. Both marriages un-ended → alice is
+# a polygamy hub but is not host of m_devraj_alice. R14 fires on that
+# marriage.
+person alice  name:"Alice"  gender:female
+person bob    name:"Bob"    gender:male
+person devraj name:"Devraj" gender:male
+
+marriage m_alice_bob     alice  bob     start:1990-01-01
+marriage m_devraj_alice  devraj alice   start:1995-06-15

@@ -1,0 +1,7 @@
+---
+source: crates/kul-core/tests/validator.rs
+expression: render_diagnostics(&result.diagnostics)
+---
+KUL-R14 [413..427]: alice has 2 concurrent un-ended marriages; she must be the declared host (first spouse) in all of them.
+Currently: marriage m_devraj_alice devraj alice ...
+Fix:       marriage m_devraj_alice alice devraj ...

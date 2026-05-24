@@ -1,0 +1,15 @@
+# Mutually-polygamous unsatisfiable: alice is in two un-ended marriages
+# (m_alice_bob, m_alice_carol) and bob is in two un-ended marriages
+# (m_alice_bob, m_bob_dave). Both alice and bob are polygamy hubs;
+# m_alice_bob lists alice first so bob (joining spouse) is the hub
+# that should-be-host, and R14 fires on m_alice_bob alone. Swapping
+# spouses there would shift the violation to alice — the configuration
+# cannot be satisfied without ending one of the marriages.
+person alice name:"Alice" gender:female
+person bob   name:"Bob"   gender:male
+person carol name:"Carol" gender:female
+person dave  name:"Dave"  gender:male
+
+marriage m_alice_bob   alice bob   start:1990-01-01
+marriage m_alice_carol alice carol start:1995-03-10
+marriage m_bob_dave    bob   dave  start:1997-08-22
