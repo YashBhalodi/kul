@@ -79,3 +79,9 @@ fn example_04_polygamous_family() {
     let svg = render_example("04-polygamous-family");
     insta::assert_snapshot!(svg);
 }
+
+#[test]
+fn example_08_divorce_and_remarriage() {
+    let svg = render_example("08-divorce-and-remarriage");
+    insta::assert_snapshot!(svg);
+}
