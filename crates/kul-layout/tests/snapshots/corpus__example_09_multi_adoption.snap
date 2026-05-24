@@ -1,0 +1,122 @@
+---
+source: crates/kul-layout/tests/corpus.rs
+expression: yaml
+---
+width: 1162.0
+height: 272.0
+cards:
+- person_id: ravi
+  kind: canonical
+  x: 24.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Ravi Mehta
+- person_id: priya
+  kind: canonical
+  x: 214.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Priya Mehta
+- person_id: anita
+  kind: canonical
+  x: 406.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Anita Rao
+- person_id: bharat
+  kind: canonical
+  x: 596.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Bharat Rao
+- person_id: sam
+  kind: ghost:past_adoption
+  x: 501.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Sam
+- person_id: chen
+  kind: canonical
+  x: 788.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Chen Liu
+- person_id: dara
+  kind: canonical
+  x: 978.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Dara Liu
+- person_id: sam
+  kind: canonical
+  x: 883.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Sam
+bars:
+- marriage_id: m_ravi_priya
+  x: 190.0
+  y: 51.0
+  width: 18.0
+  height: 10.0
+  ended: false
+- marriage_id: m_anita_bharat
+  x: 572.0
+  y: 51.0
+  width: 18.0
+  height: 10.0
+  ended: false
+- marriage_id: m_chen_dara
+  x: 954.0
+  y: 51.0
+  width: 18.0
+  height: 10.0
+  ended: false
+edges:
+- kind: birth
+  routing: cross_tree
+  child_id: sam
+  marriage_id: m_ravi_priya
+  points:
+  - - 199.0
+    - 61.0
+  - - 199.0
+    - 156.0
+  - - 963.0
+    - 156.0
+  - - 963.0
+    - 184.0
+- kind: adoption
+  routing: in_tree
+  child_id: sam
+  marriage_id: m_anita_bharat
+  points:
+  - - 581.0
+    - 61.0
+  - - 581.0
+    - 156.0
+  - - 963.0
+    - 156.0
+  - - 963.0
+    - 184.0
+- kind: adoption
+  routing: in_tree
+  child_id: sam
+  marriage_id: m_chen_dara
+  points:
+  - - 963.0
+    - 61.0
+  - - 963.0
+    - 156.0
+  - - 963.0
+    - 156.0
+  - - 963.0
+    - 184.0

@@ -103,6 +103,12 @@ fn example_08_divorce_and_remarriage() {
 }
 
 #[test]
+fn example_09_multi_adoption() {
+    let yaml = layout_example("09-multi-adoption");
+    insta::assert_snapshot!(yaml);
+}
+
+#[test]
 fn example_10_disconnected_lineages_and_orphan() {
     let yaml = layout_example("10-disconnected-lineages-and-orphan");
     insta::assert_snapshot!(yaml);
