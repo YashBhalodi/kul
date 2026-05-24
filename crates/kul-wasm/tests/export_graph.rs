@@ -203,6 +203,13 @@ example_snapshot!(
     "12-polygamy-with-birth-family",
     "polygamy-with-birth-family"
 );
+example_snapshot!(
+    example_13_inter_family_marriage,
+    example_13_inter_family_marriage_with_positions,
+    example_13_inter_family_marriage_cytoscape,
+    "13-inter-family-marriage",
+    "inter-family-marriage"
+);
 
 /// Multi-file example: snapshots assert the WASM bridge unions persons,
 /// marriages, and parenthood links across every `.kul` file in the
@@ -251,6 +258,7 @@ fn every_example_has_a_dedicated_export_graph_test() {
         "10-disconnected-lineages-and-orphan",
         "11-cousin-marriage",
         "12-polygamy-with-birth-family",
+        "13-inter-family-marriage",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),

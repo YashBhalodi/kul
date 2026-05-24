@@ -121,3 +121,9 @@ fn example_11_cousin_marriage() {
     let svg = render_example("11-cousin-marriage");
     insta::assert_snapshot!(svg);
 }
+
+#[test]
+fn example_13_inter_family_marriage() {
+    let svg = render_example("13-inter-family-marriage");
+    insta::assert_snapshot!(svg);
+}

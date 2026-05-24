@@ -16,6 +16,7 @@ Worked-example Kul projects that double as the **positive test corpus**. Each ex
 | [`10-disconnected-lineages-and-orphan/disconnected-lineages-and-orphan.kul`](./10-disconnected-lineages-and-orphan/disconnected-lineages-and-orphan.kul) | Three disconnected components (two lineages plus a P13 orphan) sorted in source order per P12. |
 | [`11-cousin-marriage/cousin-marriage.kul`](./11-cousin-marriage/cousin-marriage.kul)                     | First-cousin marriage exercising P11's within-family absorb rule. |
 | [`12-polygamy-with-birth-family/polygamy-with-birth-family.kul`](./12-polygamy-with-birth-family/polygamy-with-birth-family.kul) | Pure-host polygamy embedded in a multi-generation tree; multiple concurrent marriage bars share one canonical card (P8 amendment, issue #142). |
+| [`13-inter-family-marriage/inter-family-marriage.kul`](./13-inter-family-marriage/inter-family-marriage.kul) | Two unrelated birth families joined via a marriage; pure P6 recursive nesting of the joining spouse's birth family adjacent to the host tree. |
 
 ## Layout
 
