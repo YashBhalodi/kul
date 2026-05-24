@@ -24,6 +24,12 @@ updates:
     groups:
       vscode-extension:
         patterns: ["*"]
+    # @types/vscode must not exceed engines.vscode in package.json — vsce
+    # package rejects newer types. The engines floor is intentionally low for
+    # broad VSCode compatibility, so pin @types/vscode and bump both manually
+    # when raising the floor.
+    ignore:
+      - dependency-name: "@types/vscode"
     open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions
