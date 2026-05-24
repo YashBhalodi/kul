@@ -101,6 +101,19 @@ expression: json
       },
       {
         "data": {
+          "id": "p:bro",
+          "type": "person",
+          "name": "Bro Mehta",
+          "gender": "male",
+          "born": {
+            "value": "1985-03-10",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
           "id": "m:m_ravi_priya",
           "type": "marriage",
           "start": {
@@ -205,6 +218,13 @@ expression: json
             "precision": "day",
             "circa": false
           }
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_ravi_priya",
+          "target": "p:bro",
+          "type": "biological_child"
         }
       }
     ]

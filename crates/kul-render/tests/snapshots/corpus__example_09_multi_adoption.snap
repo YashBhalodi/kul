@@ -9,7 +9,7 @@ expression: json
   "components": [
     {
       "id": "comp-1",
-      "sourceOrder": 922,
+      "sourceOrder": 1658,
       "kind": {
         "type": "familyTree",
         "root": {
@@ -55,7 +55,43 @@ expression: json
                 },
                 "ended": false
               },
-              "children": []
+              "children": [
+                {
+                  "slot": {
+                    "personId": "sam",
+                    "kind": {
+                      "kind": "ghost",
+                      "reason": "pastBirth"
+                    },
+                    "generation": 1,
+                    "name": "Sam",
+                    "gender": "other",
+                    "born": {
+                      "value": "1982-05-19",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                },
+                {
+                  "slot": {
+                    "personId": "bro",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Bro Mehta",
+                    "gender": "male",
+                    "born": {
+                      "value": "1985-03-10",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
             }
           ]
         }
@@ -63,7 +99,7 @@ expression: json
     },
     {
       "id": "comp-2",
-      "sourceOrder": 1149,
+      "sourceOrder": 1885,
       "kind": {
         "type": "familyTree",
         "root": {
@@ -136,7 +172,7 @@ expression: json
     },
     {
       "id": "comp-3",
-      "sourceOrder": 1374,
+      "sourceOrder": 2110,
       "kind": {
         "type": "familyTree",
         "root": {
@@ -232,6 +268,11 @@ expression: json
         "precision": "day",
         "circa": false
       }
+    },
+    {
+      "kind": "birth",
+      "childId": "bro",
+      "marriageId": "m_ravi_priya"
     }
   ]
 }

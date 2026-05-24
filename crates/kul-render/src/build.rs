@@ -850,54 +850,60 @@ fn build_children(
     in_context: &HashSet<usize>,
 ) -> Vec<PersonCard> {
     let mut out = Vec::new();
-    // Canonical children: persons whose canonical family is this
-    // marriage. Iterated in declaration order so the output is
-    // deterministic and matches the source-order ordering downstream
-    // tooling expects.
+    // P3 / P12 source-order semantic: iterate persons in declaration
+    // order so canonical children and P16 child-ghosts interleave at
+    // the same source-order key the children row uses for canonical
+    // siblings. One person can play at most one role at any given
+    // marriage (canonical child, past-adoption ghost, or past-bio
+    // ghost), so the per-person branches are mutually exclusive.
     for facts in index.persons.iter() {
-        if facts.canonical_family() != Some(marriage_id) {
+        // Canonical child: the child's canonical card sits in this
+        // marriage's children row. A child who joined some current
+        // intimacy elsewhere — or whose canonical adoption is at a
+        // different marriage — doesn't surface canonically here.
+        let canonical_here = facts.canonical_family() == Some(marriage_id)
+            && matches!(
+                index.canonical_location(facts),
+                CanonicalLocation::ChildOf(ref id) if id == marriage_id
+            );
+        if canonical_here {
+            out.push(PersonCard {
+                slot: canonical_card_slot(facts),
+                hosted_marriages: build_hosted_marriages(index, facts, visited, in_context),
+            });
             continue;
         }
-        // The child's canonical card sits in this children row only
-        // when their canonical-card location resolves here. A child who
-        // joined some current intimacy elsewhere has their canonical
-        // card at the host's bar in the other component — they don't
-        // appear in this children row.
-        if !matches!(
-            index.canonical_location(facts),
-            CanonicalLocation::ChildOf(ref id) if id == marriage_id
-        ) {
+        // P16 past-adoption child-ghost: this marriage is one of the
+        // person's adoption marriages, but P16's "most-recent wins"
+        // resolved the canonical card elsewhere.
+        if facts.adoption_marriages.len() >= 2
+            && facts
+                .adoption_marriages
+                .iter()
+                .skip(1)
+                .any(|m| m == marriage_id)
+        {
+            out.push(PersonCard {
+                slot: ghost_card_slot(facts, GhostReason::PastAdoption, marriage_id, index),
+                hosted_marriages: Vec::new(),
+            });
             continue;
         }
-        let slot = canonical_card_slot(facts);
-        let hosted_marriages = build_hosted_marriages(index, facts, visited, in_context);
-        out.push(PersonCard {
-            slot,
-            hosted_marriages,
-        });
-    }
-    // P16 past-adoption ghosts: each past adoption's bar shows a
-    // child-ghost. The bar itself may already be in the children-walk
-    // above when this is the canonical adoption; here we only emit for
-    // **past** adoptions, where the child's canonical card lives
-    // elsewhere.
-    for facts in index.persons.iter() {
-        if facts.adoption_marriages.len() < 2 {
-            continue;
+        // P16 past-bio child-ghost: derived-from-canonical trigger —
+        // the person has a `birth` link at this marriage AND P8's
+        // chain selected a different intimacy (adoption demotes the
+        // bio family; a marriage's joining slot likewise relocates
+        // the canonical card). Emit a ghost so the solid bio-birth
+        // edge terminates locally at the bio family rather than
+        // traversing the canvas to the canonical card. `canonical_here`
+        // above already short-circuited the case where the bio family
+        // is the canonical anchor.
+        if facts.bio_marriage.as_deref() == Some(marriage_id) {
+            out.push(PersonCard {
+                slot: ghost_card_slot(facts, GhostReason::PastBirth, marriage_id, index),
+                hosted_marriages: Vec::new(),
+            });
         }
-        let past: Vec<&str> = facts
-            .adoption_marriages
-            .iter()
-            .skip(1)
-            .map(String::as_str)
-            .collect();
-        if !past.contains(&marriage_id) {
-            continue;
-        }
-        out.push(PersonCard {
-            slot: ghost_card_slot(facts, GhostReason::PastAdoption, marriage_id, index),
-            hosted_marriages: Vec::new(),
-        });
     }
     out
 }

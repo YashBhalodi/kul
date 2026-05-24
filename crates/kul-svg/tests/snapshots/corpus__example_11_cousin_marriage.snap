@@ -6,7 +6,7 @@ expression: svg
 <path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 61 L 390 146 Q 390 156 380 156 L 114 156 Q 104 156 104 166 L 104 184"/>
 <path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 61 L 390 146 Q 390 156 400 156 L 476 156 Q 486 156 486 166 L 486 184"/>
 <path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 199 221 L 199 306 Q 199 316 189 316 L 114 316 Q 104 316 104 326 L 104 344"/>
-<path class="kul-edge kul-edge--birth kul-edge--cross-tree" fill="none" d="M 581 221 L 581 306 Q 581 316 571 316 L 304 316 Q 294 316 294 326 L 294 344"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 581 221 L 581 316 L 581 316 L 581 344"/>
 <rect class="kul-bar" x="381" y="51" width="18" height="10"/>
 <rect class="kul-bar" x="190" y="211" width="18" height="10"/>
 <rect class="kul-bar" x="190" y="371" width="18" height="10"/>
@@ -42,5 +42,10 @@ expression: svg
 <g class="kul-card kul-card--canonical">
 <rect x="596" y="184" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="676" y="216" text-anchor="middle" dominant-baseline="central">Janaki Iyer</text>
+</g>
+<g class="kul-card kul-card--ghost">
+<rect x="501" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
+<text class="kul-label-name" x="581" y="376" text-anchor="middle" dominant-baseline="central">Nikhil Iyer</text>
+<text class="kul-ghost-badge" x="649" y="358" text-anchor="middle">↺</text>
 </g>
 </svg>
