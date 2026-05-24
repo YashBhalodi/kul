@@ -200,6 +200,76 @@ fn render_dirty_document_returns_failure_with_diagnostics() {
 }
 
 #[test]
+fn render_is_uri_invariant_for_a_multi_file_project() {
+    // One project = one render (ADR-0015): the LSP keys its cache per
+    // project, so every URI in the same project must produce the same
+    // SVG. Pin that here by opening all three files of a multi-file
+    // project and asserting the responses are byte-equal.
+    let mut handle = Handle::spawn();
+    let files: &[(&str, &str)] = &[
+        (
+            "01-founders.kul",
+            "person ramesh name:\"Ramesh\" gender:male\n\
+             person sita   name:\"Sita\"   gender:female\n\
+             marriage m_ramesh_sita ramesh sita start:1952\n",
+        ),
+        (
+            "02-parents.kul",
+            "person alice name:\"Alice\" gender:female\n  birth m_ramesh_sita\n\
+             person bob   name:\"Bob\"   gender:male\n\
+             marriage m_alice_bob alice bob start:1978\n",
+        ),
+        (
+            "03-grandchildren.kul",
+            "person carol name:\"Carol\" gender:female\n  birth m_alice_bob\n",
+        ),
+    ];
+    let (_dir, urls) =
+        common::fixture_project("render_is_uri_invariant_for_a_multi_file_project", files);
+    handshake(&mut handle);
+    for (url, (_, source)) in urls.iter().zip(files.iter()) {
+        open(&mut handle, url.as_str(), source);
+    }
+
+    let svgs: Vec<String> = urls
+        .iter()
+        .enumerate()
+        .map(|(i, url)| {
+            let response = send_render(&mut handle, 400 + i as i64, url.as_str());
+            let envelope = &response["result"];
+            assert_eq!(
+                envelope["ok"], true,
+                "render for {url} should succeed: {envelope}"
+            );
+            envelope["svg"]
+                .as_str()
+                .unwrap_or_else(|| panic!("svg string for {url}: {envelope}"))
+                .to_owned()
+        })
+        .collect();
+
+    // Byte-identical SVGs prove the render is keyed off the project,
+    // not the URI — opening `Kul: Show Preview` from any sibling file
+    // shows the same unified diagram.
+    for (i, svg) in svgs.iter().enumerate().skip(1) {
+        assert_eq!(
+            svg, &svgs[0],
+            "SVG for {} diverged from SVG for {}",
+            urls[i], urls[0]
+        );
+    }
+    // Sanity-check the unified render really did pull in every file:
+    // each person from each of the three files should appear by name.
+    let unified = &svgs[0];
+    for name in ["Ramesh", "Sita", "Alice", "Bob", "Carol"] {
+        assert!(
+            unified.contains(name),
+            "unified SVG should contain {name}: {unified}"
+        );
+    }
+}
+
+#[test]
 fn render_unknown_document_returns_invalid_params_error() {
     let mut handle = Handle::spawn();
     let kul_url = common::fixture_url(

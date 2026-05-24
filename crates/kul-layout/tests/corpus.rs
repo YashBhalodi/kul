@@ -97,6 +97,12 @@ fn example_06_three_branch_dynasty() {
 }
 
 #[test]
+fn example_07_multi_file_extended_family() {
+    let yaml = layout_example("07-multi-file-extended-family");
+    insta::assert_snapshot!(yaml);
+}
+
+#[test]
 fn example_08_divorce_and_remarriage() {
     let yaml = layout_example("08-divorce-and-remarriage");
     insta::assert_snapshot!(yaml);
