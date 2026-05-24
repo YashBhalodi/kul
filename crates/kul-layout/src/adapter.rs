@@ -68,6 +68,13 @@ struct Builder<'a> {
     config: &'a LayoutConfig,
     nodes: Vec<Node>,
     roots: Vec<usize>,
+    /// The set of `(marriage_id, child_id)` pairs the adapter laid out
+    /// as direct structural parent-child relationships — i.e. the
+    /// child's `PersonCard` was placed in the children row directly
+    /// below that marriage's bar. Edges whose endpoints both resolve
+    /// but whose pair isn't here are the displaced-child / P11 case:
+    /// route them as [`EdgeRouting::CrossTree`].
+    structural_edges: std::collections::HashSet<(String, String)>,
 }
 
 impl<'a> Builder<'a> {
@@ -76,6 +83,7 @@ impl<'a> Builder<'a> {
             config,
             nodes: Vec::new(),
             roots: Vec::new(),
+            structural_edges: std::collections::HashSet::new(),
         }
     }
 
@@ -152,10 +160,18 @@ impl<'a> Builder<'a> {
         });
 
         // Children of this host = union of all hosted marriages'
-        // children, in declaration order across marriages.
+        // children, in declaration order across marriages. Each
+        // (marriage, child) pair is recorded as a structural edge so
+        // edge routing can distinguish displaced-child relationships
+        // (P11, [`EdgeRouting::CrossTree`]) from the standard
+        // descendency-tree shape (P1, [`EdgeRouting::InTree`]).
         let mut children: Vec<usize> = Vec::new();
         for marriage in &card.hosted_marriages {
             for child in &marriage.children {
+                self.structural_edges.insert((
+                    marriage.bar.marriage_id.clone(),
+                    child.slot.person_id.clone(),
+                ));
                 children.push(self.build_person(child));
             }
         }
@@ -168,6 +184,7 @@ impl<'a> Builder<'a> {
             config,
             nodes,
             roots,
+            structural_edges,
         } = self;
 
         let walker_input: Vec<InputNode> = nodes
@@ -287,7 +304,13 @@ impl<'a> Builder<'a> {
             }
         }
 
-        let edges = route_edges(render_edges, &bar_centers, &card_tops, config);
+        let edges = route_edges(
+            render_edges,
+            &bar_centers,
+            &card_tops,
+            &structural_edges,
+            config,
+        );
 
         let canvas_width = max_x - min_x + config.padding * 2.0;
         let canvas_height = (max_gen as f64 + 1.0) * config.row_height
@@ -339,15 +362,17 @@ fn route_edges(
     render_edges: &[Edge],
     bar_centers: &std::collections::HashMap<String, (f64, f64)>,
     card_tops: &std::collections::HashMap<String, (f64, f64)>,
+    structural_edges: &std::collections::HashSet<(String, String)>,
     config: &LayoutConfig,
 ) -> Vec<PositionedEdge> {
     let mut out = Vec::with_capacity(render_edges.len());
     for edge in render_edges {
         let Some(&(bar_cx, bar_by)) = bar_centers.get(&edge.marriage_id) else {
-            // The bar isn't positioned in this layout pass (e.g. an
-            // edge whose marriage lives in a component the v1
-            // adapter doesn't surface yet). Skip — the cross-tree
-            // follow-up (F5) will route these.
+            // The bar isn't positioned in this layout pass — the
+            // joining-spouse's nested birth-family case (F8). A true
+            // cross-tree edge (this issue, F5) has *both* endpoints
+            // positioned; only the displaced-child relationship is
+            // missing from the structural tree.
             continue;
         };
         let Some(&(card_cx, card_top)) = card_tops.get(&edge.child_id) else {
@@ -357,6 +382,17 @@ fn route_edges(
             RenderEdgeKind::Birth => EdgeKind::Birth,
             RenderEdgeKind::Adoption => EdgeKind::Adoption,
         };
+        let routing =
+            if structural_edges.contains(&(edge.marriage_id.clone(), edge.child_id.clone())) {
+                EdgeRouting::InTree
+            } else {
+                // P11 / displaced-child: both endpoints sit in the laid-out
+                // tree but the child is not a structural descendant of this
+                // marriage. The cousin-marriage case is the canonical
+                // exerciser. Geometry matches `InTree` (per ADR-0018);
+                // only the routing discriminator differs.
+                EdgeRouting::CrossTree
+            };
         let bus_y = card_top - config.bus_drop;
         let points = vec![
             (bar_cx, bar_by),
@@ -366,7 +402,7 @@ fn route_edges(
         ];
         out.push(PositionedEdge {
             kind,
-            routing: EdgeRouting::InTree,
+            routing,
             child_id: edge.child_id.clone(),
             marriage_id: edge.marriage_id.clone(),
             points,

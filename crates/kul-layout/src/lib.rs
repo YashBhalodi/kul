@@ -19,7 +19,8 @@
 //! - [`adapter`] — wraps Walker's for kul's pattern: marriage bars
 //!   between adjacent spouses, ghost slots at the host's birth-family
 //!   position per P8, generation rows from generation indices,
-//!   orthogonal right-angle edge routing for `InTree` edges.
+//!   orthogonal right-angle edge routing (`InTree` and `CrossTree`
+//!   share one geometry; see [`EdgeRouting`]).
 //!
 //! # Internal seam, not a wire shape
 //!

@@ -120,18 +120,24 @@ pub enum EdgeKind {
     Adoption,
 }
 
-/// How an edge is routed. Extensible discriminator: v1 only constructs
-/// [`EdgeRouting::InTree`]; the cross-tree follow-up (F5) lands the
-/// `CrossTree` variant and a routing implementation for it without
-/// changing this enum's shape.
+/// How an edge is routed. Both variants emit the **same** orthogonal
+/// right-angle polyline geometry and the same attachment points —
+/// bar bottom-midpoint, horizontal bus at `card_top - config.bus_drop`,
+/// child card top-midpoint — so the entire diagram follows one
+/// consistent edge-routing pattern (P1). The discriminator exists to
+/// give surface consumers a future re-theming hook (the emitted CSS
+/// classes differ); the layout layer treats them identically. See
+/// [ADR-0018](../../docs/adr/0018-kul-layout-crate-boundary.md).
 #[derive(Debug, Clone, Copy)]
 pub enum EdgeRouting {
-    /// Standard descendency-tree route: from the bar's bottom midpoint
-    /// down to a horizontal bus mid-row, across, then down to the
-    /// child's card top. Matches classical convention (P1).
+    /// Standard descendency-tree route: the child sits structurally
+    /// inside this marriage's subtree, directly below the bar in the
+    /// children row.
     InTree,
-    /// Cross-tree route — between two components, or within one
-    /// component across the canonical-card-tree hierarchy (P11). v1
-    /// does not construct this; reserved for F5.
+    /// Cross-tree route — both endpoints are positioned in the laid-out
+    /// tree, but the child is not a structural descendant of this
+    /// marriage's bar. The canonical exerciser is the cousin-marriage
+    /// case (P11): the joining cousin's birth-edge connects back to a
+    /// sibling marriage already in the rendering context.
     CrossTree,
 }
