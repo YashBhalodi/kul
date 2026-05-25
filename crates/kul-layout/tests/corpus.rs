@@ -16,7 +16,7 @@ use kul_core::CheckResult;
 use kul_core::ast::InputFile;
 use kul_core::manifest::Manifest;
 use kul_layout::{
-    EdgeRouting, LayoutConfig, PositionedCard, PositionedEdge, PositionedShape, SlotKind, layout,
+    EdgeKind, LayoutConfig, PositionedCard, PositionedEdge, PositionedShape, SlotKind, layout,
 };
 use kul_render::{GhostReason, compute};
 use serde::Serialize;
@@ -143,16 +143,43 @@ struct CardDump {
     width: f64,
     height: f64,
     name: String,
+    generation: u32,
+    gender: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    family: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    given: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    born: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    died: Option<String>,
 }
 
 #[derive(Serialize)]
 struct EdgeDump {
-    kind: String,
-    routing: String,
-    child_id: String,
+    link_kind: String,
     marriage_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    child_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    is_past: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    host_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    joining_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    start: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    end: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    end_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    adoption_start: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    adoption_end: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    is_ended: Option<bool>,
     points: Vec<(f64, f64)>,
-    ended: bool,
 }
 
 impl From<&PositionedShape> for PositionedDump {
@@ -188,28 +215,68 @@ impl From<&PositionedCard> for CardDump {
             width: c.width,
             height: c.height,
             name: c.name.clone(),
+            generation: c.generation,
+            gender: c.gender.to_owned(),
+            family: c.family.clone(),
+            given: c.given.clone(),
+            born: c.born.clone(),
+            died: c.died.clone(),
         }
     }
 }
 
 impl From<&PositionedEdge> for EdgeDump {
     fn from(e: &PositionedEdge) -> Self {
-        let kind = match e.kind {
-            kul_layout::EdgeKind::Birth => "birth".to_owned(),
-            kul_layout::EdgeKind::Adoption => "adoption".to_owned(),
-            kul_layout::EdgeKind::Marriage => "marriage".to_owned(),
-        };
-        let routing = match e.routing {
-            EdgeRouting::InTree => "in_tree".to_owned(),
-            EdgeRouting::CrossTree => "cross_tree".to_owned(),
-        };
-        Self {
-            kind,
-            routing,
-            child_id: e.child_id.clone(),
+        let mut dump = Self {
+            link_kind: String::new(),
             marriage_id: e.marriage_id.clone(),
+            child_id: None,
+            is_past: None,
+            host_id: None,
+            joining_id: None,
+            start: None,
+            end: None,
+            end_reason: None,
+            adoption_start: None,
+            adoption_end: None,
+            is_ended: None,
             points: e.points.clone(),
-            ended: e.ended,
+        };
+        match &e.kind {
+            EdgeKind::Birth { child_id, is_past } => {
+                dump.link_kind = "birth".to_owned();
+                dump.child_id = Some(child_id.clone());
+                dump.is_past = Some(*is_past);
+            }
+            EdgeKind::Adoption {
+                child_id,
+                is_past,
+                start,
+                end,
+            } => {
+                dump.link_kind = "adoption".to_owned();
+                dump.child_id = Some(child_id.clone());
+                dump.is_past = Some(*is_past);
+                dump.adoption_start = start.clone();
+                dump.adoption_end = end.clone();
+            }
+            EdgeKind::Marriage {
+                host_id,
+                joining_id,
+                start,
+                end,
+                end_reason,
+                is_ended,
+            } => {
+                dump.link_kind = "marriage".to_owned();
+                dump.host_id = Some(host_id.clone());
+                dump.joining_id = Some(joining_id.clone());
+                dump.start = Some(start.clone());
+                dump.end = end.clone();
+                dump.end_reason = end_reason.clone();
+                dump.is_ended = Some(*is_ended);
+            }
         }
+        dump
     }
 }

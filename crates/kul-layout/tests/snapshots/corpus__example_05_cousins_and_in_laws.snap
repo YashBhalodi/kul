@@ -12,6 +12,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Giuseppe Rossi
+  generation: 0
+  gender: male
+  born: 1940-05-19
 - person_id: sofia
   kind: canonical
   x: 405.0
@@ -19,6 +22,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Sofia Rossi
+  generation: 0
+  gender: female
+  born: 1943-01-27
 - person_id: marco
   kind: canonical
   x: 24.0
@@ -26,6 +32,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Marco Rossi
+  generation: 1
+  gender: male
+  born: 1968-09-30
 - person_id: elena
   kind: canonical
   x: 214.0
@@ -33,6 +42,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Elena Bianchi
+  generation: 1
+  gender: female
+  born: 1970-11-15
 - person_id: aldo
   kind: canonical
   x: 788.0
@@ -40,6 +52,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Aldo Bianchi
+  generation: 0
+  gender: male
+  born: 1942-08-03
 - person_id: bianca
   kind: canonical
   x: 978.0
@@ -47,6 +62,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Bianca Bianchi
+  generation: 0
+  gender: female
+  born: 1945-12-21
 - person_id: elena
   kind: ghost:past_birth
   x: 883.0
@@ -54,6 +72,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Elena Bianchi
+  generation: 1
+  gender: female
+  born: 1970-11-15
 - person_id: matteo
   kind: canonical
   x: 24.0
@@ -61,6 +82,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Matteo Rossi
+  generation: 2
+  gender: male
+  born: 1997-02-14
 - person_id: giulia
   kind: canonical
   x: 214.0
@@ -68,6 +92,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Giulia Conti
+  generation: 2
+  gender: female
+  born: 1998-06-26
 - person_id: lucia
   kind: canonical
   x: 406.0
@@ -75,6 +102,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Lucia Rossi
+  generation: 1
+  gender: female
+  born: 1971-04-08
 - person_id: paolo
   kind: canonical
   x: 596.0
@@ -82,6 +112,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Paolo Conti
+  generation: 1
+  gender: male
+  born: 1969-03-17
 - person_id: giulia
   kind: ghost:past_birth
   x: 501.0
@@ -89,11 +122,14 @@ cards:
   width: 160.0
   height: 64.0
   name: Giulia Conti
+  generation: 2
+  gender: female
+  born: 1998-06-26
 edges:
-- kind: birth
-  routing: in_tree
+- link_kind: birth
+  marriage_id: m_giuseppe_sofia
   child_id: marco
-  marriage_id: m_giuseppe_sofia
+  is_past: false
   points:
   - - 390.0
     - 56.0
@@ -103,11 +139,10 @@ edges:
     - 156.0
   - - 104.0
     - 184.0
-  ended: false
-- kind: birth
-  routing: in_tree
+- link_kind: birth
+  marriage_id: m_giuseppe_sofia
   child_id: lucia
-  marriage_id: m_giuseppe_sofia
+  is_past: false
   points:
   - - 390.0
     - 56.0
@@ -117,11 +152,10 @@ edges:
     - 156.0
   - - 486.0
     - 184.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: elena
+- link_kind: birth
   marriage_id: m_aldo_bianca
+  child_id: elena
+  is_past: true
   points:
   - - 963.0
     - 56.0
@@ -131,11 +165,10 @@ edges:
     - 156.0
   - - 963.0
     - 184.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: matteo
+- link_kind: birth
   marriage_id: m_marco_elena
+  child_id: matteo
+  is_past: false
   points:
   - - 199.0
     - 216.0
@@ -145,11 +178,10 @@ edges:
     - 316.0
   - - 104.0
     - 344.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: giulia
+- link_kind: birth
   marriage_id: m_lucia_paolo
+  child_id: giulia
+  is_past: true
   points:
   - - 581.0
     - 216.0
@@ -159,54 +191,58 @@ edges:
     - 316.0
   - - 581.0
     - 344.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: sofia
+- link_kind: marriage
   marriage_id: m_giuseppe_sofia
+  host_id: giuseppe
+  joining_id: sofia
+  start: 1965-06-12
+  is_ended: false
   points:
   - - 375.0
     - 56.0
   - - 405.0
     - 56.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: elena
+- link_kind: marriage
   marriage_id: m_marco_elena
+  host_id: marco
+  joining_id: elena
+  start: 1995-07-22
+  is_ended: false
   points:
   - - 184.0
     - 216.0
   - - 214.0
     - 216.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: bianca
+- link_kind: marriage
   marriage_id: m_aldo_bianca
+  host_id: aldo
+  joining_id: bianca
+  start: 1967-05-30
+  is_ended: false
   points:
   - - 948.0
     - 56.0
   - - 978.0
     - 56.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: giulia
+- link_kind: marriage
   marriage_id: m_matteo_giulia
+  host_id: matteo
+  joining_id: giulia
+  start: 2020-09-12
+  is_ended: false
   points:
   - - 184.0
     - 376.0
   - - 214.0
     - 376.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: paolo
+- link_kind: marriage
   marriage_id: m_lucia_paolo
+  host_id: lucia
+  joining_id: paolo
+  start: 1996-10-05
+  is_ended: false
   points:
   - - 566.0
     - 216.0
   - - 596.0
     - 216.0
-  ended: false

@@ -15,6 +15,10 @@ workspace = true
 path = "src/lib.rs"
 
 [dependencies]
+# `ExportedDate` (a Person/Marriage/adoption date) is plumbed onto the
+# positioned shapes per ADR-0021; pulled from its owning crate directly
+# rather than re-exported through kul-render (ADR-0016 anti-suggestion).
+kul-core = { workspace = true }
 kul-render = { workspace = true }
 
 [dev-dependencies]

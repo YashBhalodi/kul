@@ -6,9 +6,7 @@
 
 use std::fmt::Write;
 
-use kul_layout::{
-    EdgeKind, EdgeRouting, PositionedCard, PositionedEdge, PositionedShape, SlotKind,
-};
+use kul_layout::{EdgeKind, PositionedCard, PositionedEdge, PositionedShape, SlotKind};
 use kul_render::GhostReason;
 
 /// Theme / emission configuration.
@@ -47,21 +45,44 @@ fn write_open(out: &mut String, shape: &PositionedShape) {
 }
 
 fn write_card(out: &mut String, card: &PositionedCard) {
-    let (kind_class, ghost_badge) = match card.kind {
-        SlotKind::Canonical => ("kul-card--canonical", None),
-        SlotKind::Ghost {
-            reason: GhostReason::PastMarriage,
-        } => ("kul-card--ghost", Some("↺")),
-        SlotKind::Ghost {
-            reason: GhostReason::PastAdoption,
-        } => ("kul-card--ghost", Some("↺")),
-        SlotKind::Ghost {
-            reason: GhostReason::PastBirth,
-        } => ("kul-card--ghost", Some("↺")),
+    // Entity class names the type only; every property is a `data-*`
+    // attribute (ADR-0016 class vocabulary, ADR-0021 plumb-through).
+    let (kind, ghost_reason, ghost_badge) = match card.kind {
+        SlotKind::Canonical => ("canonical", None, None),
+        SlotKind::Ghost { reason } => {
+            let reason = match reason {
+                GhostReason::PastMarriage => "past-marriage",
+                GhostReason::PastAdoption => "past-adoption",
+                GhostReason::PastBirth => "past-birth",
+            };
+            ("ghost", Some(reason), Some("↺"))
+        }
     };
-    let _ = write!(out, r#"<g class="kul-card {kind_class}">"#);
+    let _ = write!(
+        out,
+        r#"<g class="kul-card" data-person-id="{id}" data-kind="{kind}""#,
+        id = escape_xml(&card.person_id),
+    );
+    if let Some(reason) = ghost_reason {
+        let _ = write!(out, r#" data-ghost-reason="{reason}""#);
+    }
+    // Boolean properties use `data-is-<adjective>`; a person is alive
+    // iff no `died:` is recorded (death lives on the person).
+    let _ = write!(
+        out,
+        r#" data-gender="{gender}" data-is-alive="{alive}""#,
+        gender = card.gender,
+        alive = card.died.is_none(),
+    );
+    // Missing optional values omit the attribute entirely (no empty
+    // strings) — the canonical pattern's "absence, not placeholders".
+    write_opt_attr(out, "data-born", card.born.as_deref());
+    write_opt_attr(out, "data-died", card.died.as_deref());
+    write_opt_attr(out, "data-family", card.family.as_deref());
+    write_opt_attr(out, "data-given", card.given.as_deref());
+    let _ = write!(out, r#" data-generation="{}">"#, card.generation);
     // Ghost cards ship with stroke-dasharray inline (structural, per
-    // the uniform card — see ADR-0016 §"Ghost visual treatment is structural").
+    // the uniform card — see ADR-0016 §"the structural/chrome line").
     let dash = if matches!(card.kind, SlotKind::Ghost { .. }) {
         r#" stroke-dasharray="3 2""#
     } else {
@@ -102,33 +123,78 @@ fn write_card(out: &mut String, card: &PositionedCard) {
 }
 
 fn write_edge(out: &mut String, edge: &PositionedEdge) {
-    let kind_class = match edge.kind {
-        EdgeKind::Birth => "kul-edge--birth",
-        EdgeKind::Adoption => "kul-edge--adoption",
-        EdgeKind::Marriage => "kul-edge--marriage",
-    };
-    let routing_class = match edge.routing {
-        EdgeRouting::InTree => "kul-edge--in-tree",
-        EdgeRouting::CrossTree => "kul-edge--cross-tree",
-    };
-    // An ended monogamy marriage edge (per current-intimacy placement)
-    // carries `kul-edge--ended` so the surface stylesheet renders the
-    // connector translucent, using the marriage's "ended" predicate.
-    let ended_class = if edge.ended { " kul-edge--ended" } else { "" };
-    // Adoption edges ship with stroke-dasharray inline (structural,
-    // per edges encode link kind — see ADR-0016 §"Edge dasharrays are structural").
-    // Marriage edges (ADR-0020) are solid like birth edges; the
-    // visual distinction is stroke weight (set by the consuming
-    // stylesheet against `kul-edge--marriage`).
-    let dash = match edge.kind {
-        EdgeKind::Adoption => r#" stroke-dasharray="6 4""#,
-        EdgeKind::Birth | EdgeKind::Marriage => "",
-    };
-    let d = polyline_to_rounded_path(&edge.points, EDGE_CORNER_RADIUS);
+    // Entity class names the type only (`kul-edge`); the link kind and
+    // every other property are `data-*` attributes (ADR-0016 class
+    // vocabulary, ADR-0021 plumb-through). The marriage id is common to
+    // every edge kind.
     let _ = write!(
         out,
-        r#"<path class="kul-edge {kind_class} {routing_class}{ended_class}" fill="none" d="{d}"{dash}/>"#,
+        r#"<path class="kul-edge" data-marriage-id="{mid}""#,
+        mid = escape_xml(&edge.marriage_id),
     );
+    // Adoption edges ship with stroke-dasharray inline (structural, per
+    // edges encode link kind — see ADR-0016 §"the structural/chrome
+    // line"). Birth edges are solid; marriage edges (ADR-0020) are solid
+    // and thick, the weight set by the consuming stylesheet against
+    // `data-link-kind="marriage"`.
+    let mut dash = "";
+    match &edge.kind {
+        EdgeKind::Birth { child_id, is_past } => {
+            let _ = write!(
+                out,
+                r#" data-link-kind="birth" data-child-id="{cid}" data-is-past="{past}""#,
+                cid = escape_xml(child_id),
+                past = is_past,
+            );
+        }
+        EdgeKind::Adoption {
+            child_id,
+            is_past,
+            start,
+            end,
+        } => {
+            let _ = write!(
+                out,
+                r#" data-link-kind="adoption" data-child-id="{cid}" data-is-past="{past}""#,
+                cid = escape_xml(child_id),
+                past = is_past,
+            );
+            write_opt_attr(out, "data-adoption-start", start.as_deref());
+            write_opt_attr(out, "data-adoption-end", end.as_deref());
+            dash = r#" stroke-dasharray="6 4""#;
+        }
+        EdgeKind::Marriage {
+            host_id,
+            joining_id,
+            start,
+            end,
+            end_reason,
+            is_ended,
+        } => {
+            let _ = write!(
+                out,
+                r#" data-link-kind="marriage" data-host-id="{host}" data-joining-id="{joining}" data-start="{start}" data-is-ended="{ended}""#,
+                host = escape_xml(host_id),
+                joining = escape_xml(joining_id),
+                start = escape_xml(start),
+                ended = is_ended,
+            );
+            write_opt_attr(out, "data-end", end.as_deref());
+            write_opt_attr(out, "data-end-reason", end_reason.as_deref());
+        }
+    }
+    let d = polyline_to_rounded_path(&edge.points, EDGE_CORNER_RADIUS);
+    let _ = write!(out, r#" fill="none" d="{d}"{dash}/>"#);
+}
+
+/// Write ` name="value"` (XML-escaped) when `value` is `Some`; emit
+/// nothing when `None`. The canonical pattern's "absence, not
+/// placeholders": a missing optional property omits the attribute
+/// entirely rather than emitting an empty string.
+fn write_opt_attr(out: &mut String, name: &str, value: Option<&str>) {
+    if let Some(value) = value {
+        let _ = write!(out, r#" {name}="{}""#, escape_xml(value));
+    }
 }
 
 /// Card-corner radius in pixels. Visual polish — surface stylesheets

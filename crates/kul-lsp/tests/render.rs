@@ -160,11 +160,11 @@ fn render_clean_document_returns_success_with_svg() {
     let svg = envelope["svg"].as_str().expect("svg string");
     assert!(svg.starts_with("<svg"), "expected SVG document: {svg}");
     assert!(
-        svg.contains("kul-card--canonical"),
-        "expected canonical card class in SVG: {svg}"
+        svg.contains(r#"data-kind="canonical""#),
+        "expected canonical card in SVG: {svg}"
     );
     assert!(
-        svg.contains("kul-edge--marriage"),
+        svg.contains(r#"data-link-kind="marriage""#),
         "expected the marriage edge in SVG: {svg}"
     );
 }

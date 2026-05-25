@@ -12,6 +12,12 @@ cards:
   width: 160.0
   height: 64.0
   name: Chinua Okeke
+  generation: 0
+  gender: male
+  family: Okeke
+  given: Chinua
+  born: ~1925
+  died: 1998-05-12
 - person_id: adaeze
   kind: canonical
   x: 215.0
@@ -19,6 +25,11 @@ cards:
   width: 160.0
   height: 64.0
   name: Adaeze Okeke
+  generation: 0
+  gender: female
+  family: Okeke
+  given: Adaeze
+  born: 1930-03
 - person_id: emeka
   kind: canonical
   x: 25.0
@@ -26,6 +37,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Emeka Okeke
+  generation: 1
+  gender: male
+  born: '1950'
 - person_id: ngozi
   kind: canonical
   x: 215.0
@@ -33,6 +47,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Ngozi Okeke
+  generation: 1
+  gender: female
+  born: 1955-08-19
 - person_id: chidi
   kind: canonical
   x: 24.0
@@ -40,6 +57,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Chidi Okeke
+  generation: 2
+  gender: male
+  born: 1980-11-14
 - person_id: amara
   kind: canonical
   x: 216.0
@@ -47,11 +67,14 @@ cards:
   width: 160.0
   height: 64.0
   name: Amara Okeke
+  generation: 2
+  gender: female
+  born: 1983-07
 edges:
-- kind: birth
-  routing: in_tree
-  child_id: emeka
+- link_kind: birth
   marriage_id: m_chinua_adaeze
+  child_id: emeka
+  is_past: false
   points:
   - - 200.0
     - 56.0
@@ -61,11 +84,10 @@ edges:
     - 156.0
   - - 105.0
     - 184.0
-  ended: false
-- kind: birth
-  routing: in_tree
+- link_kind: birth
+  marriage_id: m_emeka_ngozi
   child_id: chidi
-  marriage_id: m_emeka_ngozi
+  is_past: false
   points:
   - - 200.0
     - 216.0
@@ -75,11 +97,10 @@ edges:
     - 316.0
   - - 104.0
     - 344.0
-  ended: false
-- kind: birth
-  routing: in_tree
+- link_kind: birth
+  marriage_id: m_emeka_ngozi
   child_id: amara
-  marriage_id: m_emeka_ngozi
+  is_past: false
   points:
   - - 200.0
     - 216.0
@@ -89,24 +110,25 @@ edges:
     - 316.0
   - - 296.0
     - 344.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: adaeze
+- link_kind: marriage
   marriage_id: m_chinua_adaeze
+  host_id: chinua
+  joining_id: adaeze
+  start: 1948-11-02
+  is_ended: false
   points:
   - - 185.0
     - 56.0
   - - 215.0
     - 56.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: ngozi
+- link_kind: marriage
   marriage_id: m_emeka_ngozi
+  host_id: emeka
+  joining_id: ngozi
+  start: 1978-12-09
+  is_ended: false
   points:
   - - 185.0
     - 216.0
   - - 215.0
     - 216.0
-  ended: false

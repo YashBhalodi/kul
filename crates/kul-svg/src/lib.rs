@@ -10,26 +10,35 @@
 //! [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md)):
 //!
 //! - No inline `fill=` / `stroke=` / `color=`. Every visual element
-//!   carries a semantic CSS class name; theming is applied by the
-//!   consuming surface via a stylesheet.
+//!   carries a semantic CSS class naming its *type*; theming is applied
+//!   by the consuming surface via a stylesheet.
 //! - Structural visual axes (the birth-vs-adoption dasharray of edges
 //!   encode link kind, the ghost-card dasharray + ↺ badge of the
 //!   uniform card) ship in the SVG directly because
 //!   they encode *what the element is*, not its theme.
-//! - Edge routing is orthogonal right-angle for `InTree` edges,
-//!   matching the classical descendency-tree convention. Cross-
-//!   tree edges (`PositionedEdge::routing == CrossTree`) land in F5.
+//! - Every edge routes with one orthogonal right-angle geometry,
+//!   matching the classical descendency-tree convention (no routing
+//!   discriminator; [ADR-0018](../../docs/adr/0018-canonical-layout-algorithm.md)).
 //!
-//! # Class vocabulary
+//! # Class + attribute vocabulary
 //!
+//! Entity classes name the element *type*; every *property* is a
+//! `data-*` attribute (booleans as `data-is-*`, enums as explicit
+//! strings, missing optionals omitted). Every Person / Marriage /
+//! birth / adoption property the language declares plumbs through to a
+//! `data-*` attribute ([ADR-0021](../../docs/adr/0021-language-properties-plumb-to-svg.md)).
 //! The stable seam consuming surfaces hook into:
 //!
-//! - `kul-card`, `kul-card--canonical`, `kul-card--ghost`
-//! - `kul-edge`, `kul-edge--birth`, `kul-edge--adoption`,
-//!   `kul-edge--marriage` (the thick unified marriage connector —
-//!   monogamy horizontal segment or polygamy hub→spouse fan edge,
-//!   ADR-0020), `kul-edge--ended` (an ended monogamy marriage edge,
-//!   rendered translucent)
+//! - `kul-card` — `data-person-id`, `data-kind="canonical|ghost"`,
+//!   `data-ghost-reason` (ghost only), `data-gender`, `data-is-alive`,
+//!   `data-born`, `data-died`, `data-family`, `data-given`,
+//!   `data-generation`.
+//! - `kul-edge` — `data-link-kind="birth|adoption|marriage"`,
+//!   `data-marriage-id`; for birth / adoption `data-child-id`,
+//!   `data-is-past`, and adoption's `data-adoption-start` /
+//!   `data-adoption-end`; for the thick unified marriage connector
+//!   (ADR-0020) `data-host-id`, `data-joining-id`, `data-start`,
+//!   `data-end`, `data-end-reason`, `data-is-ended`.
 //! - `kul-label-name`, `kul-ghost-badge`
 
 mod emit;

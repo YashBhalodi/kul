@@ -1,10 +1,12 @@
 /* Kul preview stylesheet.
  *
- * Maps the kul-svg semantic class vocabulary to VSCode CSS variables
- * so the preview auto-tracks the active theme (light, dark, high-
- * contrast) without re-running the renderer. See
+ * Maps the kul-svg entity-class + data-attribute vocabulary to VSCode
+ * CSS variables so the preview auto-tracks the active theme (light,
+ * dark, high-contrast) without re-running the renderer. Entity classes
+ * (.kul-card, .kul-edge) select the type; data-* attribute selectors
+ * select properties (ghost vs canonical, link kind, ended). See
  * docs/adr/0016-visualization-pipeline-crate-boundaries.md and
- * docs/adr/0016-visualization-pipeline-crate-boundaries.md. */
+ * docs/adr/0021-language-properties-plumb-to-svg.md. */
 
 body {
     margin: 0;
@@ -40,7 +42,7 @@ svg {
     stroke-width: 1.5;
 }
 
-.kul-card--ghost rect {
+.kul-card[data-kind="ghost"] rect {
     fill: var(--vscode-editor-inactiveSelectionBackground, var(--vscode-editor-background));
     stroke: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
     fill-opacity: 0.5;
@@ -51,7 +53,7 @@ svg {
     font-size: 13px;
 }
 
-.kul-card--ghost .kul-label-name {
+.kul-card[data-kind="ghost"] .kul-label-name {
     fill: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
 }
 
@@ -62,14 +64,14 @@ svg {
 
 /* Edges. Dasharray (birth vs adoption, per edges encode link kind) ships inline from kul-svg;
  * only colour and stroke width are theming. Birth / adoption /
- * marriage all share the base routing CSS; the modifier classes add
- * the per-kind visual distinction. */
+ * marriage all share the base routing CSS; the data-link-kind
+ * attribute selectors add the per-kind visual distinction. */
 .kul-edge {
     stroke: var(--vscode-editor-foreground);
     stroke-width: 1.5;
 }
 
-.kul-edge--adoption {
+.kul-edge[data-link-kind="adoption"] {
     stroke: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
 }
 
@@ -79,12 +81,12 @@ svg {
  * from the hub card to each co-spouse. The heavier stroke carries the
  * marriage's visual weight so it reads as distinct from the thin
  * birth / adoption edges. */
-.kul-edge--marriage {
+.kul-edge[data-link-kind="marriage"] {
     stroke-width: 8.75;
 }
 
 /* An ended (divorced) monogamy marriage edge (per current-intimacy
  * placement) renders translucent. */
-.kul-edge--ended {
+.kul-edge[data-is-ended="true"] {
     stroke-opacity: 0.6;
 }

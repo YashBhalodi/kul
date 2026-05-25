@@ -3,22 +3,22 @@ source: crates/kul-svg/tests/corpus.rs
 expression: svg
 ---
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 272" width="400" height="272">
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 200 56 L 200 146 Q 200 156 190 156 L 114 156 Q 104 156 104 166 L 104 184"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 200 56 L 200 146 Q 200 156 210 156 L 286 156 Q 296 156 296 166 L 296 184"/>
-<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 185 56 L 215 56"/>
-<g class="kul-card kul-card--canonical">
+<path class="kul-edge" data-marriage-id="m_hiroshi_yuki" data-link-kind="birth" data-child-id="akiko" data-is-past="false" fill="none" d="M 200 56 L 200 146 Q 200 156 190 156 L 114 156 Q 104 156 104 166 L 104 184"/>
+<path class="kul-edge" data-marriage-id="m_hiroshi_yuki" data-link-kind="birth" data-child-id="kenji" data-is-past="false" fill="none" d="M 200 56 L 200 146 Q 200 156 210 156 L 286 156 Q 296 156 296 166 L 296 184"/>
+<path class="kul-edge" data-marriage-id="m_hiroshi_yuki" data-link-kind="marriage" data-host-id="hiroshi" data-joining-id="yuki" data-start="2005-09-20" data-is-ended="false" fill="none" d="M 185 56 L 215 56"/>
+<g class="kul-card" data-person-id="hiroshi" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1978-02-11" data-generation="0">
 <rect x="25" y="24" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="105" y="56" text-anchor="middle" dominant-baseline="central">Hiroshi Tanaka</text>
 </g>
-<g class="kul-card kul-card--canonical">
+<g class="kul-card" data-person-id="yuki" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1980-06-30" data-generation="0">
 <rect x="215" y="24" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Yuki Tanaka</text>
 </g>
-<g class="kul-card kul-card--canonical">
+<g class="kul-card" data-person-id="akiko" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="2008-04-17" data-generation="1">
 <rect x="24" y="184" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Akiko Tanaka</text>
 </g>
-<g class="kul-card kul-card--canonical">
+<g class="kul-card" data-person-id="kenji" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="2011-11-03" data-generation="1">
 <rect x="216" y="184" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="296" y="216" text-anchor="middle" dominant-baseline="central">Kenji Tanaka</text>
 </g>

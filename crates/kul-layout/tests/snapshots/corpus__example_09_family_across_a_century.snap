@@ -12,6 +12,12 @@ cards:
   width: 160.0
   height: 64.0
   name: Oludare Adeyemi
+  generation: 0
+  gender: male
+  family: Adeyemi
+  given: Oludare
+  born: ~1905
+  died: 1980-07-04
 - person_id: folake
   kind: canonical
   x: 1386.75
@@ -19,6 +25,12 @@ cards:
   width: 160.0
   height: 64.0
   name: Folake Adeyemi
+  generation: 0
+  gender: female
+  family: Adeyemi
+  given: Folake
+  born: 1910-03
+  died: 1995-11-20
 - person_id: babatunde
   kind: canonical
   x: 598.0
@@ -26,6 +38,10 @@ cards:
   width: 160.0
   height: 64.0
   name: Babatunde Adeyemi
+  generation: 1
+  gender: male
+  born: '1930'
+  died: 2005-02-18
 - person_id: yetunde
   kind: canonical
   x: 24.0
@@ -33,6 +49,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Yetunde Adeyemi
+  generation: 1
+  gender: female
+  born: 1935-02-28
 - person_id: amaka
   kind: canonical
   x: 1172.0
@@ -40,6 +59,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Amaka Adeyemi
+  generation: 1
+  gender: female
+  born: 1940-06-17
 - person_id: tunde
   kind: canonical
   x: 25.5
@@ -47,6 +69,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Tunde Adeyemi
+  generation: 2
+  gender: male
+  born: 1957-04-19
 - person_id: halima
   kind: canonical
   x: 215.5
@@ -54,6 +79,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Halima Sani
+  generation: 2
+  gender: female
+  born: 1960-09-11
 - person_id: zainab
   kind: canonical
   x: 24.5
@@ -61,6 +89,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Zainab Adeyemi
+  generation: 3
+  gender: female
+  born: 1985-01-17
 - person_id: kemi
   kind: canonical
   x: 216.5
@@ -68,6 +99,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Kemi Adeyemi
+  generation: 3
+  gender: female
+  born: 1990-07-29
 - person_id: bisi
   kind: canonical
   x: 407.5
@@ -75,6 +109,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Bisi Adeyemi
+  generation: 2
+  gender: female
+  born: 1960-04
 - person_id: tunji
   kind: canonical
   x: 597.5
@@ -82,6 +119,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Tunji Adeyemi
+  generation: 2
+  gender: male
+  born: 1958-06-04
 - person_id: tobi
   kind: canonical
   x: 502.5
@@ -89,6 +129,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Tobi Adeyemi
+  generation: 3
+  gender: male
+  born: 1987-09-02
 - person_id: segun
   kind: canonical
   x: 790.0
@@ -96,6 +139,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Segun Adeyemi
+  generation: 2
+  gender: male
+  born: 1964-08-30
 - person_id: ronke
   kind: canonical
   x: 980.0
@@ -103,6 +149,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Ronke Adeyemi
+  generation: 2
+  gender: female
+  born: 1968-04-13
 - person_id: dele
   kind: canonical
   x: 885.0
@@ -110,6 +159,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Dele Adeyemi
+  generation: 3
+  gender: male
+  born: 1994-10-08
 - person_id: adunni
   kind: canonical
   x: 1364.0
@@ -117,6 +169,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Adunni Adeyemi
+  generation: 1
+  gender: female
+  born: 1933-08
 - person_id: chukwu
   kind: canonical
   x: 1554.0
@@ -124,6 +179,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Chukwu Okafor
+  generation: 2
+  gender: male
+  born: 1931-10-05
 - person_id: nnamdi
   kind: canonical
   x: 2369.5
@@ -131,6 +189,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Nnamdi Okafor
+  generation: 0
+  gender: male
+  born: ~1905
 - person_id: chiamaka
   kind: canonical
   x: 2559.5
@@ -138,6 +199,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Chiamaka Okafor
+  generation: 1
+  gender: female
+  born: '1908'
 - person_id: obi
   kind: canonical
   x: 2751.5
@@ -145,6 +209,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Obi Eze
+  generation: 0
+  gender: male
+  born: ~1880
 - person_id: ngozi
   kind: canonical
   x: 2941.5
@@ -152,6 +219,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Ngozi Eze
+  generation: 0
+  gender: female
+  born: '1885'
 - person_id: chiamaka
   kind: ghost:past_birth
   x: 2846.5
@@ -159,6 +229,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Chiamaka Okafor
+  generation: 1
+  gender: female
+  born: '1908'
 - person_id: chukwu
   kind: ghost:past_birth
   x: 2464.5
@@ -166,6 +239,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Chukwu Okafor
+  generation: 2
+  gender: male
+  born: 1931-10-05
 - person_id: ada
   kind: canonical
   x: 1315.5
@@ -173,6 +249,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Ada Okafor
+  generation: 3
+  gender: female
+  born: 1960-01-22
 - person_id: emeka
   kind: canonical
   x: 1507.5
@@ -180,6 +259,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Emeka Okafor
+  generation: 3
+  gender: male
+  born: 1963-07-14
 - person_id: folasade
   kind: canonical
   x: 1697.5
@@ -187,6 +269,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Folasade Okafor
+  generation: 3
+  gender: female
+  born: 1965-02-07
 - person_id: ife
   kind: canonical
   x: 1602.5
@@ -194,6 +279,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Ife Okafor
+  generation: 4
+  gender: other
+  born: 1993-03-11
 - person_id: kehinde
   kind: canonical
   x: 1985.5
@@ -201,6 +289,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Kehinde Adeyemi
+  generation: 1
+  gender: male
+  born: '1936'
 - person_id: simisola
   kind: ghost:past_marriage
   x: 1793.5
@@ -208,6 +299,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Simisola Bello
+  generation: 1
+  gender: female
+  born: 1940-12-01
 - person_id: titi
   kind: canonical
   x: 2177.5
@@ -215,6 +309,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Titi Adeyemi
+  generation: 1
+  gender: female
+  born: 1945-05-09
 - person_id: dayo
   kind: canonical
   x: 1889.5
@@ -222,6 +319,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Dayo Adeyemi
+  generation: 2
+  gender: male
+  born: 1965-03-08
 - person_id: lola
   kind: canonical
   x: 2081.5
@@ -229,6 +329,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Lola Adeyemi
+  generation: 2
+  gender: female
+  born: 1980-10-25
 - person_id: simisola
   kind: canonical
   x: 3133.5
@@ -236,6 +339,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Simisola Bello
+  generation: 0
+  gender: female
+  born: 1940-12-01
 - person_id: femi
   kind: canonical
   x: 3323.5
@@ -243,6 +349,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Femi Bello
+  generation: 0
+  gender: male
+  born: 1938-11-22
 - person_id: kunle
   kind: canonical
   x: 3228.5
@@ -250,11 +359,14 @@ cards:
   width: 160.0
   height: 64.0
   name: Kunle Bello
+  generation: 1
+  gender: male
+  born: 1982-12-30
 edges:
-- kind: birth
-  routing: in_tree
-  child_id: babatunde
+- link_kind: birth
   marriage_id: m_oludare_folake
+  child_id: babatunde
+  is_past: false
   points:
   - - 1371.75
     - 56.0
@@ -264,11 +376,10 @@ edges:
     - 156.0
   - - 678.0
     - 184.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: adunni
+- link_kind: birth
   marriage_id: m_oludare_folake
+  child_id: adunni
+  is_past: false
   points:
   - - 1371.75
     - 56.0
@@ -278,11 +389,10 @@ edges:
     - 316.0
   - - 1444.0
     - 344.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: kehinde
+- link_kind: birth
   marriage_id: m_oludare_folake
+  child_id: kehinde
+  is_past: false
   points:
   - - 1371.75
     - 56.0
@@ -292,11 +402,10 @@ edges:
     - 156.0
   - - 2065.5
     - 184.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: chukwu
+- link_kind: birth
   marriage_id: m_nnamdi_chiamaka
+  child_id: chukwu
+  is_past: true
   points:
   - - 2544.5
     - 216.0
@@ -306,11 +415,10 @@ edges:
     - 316.0
   - - 2544.5
     - 344.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: chiamaka
+- link_kind: birth
   marriage_id: m_obi_ngozi
+  child_id: chiamaka
+  is_past: true
   points:
   - - 2926.5
     - 56.0
@@ -320,11 +428,10 @@ edges:
     - 156.0
   - - 2926.5
     - 184.0
-  ended: false
-- kind: birth
-  routing: in_tree
+- link_kind: birth
+  marriage_id: m_babatunde_yetunde
   child_id: tunde
-  marriage_id: m_babatunde_yetunde
+  is_past: false
   points:
   - - 391.0
     - 316.0
@@ -334,11 +441,10 @@ edges:
     - 476.0
   - - 105.5
     - 504.0
-  ended: false
-- kind: birth
-  routing: in_tree
+- link_kind: birth
+  marriage_id: m_babatunde_yetunde
   child_id: bisi
-  marriage_id: m_babatunde_yetunde
+  is_past: false
   points:
   - - 391.0
     - 316.0
@@ -348,11 +454,10 @@ edges:
     - 476.0
   - - 487.5
     - 504.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: segun
+- link_kind: birth
   marriage_id: m_babatunde_amaka
+  child_id: segun
+  is_past: false
   points:
   - - 965.0
     - 316.0
@@ -362,11 +467,10 @@ edges:
     - 476.0
   - - 870.0
     - 504.0
-  ended: false
-- kind: birth
-  routing: in_tree
+- link_kind: birth
+  marriage_id: m_adunni_chukwu
   child_id: ada
-  marriage_id: m_adunni_chukwu
+  is_past: false
   points:
   - - 1539.0
     - 376.0
@@ -376,11 +480,10 @@ edges:
     - 476.0
   - - 1395.5
     - 504.0
-  ended: false
-- kind: birth
-  routing: in_tree
+- link_kind: birth
+  marriage_id: m_adunni_chukwu
   child_id: emeka
-  marriage_id: m_adunni_chukwu
+  is_past: false
   points:
   - - 1539.0
     - 376.0
@@ -390,11 +493,10 @@ edges:
     - 476.0
   - - 1587.5
     - 504.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: dayo
+- link_kind: birth
   marriage_id: m_kehinde_simisola
+  child_id: dayo
+  is_past: false
   points:
   - - 1969.5
     - 316.0
@@ -404,11 +506,10 @@ edges:
     - 476.0
   - - 1969.5
     - 504.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: lola
+- link_kind: birth
   marriage_id: m_kehinde_titi
+  child_id: lola
+  is_past: false
   points:
   - - 2161.5
     - 316.0
@@ -418,11 +519,10 @@ edges:
     - 476.0
   - - 2161.5
     - 504.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: kunle
+- link_kind: birth
   marriage_id: m_simisola_femi
+  child_id: kunle
+  is_past: false
   points:
   - - 3308.5
     - 56.0
@@ -432,11 +532,11 @@ edges:
     - 156.0
   - - 3308.5
     - 184.0
-  ended: false
-- kind: adoption
-  routing: in_tree
+- link_kind: adoption
+  marriage_id: m_tunde_halima
   child_id: zainab
-  marriage_id: m_tunde_halima
+  is_past: false
+  adoption_start: 1988-06-04
   points:
   - - 200.5
     - 536.0
@@ -446,11 +546,10 @@ edges:
     - 636.0
   - - 104.5
     - 664.0
-  ended: false
-- kind: birth
-  routing: in_tree
+- link_kind: birth
+  marriage_id: m_tunde_halima
   child_id: kemi
-  marriage_id: m_tunde_halima
+  is_past: false
   points:
   - - 200.5
     - 536.0
@@ -460,11 +559,10 @@ edges:
     - 636.0
   - - 296.5
     - 664.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: tobi
+- link_kind: birth
   marriage_id: m_bisi_tunji
+  child_id: tobi
+  is_past: false
   points:
   - - 582.5
     - 536.0
@@ -474,11 +572,10 @@ edges:
     - 636.0
   - - 582.5
     - 664.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: ife
+- link_kind: birth
   marriage_id: m_emeka_folasade
+  child_id: ife
+  is_past: false
   points:
   - - 1682.5
     - 536.0
@@ -488,11 +585,10 @@ edges:
     - 636.0
   - - 1682.5
     - 664.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: dele
+- link_kind: birth
   marriage_id: m_segun_ronke
+  child_id: dele
+  is_past: false
   points:
   - - 965.0
     - 536.0
@@ -502,21 +598,23 @@ edges:
     - 636.0
   - - 965.0
     - 664.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: folake
+- link_kind: marriage
   marriage_id: m_oludare_folake
+  host_id: oludare
+  joining_id: folake
+  start: 1928-04-10
+  is_ended: false
   points:
   - - 1356.75
     - 56.0
   - - 1386.75
     - 56.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: yetunde
+- link_kind: marriage
   marriage_id: m_babatunde_yetunde
+  host_id: babatunde
+  joining_id: yetunde
+  start: 1955-06-12
+  is_ended: false
   points:
   - - 678.0
     - 248.0
@@ -526,11 +624,12 @@ edges:
     - 316.0
   - - 104.0
     - 344.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: amaka
+- link_kind: marriage
   marriage_id: m_babatunde_amaka
+  host_id: babatunde
+  joining_id: amaka
+  start: 1962-09-03
+  is_ended: false
   points:
   - - 678.0
     - 248.0
@@ -540,81 +639,91 @@ edges:
     - 316.0
   - - 1252.0
     - 344.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: halima
+- link_kind: marriage
   marriage_id: m_tunde_halima
+  host_id: tunde
+  joining_id: halima
+  start: 1982-07-07
+  is_ended: false
   points:
   - - 185.5
     - 536.0
   - - 215.5
     - 536.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: tunji
+- link_kind: marriage
   marriage_id: m_bisi_tunji
+  host_id: bisi
+  joining_id: tunji
+  start: 1985-11-19
+  is_ended: false
   points:
   - - 567.5
     - 536.0
   - - 597.5
     - 536.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: ronke
+- link_kind: marriage
   marriage_id: m_segun_ronke
+  host_id: segun
+  joining_id: ronke
+  start: 1992-05-26
+  is_ended: false
   points:
   - - 950.0
     - 536.0
   - - 980.0
     - 536.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: chukwu
+- link_kind: marriage
   marriage_id: m_adunni_chukwu
+  host_id: adunni
+  joining_id: chukwu
+  start: 1958-03-20
+  is_ended: false
   points:
   - - 1524.0
     - 376.0
   - - 1554.0
     - 376.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: chiamaka
+- link_kind: marriage
   marriage_id: m_nnamdi_chiamaka
+  host_id: nnamdi
+  joining_id: chiamaka
+  start: 1929-07-18
+  is_ended: false
   points:
   - - 2529.5
     - 216.0
   - - 2559.5
     - 216.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: ngozi
+- link_kind: marriage
   marriage_id: m_obi_ngozi
+  host_id: obi
+  joining_id: ngozi
+  start: 1905-02-11
+  is_ended: false
   points:
   - - 2911.5
     - 56.0
   - - 2941.5
     - 56.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: folasade
+- link_kind: marriage
   marriage_id: m_emeka_folasade
+  host_id: emeka
+  joining_id: folasade
+  start: 1990-08-15
+  is_ended: false
   points:
   - - 1667.5
     - 536.0
   - - 1697.5
     - 536.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: simisola
+- link_kind: marriage
   marriage_id: m_kehinde_simisola
+  host_id: kehinde
+  joining_id: simisola
+  start: 1962-01-15
+  end: 1975-08-09
+  end_reason: divorce
+  is_ended: true
   points:
   - - 2065.5
     - 248.0
@@ -624,11 +733,12 @@ edges:
     - 316.0
   - - 1873.5
     - 344.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: titi
+- link_kind: marriage
   marriage_id: m_kehinde_titi
+  host_id: kehinde
+  joining_id: titi
+  start: 1978-05-22
+  is_ended: false
   points:
   - - 2065.5
     - 248.0
@@ -638,14 +748,14 @@ edges:
     - 316.0
   - - 2257.5
     - 344.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: femi
+- link_kind: marriage
   marriage_id: m_simisola_femi
+  host_id: simisola
+  joining_id: femi
+  start: 1980-02-14
+  is_ended: false
   points:
   - - 3293.5
     - 56.0
   - - 3323.5
     - 56.0
-  ended: false

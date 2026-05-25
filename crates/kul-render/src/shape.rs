@@ -65,8 +65,7 @@ pub struct SuccessRender {
     pub components: Vec<Component>,
     /// Flat list of every parent-child edge in the document — birth
     /// (solid) and adoption (dashed) alike, per edges encode link kind.
-    /// Routing (within-tree vs. cross-tree) is renderer policy and not
-    /// pinned here.
+    /// Geometry and routing are renderer policy and not pinned here.
     pub edges: Vec<Edge>,
 }
 
