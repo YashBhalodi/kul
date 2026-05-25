@@ -80,7 +80,7 @@ svg {
  * marriage's visual weight so it reads as distinct from the thin
  * birth / adoption edges. */
 .kul-edge--marriage {
-    stroke-width: 3.5;
+    stroke-width: 8.75;
 }
 
 /* An ended (divorced) monogamy marriage edge (P8) renders translucent,

@@ -86,7 +86,7 @@ toward the centre, directly under the midpoint of that marriage's
   the hub card's bottom-midpoint to the co-spouse's top-centre, using
   the **same orthogonal hub-bottom → horizontal bus geometry as a birth
   edge**. The only difference from a birth edge is the stroke weight
-  (~3-4px vs birth's 1.5px) and the CSS modifier (`kul-edge--marriage`).
+  (markedly heavier than birth's 1.5px) and the CSS modifier (`kul-edge--marriage`).
   Its horizontal segment runs at a bus just below the hub; the
   segment's midpoint is `children_center_i`, so that marriage's child
   birth/adoption edges originate there and fan down. The fan visual
@@ -229,7 +229,8 @@ stroke weight.
   is a sibling modifier of `kul-edge--birth` / `kul-edge--adoption`,
   sharing all the routing CSS (orthogonal right-angle, rounded
   corners, the `kul-edge--in-tree` routing class). The only delta is
-  stroke weight (~3-4px) — a marriage reads as distinct from the thin
+  stroke weight (~8.75px in the default preview theme) — a marriage
+  reads as distinct from the thin
   birth (1.5px solid) and adoption (1.5px dashed) edges while staying
   inside one coherent edge vocabulary. An ended monogamy marriage adds
   `kul-edge--ended` (translucent), replacing the old `kul-bar--ended`.
