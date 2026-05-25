@@ -53,15 +53,14 @@
 //! components and nests inside a larger tree (example 12) without
 //! overlap.
 
+use kul_core::export::ExportedDate;
 use kul_render::{
     CardSlot, Component, ComponentKind, Edge, EdgeKind as RenderEdgeKind, GhostReason, MarriageBar,
     PersonCard, SlotKind as RenderSlotKind, SuccessRender,
 };
 
 use crate::metrics::LayoutConfig;
-use crate::shape::{
-    EdgeKind, EdgeRouting, PositionedCard, PositionedEdge, PositionedShape, SlotKind,
-};
+use crate::shape::{EdgeKind, PositionedCard, PositionedEdge, PositionedShape, SlotKind};
 use crate::walker::{self, InputNode};
 
 /// Main entry — see [`crate::layout`].
@@ -161,11 +160,23 @@ struct HostedMarriage {
 /// lands on `children_center`, which is also the midpoint of the
 /// marriage edge's horizontal segment (where the child birth edges
 /// originate). R14 guarantees every polygamy marriage is un-ended, so
-/// no `ended` flag is carried.
+/// `is_ended` is always `false` and `end` / `end_reason` always `None`;
+/// they are carried anyway so the marriage edge plumbs every declared
+/// property uniformly (ADR-0021).
 struct FanMarriage {
     marriage_id: String,
+    /// Host (first-listed spouse) — the hub. Surfaces as `data-host-id`.
+    host_id: String,
     joining_id: String,
     joining_slot: CardSlot,
+    /// `start:` date, source form. Surfaces as `data-start`.
+    start: String,
+    /// `end:` date, source form (always `None` by R14).
+    end: Option<String>,
+    /// `end_reason:` (always `None` by R14).
+    end_reason: Option<String>,
+    /// `true` iff the marriage carries `end:` (always `false` by R14).
+    is_ended: bool,
     /// Co-spouse card centre, hub-local x. The card draws at
     /// `cospouse_cx - card_width/2`.
     cospouse_cx: f64,
@@ -186,13 +197,6 @@ struct Builder<'a> {
     config: &'a LayoutConfig,
     nodes: Vec<Node>,
     roots: Vec<usize>,
-    /// The set of `(marriage_id, child_id)` pairs the adapter laid out
-    /// as direct structural parent-child relationships — i.e. the
-    /// child's `PersonCard` was placed in the children row directly
-    /// below that marriage's bar. Edges whose endpoints both resolve
-    /// but whose pair isn't here are the displaced-child / cousin-marriage case:
-    /// route them as [`EdgeRouting::CrossTree`].
-    structural_edges: std::collections::HashSet<(String, String)>,
     /// node_index → marriage_id, populated for every past-intimacy child-ghost
     /// (past-adoption and past-bio). The edge router consults this so
     /// the parent-child edge from a past intimacy's bar terminates on
@@ -208,7 +212,6 @@ impl<'a> Builder<'a> {
             config,
             nodes: Vec::new(),
             roots: Vec::new(),
-            structural_edges: std::collections::HashSet::new(),
             child_ghost_marriage: std::collections::HashMap::new(),
         }
     }
@@ -317,12 +320,11 @@ impl<'a> Builder<'a> {
         });
 
         // Children of this host = union of all hosted marriages'
-        // children, in declaration order across marriages. Each
-        // (marriage, child) pair is recorded as a structural edge so
-        // edge routing can distinguish displaced-child relationships
-        // (the within-family absorb rule, [`EdgeRouting::CrossTree`])
-        // from the standard descendency-tree shape (the classical
-        // descendency tree, [`EdgeRouting::InTree`]).
+        // children, in declaration order across marriages. Every edge
+        // routes with one orthogonal geometry regardless of whether the
+        // child is a structural descendant or a displaced-child /
+        // cousin-marriage cross-edge (ADR-0018), so no per-edge routing
+        // discriminator is recorded here.
         //
         // ADR-0018: as we recurse into each nested root we collect
         // its node index so the host's `visual_row` can be folded as
@@ -351,10 +353,6 @@ impl<'a> Builder<'a> {
                 nested_root_indices.push(nested_actual);
             }
             for child in &marriage.children {
-                self.structural_edges.insert((
-                    marriage.bar.marriage_id.clone(),
-                    child.slot.person_id.clone(),
-                ));
                 let child_idx = self.build_person(child, child_floor);
                 if matches!(
                     child.slot.kind,
@@ -441,8 +439,13 @@ impl<'a> Builder<'a> {
         // prescribed midpoint.
         struct PendingMarriage {
             marriage_id: String,
+            host_id: String,
             joining_id: String,
             joining_slot: CardSlot,
+            start: String,
+            end: Option<String>,
+            end_reason: Option<String>,
+            is_ended: bool,
             child_roots: Vec<usize>,
             children_width: f64,
         }
@@ -451,10 +454,6 @@ impl<'a> Builder<'a> {
         for marriage in &card.hosted_marriages {
             let mut child_roots: Vec<usize> = Vec::new();
             for child in &marriage.children {
-                self.structural_edges.insert((
-                    marriage.bar.marriage_id.clone(),
-                    child.slot.person_id.clone(),
-                ));
                 let child_idx = self.build_person(child, children_floor);
                 if matches!(
                     child.slot.kind,
@@ -472,8 +471,13 @@ impl<'a> Builder<'a> {
             let children_width = self.measure_forest_width(&child_roots);
             pending.push(PendingMarriage {
                 marriage_id: marriage.bar.marriage_id.clone(),
+                host_id: marriage.bar.host_id.clone(),
                 joining_id: marriage.bar.joining_id.clone(),
                 joining_slot: marriage.bar.joining_slot.clone(),
+                start: fmt_date(&marriage.bar.start),
+                end: marriage.bar.end.as_ref().map(fmt_date),
+                end_reason: marriage.bar.end_reason.clone(),
+                is_ended: marriage.bar.ended,
                 child_roots,
                 children_width,
             });
@@ -518,8 +522,13 @@ impl<'a> Builder<'a> {
             }
             marriages.push(FanMarriage {
                 marriage_id: m.marriage_id.clone(),
+                host_id: m.host_id.clone(),
                 joining_id: m.joining_id.clone(),
                 joining_slot: m.joining_slot.clone(),
+                start: m.start.clone(),
+                end: m.end.clone(),
+                end_reason: m.end_reason.clone(),
+                is_ended: m.is_ended,
                 cospouse_cx,
                 children_center,
                 child_roots: m.child_roots.clone(),
@@ -589,7 +598,6 @@ impl<'a> Builder<'a> {
             config,
             nodes,
             roots,
-            structural_edges,
             child_ghost_marriage,
         } = self;
 
@@ -725,15 +733,19 @@ impl<'a> Builder<'a> {
                             (bar_x + config.bar_width / 2.0, mid_y),
                         );
                         marriage_edges.push(PositionedEdge {
-                            kind: EdgeKind::Marriage,
-                            routing: EdgeRouting::InTree,
-                            child_id: entry.bar.joining_id.clone(),
+                            kind: EdgeKind::Marriage {
+                                host_id: entry.bar.host_id.clone(),
+                                joining_id: entry.bar.joining_id.clone(),
+                                start: fmt_date(&entry.bar.start),
+                                end: entry.bar.end.as_ref().map(fmt_date),
+                                end_reason: entry.bar.end_reason.clone(),
+                                is_ended: entry.bar.ended,
+                            },
                             marriage_id: entry.bar.marriage_id.clone(),
                             points: vec![
                                 (left_card_right_edge, mid_y),
                                 (right_card_left_edge, mid_y),
                             ],
-                            ended: entry.bar.ended,
                         });
                         let joining_x = bar_x + config.bar_width + config.bar_gap;
                         push_card(
@@ -798,9 +810,15 @@ impl<'a> Builder<'a> {
                         // bottom-midpoint. Its horizontal segment's
                         // midpoint is `(children_center, bus_y)`.
                         marriage_edges.push(PositionedEdge {
-                            kind: EdgeKind::Marriage,
-                            routing: EdgeRouting::InTree,
-                            child_id: marriage.joining_id.clone(),
+                            kind: EdgeKind::Marriage {
+                                host_id: marriage.host_id.clone(),
+                                joining_id: marriage.joining_id.clone(),
+                                start: marriage.start.clone(),
+                                // Polygamy marriages are always un-ended (R14).
+                                end: marriage.end.clone(),
+                                end_reason: marriage.end_reason.clone(),
+                                is_ended: marriage.is_ended,
+                            },
                             marriage_id: marriage.marriage_id.clone(),
                             points: vec![
                                 (hub_center_abs, hub_bottom_y),
@@ -808,8 +826,6 @@ impl<'a> Builder<'a> {
                                 (cospouse_cx, bus_y),
                                 (cospouse_cx, cospouse_row_top),
                             ],
-                            // Polygamy marriages are always un-ended (R14).
-                            ended: false,
                         });
 
                         // Child birth edges originate at the marriage-
@@ -858,7 +874,6 @@ impl<'a> Builder<'a> {
             &bar_centers,
             &card_tops,
             &ghost_card_tops,
-            &structural_edges,
             config,
         );
 
@@ -1095,7 +1110,26 @@ fn push_card(
         width: config.card_width,
         height: config.card_height,
         name: slot.name.clone(),
+        generation: slot.generation,
+        gender: slot.gender,
+        family: slot.family.clone(),
+        given: slot.given.clone(),
+        born: slot.born.as_ref().map(fmt_date),
+        died: slot.died.as_ref().map(fmt_date),
     });
+}
+
+/// Format an [`ExportedDate`] back into its source `~YYYY[-MM[-DD]]`
+/// form: the circa marker (if any) prefixed to the value (whose
+/// component count already encodes year / month / day precision).
+/// Carried onto the positioned shapes display-ready so the emitter
+/// surfaces dates as `data-*` attributes without re-deriving (ADR-0021).
+fn fmt_date(date: &ExportedDate) -> String {
+    if date.circa {
+        format!("~{}", date.value)
+    } else {
+        date.value.clone()
+    }
 }
 
 fn route_edges(
@@ -1103,7 +1137,6 @@ fn route_edges(
     bar_centers: &std::collections::HashMap<String, (f64, f64)>,
     card_tops: &std::collections::HashMap<String, (f64, f64)>,
     ghost_card_tops: &std::collections::HashMap<(String, String), (f64, f64)>,
-    structural_edges: &std::collections::HashSet<(String, String)>,
     config: &LayoutConfig,
 ) -> Vec<PositionedEdge> {
     let mut out = Vec::with_capacity(render_edges.len());
@@ -1122,28 +1155,26 @@ fn route_edges(
         // past-bio) at this marriage's children row, the parent-child
         // edge attaches to the local ghost rather than the canonical
         // card — the ghost is materialised precisely to be the local
-        // anchor.
-        let Some(&(card_cx, card_top)) = ghost_card_tops
-            .get(&(edge.child_id.clone(), edge.marriage_id.clone()))
-            .or_else(|| card_tops.get(&edge.child_id))
-        else {
+        // anchor. Resolving via that ghost map is exactly the
+        // `is_past` predicate: the edge terminates on a past-intimacy
+        // child-ghost.
+        let ghost_hit = ghost_card_tops.get(&(edge.child_id.clone(), edge.marriage_id.clone()));
+        let is_past = ghost_hit.is_some();
+        let Some(&(card_cx, card_top)) = ghost_hit.or_else(|| card_tops.get(&edge.child_id)) else {
             continue;
         };
         let kind = match edge.kind {
-            RenderEdgeKind::Birth => EdgeKind::Birth,
-            RenderEdgeKind::Adoption => EdgeKind::Adoption,
+            RenderEdgeKind::Birth => EdgeKind::Birth {
+                child_id: edge.child_id.clone(),
+                is_past,
+            },
+            RenderEdgeKind::Adoption => EdgeKind::Adoption {
+                child_id: edge.child_id.clone(),
+                is_past,
+                start: edge.start.as_ref().map(fmt_date),
+                end: edge.end.as_ref().map(fmt_date),
+            },
         };
-        let routing =
-            if structural_edges.contains(&(edge.marriage_id.clone(), edge.child_id.clone())) {
-                EdgeRouting::InTree
-            } else {
-                // The within-family absorb rule / displaced-child: both endpoints sit in the laid-out
-                // tree but the child is not a structural descendant of this
-                // marriage. The cousin-marriage case is the canonical
-                // exerciser. Geometry matches `InTree` (per ADR-0018);
-                // only the routing discriminator differs.
-                EdgeRouting::CrossTree
-            };
         let bus_y = card_top - config.bus_drop;
         let points = vec![
             (bar_cx, bar_by),
@@ -1153,12 +1184,8 @@ fn route_edges(
         ];
         out.push(PositionedEdge {
             kind,
-            routing,
-            child_id: edge.child_id.clone(),
-            marriage_id: edge.marriage_id.clone(),
             points,
-            // The `ended` flag is a marriage-edge concern only.
-            ended: false,
+            marriage_id: edge.marriage_id.clone(),
         });
     }
     out

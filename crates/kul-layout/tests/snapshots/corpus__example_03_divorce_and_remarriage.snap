@@ -12,6 +12,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Erik Lindqvist
+  generation: 0
+  gender: male
+  born: 1970-01-22
 - person_id: astrid
   kind: ghost:past_marriage
   x: 214.0
@@ -19,6 +22,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Astrid Lindqvist
+  generation: 0
+  gender: female
+  born: 1972-10-08
 - person_id: linnea
   kind: canonical
   x: 119.0
@@ -26,6 +32,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Linnea Lindqvist
+  generation: 1
+  gender: female
+  born: 1998-03-29
 - person_id: erik
   kind: canonical
   x: 406.0
@@ -33,6 +42,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Erik Lindqvist
+  generation: 0
+  gender: male
+  born: 1970-01-22
 - person_id: maja
   kind: canonical
   x: 596.0
@@ -40,6 +52,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Maja Holm
+  generation: 0
+  gender: female
+  born: 1975-05-14
 - person_id: oskar
   kind: canonical
   x: 501.0
@@ -47,6 +62,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Oskar Lindqvist
+  generation: 1
+  gender: male
+  born: 2008-12-01
 - person_id: astrid
   kind: canonical
   x: 788.0
@@ -54,6 +72,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Astrid Lindqvist
+  generation: 0
+  gender: female
+  born: 1972-10-08
 - person_id: johan
   kind: canonical
   x: 978.0
@@ -61,6 +82,9 @@ cards:
   width: 160.0
   height: 64.0
   name: Johan Berg
+  generation: 0
+  gender: male
+  born: 1971-07-30
 - person_id: frida
   kind: canonical
   x: 883.0
@@ -68,11 +92,14 @@ cards:
   width: 160.0
   height: 64.0
   name: Frida Berg
+  generation: 1
+  gender: female
+  born: 2010-09-05
 edges:
-- kind: birth
-  routing: in_tree
+- link_kind: birth
+  marriage_id: m_erik_astrid
   child_id: linnea
-  marriage_id: m_erik_astrid
+  is_past: false
   points:
   - - 199.0
     - 56.0
@@ -82,11 +109,10 @@ edges:
     - 156.0
   - - 199.0
     - 184.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: oskar
+- link_kind: birth
   marriage_id: m_erik_maja
+  child_id: oskar
+  is_past: false
   points:
   - - 581.0
     - 56.0
@@ -96,11 +122,10 @@ edges:
     - 156.0
   - - 581.0
     - 184.0
-  ended: false
-- kind: birth
-  routing: in_tree
-  child_id: frida
+- link_kind: birth
   marriage_id: m_astrid_johan
+  child_id: frida
+  is_past: false
   points:
   - - 963.0
     - 56.0
@@ -110,34 +135,38 @@ edges:
     - 156.0
   - - 963.0
     - 184.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: astrid
+- link_kind: marriage
   marriage_id: m_erik_astrid
+  host_id: erik
+  joining_id: astrid
+  start: 1995-06-17
+  end: 2003-06-15
+  end_reason: divorce
+  is_ended: true
   points:
   - - 184.0
     - 56.0
   - - 214.0
     - 56.0
-  ended: true
-- kind: marriage
-  routing: in_tree
-  child_id: maja
+- link_kind: marriage
   marriage_id: m_erik_maja
+  host_id: erik
+  joining_id: maja
+  start: 2006-08-26
+  is_ended: false
   points:
   - - 566.0
     - 56.0
   - - 596.0
     - 56.0
-  ended: false
-- kind: marriage
-  routing: in_tree
-  child_id: johan
+- link_kind: marriage
   marriage_id: m_astrid_johan
+  host_id: astrid
+  joining_id: johan
+  start: 2007-04-12
+  is_ended: false
   points:
   - - 948.0
     - 56.0
   - - 978.0
     - 56.0
-  ended: false

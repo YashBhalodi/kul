@@ -19,8 +19,8 @@
 //! - [`adapter`] — wraps Walker's for kul's pattern: thick marriage
 //!   edges between adjacent spouses, ghost slots at the host's
 //!   birth-family position per current-intimacy placement, generation rows from generation
-//!   indices, orthogonal right-angle edge routing (`InTree` and
-//!   `CrossTree` share one geometry; see [`EdgeRouting`]).
+//!   indices, and one orthogonal right-angle geometry for every edge
+//!   ([ADR-0018](../../docs/adr/0018-canonical-layout-algorithm.md)).
 //!
 //! # Internal seam, not a wire shape
 //!
@@ -44,7 +44,7 @@ mod metrics;
 mod shape;
 
 pub use metrics::LayoutConfig;
-pub use shape::{EdgeKind, EdgeRouting, PositionedCard, PositionedEdge, PositionedShape, SlotKind};
+pub use shape::{EdgeKind, PositionedCard, PositionedEdge, PositionedShape, SlotKind};
 
 use kul_render::RenderShape;
 

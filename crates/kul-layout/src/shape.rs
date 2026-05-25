@@ -5,6 +5,17 @@
 //! *not* `Serialize` and *not* schema-versioned: the wire shapes the
 //! project pins are `RenderShape` (input) and the SVG string (output).
 //! See [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md).
+//!
+//! ## Properties plumb through ([ADR-0021](../../docs/adr/0021-language-properties-plumb-to-svg.md))
+//!
+//! Every language property declared on a Person, Marriage, or
+//! parenthood link (birth / adoption) is carried on these positioned
+//! shapes as a plain field — display-ready, like [`PositionedCard::name`]
+//! — so [`kul_svg`](../../kul_svg/index.html) can surface it as a
+//! `data-*` attribute without re-deriving anything. Dates arrive
+//! pre-formatted in their source `~YYYY[-MM[-DD]]` form; missing
+//! optional values are `None` (the emitter omits the attribute
+//! entirely).
 
 use kul_render::GhostReason;
 
@@ -37,15 +48,21 @@ pub struct PositionedShape {
 
 /// One positioned person card. The visual primitive surface renderers
 /// project into the canonical UI pattern's uniform-card shape (the uniform card).
+///
+/// Every Person property the language declares is carried here so the
+/// emitter surfaces it as a `data-*` attribute (ADR-0021); only the
+/// geometry (`x`, `y`, `width`, `height`) and the display `name` are
+/// not themselves source properties.
 #[derive(Debug, Clone)]
 pub struct PositionedCard {
     /// Source-declaration id (`person <id>`). Stable across renders;
     /// carried so click-to-jump follow-ups (F10) can attach without
-    /// changing the type.
+    /// changing the type. Surfaces as `data-person-id`.
     pub person_id: String,
     /// Canonical vs ghost. The discriminator a surface
     /// renderer keys on for the dotted-border + faded-fill + ↺-badge
-    /// visual vocabulary.
+    /// visual vocabulary. Surfaces as `data-kind` (plus `data-ghost-reason`
+    /// for a ghost).
     pub kind: SlotKind,
     /// Top-left x coordinate of the card.
     pub x: f64,
@@ -56,8 +73,28 @@ pub struct PositionedCard {
     pub width: f64,
     /// Card height.
     pub height: f64,
-    /// Display name (the uniform card's minimum).
+    /// Display name (the uniform card's minimum). The visible label;
+    /// not emitted as a `data-*` attribute.
     pub name: String,
+    /// Genealogical generation index (the canonical-family graph depth;
+    /// roots at 0). Surfaces as `data-generation`.
+    pub generation: u32,
+    /// `male | female | other` — required by R03, so always present.
+    /// Surfaces as `data-gender`. The canonical pattern keeps the card
+    /// shape gender-neutral; this is the structural seam a surface MAY
+    /// opt into (the uniform card).
+    pub gender: &'static str,
+    /// `family:` name part, if declared. Surfaces as `data-family`.
+    pub family: Option<String>,
+    /// `given:` name part, if declared. Surfaces as `data-given`.
+    pub given: Option<String>,
+    /// `born:` date in source form (`~YYYY[-MM[-DD]]`), if declared.
+    /// Surfaces as `data-born`.
+    pub born: Option<String>,
+    /// `died:` date in source form, if declared. Surfaces as `data-died`;
+    /// its absence is also the `data-is-alive="true"` predicate (a person
+    /// is alive iff no `died:` is recorded).
+    pub died: Option<String>,
 }
 
 /// Whether a [`PositionedCard`] is the person's canonical card
@@ -80,44 +117,62 @@ pub enum SlotKind {
 /// edges (ADR-0020) are the unified marriage connector for both
 /// monogamy (a thick horizontal segment between adjacent spouse cards)
 /// and polygamy (one thick edge per concurrent marriage, hub →
-/// co-spouse). The `kind` field discriminates and the polyline points
+/// co-spouse). The [`kind`](PositionedEdge::kind) discriminates and
+/// carries each edge's declared properties; the polyline points
 /// describe the orthogonal right-angle route a surface emits directly.
 #[derive(Debug, Clone)]
 pub struct PositionedEdge {
-    /// Birth, adoption, or marriage.
+    /// What kind of edge this is, plus the per-kind declared properties
+    /// that plumb to `data-*` attributes (ADR-0021).
     pub kind: EdgeKind,
-    /// Routing variant — `InTree` for v1, `CrossTree` for future
-    /// cross-component edges (F5).
-    pub routing: EdgeRouting,
-    /// Source-declaration id of the child this edge belongs to. For a
-    /// marriage edge this is the joining spouse (monogamy) or co-spouse
-    /// (polygamy).
-    pub child_id: String,
-    /// Source-declaration id of the marriage this edge connects to.
-    pub marriage_id: String,
     /// Polyline points, in draw order. Each entry is an absolute
-    /// pixel coordinate; the emitter writes them straight into
-    /// `<polyline points="x1,y1 x2,y2 …" />`.
+    /// pixel coordinate; the emitter writes them straight into the
+    /// `<path d="…">` route.
     pub points: Vec<(f64, f64)>,
-    /// `true` iff this is a marriage edge for a marriage that carries an
-    /// `end:` field (current-intimacy placement's canonical "ended" predicate). Surfaces add the
-    /// `kul-edge--ended` class to render the connector translucent.
-    /// Always `false` for birth / adoption edges and for polygamy
-    /// marriage edges (un-ended by R14).
-    pub ended: bool,
+    /// Source-declaration id of the marriage this edge belongs to. For
+    /// a marriage edge it is the marriage itself; for a birth / adoption
+    /// edge it is the parent marriage the child attaches to. Surfaces as
+    /// `data-marriage-id`.
+    pub marriage_id: String,
 }
 
-/// What kind of edge this is. Birth and adoption edges connect a
-/// marriage to one of its children (edges encode link kind). Marriage edges are the unified
-/// marriage connector (ADR-0020): for monogamy a thick horizontal
-/// segment between the two adjacent spouse cards; for polygamy one edge
-/// per concurrent marriage connecting the hub to each co-spouse.
-#[derive(Debug, Clone, Copy)]
+/// What kind of edge this is, with the declared properties each kind
+/// carries.
+///
+/// Birth and adoption edges connect a marriage to one of its children
+/// (edges encode link kind). Marriage edges are the unified marriage
+/// connector (ADR-0020). The variant discriminator is the `data-link-kind`
+/// value (`birth` / `adoption` / `marriage`); the fields are the
+/// remaining `data-*` attributes for that kind. There is no longer a
+/// routing discriminator — every edge routes with one orthogonal
+/// geometry, so the former `EdgeRouting` future-hook was removed
+/// ([ADR-0018](../../docs/adr/0018-canonical-layout-algorithm.md)).
+#[derive(Debug, Clone)]
 pub enum EdgeKind {
-    /// Solid, thin (edges encode link kind).
-    Birth,
-    /// Dashed, thin (edges encode link kind).
-    Adoption,
+    /// Solid, thin biological parent-child edge.
+    Birth {
+        /// Source-declaration id of the child. Surfaces as `data-child-id`.
+        child_id: String,
+        /// `true` iff the edge terminates on a past-bio child-ghost (the
+        /// `birth` link the current-intimacy chain did not select).
+        /// Surfaces as `data-is-past`.
+        is_past: bool,
+    },
+    /// Dashed, thin adoptive parent-child edge.
+    Adoption {
+        /// Source-declaration id of the child. Surfaces as `data-child-id`.
+        child_id: String,
+        /// `true` iff the edge terminates on a past-adoption child-ghost
+        /// (a demoted adoption). Surfaces as `data-is-past`.
+        is_past: bool,
+        /// `start:` of the adoption sub-statement, source form. Required
+        /// by the grammar, so present whenever the link resolves;
+        /// surfaces as `data-adoption-start`.
+        start: Option<String>,
+        /// `end:` of the adoption sub-statement, source form, if declared.
+        /// Surfaces as `data-adoption-end`.
+        end: Option<String>,
+    },
     /// Solid, thick — the unified marriage connector (ADR-0020).
     ///
     /// For **monogamy** (`hosted_marriages.len() == 1`) it is the
@@ -131,29 +186,28 @@ pub enum EdgeKind {
     /// a birth edge.
     ///
     /// Visually distinguished from birth / adoption by a thicker stroke
-    /// (set by the consuming surface stylesheet via the
-    /// `kul-edge--marriage` class).
-    Marriage,
-}
-
-/// How an edge is routed. Both variants emit the **same** orthogonal
-/// right-angle polyline geometry and the same attachment points —
-/// bar bottom-midpoint, horizontal bus at `card_top - config.bus_drop`,
-/// child card top-midpoint — so the entire diagram follows one
-/// consistent edge-routing pattern (the classical descendency tree). The discriminator exists to
-/// give surface consumers a future re-theming hook (the emitted CSS
-/// classes differ); the layout layer treats them identically. See
-/// [ADR-0018](../../docs/adr/0018-canonical-layout-algorithm.md).
-#[derive(Debug, Clone, Copy)]
-pub enum EdgeRouting {
-    /// Standard descendency-tree route: the child sits structurally
-    /// inside this marriage's subtree, directly below the bar in the
-    /// children row.
-    InTree,
-    /// Cross-tree route — both endpoints are positioned in the laid-out
-    /// tree, but the child is not a structural descendant of this
-    /// marriage's bar. The canonical exerciser is the cousin-marriage
-    /// case (the within-family absorb rule): the joining cousin's birth-edge connects back to a
-    /// sibling marriage already in the rendering context.
-    CrossTree,
+    /// (set by the consuming surface stylesheet against the
+    /// `data-link-kind="marriage"` selector).
+    Marriage {
+        /// Source-declaration id of the host (first-listed spouse).
+        /// Surfaces as `data-host-id`.
+        host_id: String,
+        /// Source-declaration id of the joining spouse (second-listed).
+        /// Surfaces as `data-joining-id`.
+        joining_id: String,
+        /// `start:` date in source form. Required by the grammar, so
+        /// always present. Surfaces as `data-start`.
+        start: String,
+        /// `end:` date in source form, if the marriage ended.
+        /// Surfaces as `data-end`.
+        end: Option<String>,
+        /// `end_reason:` enum (v1: `divorce`), if the marriage ended.
+        /// Surfaces as `data-end-reason`.
+        end_reason: Option<String>,
+        /// `true` iff the marriage carries an `end:` field (current-intimacy
+        /// placement's "ended" predicate — death is on the person, not the
+        /// marriage). Surfaces as `data-is-ended`. Always `false` for a
+        /// polygamy marriage (un-ended by R14).
+        is_ended: bool,
+    },
 }

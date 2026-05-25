@@ -3,50 +3,50 @@ source: crates/kul-svg/tests/corpus.rs
 expression: svg
 ---
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1164 432" width="1164" height="432">
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 199 56 L 199 156 L 199 156 L 199 184"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 916.5 56 L 916.5 146 Q 916.5 156 906.5 156 L 688 156 Q 678 156 678 166 L 678 184"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 916.5 56 L 916.5 146 Q 916.5 156 926.5 156 L 1050 156 Q 1060 156 1060 166 L 1060 184"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 773 216 L 773 316 L 773 316 L 773 344"/>
-<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 184 56 L 214 56"/>
-<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 901.5 56 L 931.5 56"/>
-<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 758 216 L 788 216"/>
-<g class="kul-card kul-card--canonical">
+<path class="kul-edge" data-marriage-id="m_jinho_soojin" data-link-kind="birth" data-child-id="minjun" data-is-past="false" fill="none" d="M 199 56 L 199 156 L 199 156 L 199 184"/>
+<path class="kul-edge" data-marriage-id="m_bruno_helena" data-link-kind="birth" data-child-id="tiago" data-is-past="false" fill="none" d="M 916.5 56 L 916.5 146 Q 916.5 156 906.5 156 L 688 156 Q 678 156 678 166 L 678 184"/>
+<path class="kul-edge" data-marriage-id="m_bruno_helena" data-link-kind="birth" data-child-id="beatriz" data-is-past="false" fill="none" d="M 916.5 56 L 916.5 146 Q 916.5 156 926.5 156 L 1050 156 Q 1060 156 1060 166 L 1060 184"/>
+<path class="kul-edge" data-marriage-id="m_tiago_carla" data-link-kind="birth" data-child-id="lucas" data-is-past="false" fill="none" d="M 773 216 L 773 316 L 773 316 L 773 344"/>
+<path class="kul-edge" data-marriage-id="m_jinho_soojin" data-link-kind="marriage" data-host-id="jinho" data-joining-id="soojin" data-start="1988-05-14" data-is-ended="false" fill="none" d="M 184 56 L 214 56"/>
+<path class="kul-edge" data-marriage-id="m_bruno_helena" data-link-kind="marriage" data-host-id="bruno" data-joining-id="helena" data-start="1980-06-21" data-is-ended="false" fill="none" d="M 901.5 56 L 931.5 56"/>
+<path class="kul-edge" data-marriage-id="m_tiago_carla" data-link-kind="marriage" data-host-id="tiago" data-joining-id="carla" data-start="2010-10-16" data-is-ended="false" fill="none" d="M 758 216 L 788 216"/>
+<g class="kul-card" data-person-id="jinho" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1960-04-12" data-generation="0">
 <rect x="24" y="24" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="104" y="56" text-anchor="middle" dominant-baseline="central">Jin-ho Park</text>
 </g>
-<g class="kul-card kul-card--canonical">
+<g class="kul-card" data-person-id="soojin" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1963-08-25" data-generation="0">
 <rect x="214" y="24" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="294" y="56" text-anchor="middle" dominant-baseline="central">Soo-jin Park</text>
 </g>
-<g class="kul-card kul-card--canonical">
+<g class="kul-card" data-person-id="minjun" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1990-07-03" data-generation="1">
 <rect x="119" y="184" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="199" y="216" text-anchor="middle" dominant-baseline="central">Min-jun Park</text>
 </g>
-<g class="kul-card kul-card--canonical">
+<g class="kul-card" data-person-id="nadia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="~1985" data-generation="0">
 <rect x="406" y="24" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="486" y="56" text-anchor="middle" dominant-baseline="central">Nadia Haddad</text>
 </g>
-<g class="kul-card kul-card--canonical">
+<g class="kul-card" data-person-id="bruno" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1955-02-09" data-generation="0">
 <rect x="741.5" y="24" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="821.5" y="56" text-anchor="middle" dominant-baseline="central">Bruno Costa</text>
 </g>
-<g class="kul-card kul-card--canonical">
+<g class="kul-card" data-person-id="helena" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1958-11-28" data-generation="0">
 <rect x="931.5" y="24" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="1011.5" y="56" text-anchor="middle" dominant-baseline="central">Helena Costa</text>
 </g>
-<g class="kul-card kul-card--canonical">
+<g class="kul-card" data-person-id="tiago" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1982-09-15" data-generation="1">
 <rect x="598" y="184" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="678" y="216" text-anchor="middle" dominant-baseline="central">Tiago Costa</text>
 </g>
-<g class="kul-card kul-card--canonical">
+<g class="kul-card" data-person-id="carla" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1984-12-05" data-generation="1">
 <rect x="788" y="184" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="868" y="216" text-anchor="middle" dominant-baseline="central">Carla Costa</text>
 </g>
-<g class="kul-card kul-card--canonical">
+<g class="kul-card" data-person-id="lucas" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="2012-04-22" data-generation="2">
 <rect x="693" y="344" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="773" y="376" text-anchor="middle" dominant-baseline="central">Lucas Costa</text>
 </g>
-<g class="kul-card kul-card--canonical">
+<g class="kul-card" data-person-id="beatriz" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1985-03-30" data-generation="1">
 <rect x="980" y="184" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="1060" y="216" text-anchor="middle" dominant-baseline="central">Beatriz Costa</text>
 </g>
