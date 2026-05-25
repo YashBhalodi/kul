@@ -50,7 +50,7 @@ The first-listed spouse in a Marriage's declaration (`marriage <id> <host> <join
 
 ### Polygamy hub
 
-A person with ≥2 un-ended marriages. The canonical UI pattern's [fan rendering primitive](./docs/canonical-ui-pattern.md) treats the hub as the visual anchor for all of their concurrent intimacies — the hub card sits alone at the top of the fan, each co-spouse sits on a sub-row below with the matching bar adjacent, and a fan connector links the hub to each bar. Rule R14 ensures the polygamy hub is also the declared [host](#host-of-a-marriage) of every concurrent marriage they participate in, so "hub" and "host" coincide by language invariant rather than by renderer repair. See [ADR-0026](./docs/adr/0026-polygamy-hub-equals-host.md) (R14 language invariant) and [ADR-0027](./docs/adr/0027-fan-primitive-for-polygamy-hubs.md) (fan rendering primitive).
+A person with ≥2 un-ended marriages. The canonical UI pattern's [fan rendering primitive](./docs/canonical-ui-pattern.md) treats the hub as the visual anchor for all of their concurrent intimacies — the hub card sits alone at the top of the fan, each co-spouse splays to a wing on the row below (mirrored across that marriage's children-centre), and each marriage's children gather at the midpoint of that marriage's thick marriage edge, two rows below the hub. Rule R14 ensures the polygamy hub is also the declared [host](#host-of-a-marriage) of every concurrent marriage they participate in, so "hub" and "host" coincide by language invariant rather than by renderer repair. See [ADR-0026](./docs/adr/0026-polygamy-hub-equals-host.md) (R14 language invariant) and [ADR-0027](./docs/adr/0027-fan-primitive-for-polygamy-hubs.md) (fan rendering primitive).
 
 ### Parent
 

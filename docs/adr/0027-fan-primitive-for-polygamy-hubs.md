@@ -55,43 +55,65 @@ pattern recognises, not a continuous deformation of monogamy.
 Replace the existing hub-and-flanks cluster for `hosted_marriages.len() >= 2`
 with a **fan-from-top-hub** primitive that scales from N=2 to any N:
 
+The decision adopts **Approach 1** — children centred at the marriage-
+edge midpoint, co-spouse mirrored across that midpoint — governed by
+the invariant
+
+```text
+children_center_i = (hub_cx + cospouse_cx_i) / 2
+equivalently      cospouse_cx_i = 2 * children_center_i - hub_cx
+```
+
+so spouses splay toward the wings while each marriage's children gather
+toward the centre, directly under the midpoint of that marriage's
+(thick) marriage edge.
+
 - **Hub on top, alone, at row R** (the host's data-level generation).
   The hub card occupies its own cluster; nothing else shares its row.
 - **Co-spouses at row R+1**, one per hosted marriage in declaration
-  order. Each co-spouse is a single-card walker child of the hub on
-  the standard child generation row. There is no marriage bar and no
-  R+ε sub-row — the co-spouse is reached by a thick **marriage edge**
-  (see below) the same way a birth edge reaches a child.
+  order, at the **wing** position `cospouse_cx_i = 2 * children_center_i
+  - hub_cx`. There is no marriage bar — the co-spouse is reached by a
+  thick **marriage edge** (below) the same way a birth edge reaches a
+  child.
+- **Children of each marriage** at row R+2, **centred on the marriage-
+  edge midpoint** `children_center_i = (hub_cx + cospouse_cx_i) / 2`.
+  Each marriage's children forest keeps its full walker layout (nested
+  P6 birth families, deeper generations, even recursive polygamy) — the
+  fan only pins the forest's *block centre* to the midpoint. Half-
+  siblings render in distinct columns, one per marriage, because the
+  midpoints are spread apart.
 - **Marriage edge** — one routed `<path>` per hosted marriage, from
-  the hub card's bottom-midpoint to the co-spouse, using the **same
-  orthogonal hub-bottom → horizontal bus geometry as a birth edge**.
-  The only difference from a birth edge is the stroke weight (~3-4px vs
-  birth's 1.5px) and the CSS modifier (`kul-edge--marriage`). The fan
-  visual emerges from N marriage edges fanning out of the single
-  hub-bottom point — it is not a dedicated trunk-branch geometry. The
-  edge's terminus depends on whether the marriage has children (below).
-- **Children of each marriage** are walker children of the
-  corresponding co-spouse, so each marriage's children hang in their
-  own column at row R+2 (P9). Half-siblings render in distinct
-  sub-trees, one per co-spouse. The geometry differs by whether the
-  marriage bears children:
-  - A **childless co-spouse** is centred at its cluster's walker centre
-    X and the marriage edge drops onto its top-centre, exactly the way
-    a birth edge reaches a child.
-  - A **child-bearing co-spouse** uses a **junction** on the marriage-
-    edge spine. The marriage edge drops a vertical spine at X (the
-    co-spouse cluster's walker centre), the co-spouse card sits offset
-    to the left of the spine (its cluster width inflated so the walker
-    reserves room), connected by a short horizontal stub at the card's
-    vertical mid-height — the *junction* `J = (X, row_top + ch/2)`. Each
-    child's birth/adoption edge spawns from J on the spine and descends
-    straight down, so the thick marriage edge and the thin child edge
-    form **one continuous vertical line at X**, with the co-spouse
-    hanging off to the left. A single child centred at X reads as a
-    direct hub → spine → child lineage; multiple children fan from J
-    like a normal bar. The couple → child lineage reads as one
-    continuous chain hub → marriage edge → child, with the co-spouse
-    card identifying the joining spouse beside the spine.
+  the hub card's bottom-midpoint to the co-spouse's top-centre, using
+  the **same orthogonal hub-bottom → horizontal bus geometry as a birth
+  edge**. The only difference from a birth edge is the stroke weight
+  (~3-4px vs birth's 1.5px) and the CSS modifier (`kul-edge--marriage`).
+  Its horizontal segment runs at a bus just below the hub; the
+  segment's midpoint is `children_center_i`, so that marriage's child
+  birth/adoption edges originate there and fan down. The fan visual
+  emerges from N marriage edges fanning out of the single hub-bottom
+  point — it is not a dedicated trunk-branch geometry. A **childless**
+  co-spouse keeps the same wing/mirror placement with an empty children
+  block; its marriage edge lands on its top-centre.
+
+**Layout algorithm (hub-local x; the hub is centred afterward).** Let
+`cw = card_width`, `gap = sibling_gap`, and `CW_i` the packed width of
+marriage `i`'s children forest (0 if childless):
+
+1. Adjacent co-spouse spacing (hub-independent): `s_i = max(cw + gap,
+   CW_i + CW_{i+1} + 2*gap)` (children blocks live at the midpoints, a
+   half-step apart, so this keeps them from overlapping).
+2. Cumulative co-spouse positions: `p_1 = 0`, `p_{i+1} = p_i + s_i`.
+3. `hub_cx = (p_1 + p_N) / 2` (centre of the co-spouse span).
+4. **Child-drop clearance:** each child-bearing marriage's vertical
+   drop at `C_i = (hub_cx + p_i)/2` must clear that co-spouse's own
+   card, so `|p_i - hub_cx| >= cw + gap`. If too narrow, scale all
+   co-spouse positions outward about `hub_cx` (the canonical N=2-with-
+   one-small-child case exercises this). Middle co-spouses in odd N sit
+   near `hub_cx` and cannot satisfy this — accepted as a known
+   limitation (their marriage edge is near-vertical and the child hangs
+   ~directly below; see Consequences).
+5. `children_center_i = (hub_cx + p_i)/2`; shift marriage `i`'s
+   already-laid-out children forest so its block centre lands on `C_i`.
 
 Monogamy (`hosted_marriages.len() == 1`) is unchanged: the classical
 hub-and-flanks cluster (host card + bar + joining card on one row)
@@ -99,16 +121,34 @@ still applies, and the marriage still renders as a `<rect class="kul-bar">`
 between the two adjacent spouse cards. **Bars are emitted only for
 monogamy.**
 
+**Integration strategy (how the fan composes with Walker).** The hub
+is a single Walker **leaf** whose width reserves the full wing-to-wing
+extent (symmetric about the hub centre), so a fan packs cleanly against
+sibling components and nests inside a larger tree (example 12) without
+overlap. Each marriage's children forest is built through the usual
+`build_person` recursion (so nested P6 / deeper generations / recursive
+polygamy keep their tidy-tree treatment) and measured for its packed
+width `CW_i` by a per-forest Walker pass. The forests are attached as
+the hub leaf's Walker children purely so the global Walker positions
+them (and reserves the contour); their natural positions are then
+**overridden** in the projection pass — each forest is rigidly
+translated so its block centre lands on its prescribed
+`children_center_i`, measured relative to the hub's Walker-assigned x.
+Because the prescribed midpoint spread is always ≥ the forests' natural
+spacing and the reserved hub width covers the wider wings, the override
+never pushes a forest outside the reserved footprint, so it cannot
+collide with a neighbouring component.
+
 `visual_row` in the layout adapter is `f64` (carried forward from the
 first cut of this ADR; kept for future fractional-row primitives).
 Every cluster in the v1 corpus — including every polygamy fan — lands
 on an integer row, so the no-polygamy snapshots stay byte-identical.
-Descendants of a polygamy hub are visually one row deeper than their
-canonical-family `slot.generation` predicts (the co-spouse occupies
-the row that, in a monogamy, would host the marriage's children); the
-adapter threads a `min_visual_row` floor through the recursive build
-so this single extra row cascades through the descendant-pull
-arithmetic from ADR-0023 / ADR-0024 without special-casing.
+A polygamy hub's children sit **two** rows below the hub (the co-spouse
+row R+1 sits between the hub at R and the children at R+2), so the hub's
+descendant-pull clause reads `min(child.visual_row) - 2.0`: a deep P6
+sub-tree under a child forest pushes that child below R+2 and pulls the
+whole fan down in lockstep through the same ADR-0023 / ADR-0024 cascade,
+with no special-casing.
 
 `RenderShape` **does not change**. ADR-0021 already gave the polygamy
 hub the right shape — one canonical `PersonCard` carrying `N` bars
@@ -128,23 +168,31 @@ stroke weight.
 
 - **Examples 04 and 12 snapshots regenerate** across `kul-layout` and
   `kul-svg` (the `kul-render` structural shape is unchanged). Both
-  rerender from hub-and-flanks to fan-from-top-hub: the polygamy hub
-  sits alone on its row, each co-spouse on the next row down reached
-  by a thick `kul-edge--marriage` path, with no bar rect and no fan-
-  connector segments. In both examples Meera is childless (her marriage
-  edge lands on her top-centre, card centred under the spine) and Alice
-  bears Priya (Alice's card sits offset left of the spine, the marriage
-  edge stubs into a junction at her mid-height, and Priya's birth edge
-  continues the spine straight down from that same junction).
+  rerender to the Approach-1 fan: the hub sits alone on its row, each
+  co-spouse splays to a wing on the next row down, and each marriage's
+  children gather under that marriage's edge midpoint two rows below the
+  hub. No bar rect, no connector segments. With default metrics, in
+  example 04 the hub (Devraj) centres at x = 296, Meera (childless)
+  mirrors to 104 and Alice to 488 (both ±192); Priya sits at the
+  Devraj–Alice midpoint 392 — exactly the midpoint of Alice's marriage-
+  edge horizontal segment, where her birth edge originates — and the
+  drop at x = 392 clears Alice's card (left edge 408) by 16px. Example
+  12 is the same fan nested one generation down under Ramesh + Sita: the
+  hub sits centred directly under the `m_ramesh_sita` bar, and the wide
+  hub footprint reserves the wings so the fan doesn't overlap its parent
+  cluster (which still renders its monogamy bar).
 - **Example 15 (`15-polygamy-with-three-wives/`)** exercises N=3
-  polygamy with one child per marriage, demonstrating that
-  half-siblings render in distinct sub-trees below their own
-  co-spouse. Every wife bears a child, so all three co-spouses use the
-  junction model: each card sits offset left of its spine and its
-  child's birth edge continues that spine straight down. The three
-  marriage edges fan out of one hub-bottom point (the middle spine to
-  Alice routes straight down below the hub, the outer two jog left to
-  Meera and right to Diana) — the fan shape with no dedicated trunk.
+  polygamy with one child per marriage. The hub (Devraj) centres at 488;
+  the three co-spouses splay across row 1 — Meera at the outer-left wing
+  104, Alice in the middle at 488 (coincident with the hub), Diana at
+  the outer-right wing 872 — and each child sits at its marriage-edge
+  midpoint on row 2: Asha at 296, Priya at 488, Rohan at 680. The outer
+  two marriages gather their children toward the centre under each
+  edge's midpoint; the **middle marriage exhibits the odd-N limitation**
+  — Alice sits at the hub centre, so her marriage edge is vertical and
+  Priya hangs directly below the hub rather than being pulled toward a
+  wing. Three thick edges fan from one hub-bottom point; the half-
+  siblings render in distinct columns per P9.
 - **No bars for polygamy marriages.** `PositionedShape.bars` carries
   one rect per monogamy marriage only; polygamy marriages are pure
   edges. A polygamy hub that is *also* a monogamy host in a different
@@ -183,6 +231,21 @@ stroke weight.
   emerges from N edges fanning out of the hub, not from a dedicated
   trunk. Do not re-introduce the trunk-branch-drop decomposition or the
   per-co-spouse bar at N≥2.
+- **"Offset-spine / junction model (children below their own
+  co-spouse)."** Considered, and *shipped in the second cut of #165*:
+  the co-spouse was a walker child of the hub and the marriage's
+  children were walker children of the co-spouse, so children hung
+  below their co-spouse; a child-bearing co-spouse's card sat offset
+  left of a vertical *spine* at the cluster centre, the marriage edge
+  stubbed into a *junction* at the card's mid-height, and the child
+  birth edge continued the spine straight down. Rejected in favour of
+  Approach 1 (children centred at the marriage-edge midpoint, co-spouse
+  mirrored across it): pulling children to the centre while spouses
+  splay to the wings reads as a cleaner, more symmetric fan and removes
+  the bespoke spine/junction/card-offset geometry — every child edge is
+  again a plain birth edge originating at a point on the marriage edge.
+  Do not re-introduce the spine, the junction stub, or the inflated
+  co-spouse cluster that offsets the card left of its centre.
 - **"Hub-and-flanks for N=2 only; new primitive at N≥3."** Considered
   (Stance B); rejected because Stance A wants a uniform primitive so
   polygamy is visually distinct from monogamy at any N — including
@@ -207,13 +270,21 @@ stroke weight.
   eliminates the divergence that motivated relocation. The hub is
   the host by language invariant; the fan's semantics are
   unambiguous because the language guarantees clean input.
-- **"Make children hang directly below the hub (snap-to-hub
-  centering)."** Considered for tightening the visual association
-  between a marriage and its children. Rejected — the walker centres
-  each child cluster below its parent cluster (the co-spouse), and
-  forcing children to snap below the hub would break the walker's
-  collision-avoidance guarantees and re-merge half-siblings into one
-  column. Each marriage's children hang below their own co-spouse;
-  the birth edge spawns from the junction on the marriage-edge spine
-  beside the co-spouse, so the marriage-to-child association is
-  unambiguous (P9) and reads as one continuous vertical line.
+- **"Snap every marriage's children directly below the hub."**
+  Considered as the extreme of centre-pulling. Rejected — distinct
+  marriages would re-merge their half-siblings into one column under the
+  hub, losing the per-marriage column separation P9 wants. Approach 1
+  pulls children only as far as the *marriage-edge midpoint*
+  `(hub_cx + cospouse_cx)/2`, halfway between the hub and the wing
+  co-spouse, so each marriage keeps its own column while still gathering
+  toward the centre. The midpoints are spread by construction (step 1),
+  so half-siblings never collide.
+- **"Spread children blocks by re-running Walker with inflated
+  sibling widths."** Considered as a way to get the midpoint spacing
+  for free from the global Walker. Rejected — the prescribed geometry
+  (co-spouse mirror, midpoint clearance, outward scaling for odd-N
+  clearance) is fully analytic and does not map onto Walker's sibling-
+  separation rule. The fan is laid out in a hub-local x and projected
+  against the hub's Walker x; the children forests keep Walker only for
+  their *internal* tidy-tree layout. Do not try to encode the fan's
+  inter-marriage spacing as Walker node widths.

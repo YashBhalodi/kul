@@ -2,24 +2,24 @@
 source: crates/kul-svg/tests/corpus.rs
 expression: svg
 ---
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 572 432" width="572" height="432">
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 382 216 L 382 316 L 382 316 L 382 344"/>
-<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 243 88 L 243 146 Q 243 156 233 156 L 114 156 Q 104 156 104 166 L 104 184"/>
-<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 243 88 L 243 146 Q 243 156 253 156 L 372 156 Q 382 156 382 166 L 382 213 Q 382 216 379 216 L 376 216"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 592 432" width="592" height="432">
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 392 156 L 392 316 L 392 316 L 392 344"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 296 88 L 296 146 Q 296 156 286 156 L 114 156 Q 104 156 104 166 L 104 184"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 296 88 L 296 146 Q 296 156 306 156 L 478 156 Q 488 156 488 166 L 488 184"/>
 <g class="kul-card kul-card--canonical">
-<rect x="163" y="24" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="243" y="56" text-anchor="middle" dominant-baseline="central">Devraj Kumar</text>
+<rect x="216" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="296" y="56" text-anchor="middle" dominant-baseline="central">Devraj Kumar</text>
 </g>
 <g class="kul-card kul-card--canonical">
 <rect x="24" y="184" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Meera</text>
 </g>
 <g class="kul-card kul-card--canonical">
-<rect x="216" y="184" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="296" y="216" text-anchor="middle" dominant-baseline="central">Alice Sharma</text>
+<rect x="408" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="488" y="216" text-anchor="middle" dominant-baseline="central">Alice Sharma</text>
 </g>
 <g class="kul-card kul-card--canonical">
-<rect x="302" y="344" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="382" y="376" text-anchor="middle" dominant-baseline="central">Priya Kumar</text>
+<rect x="312" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="392" y="376" text-anchor="middle" dominant-baseline="central">Priya Kumar</text>
 </g>
 </svg>

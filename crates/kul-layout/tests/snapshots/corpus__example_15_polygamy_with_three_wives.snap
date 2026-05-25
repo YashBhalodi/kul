@@ -2,12 +2,12 @@
 source: crates/kul-layout/tests/corpus.rs
 expression: yaml
 ---
-width: 1108.0
+width: 976.0
 height: 432.0
 cards:
 - person_id: devraj
   kind: canonical
-  x: 474.0
+  x: 408.0
   y: 24.0
   width: 160.0
   height: 64.0
@@ -19,37 +19,37 @@ cards:
   width: 160.0
   height: 64.0
   name: Meera
-- person_id: asha
-  kind: canonical
-  x: 110.0
-  y: 344.0
-  width: 160.0
-  height: 64.0
-  name: Asha Kumar
 - person_id: alice
   kind: canonical
-  x: 388.0
+  x: 408.0
   y: 184.0
   width: 160.0
   height: 64.0
   name: Alice Sharma
-- person_id: priya
-  kind: canonical
-  x: 474.0
-  y: 344.0
-  width: 160.0
-  height: 64.0
-  name: Priya Kumar
 - person_id: diana
   kind: canonical
-  x: 752.0
+  x: 792.0
   y: 184.0
   width: 160.0
   height: 64.0
   name: Diana Roy
+- person_id: asha
+  kind: canonical
+  x: 216.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Asha Kumar
+- person_id: priya
+  kind: canonical
+  x: 408.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Priya Kumar
 - person_id: rohan
   kind: canonical
-  x: 838.0
+  x: 600.0
   y: 344.0
   width: 160.0
   height: 64.0
@@ -61,82 +61,76 @@ edges:
   child_id: asha
   marriage_id: m_devraj_meera
   points:
-  - - 190.0
-    - 216.0
-  - - 190.0
+  - - 296.0
+    - 156.0
+  - - 296.0
     - 316.0
-  - - 190.0
+  - - 296.0
     - 316.0
-  - - 190.0
+  - - 296.0
     - 344.0
 - kind: birth
   routing: in_tree
   child_id: priya
   marriage_id: m_devraj_alice
   points:
-  - - 554.0
-    - 216.0
-  - - 554.0
+  - - 488.0
+    - 156.0
+  - - 488.0
     - 316.0
-  - - 554.0
+  - - 488.0
     - 316.0
-  - - 554.0
+  - - 488.0
     - 344.0
 - kind: birth
   routing: in_tree
   child_id: rohan
   marriage_id: m_devraj_diana
   points:
-  - - 918.0
-    - 216.0
-  - - 918.0
+  - - 680.0
+    - 156.0
+  - - 680.0
     - 316.0
-  - - 918.0
+  - - 680.0
     - 316.0
-  - - 918.0
+  - - 680.0
     - 344.0
 - kind: marriage
   routing: in_tree
   child_id: meera
   marriage_id: m_devraj_meera
   points:
-  - - 554.0
+  - - 488.0
     - 88.0
-  - - 554.0
+  - - 488.0
     - 156.0
-  - - 190.0
+  - - 104.0
     - 156.0
-  - - 190.0
-    - 216.0
-  - - 184.0
-    - 216.0
+  - - 104.0
+    - 184.0
 - kind: marriage
   routing: in_tree
   child_id: alice
   marriage_id: m_devraj_alice
   points:
-  - - 554.0
+  - - 488.0
     - 88.0
-  - - 554.0
+  - - 488.0
     - 156.0
-  - - 554.0
+  - - 488.0
     - 156.0
-  - - 554.0
-    - 216.0
-  - - 548.0
-    - 216.0
+  - - 488.0
+    - 184.0
 - kind: marriage
   routing: in_tree
   child_id: diana
   marriage_id: m_devraj_diana
   points:
-  - - 554.0
+  - - 488.0
     - 88.0
-  - - 554.0
+  - - 488.0
     - 156.0
-  - - 918.0
+  - - 872.0
     - 156.0
-  - - 918.0
-    - 216.0
-  - - 912.0
-    - 216.0
+  - - 872.0
+    - 184.0
