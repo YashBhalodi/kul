@@ -75,25 +75,6 @@ cards:
   width: 160.0
   height: 64.0
   name: Gita Patel
-bars:
-- marriage_id: m_ramesh_sita
-  x: 383.0
-  y: 51.0
-  width: 18.0
-  height: 10.0
-  ended: false
-- marriage_id: m_alice_bob
-  x: 191.0
-  y: 211.0
-  width: 18.0
-  height: 10.0
-  ended: false
-- marriage_id: m_dev_eva
-  x: 575.0
-  y: 211.0
-  width: 18.0
-  height: 10.0
-  ended: false
 edges:
 - kind: birth
   routing: in_tree
@@ -101,75 +82,111 @@ edges:
   marriage_id: m_ramesh_sita
   points:
   - - 392.0
-    - 61.0
+    - 56.0
   - - 392.0
     - 156.0
   - - 105.0
     - 156.0
   - - 105.0
     - 184.0
+  ended: false
 - kind: birth
   routing: in_tree
   child_id: dev
   marriage_id: m_ramesh_sita
   points:
   - - 392.0
-    - 61.0
+    - 56.0
   - - 392.0
     - 156.0
   - - 489.0
     - 156.0
   - - 489.0
     - 184.0
+  ended: false
 - kind: birth
   routing: in_tree
   child_id: carol
   marriage_id: m_alice_bob
   points:
   - - 200.0
-    - 221.0
+    - 216.0
   - - 200.0
     - 316.0
   - - 104.0
     - 316.0
   - - 104.0
     - 344.0
+  ended: false
 - kind: birth
   routing: in_tree
   child_id: diya
   marriage_id: m_alice_bob
   points:
   - - 200.0
-    - 221.0
+    - 216.0
   - - 200.0
     - 316.0
   - - 296.0
     - 316.0
   - - 296.0
     - 344.0
+  ended: false
 - kind: birth
   routing: in_tree
   child_id: farid
   marriage_id: m_dev_eva
   points:
   - - 584.0
-    - 221.0
+    - 216.0
   - - 584.0
     - 316.0
   - - 488.0
     - 316.0
   - - 488.0
     - 344.0
+  ended: false
 - kind: birth
   routing: in_tree
   child_id: gita
   marriage_id: m_dev_eva
   points:
   - - 584.0
-    - 221.0
+    - 216.0
   - - 584.0
     - 316.0
   - - 680.0
     - 316.0
   - - 680.0
     - 344.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: sita
+  marriage_id: m_ramesh_sita
+  points:
+  - - 377.0
+    - 56.0
+  - - 407.0
+    - 56.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: bob
+  marriage_id: m_alice_bob
+  points:
+  - - 185.0
+    - 216.0
+  - - 215.0
+    - 216.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: eva
+  marriage_id: m_dev_eva
+  points:
+  - - 569.0
+    - 216.0
+  - - 599.0
+    - 216.0
+  ended: false

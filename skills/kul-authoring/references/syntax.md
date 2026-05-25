@@ -43,6 +43,8 @@ marriage m_alice_bob alice bob  start:1972-05-12  end:1990-08-01  end_reason:div
 
 Spouse positions must be distinct. The first-listed spouse is the marriage's **host** — the structural role downstream renderers and exports use for ordering and layout; the second joins the host's family. To change the host, swap the two spouse identifiers (no override field). See [spec §4.2 — marriage statement](https://github.com/YashBhalodi/kul/blob/main/spec/04-top-level-statements.md#42-marriage-statement). Spousal death does not auto-end a marriage (see [spec §6.2 — active marriage at time T](https://github.com/YashBhalodi/kul/blob/main/spec/06-semantics.md#62-active-marriage-at-time-t)).
 
+A person with ≥2 un-ended marriages (a **polygamy hub**) must host every concurrent un-ended marriage they participate in (`KUL-R14`). If you find yourself wanting to declare the hub as the joining spouse in any one of these marriages, swap the two spouse identifiers in that `marriage` line so the hub stays on the left.
+
 ## `birth` (sub-statement)
 
 ```

@@ -1,0 +1,40 @@
+---
+source: crates/kul-svg/tests/corpus.rs
+expression: svg
+---
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 432" width="1360" height="432">
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 392 156 L 392 316 L 392 316 L 392 344"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 776 156 L 776 316 L 776 316 L 776 344"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 968 156 L 968 316 L 968 316 L 968 344"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 680 88 L 680 146 Q 680 156 670 156 L 114 156 Q 104 156 104 166 L 104 184"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 680 88 L 680 146 Q 680 156 690 156 L 862 156 Q 872 156 872 166 L 872 184"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 680 88 L 680 146 Q 680 156 690 156 L 1246 156 Q 1256 156 1256 166 L 1256 184"/>
+<g class="kul-card kul-card--canonical">
+<rect x="600" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="680" y="56" text-anchor="middle" dominant-baseline="central">Devraj Kumar</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="24" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Meera</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="792" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="872" y="216" text-anchor="middle" dominant-baseline="central">Alice Sharma</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="1176" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="1256" y="216" text-anchor="middle" dominant-baseline="central">Diana Roy</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="312" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="392" y="376" text-anchor="middle" dominant-baseline="central">Asha Kumar</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="696" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="776" y="376" text-anchor="middle" dominant-baseline="central">Priya Kumar</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="888" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="968" y="376" text-anchor="middle" dominant-baseline="central">Rohan Kumar</text>
+</g>
+</svg>

@@ -1,0 +1,194 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 2,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 953,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "devraj",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Devraj Kumar",
+            "gender": "male",
+            "born": {
+              "value": "1948-06-21",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_devraj_meera",
+                "generation": 0,
+                "hostId": "devraj",
+                "joiningId": "meera",
+                "joiningSlot": {
+                  "personId": "meera",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Meera",
+                  "gender": "female",
+                  "born": {
+                    "value": "1955-03-08",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1990-01-01",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "asha",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Asha Kumar",
+                    "gender": "female",
+                    "born": {
+                      "value": "1991-04-12",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            },
+            {
+              "bar": {
+                "marriageId": "m_devraj_alice",
+                "generation": 0,
+                "hostId": "devraj",
+                "joiningId": "alice",
+                "joiningSlot": {
+                  "personId": "alice",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Alice Sharma",
+                  "gender": "female",
+                  "born": {
+                    "value": "1950-04-12",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1992-02-14",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "priya",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Priya Kumar",
+                    "gender": "female",
+                    "born": {
+                      "value": "1994-12-01",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            },
+            {
+              "bar": {
+                "marriageId": "m_devraj_diana",
+                "generation": 0,
+                "hostId": "devraj",
+                "joiningId": "diana",
+                "joiningSlot": {
+                  "personId": "diana",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Diana Roy",
+                  "gender": "female",
+                  "born": {
+                    "value": "1960-09-15",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1994-08-30",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "rohan",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Rohan Kumar",
+                    "gender": "male",
+                    "born": {
+                      "value": "1996-07-22",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "asha",
+      "marriageId": "m_devraj_meera"
+    },
+    {
+      "kind": "birth",
+      "childId": "priya",
+      "marriageId": "m_devraj_alice"
+    },
+    {
+      "kind": "birth",
+      "childId": "rohan",
+      "marriageId": "m_devraj_diana"
+    }
+  ]
+}

@@ -26,6 +26,8 @@ That's the entire surface. **Everything else — children, parents, siblings, ha
 
 In a `marriage`, the first-listed spouse is the marriage's **host**; the second joins the host's family. Pick the host deliberately — it's the structural anchor downstream renderers and exports use for layout. To change the host, swap the two spouse identifiers.
 
+If a person has ≥2 ongoing marriages (a **polygamy hub**), list them as the host (first spouse) in every one of those marriages — swap spouse identifiers if needed so the polygamy hub always sits on the left. The validator (`KUL-R14`) enforces this; downstream the renderer surfaces the hub as a **fan** with the host card on top and each co-spouse on the row below, reached by a thick marriage edge fanning out of the hub ([ADR-0027](https://github.com/YashBhalodi/kul/blob/main/docs/adr/0027-fan-primitive-for-polygamy-hubs.md), worked in [examples/04](https://github.com/YashBhalodi/kul/tree/main/examples/04-polygamous-family), [examples/12](https://github.com/YashBhalodi/kul/tree/main/examples/12-polygamy-with-birth-family), and [examples/15](https://github.com/YashBhalodi/kul/tree/main/examples/15-polygamy-with-three-wives)).
+
 A minimal worked snippet:
 
 ```

@@ -61,25 +61,6 @@ cards:
   width: 160.0
   height: 64.0
   name: Kiran Patel
-bars:
-- marriage_id: m_host_parents
-  x: 190.0
-  y: 51.0
-  width: 18.0
-  height: 10.0
-  ended: false
-- marriage_id: m_alice_bob
-  x: 190.0
-  y: 211.0
-  width: 18.0
-  height: 10.0
-  ended: false
-- marriage_id: m_bob_parents
-  x: 572.0
-  y: 51.0
-  width: 18.0
-  height: 10.0
-  ended: false
 edges:
 - kind: birth
   routing: in_tree
@@ -87,36 +68,69 @@ edges:
   marriage_id: m_host_parents
   points:
   - - 199.0
-    - 61.0
+    - 56.0
   - - 199.0
     - 156.0
   - - 104.0
     - 156.0
   - - 104.0
     - 184.0
+  ended: false
 - kind: birth
   routing: in_tree
   child_id: bob
   marriage_id: m_bob_parents
   points:
   - - 581.0
-    - 61.0
+    - 56.0
   - - 581.0
     - 156.0
   - - 581.0
     - 156.0
   - - 581.0
     - 184.0
+  ended: false
 - kind: birth
   routing: in_tree
   child_id: kiran
   marriage_id: m_alice_bob
   points:
   - - 199.0
-    - 221.0
+    - 216.0
   - - 199.0
     - 316.0
   - - 199.0
     - 316.0
   - - 199.0
     - 344.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: saroj
+  marriage_id: m_host_parents
+  points:
+  - - 184.0
+    - 56.0
+  - - 214.0
+    - 56.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: bob
+  marriage_id: m_alice_bob
+  points:
+  - - 184.0
+    - 216.0
+  - - 214.0
+    - 216.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: lata
+  marriage_id: m_bob_parents
+  points:
+  - - 566.0
+    - 56.0
+  - - 596.0
+    - 56.0
+  ended: false

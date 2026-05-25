@@ -17,6 +17,7 @@ Worked-example Kul projects that double as the **positive test corpus**. Each ex
 | [`11-cousin-marriage/cousin-marriage.kul`](./11-cousin-marriage/cousin-marriage.kul)                     | First-cousin marriage exercising P11's within-family absorb rule. |
 | [`12-polygamy-with-birth-family/polygamy-with-birth-family.kul`](./12-polygamy-with-birth-family/polygamy-with-birth-family.kul) | Pure-host polygamy embedded in a multi-generation tree; multiple concurrent marriage bars share one canonical card (P8 amendment, issue #142). |
 | [`13-inter-family-marriage/inter-family-marriage.kul`](./13-inter-family-marriage/inter-family-marriage.kul) | Two unrelated birth families joined via a marriage; pure P6 recursive nesting of the joining spouse's birth family adjacent to the host tree. |
+| [`15-polygamy-with-three-wives/polygamy-with-three-wives.kul`](./15-polygamy-with-three-wives/polygamy-with-three-wives.kul) | N=3 polygamy hub: three concurrent marriages on one person, one child per marriage. Exercises the fan rendering primitive (ADR-0027) at N=3 and P9 per-bar child attachment. |
 
 ## Layout
 

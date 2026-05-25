@@ -3,50 +3,88 @@ source: crates/kul-layout/tests/corpus.rs
 expression: yaml
 ---
 width: 592.0
-height: 432.0
+height: 592.0
 cards:
+- person_id: ramesh
+  kind: canonical
+  x: 121.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Ramesh Kumar
+- person_id: sita
+  kind: canonical
+  x: 311.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Sita Kumar
 - person_id: devraj
   kind: canonical
   x: 216.0
-  y: 24.0
+  y: 184.0
   width: 160.0
   height: 64.0
   name: Devraj Kumar
 - person_id: meera
   kind: canonical
   x: 24.0
-  y: 184.0
+  y: 344.0
   width: 160.0
   height: 64.0
   name: Meera
 - person_id: alice
   kind: canonical
   x: 408.0
-  y: 184.0
+  y: 344.0
   width: 160.0
   height: 64.0
   name: Alice Sharma
 - person_id: priya
   kind: canonical
   x: 312.0
-  y: 344.0
+  y: 504.0
   width: 160.0
   height: 64.0
   name: Priya Kumar
 edges:
 - kind: birth
   routing: in_tree
+  child_id: devraj
+  marriage_id: m_ramesh_sita
+  points:
+  - - 296.0
+    - 56.0
+  - - 296.0
+    - 156.0
+  - - 296.0
+    - 156.0
+  - - 296.0
+    - 184.0
+  ended: false
+- kind: birth
+  routing: in_tree
   child_id: priya
   marriage_id: m_devraj_alice
   points:
   - - 392.0
-    - 156.0
-  - - 392.0
     - 316.0
   - - 392.0
-    - 316.0
+    - 476.0
   - - 392.0
-    - 344.0
+    - 476.0
+  - - 392.0
+    - 504.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: sita
+  marriage_id: m_ramesh_sita
+  points:
+  - - 281.0
+    - 56.0
+  - - 311.0
+    - 56.0
   ended: false
 - kind: marriage
   routing: in_tree
@@ -54,13 +92,13 @@ edges:
   marriage_id: m_devraj_meera
   points:
   - - 296.0
-    - 88.0
+    - 248.0
   - - 296.0
-    - 156.0
+    - 316.0
   - - 104.0
-    - 156.0
+    - 316.0
   - - 104.0
-    - 184.0
+    - 344.0
   ended: false
 - kind: marriage
   routing: in_tree
@@ -68,11 +106,11 @@ edges:
   marriage_id: m_devraj_alice
   points:
   - - 296.0
-    - 88.0
+    - 248.0
   - - 296.0
-    - 156.0
+    - 316.0
   - - 488.0
-    - 156.0
+    - 316.0
   - - 488.0
-    - 184.0
+    - 344.0
   ended: false

@@ -3,21 +3,21 @@ source: crates/kul-svg/tests/corpus.rs
 expression: svg
 ---
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1544 432" width="1544" height="432">
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 867.5 61 L 867.5 146 Q 867.5 156 857.5 156 L 305 156 Q 295 156 295 166 L 295 184"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 221 L 390 306 Q 390 316 380 316 L 114 316 Q 104 316 104 326 L 104 344"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 221 L 390 306 Q 390 316 400 316 L 476 316 Q 486 316 486 326 L 486 344"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 867.5 61 L 867.5 155.75 Q 867.5 156 867.75 156 L 867.75 156 Q 868 156 868 156.25 L 868 184"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 963 221 L 963 306 Q 963 316 953 316 L 878 316 Q 868 316 868 326 L 868 344"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 867.5 61 L 867.5 146 Q 867.5 156 877.5 156 L 1240 156 Q 1250 156 1250 166 L 1250 184"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 1345 221 L 1345 306 Q 1345 316 1335 316 L 1260 316 Q 1250 316 1250 326 L 1250 344"/>
-<rect class="kul-bar" x="858.5" y="51" width="18" height="10"/>
-<rect class="kul-bar" x="381" y="211" width="18" height="10"/>
-<rect class="kul-bar" x="190" y="371" width="18" height="10"/>
-<rect class="kul-bar" x="572" y="371" width="18" height="10"/>
-<rect class="kul-bar" x="954" y="211" width="18" height="10"/>
-<rect class="kul-bar" x="954" y="371" width="18" height="10"/>
-<rect class="kul-bar" x="1336" y="211" width="18" height="10"/>
-<rect class="kul-bar" x="1336" y="371" width="18" height="10"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 867.5 56 L 867.5 146 Q 867.5 156 857.5 156 L 305 156 Q 295 156 295 166 L 295 184"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 216 L 390 306 Q 390 316 380 316 L 114 316 Q 104 316 104 326 L 104 344"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 216 L 390 306 Q 390 316 400 316 L 476 316 Q 486 316 486 326 L 486 344"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 867.5 56 L 867.5 155.75 Q 867.5 156 867.75 156 L 867.75 156 Q 868 156 868 156.25 L 868 184"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 963 216 L 963 306 Q 963 316 953 316 L 878 316 Q 868 316 868 326 L 868 344"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 867.5 56 L 867.5 146 Q 867.5 156 877.5 156 L 1240 156 Q 1250 156 1250 166 L 1250 184"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 1345 216 L 1345 306 Q 1345 316 1335 316 L 1260 316 Q 1250 316 1250 326 L 1250 344"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 852.5 56 L 882.5 56"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 375 216 L 405 216"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 184 376 L 214 376"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 566 376 L 596 376"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 948 216 L 978 216"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 948 376 L 978 376"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 1330 216 L 1360 216"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 1330 376 L 1360 376"/>
 <g class="kul-card kul-card--canonical">
 <rect x="692.5" y="24" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="772.5" y="56" text-anchor="middle" dominant-baseline="central">Govind Iyer</text>

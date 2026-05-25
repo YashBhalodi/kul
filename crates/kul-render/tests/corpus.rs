@@ -97,6 +97,10 @@ example_render_snapshot!(
     example_14_grand_nested_inter_family,
     "14-grand-nested-inter-family"
 );
+example_render_snapshot!(
+    example_15_polygamy_with_three_wives,
+    "15-polygamy-with-three-wives"
+);
 
 /// Catch-all: a new `examples/<dir>/<stem>.kul` landing without a
 /// matching snapshot in this file fires here. Mirrors the same
@@ -126,6 +130,7 @@ fn every_example_has_a_render_snapshot() {
         "12-polygamy-with-birth-family",
         "13-inter-family-marriage",
         "14-grand-nested-inter-family",
+        "15-polygamy-with-three-wives",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),

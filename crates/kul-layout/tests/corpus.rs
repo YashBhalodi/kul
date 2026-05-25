@@ -16,8 +16,7 @@ use kul_core::CheckResult;
 use kul_core::ast::InputFile;
 use kul_core::manifest::Manifest;
 use kul_layout::{
-    EdgeRouting, LayoutConfig, PositionedBar, PositionedCard, PositionedEdge, PositionedShape,
-    SlotKind, layout,
+    EdgeRouting, LayoutConfig, PositionedCard, PositionedEdge, PositionedShape, SlotKind, layout,
 };
 use kul_render::{GhostReason, compute};
 use serde::Serialize;
@@ -127,6 +126,12 @@ fn example_11_cousin_marriage() {
 }
 
 #[test]
+fn example_12_polygamy_with_birth_family() {
+    let yaml = layout_example("12-polygamy-with-birth-family");
+    insta::assert_snapshot!(yaml);
+}
+
+#[test]
 fn example_13_inter_family_marriage() {
     let yaml = layout_example("13-inter-family-marriage");
     insta::assert_snapshot!(yaml);
@@ -135,6 +140,12 @@ fn example_13_inter_family_marriage() {
 #[test]
 fn example_14_grand_nested_inter_family() {
     let yaml = layout_example("14-grand-nested-inter-family");
+    insta::assert_snapshot!(yaml);
+}
+
+#[test]
+fn example_15_polygamy_with_three_wives() {
+    let yaml = layout_example("15-polygamy-with-three-wives");
     insta::assert_snapshot!(yaml);
 }
 
@@ -150,7 +161,6 @@ struct PositionedDump {
     width: f64,
     height: f64,
     cards: Vec<CardDump>,
-    bars: Vec<BarDump>,
     edges: Vec<EdgeDump>,
 }
 
@@ -166,22 +176,13 @@ struct CardDump {
 }
 
 #[derive(Serialize)]
-struct BarDump {
-    marriage_id: String,
-    x: f64,
-    y: f64,
-    width: f64,
-    height: f64,
-    ended: bool,
-}
-
-#[derive(Serialize)]
 struct EdgeDump {
     kind: String,
     routing: String,
     child_id: String,
     marriage_id: String,
     points: Vec<(f64, f64)>,
+    ended: bool,
 }
 
 impl From<&PositionedShape> for PositionedDump {
@@ -190,7 +191,6 @@ impl From<&PositionedShape> for PositionedDump {
             width: s.width,
             height: s.height,
             cards: s.cards.iter().map(CardDump::from).collect(),
-            bars: s.bars.iter().map(BarDump::from).collect(),
             edges: s.edges.iter().map(EdgeDump::from).collect(),
         }
     }
@@ -222,24 +222,12 @@ impl From<&PositionedCard> for CardDump {
     }
 }
 
-impl From<&PositionedBar> for BarDump {
-    fn from(b: &PositionedBar) -> Self {
-        Self {
-            marriage_id: b.marriage_id.clone(),
-            x: b.x,
-            y: b.y,
-            width: b.width,
-            height: b.height,
-            ended: b.ended,
-        }
-    }
-}
-
 impl From<&PositionedEdge> for EdgeDump {
     fn from(e: &PositionedEdge) -> Self {
         let kind = match e.kind {
             kul_layout::EdgeKind::Birth => "birth".to_owned(),
             kul_layout::EdgeKind::Adoption => "adoption".to_owned(),
+            kul_layout::EdgeKind::Marriage => "marriage".to_owned(),
         };
         let routing = match e.routing {
             EdgeRouting::InTree => "in_tree".to_owned(),
@@ -251,6 +239,7 @@ impl From<&PositionedEdge> for EdgeDump {
             child_id: e.child_id.clone(),
             marriage_id: e.marriage_id.clone(),
             points: e.points.clone(),
+            ended: e.ended,
         }
     }
 }

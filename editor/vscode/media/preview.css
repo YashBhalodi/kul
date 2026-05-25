@@ -60,18 +60,10 @@ svg {
     font-size: 12px;
 }
 
-/* Marriage / adoption bar. */
-.kul-bar {
-    fill: var(--vscode-editor-foreground);
-}
-
-.kul-bar--ended {
-    fill: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
-    fill-opacity: 0.6;
-}
-
-/* Parent-child edges. Dasharray (P5 birth vs adoption) ships inline
- * from kul-svg; only colour and stroke width are theming. */
+/* Edges. Dasharray (P5 birth vs adoption) ships inline from kul-svg;
+ * only colour and stroke width are theming. Birth / adoption /
+ * marriage all share the base routing CSS; the modifier classes add
+ * the per-kind visual distinction. */
 .kul-edge {
     stroke: var(--vscode-editor-foreground);
     stroke-width: 1.5;
@@ -79,4 +71,20 @@ svg {
 
 .kul-edge--adoption {
     stroke: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+}
+
+/* Marriage edge (ADR-0027): the unified marriage connector — solid and
+ * thick. Monogamy renders a horizontal segment between adjacent
+ * spouses; polygamy renders one edge per concurrent marriage, fanning
+ * from the hub card to each co-spouse. The heavier stroke carries the
+ * marriage's visual weight so it reads as distinct from the thin
+ * birth / adoption edges. */
+.kul-edge--marriage {
+    stroke-width: 8.75;
+}
+
+/* An ended (divorced) monogamy marriage edge (P8) renders translucent,
+ * matching the old ended-bar treatment. */
+.kul-edge--ended {
+    stroke-opacity: 0.6;
 }
