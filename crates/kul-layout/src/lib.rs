@@ -2,7 +2,7 @@
 //!
 //! `kul-render` produces the canonical UI pattern's *structural* data
 //! ([`kul_render::RenderShape`]) — components, marriage branches, card
-//! slots, ghosts, P6 nested sub-trees — without any positional
+//! slots, ghosts, nested sub-trees — without any positional
 //! information ([ADR-0017](../../docs/adr/0017-render-shape-schema-and-versioning.md)).
 //! Surface renderers still need to decide *where* every card and edge
 //! segment goes on a 2D plane. This crate is that step: input is a
@@ -18,7 +18,7 @@
 //!   avoidance.
 //! - [`adapter`] — wraps Walker's for kul's pattern: thick marriage
 //!   edges between adjacent spouses, ghost slots at the host's
-//!   birth-family position per P8, generation rows from generation
+//!   birth-family position per current-intimacy placement, generation rows from generation
 //!   indices, orthogonal right-angle edge routing (`InTree` and
 //!   `CrossTree` share one geometry; see [`EdgeRouting`]).
 //!
@@ -28,7 +28,7 @@
 //! not part of any cross-process contract. The wire shapes the project
 //! pins are [`kul_render::RenderShape`] (input) and the SVG string
 //! produced by `kul-svg` (output). See
-//! [ADR-0018](../../docs/adr/0018-kul-layout-crate-boundary.md) for the
+//! [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md) for the
 //! rationale.
 //!
 //! # Failure handling

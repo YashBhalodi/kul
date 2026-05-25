@@ -1,66 +1,85 @@
 # ADR 0017 — `RenderShape` schema and versioning
 
-**Status:** Accepted (partially superseded by ADR-0021)
-**Date:** 2026-05-23
+**Status:** Accepted
+**Date:** 2026-05-25
 **Deciders:** owner
 
 ## Context
 
-[ADR-0016](./0016-kul-render-crate-boundary.md) places the canonical-UI-pattern projection in a new `kul-render` crate and pins the two public surfaces (`compute(&CheckResult)`, `transform(&ExportEnvelope)`). It does not say what the output value looks like. That contract is this ADR's subject.
+[ADR-0016](./0016-visualization-pipeline-crate-boundaries.md) places the canonical-UI-pattern projection in `kul-render` and pins its two public surfaces. The value those surfaces emit — `RenderShape` — is this ADR's subject.
 
-Several shapes were on the table:
+Three shapes were on the table:
 
-1. **Flat nodes + flat edges (Cytoscape-style).** One bag of cards, one bag of edges, type discriminators on each. Maximum interop, minimum structural information — a surface renderer has to re-derive every layout-meaningful fact (component grouping, generation row, ghost vs canonical, host vs child) by walking discriminators.
-2. **Fully positioned (layout already done).** Cards with `x/y` coordinates, edges with routed polylines. Smallest contract but bakes layout policy into the projection and forecloses renderer innovation (level-of-detail, virtualization, alternative layout algorithms per [P14](../canonical-ui-pattern.md#p14-scale-invariant-pattern)).
-3. **Hierarchical card slots + flat edge list (chosen).** A tree of `Component → MarriageBranch → PersonCard → (hosted) MarriageBranch → …` so the spatial hierarchy the canonical pattern produces is the data shape. Edges stay flat because they cross the hierarchy freely (cross-tree birth/adoption edges).
+1. **Flat nodes + flat edges (Cytoscape-style).** One bag of cards, one bag of edges, type discriminators on each. Maximum interop, minimum structure — a consumer re-derives every layout-meaningful fact (component grouping, generation row, ghost vs canonical, host vs child) by walking discriminators.
+2. **Fully positioned.** Cards with `x/y`, edges with routed polylines. Smallest contract, but bakes layout policy into the projection and forecloses renderer innovation.
+3. **Hierarchical card slots + flat edge list (chosen).** A tree whose shape *is* the canonical pattern's spatial hierarchy (family → couple → child), with edges flat because they cross the hierarchy freely.
 
-Two further inputs shaped the decision. First, the canonical UI pattern has a natural hierarchy — family → branch → couple → child (P14's "renderers innovate on level-of-detail using the pattern's natural hierarchy"). Encoding that hierarchy in the data lets renderers walk it directly. Second, every ghost-and-canonical decision the projection makes (P8 ended-marriage anchors, P16 past-adoption child-ghosts, P6 recursive nesting termination per P11) must be visible without consumers re-deriving — otherwise we've just moved the algorithm one layer up.
+Two facts shaped the choice. First, the canonical pattern has a natural hierarchy (family → branch → couple → child); encoding it in the data lets a consumer walk it directly rather than rebuild it from a flat node list — which matters for the scale-invariance principle's level-of-detail story. Second, every ghost-and-canonical decision the projection makes must be a *field* in the shape, not something a consumer re-derives — otherwise the algorithm has merely moved one layer up.
+
+A third fact shapes the component root specifically. In a marriage the host is the conceptual root of the marriage's placement: the canonical pattern's **current-intimacy placement** anchors a marriage at the host's birth-family slot. The two spouses are not peers of the bar. And **one canonical card per person** must hold for a person with two or more concurrent un-ended marriages (a polygamy hub) — one card, N marriages — which a marriage-rooted component cannot express without inventing a parallel primitive.
 
 ## Decision
 
-`RenderShape` is the top-level value `kul-render` emits. Untagged success/failure variants discriminated by an `ok` boolean, matching the [`ExportEnvelope`](../../crates/kul-core/src/export.rs) precedent ([ADR-0009](./0009-export-strict-on-diagnostics.md)). On success:
+`RenderShape` is the top-level value `kul-render` emits: untagged success/failure variants discriminated by an `ok` boolean, matching the [`ExportEnvelope`](../../crates/kul-core/src/export.rs) precedent ([ADR-0009](./0009-export-strict-on-diagnostics.md)). On success:
 
 ```text
 RenderShape::Success {
     ok: true,
-    schema: u32,                   // RENDER_SCHEMA_VERSION
-    kul: String,                   // language version, mirrored from input envelope
-    components: Vec<Component>,    // top-level layout components in P12 source order
-    edges: Vec<Edge>,              // every birth + adoption parent-child edge
+    schema: u32,                // RENDER_SCHEMA_VERSION
+    kul: String,                // language version, mirrored from input envelope
+    components: Vec<Component>,  // top-level layout components in source order
+    edges: Vec<Edge>,           // every birth + adoption parent-child edge
 }
 ```
 
+### Components are rooted at a person, not a marriage
+
 A `Component` is one of:
 
-- `FamilyTree { root: MarriageBranch }` — a marriage and its descendants. The root marriage is the outer-most layer of the component's nesting (either a P8 floating mini-comp whose host has no birth family, or a marriage whose host's canonical family is reached through a P6 nest).
-- `OrphanPerson { card: CardSlot }` — a single canonical card (P13 declared-with-no-edges orphans plus the P8 fallback case from `examples/03-three-generations/`).
+- `FamilyTree { root: Box<PersonCard> }` — a person and their descendants. The root `PersonCard` is the outermost canonical host of the component.
+- `OrphanPerson { card: Box<CardSlot> }` — a single canonical card (a person declared with no edges, plus the lone-card fallback of the current-intimacy chain).
 
-A `MarriageBranch` holds a `MarriageBar` plus a flat list of `PersonCard` children. Each `PersonCard` carries one `CardSlot` (canonical or ghost) plus any marriages that branch from its slot (P11 absorb rule applied uniformly). A `MarriageBar` carries the bar metadata (id, host/joining ids, dates, end-reason, an `ended` boolean reified from `end:` presence) plus the two slot positions and an optional `joining_nested_birth_family: Box<MarriageBranch>` for the P6 cross-component case.
+A `PersonCard` carries `slot: CardSlot` plus `hosted_marriages: Vec<MarriageBranch>`. A monogamous host carries a `Vec` of length one; a polygamy hub carries N — a length-one `Vec` is not a special case, so there is exactly one structural primitive for "a person with hosted marriages" regardless of N.
 
-A `CardSlot` carries `personId`, `kind` (`canonical` or `ghost { reason }` where `reason` is `pastMarriage` or `pastAdoption`), the generation index, and the person's display fields (`name`, `gender`, `family`, `given`, `born`, `died` — mirrored from the input envelope). An `Edge` carries `kind` (`birth` / `adoption`), `childId`, `marriageId`, and (for adoptions) the `start:` / `end:` dates.
+A `MarriageBranch` holds a `MarriageBar` plus a flat `Vec<PersonCard>` of children; each child `PersonCard` may itself host marriages (the absorb rule applied uniformly). A `MarriageBar` carries the bar metadata — `id`, `host_id`, `joining_id`, dates, end-reason, and an `ended` boolean reified from `end:` presence — plus the joining slot and an optional `joining_nested_birth_family: Box<PersonCard>` for the nested-birth-family case. The bar carries **no `host_slot`**: the host face of every bar is the parent `PersonCard.slot` in the tree, implicit by position rather than duplicated on the bar. (`host_id` stays, for consumers cross-referencing by id.)
 
-Generation indices are pre-computed by fixpoint relaxation over the canonical-family graph (bio parents, or adoptive parents if a canonical adoption exists) — roots at 0, child = max(canonical-family-spouses' gens) + 1. The export envelope is acyclic per [R13](../../spec/07-validation-rules.md), so the fixpoint converges in at most `persons.len()` iterations.
+The root `PersonCard.slot.kind` is normally `Canonical`. A past-ended floating bar — one whose host and joining spouse have both moved on, so the bar exists only to anchor a child's edge — roots its component at a **ghost** `PersonCard` whose `slot.kind = Ghost(PastMarriage)` and whose `hosted_marriages` carries the past-ended bar. Every `FamilyTree` is thus rooted at a `PersonCard`, canonical or ghost; the data permits the same person to appear as a canonical `PersonCard` in one component and a ghost `PersonCard` rooting another, mirroring `CardSlot`-level canonical/ghost duplication.
 
-`RENDER_SCHEMA_VERSION` is a `pub const u32` exported from `kul-render`. The current value is `1`. Bumping follows [ADR-0010](./0010-export-schema-versioning.md)'s discipline transposed to the render shape:
+### Slots, ghosts, and edges
 
-- **Schema bump** when downstream consumers might silently mis-represent data by ignoring a new construct. Examples: a new top-level layout primitive (e.g. a `Cluster` variant alongside `Component`); semantics of an existing field change incompatibly (e.g. `host_slot` becomes a list).
-- **No bump** for forward-compatible additions: new optional field on a slot, new ghost-reason value, new component-kind variant that consumers can fall back to as opaque. The `RenderShape` types use `#[serde(skip_serializing_if = "Option::is_none")]` on additions so older consumers keep parsing.
+A `CardSlot` carries `personId`, `kind` (`Canonical` or `Ghost { reason }`), the generation index, and the person's display fields (`name`, `gender`, `family`, `given`, `born`, `died`, mirrored from the input envelope). `GhostReason` is one of `PastMarriage`, `PastAdoption`, `PastBirth`; which one a ghost carries, and when a ghost is emitted at all, is the ghost model in [ADR-0019](./0019-ghost-model-and-bio-anchor.md). An `Edge` carries `kind` (`birth` / `adoption`), `childId`, `marriageId`, and (for adoptions) the `start:` / `end:` dates. Edges are flat because cross-tree links cross the hierarchy freely; a router walks `shape.edges`, not the tree.
 
-The `kul` language-version string is passed through verbatim from the input envelope — same role as in [ADR-0010](./0010-export-schema-versioning.md), purely informational.
+### Generation and canonical selection
+
+Generation indices are pre-computed by fixpoint relaxation over the canonical-family graph (bio parents, or adoptive parents when a canonical adoption exists): roots at 0, `child = max(canonical-family spouses' generations) + 1`. The export envelope is acyclic per [R13](../../spec/07-validation-rules.md), so the fixpoint converges in at most `persons.len()` iterations. This generation is **structural** — it describes data-level kinship depth, not canvas placement; where the generations land on a canvas is layout policy ([ADR-0018](./0018-canonical-layout-algorithm.md)).
+
+Which un-ended marriage anchors a person's canonical card is decided by **first-declared un-ended participation** — the first marriage by source order across the union of the marriages the person hosts and joins. This matches the current-intimacy placement principle.
+
+### Versioning
+
+`RENDER_SCHEMA_VERSION` is a `pub const u32` exported from `kul-render`; the current value is `2`. Bumping follows [ADR-0010](./0010-export-schema-versioning.md)'s discipline transposed to the render shape:
+
+- **Bump** when a consumer might silently mis-represent data by ignoring a new construct — a new top-level layout primitive, or an existing field's semantics changing incompatibly.
+- **No bump** for forward-compatible additions: a new optional slot field, a new `GhostReason` value, a new component-kind variant a consumer can treat as opaque. The types use `#[serde(skip_serializing_if = "Option::is_none")]` on additions so older consumers keep parsing.
+
+The `kul` language-version string passes through verbatim from the input envelope, purely informational, same role as in [ADR-0010](./0010-export-schema-versioning.md).
 
 ## Consequences
 
-- **Consumers read, don't re-derive.** Every load-bearing decision the canonical UI pattern makes — which spouse is canonical, which slot is a ghost and why, which component a card belongs to, which generation row hosts the bar — is a field in the shape. A surface renderer becomes a walker, not a re-implementer of the pattern.
-- **The hierarchy matches P14's "natural hierarchy" rationale.** A renderer doing level-of-detail (collapse a sub-tree, virtualize an off-screen branch) walks the existing tree; it doesn't have to first re-build it from discriminators on a flat node list.
-- **Flat edges keep cross-tree links cheap to enumerate.** A cross-tree edge router walks `shape.edges`, not the tree. Routing geometry is renderer policy ([ADR-0008](./0008-export-kinship-native-shape.md)'s consequence for cross-references).
-- **Two schema-version axes, two independent versions.** The export envelope's `schema` and the render shape's `schema` are independent — a schema-1 export feeding a schema-1 render is the current contract; either can bump without forcing the other to.
-- **Box discipline matches `clippy::large_enum_variant`.** `Component::FamilyTree`'s `root: Box<MarriageBranch>` and `Component::OrphanPerson`'s `card: Box<CardSlot>` keep the enum compact; serde flattens both transparently so the JSON wire shape is unchanged.
+- **Consumers read, don't re-derive.** Which spouse is canonical, which slot is a ghost and why, which component a card belongs to, which generation hosts a bar — each is a field. A surface renderer is a walker, not a re-implementer of the pattern.
+- **The hierarchy supports level-of-detail.** A renderer collapsing a sub-tree or virtualizing an off-screen branch walks the existing tree; it does not first rebuild it from discriminators on a flat list.
+- **One root shape, every N.** Monogamy, polygamy, and the past-ended floating bar all flow through `FamilyTree { root: PersonCard }`. The consumer pattern-matches one component shape; the polygamy adapter ([ADR-0020](./0020-polygamy-hub-and-fan.md)) reads N bars off one card.
+- **`ended` is reified, not recomputed.** Death does not end a marriage — only `end:` does — so the `ended` predicate that current-intimacy placement depends on is computed once in the projection and tested at the pattern boundary, not in every consumer.
+- **`Box` discipline matches `clippy::large_enum_variant`.** The boxed `root`/`card` keep `Component` compact; serde flattens both, so the wire shape is unchanged.
 
 ## Anti-suggestions (do not re-propose)
 
-- **"Flatten the tree into a `Vec<Card>` plus a `Vec<MarriageBar>`."** Loses the spatial hierarchy P14 explicitly relies on, and forces consumers to re-derive parent / sibling / child relationships from cross-id lookups.
-- **"Include `x` and `y` on every card."** Pre-computed positions would foreclose downstream layout innovation (level-of-detail, virtualization, alternative algorithms per [P14](../canonical-ui-pattern.md#p14-scale-invariant-pattern)). The pattern is structural, not positional; positions are renderer policy.
-- **"Drop the `ended` boolean on `MarriageBar` — let consumers compute it from `end`."** `ended` is a load-bearing P8 predicate (death does not end a marriage, only `end:` does); reifying it in the projection keeps the P8 mechanic readable and tested at the canonical-UI-pattern boundary instead of in every consumer.
-- **"Replace the `Ghost { reason }` discriminator with a flat `Faded` boolean."** `pastMarriage` and `pastAdoption` ghosts carry different downstream semantics (which edge anchors at the ghost; whether the bar is mute per P10) — collapsing them loses that.
-- **"Inline the joining spouse's birth family directly into `MarriageBar.joining_slot`."** Mixes "slot" (the card position) with "sub-tree" (an entire MarriageBranch). The current layout — slot at one level, optional nested sub-tree at the same level but a sibling field — keeps the two concepts separable and serde-renamable.
-- **"Use semantic versioning (`schema: \"1.0.0\"`)."** Same reason as [ADR-0010](./0010-export-schema-versioning.md): the schema integer is a discriminator at the consumer boundary, not a release identifier.
+- **"Flatten the tree into a `Vec<Card>` plus a `Vec<MarriageBar>`."** Loses the spatial hierarchy level-of-detail relies on, and forces consumers to re-derive parent / sibling / child relationships from cross-id lookups.
+- **"Include `x` and `y` on every card."** Pre-computed positions foreclose downstream layout innovation (level-of-detail, virtualization, alternative algorithms). The pattern is structural, not positional; positions are layout policy in `kul-layout`.
+- **"Add a `PolygamyHub` parallel variant alongside `FamilyTree`."** Two structural primitives for "a person with hosted marriages" — one for N=1, one for N>1 — doubles the consumer's pattern-match surface for no benefit. `PersonCard` already carries `hosted_marriages: Vec<MarriageBranch>`, and a `Vec` of length 1 is not a special case.
+- **"Use a second root shape for past-ended floating bars (a `MarriageBranch` root, or a synthesized `GhostBarRoot` primitive)."** Two root shapes for one `ComponentKind` push the discriminator into consumer code instead of the data. The ghost-rooted `PersonCard` gives one uniform shape and reuses the `Ghost { reason: PastMarriage }` vocabulary that already exists.
+- **"Drop the `ended` boolean — let consumers compute it from `end`."** `ended` is a load-bearing placement predicate; reifying it keeps the mechanic readable and tested at the pattern boundary.
+- **"Replace the `Ghost { reason }` discriminator with a flat `Faded` boolean," or "generalise the reasons into `Past { intimacy }`."** The three reasons carry different downstream semantics (which edge anchors at the ghost; whether the bar is mute) and do not share a `Past`-shaped payload. Three flat variants stay pattern-matchable in one line; a nested form needs an extra match arm at every consumer for zero structural benefit; a flat boolean loses the distinction entirely.
+- **"Inline the joining spouse's birth family into `MarriageBar.joining_slot`."** Mixes "slot" (a card position) with "sub-tree" (an entire branch). Keeping the slot at one level and the optional nested sub-tree as a sibling field keeps the two concepts separable.
+- **"Use semantic versioning (`schema: \"1.0.0\"` or `schema: 1.1`)."** Per [ADR-0010](./0010-export-schema-versioning.md), the schema integer is a discriminator at the consumer boundary, not a release identifier.
+- **"Add a Visitor trait over the component shape."** As with [ADR-0001](./0001-resolved-document-as-query-seam.md), `Component` is a two-variant enum; pattern matches stay clearer than a visitor at this scale.

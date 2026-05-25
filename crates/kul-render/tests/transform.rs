@@ -2,9 +2,11 @@
 //! fabricated [`ExportEnvelope`]s.
 //!
 //! These cover edge cases the public `examples/` corpus doesn't
-//! naturally surface — P6 cross-component nesting, P16 with three or
-//! more adoptions, pure-host polygamy collapsing onto one canonical
-//! card (P8 + P2, ADR-0021), and the failure-envelope passthrough.
+//! naturally surface — the absorb rule's cross-component nesting,
+//! past-adoption ghosts with three or more adoptions, pure-host
+//! polygamy collapsing onto one canonical card (current-intimacy
+//! placement, one canonical card per person, ADR-0017), and the
+//! failure-envelope passthrough.
 
 use kul_core::export::{
     ExportEnvelope, ExportedDate, ExportedDiagnostic, ExportedGraph, ExportedMarriage,
@@ -83,11 +85,11 @@ fn render_pretty(envelope: &ExportEnvelope) -> String {
     serde_json::to_string_pretty(&shape).expect("serialize render shape")
 }
 
-/// P6: two separately-rooted families bound by an inter-family
-/// marriage. Bob's birth family is `m_bob_parents`; Bob joins Alice
-/// (`m_alice_bob`) so per P6 Bob's birth family nests at his
-/// connection point. There's no shared rendering context to terminate
-/// recursion, so the nested sub-tree is emitted.
+/// The absorb rule: two separately-rooted families bound by an
+/// inter-family marriage. Bob's birth family is `m_bob_parents`; Bob
+/// joins Alice (`m_alice_bob`) so per the absorb rule Bob's birth
+/// family nests at his connection point. There's no shared rendering
+/// context to terminate recursion, so the nested sub-tree is emitted.
 #[test]
 fn p6_joining_spouse_birth_family_nests_at_connection_point() {
     let envelope = success(ExportedGraph {
@@ -107,9 +109,9 @@ fn p6_joining_spouse_birth_family_nests_at_connection_point() {
     insta::assert_snapshot!(render_pretty(&envelope));
 }
 
-/// P16: three adoptions for one child. The most-recent (by `start:`)
-/// is canonical; the earlier two each get a child-ghost at their
-/// respective adoption bars.
+/// Past intimacies emit ghosts: three adoptions for one child. The
+/// most-recent (by `start:`) is canonical; the earlier two each get a
+/// child-ghost at their respective adoption bars.
 #[test]
 fn p16_three_adoptions_emit_one_canonical_and_two_past_ghosts() {
     let envelope = success(ExportedGraph {
@@ -136,7 +138,8 @@ fn p16_three_adoptions_emit_one_canonical_and_two_past_ghosts() {
     insta::assert_snapshot!(render_pretty(&envelope));
 }
 
-/// P8 + P2 (ADR-0021): pure-host polygamy collapses onto one
+/// Current-intimacy placement and one canonical card per person
+/// (ADR-0017): pure-host polygamy collapses onto one
 /// canonical card. Devraj hosts two concurrent un-ended marriages
 /// (`m_devraj_meera`, `m_devraj_alice`); the render shape produces
 /// one component whose root `PersonCard` is Devraj's single
@@ -211,9 +214,9 @@ fn p8_pure_host_polygamy_shares_canonical_anchor() {
     insta::assert_snapshot!(render_pretty(&envelope));
 }
 
-/// P8 fallback: a joining spouse in an ended marriage with no birth
-/// family becomes an orphan-component card and renders as a ghost at
-/// the past marriage's bar.
+/// Current-intimacy-placement fallback: a joining spouse in an ended
+/// marriage with no birth family becomes an orphan-component card and
+/// renders as a ghost at the past marriage's bar.
 #[test]
 fn p8_joining_spouse_of_ended_marriage_becomes_orphan_component() {
     let envelope = success(ExportedGraph {

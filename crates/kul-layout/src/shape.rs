@@ -4,7 +4,7 @@
 //! These types are an **internal Rust seam**. They are deliberately
 //! *not* `Serialize` and *not* schema-versioned: the wire shapes the
 //! project pins are `RenderShape` (input) and the SVG string (output).
-//! See [ADR-0018](../../docs/adr/0018-kul-layout-crate-boundary.md).
+//! See [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md).
 
 use kul_render::GhostReason;
 
@@ -28,7 +28,7 @@ pub struct PositionedShape {
     /// Every edge — birth, adoption, and marriage — with computed
     /// polyline geometry. Birth and adoption edges connect a marriage's
     /// child-attach anchor to one of the couple's children. Marriage
-    /// edges are the unified marriage connector (ADR-0027): for monogamy
+    /// edges are the unified marriage connector (ADR-0020): for monogamy
     /// a thick horizontal segment between the two adjacent spouse cards;
     /// for polygamy one thick edge per concurrent marriage routed from
     /// the hub card to each co-spouse.
@@ -36,14 +36,14 @@ pub struct PositionedShape {
 }
 
 /// One positioned person card. The visual primitive surface renderers
-/// project into the canonical UI pattern's uniform-card shape (P15).
+/// project into the canonical UI pattern's uniform-card shape (the uniform card).
 #[derive(Debug, Clone)]
 pub struct PositionedCard {
     /// Source-declaration id (`person <id>`). Stable across renders;
     /// carried so click-to-jump follow-ups (F10) can attach without
     /// changing the type.
     pub person_id: String,
-    /// Canonical vs ghost (P2 / P8 / P16). The discriminator a surface
+    /// Canonical vs ghost. The discriminator a surface
     /// renderer keys on for the dotted-border + faded-fill + ↺-badge
     /// visual vocabulary.
     pub kind: SlotKind,
@@ -56,12 +56,12 @@ pub struct PositionedCard {
     pub width: f64,
     /// Card height.
     pub height: f64,
-    /// Display name (P15 minimum).
+    /// Display name (the uniform card's minimum).
     pub name: String,
 }
 
-/// Whether a [`PositionedCard`] is the person's canonical card (P2)
-/// or a ghost (P8, P16) anchoring a past structural fact.
+/// Whether a [`PositionedCard`] is the person's canonical card
+/// or a ghost anchoring a past structural fact.
 ///
 /// Mirrors [`kul_render::SlotKind`] one-to-one but lives here so
 /// downstream surface emitters (kul-svg, future native preview) don't
@@ -75,9 +75,9 @@ pub enum SlotKind {
 /// One positioned parent-child or marriage edge with computed polyline
 /// geometry.
 ///
-/// Birth edges (P5 solid) and adoption edges (P5 dashed) connect a
+/// Birth edges (solid) and adoption edges (dashed) connect a
 /// marriage's child-attach anchor to one of its children. Marriage
-/// edges (ADR-0027) are the unified marriage connector for both
+/// edges (ADR-0020) are the unified marriage connector for both
 /// monogamy (a thick horizontal segment between adjacent spouse cards)
 /// and polygamy (one thick edge per concurrent marriage, hub →
 /// co-spouse). The `kind` field discriminates and the polyline points
@@ -100,7 +100,7 @@ pub struct PositionedEdge {
     /// `<polyline points="x1,y1 x2,y2 …" />`.
     pub points: Vec<(f64, f64)>,
     /// `true` iff this is a marriage edge for a marriage that carries an
-    /// `end:` field (P8's canonical "ended" predicate). Surfaces add the
+    /// `end:` field (current-intimacy placement's canonical "ended" predicate). Surfaces add the
     /// `kul-edge--ended` class to render the connector translucent.
     /// Always `false` for birth / adoption edges and for polygamy
     /// marriage edges (un-ended by R14).
@@ -108,17 +108,17 @@ pub struct PositionedEdge {
 }
 
 /// What kind of edge this is. Birth and adoption edges connect a
-/// marriage to one of its children (P5). Marriage edges are the unified
-/// marriage connector (ADR-0027): for monogamy a thick horizontal
+/// marriage to one of its children (edges encode link kind). Marriage edges are the unified
+/// marriage connector (ADR-0020): for monogamy a thick horizontal
 /// segment between the two adjacent spouse cards; for polygamy one edge
 /// per concurrent marriage connecting the hub to each co-spouse.
 #[derive(Debug, Clone, Copy)]
 pub enum EdgeKind {
-    /// Solid, thin (P5).
+    /// Solid, thin (edges encode link kind).
     Birth,
-    /// Dashed, thin (P5).
+    /// Dashed, thin (edges encode link kind).
     Adoption,
-    /// Solid, thick — the unified marriage connector (ADR-0027).
+    /// Solid, thick — the unified marriage connector (ADR-0020).
     ///
     /// For **monogamy** (`hosted_marriages.len() == 1`) it is the
     /// horizontal segment spanning the inter-card gap between the two
@@ -140,10 +140,10 @@ pub enum EdgeKind {
 /// right-angle polyline geometry and the same attachment points —
 /// bar bottom-midpoint, horizontal bus at `card_top - config.bus_drop`,
 /// child card top-midpoint — so the entire diagram follows one
-/// consistent edge-routing pattern (P1). The discriminator exists to
+/// consistent edge-routing pattern (the classical descendency tree). The discriminator exists to
 /// give surface consumers a future re-theming hook (the emitted CSS
 /// classes differ); the layout layer treats them identically. See
-/// [ADR-0018](../../docs/adr/0018-kul-layout-crate-boundary.md).
+/// [ADR-0018](../../docs/adr/0018-canonical-layout-algorithm.md).
 #[derive(Debug, Clone, Copy)]
 pub enum EdgeRouting {
     /// Standard descendency-tree route: the child sits structurally
@@ -153,7 +153,7 @@ pub enum EdgeRouting {
     /// Cross-tree route — both endpoints are positioned in the laid-out
     /// tree, but the child is not a structural descendant of this
     /// marriage's bar. The canonical exerciser is the cousin-marriage
-    /// case (P11): the joining cousin's birth-edge connects back to a
+    /// case (the within-family absorb rule): the joining cousin's birth-edge connects back to a
     /// sibling marriage already in the rendering context.
     CrossTree,
 }

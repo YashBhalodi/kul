@@ -28,7 +28,7 @@
 //! v1's tracer (`examples/03-three-generations/`) does not trigger
 //! sibling-subtree overlap. Walker is in place anyway so the next
 //! follow-up issue that *does* introduce overlap (multi-branch
-//! dynasties under P12, cousin-marriage under P11) lands without
+//! dynasties under source order, cousin-marriage under the absorb rule) lands without
 //! algorithmic work — the adapter just hands a wider tree in.
 
 /// One node in the layout tree the algorithm consumes.

@@ -7,7 +7,7 @@
 //!
 //! The snapshot serialises [`PositionedShape`] to YAML for diff
 //! readability — `PositionedShape` is deliberately not `Serialize`
-//! (ADR-0018), so this test harness defines a local serialisable
+//! (ADR-0016), so this test harness defines a local serialisable
 //! mirror.
 
 use std::path::{Path, PathBuf};
@@ -157,7 +157,7 @@ fn example_15_polygamy_with_three_wives() {
 
 // ---- Serialisable mirror ------------------------------------------------
 //
-// `PositionedShape` is intentionally not `Serialize` (ADR-0018). The
+// `PositionedShape` is intentionally not `Serialize` (ADR-0016). The
 // snapshot test only needs a readable diff format; this module defines
 // the local mirror so the production crate does not gain a serde
 // dependency on its public types.

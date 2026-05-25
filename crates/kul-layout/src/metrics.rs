@@ -7,12 +7,13 @@
 /// Pixel dimensions for the positioning pass.
 ///
 /// The defaults assume a monospaced font around 14px and produce a
-/// classical descendency-tree layout (P1) where cards are uniform-shape
-/// (P15) and generations stack top-to-bottom.
+/// classical descendency-tree layout (the classical descendency tree)
+/// where cards are uniform-shape (the uniform card) and generations
+/// stack top-to-bottom.
 #[derive(Debug, Clone)]
 pub struct LayoutConfig {
     /// Width of every person card (canonical or ghost). Uniform-card
-    /// constraint per P15.
+    /// constraint per the uniform card.
     pub card_width: f64,
     /// Height of every person card.
     pub card_height: f64,
