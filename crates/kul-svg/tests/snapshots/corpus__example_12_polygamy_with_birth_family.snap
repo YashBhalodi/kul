@@ -3,11 +3,11 @@ source: crates/kul-svg/tests/corpus.rs
 expression: svg
 ---
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 592 592" width="592" height="592">
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 296 61 L 296 156 L 296 156 L 296 184"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 296 56 L 296 156 L 296 156 L 296 184"/>
 <path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 392 316 L 392 476 L 392 476 L 392 504"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 281 56 L 311 56"/>
 <path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 296 248 L 296 306 Q 296 316 286 316 L 114 316 Q 104 316 104 326 L 104 344"/>
 <path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 296 248 L 296 306 Q 296 316 306 316 L 478 316 Q 488 316 488 326 L 488 344"/>
-<rect class="kul-bar" x="287" y="51" width="18" height="10"/>
 <g class="kul-card kul-card--canonical">
 <rect x="121" y="24" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="201" y="56" text-anchor="middle" dominant-baseline="central">Ramesh Kumar</text>

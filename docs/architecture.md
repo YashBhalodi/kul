@@ -103,8 +103,8 @@ kul-layout ── library
               &LayoutConfig) -> PositionedShape`. Two deep modules:
               `walker` (Buchheim O(n) Reingold–Tilford–Walker port,
               with sibling-subtree collision avoidance) and `adapter`
-              (canonical-pattern wrapper — marriage bars between
-              spouses, ghost slots per P8, generation rows,
+              (canonical-pattern wrapper — thick marriage edges
+              between spouses, ghost slots per P8, generation rows,
               orthogonal right-angle edge routing). `PositionedShape`
               is an internal Rust seam — not Serialize, not
               schema-versioned (ADR-0018). Depends on kul-render.
@@ -113,9 +113,9 @@ kul-svg    ── library
               Theme-agnostic SVG emitter. Public surface is one
               function: `render(&PositionedShape, &ThemeConfig) ->
               String`. Emits SVG with semantic CSS classes
-              (`kul-card`, `kul-bar`, `kul-edge--birth`, etc.) and no
-              inline colours; theming is a per-surface stylesheet
-              concern (ADR-0019, ADR-0020). SVG-only forever —
+              (`kul-card`, `kul-edge--marriage`, `kul-edge--birth`,
+              etc.) and no inline colours; theming is a per-surface
+              stylesheet concern (ADR-0019, ADR-0020). SVG-only forever —
               downstream consumers convert to raster via standard
               tools. Depends on kul-layout and kul-render.
 
@@ -192,7 +192,7 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 | `Diagnostic` + `Severity` + code + `detail` | `crates/kul-core/src/diagnostic.rs`    | The error currency. Carries spans, codes (KUL-Rxx), related info, and (per ADR-0006) an optional sub-case tag. |
 | `field_meta::FieldMeta`               | `crates/kul-core/src/field_meta.rs`          | Per-field taxonomy: value shape, completion description, hover Markdown. Hover, completion, and semantic-tokens consume it (ADR-0005). |
 | `export::export`                      | `crates/kul-core/src/export.rs`              | Canonical JSON projection of a `CheckResult` into an `ExportEnvelope`. Strict on errors; format-dispatched (kinship-native or cytoscape). The deep module the CLI's `kul export` and the LSP's `kul/export` both call. Schema documented in [`spec/16-export-schema.md`](../spec/16-export-schema.md); shape, posture, and versioning settled in ADRs 0008–0010. |
-| `kul_layout::layout`                  | `crates/kul-layout/src/lib.rs`               | `(RenderShape, LayoutConfig) -> PositionedShape`. Positioning pass for the canonical UI pattern. Wraps Walker's algorithm with the marriage-bar / ghost-slot / generation-row adapter. `PositionedShape` is an internal Rust seam — not Serialize, not schema-versioned (ADR-0018). |
+| `kul_layout::layout`                  | `crates/kul-layout/src/lib.rs`               | `(RenderShape, LayoutConfig) -> PositionedShape`. Positioning pass for the canonical UI pattern. Wraps Walker's algorithm with the marriage-edge / ghost-slot / generation-row adapter. `PositionedShape` is an internal Rust seam — not Serialize, not schema-versioned (ADR-0018). |
 | `kul_svg::render`                     | `crates/kul-svg/src/lib.rs`                  | `(PositionedShape, ThemeConfig) -> String`. Theme-agnostic SVG emitter. Uses semantic CSS classes; consuming surfaces own theming via stylesheet (ADR-0019, ADR-0020). |
 | `LineIndex`                           | `crates/kul-lsp/src/convert.rs`              | Byte ↔ LSP-position. Handles UTF-16 code units and CRLF. Holds source as `Arc<str>` so `state::Document` shares the same heap buffer.|
 | `state::Documents`                    | `crates/kul-lsp/src/state.rs`                | The LSP project cache. Thread-safe; the only path to a `ProjectEntry` from inside an LSP request handler. Keyed by `ProjectRoot` (one entry per project, not per URI), so multiple open URIs in one project share a single `CheckResult`. Each `ProjectEntry` carries the project-wide `LineIndex` slice and the matching `Url` slice in `FileId(1..)` order — cross-file features resolve through these.          |

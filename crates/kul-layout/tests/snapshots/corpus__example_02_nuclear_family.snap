@@ -26,13 +26,6 @@ cards:
   width: 160.0
   height: 64.0
   name: Carol Sharma
-bars:
-- marriage_id: m_alice_bob
-  x: 190.0
-  y: 51.0
-  width: 18.0
-  height: 10.0
-  ended: false
 edges:
 - kind: birth
   routing: in_tree
@@ -40,10 +33,21 @@ edges:
   marriage_id: m_alice_bob
   points:
   - - 199.0
-    - 61.0
+    - 56.0
   - - 199.0
     - 156.0
   - - 199.0
     - 156.0
   - - 199.0
     - 184.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: bob
+  marriage_id: m_alice_bob
+  points:
+  - - 184.0
+    - 56.0
+  - - 214.0
+    - 56.0
+  ended: false

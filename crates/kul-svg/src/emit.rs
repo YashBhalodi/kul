@@ -7,7 +7,7 @@
 use std::fmt::Write;
 
 use kul_layout::{
-    EdgeKind, EdgeRouting, PositionedBar, PositionedCard, PositionedEdge, PositionedShape, SlotKind,
+    EdgeKind, EdgeRouting, PositionedCard, PositionedEdge, PositionedShape, SlotKind,
 };
 use kul_render::GhostReason;
 
@@ -29,9 +29,6 @@ pub(crate) fn render(positioned: &PositionedShape, _config: &ThemeConfig) -> Str
     write_open(&mut out, positioned);
     for edge in &positioned.edges {
         write_edge(&mut out, edge);
-    }
-    for bar in &positioned.bars {
-        write_bar(&mut out, bar);
     }
     for card in &positioned.cards {
         write_card(&mut out, card);
@@ -104,18 +101,6 @@ fn write_card(out: &mut String, card: &PositionedCard) {
     out.push_str("</g>");
 }
 
-fn write_bar(out: &mut String, bar: &PositionedBar) {
-    let extra = if bar.ended { " kul-bar--ended" } else { "" };
-    let _ = write!(
-        out,
-        r#"<rect class="kul-bar{extra}" x="{x}" y="{y}" width="{w}" height="{h}"/>"#,
-        x = fmt_num(bar.x),
-        y = fmt_num(bar.y),
-        w = fmt_num(bar.width),
-        h = fmt_num(bar.height),
-    );
-}
-
 fn write_edge(out: &mut String, edge: &PositionedEdge) {
     let kind_class = match edge.kind {
         EdgeKind::Birth => "kul-edge--birth",
@@ -126,6 +111,10 @@ fn write_edge(out: &mut String, edge: &PositionedEdge) {
         EdgeRouting::InTree => "kul-edge--in-tree",
         EdgeRouting::CrossTree => "kul-edge--cross-tree",
     };
+    // An ended monogamy marriage edge (P8) carries `kul-edge--ended` so
+    // the surface stylesheet renders the connector translucent — the
+    // same "ended" predicate the old marriage bar used.
+    let ended_class = if edge.ended { " kul-edge--ended" } else { "" };
     // Adoption edges ship with stroke-dasharray inline (structural,
     // per P5 — see ADR-0019 §"Edge dasharrays are structural").
     // Marriage edges (ADR-0027) are solid like birth edges; the
@@ -138,7 +127,7 @@ fn write_edge(out: &mut String, edge: &PositionedEdge) {
     let d = polyline_to_rounded_path(&edge.points, EDGE_CORNER_RADIUS);
     let _ = write!(
         out,
-        r#"<path class="kul-edge {kind_class} {routing_class}" fill="none" d="{d}"{dash}/>"#,
+        r#"<path class="kul-edge {kind_class} {routing_class}{ended_class}" fill="none" d="{d}"{dash}/>"#,
     );
 }
 

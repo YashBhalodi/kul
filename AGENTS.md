@@ -9,7 +9,7 @@ crates/
   kul-core/   — library: lexer, parser, AST, semantic, validator, diagnostics, node-at-cursor query, formatter, export
   kul-loader/ — library: project filesystem loader shared by `kul-cli` and `kul-lsp` (no `kul-core` dependency on disk IO)
   kul-render/ — library: the canonical UI pattern as data — projects `ExportEnvelope` into `RenderShape` for surface renderers to consume (ADR-0016, ADR-0017)
-  kul-layout/ — library: positioning pass — turns `RenderShape` into a `PositionedShape` (cards, bars, edges in absolute pixel coordinates) via a Walker's-algorithm port plus a canonical-pattern adapter (ADR-0018)
+  kul-layout/ — library: positioning pass — turns `RenderShape` into a `PositionedShape` (cards and edges in absolute pixel coordinates; marriages render as thick marriage edges) via a Walker's-algorithm port plus a canonical-pattern adapter (ADR-0018)
   kul-svg/    — library: theme-agnostic SVG emitter over `PositionedShape` (semantic CSS classes; no inline colours) (ADR-0019, ADR-0020)
   kul-cli/    — binary `kul`: `kul validate`, `kul format`, `kul export`, `kul lsp` subcommands
   kul-lsp/    — library + binary `kul-lsp`: LSP adapter over kul-core (handles standard capabilities plus the `kul/export` and `kul/render` custom requests)

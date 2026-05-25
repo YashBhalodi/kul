@@ -1,13 +1,14 @@
 //! Visual-vocabulary tests: pin the CSS-class seam decisions
 //! [ADR-0019](../../../docs/adr/0019-kul-svg-crate-boundary.md) commits
-//! to (canonical vs ghost cards, ended bars, birth vs adoption edges).
+//! to (canonical vs ghost cards, birth vs adoption vs marriage edges,
+//! ended marriage edges per ADR-0027).
 //!
 //! These tests construct `PositionedShape` values by hand so the
 //! emitter is exercised independent of the kul-render / kul-layout
 //! pipeline.
 
 use kul_layout::{
-    EdgeKind, EdgeRouting, PositionedBar, PositionedCard, PositionedEdge, PositionedShape, SlotKind,
+    EdgeKind, EdgeRouting, PositionedCard, PositionedEdge, PositionedShape, SlotKind,
 };
 use kul_render::GhostReason;
 use kul_svg::{ThemeConfig, render};
@@ -17,7 +18,6 @@ fn empty_shape() -> PositionedShape {
         width: 200.0,
         height: 200.0,
         cards: Vec::new(),
-        bars: Vec::new(),
         edges: Vec::new(),
     }
 }
@@ -100,32 +100,56 @@ fn past_adoption_ghost_card_emits_ghost_class_and_badge() {
 }
 
 #[test]
-fn ended_marriage_bar_emits_ended_class() {
+fn monogamy_marriage_edge_emits_marriage_class() {
+    // The unified marriage connector (ADR-0027): a monogamy marriage
+    // renders as a thick horizontal `kul-edge--marriage` edge, not a
+    // bar rect.
     let mut shape = empty_shape();
-    shape.bars.push(PositionedBar {
-        marriage_id: "m1".to_owned(),
-        x: 50.0,
-        y: 40.0,
-        width: 20.0,
-        height: 10.0,
-        ended: true,
-    });
-    shape.bars.push(PositionedBar {
-        marriage_id: "m2".to_owned(),
-        x: 100.0,
-        y: 40.0,
-        width: 20.0,
-        height: 10.0,
+    shape.edges.push(PositionedEdge {
+        kind: EdgeKind::Marriage,
+        routing: EdgeRouting::InTree,
+        child_id: "sita".to_owned(),
+        marriage_id: "m_ramesh_sita".to_owned(),
+        points: vec![(185.0, 56.0), (215.0, 56.0)],
         ended: false,
     });
     let svg = render(&shape, &ThemeConfig::default());
     assert!(
-        svg.contains(r#"class="kul-bar kul-bar--ended""#),
-        "expected ended bar class: {svg}"
+        svg.contains("kul-edge--marriage"),
+        "expected marriage modifier on the monogamy connector: {svg}"
     );
     assert!(
-        svg.contains(r#"class="kul-bar""#),
-        "expected unended bar class: {svg}"
+        !svg.contains("kul-edge--ended"),
+        "an un-ended marriage edge must not carry the ended class: {svg}"
+    );
+    assert!(
+        !svg.contains("<rect class=\"kul-bar"),
+        "the marriage connector must not emit a bar rect: {svg}"
+    );
+}
+
+#[test]
+fn ended_monogamy_marriage_edge_emits_ended_class() {
+    // P8: an ended (divorced) monogamy marriage carries the
+    // `kul-edge--ended` modifier so the stylesheet renders the
+    // connector translucent — preserving the old ended-bar treatment.
+    let mut shape = empty_shape();
+    shape.edges.push(PositionedEdge {
+        kind: EdgeKind::Marriage,
+        routing: EdgeRouting::InTree,
+        child_id: "bob".to_owned(),
+        marriage_id: "m_alice_bob".to_owned(),
+        points: vec![(185.0, 216.0), (215.0, 216.0)],
+        ended: true,
+    });
+    let svg = render(&shape, &ThemeConfig::default());
+    assert!(
+        svg.contains("kul-edge--marriage"),
+        "expected marriage modifier on the ended connector: {svg}"
+    );
+    assert!(
+        svg.contains("kul-edge--ended"),
+        "expected ended marriage edge class: {svg}"
     );
 }
 
@@ -138,6 +162,7 @@ fn birth_edge_emits_birth_class_no_dasharray() {
         child_id: "carol".to_owned(),
         marriage_id: "m1".to_owned(),
         points: vec![(0.0, 0.0), (50.0, 50.0)],
+        ended: false,
     });
     let svg = render(&shape, &ThemeConfig::default());
     assert!(
@@ -163,6 +188,7 @@ fn marriage_edge_emits_marriage_class_no_dasharray() {
         child_id: "alice".to_owned(),
         marriage_id: "m_devraj_alice".to_owned(),
         points: vec![(0.0, 0.0), (50.0, 50.0)],
+        ended: false,
     });
     let svg = render(&shape, &ThemeConfig::default());
     assert!(
@@ -188,6 +214,7 @@ fn adoption_edge_emits_adoption_class_with_dasharray() {
         child_id: "ravi".to_owned(),
         marriage_id: "m1".to_owned(),
         points: vec![(0.0, 0.0), (50.0, 50.0)],
+        ended: false,
     });
     let svg = render(&shape, &ThemeConfig::default());
     assert!(
@@ -226,12 +253,12 @@ fn emitted_svg_has_no_inline_fill_or_stroke_color() {
         height: 50.0,
         name: "B".to_owned(),
     });
-    shape.bars.push(PositionedBar {
+    shape.edges.push(PositionedEdge {
+        kind: EdgeKind::Marriage,
+        routing: EdgeRouting::InTree,
+        child_id: "b".to_owned(),
         marriage_id: "m".to_owned(),
-        x: 100.0,
-        y: 20.0,
-        width: 10.0,
-        height: 10.0,
+        points: vec![(100.0, 25.0), (110.0, 25.0)],
         ended: true,
     });
     shape.edges.push(PositionedEdge {
@@ -240,6 +267,7 @@ fn emitted_svg_has_no_inline_fill_or_stroke_color() {
         child_id: "a".to_owned(),
         marriage_id: "m".to_owned(),
         points: vec![(0.0, 0.0), (10.0, 10.0)],
+        ended: false,
     });
     let svg = render(&shape, &ThemeConfig::default());
     // `fill="none"` on edge polylines is structural (a polyline with

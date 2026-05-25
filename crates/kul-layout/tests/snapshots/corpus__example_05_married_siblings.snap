@@ -47,25 +47,6 @@ cards:
   width: 160.0
   height: 64.0
   name: Nisha Sharma
-bars:
-- marriage_id: m_ramesh_sita
-  x: 381.0
-  y: 51.0
-  width: 18.0
-  height: 10.0
-  ended: false
-- marriage_id: m_arjun_priya
-  x: 190.0
-  y: 211.0
-  width: 18.0
-  height: 10.0
-  ended: false
-- marriage_id: m_vikram_nisha
-  x: 572.0
-  y: 211.0
-  width: 18.0
-  height: 10.0
-  ended: false
 edges:
 - kind: birth
   routing: in_tree
@@ -73,23 +54,55 @@ edges:
   marriage_id: m_ramesh_sita
   points:
   - - 390.0
-    - 61.0
+    - 56.0
   - - 390.0
     - 156.0
   - - 104.0
     - 156.0
   - - 104.0
     - 184.0
+  ended: false
 - kind: birth
   routing: in_tree
   child_id: vikram
   marriage_id: m_ramesh_sita
   points:
   - - 390.0
-    - 61.0
+    - 56.0
   - - 390.0
     - 156.0
   - - 486.0
     - 156.0
   - - 486.0
     - 184.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: sita
+  marriage_id: m_ramesh_sita
+  points:
+  - - 375.0
+    - 56.0
+  - - 405.0
+    - 56.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: priya
+  marriage_id: m_arjun_priya
+  points:
+  - - 184.0
+    - 216.0
+  - - 214.0
+    - 216.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: nisha
+  marriage_id: m_vikram_nisha
+  points:
+  - - 566.0
+    - 216.0
+  - - 596.0
+    - 216.0
+  ended: false

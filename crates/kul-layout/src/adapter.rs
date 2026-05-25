@@ -1,7 +1,7 @@
 //! Canonical UI pattern adapter — wraps [`crate::walker`] for kul's
-//! pattern primitives (marriage bars between adjacent spouses, ghost
-//! slots at host's birth-family position per P8, generation rows from
-//! generation indices, orthogonal right-angle edge routing).
+//! pattern primitives (thick marriage edges between adjacent spouses,
+//! ghost slots at host's birth-family position per P8, generation rows
+//! from generation indices, orthogonal right-angle edge routing).
 //!
 //! The adapter consumes a [`kul_render::SuccessRender`] and builds an
 //! internal layout tree, runs Walker's over it, then projects the
@@ -39,7 +39,10 @@
 //! A **childless** co-spouse keeps the same wing/mirror treatment with
 //! an empty children block (its marriage edge lands on its top-centre).
 //! Monogamy (`hosted_marriages.len() == 1`) keeps the classical hub-
-//! and-flanks shape with one bar between adjacent spouse cards.
+//! and-flanks shape, the marriage rendered as a thick horizontal
+//! [`EdgeKind::Marriage`] edge spanning the gap between the two adjacent
+//! spouse cards at their vertical mid-height (the unified marriage
+//! connector, ADR-0027).
 //!
 //! The whole fan is laid out in a hub-local x via a per-marriage local
 //! walker pass (so children forests still get the tidy-tree treatment),
@@ -56,7 +59,7 @@ use kul_render::{
 
 use crate::metrics::LayoutConfig;
 use crate::shape::{
-    EdgeKind, EdgeRouting, PositionedBar, PositionedCard, PositionedEdge, PositionedShape, SlotKind,
+    EdgeKind, EdgeRouting, PositionedCard, PositionedEdge, PositionedShape, SlotKind,
 };
 use crate::walker::{self, InputNode};
 
@@ -112,8 +115,8 @@ struct Node {
 }
 
 enum NodeKind {
-    /// A monogamy person host: card + bar + joining card in one
-    /// cluster on a single row. Covers the
+    /// A monogamy person host: card + marriage edge + joining card in
+    /// one cluster on a single row. Covers the
     /// `hosted_marriages.len() == 1` case at any depth (root or
     /// child). Children are the union of all hosted marriages'
     /// children, in declaration order.
@@ -653,7 +656,6 @@ impl<'a> Builder<'a> {
                 width: config.padding * 2.0,
                 height: config.padding * 2.0,
                 cards: Vec::new(),
-                bars: Vec::new(),
                 edges: Vec::new(),
             };
         }
@@ -663,8 +665,10 @@ impl<'a> Builder<'a> {
 
         // Project nodes back to PositionedShape primitives.
         let mut cards: Vec<PositionedCard> = Vec::new();
-        let mut bars: Vec<PositionedBar> = Vec::new();
-        // Track each marriage's bar centroid + bus row for edge routing.
+        // Track each marriage's child-attach centroid + bus row for edge
+        // routing. For monogamy this is the marriage-edge's gap midpoint
+        // at the cards' mid-height; for polygamy it is the marriage-edge
+        // midpoint just below the hub.
         let mut bar_centers: std::collections::HashMap<String, (f64, f64)> =
             std::collections::HashMap::new();
         // Track each canonical / leaf card's top-center for edge routing.
@@ -677,12 +681,12 @@ impl<'a> Builder<'a> {
         // card.
         let mut ghost_card_tops: std::collections::HashMap<(String, String), (f64, f64)> =
             std::collections::HashMap::new();
-        // Marriage edges (ADR-0027): one thick edge per hosted marriage
-        // of a polygamy hub, built directly in the `PolygamyHub` arm
-        // (all the geometry — hub bottom, co-spouse wing, midpoint bus —
-        // is local to that arm now that co-spouses are projected here
-        // rather than as separate walker nodes). Appended after the
-        // birth/adoption edges from `route_edges`.
+        // Marriage edges (ADR-0027): the unified marriage connector. One
+        // thick horizontal edge per monogamy marriage (built in the
+        // `PersonHost` arm, spanning the gap between the two adjacent
+        // spouse cards) plus one thick edge per hosted marriage of a
+        // polygamy hub (built in the `PolygamyHub` arm). Appended after
+        // the birth/adoption edges from `route_edges`.
         let mut marriage_edges: Vec<PositionedEdge> = Vec::new();
 
         for (i, node) in nodes.iter().enumerate() {
@@ -699,23 +703,35 @@ impl<'a> Builder<'a> {
                         &card.slot,
                         config,
                     );
+                    // The cursor walks `[host][bar_gap][gap][bar_gap][joining]…`
+                    // exactly as before so spouse-card x positions stay
+                    // byte-identical; the marriage now renders as a thick
+                    // horizontal edge spanning the inter-card gap at the
+                    // cards' mid-height instead of a bar rect (ADR-0027).
                     let mut cursor = host_x + config.card_width;
+                    let mid_y = row_top + config.card_height / 2.0;
                     for entry in hosted {
                         let bar_x = cursor + config.bar_gap;
-                        let bar_y = row_top + (config.card_height - config.bar_height) / 2.0;
-                        let bar_center_x = bar_x + config.bar_width / 2.0;
-                        bars.push(PositionedBar {
-                            marriage_id: entry.bar.marriage_id.clone(),
-                            x: bar_x,
-                            y: bar_y,
-                            width: config.bar_width,
-                            height: config.bar_height,
-                            ended: entry.bar.ended,
-                        });
+                        let left_card_right_edge = bar_x - config.bar_gap;
+                        let right_card_left_edge = bar_x + config.bar_width + config.bar_gap;
+                        // Child birth edges drop from the gap midpoint at
+                        // the marriage edge's y; `route_edges` consumes
+                        // this anchor with no monogamy-specific branch.
                         bar_centers.insert(
                             entry.bar.marriage_id.clone(),
-                            (bar_center_x, bar_y + config.bar_height),
+                            (bar_x + config.bar_width / 2.0, mid_y),
                         );
+                        marriage_edges.push(PositionedEdge {
+                            kind: EdgeKind::Marriage,
+                            routing: EdgeRouting::InTree,
+                            child_id: entry.bar.joining_id.clone(),
+                            marriage_id: entry.bar.marriage_id.clone(),
+                            points: vec![
+                                (left_card_right_edge, mid_y),
+                                (right_card_left_edge, mid_y),
+                            ],
+                            ended: entry.bar.ended,
+                        });
                         let joining_x = bar_x + config.bar_width + config.bar_gap;
                         push_card(
                             &mut cards,
@@ -789,6 +805,8 @@ impl<'a> Builder<'a> {
                                 (cospouse_cx, bus_y),
                                 (cospouse_cx, cospouse_row_top),
                             ],
+                            // Polygamy marriages are always un-ended (R14).
+                            ended: false,
                         });
 
                         // Child birth edges originate at the marriage-
@@ -855,7 +873,6 @@ impl<'a> Builder<'a> {
             width: canvas_width,
             height: canvas_height,
             cards,
-            bars,
             edges,
         }
     }
@@ -1088,13 +1105,13 @@ fn route_edges(
 ) -> Vec<PositionedEdge> {
     let mut out = Vec::with_capacity(render_edges.len());
     for edge in render_edges {
-        // P6 (ADR-0022): nested birth-family bars are positioned as
+        // P6 (ADR-0022): nested birth-family marriages are positioned as
         // additional Walker roots, so every render edge's marriage id
-        // is in `bar_centers`. For polygamy marriages (ADR-0027) no
-        // `<rect class="kul-bar">` is emitted but the same map carries
-        // the co-spouse card's bottom-midpoint under the marriage's
-        // id, so the parent-child edge routing needs no polygamy
-        // branch.
+        // is in `bar_centers`. The map carries each marriage's
+        // child-attach anchor — the gap midpoint of the monogamy
+        // marriage edge, or the polygamy marriage-edge midpoint below the
+        // hub (ADR-0027) — so the parent-child edge routing needs no
+        // per-shape branch.
         let &(bar_cx, bar_by) = bar_centers
             .get(&edge.marriage_id)
             .expect("every render edge's marriage must have a positioned anchor");
@@ -1137,6 +1154,8 @@ fn route_edges(
             child_id: edge.child_id.clone(),
             marriage_id: edge.marriage_id.clone(),
             points,
+            // The `ended` flag is a marriage-edge concern only.
+            ended: false,
         });
     }
     out

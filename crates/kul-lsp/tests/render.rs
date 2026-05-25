@@ -164,8 +164,8 @@ fn render_clean_document_returns_success_with_svg() {
         "expected canonical card class in SVG: {svg}"
     );
     assert!(
-        svg.contains("kul-bar"),
-        "expected the marriage bar in SVG: {svg}"
+        svg.contains("kul-edge--marriage"),
+        "expected the marriage edge in SVG: {svg}"
     );
 }
 

@@ -125,11 +125,26 @@ children forest (0 if childless):
 4. `cospouse_cx_i = 2*C_i - hub_cx`; shift marriage `i`'s already-laid-out
    children forest so its block centre lands on `C_i`.
 
-Monogamy (`hosted_marriages.len() == 1`) is unchanged: the classical
-hub-and-flanks cluster (host card + bar + joining card on one row)
-still applies, and the marriage still renders as a `<rect class="kul-bar">`
-between the two adjacent spouse cards. **Bars are emitted only for
-monogamy.**
+Monogamy (`hosted_marriages.len() == 1`) keeps the classical
+hub-and-flanks cluster (host card + joining card on one row).
+
+> **Amendment ([#165](https://github.com/YashBhalodi/kul/issues/165) follow-up).**
+> The thick marriage edge is now the **unified marriage connector for
+> both monogamy and polygamy**, replacing the block-bar rendering. A
+> monogamy marriage renders as a thick horizontal `EdgeKind::Marriage`
+> edge spanning the inter-card gap between the two adjacent spouse cards
+> at the cards' vertical mid-height — `[(left_card_right_edge, mid_y),
+> (right_card_left_edge, mid_y)]` — and the couple's children drop from
+> its midpoint, exactly where the bar's bottom-midpoint used to anchor
+> them. An ended (divorced) monogamy marriage carries the `ended` flag
+> through to a `kul-edge--ended` class (translucent), preserving the
+> old `kul-bar--ended` treatment. The `MarriageBar` **data** type in
+> `kul-render` is unchanged — only the rendered primitive changed from
+> block to edge. The `PositionedBar` type, the `PositionedShape.bars`
+> field, and the `<rect class="kul-bar">` SVG emission are removed;
+> `PositionedEdge` gains an `ended: bool` field (default `false`;
+> polygamy marriages are always un-ended per R14, and birth / adoption
+> edges never carry it).
 
 **Integration strategy (how the fan composes with Walker).** The hub
 is a single Walker **leaf** whose width reserves the full wing-to-wing
@@ -206,18 +221,18 @@ stroke weight.
   co-spouses (±576 instead of the un-nudged ±384). Three thick edges fan
   from one hub-bottom point; the half-siblings render in distinct columns
   per P9.
-- **No bars for polygamy marriages.** `PositionedShape.bars` carries
-  one rect per monogamy marriage only; polygamy marriages are pure
-  edges. A polygamy hub that is *also* a monogamy host in a different
-  generation (none in the corpus today) would still emit its
-  monogamy bar normally.
+- **No bars at all.** Per the #165 follow-up amendment above, monogamy
+  marriages also render as thick marriage edges, so `PositionedBar` and
+  `PositionedShape.bars` are removed entirely. Every marriage — monogamy
+  or polygamy — is now a `PositionedEdge { kind: Marriage, .. }`.
 - **SVG visual vocabulary unifies on the edge.** `kul-edge--marriage`
   is a sibling modifier of `kul-edge--birth` / `kul-edge--adoption`,
   sharing all the routing CSS (orthogonal right-angle, rounded
   corners, the `kul-edge--in-tree` routing class). The only delta is
-  stroke weight (~3-4px) — polygamy reads as distinct from the thin
+  stroke weight (~3-4px) — a marriage reads as distinct from the thin
   birth (1.5px solid) and adoption (1.5px dashed) edges while staying
-  inside one coherent edge vocabulary.
+  inside one coherent edge vocabulary. An ended monogamy marriage adds
+  `kul-edge--ended` (translucent), replacing the old `kul-bar--ended`.
 - **Composition with P6 is unchanged** (ADR-0025). A co-spouse with
   a declared birth family composes via the existing bio-anchor
   ghost mechanism: ghost-{co-spouse} lives in the bio family's

@@ -3,11 +3,11 @@ source: crates/kul-svg/tests/corpus.rs
 expression: svg
 ---
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 272" width="780" height="272">
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 61 L 390 146 Q 390 156 380 156 L 114 156 Q 104 156 104 166 L 104 184"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 61 L 390 146 Q 390 156 400 156 L 476 156 Q 486 156 486 166 L 486 184"/>
-<rect class="kul-bar" x="381" y="51" width="18" height="10"/>
-<rect class="kul-bar" x="190" y="211" width="18" height="10"/>
-<rect class="kul-bar" x="572" y="211" width="18" height="10"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 56 L 390 146 Q 390 156 380 156 L 114 156 Q 104 156 104 166 L 104 184"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 56 L 390 146 Q 390 156 400 156 L 476 156 Q 486 156 486 166 L 486 184"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 375 56 L 405 56"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 184 216 L 214 216"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 566 216 L 596 216"/>
 <g class="kul-card kul-card--canonical">
 <rect x="215" y="24" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Ramesh Sharma</text>

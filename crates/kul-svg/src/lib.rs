@@ -1,7 +1,7 @@
 //! Theme-agnostic SVG emitter for the canonical UI pattern.
 //!
-//! `kul-layout` produces a [`kul_layout::PositionedShape`] (cards, bars,
-//! and edge polylines in absolute pixel coordinates). This crate is the
+//! `kul-layout` produces a [`kul_layout::PositionedShape`] (cards and
+//! edge polylines in absolute pixel coordinates). This crate is the
 //! final step: project that shape into an SVG string a surface
 //! consumer can drop into a webview, an HTML page, an `<img>` tag, or a
 //! self-contained file.
@@ -24,9 +24,11 @@
 //! The stable seam consuming surfaces hook into:
 //!
 //! - `kul-card`, `kul-card--canonical`, `kul-card--ghost`
-//! - `kul-bar`, `kul-bar--ended`
 //! - `kul-edge`, `kul-edge--birth`, `kul-edge--adoption`,
-//!   `kul-edge--marriage` (thick polygamy-hub fan edge, ADR-0027)
+//!   `kul-edge--marriage` (the thick unified marriage connector —
+//!   monogamy horizontal segment or polygamy hub→spouse fan edge,
+//!   ADR-0027), `kul-edge--ended` (an ended monogamy marriage edge,
+//!   rendered translucent)
 //! - `kul-label-name`, `kul-ghost-badge`
 
 mod emit;

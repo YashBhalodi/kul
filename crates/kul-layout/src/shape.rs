@@ -8,9 +8,9 @@
 
 use kul_render::GhostReason;
 
-/// Top-level positioned shape: every canvas, every card, every bar,
-/// every edge, in absolute pixel coordinates, in the canonical UI
-/// pattern's arrangement.
+/// Top-level positioned shape: every canvas, every card, every edge,
+/// in absolute pixel coordinates, in the canonical UI pattern's
+/// arrangement.
 ///
 /// Coordinates are top-left origin; `width` and `height` describe the
 /// outer bounding box (including outer padding) so a surface emitter can
@@ -23,20 +23,15 @@ pub struct PositionedShape {
     pub height: f64,
     /// Every positioned card, in stable iteration order (canonical
     /// cards first by component-source-order, then ghosts adjacent to
-    /// their anchoring bars).
+    /// their anchoring marriage edges).
     pub cards: Vec<PositionedCard>,
-    /// Every positioned marriage / adoption bar. Monogamy
-    /// (`hosted_marriages.len() == 1`) emits one bar per marriage between
-    /// the two spouse cards. Polygamy (`hosted_marriages.len() >= 2`)
-    /// emits **no** bars — each concurrent marriage renders as a
-    /// thick [`EdgeKind::Marriage`] edge between hub and co-spouse
-    /// instead (ADR-0027).
-    pub bars: Vec<PositionedBar>,
     /// Every edge — birth, adoption, and marriage — with computed
-    /// polyline geometry. Birth and adoption edges connect a marriage
-    /// bar (monogamy) or a co-spouse card (polygamy) to one of the
-    /// couple's children; marriage edges (polygamy only) connect the
-    /// hub card to each co-spouse card per ADR-0027.
+    /// polyline geometry. Birth and adoption edges connect a marriage's
+    /// child-attach anchor to one of the couple's children. Marriage
+    /// edges are the unified marriage connector (ADR-0027): for monogamy
+    /// a thick horizontal segment between the two adjacent spouse cards;
+    /// for polygamy one thick edge per concurrent marriage routed from
+    /// the hub card to each co-spouse.
     pub edges: Vec<PositionedEdge>,
 }
 
@@ -77,40 +72,26 @@ pub enum SlotKind {
     Ghost { reason: GhostReason },
 }
 
-/// One positioned marriage / adoption bar. Sits adjacent to the two
-/// spouse / parent cards (P9: child edges anchor at the bar, not at
-/// either parent).
-#[derive(Debug, Clone)]
-pub struct PositionedBar {
-    /// Source-declaration id (`marriage <id>`).
-    pub marriage_id: String,
-    /// Top-left x of the bar.
-    pub x: f64,
-    /// Top-left y of the bar.
-    pub y: f64,
-    /// Bar width.
-    pub width: f64,
-    /// Bar height.
-    pub height: f64,
-    /// `true` iff the marriage carries an `end:` field (P8's canonical
-    /// "ended" predicate). Surfaces use this to switch the bar's class
-    /// to `kul-bar--ended`.
-    pub ended: bool,
-}
-
-/// One positioned parent-child edge with computed polyline geometry.
+/// One positioned parent-child or marriage edge with computed polyline
+/// geometry.
 ///
-/// Birth edges (P5 solid) and adoption edges (P5 dashed) share the
-/// same shape; the `kind` field discriminates and the polyline points
+/// Birth edges (P5 solid) and adoption edges (P5 dashed) connect a
+/// marriage's child-attach anchor to one of its children. Marriage
+/// edges (ADR-0027) are the unified marriage connector for both
+/// monogamy (a thick horizontal segment between adjacent spouse cards)
+/// and polygamy (one thick edge per concurrent marriage, hub →
+/// co-spouse). The `kind` field discriminates and the polyline points
 /// describe the orthogonal right-angle route a surface emits directly.
 #[derive(Debug, Clone)]
 pub struct PositionedEdge {
-    /// Birth vs adoption.
+    /// Birth, adoption, or marriage.
     pub kind: EdgeKind,
     /// Routing variant — `InTree` for v1, `CrossTree` for future
     /// cross-component edges (F5).
     pub routing: EdgeRouting,
-    /// Source-declaration id of the child this edge belongs to.
+    /// Source-declaration id of the child this edge belongs to. For a
+    /// marriage edge this is the joining spouse (monogamy) or co-spouse
+    /// (polygamy).
     pub child_id: String,
     /// Source-declaration id of the marriage this edge connects to.
     pub marriage_id: String,
@@ -118,29 +99,40 @@ pub struct PositionedEdge {
     /// pixel coordinate; the emitter writes them straight into
     /// `<polyline points="x1,y1 x2,y2 …" />`.
     pub points: Vec<(f64, f64)>,
+    /// `true` iff this is a marriage edge for a marriage that carries an
+    /// `end:` field (P8's canonical "ended" predicate). Surfaces add the
+    /// `kul-edge--ended` class to render the connector translucent.
+    /// Always `false` for birth / adoption edges and for polygamy
+    /// marriage edges (un-ended by R14).
+    pub ended: bool,
 }
 
 /// What kind of edge this is. Birth and adoption edges connect a
-/// marriage to one of its children (P5). Marriage edges connect a
-/// polygamy hub to each of its concurrent co-spouses (ADR-0027) —
-/// only emitted when `hosted_marriages.len() >= 2`; monogamy renders
-/// the marriage with a [`PositionedBar`] between adjacent spouse cards
-/// instead, with no marriage edge.
+/// marriage to one of its children (P5). Marriage edges are the unified
+/// marriage connector (ADR-0027): for monogamy a thick horizontal
+/// segment between the two adjacent spouse cards; for polygamy one edge
+/// per concurrent marriage connecting the hub to each co-spouse.
 #[derive(Debug, Clone, Copy)]
 pub enum EdgeKind {
     /// Solid, thin (P5).
     Birth,
     /// Dashed, thin (P5).
     Adoption,
-    /// Solid, thick. Connects a polygamy hub to one of its
-    /// concurrent co-spouses; one edge per hosted marriage when the
-    /// hub has ≥2 un-ended marriages (ADR-0027). The hub card sits
-    /// alone on its data-level generation row; each co-spouse sits on
-    /// the next row down; the marriage edge routes hub-bottom →
-    /// horizontal bus → co-spouse-top using the same orthogonal right-
-    /// angle geometry as a birth edge. Visually distinguished from
-    /// birth / adoption by a thicker stroke (set by the consuming
-    /// surface stylesheet via the `kul-edge--marriage` class).
+    /// Solid, thick — the unified marriage connector (ADR-0027).
+    ///
+    /// For **monogamy** (`hosted_marriages.len() == 1`) it is the
+    /// horizontal segment spanning the inter-card gap between the two
+    /// adjacent spouse cards, at the cards' vertical mid-height; the
+    /// couple's children drop from its midpoint.
+    ///
+    /// For **polygamy** (`hosted_marriages.len() >= 2`) one edge is
+    /// emitted per hosted marriage, routed hub-bottom → horizontal bus
+    /// → co-spouse-top using the same orthogonal right-angle geometry as
+    /// a birth edge.
+    ///
+    /// Visually distinguished from birth / adoption by a thicker stroke
+    /// (set by the consuming surface stylesheet via the
+    /// `kul-edge--marriage` class).
     Marriage,
 }
 

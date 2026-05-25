@@ -47,13 +47,6 @@ cards:
   width: 160.0
   height: 64.0
   name: Priya Kumar
-bars:
-- marriage_id: m_ramesh_sita
-  x: 287.0
-  y: 51.0
-  width: 18.0
-  height: 10.0
-  ended: false
 edges:
 - kind: birth
   routing: in_tree
@@ -61,13 +54,14 @@ edges:
   marriage_id: m_ramesh_sita
   points:
   - - 296.0
-    - 61.0
+    - 56.0
   - - 296.0
     - 156.0
   - - 296.0
     - 156.0
   - - 296.0
     - 184.0
+  ended: false
 - kind: birth
   routing: in_tree
   child_id: priya
@@ -81,6 +75,17 @@ edges:
     - 476.0
   - - 392.0
     - 504.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: sita
+  marriage_id: m_ramesh_sita
+  points:
+  - - 281.0
+    - 56.0
+  - - 311.0
+    - 56.0
+  ended: false
 - kind: marriage
   routing: in_tree
   child_id: meera
@@ -94,6 +99,7 @@ edges:
     - 316.0
   - - 104.0
     - 344.0
+  ended: false
 - kind: marriage
   routing: in_tree
   child_id: alice
@@ -107,3 +113,4 @@ edges:
     - 316.0
   - - 488.0
     - 344.0
+  ended: false

@@ -33,7 +33,6 @@ cards:
   width: 160.0
   height: 64.0
   name: Priya Kumar
-bars: []
 edges:
 - kind: birth
   routing: in_tree
@@ -48,6 +47,7 @@ edges:
     - 316.0
   - - 392.0
     - 344.0
+  ended: false
 - kind: marriage
   routing: in_tree
   child_id: meera
@@ -61,6 +61,7 @@ edges:
     - 156.0
   - - 104.0
     - 184.0
+  ended: false
 - kind: marriage
   routing: in_tree
   child_id: alice
@@ -74,3 +75,4 @@ edges:
     - 156.0
   - - 488.0
     - 184.0
+  ended: false
