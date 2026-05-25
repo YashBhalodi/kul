@@ -29,7 +29,18 @@ fn render_diagnostics(diags: &[Diagnostic]) -> String {
 }
 
 fn read_corpus(rel: &str) -> String {
-    let path = format!("{}/tests/corpus/{}", env!("CARGO_MANIFEST_DIR"), rel);
+    // Each fixture lives in its own one-file project directory so the loader
+    // (ADR-0015) never globs sibling fixtures into one project: a `rel` of
+    // `valid/<name>.kul` resolves to `valid/<name>/<name>.kul`, beside a
+    // `kul.yml`. Call sites keep passing the flat `<dir>/<name>.kul` key.
+    let (dir, file) = rel.split_once('/').expect("corpus key is `<dir>/<file>`");
+    let name = file
+        .strip_suffix(".kul")
+        .expect("corpus key ends in `.kul`");
+    let path = format!(
+        "{}/tests/corpus/{dir}/{name}/{name}.kul",
+        env!("CARGO_MANIFEST_DIR")
+    );
     std::fs::read_to_string(&path).unwrap_or_else(|_| panic!("missing corpus file: {path}"))
 }
 

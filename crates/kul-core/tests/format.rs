@@ -68,13 +68,23 @@ fn corpus_files() -> Vec<PathBuf> {
     }
     let valid = workspace_root().join("crates/kul-core/tests/corpus/valid");
     if valid.is_dir() {
-        for entry in std::fs::read_dir(&valid)
+        // Like `examples/`, each fixture is a one-file project in its own
+        // subdirectory (`<name>/<name>.kul` beside a `kul.yml`); descend one
+        // level into every subdir to collect the `.kul` files.
+        for fixture_dir in std::fs::read_dir(&valid)
             .expect("read valid corpus")
             .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.is_dir())
         {
-            let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("kul") {
-                files.push(path);
+            for entry in std::fs::read_dir(&fixture_dir)
+                .expect("read fixture subdirectory")
+                .flatten()
+            {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("kul") {
+                    files.push(path);
+                }
             }
         }
     }
