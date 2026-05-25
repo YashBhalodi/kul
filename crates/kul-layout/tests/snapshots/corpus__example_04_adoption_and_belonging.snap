@@ -1,0 +1,185 @@
+---
+source: crates/kul-layout/tests/corpus.rs
+expression: yaml
+---
+width: 1356.0
+height: 272.0
+cards:
+- person_id: carlos
+  kind: canonical
+  x: 121.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Carlos Mendoza
+- person_id: rosa
+  kind: canonical
+  x: 311.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Rosa Mendoza
+- person_id: mateo
+  kind: canonical
+  x: 24.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Mateo Mendoza
+- person_id: bayani
+  kind: canonical
+  x: 216.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Bayani Mendoza
+- person_id: dalisay
+  kind: canonical
+  x: 408.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Dalisay Mendoza
+- person_id: eduardo
+  kind: canonical
+  x: 600.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Eduardo Reyes
+- person_id: luz
+  kind: canonical
+  x: 790.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Luz Reyes
+- person_id: dalisay
+  kind: ghost:past_birth
+  x: 695.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Dalisay Mendoza
+- person_id: tomas
+  kind: canonical
+  x: 982.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Tomas Garcia
+- person_id: elena
+  kind: canonical
+  x: 1172.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Elena Garcia
+- person_id: dalisay
+  kind: ghost:past_adoption
+  x: 1077.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Dalisay Mendoza
+edges:
+- kind: birth
+  routing: in_tree
+  child_id: mateo
+  marriage_id: m_carlos_rosa
+  points:
+  - - 296.0
+    - 56.0
+  - - 296.0
+    - 156.0
+  - - 104.0
+    - 156.0
+  - - 104.0
+    - 184.0
+  ended: false
+- kind: adoption
+  routing: in_tree
+  child_id: bayani
+  marriage_id: m_carlos_rosa
+  points:
+  - - 296.0
+    - 56.0
+  - - 296.0
+    - 156.0
+  - - 296.0
+    - 156.0
+  - - 296.0
+    - 184.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: dalisay
+  marriage_id: m_eduardo_luz
+  points:
+  - - 775.0
+    - 56.0
+  - - 775.0
+    - 156.0
+  - - 775.0
+    - 156.0
+  - - 775.0
+    - 184.0
+  ended: false
+- kind: adoption
+  routing: in_tree
+  child_id: dalisay
+  marriage_id: m_tomas_elena
+  points:
+  - - 1157.0
+    - 56.0
+  - - 1157.0
+    - 156.0
+  - - 1157.0
+    - 156.0
+  - - 1157.0
+    - 184.0
+  ended: false
+- kind: adoption
+  routing: in_tree
+  child_id: dalisay
+  marriage_id: m_carlos_rosa
+  points:
+  - - 296.0
+    - 56.0
+  - - 296.0
+    - 156.0
+  - - 488.0
+    - 156.0
+  - - 488.0
+    - 184.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: rosa
+  marriage_id: m_carlos_rosa
+  points:
+  - - 281.0
+    - 56.0
+  - - 311.0
+    - 56.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: luz
+  marriage_id: m_eduardo_luz
+  points:
+  - - 760.0
+    - 56.0
+  - - 790.0
+    - 56.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: elena
+  marriage_id: m_tomas_elena
+  points:
+  - - 1142.0
+    - 56.0
+  - - 1172.0
+    - 56.0
+  ended: false

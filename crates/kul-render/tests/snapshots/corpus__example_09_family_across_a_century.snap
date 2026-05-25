@@ -1,0 +1,925 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 2,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 1821,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "oludare",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Oludare Adeyemi",
+            "gender": "male",
+            "family": "Adeyemi",
+            "given": "Oludare",
+            "born": {
+              "value": "1905",
+              "precision": "year",
+              "circa": true
+            },
+            "died": {
+              "value": "1980-07-04",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_oludare_folake",
+                "generation": 0,
+                "hostId": "oludare",
+                "joiningId": "folake",
+                "joiningSlot": {
+                  "personId": "folake",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Folake Adeyemi",
+                  "gender": "female",
+                  "family": "Adeyemi",
+                  "given": "Folake",
+                  "born": {
+                    "value": "1910-03",
+                    "precision": "month",
+                    "circa": false
+                  },
+                  "died": {
+                    "value": "1995-11-20",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1928-04-10",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "babatunde",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Babatunde Adeyemi",
+                    "gender": "male",
+                    "born": {
+                      "value": "1930",
+                      "precision": "year",
+                      "circa": false
+                    },
+                    "died": {
+                      "value": "2005-02-18",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": [
+                    {
+                      "bar": {
+                        "marriageId": "m_babatunde_yetunde",
+                        "generation": 1,
+                        "hostId": "babatunde",
+                        "joiningId": "yetunde",
+                        "joiningSlot": {
+                          "personId": "yetunde",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Yetunde Adeyemi",
+                          "gender": "female",
+                          "born": {
+                            "value": "1935-02-28",
+                            "precision": "day",
+                            "circa": false
+                          }
+                        },
+                        "start": {
+                          "value": "1955-06-12",
+                          "precision": "day",
+                          "circa": false
+                        },
+                        "ended": false
+                      },
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "tunde",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Tunde Adeyemi",
+                            "gender": "male",
+                            "born": {
+                              "value": "1957-04-19",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": [
+                            {
+                              "bar": {
+                                "marriageId": "m_tunde_halima",
+                                "generation": 2,
+                                "hostId": "tunde",
+                                "joiningId": "halima",
+                                "joiningSlot": {
+                                  "personId": "halima",
+                                  "kind": {
+                                    "kind": "canonical"
+                                  },
+                                  "generation": 2,
+                                  "name": "Halima Sani",
+                                  "gender": "female",
+                                  "born": {
+                                    "value": "1960-09-11",
+                                    "precision": "day",
+                                    "circa": false
+                                  }
+                                },
+                                "start": {
+                                  "value": "1982-07-07",
+                                  "precision": "day",
+                                  "circa": false
+                                },
+                                "ended": false
+                              },
+                              "children": [
+                                {
+                                  "slot": {
+                                    "personId": "zainab",
+                                    "kind": {
+                                      "kind": "canonical"
+                                    },
+                                    "generation": 3,
+                                    "name": "Zainab Adeyemi",
+                                    "gender": "female",
+                                    "born": {
+                                      "value": "1985-01-17",
+                                      "precision": "day",
+                                      "circa": false
+                                    }
+                                  },
+                                  "hostedMarriages": []
+                                },
+                                {
+                                  "slot": {
+                                    "personId": "kemi",
+                                    "kind": {
+                                      "kind": "canonical"
+                                    },
+                                    "generation": 3,
+                                    "name": "Kemi Adeyemi",
+                                    "gender": "female",
+                                    "born": {
+                                      "value": "1990-07-29",
+                                      "precision": "day",
+                                      "circa": false
+                                    }
+                                  },
+                                  "hostedMarriages": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "slot": {
+                            "personId": "bisi",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Bisi Adeyemi",
+                            "gender": "female",
+                            "born": {
+                              "value": "1960-04",
+                              "precision": "month",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": [
+                            {
+                              "bar": {
+                                "marriageId": "m_bisi_tunji",
+                                "generation": 2,
+                                "hostId": "bisi",
+                                "joiningId": "tunji",
+                                "joiningSlot": {
+                                  "personId": "tunji",
+                                  "kind": {
+                                    "kind": "canonical"
+                                  },
+                                  "generation": 2,
+                                  "name": "Tunji Adeyemi",
+                                  "gender": "male",
+                                  "born": {
+                                    "value": "1958-06-04",
+                                    "precision": "day",
+                                    "circa": false
+                                  }
+                                },
+                                "start": {
+                                  "value": "1985-11-19",
+                                  "precision": "day",
+                                  "circa": false
+                                },
+                                "ended": false
+                              },
+                              "children": [
+                                {
+                                  "slot": {
+                                    "personId": "tobi",
+                                    "kind": {
+                                      "kind": "canonical"
+                                    },
+                                    "generation": 3,
+                                    "name": "Tobi Adeyemi",
+                                    "gender": "male",
+                                    "born": {
+                                      "value": "1987-09-02",
+                                      "precision": "day",
+                                      "circa": false
+                                    }
+                                  },
+                                  "hostedMarriages": []
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "bar": {
+                        "marriageId": "m_babatunde_amaka",
+                        "generation": 1,
+                        "hostId": "babatunde",
+                        "joiningId": "amaka",
+                        "joiningSlot": {
+                          "personId": "amaka",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Amaka Adeyemi",
+                          "gender": "female",
+                          "born": {
+                            "value": "1940-06-17",
+                            "precision": "day",
+                            "circa": false
+                          }
+                        },
+                        "start": {
+                          "value": "1962-09-03",
+                          "precision": "day",
+                          "circa": false
+                        },
+                        "ended": false
+                      },
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "segun",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Segun Adeyemi",
+                            "gender": "male",
+                            "born": {
+                              "value": "1964-08-30",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": [
+                            {
+                              "bar": {
+                                "marriageId": "m_segun_ronke",
+                                "generation": 2,
+                                "hostId": "segun",
+                                "joiningId": "ronke",
+                                "joiningSlot": {
+                                  "personId": "ronke",
+                                  "kind": {
+                                    "kind": "canonical"
+                                  },
+                                  "generation": 2,
+                                  "name": "Ronke Adeyemi",
+                                  "gender": "female",
+                                  "born": {
+                                    "value": "1968-04-13",
+                                    "precision": "day",
+                                    "circa": false
+                                  }
+                                },
+                                "start": {
+                                  "value": "1992-05-26",
+                                  "precision": "day",
+                                  "circa": false
+                                },
+                                "ended": false
+                              },
+                              "children": [
+                                {
+                                  "slot": {
+                                    "personId": "dele",
+                                    "kind": {
+                                      "kind": "canonical"
+                                    },
+                                    "generation": 3,
+                                    "name": "Dele Adeyemi",
+                                    "gender": "male",
+                                    "born": {
+                                      "value": "1994-10-08",
+                                      "precision": "day",
+                                      "circa": false
+                                    }
+                                  },
+                                  "hostedMarriages": []
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "slot": {
+                    "personId": "adunni",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Adunni Adeyemi",
+                    "gender": "female",
+                    "born": {
+                      "value": "1933-08",
+                      "precision": "month",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": [
+                    {
+                      "bar": {
+                        "marriageId": "m_adunni_chukwu",
+                        "generation": 2,
+                        "hostId": "adunni",
+                        "joiningId": "chukwu",
+                        "joiningSlot": {
+                          "personId": "chukwu",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 2,
+                          "name": "Chukwu Okafor",
+                          "gender": "male",
+                          "born": {
+                            "value": "1931-10-05",
+                            "precision": "day",
+                            "circa": false
+                          }
+                        },
+                        "start": {
+                          "value": "1958-03-20",
+                          "precision": "day",
+                          "circa": false
+                        },
+                        "ended": false,
+                        "joiningNestedBirthFamily": {
+                          "slot": {
+                            "personId": "nnamdi",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 0,
+                            "name": "Nnamdi Okafor",
+                            "gender": "male",
+                            "born": {
+                              "value": "1905",
+                              "precision": "year",
+                              "circa": true
+                            }
+                          },
+                          "hostedMarriages": [
+                            {
+                              "bar": {
+                                "marriageId": "m_nnamdi_chiamaka",
+                                "generation": 1,
+                                "hostId": "nnamdi",
+                                "joiningId": "chiamaka",
+                                "joiningSlot": {
+                                  "personId": "chiamaka",
+                                  "kind": {
+                                    "kind": "canonical"
+                                  },
+                                  "generation": 1,
+                                  "name": "Chiamaka Okafor",
+                                  "gender": "female",
+                                  "born": {
+                                    "value": "1908",
+                                    "precision": "year",
+                                    "circa": false
+                                  }
+                                },
+                                "start": {
+                                  "value": "1929-07-18",
+                                  "precision": "day",
+                                  "circa": false
+                                },
+                                "ended": false,
+                                "joiningNestedBirthFamily": {
+                                  "slot": {
+                                    "personId": "obi",
+                                    "kind": {
+                                      "kind": "canonical"
+                                    },
+                                    "generation": 0,
+                                    "name": "Obi Eze",
+                                    "gender": "male",
+                                    "born": {
+                                      "value": "1880",
+                                      "precision": "year",
+                                      "circa": true
+                                    }
+                                  },
+                                  "hostedMarriages": [
+                                    {
+                                      "bar": {
+                                        "marriageId": "m_obi_ngozi",
+                                        "generation": 0,
+                                        "hostId": "obi",
+                                        "joiningId": "ngozi",
+                                        "joiningSlot": {
+                                          "personId": "ngozi",
+                                          "kind": {
+                                            "kind": "canonical"
+                                          },
+                                          "generation": 0,
+                                          "name": "Ngozi Eze",
+                                          "gender": "female",
+                                          "born": {
+                                            "value": "1885",
+                                            "precision": "year",
+                                            "circa": false
+                                          }
+                                        },
+                                        "start": {
+                                          "value": "1905-02-11",
+                                          "precision": "day",
+                                          "circa": false
+                                        },
+                                        "ended": false
+                                      },
+                                      "children": [
+                                        {
+                                          "slot": {
+                                            "personId": "chiamaka",
+                                            "kind": {
+                                              "kind": "ghost",
+                                              "reason": "pastBirth"
+                                            },
+                                            "generation": 1,
+                                            "name": "Chiamaka Okafor",
+                                            "gender": "female",
+                                            "born": {
+                                              "value": "1908",
+                                              "precision": "year",
+                                              "circa": false
+                                            }
+                                          },
+                                          "hostedMarriages": []
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              },
+                              "children": [
+                                {
+                                  "slot": {
+                                    "personId": "chukwu",
+                                    "kind": {
+                                      "kind": "ghost",
+                                      "reason": "pastBirth"
+                                    },
+                                    "generation": 2,
+                                    "name": "Chukwu Okafor",
+                                    "gender": "male",
+                                    "born": {
+                                      "value": "1931-10-05",
+                                      "precision": "day",
+                                      "circa": false
+                                    }
+                                  },
+                                  "hostedMarriages": []
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "ada",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 3,
+                            "name": "Ada Okafor",
+                            "gender": "female",
+                            "born": {
+                              "value": "1960-01-22",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        },
+                        {
+                          "slot": {
+                            "personId": "emeka",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 3,
+                            "name": "Emeka Okafor",
+                            "gender": "male",
+                            "born": {
+                              "value": "1963-07-14",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": [
+                            {
+                              "bar": {
+                                "marriageId": "m_emeka_folasade",
+                                "generation": 3,
+                                "hostId": "emeka",
+                                "joiningId": "folasade",
+                                "joiningSlot": {
+                                  "personId": "folasade",
+                                  "kind": {
+                                    "kind": "canonical"
+                                  },
+                                  "generation": 3,
+                                  "name": "Folasade Okafor",
+                                  "gender": "female",
+                                  "born": {
+                                    "value": "1965-02-07",
+                                    "precision": "day",
+                                    "circa": false
+                                  }
+                                },
+                                "start": {
+                                  "value": "1990-08-15",
+                                  "precision": "day",
+                                  "circa": false
+                                },
+                                "ended": false
+                              },
+                              "children": [
+                                {
+                                  "slot": {
+                                    "personId": "ife",
+                                    "kind": {
+                                      "kind": "canonical"
+                                    },
+                                    "generation": 4,
+                                    "name": "Ife Okafor",
+                                    "gender": "other",
+                                    "born": {
+                                      "value": "1993-03-11",
+                                      "precision": "day",
+                                      "circa": false
+                                    }
+                                  },
+                                  "hostedMarriages": []
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "slot": {
+                    "personId": "kehinde",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Kehinde Adeyemi",
+                    "gender": "male",
+                    "born": {
+                      "value": "1936",
+                      "precision": "year",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": [
+                    {
+                      "bar": {
+                        "marriageId": "m_kehinde_simisola",
+                        "generation": 1,
+                        "hostId": "kehinde",
+                        "joiningId": "simisola",
+                        "joiningSlot": {
+                          "personId": "simisola",
+                          "kind": {
+                            "kind": "ghost",
+                            "reason": "pastMarriage"
+                          },
+                          "generation": 1,
+                          "name": "Simisola Bello",
+                          "gender": "female",
+                          "born": {
+                            "value": "1940-12-01",
+                            "precision": "day",
+                            "circa": false
+                          }
+                        },
+                        "start": {
+                          "value": "1962-01-15",
+                          "precision": "day",
+                          "circa": false
+                        },
+                        "end": {
+                          "value": "1975-08-09",
+                          "precision": "day",
+                          "circa": false
+                        },
+                        "endReason": "divorce",
+                        "ended": true
+                      },
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "dayo",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Dayo Adeyemi",
+                            "gender": "male",
+                            "born": {
+                              "value": "1965-03-08",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
+                    },
+                    {
+                      "bar": {
+                        "marriageId": "m_kehinde_titi",
+                        "generation": 1,
+                        "hostId": "kehinde",
+                        "joiningId": "titi",
+                        "joiningSlot": {
+                          "personId": "titi",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Titi Adeyemi",
+                          "gender": "female",
+                          "born": {
+                            "value": "1945-05-09",
+                            "precision": "day",
+                            "circa": false
+                          }
+                        },
+                        "start": {
+                          "value": "1978-05-22",
+                          "precision": "day",
+                          "circa": false
+                        },
+                        "ended": false
+                      },
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "lola",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Lola Adeyemi",
+                            "gender": "female",
+                            "born": {
+                              "value": "1980-10-25",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "comp-2",
+      "sourceOrder": 3362,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "simisola",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Simisola Bello",
+            "gender": "female",
+            "born": {
+              "value": "1940-12-01",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_simisola_femi",
+                "generation": 0,
+                "hostId": "simisola",
+                "joiningId": "femi",
+                "joiningSlot": {
+                  "personId": "femi",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Femi Bello",
+                  "gender": "male",
+                  "born": {
+                    "value": "1938-11-22",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1980-02-14",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "kunle",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Kunle Bello",
+                    "gender": "male",
+                    "born": {
+                      "value": "1982-12-30",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "babatunde",
+      "marriageId": "m_oludare_folake"
+    },
+    {
+      "kind": "birth",
+      "childId": "adunni",
+      "marriageId": "m_oludare_folake"
+    },
+    {
+      "kind": "birth",
+      "childId": "kehinde",
+      "marriageId": "m_oludare_folake"
+    },
+    {
+      "kind": "birth",
+      "childId": "chukwu",
+      "marriageId": "m_nnamdi_chiamaka"
+    },
+    {
+      "kind": "birth",
+      "childId": "chiamaka",
+      "marriageId": "m_obi_ngozi"
+    },
+    {
+      "kind": "birth",
+      "childId": "tunde",
+      "marriageId": "m_babatunde_yetunde"
+    },
+    {
+      "kind": "birth",
+      "childId": "bisi",
+      "marriageId": "m_babatunde_yetunde"
+    },
+    {
+      "kind": "birth",
+      "childId": "segun",
+      "marriageId": "m_babatunde_amaka"
+    },
+    {
+      "kind": "birth",
+      "childId": "ada",
+      "marriageId": "m_adunni_chukwu"
+    },
+    {
+      "kind": "birth",
+      "childId": "emeka",
+      "marriageId": "m_adunni_chukwu"
+    },
+    {
+      "kind": "birth",
+      "childId": "dayo",
+      "marriageId": "m_kehinde_simisola"
+    },
+    {
+      "kind": "birth",
+      "childId": "lola",
+      "marriageId": "m_kehinde_titi"
+    },
+    {
+      "kind": "birth",
+      "childId": "kunle",
+      "marriageId": "m_simisola_femi"
+    },
+    {
+      "kind": "adoption",
+      "childId": "zainab",
+      "marriageId": "m_tunde_halima",
+      "start": {
+        "value": "1988-06-04",
+        "precision": "day",
+        "circa": false
+      }
+    },
+    {
+      "kind": "birth",
+      "childId": "kemi",
+      "marriageId": "m_tunde_halima"
+    },
+    {
+      "kind": "birth",
+      "childId": "tobi",
+      "marriageId": "m_bisi_tunji"
+    },
+    {
+      "kind": "birth",
+      "childId": "ife",
+      "marriageId": "m_emeka_folasade"
+    },
+    {
+      "kind": "birth",
+      "childId": "dele",
+      "marriageId": "m_segun_ronke"
+    }
+  ]
+}

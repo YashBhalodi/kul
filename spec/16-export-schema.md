@@ -211,7 +211,7 @@ The failure envelope shape (§15.1) is unchanged in cytoscape mode — strict-on
 
 ### 15.11 Worked example
 
-For the source in [`examples/03-three-generations/three-generations.kul`](../examples/03-three-generations/three-generations.kul), a conforming exporter produces (line breaks added for readability):
+For a three-generation family — a founder couple, their daughter, and her two children — a conforming exporter produces (line breaks added for readability):
 
 ```json
 {

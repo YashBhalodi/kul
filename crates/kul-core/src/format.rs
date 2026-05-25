@@ -336,7 +336,7 @@ mod tests {
 
     #[test]
     fn person_with_extra_died_field_aligns_shared_columns_with_neighbor() {
-        // Reproduces the Gen 2 case from examples/03-three-generations/three-generations.kul:
+        // Two consecutive `person` lines, one carrying an extra `died:` field.
         // alice (no `died`) and bob (with `died`) are consecutive in the same
         // region. The user expects the columns they share — name, gender,
         // born — to line up; bob's extra `died:` cell sits past the shared

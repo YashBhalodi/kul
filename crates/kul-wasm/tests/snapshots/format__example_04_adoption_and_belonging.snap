@@ -1,0 +1,58 @@
+---
+source: crates/kul-wasm/tests/format.rs
+expression: formatted
+---
+# Adoption, and where a person belongs.
+#
+# The Mendoza household is built mostly by adoption. Carlos and Rosa
+# have one biological child, Mateo, and they adopt two more: Dalisay and
+# Bayani. In Kul, adopted and biological children are equal members of
+# the family — the only difference a reader sees is the connector style:
+# a biological link draws a solid edge, an adoption a dashed one.
+#
+# A person can carry several family ties at once — a `birth` and one or
+# more `adoption`s. Only one of them is *current*, chosen by a simple
+# priority: a current marriage first, else the most recent adoption, else
+# the birth family, else the person stands alone. Dalisay shows the full
+# chain: born to one couple, adopted by another whose adoption later
+# ended, and finally adopted by Carlos and Rosa. Her canonical card lives
+# with the Mendozas (her current family); each earlier tie stays in the
+# data and surfaces a faded child-ghost where it would have sat — a solid
+# one at her birth family, a dashed one at the earlier adoption.
+#
+# `gender:` takes `male`, `female`, or `other`, and is never drawn as a
+# shape or colour — Bayani's `gender:other` is just a label like any
+# name field.
+
+# ---- The Mendozas ----
+person carlos  name:"Carlos Mendoza"  gender:male    born:1973-02-18
+person rosa    name:"Rosa Mendoza"    gender:female  born:1975-09-24
+
+marriage m_carlos_rosa carlos rosa  start:2000-01-15
+
+# Mateo — biological child (solid edge).
+person mateo  name:"Mateo Mendoza"  gender:male  born:2003-05-10
+  birth m_carlos_rosa
+
+# Bayani — adopted, no birth family on record; the Mendozas are the only
+# (and therefore current) family.
+person bayani  name:"Bayani Mendoza"  gender:other  born:~1995
+  adoption m_carlos_rosa  start:2007-06-01
+
+# Dalisay — born to one couple, adopted by another, then by the Mendozas.
+person dalisay  name:"Dalisay Mendoza"  gender:female  born:1990-08-03
+  birth m_eduardo_luz
+  adoption m_tomas_elena  start:1994-04-20  end:1999-02-10
+  adoption m_carlos_rosa  start:2002-11-30
+
+# ---- Dalisay's birth family ----
+person eduardo  name:"Eduardo Reyes"  gender:male    born:1962-03-11
+person luz      name:"Luz Reyes"      gender:female  born:1965-12-02
+
+marriage m_eduardo_luz eduardo luz  start:1988-07-09
+
+# ---- Dalisay's earlier (ended) adoptive family ----
+person tomas  name:"Tomas Garcia"  gender:male    born:1958-06-25
+person elena  name:"Elena Garcia"  gender:female  born:1960-10-14
+
+marriage m_tomas_elena tomas elena  start:1985-03-01

@@ -53,7 +53,7 @@ fn project_dir(name: &str) -> PathBuf {
 fn validate_in_single_file_project_root_succeeds() {
     Command::cargo_bin("kul")
         .unwrap()
-        .current_dir(examples_dir().join("01-single-couple"))
+        .current_dir(examples_dir().join("01-nuclear-family"))
         .arg("validate")
         .assert()
         .success()
@@ -64,7 +64,7 @@ fn validate_in_single_file_project_root_succeeds() {
 fn validate_in_multi_file_project_root_succeeds() {
     Command::cargo_bin("kul")
         .unwrap()
-        .current_dir(examples_dir().join("07-multi-file-extended-family"))
+        .current_dir(examples_dir().join("08-multi-file-project"))
         .arg("validate")
         .assert()
         .success()
@@ -91,7 +91,7 @@ fn validate_rejects_positional_argument() {
     // bare path must trip the clap-level usage error (exit code 2).
     Command::cargo_bin("kul")
         .unwrap()
-        .current_dir(examples_dir().join("01-single-couple"))
+        .current_dir(examples_dir().join("01-nuclear-family"))
         .args(["validate", "some-file.kul"])
         .assert()
         .failure()
@@ -102,7 +102,7 @@ fn validate_rejects_positional_argument() {
 fn validate_quiet_suppresses_ok_line() {
     Command::cargo_bin("kul")
         .unwrap()
-        .current_dir(examples_dir().join("01-single-couple"))
+        .current_dir(examples_dir().join("01-nuclear-family"))
         .args(["validate", "--quiet"])
         .assert()
         .success()
@@ -357,7 +357,7 @@ fn validate_cross_file_duplicate_emits_see_also_footnote() {
 fn export_single_file_project_emits_success_envelope() {
     let output = Command::cargo_bin("kul")
         .unwrap()
-        .current_dir(examples_dir().join("01-single-couple"))
+        .current_dir(examples_dir().join("01-nuclear-family"))
         .arg("export")
         .output()
         .expect("run kul export");
@@ -376,7 +376,7 @@ fn export_single_file_project_emits_success_envelope() {
 fn export_multi_file_project_emits_one_envelope_with_unioned_graph() {
     let output = Command::cargo_bin("kul")
         .unwrap()
-        .current_dir(examples_dir().join("07-multi-file-extended-family"))
+        .current_dir(examples_dir().join("08-multi-file-project"))
         .arg("export")
         .output()
         .expect("run kul export");
@@ -413,7 +413,7 @@ fn export_multi_file_project_emits_one_envelope_with_unioned_graph() {
 fn export_with_positions_attaches_span_to_every_entity() {
     let output = Command::cargo_bin("kul")
         .unwrap()
-        .current_dir(examples_dir().join("02-nuclear-family"))
+        .current_dir(examples_dir().join("01-nuclear-family"))
         .args(["export", "--with-positions"])
         .output()
         .expect("run kul export --with-positions");
@@ -435,7 +435,7 @@ fn export_with_positions_attaches_span_to_every_entity() {
 fn export_default_omits_span_field() {
     let output = Command::cargo_bin("kul")
         .unwrap()
-        .current_dir(examples_dir().join("02-nuclear-family"))
+        .current_dir(examples_dir().join("01-nuclear-family"))
         .arg("export")
         .output()
         .expect("run kul export");
@@ -451,7 +451,7 @@ fn export_default_omits_span_field() {
 fn export_format_cytoscape_emits_nodes_and_edges() {
     let output = Command::cargo_bin("kul")
         .unwrap()
-        .current_dir(examples_dir().join("02-nuclear-family"))
+        .current_dir(examples_dir().join("01-nuclear-family"))
         .args(["export", "--format", "cytoscape"])
         .output()
         .expect("run kul export --format cytoscape");
@@ -461,8 +461,8 @@ fn export_format_cytoscape_emits_nodes_and_edges() {
     assert_eq!(env["ok"], true);
     let nodes = env["graph"]["nodes"].as_array().expect("nodes array");
     let edges = env["graph"]["edges"].as_array().expect("edges array");
-    assert!(nodes.iter().any(|n| n["data"]["id"] == "p:alice"));
-    assert!(nodes.iter().any(|n| n["data"]["id"] == "m:m_alice_bob"));
+    assert!(nodes.iter().any(|n| n["data"]["id"] == "p:hiroshi"));
+    assert!(nodes.iter().any(|n| n["data"]["id"] == "m:m_hiroshi_yuki"));
     assert!(edges.iter().any(|e| e["data"]["type"] == "spouse"));
     assert!(
         edges

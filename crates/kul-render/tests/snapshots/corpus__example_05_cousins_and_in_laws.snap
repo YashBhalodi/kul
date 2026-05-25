@@ -1,0 +1,320 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 2,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 1422,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "giuseppe",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Giuseppe Rossi",
+            "gender": "male",
+            "born": {
+              "value": "1940-05-19",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_giuseppe_sofia",
+                "generation": 0,
+                "hostId": "giuseppe",
+                "joiningId": "sofia",
+                "joiningSlot": {
+                  "personId": "sofia",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Sofia Rossi",
+                  "gender": "female",
+                  "born": {
+                    "value": "1943-01-27",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1965-06-12",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "marco",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Marco Rossi",
+                    "gender": "male",
+                    "born": {
+                      "value": "1968-09-30",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": [
+                    {
+                      "bar": {
+                        "marriageId": "m_marco_elena",
+                        "generation": 1,
+                        "hostId": "marco",
+                        "joiningId": "elena",
+                        "joiningSlot": {
+                          "personId": "elena",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Elena Bianchi",
+                          "gender": "female",
+                          "born": {
+                            "value": "1970-11-15",
+                            "precision": "day",
+                            "circa": false
+                          }
+                        },
+                        "start": {
+                          "value": "1995-07-22",
+                          "precision": "day",
+                          "circa": false
+                        },
+                        "ended": false,
+                        "joiningNestedBirthFamily": {
+                          "slot": {
+                            "personId": "aldo",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 0,
+                            "name": "Aldo Bianchi",
+                            "gender": "male",
+                            "born": {
+                              "value": "1942-08-03",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": [
+                            {
+                              "bar": {
+                                "marriageId": "m_aldo_bianca",
+                                "generation": 0,
+                                "hostId": "aldo",
+                                "joiningId": "bianca",
+                                "joiningSlot": {
+                                  "personId": "bianca",
+                                  "kind": {
+                                    "kind": "canonical"
+                                  },
+                                  "generation": 0,
+                                  "name": "Bianca Bianchi",
+                                  "gender": "female",
+                                  "born": {
+                                    "value": "1945-12-21",
+                                    "precision": "day",
+                                    "circa": false
+                                  }
+                                },
+                                "start": {
+                                  "value": "1967-05-30",
+                                  "precision": "day",
+                                  "circa": false
+                                },
+                                "ended": false
+                              },
+                              "children": [
+                                {
+                                  "slot": {
+                                    "personId": "elena",
+                                    "kind": {
+                                      "kind": "ghost",
+                                      "reason": "pastBirth"
+                                    },
+                                    "generation": 1,
+                                    "name": "Elena Bianchi",
+                                    "gender": "female",
+                                    "born": {
+                                      "value": "1970-11-15",
+                                      "precision": "day",
+                                      "circa": false
+                                    }
+                                  },
+                                  "hostedMarriages": []
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "matteo",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Matteo Rossi",
+                            "gender": "male",
+                            "born": {
+                              "value": "1997-02-14",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": [
+                            {
+                              "bar": {
+                                "marriageId": "m_matteo_giulia",
+                                "generation": 2,
+                                "hostId": "matteo",
+                                "joiningId": "giulia",
+                                "joiningSlot": {
+                                  "personId": "giulia",
+                                  "kind": {
+                                    "kind": "canonical"
+                                  },
+                                  "generation": 2,
+                                  "name": "Giulia Conti",
+                                  "gender": "female",
+                                  "born": {
+                                    "value": "1998-06-26",
+                                    "precision": "day",
+                                    "circa": false
+                                  }
+                                },
+                                "start": {
+                                  "value": "2020-09-12",
+                                  "precision": "day",
+                                  "circa": false
+                                },
+                                "ended": false
+                              },
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "slot": {
+                    "personId": "lucia",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Lucia Rossi",
+                    "gender": "female",
+                    "born": {
+                      "value": "1971-04-08",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": [
+                    {
+                      "bar": {
+                        "marriageId": "m_lucia_paolo",
+                        "generation": 1,
+                        "hostId": "lucia",
+                        "joiningId": "paolo",
+                        "joiningSlot": {
+                          "personId": "paolo",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Paolo Conti",
+                          "gender": "male",
+                          "born": {
+                            "value": "1969-03-17",
+                            "precision": "day",
+                            "circa": false
+                          }
+                        },
+                        "start": {
+                          "value": "1996-10-05",
+                          "precision": "day",
+                          "circa": false
+                        },
+                        "ended": false
+                      },
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "giulia",
+                            "kind": {
+                              "kind": "ghost",
+                              "reason": "pastBirth"
+                            },
+                            "generation": 2,
+                            "name": "Giulia Conti",
+                            "gender": "female",
+                            "born": {
+                              "value": "1998-06-26",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "marco",
+      "marriageId": "m_giuseppe_sofia"
+    },
+    {
+      "kind": "birth",
+      "childId": "lucia",
+      "marriageId": "m_giuseppe_sofia"
+    },
+    {
+      "kind": "birth",
+      "childId": "elena",
+      "marriageId": "m_aldo_bianca"
+    },
+    {
+      "kind": "birth",
+      "childId": "matteo",
+      "marriageId": "m_marco_elena"
+    },
+    {
+      "kind": "birth",
+      "childId": "giulia",
+      "marriageId": "m_lucia_paolo"
+    }
+  ]
+}

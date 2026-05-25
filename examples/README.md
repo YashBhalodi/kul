@@ -1,41 +1,36 @@
 # Examples
 
-Worked-example Kul projects that double as the **positive test corpus**. Each example is its own per-directory Kul project (one or more `.kul` files plus a sibling `kul.yml` manifest), and every example is exercised by integration tests in `crates/kul-core/tests/` and `crates/kul-cli/tests/` — they must always validate cleanly. If you add an example, the test suite will pull it in automatically; if you change one, snapshot tests will flag the diff.
+Worked-example Kul projects that double as the **positive test corpus**. Read top to bottom, they're a guided tour of the whole language — each builds on the last, from the smallest complete document to a full multi-generation dynasty. Each example is its own per-directory Kul project (one or more `.kul` files plus a sibling `kul.yml` manifest), and every one is exercised by integration tests across the workspace — they must always validate cleanly. Add an example and the test suite pulls it in automatically; change one and snapshot tests flag the diff.
 
-| Project                                                                                                  | Demonstrates                                                                                                   |
-| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| [`01-single-couple/single-couple.kul`](./01-single-couple/single-couple.kul)                             | Minimal shape: two persons + one ongoing marriage, no children.                                                |
-| [`02-nuclear-family/nuclear-family.kul`](./02-nuclear-family/nuclear-family.kul)                         | A `birth` sub-statement deriving parents from a marriage.                                                      |
-| [`03-three-generations/three-generations.kul`](./03-three-generations/three-generations.kul)             | Three generations, divorce (`end_reason`), retroactive adoption, circa date (`~1980`).                         |
-| [`04-polygamous-family/polygamous-family.kul`](./04-polygamous-family/polygamous-family.kul)             | Two concurrent marriages for one person; child of one of them.                                                 |
-| [`05-married-siblings/married-siblings.kul`](./05-married-siblings/married-siblings.kul)                 | Two sons of a couple, each themselves married; one block per marriage.                                         |
-| [`06-three-branch-dynasty/three-branch-dynasty.kul`](./06-three-branch-dynasty/three-branch-dynasty.kul) | Three-branch dynasty: founders, three married children, four married grandchildren spread across the branches. |
-| [`07-multi-file-extended-family/`](./07-multi-file-extended-family/)                                     | Multi-file project: three `.kul` files (founders / parents / grandchildren) sharing one project namespace with cross-file `birth` references. |
-| [`08-divorce-and-remarriage/divorce-and-remarriage.kul`](./08-divorce-and-remarriage/divorce-and-remarriage.kul)                         | Divorce, both ex-spouses remarry with new children; past-marriage child-anchoring ghosts. |
-| [`09-multi-adoption/multi-adoption.kul`](./09-multi-adoption/multi-adoption.kul)                         | Multiple adoptions for one child; the chain selects the most-recent as canonical and emits a child-ghost at each past adoption. |
-| [`10-disconnected-lineages-and-orphan/disconnected-lineages-and-orphan.kul`](./10-disconnected-lineages-and-orphan/disconnected-lineages-and-orphan.kul) | Three disconnected components (two lineages plus an orphan) sorted in source order. |
-| [`11-cousin-marriage/cousin-marriage.kul`](./11-cousin-marriage/cousin-marriage.kul)                     | First-cousin marriage exercising the within-family absorb rule. |
-| [`12-polygamy-with-birth-family/polygamy-with-birth-family.kul`](./12-polygamy-with-birth-family/polygamy-with-birth-family.kul) | Pure-host polygamy embedded in a multi-generation tree; multiple concurrent marriages share one canonical card. |
-| [`13-inter-family-marriage/inter-family-marriage.kul`](./13-inter-family-marriage/inter-family-marriage.kul) | Two unrelated birth families joined via a marriage; pure recursive nesting of the joining spouse's birth family adjacent to the host tree (the absorb rule). |
-| [`15-polygamy-with-three-wives/polygamy-with-three-wives.kul`](./15-polygamy-with-three-wives/polygamy-with-three-wives.kul) | N=3 polygamy hub: three concurrent marriages on one person, one child per marriage. Exercises the fan rendering primitive (ADR-0020) at N=3 and per-marriage child attachment. |
+| Project | Demonstrates |
+| ------- | ------------ |
+| [`01-nuclear-family/`](./01-nuclear-family/nuclear-family.kul) | The three core constructs — `person`, `marriage`, and the `birth` sub-statement: a couple and their two children. |
+| [`02-three-generations/`](./02-three-generations/three-generations.kul) | Generational depth; the full range of date precision (`YYYY-MM-DD` / `YYYY-MM` / `YYYY` / circa `~`); `family:` / `given:`; and `died:`, which records a death without ending the marriage (a widow stays in her family). |
+| [`03-divorce-and-remarriage/`](./03-divorce-and-remarriage/divorce-and-remarriage.kul) | `end:` / `end_reason:`; a person in more than one marriage over time; a blended family whose first marriage is held in place by ghosts. |
+| [`04-adoption-and-belonging/`](./04-adoption-and-belonging/adoption-and-belonging.kul) | The `adoption` sub-statement (with `start:` / `end:`); a person carrying both a `birth` and several adoptions; adopted and biological siblings as equal members; `gender:other`. |
+| [`05-cousins-and-in-laws/`](./05-cousins-and-in-laws/cousins-and-in-laws.kul) | The host rule shown both ways in one extended family: a spouse who marries in from another family, and a marriage between two cousins already in the tree. |
+| [`06-polygamous-household/`](./06-polygamous-household/polygamous-household.kul) | Concurrent marriages: one person married to three others at once, and rule R14 (the hub must host every concurrent marriage). |
+| [`07-disconnected-lineages/`](./07-disconnected-lineages/disconnected-lineages.kul) | Several unrelated families in one document, plus a lone individual with no ties — and how source order arranges them. |
+| [`08-multi-file-project/`](./08-multi-file-project/) | A project split across three `.kul` files in one flat namespace, with `birth` lines referencing marriages declared in sibling files. |
+| [`09-family-across-a-century/`](./09-family-across-a-century/family-across-a-century.kul) | The capstone: a ~30-person dynasty combining every construct above — widowhood, polygamy, divorce and remarriage, adoption, marrying-in from other families, mixed dates, `gender:other`. |
 
 ## Layout
 
-Each example is a self-contained Kul project: a numbered subdirectory of `examples/` carrying one or more `.kul` files plus a sibling `kul.yml` manifest. Single-file examples (01–06) keep the historical one-file-per-project shape; the multi-file example (`07-multi-file-extended-family/`) demonstrates the project-wide namespace landed by [ADR-0015](../docs/adr/0015-global-project-namespace.md) — every `.kul` file in the directory shares one logical namespace, with cross-file `birth` references resolving by bare id.
+Each example is a self-contained Kul project: a numbered subdirectory of `examples/` carrying one or more `.kul` files plus a sibling `kul.yml` manifest. Most examples are single-file; the multi-file example (`08-multi-file-project/`) demonstrates the project-wide namespace landed by [ADR-0015](../docs/adr/0015-global-project-namespace.md) — every `.kul` file in the directory shares one logical namespace, with cross-file `birth` references resolving by bare id.
 
 ```
 examples/
-├── 01-single-couple/
-│   ├── kul.yml
-│   └── single-couple.kul
-├── 02-nuclear-family/
+├── 01-nuclear-family/
 │   ├── kul.yml
 │   └── nuclear-family.kul
+├── 02-three-generations/
+│   ├── kul.yml
+│   └── three-generations.kul
 ├── …
-└── 07-multi-file-extended-family/
+└── 08-multi-file-project/
     ├── kul.yml
     ├── 01-founders.kul
-    ├── 02-parents.kul
+    ├── 02-children.kul
     └── 03-grandchildren.kul
 ```
 
@@ -44,8 +39,8 @@ examples/
 The CLI's `validate`, `format`, and `export` subcommands are CWD-rooted (issue #83) — each operates on the project rooted at the current working directory. From the repo root:
 
 ```sh
-(cd examples/01-single-couple && kul validate)
-(cd examples/07-multi-file-extended-family && kul validate)  # multi-file project
+(cd examples/01-nuclear-family && kul validate)
+(cd examples/08-multi-file-project && kul validate)  # multi-file project
 ```
 
 Every example must exit `0`. Anything that doesn't is either a regression or a new spec rule that hasn't been propagated to the corpus yet.
@@ -53,9 +48,10 @@ Every example must exit `0`. Anything that doesn't is either a regression or a n
 ## Conventions
 
 - Directory names: `NN-short-slug/`, where `NN` orders by complexity (smallest first).
-- Single-file examples: the `.kul` file inside the directory drops the `NN-` prefix (e.g. `01-single-couple/single-couple.kul`).
-- Multi-file examples: each `.kul` file is named by the slice of the project it carries, prefixed with `NN-` so alphabetic file order matches reading order (e.g. `01-founders.kul`, `02-parents.kul`); the directory itself carries the example number.
+- Single-file examples: the `.kul` file inside the directory drops the `NN-` prefix (e.g. `01-nuclear-family/nuclear-family.kul`).
+- Multi-file examples: each `.kul` file is named by the slice of the project it carries, prefixed with `NN-` so alphabetic file order matches reading order (e.g. `01-founders.kul`, `02-children.kul`); the directory itself carries the example number.
 - Each `.kul` file starts with a header comment summarizing what it demonstrates.
+- Each example is a distinct, internally-coherent family — names don't carry across examples, so each reads on its own.
 - Each example is **self-contained** — every referenced ID is declared within that example's project directory (single file or sibling files in the same directory).
 - Each example is a **happy path** — examples must validate cleanly. Negative fixtures live next to their tests in `crates/kul-core/tests/`, not here.
 

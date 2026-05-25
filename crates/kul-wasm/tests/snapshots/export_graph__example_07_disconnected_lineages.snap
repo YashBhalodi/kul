@@ -1,0 +1,173 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "jinho",
+        "name": "Jin-ho Park",
+        "gender": "male",
+        "born": {
+          "value": "1960-04-12",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "soojin",
+        "name": "Soo-jin Park",
+        "gender": "female",
+        "born": {
+          "value": "1963-08-25",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "minjun",
+        "name": "Min-jun Park",
+        "gender": "male",
+        "born": {
+          "value": "1990-07-03",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "nadia",
+        "name": "Nadia Haddad",
+        "gender": "female",
+        "born": {
+          "value": "1985",
+          "precision": "year",
+          "circa": true
+        }
+      },
+      {
+        "id": "bruno",
+        "name": "Bruno Costa",
+        "gender": "male",
+        "born": {
+          "value": "1955-02-09",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "helena",
+        "name": "Helena Costa",
+        "gender": "female",
+        "born": {
+          "value": "1958-11-28",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "tiago",
+        "name": "Tiago Costa",
+        "gender": "male",
+        "born": {
+          "value": "1982-09-15",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "beatriz",
+        "name": "Beatriz Costa",
+        "gender": "female",
+        "born": {
+          "value": "1985-03-30",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "carla",
+        "name": "Carla Costa",
+        "gender": "female",
+        "born": {
+          "value": "1984-12-05",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "lucas",
+        "name": "Lucas Costa",
+        "gender": "male",
+        "born": {
+          "value": "2012-04-22",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_jinho_soojin",
+        "spouses": [
+          "jinho",
+          "soojin"
+        ],
+        "start": {
+          "value": "1988-05-14",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_bruno_helena",
+        "spouses": [
+          "bruno",
+          "helena"
+        ],
+        "start": {
+          "value": "1980-06-21",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_tiago_carla",
+        "spouses": [
+          "tiago",
+          "carla"
+        ],
+        "start": {
+          "value": "2010-10-16",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_jinho_soojin",
+        "childId": "minjun",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_bruno_helena",
+        "childId": "tiago",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_bruno_helena",
+        "childId": "beatriz",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_tiago_carla",
+        "childId": "lucas",
+        "kind": "biological"
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+---
+source: crates/kul-wasm/tests/format.rs
+expression: formatted
+---
+# File 2 of 3: the founders' children and the families they start.
+#
+# Sofía and Javier reference `m_diego_carmen` — declared in 01-founders.kul
+# — by bare id. The marriages they host (m_sofia_ricardo, m_javier_pilar)
+# are in turn referenced by the grandchildren in 03-grandchildren.kul.
+
+person sofia   name:"Sofía Fernández"   gender:female  born:1962-05-08
+  birth m_diego_carmen
+person javier  name:"Javier Fernández"  gender:male    born:1965-09-23
+  birth m_diego_carmen
+
+person ricardo  name:"Ricardo Moreno"  gender:male    born:1960-01-30
+person pilar    name:"Pilar Navarro"   gender:female  born:1968-11-12
+
+marriage m_sofia_ricardo sofia  ricardo  start:1985-06-15
+marriage m_javier_pilar  javier pilar    start:1990-04-27

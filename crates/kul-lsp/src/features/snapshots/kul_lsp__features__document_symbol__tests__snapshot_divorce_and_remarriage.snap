@@ -1,0 +1,334 @@
+---
+source: crates/kul-lsp/src/features/document_symbol.rs
+expression: syms
+---
+[
+  {
+    "name": "Erik Lindqvist",
+    "detail": "b. 1970",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 20,
+        "character": 0
+      },
+      "end": {
+        "line": 20,
+        "character": 70
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 20,
+        "character": 7
+      },
+      "end": {
+        "line": 20,
+        "character": 11
+      }
+    }
+  },
+  {
+    "name": "Astrid Lindqvist",
+    "detail": "b. 1972",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 21,
+        "character": 0
+      },
+      "end": {
+        "line": 21,
+        "character": 70
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 21,
+        "character": 7
+      },
+      "end": {
+        "line": 21,
+        "character": 13
+      }
+    }
+  },
+  {
+    "name": "Erik Lindqvist & Astrid Lindqvist",
+    "detail": "1995–2003",
+    "kind": 24,
+    "range": {
+      "start": {
+        "line": 23,
+        "character": 0
+      },
+      "end": {
+        "line": 23,
+        "character": 88
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 23,
+        "character": 9
+      },
+      "end": {
+        "line": 23,
+        "character": 22
+      }
+    }
+  },
+  {
+    "name": "Linnea Lindqvist",
+    "detail": "b. 1998",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 25,
+        "character": 0
+      },
+      "end": {
+        "line": 26,
+        "character": 21
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 25,
+        "character": 7
+      },
+      "end": {
+        "line": 25,
+        "character": 13
+      }
+    },
+    "children": [
+      {
+        "name": "birth m_erik_astrid",
+        "kind": 8,
+        "range": {
+          "start": {
+            "line": 26,
+            "character": 2
+          },
+          "end": {
+            "line": 26,
+            "character": 21
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 26,
+            "character": 2
+          },
+          "end": {
+            "line": 26,
+            "character": 7
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Maja Holm",
+    "detail": "b. 1975",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 29,
+        "character": 0
+      },
+      "end": {
+        "line": 29,
+        "character": 61
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 29,
+        "character": 7
+      },
+      "end": {
+        "line": 29,
+        "character": 11
+      }
+    }
+  },
+  {
+    "name": "Erik Lindqvist & Maja Holm",
+    "detail": "2006",
+    "kind": 24,
+    "range": {
+      "start": {
+        "line": 31,
+        "character": 0
+      },
+      "end": {
+        "line": 31,
+        "character": 48
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 31,
+        "character": 9
+      },
+      "end": {
+        "line": 31,
+        "character": 20
+      }
+    }
+  },
+  {
+    "name": "Oskar Lindqvist",
+    "detail": "b. 2008",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 33,
+        "character": 0
+      },
+      "end": {
+        "line": 34,
+        "character": 19
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 33,
+        "character": 7
+      },
+      "end": {
+        "line": 33,
+        "character": 12
+      }
+    },
+    "children": [
+      {
+        "name": "birth m_erik_maja",
+        "kind": 8,
+        "range": {
+          "start": {
+            "line": 34,
+            "character": 2
+          },
+          "end": {
+            "line": 34,
+            "character": 19
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 34,
+            "character": 2
+          },
+          "end": {
+            "line": 34,
+            "character": 7
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Johan Berg",
+    "detail": "b. 1971",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 37,
+        "character": 0
+      },
+      "end": {
+        "line": 37,
+        "character": 61
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 37,
+        "character": 7
+      },
+      "end": {
+        "line": 37,
+        "character": 12
+      }
+    }
+  },
+  {
+    "name": "Astrid Lindqvist & Johan Berg",
+    "detail": "2007",
+    "kind": 24,
+    "range": {
+      "start": {
+        "line": 39,
+        "character": 0
+      },
+      "end": {
+        "line": 39,
+        "character": 54
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 39,
+        "character": 9
+      },
+      "end": {
+        "line": 39,
+        "character": 23
+      }
+    }
+  },
+  {
+    "name": "Frida Berg",
+    "detail": "b. 2010",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 41,
+        "character": 0
+      },
+      "end": {
+        "line": 42,
+        "character": 22
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 41,
+        "character": 7
+      },
+      "end": {
+        "line": 41,
+        "character": 12
+      }
+    },
+    "children": [
+      {
+        "name": "birth m_astrid_johan",
+        "kind": 8,
+        "range": {
+          "start": {
+            "line": 42,
+            "character": 2
+          },
+          "end": {
+            "line": 42,
+            "character": 22
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 42,
+            "character": 2
+          },
+          "end": {
+            "line": 42,
+            "character": 7
+          }
+        }
+      }
+    ]
+  }
+]

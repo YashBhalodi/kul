@@ -1,0 +1,282 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "giuseppe",
+        "name": "Giuseppe Rossi",
+        "gender": "male",
+        "born": {
+          "value": "1940-05-19",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1279,
+          1349
+        ]
+      },
+      {
+        "id": "sofia",
+        "name": "Sofia Rossi",
+        "gender": "female",
+        "born": {
+          "value": "1943-01-27",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1350,
+          1420
+        ]
+      },
+      {
+        "id": "marco",
+        "name": "Marco Rossi",
+        "gender": "male",
+        "born": {
+          "value": "1968-09-30",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1482,
+          1571
+        ]
+      },
+      {
+        "id": "lucia",
+        "name": "Lucia Rossi",
+        "gender": "female",
+        "born": {
+          "value": "1971-04-08",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1572,
+          1661
+        ]
+      },
+      {
+        "id": "elena",
+        "name": "Elena Bianchi",
+        "gender": "female",
+        "born": {
+          "value": "1970-11-15",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1730,
+          1818
+        ]
+      },
+      {
+        "id": "matteo",
+        "name": "Matteo Rossi",
+        "gender": "male",
+        "born": {
+          "value": "1997-02-14",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1874,
+          1960
+        ]
+      },
+      {
+        "id": "aldo",
+        "name": "Aldo Bianchi",
+        "gender": "male",
+        "born": {
+          "value": "1942-08-03",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2039,
+          2107
+        ]
+      },
+      {
+        "id": "bianca",
+        "name": "Bianca Bianchi",
+        "gender": "female",
+        "born": {
+          "value": "1945-12-21",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2108,
+          2176
+        ]
+      },
+      {
+        "id": "paolo",
+        "name": "Paolo Conti",
+        "gender": "male",
+        "born": {
+          "value": "1969-03-17",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2264,
+          2326
+        ]
+      },
+      {
+        "id": "giulia",
+        "name": "Giulia Conti",
+        "gender": "female",
+        "born": {
+          "value": "1998-06-26",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2382,
+          2470
+        ]
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_giuseppe_sofia",
+        "spouses": [
+          "giuseppe",
+          "sofia"
+        ],
+        "start": {
+          "value": "1965-06-12",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1422,
+          1480
+        ]
+      },
+      {
+        "id": "m_marco_elena",
+        "spouses": [
+          "marco",
+          "elena"
+        ],
+        "start": {
+          "value": "1995-07-22",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1820,
+          1872
+        ]
+      },
+      {
+        "id": "m_aldo_bianca",
+        "spouses": [
+          "aldo",
+          "bianca"
+        ],
+        "start": {
+          "value": "1967-05-30",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2178,
+          2230
+        ]
+      },
+      {
+        "id": "m_lucia_paolo",
+        "spouses": [
+          "lucia",
+          "paolo"
+        ],
+        "start": {
+          "value": "1996-10-05",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2328,
+          2380
+        ]
+      },
+      {
+        "id": "m_matteo_giulia",
+        "spouses": [
+          "matteo",
+          "giulia"
+        ],
+        "start": {
+          "value": "2020-09-12",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2669,
+          2725
+        ]
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_giuseppe_sofia",
+        "childId": "marco",
+        "kind": "biological",
+        "span": [
+          1549,
+          1571
+        ]
+      },
+      {
+        "marriageId": "m_giuseppe_sofia",
+        "childId": "lucia",
+        "kind": "biological",
+        "span": [
+          1639,
+          1661
+        ]
+      },
+      {
+        "marriageId": "m_aldo_bianca",
+        "childId": "elena",
+        "kind": "biological",
+        "span": [
+          1799,
+          1818
+        ]
+      },
+      {
+        "marriageId": "m_marco_elena",
+        "childId": "matteo",
+        "kind": "biological",
+        "span": [
+          1941,
+          1960
+        ]
+      },
+      {
+        "marriageId": "m_lucia_paolo",
+        "childId": "giulia",
+        "kind": "biological",
+        "span": [
+          2451,
+          2470
+        ]
+      }
+    ]
+  }
+}

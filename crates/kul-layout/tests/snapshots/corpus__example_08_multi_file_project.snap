@@ -1,0 +1,150 @@
+---
+source: crates/kul-layout/tests/corpus.rs
+expression: yaml
+---
+width: 780.0
+height: 432.0
+cards:
+- person_id: diego
+  kind: canonical
+  x: 215.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Diego Fernández
+- person_id: carmen
+  kind: canonical
+  x: 405.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Carmen Fernández
+- person_id: sofia
+  kind: canonical
+  x: 24.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Sofía Fernández
+- person_id: ricardo
+  kind: canonical
+  x: 214.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Ricardo Moreno
+- person_id: mateo
+  kind: canonical
+  x: 119.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Mateo Moreno
+- person_id: javier
+  kind: canonical
+  x: 406.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Javier Fernández
+- person_id: pilar
+  kind: canonical
+  x: 596.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Pilar Navarro
+- person_id: lucia
+  kind: canonical
+  x: 501.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Lucía Fernández
+edges:
+- kind: birth
+  routing: in_tree
+  child_id: sofia
+  marriage_id: m_diego_carmen
+  points:
+  - - 390.0
+    - 56.0
+  - - 390.0
+    - 156.0
+  - - 104.0
+    - 156.0
+  - - 104.0
+    - 184.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: javier
+  marriage_id: m_diego_carmen
+  points:
+  - - 390.0
+    - 56.0
+  - - 390.0
+    - 156.0
+  - - 486.0
+    - 156.0
+  - - 486.0
+    - 184.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: mateo
+  marriage_id: m_sofia_ricardo
+  points:
+  - - 199.0
+    - 216.0
+  - - 199.0
+    - 316.0
+  - - 199.0
+    - 316.0
+  - - 199.0
+    - 344.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: lucia
+  marriage_id: m_javier_pilar
+  points:
+  - - 581.0
+    - 216.0
+  - - 581.0
+    - 316.0
+  - - 581.0
+    - 316.0
+  - - 581.0
+    - 344.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: carmen
+  marriage_id: m_diego_carmen
+  points:
+  - - 375.0
+    - 56.0
+  - - 405.0
+    - 56.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: ricardo
+  marriage_id: m_sofia_ricardo
+  points:
+  - - 184.0
+    - 216.0
+  - - 214.0
+    - 216.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: pilar
+  marriage_id: m_javier_pilar
+  points:
+  - - 566.0
+    - 216.0
+  - - 596.0
+    - 216.0
+  ended: false

@@ -1,0 +1,153 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "diego",
+        "name": "Diego Fernández",
+        "gender": "male",
+        "born": {
+          "value": "1935",
+          "precision": "year",
+          "circa": true
+        }
+      },
+      {
+        "id": "carmen",
+        "name": "Carmen Fernández",
+        "gender": "female",
+        "born": {
+          "value": "1938-07-19",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "sofia",
+        "name": "Sofía Fernández",
+        "gender": "female",
+        "born": {
+          "value": "1962-05-08",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "javier",
+        "name": "Javier Fernández",
+        "gender": "male",
+        "born": {
+          "value": "1965-09-23",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "ricardo",
+        "name": "Ricardo Moreno",
+        "gender": "male",
+        "born": {
+          "value": "1960-01-30",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "pilar",
+        "name": "Pilar Navarro",
+        "gender": "female",
+        "born": {
+          "value": "1968-11-12",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "mateo",
+        "name": "Mateo Moreno",
+        "gender": "male",
+        "born": {
+          "value": "1987-08-04",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "lucia",
+        "name": "Lucía Fernández",
+        "gender": "female",
+        "born": {
+          "value": "1992-03-18",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_diego_carmen",
+        "spouses": [
+          "diego",
+          "carmen"
+        ],
+        "start": {
+          "value": "1960-02-14",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_sofia_ricardo",
+        "spouses": [
+          "sofia",
+          "ricardo"
+        ],
+        "start": {
+          "value": "1985-06-15",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_javier_pilar",
+        "spouses": [
+          "javier",
+          "pilar"
+        ],
+        "start": {
+          "value": "1990-04-27",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_diego_carmen",
+        "childId": "sofia",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_diego_carmen",
+        "childId": "javier",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_sofia_ricardo",
+        "childId": "mateo",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_javier_pilar",
+        "childId": "lucia",
+        "kind": "biological"
+      }
+    ]
+  }
+}

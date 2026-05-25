@@ -1,0 +1,55 @@
+---
+source: crates/kul-svg/tests/corpus.rs
+expression: svg
+---
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 592" width="1360" height="592">
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 680 56 L 680 156 L 680 156 L 680 184"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 392 316 L 392 476 L 392 476 L 392 504"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 584 316 L 584 476 L 584 476 L 584 504"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 968 316 L 968 466 Q 968 476 958 476 L 882 476 Q 872 476 872 486 L 872 504"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 968 316 L 968 466 Q 968 476 978 476 L 1054 476 Q 1064 476 1064 486 L 1064 504"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 665 56 L 695 56"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 680 248 L 680 306 Q 680 316 670 316 L 114 316 Q 104 316 104 326 L 104 344"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 680 248 L 680 306 Q 680 316 670 316 L 498 316 Q 488 316 488 326 L 488 344"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 680 248 L 680 306 Q 680 316 690 316 L 1246 316 Q 1256 316 1256 326 L 1256 344"/>
+<g class="kul-card kul-card--canonical">
+<rect x="505" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="585" y="56" text-anchor="middle" dominant-baseline="central">Omar Al-Rashid</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="695" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="775" y="56" text-anchor="middle" dominant-baseline="central">Fatima Al-Rashid</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="600" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="680" y="216" text-anchor="middle" dominant-baseline="central">Khalid Al-Rashid</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="24" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="104" y="376" text-anchor="middle" dominant-baseline="central">Aisha Al-Rashid</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="408" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="488" y="376" text-anchor="middle" dominant-baseline="central">Layla Al-Rashid</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="1176" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="1256" y="376" text-anchor="middle" dominant-baseline="central">Mariam Al-Rashid</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="312" y="504" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="392" y="536" text-anchor="middle" dominant-baseline="central">Yusuf Al-Rashid</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="504" y="504" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="584" y="536" text-anchor="middle" dominant-baseline="central">Zahra Al-Rashid</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="792" y="504" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="872" y="536" text-anchor="middle" dominant-baseline="central">Hassan Al-Rashid</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="984" y="504" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="1064" y="536" text-anchor="middle" dominant-baseline="central">Noor Al-Rashid</text>
+</g>
+</svg>

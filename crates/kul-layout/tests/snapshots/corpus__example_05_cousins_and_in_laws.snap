@@ -1,0 +1,212 @@
+---
+source: crates/kul-layout/tests/corpus.rs
+expression: yaml
+---
+width: 1162.0
+height: 432.0
+cards:
+- person_id: giuseppe
+  kind: canonical
+  x: 215.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Giuseppe Rossi
+- person_id: sofia
+  kind: canonical
+  x: 405.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Sofia Rossi
+- person_id: marco
+  kind: canonical
+  x: 24.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Marco Rossi
+- person_id: elena
+  kind: canonical
+  x: 214.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Elena Bianchi
+- person_id: aldo
+  kind: canonical
+  x: 788.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Aldo Bianchi
+- person_id: bianca
+  kind: canonical
+  x: 978.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Bianca Bianchi
+- person_id: elena
+  kind: ghost:past_birth
+  x: 883.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Elena Bianchi
+- person_id: matteo
+  kind: canonical
+  x: 24.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Matteo Rossi
+- person_id: giulia
+  kind: canonical
+  x: 214.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Giulia Conti
+- person_id: lucia
+  kind: canonical
+  x: 406.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Lucia Rossi
+- person_id: paolo
+  kind: canonical
+  x: 596.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Paolo Conti
+- person_id: giulia
+  kind: ghost:past_birth
+  x: 501.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Giulia Conti
+edges:
+- kind: birth
+  routing: in_tree
+  child_id: marco
+  marriage_id: m_giuseppe_sofia
+  points:
+  - - 390.0
+    - 56.0
+  - - 390.0
+    - 156.0
+  - - 104.0
+    - 156.0
+  - - 104.0
+    - 184.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: lucia
+  marriage_id: m_giuseppe_sofia
+  points:
+  - - 390.0
+    - 56.0
+  - - 390.0
+    - 156.0
+  - - 486.0
+    - 156.0
+  - - 486.0
+    - 184.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: elena
+  marriage_id: m_aldo_bianca
+  points:
+  - - 963.0
+    - 56.0
+  - - 963.0
+    - 156.0
+  - - 963.0
+    - 156.0
+  - - 963.0
+    - 184.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: matteo
+  marriage_id: m_marco_elena
+  points:
+  - - 199.0
+    - 216.0
+  - - 199.0
+    - 316.0
+  - - 104.0
+    - 316.0
+  - - 104.0
+    - 344.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: giulia
+  marriage_id: m_lucia_paolo
+  points:
+  - - 581.0
+    - 216.0
+  - - 581.0
+    - 316.0
+  - - 581.0
+    - 316.0
+  - - 581.0
+    - 344.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: sofia
+  marriage_id: m_giuseppe_sofia
+  points:
+  - - 375.0
+    - 56.0
+  - - 405.0
+    - 56.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: elena
+  marriage_id: m_marco_elena
+  points:
+  - - 184.0
+    - 216.0
+  - - 214.0
+    - 216.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: bianca
+  marriage_id: m_aldo_bianca
+  points:
+  - - 948.0
+    - 56.0
+  - - 978.0
+    - 56.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: giulia
+  marriage_id: m_matteo_giulia
+  points:
+  - - 184.0
+    - 376.0
+  - - 214.0
+    - 376.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: paolo
+  marriage_id: m_lucia_paolo
+  points:
+  - - 566.0
+    - 216.0
+  - - 596.0
+    - 216.0
+  ended: false

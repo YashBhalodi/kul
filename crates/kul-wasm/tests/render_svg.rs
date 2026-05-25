@@ -2,9 +2,9 @@
 //!
 //! Three contracts:
 //!
-//! - **Per-example snapshot** for `examples/03-three-generations/` locks
+//! - **Per-example snapshot** for `examples/02-three-generations/` locks
 //!   the envelope shape (an `ok: true` envelope carrying the canonical
-//!   SVG) for the v1 tracer example called out by the PRD. Follow-up
+//!   SVG) for a representative example. Follow-up
 //!   issues extend the snapshotted set one example at a time.
 //! - **Cross-surface bit-identical** asserts that the pretty-printed
 //!   JSON of the WASM `renderSvg` envelope equals the pretty-printed
@@ -99,12 +99,12 @@ fn direct_pipeline_json(inputs: &[InputFile]) -> String {
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 
-/// v1 tracer per the PRD: `examples/03-three-generations/` is the only
+/// v1 tracer per the PRD: `examples/02-three-generations/` is the only
 /// example whose SVG snapshot is committed today. Follow-up issues
 /// extend the snapshotted set one pattern-primitive at a time.
 #[test]
-fn example_03_three_generations() {
-    let inputs = project_inputs(&examples_dir().join("03-three-generations"));
+fn example_02_three_generations() {
+    let inputs = project_inputs(&examples_dir().join("02-three-generations"));
     let json = render_svg_json(&inputs);
     insta::assert_snapshot!(json);
 }
@@ -139,17 +139,17 @@ fn cross_surface_json_is_bit_identical_for_every_example() {
 #[test]
 fn wasm_abi_signature_round_trips_to_render_svg_with() {
     let path = examples_dir()
-        .join("01-single-couple")
-        .join("single-couple.kul");
+        .join("01-nuclear-family")
+        .join("nuclear-family.kul");
     let source = read(&path);
     let manifest = kul_core::manifest::Manifest::default();
     let files = vec![WasmInputFile {
-        name: "single-couple.kul".into(),
+        name: "nuclear-family.kul".into(),
         source: source.clone(),
     }];
     let via_abi = kul_wasm::render_svg(files, manifest.clone());
     let via_native =
-        kul_wasm::render_svg_with(&[InputFile::new("single-couple.kul", source)], &manifest);
+        kul_wasm::render_svg_with(&[InputFile::new("nuclear-family.kul", source)], &manifest);
     let abi_json = serde_json::to_string_pretty(&via_abi).expect("abi");
     let native_json = serde_json::to_string_pretty(&via_native).expect("native");
     assert_eq!(abi_json, native_json);

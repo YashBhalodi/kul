@@ -25,7 +25,7 @@
 //!
 //! ## Why bother
 //!
-//! v1's tracer (`examples/03-three-generations/`) does not trigger
+//! No corpus example triggers
 //! sibling-subtree overlap. Walker is in place anyway so the next
 //! follow-up issue that *does* introduce overlap (multi-branch
 //! dynasties under source order, cousin-marriage under the absorb rule) lands without

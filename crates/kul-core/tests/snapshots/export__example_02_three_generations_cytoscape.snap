@@ -1,0 +1,173 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "nodes": [
+      {
+        "data": {
+          "id": "p:chinua",
+          "type": "person",
+          "name": "Chinua Okeke",
+          "family": "Okeke",
+          "given": "Chinua",
+          "gender": "male",
+          "born": {
+            "value": "1925",
+            "precision": "year",
+            "circa": true
+          },
+          "died": {
+            "value": "1998-05-12",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:adaeze",
+          "type": "person",
+          "name": "Adaeze Okeke",
+          "family": "Okeke",
+          "given": "Adaeze",
+          "gender": "female",
+          "born": {
+            "value": "1930-03",
+            "precision": "month",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:emeka",
+          "type": "person",
+          "name": "Emeka Okeke",
+          "gender": "male",
+          "born": {
+            "value": "1950",
+            "precision": "year",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:ngozi",
+          "type": "person",
+          "name": "Ngozi Okeke",
+          "gender": "female",
+          "born": {
+            "value": "1955-08-19",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:chidi",
+          "type": "person",
+          "name": "Chidi Okeke",
+          "gender": "male",
+          "born": {
+            "value": "1980-11-14",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:amara",
+          "type": "person",
+          "name": "Amara Okeke",
+          "gender": "female",
+          "born": {
+            "value": "1983-07",
+            "precision": "month",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_chinua_adaeze",
+          "type": "marriage",
+          "start": {
+            "value": "1948-11-02",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_emeka_ngozi",
+          "type": "marriage",
+          "start": {
+            "value": "1978-12-09",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "source": "m:m_chinua_adaeze",
+          "target": "p:chinua",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_chinua_adaeze",
+          "target": "p:adaeze",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_emeka_ngozi",
+          "target": "p:emeka",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_emeka_ngozi",
+          "target": "p:ngozi",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_chinua_adaeze",
+          "target": "p:emeka",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_emeka_ngozi",
+          "target": "p:chidi",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_emeka_ngozi",
+          "target": "p:amara",
+          "type": "biological_child"
+        }
+      }
+    ]
+  }
+}

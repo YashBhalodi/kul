@@ -1,0 +1,66 @@
+---
+source: crates/kul-svg/tests/corpus.rs
+expression: svg
+---
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1162 432" width="1162" height="432">
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 56 L 390 146 Q 390 156 380 156 L 114 156 Q 104 156 104 166 L 104 184"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 56 L 390 146 Q 390 156 400 156 L 476 156 Q 486 156 486 166 L 486 184"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 963 56 L 963 156 L 963 156 L 963 184"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 199 216 L 199 306 Q 199 316 189 316 L 114 316 Q 104 316 104 326 L 104 344"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 581 216 L 581 316 L 581 316 L 581 344"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 375 56 L 405 56"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 184 216 L 214 216"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 948 56 L 978 56"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 184 376 L 214 376"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 566 216 L 596 216"/>
+<g class="kul-card kul-card--canonical">
+<rect x="215" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Giuseppe Rossi</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="405" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="485" y="56" text-anchor="middle" dominant-baseline="central">Sofia Rossi</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="24" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Marco Rossi</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="214" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="294" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="788" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="868" y="56" text-anchor="middle" dominant-baseline="central">Aldo Bianchi</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="978" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="1058" y="56" text-anchor="middle" dominant-baseline="central">Bianca Bianchi</text>
+</g>
+<g class="kul-card kul-card--ghost">
+<rect x="883" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
+<text class="kul-label-name" x="963" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text>
+<text class="kul-ghost-badge" x="1031" y="198" text-anchor="middle">↺</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="24" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="104" y="376" text-anchor="middle" dominant-baseline="central">Matteo Rossi</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="214" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="294" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="406" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="486" y="216" text-anchor="middle" dominant-baseline="central">Lucia Rossi</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="596" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="676" y="216" text-anchor="middle" dominant-baseline="central">Paolo Conti</text>
+</g>
+<g class="kul-card kul-card--ghost">
+<rect x="501" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
+<text class="kul-label-name" x="581" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text>
+<text class="kul-ghost-badge" x="649" y="358" text-anchor="middle">↺</text>
+</g>
+</svg>

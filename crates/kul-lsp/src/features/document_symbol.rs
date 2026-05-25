@@ -298,29 +298,33 @@ mod tests {
     }
 
     #[test]
-    fn snapshot_three_generations() {
-        let src = include_str!("../../../../examples/03-three-generations/three-generations.kul");
-        let syms = symbols_for(src);
-        insta::assert_json_snapshot!(syms);
-    }
-
-    #[test]
-    fn snapshot_single_couple() {
-        let src = include_str!("../../../../examples/01-single-couple/single-couple.kul");
+    fn snapshot_divorce_and_remarriage() {
+        let src = include_str!(
+            "../../../../examples/03-divorce-and-remarriage/divorce-and-remarriage.kul"
+        );
         let syms = symbols_for(src);
         insta::assert_json_snapshot!(syms);
     }
 
     #[test]
     fn snapshot_nuclear_family() {
-        let src = include_str!("../../../../examples/02-nuclear-family/nuclear-family.kul");
+        let src = include_str!("../../../../examples/01-nuclear-family/nuclear-family.kul");
         let syms = symbols_for(src);
         insta::assert_json_snapshot!(syms);
     }
 
     #[test]
-    fn snapshot_polygamous_family() {
-        let src = include_str!("../../../../examples/04-polygamous-family/polygamous-family.kul");
+    fn snapshot_three_generations() {
+        let src = include_str!("../../../../examples/02-three-generations/three-generations.kul");
+        let syms = symbols_for(src);
+        insta::assert_json_snapshot!(syms);
+    }
+
+    #[test]
+    fn snapshot_adoption_and_belonging() {
+        let src = include_str!(
+            "../../../../examples/04-adoption-and-belonging/adoption-and-belonging.kul"
+        );
         let syms = symbols_for(src);
         insta::assert_json_snapshot!(syms);
     }

@@ -4,125 +4,226 @@ expression: syms
 ---
 [
   {
-    "name": "Ramesh Sharma",
-    "detail": "1925–2005",
+    "name": "Chinua Okeke",
+    "detail": "~1925–1998",
     "kind": 13,
     "range": {
       "start": {
-        "line": 21,
+        "line": 22,
         "character": 0
       },
       "end": {
-        "line": 21,
-        "character": 84
+        "line": 22,
+        "character": 112
       }
     },
     "selectionRange": {
       "start": {
-        "line": 21,
+        "line": 22,
         "character": 7
       },
       "end": {
-        "line": 21,
+        "line": 22,
         "character": 13
       }
     }
   },
   {
-    "name": "Sita Sharma",
-    "detail": "1928–2010",
+    "name": "Adaeze Okeke",
+    "detail": "b. 1930",
     "kind": 13,
     "range": {
       "start": {
-        "line": 22,
+        "line": 23,
         "character": 0
       },
       "end": {
-        "line": 22,
-        "character": 84
+        "line": 23,
+        "character": 95
       }
     },
     "selectionRange": {
       "start": {
-        "line": 22,
+        "line": 23,
         "character": 7
       },
       "end": {
-        "line": 22,
-        "character": 11
+        "line": 23,
+        "character": 13
       }
     }
   },
   {
-    "name": "Ramesh Sharma & Sita Sharma",
+    "name": "Chinua Okeke & Adaeze Okeke",
     "detail": "1948",
     "kind": 24,
     "range": {
       "start": {
-        "line": 24,
+        "line": 25,
         "character": 0
       },
       "end": {
-        "line": 24,
+        "line": 25,
+        "character": 56
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 25,
+        "character": 9
+      },
+      "end": {
+        "line": 25,
+        "character": 24
+      }
+    }
+  },
+  {
+    "name": "Emeka Okeke",
+    "detail": "b. 1950",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 28,
+        "character": 0
+      },
+      "end": {
+        "line": 29,
+        "character": 23
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 28,
+        "character": 7
+      },
+      "end": {
+        "line": 28,
+        "character": 12
+      }
+    },
+    "children": [
+      {
+        "name": "birth m_chinua_adaeze",
+        "kind": 8,
+        "range": {
+          "start": {
+            "line": 29,
+            "character": 2
+          },
+          "end": {
+            "line": 29,
+            "character": 23
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 29,
+            "character": 2
+          },
+          "end": {
+            "line": 29,
+            "character": 7
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Ngozi Okeke",
+    "detail": "b. 1955",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 30,
+        "character": 0
+      },
+      "end": {
+        "line": 30,
+        "character": 64
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 30,
+        "character": 7
+      },
+      "end": {
+        "line": 30,
+        "character": 12
+      }
+    }
+  },
+  {
+    "name": "Emeka Okeke & Ngozi Okeke",
+    "detail": "1978",
+    "kind": 24,
+    "range": {
+      "start": {
+        "line": 32,
+        "character": 0
+      },
+      "end": {
+        "line": 32,
         "character": 52
       }
     },
     "selectionRange": {
       "start": {
-        "line": 24,
+        "line": 32,
         "character": 9
       },
       "end": {
-        "line": 24,
+        "line": 32,
         "character": 22
       }
     }
   },
   {
-    "name": "Alice Sharma",
-    "detail": "b. 1950",
+    "name": "Chidi Okeke",
+    "detail": "b. 1980",
     "kind": 13,
     "range": {
       "start": {
-        "line": 27,
+        "line": 35,
         "character": 0
       },
       "end": {
-        "line": 28,
+        "line": 36,
         "character": 21
       }
     },
     "selectionRange": {
       "start": {
-        "line": 27,
+        "line": 35,
         "character": 7
       },
       "end": {
-        "line": 27,
+        "line": 35,
         "character": 12
       }
     },
     "children": [
       {
-        "name": "birth m_ramesh_sita",
+        "name": "birth m_emeka_ngozi",
         "kind": 8,
         "range": {
           "start": {
-            "line": 28,
+            "line": 36,
             "character": 2
           },
           "end": {
-            "line": 28,
+            "line": 36,
             "character": 21
           }
         },
         "selectionRange": {
           "start": {
-            "line": 28,
+            "line": 36,
             "character": 2
           },
           "end": {
-            "line": 28,
+            "line": 36,
             "character": 7
           }
         }
@@ -130,153 +231,51 @@ expression: syms
     ]
   },
   {
-    "name": "Bob Sharma",
-    "detail": "1948–2020",
+    "name": "Amara Okeke",
+    "detail": "b. 1983",
     "kind": 13,
     "range": {
       "start": {
-        "line": 29,
+        "line": 37,
         "character": 0
       },
       "end": {
-        "line": 29,
-        "character": 82
+        "line": 38,
+        "character": 21
       }
     },
     "selectionRange": {
       "start": {
-        "line": 29,
+        "line": 37,
         "character": 7
       },
       "end": {
-        "line": 29,
-        "character": 10
-      }
-    }
-  },
-  {
-    "name": "Alice Sharma & Bob Sharma",
-    "detail": "1972–1990",
-    "kind": 24,
-    "range": {
-      "start": {
-        "line": 31,
-        "character": 0
-      },
-      "end": {
-        "line": 31,
-        "character": 84
-      }
-    },
-    "selectionRange": {
-      "start": {
-        "line": 31,
-        "character": 9
-      },
-      "end": {
-        "line": 31,
-        "character": 20
-      }
-    }
-  },
-  {
-    "name": "Carol Sharma",
-    "detail": "b. 1975",
-    "kind": 13,
-    "range": {
-      "start": {
-        "line": 34,
-        "character": 0
-      },
-      "end": {
-        "line": 35,
-        "character": 19
-      }
-    },
-    "selectionRange": {
-      "start": {
-        "line": 34,
-        "character": 7
-      },
-      "end": {
-        "line": 34,
+        "line": 37,
         "character": 12
       }
     },
     "children": [
       {
-        "name": "birth m_alice_bob",
+        "name": "birth m_emeka_ngozi",
         "kind": 8,
         "range": {
           "start": {
-            "line": 35,
+            "line": 38,
             "character": 2
           },
           "end": {
-            "line": 35,
-            "character": 19
+            "line": 38,
+            "character": 21
           }
         },
         "selectionRange": {
           "start": {
-            "line": 35,
+            "line": 38,
             "character": 2
           },
           "end": {
-            "line": 35,
+            "line": 38,
             "character": 7
-          }
-        }
-      }
-    ]
-  },
-  {
-    "name": "Ravi Sharma",
-    "detail": "b. ~1980",
-    "kind": 13,
-    "range": {
-      "start": {
-        "line": 36,
-        "character": 0
-      },
-      "end": {
-        "line": 37,
-        "character": 40
-      }
-    },
-    "selectionRange": {
-      "start": {
-        "line": 36,
-        "character": 7
-      },
-      "end": {
-        "line": 36,
-        "character": 11
-      }
-    },
-    "children": [
-      {
-        "name": "adoption m_alice_bob",
-        "detail": "1985",
-        "kind": 8,
-        "range": {
-          "start": {
-            "line": 37,
-            "character": 2
-          },
-          "end": {
-            "line": 37,
-            "character": 40
-          }
-        },
-        "selectionRange": {
-          "start": {
-            "line": 37,
-            "character": 2
-          },
-          "end": {
-            "line": 37,
-            "character": 10
           }
         }
       }

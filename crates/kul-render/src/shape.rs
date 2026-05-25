@@ -118,7 +118,7 @@ pub struct Component {
 ///   anchor (declared-with-no-edges orphans, per absence not
 ///   placeholders, plus the current-intimacy-placement fallback
 ///   case of a joining spouse whose marriage ended and who has no birth
-///   family declared, e.g. Bob in `examples/03-three-generations/`).
+///   family declared).
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 // Both variants box their payload to keep the enum compact — see

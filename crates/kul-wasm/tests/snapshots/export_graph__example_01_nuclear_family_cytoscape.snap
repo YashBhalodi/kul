@@ -1,0 +1,106 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "nodes": [
+      {
+        "data": {
+          "id": "p:hiroshi",
+          "type": "person",
+          "name": "Hiroshi Tanaka",
+          "gender": "male",
+          "born": {
+            "value": "1978-02-11",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:yuki",
+          "type": "person",
+          "name": "Yuki Tanaka",
+          "gender": "female",
+          "born": {
+            "value": "1980-06-30",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:akiko",
+          "type": "person",
+          "name": "Akiko Tanaka",
+          "gender": "female",
+          "born": {
+            "value": "2008-04-17",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:kenji",
+          "type": "person",
+          "name": "Kenji Tanaka",
+          "gender": "male",
+          "born": {
+            "value": "2011-11-03",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_hiroshi_yuki",
+          "type": "marriage",
+          "start": {
+            "value": "2005-09-20",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "source": "m:m_hiroshi_yuki",
+          "target": "p:hiroshi",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_hiroshi_yuki",
+          "target": "p:yuki",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_hiroshi_yuki",
+          "target": "p:akiko",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_hiroshi_yuki",
+          "target": "p:kenji",
+          "type": "biological_child"
+        }
+      }
+    ]
+  }
+}

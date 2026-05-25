@@ -1,0 +1,310 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 2,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 1369,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "carlos",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Carlos Mendoza",
+            "gender": "male",
+            "born": {
+              "value": "1973-02-18",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_carlos_rosa",
+                "generation": 0,
+                "hostId": "carlos",
+                "joiningId": "rosa",
+                "joiningSlot": {
+                  "personId": "rosa",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Rosa Mendoza",
+                  "gender": "female",
+                  "born": {
+                    "value": "1975-09-24",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "2000-01-15",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "mateo",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Mateo Mendoza",
+                    "gender": "male",
+                    "born": {
+                      "value": "2003-05-10",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                },
+                {
+                  "slot": {
+                    "personId": "bayani",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Bayani Mendoza",
+                    "gender": "other",
+                    "born": {
+                      "value": "1995",
+                      "precision": "year",
+                      "circa": true
+                    }
+                  },
+                  "hostedMarriages": []
+                },
+                {
+                  "slot": {
+                    "personId": "dalisay",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Dalisay Mendoza",
+                    "gender": "female",
+                    "born": {
+                      "value": "1990-08-03",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "comp-2",
+      "sourceOrder": 2216,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "eduardo",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Eduardo Reyes",
+            "gender": "male",
+            "born": {
+              "value": "1962-03-11",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_eduardo_luz",
+                "generation": 0,
+                "hostId": "eduardo",
+                "joiningId": "luz",
+                "joiningSlot": {
+                  "personId": "luz",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Luz Reyes",
+                  "gender": "female",
+                  "born": {
+                    "value": "1965-12-02",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1988-07-09",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "dalisay",
+                    "kind": {
+                      "kind": "ghost",
+                      "reason": "pastBirth"
+                    },
+                    "generation": 1,
+                    "name": "Dalisay Mendoza",
+                    "gender": "female",
+                    "born": {
+                      "value": "1990-08-03",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "comp-3",
+      "sourceOrder": 2457,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "tomas",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Tomas Garcia",
+            "gender": "male",
+            "born": {
+              "value": "1958-06-25",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_tomas_elena",
+                "generation": 0,
+                "hostId": "tomas",
+                "joiningId": "elena",
+                "joiningSlot": {
+                  "personId": "elena",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Elena Garcia",
+                  "gender": "female",
+                  "born": {
+                    "value": "1960-10-14",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1985-03-01",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "dalisay",
+                    "kind": {
+                      "kind": "ghost",
+                      "reason": "pastAdoption"
+                    },
+                    "generation": 1,
+                    "name": "Dalisay Mendoza",
+                    "gender": "female",
+                    "born": {
+                      "value": "1990-08-03",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "mateo",
+      "marriageId": "m_carlos_rosa"
+    },
+    {
+      "kind": "adoption",
+      "childId": "bayani",
+      "marriageId": "m_carlos_rosa",
+      "start": {
+        "value": "2007-06-01",
+        "precision": "day",
+        "circa": false
+      }
+    },
+    {
+      "kind": "birth",
+      "childId": "dalisay",
+      "marriageId": "m_eduardo_luz"
+    },
+    {
+      "kind": "adoption",
+      "childId": "dalisay",
+      "marriageId": "m_tomas_elena",
+      "start": {
+        "value": "1994-04-20",
+        "precision": "day",
+        "circa": false
+      },
+      "end": {
+        "value": "1999-02-10",
+        "precision": "day",
+        "circa": false
+      }
+    },
+    {
+      "kind": "adoption",
+      "childId": "dalisay",
+      "marriageId": "m_carlos_rosa",
+      "start": {
+        "value": "2002-11-30",
+        "precision": "day",
+        "circa": false
+      }
+    }
+  ]
+}

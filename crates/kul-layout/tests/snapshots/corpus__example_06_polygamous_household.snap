@@ -1,0 +1,200 @@
+---
+source: crates/kul-layout/tests/corpus.rs
+expression: yaml
+---
+width: 1360.0
+height: 592.0
+cards:
+- person_id: omar
+  kind: canonical
+  x: 505.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Omar Al-Rashid
+- person_id: fatima
+  kind: canonical
+  x: 695.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Fatima Al-Rashid
+- person_id: khalid
+  kind: canonical
+  x: 600.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Khalid Al-Rashid
+- person_id: aisha
+  kind: canonical
+  x: 24.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Aisha Al-Rashid
+- person_id: layla
+  kind: canonical
+  x: 408.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Layla Al-Rashid
+- person_id: mariam
+  kind: canonical
+  x: 1176.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Mariam Al-Rashid
+- person_id: yusuf
+  kind: canonical
+  x: 312.0
+  y: 504.0
+  width: 160.0
+  height: 64.0
+  name: Yusuf Al-Rashid
+- person_id: zahra
+  kind: canonical
+  x: 504.0
+  y: 504.0
+  width: 160.0
+  height: 64.0
+  name: Zahra Al-Rashid
+- person_id: hassan
+  kind: canonical
+  x: 792.0
+  y: 504.0
+  width: 160.0
+  height: 64.0
+  name: Hassan Al-Rashid
+- person_id: noor
+  kind: canonical
+  x: 984.0
+  y: 504.0
+  width: 160.0
+  height: 64.0
+  name: Noor Al-Rashid
+edges:
+- kind: birth
+  routing: in_tree
+  child_id: khalid
+  marriage_id: m_omar_fatima
+  points:
+  - - 680.0
+    - 56.0
+  - - 680.0
+    - 156.0
+  - - 680.0
+    - 156.0
+  - - 680.0
+    - 184.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: yusuf
+  marriage_id: m_khalid_aisha
+  points:
+  - - 392.0
+    - 316.0
+  - - 392.0
+    - 476.0
+  - - 392.0
+    - 476.0
+  - - 392.0
+    - 504.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: zahra
+  marriage_id: m_khalid_layla
+  points:
+  - - 584.0
+    - 316.0
+  - - 584.0
+    - 476.0
+  - - 584.0
+    - 476.0
+  - - 584.0
+    - 504.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: hassan
+  marriage_id: m_khalid_mariam
+  points:
+  - - 968.0
+    - 316.0
+  - - 968.0
+    - 476.0
+  - - 872.0
+    - 476.0
+  - - 872.0
+    - 504.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: noor
+  marriage_id: m_khalid_mariam
+  points:
+  - - 968.0
+    - 316.0
+  - - 968.0
+    - 476.0
+  - - 1064.0
+    - 476.0
+  - - 1064.0
+    - 504.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: fatima
+  marriage_id: m_omar_fatima
+  points:
+  - - 665.0
+    - 56.0
+  - - 695.0
+    - 56.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: aisha
+  marriage_id: m_khalid_aisha
+  points:
+  - - 680.0
+    - 248.0
+  - - 680.0
+    - 316.0
+  - - 104.0
+    - 316.0
+  - - 104.0
+    - 344.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: layla
+  marriage_id: m_khalid_layla
+  points:
+  - - 680.0
+    - 248.0
+  - - 680.0
+    - 316.0
+  - - 488.0
+    - 316.0
+  - - 488.0
+    - 344.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: mariam
+  marriage_id: m_khalid_mariam
+  points:
+  - - 680.0
+    - 248.0
+  - - 680.0
+    - 316.0
+  - - 1256.0
+    - 316.0
+  - - 1256.0
+    - 344.0
+  ended: false

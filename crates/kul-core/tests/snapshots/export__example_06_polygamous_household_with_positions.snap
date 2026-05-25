@@ -1,0 +1,266 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "omar",
+        "name": "Omar Al-Rashid",
+        "gender": "male",
+        "born": {
+          "value": "1925",
+          "precision": "year",
+          "circa": true
+        },
+        "span": [
+          1007,
+          1072
+        ]
+      },
+      {
+        "id": "fatima",
+        "name": "Fatima Al-Rashid",
+        "gender": "female",
+        "born": {
+          "value": "1928-04-02",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1073,
+          1143
+        ]
+      },
+      {
+        "id": "khalid",
+        "name": "Khalid Al-Rashid",
+        "gender": "male",
+        "born": {
+          "value": "1950-03-29",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1199,
+          1289
+        ]
+      },
+      {
+        "id": "aisha",
+        "name": "Aisha Al-Rashid",
+        "gender": "female",
+        "born": {
+          "value": "1955-07-11",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1355,
+          1425
+        ]
+      },
+      {
+        "id": "layla",
+        "name": "Layla Al-Rashid",
+        "gender": "female",
+        "born": {
+          "value": "1958-02-23",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1426,
+          1496
+        ]
+      },
+      {
+        "id": "mariam",
+        "name": "Mariam Al-Rashid",
+        "gender": "female",
+        "born": {
+          "value": "1962-10-19",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1497,
+          1567
+        ]
+      },
+      {
+        "id": "yusuf",
+        "name": "Yusuf Al-Rashid",
+        "gender": "male",
+        "born": {
+          "value": "1977-06-13",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1783,
+          1872
+        ]
+      },
+      {
+        "id": "zahra",
+        "name": "Zahra Al-Rashid",
+        "gender": "female",
+        "born": {
+          "value": "1982-01-08",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1874,
+          1965
+        ]
+      },
+      {
+        "id": "hassan",
+        "name": "Hassan Al-Rashid",
+        "gender": "male",
+        "born": {
+          "value": "1987-03-21",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1967,
+          2061
+        ]
+      },
+      {
+        "id": "noor",
+        "name": "Noor Al-Rashid",
+        "gender": "female",
+        "born": {
+          "value": "1990-11-07",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2062,
+          2156
+        ]
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_omar_fatima",
+        "spouses": [
+          "omar",
+          "fatima"
+        ],
+        "start": {
+          "value": "1945-08-17",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1145,
+          1197
+        ]
+      },
+      {
+        "id": "m_khalid_aisha",
+        "spouses": [
+          "khalid",
+          "aisha"
+        ],
+        "start": {
+          "value": "1975-05-04",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1569,
+          1625
+        ]
+      },
+      {
+        "id": "m_khalid_layla",
+        "spouses": [
+          "khalid",
+          "layla"
+        ],
+        "start": {
+          "value": "1980-09-16",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1626,
+          1682
+        ]
+      },
+      {
+        "id": "m_khalid_mariam",
+        "spouses": [
+          "khalid",
+          "mariam"
+        ],
+        "start": {
+          "value": "1985-12-28",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1683,
+          1739
+        ]
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_omar_fatima",
+        "childId": "khalid",
+        "kind": "biological",
+        "span": [
+          1270,
+          1289
+        ]
+      },
+      {
+        "marriageId": "m_khalid_aisha",
+        "childId": "yusuf",
+        "kind": "biological",
+        "span": [
+          1852,
+          1872
+        ]
+      },
+      {
+        "marriageId": "m_khalid_layla",
+        "childId": "zahra",
+        "kind": "biological",
+        "span": [
+          1945,
+          1965
+        ]
+      },
+      {
+        "marriageId": "m_khalid_mariam",
+        "childId": "hassan",
+        "kind": "biological",
+        "span": [
+          2040,
+          2061
+        ]
+      },
+      {
+        "marriageId": "m_khalid_mariam",
+        "childId": "noor",
+        "kind": "biological",
+        "span": [
+          2135,
+          2156
+        ]
+      }
+    ]
+  }
+}

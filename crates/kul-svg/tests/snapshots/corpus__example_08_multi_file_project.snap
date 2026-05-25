@@ -1,0 +1,45 @@
+---
+source: crates/kul-svg/tests/corpus.rs
+expression: svg
+---
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 432" width="780" height="432">
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 56 L 390 146 Q 390 156 380 156 L 114 156 Q 104 156 104 166 L 104 184"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 390 56 L 390 146 Q 390 156 400 156 L 476 156 Q 486 156 486 166 L 486 184"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 199 216 L 199 316 L 199 316 L 199 344"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 581 216 L 581 316 L 581 316 L 581 344"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 375 56 L 405 56"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 184 216 L 214 216"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 566 216 L 596 216"/>
+<g class="kul-card kul-card--canonical">
+<rect x="215" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Diego Fernández</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="405" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="485" y="56" text-anchor="middle" dominant-baseline="central">Carmen Fernández</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="24" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Sofía Fernández</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="214" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="294" y="216" text-anchor="middle" dominant-baseline="central">Ricardo Moreno</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="119" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="199" y="376" text-anchor="middle" dominant-baseline="central">Mateo Moreno</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="406" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="486" y="216" text-anchor="middle" dominant-baseline="central">Javier Fernández</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="596" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="676" y="216" text-anchor="middle" dominant-baseline="central">Pilar Navarro</text>
+</g>
+<g class="kul-card kul-card--canonical">
+<rect x="501" y="344" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="581" y="376" text-anchor="middle" dominant-baseline="central">Lucía Fernández</text>
+</g>
+</svg>
