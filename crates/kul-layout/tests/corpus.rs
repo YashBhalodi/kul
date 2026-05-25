@@ -66,6 +66,12 @@ fn layout_example(dir: &str) -> String {
 }
 
 #[test]
+fn example_01_single_couple() {
+    let yaml = layout_example("01-single-couple");
+    insta::assert_snapshot!(yaml);
+}
+
+#[test]
 fn example_02_nuclear_family() {
     let yaml = layout_example("02-nuclear-family");
     insta::assert_snapshot!(yaml);
