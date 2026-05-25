@@ -2,26 +2,26 @@
 source: crates/kul-layout/tests/corpus.rs
 expression: yaml
 ---
-width: 400.0
+width: 572.0
 height: 592.0
 cards:
 - person_id: ramesh
   kind: canonical
-  x: 25.0
+  x: 68.0
   y: 24.0
   width: 160.0
   height: 64.0
   name: Ramesh Kumar
 - person_id: sita
   kind: canonical
-  x: 215.0
+  x: 258.0
   y: 24.0
   width: 160.0
   height: 64.0
   name: Sita Kumar
 - person_id: devraj
   kind: canonical
-  x: 120.0
+  x: 163.0
   y: 184.0
   width: 160.0
   height: 64.0
@@ -42,14 +42,14 @@ cards:
   name: Alice Sharma
 - person_id: priya
   kind: canonical
-  x: 216.0
+  x: 302.0
   y: 504.0
   width: 160.0
   height: 64.0
   name: Priya Kumar
 bars:
 - marriage_id: m_ramesh_sita
-  x: 191.0
+  x: 234.0
   y: 51.0
   width: 18.0
   height: 10.0
@@ -60,35 +60,35 @@ edges:
   child_id: devraj
   marriage_id: m_ramesh_sita
   points:
-  - - 200.0
+  - - 243.0
     - 61.0
-  - - 200.0
+  - - 243.0
     - 156.0
-  - - 200.0
+  - - 243.0
     - 156.0
-  - - 200.0
+  - - 243.0
     - 184.0
 - kind: birth
   routing: in_tree
   child_id: priya
   marriage_id: m_devraj_alice
   points:
-  - - 296.0
-    - 408.0
-  - - 296.0
+  - - 382.0
+    - 376.0
+  - - 382.0
     - 476.0
-  - - 296.0
+  - - 382.0
     - 476.0
-  - - 296.0
+  - - 382.0
     - 504.0
 - kind: marriage
   routing: in_tree
   child_id: meera
   marriage_id: m_devraj_meera
   points:
-  - - 200.0
+  - - 243.0
     - 248.0
-  - - 200.0
+  - - 243.0
     - 316.0
   - - 104.0
     - 316.0
@@ -99,11 +99,13 @@ edges:
   child_id: alice
   marriage_id: m_devraj_alice
   points:
-  - - 200.0
+  - - 243.0
     - 248.0
-  - - 200.0
+  - - 243.0
     - 316.0
-  - - 296.0
+  - - 382.0
     - 316.0
-  - - 296.0
-    - 344.0
+  - - 382.0
+    - 376.0
+  - - 376.0
+    - 376.0

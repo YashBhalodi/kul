@@ -63,21 +63,35 @@ with a **fan-from-top-hub** primitive that scales from N=2 to any N:
   R+ε sub-row — the co-spouse is reached by a thick **marriage edge**
   (see below) the same way a birth edge reaches a child.
 - **Marriage edge** — one routed `<path>` per hosted marriage, from
-  the hub card's bottom-midpoint to the co-spouse card's top-midpoint,
-  using the **same orthogonal hub-bottom → horizontal bus → spouse-top
-  geometry as a birth edge**. The only difference from a birth edge is
-  the stroke weight (~3-4px vs birth's 1.5px) and the CSS modifier
-  (`kul-edge--marriage`). The fan visual emerges from N marriage edges
-  fanning out of the single hub-bottom point — it is not a dedicated
-  trunk-branch geometry.
+  the hub card's bottom-midpoint to the co-spouse, using the **same
+  orthogonal hub-bottom → horizontal bus geometry as a birth edge**.
+  The only difference from a birth edge is the stroke weight (~3-4px vs
+  birth's 1.5px) and the CSS modifier (`kul-edge--marriage`). The fan
+  visual emerges from N marriage edges fanning out of the single
+  hub-bottom point — it is not a dedicated trunk-branch geometry. The
+  edge's terminus depends on whether the marriage has children (below).
 - **Children of each marriage** are walker children of the
   corresponding co-spouse, so each marriage's children hang in their
-  own column below their co-spouse at row R+2 (P9). Half-siblings
-  render in distinct sub-trees, one per co-spouse. Because no bar is
-  emitted for a polygamy marriage, a child's birth/adoption edge
-  anchors at the co-spouse card's bottom-midpoint (the same point the
-  marriage edge terminates above the co-spouse), so the couple → child
-  lineage reads as one continuous chain hub → co-spouse → child.
+  own column at row R+2 (P9). Half-siblings render in distinct
+  sub-trees, one per co-spouse. The geometry differs by whether the
+  marriage bears children:
+  - A **childless co-spouse** is centred at its cluster's walker centre
+    X and the marriage edge drops onto its top-centre, exactly the way
+    a birth edge reaches a child.
+  - A **child-bearing co-spouse** uses a **junction** on the marriage-
+    edge spine. The marriage edge drops a vertical spine at X (the
+    co-spouse cluster's walker centre), the co-spouse card sits offset
+    to the left of the spine (its cluster width inflated so the walker
+    reserves room), connected by a short horizontal stub at the card's
+    vertical mid-height — the *junction* `J = (X, row_top + ch/2)`. Each
+    child's birth/adoption edge spawns from J on the spine and descends
+    straight down, so the thick marriage edge and the thin child edge
+    form **one continuous vertical line at X**, with the co-spouse
+    hanging off to the left. A single child centred at X reads as a
+    direct hub → spine → child lineage; multiple children fan from J
+    like a normal bar. The couple → child lineage reads as one
+    continuous chain hub → marriage edge → child, with the co-spouse
+    card identifying the joining spouse beside the spine.
 
 Monogamy (`hosted_marriages.len() == 1`) is unchanged: the classical
 hub-and-flanks cluster (host card + bar + joining card on one row)
@@ -117,13 +131,20 @@ stroke weight.
   rerender from hub-and-flanks to fan-from-top-hub: the polygamy hub
   sits alone on its row, each co-spouse on the next row down reached
   by a thick `kul-edge--marriage` path, with no bar rect and no fan-
-  connector segments.
+  connector segments. In both examples Meera is childless (her marriage
+  edge lands on her top-centre, card centred under the spine) and Alice
+  bears Priya (Alice's card sits offset left of the spine, the marriage
+  edge stubs into a junction at her mid-height, and Priya's birth edge
+  continues the spine straight down from that same junction).
 - **Example 15 (`15-polygamy-with-three-wives/`)** exercises N=3
   polygamy with one child per marriage, demonstrating that
   half-siblings render in distinct sub-trees below their own
-  co-spouse. The three marriage edges fan out of one hub-bottom point
-  (the middle edge routes straight down, the outer two jog left and
-  right) — the fan shape with no dedicated trunk.
+  co-spouse. Every wife bears a child, so all three co-spouses use the
+  junction model: each card sits offset left of its spine and its
+  child's birth edge continues that spine straight down. The three
+  marriage edges fan out of one hub-bottom point (the middle spine to
+  Alice routes straight down below the hub, the outer two jog left to
+  Meera and right to Diana) — the fan shape with no dedicated trunk.
 - **No bars for polygamy marriages.** `PositionedShape.bars` carries
   one rect per monogamy marriage only; polygamy marriages are pure
   edges. A polygamy hub that is *also* a monogamy host in a different
@@ -193,5 +214,6 @@ stroke weight.
   forcing children to snap below the hub would break the walker's
   collision-avoidance guarantees and re-merge half-siblings into one
   column. Each marriage's children hang below their own co-spouse;
-  the birth edge anchors at the co-spouse's bottom-midpoint, so the
-  marriage-to-child association is unambiguous (P9).
+  the birth edge spawns from the junction on the marriage-edge spine
+  beside the co-spouse, so the marriage-to-child association is
+  unambiguous (P9) and reads as one continuous vertical line.

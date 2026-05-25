@@ -13,11 +13,20 @@
 //! the cluster into a **fan**: the hub card sits at row R alone; each
 //! co-spouse sits as a walker child of the hub on the next row down
 //! (R+1) and is reached by a thick [`EdgeKind::Marriage`] edge —
-//! routed with the same orthogonal hub-bottom → bus → spouse-top
-//! geometry as a birth edge, only with a heavier stroke. The polygamy
-//! marriage emits no [`PositionedBar`] (the edge replaces the bar's
-//! visual role of "this couple is married"); children of the marriage
-//! anchor at the co-spouse card's bottom-midpoint instead of at a bar.
+//! routed with the same orthogonal hub-bottom → bus geometry as a birth
+//! edge, only with a heavier stroke. The polygamy marriage emits no
+//! [`PositionedBar`] (the edge replaces the bar's visual role of "this
+//! couple is married").
+//!
+//! A **childless** co-spouse renders simply: its card is centred at the
+//! cluster's walker centre X and the marriage edge drops onto its
+//! top-centre. A **child-bearing** co-spouse uses the *junction* model:
+//! the marriage edge drops a vertical spine at X, the co-spouse card
+//! sits offset to the left of the spine (connected by a short
+//! horizontal stub at the card's mid-height), and each child's
+//! birth/adoption edge spawns from the junction on the spine — so the
+//! thick marriage edge and the thin child edge form one continuous
+//! vertical line at X with the co-spouse hanging off to the left.
 //! Monogamy (`hosted_marriages.len() == 1`) keeps the classical hub-
 //! and-flanks shape with one bar between adjacent spouse cards.
 
@@ -99,13 +108,17 @@ enum NodeKind {
         /// One entry per hosted marriage, in declaration order. The
         /// edge router consults this to emit one
         /// [`EdgeKind::Marriage`] edge per marriage from the hub
-        /// card's bottom-midpoint to the matching co-spouse card's
-        /// top-midpoint.
+        /// card's bottom-midpoint to the matching co-spouse — landing
+        /// on its top-centre (childless) or a junction beside it
+        /// (child-bearing).
         marriages: Vec<HubMarriage>,
     },
     /// One co-spouse of a polygamy hub: just the co-spouse card. The
     /// "married to hub" visual is the thick marriage edge connecting
-    /// hub-bottom to this card's top; no bar is emitted.
+    /// the hub bottom to this co-spouse; no bar is emitted. A childless
+    /// co-spouse is centred under the spine and the edge lands on its
+    /// top-centre; a child-bearing co-spouse is offset left of the spine
+    /// and the edge lands on a junction beside it (see `has_children`).
     FanCoSpouse {
         // `MarriageBar` is the heaviest type in this enum (it carries
         // an optional P6 nested birth-family `Box<PersonCard>` plus
@@ -113,6 +126,14 @@ enum NodeKind {
         // under `clippy::large_enum_variant`'s threshold.
         bar: Box<MarriageBar>,
         joining_slot: CardSlot,
+        /// Whether this marriage has ≥1 child. A child-bearing
+        /// co-spouse uses the junction model (ADR-0027): the marriage
+        /// edge drops a spine at the cluster's walker centre X, the
+        /// card sits offset to the left of the spine, and the child
+        /// birth edge continues the spine straight down from a
+        /// junction at the card's mid-height. A childless co-spouse
+        /// keeps the simpler top-centre landing (card centred at X).
+        has_children: bool,
     },
     /// A leaf person card with no hosted marriages.
     PersonLeaf { card: Box<PersonCard> },
@@ -133,6 +154,35 @@ struct HostedMarriage {
 struct HubMarriage {
     marriage_id: String,
     joining_id: String,
+}
+
+/// Where a polygamy marriage edge lands on its co-spouse (ADR-0027).
+/// Computed while positioning the co-spouse card and consumed by the
+/// marriage-edge loop so it can build the right polyline per case. Both
+/// variants share the same horizontal bus height `bus_y` (the co-spouse
+/// row top minus the bus drop), so the fan reads consistently.
+struct CoSpouseLanding {
+    bus_y: f64,
+    kind: CoSpouseLandingKind,
+}
+
+enum CoSpouseLandingKind {
+    /// Childless co-spouse: the card sits centred at the cluster's
+    /// walker centre X and the marriage edge drops onto its top-centre,
+    /// exactly as a birth edge reaches a child. Carries the top-centre
+    /// `(x, y)` landing point.
+    TopCentre { x: f64, y: f64 },
+    /// Child-bearing co-spouse: the marriage edge drops a spine at the
+    /// cluster centre `spine_x`, then stubs left into the co-spouse
+    /// card's right edge at the junction height `j_y` (the card's
+    /// vertical mid-height). The child birth edge continues the spine
+    /// straight down from the same junction, so the marriage edge and
+    /// child edge read as one continuous vertical line at `spine_x`.
+    Junction {
+        spine_x: f64,
+        card_right_edge: f64,
+        j_y: f64,
+    },
 }
 
 struct Builder<'a> {
@@ -362,12 +412,16 @@ impl<'a> Builder<'a> {
             children: Vec::new(),
         });
 
-        // Each co-spouse is its own walker child cluster of width =
-        // card_width, sitting on the standard child generation row
-        // (`host_floor + 1.0`). Children of the marriage become
-        // walker children of this co-spouse, pushed one further row
-        // down (`host_floor + 2.0`) via the `min_visual_row` floor
-        // passed into `build_person` — the polygamy hub adds one
+        // Each co-spouse is its own walker child cluster, sitting on
+        // the standard child generation row (`host_floor + 1.0`). A
+        // childless co-spouse's cluster is one card wide and centred
+        // under the spine; a child-bearing co-spouse's cluster is
+        // inflated (see `cospouse_width`) so the card can sit offset
+        // left of the marriage-edge spine at the cluster centre.
+        // Children of the marriage become walker children of this
+        // co-spouse, pushed one further row down (`host_floor + 2.0`)
+        // via the `min_visual_row` floor passed into `build_person` —
+        // the polygamy hub adds one
         // extra visual row that the canonical-family
         // `slot.generation` doesn't account for (the co-spouse
         // occupies the row that would otherwise host the marriage's
@@ -377,12 +431,27 @@ impl<'a> Builder<'a> {
         let mut cospouse_indices: Vec<usize> = Vec::new();
         for marriage in &card.hosted_marriages {
             let cospouse_idx = self.nodes.len();
+            // A child-bearing co-spouse uses the junction model
+            // (ADR-0027): the card sits offset left of the marriage-
+            // edge spine at the cluster centre X, so the cluster must
+            // reserve room for both the left-offset card and the spine.
+            // Width = card + 2*(card/2 + spine_gap) = 2*card +
+            // 2*spine_gap leaves the card in the left portion and the
+            // spine at the cluster centre. A childless co-spouse stays
+            // a plain card-width cluster centred at X.
+            let has_children = !marriage.children.is_empty();
+            let cospouse_width = if has_children {
+                2.0 * self.config.card_width + 2.0 * self.config.bar_gap
+            } else {
+                self.config.card_width
+            };
             self.nodes.push(Node {
                 kind: NodeKind::FanCoSpouse {
                     bar: Box::new(marriage.bar.clone()),
                     joining_slot: marriage.bar.joining_slot.clone(),
+                    has_children,
                 },
-                width: self.config.card_width,
+                width: cospouse_width,
                 // Provisional — recomputed by `fold_visual_row` below
                 // so a deep P6 nested under the co-spouse can pull
                 // the co-spouse (and transitively the hub) further
@@ -520,6 +589,14 @@ impl<'a> Builder<'a> {
         // positions are known to emit one EdgeKind::Marriage per
         // hosted marriage.
         let mut hub_marriages: Vec<(String, Vec<HubMarriage>)> = Vec::new();
+        // Per-marriage co-spouse landing geometry, keyed by
+        // marriage_id, populated while iterating FanCoSpouse nodes and
+        // consumed by the marriage-edge loop. A childless co-spouse
+        // lands on its card's top-centre (the classical drop); a
+        // child-bearing co-spouse stubs into a junction on the
+        // marriage-edge spine at the cluster centre X (ADR-0027).
+        let mut cospouse_landings: std::collections::HashMap<String, CoSpouseLanding> =
+            std::collections::HashMap::new();
 
         for (i, node) in nodes.iter().enumerate() {
             let cluster_left = positions[i].x - node.width / 2.0 + offset_x;
@@ -594,30 +671,83 @@ impl<'a> Builder<'a> {
                         .collect();
                     hub_marriages.push((card.slot.person_id.clone(), cloned));
                 }
-                NodeKind::FanCoSpouse { bar, joining_slot } => {
-                    // Co-spouse cluster: just the card. No bar emitted
-                    // — the "married to hub" visual is the marriage
-                    // edge routed below from the hub's bottom-midpoint
-                    // to this card's top-midpoint. Children of this
-                    // marriage anchor at this card's bottom-midpoint,
-                    // which `bar_centers` records under
-                    // `bar.marriage_id` so the existing parent-child
-                    // edge router needs no polygamy-specific branch.
-                    push_card(
-                        &mut cards,
-                        &mut card_tops,
-                        cluster_left,
-                        row_top,
-                        joining_slot,
-                        config,
-                    );
-                    bar_centers.insert(
-                        bar.marriage_id.clone(),
-                        (
-                            cluster_left + config.card_width / 2.0,
-                            row_top + config.card_height,
-                        ),
-                    );
+                NodeKind::FanCoSpouse {
+                    bar,
+                    joining_slot,
+                    has_children,
+                } => {
+                    // The cluster's walker centre X is the marriage-
+                    // edge spine. For an inflated child-bearing cluster
+                    // it sits to the right of the card; for a childless
+                    // cluster it coincides with the card centre. Both
+                    // cases route the marriage edge over the same
+                    // horizontal bus at the co-spouse row top minus the
+                    // bus drop.
+                    let spine_x = positions[i].x + offset_x;
+                    let bus_y = row_top - config.bus_drop;
+                    if *has_children {
+                        // Junction model (ADR-0027): card offset left of
+                        // the spine, connected by a short horizontal
+                        // stub at the card's mid-height; the child birth
+                        // edge continues the spine straight down from
+                        // that junction. The inflated cluster width
+                        // (`2*card + 2*spine_gap`) places `cluster_left`
+                        // exactly at the card's left edge, so the card
+                        // draws there and its right edge sits
+                        // `spine_gap` left of the spine.
+                        let card_x = cluster_left;
+                        let card_right_edge = card_x + config.card_width;
+                        let j_y = row_top + config.card_height / 2.0;
+                        push_card(
+                            &mut cards,
+                            &mut card_tops,
+                            card_x,
+                            row_top,
+                            joining_slot,
+                            config,
+                        );
+                        cospouse_landings.insert(
+                            bar.marriage_id.clone(),
+                            CoSpouseLanding {
+                                bus_y,
+                                kind: CoSpouseLandingKind::Junction {
+                                    spine_x,
+                                    card_right_edge,
+                                    j_y,
+                                },
+                            },
+                        );
+                        // Children anchor at the junction on the spine,
+                        // not the card bottom-midpoint, so a single
+                        // child centred at X continues the spine as one
+                        // straight vertical line; `route_edges` needs no
+                        // polygamy-specific branch.
+                        bar_centers.insert(bar.marriage_id.clone(), (spine_x, j_y));
+                    } else {
+                        // Childless co-spouse: unchanged from the simple
+                        // fan. Card centred at X (cluster width =
+                        // card_width, so `cluster_left` is the card's
+                        // left edge); marriage edge drops onto its
+                        // top-centre.
+                        push_card(
+                            &mut cards,
+                            &mut card_tops,
+                            cluster_left,
+                            row_top,
+                            joining_slot,
+                            config,
+                        );
+                        cospouse_landings.insert(
+                            bar.marriage_id.clone(),
+                            CoSpouseLanding {
+                                bus_y,
+                                kind: CoSpouseLandingKind::TopCentre {
+                                    x: spine_x,
+                                    y: row_top,
+                                },
+                            },
+                        );
+                    }
                 }
                 NodeKind::PersonLeaf { card } => {
                     push_card(
@@ -658,25 +788,42 @@ impl<'a> Builder<'a> {
         );
 
         // Marriage edges (ADR-0027): one per hosted marriage of a
-        // polygamy hub, routed hub-bottom → bus → co-spouse-top with
-        // the same orthogonal geometry as a birth edge. Always
-        // InTree (the co-spouse is by construction a walker child of
-        // the hub in the same component).
+        // polygamy hub. Always InTree (the co-spouse is by construction
+        // a walker child of the hub in the same component). A childless
+        // co-spouse lands on its top-centre, exactly as a birth edge
+        // reaches a child. A child-bearing co-spouse drops a spine at
+        // the cluster centre X down to a junction at the card's mid-
+        // height, then stubs left into the card's right edge — so the
+        // thick marriage edge and the thin child birth edge form one
+        // continuous vertical line at X, with the card hanging off to
+        // the left.
         for (hub_id, marriages) in &hub_marriages {
             let &(hub_cx, hub_bottom_y) = hub_bottoms
                 .get(hub_id)
                 .expect("polygamy hub was emitted above");
             for marriage in marriages {
-                let Some(&(spouse_cx, spouse_top_y)) = card_tops.get(&marriage.joining_id) else {
+                let Some(landing) = cospouse_landings.get(&marriage.marriage_id) else {
                     continue;
                 };
-                let bus_y = spouse_top_y - config.bus_drop;
-                let points = vec![
-                    (hub_cx, hub_bottom_y),
-                    (hub_cx, bus_y),
-                    (spouse_cx, bus_y),
-                    (spouse_cx, spouse_top_y),
-                ];
+                let bus_y = landing.bus_y;
+                let points = match landing.kind {
+                    CoSpouseLandingKind::TopCentre { x, y } => {
+                        vec![(hub_cx, hub_bottom_y), (hub_cx, bus_y), (x, bus_y), (x, y)]
+                    }
+                    CoSpouseLandingKind::Junction {
+                        spine_x,
+                        card_right_edge,
+                        j_y,
+                    } => {
+                        vec![
+                            (hub_cx, hub_bottom_y),
+                            (hub_cx, bus_y),
+                            (spine_x, bus_y),
+                            (spine_x, j_y),
+                            (card_right_edge, j_y),
+                        ]
+                    }
+                };
                 edges.push(PositionedEdge {
                     kind: EdgeKind::Marriage,
                     routing: EdgeRouting::InTree,

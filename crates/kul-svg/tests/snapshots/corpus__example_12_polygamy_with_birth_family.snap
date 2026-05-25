@@ -2,23 +2,23 @@
 source: crates/kul-svg/tests/corpus.rs
 expression: svg
 ---
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 592" width="400" height="592">
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 200 61 L 200 156 L 200 156 L 200 184"/>
-<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 296 408 L 296 476 L 296 476 L 296 504"/>
-<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 200 248 L 200 306 Q 200 316 190 316 L 114 316 Q 104 316 104 326 L 104 344"/>
-<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 200 248 L 200 306 Q 200 316 210 316 L 286 316 Q 296 316 296 326 L 296 344"/>
-<rect class="kul-bar" x="191" y="51" width="18" height="10"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 572 592" width="572" height="592">
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 243 61 L 243 156 L 243 156 L 243 184"/>
+<path class="kul-edge kul-edge--birth kul-edge--in-tree" fill="none" d="M 382 376 L 382 476 L 382 476 L 382 504"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 243 248 L 243 306 Q 243 316 233 316 L 114 316 Q 104 316 104 326 L 104 344"/>
+<path class="kul-edge kul-edge--marriage kul-edge--in-tree" fill="none" d="M 243 248 L 243 306 Q 243 316 253 316 L 372 316 Q 382 316 382 326 L 382 373 Q 382 376 379 376 L 376 376"/>
+<rect class="kul-bar" x="234" y="51" width="18" height="10"/>
 <g class="kul-card kul-card--canonical">
-<rect x="25" y="24" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="105" y="56" text-anchor="middle" dominant-baseline="central">Ramesh Kumar</text>
+<rect x="68" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="148" y="56" text-anchor="middle" dominant-baseline="central">Ramesh Kumar</text>
 </g>
 <g class="kul-card kul-card--canonical">
-<rect x="215" y="24" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Sita Kumar</text>
+<rect x="258" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="338" y="56" text-anchor="middle" dominant-baseline="central">Sita Kumar</text>
 </g>
 <g class="kul-card kul-card--canonical">
-<rect x="120" y="184" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="200" y="216" text-anchor="middle" dominant-baseline="central">Devraj Kumar</text>
+<rect x="163" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="243" y="216" text-anchor="middle" dominant-baseline="central">Devraj Kumar</text>
 </g>
 <g class="kul-card kul-card--canonical">
 <rect x="24" y="344" width="160" height="64" rx="8" ry="8"/>
@@ -29,7 +29,7 @@ expression: svg
 <text class="kul-label-name" x="296" y="376" text-anchor="middle" dominant-baseline="central">Alice Sharma</text>
 </g>
 <g class="kul-card kul-card--canonical">
-<rect x="216" y="504" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="296" y="536" text-anchor="middle" dominant-baseline="central">Priya Kumar</text>
+<rect x="302" y="504" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="382" y="536" text-anchor="middle" dominant-baseline="central">Priya Kumar</text>
 </g>
 </svg>
