@@ -22,7 +22,7 @@ Every intimacy a person carries that **current-intimacy placement** does *not* s
 - **Past-adoption child-ghost.** A person has more than one adoption; the chain selects the most recent and demotes the rest. Each demoted adoption's bar gets a child-ghost connected by a dashed edge.
 - **Past-bio child-ghost (the bio-anchor).** A person has a `birth` link but the chain selected a different intimacy (a marriage, or an adoption — which demotes the bio family from current to past). The bio marriage gets a child-ghost connected by a solid edge.
 
-`GhostReason` carries `PastMarriage`, `PastAdoption`, `PastBirth` ([ADR-0017](./0017-render-shape-schema-and-versioning.md)). The reasons share emission semantics but stay three flat variants because each anchors a different edge kind and a surface renderer may want to distinguish them in chrome (a tooltip reading "previous adoptive family" versus "biological family"); the CSS class is uniform (`kul-card--ghost`) but the discriminator keeps divergence a renderer choice, not a structural loss.
+`GhostReason` carries `PastMarriage`, `PastAdoption`, `PastBirth` ([ADR-0017](./0017-render-shape-schema-and-versioning.md)). The reasons share emission semantics but stay three flat variants because each anchors a different edge kind and a surface renderer may want to distinguish them in chrome (a tooltip reading "previous adoptive family" versus "biological family"); the card class is uniform (`kul-card` with `data-kind="ghost"`) while the reason rides a `data-ghost-reason` attribute ([ADR-0021](./0021-language-properties-plumb-to-svg.md)), so the discriminator keeps divergence a renderer choice, not a structural loss.
 
 ### The bio-anchor fires on a derived-from-canonical trigger
 
@@ -44,7 +44,7 @@ Each ghost slots into its past family's children or spouse row at the **source-o
 
 ### The child-ghost endpoint is local
 
-`kul-layout`'s adapter keys child-ghosts by `(person_id, marriage_id)` in one `child_ghost_marriage` map covering both past-adoption and past-bio ghosts, so the ghost's edge terminates on the local ghost rather than crossing the canvas. Because both endpoints then resolve inside the same children-row walk, the edge routes as `InTree` (the geometry is identical to `CrossTree` per [ADR-0018](./0018-canonical-layout-algorithm.md); only the CSS routing class differs).
+`kul-layout`'s adapter keys child-ghosts by `(person_id, marriage_id)` in one `child_ghost_marriage` map covering both past-adoption and past-bio ghosts, so the ghost's edge terminates on the local ghost rather than crossing the canvas. Resolving through that map is exactly the edge's `data-is-past="true"` predicate; the edge routes through the same one orthogonal geometry as any other (the former `InTree` / `CrossTree` discriminator was removed — see [ADR-0018](./0018-canonical-layout-algorithm.md)).
 
 Ghost emission is **structural data**, not layout policy: the ghost, its source-order position, and its edge endpoint all live in `RenderShape`, so every surface renderer — not just `kul-svg` — sees the same picture without re-deriving the routing.
 

@@ -54,13 +54,21 @@ pub fn render(positioned: &PositionedShape, config: &ThemeConfig) -> String;
 
 The output is SVG and only SVG, forever. SVG expresses every primitive the canonical pattern uses — cards (`<rect>`), edges (`<path>`), labels (`<text>`), grouping (`<g>`) — directly, so it is the format closest to the pattern's vocabulary. Consumers that need raster output (PNG, PDF, JPG) run a standard SVG-to-raster tool (`resvg`, Inkscape, browser print-to-PDF) on the string; the Rust toolchain ships no raster pipeline.
 
-The emitted SVG is **theme-agnostic**: no inline `fill`, `stroke`, or `color`. Every element carries a semantic CSS class; theming is applied by the consuming surface via a stylesheet. The class vocabulary is a stable, public-by-construction seam:
+The emitted SVG is **theme-agnostic**: no inline `fill`, `stroke`, or `color`. Every element carries a semantic CSS class; theming is applied by the consuming surface via a stylesheet. The class + attribute vocabulary is a stable, public-by-construction seam.
 
-- `kul-card`, `kul-card--canonical`, `kul-card--ghost`
-- `kul-edge`, `kul-edge--birth`, `kul-edge--adoption`, `kul-edge--marriage`, `kul-edge--ended`, `kul-edge--in-tree`, `kul-edge--cross-tree`
-- `kul-label-name`, `kul-ghost-badge`
+**A CSS class names the entity *type*; every *property* of that entity is a `data-*` attribute.** This keeps the class set small and closed (one class per primitive) while the property surface grows additively as the language does — every declared Person / Marriage / birth / adoption property plumbs through to a `data-*` attribute ([ADR-0021](./0021-language-properties-plumb-to-svg.md)). Two attribute conventions:
 
-Distinctions that are properties of *what an element is*, rather than of theme, ship structurally in the base SVG: an adoption edge carries `stroke-dasharray="6 4"` (birth is solid); a ghost card carries `stroke-dasharray="3 2"` and a `<text>` ↺ badge. Consuming surfaces override colours, stroke widths, and opacities via CSS without disturbing these structural marks.
+- **Booleans** use `data-is-<adjective>="true|false"` — `data-is-alive`, `data-is-ended`, `data-is-past`. Always emitted (both truth values are meaningful).
+- **Enumerations** use explicit enum strings — `data-kind="canonical|ghost"`, `data-gender="male|female|other"`, `data-ghost-reason`, `data-link-kind="birth|adoption|marriage"`, `data-end-reason`.
+- A **missing / unknown** optional value omits the attribute entirely (no empty strings) — the pattern's "absence, not placeholders".
+
+The classes are:
+
+- `kul-card` — a person card. Properties: `data-person-id`, `data-kind`, `data-ghost-reason` (ghost only), `data-gender`, `data-is-alive`, `data-born`, `data-died`, `data-family`, `data-given`, `data-generation`.
+- `kul-edge` — a birth / adoption / marriage connector. Properties: `data-link-kind`, `data-marriage-id`; for birth / adoption `data-child-id`, `data-is-past`, plus adoption's `data-adoption-start` / `data-adoption-end`; for the unified marriage connector (ADR-0020) `data-host-id`, `data-joining-id`, `data-start`, `data-end`, `data-end-reason`, `data-is-ended`.
+- `kul-label-name`, `kul-ghost-badge` — the card's name `<text>` and the ghost `↺` badge.
+
+Distinctions that are properties of *what an element is*, rather than of theme, ship structurally in the base SVG: an adoption edge carries `stroke-dasharray="6 4"` (birth is solid); a ghost card carries `stroke-dasharray="3 2"` and a `<text>` ↺ badge. These are inline because they are structural, not theming; a consuming surface that wants the property programmatically reads the corresponding `data-*` attribute (`data-link-kind`, `data-kind`). Consuming surfaces override colours, stroke widths, and opacities via CSS — selecting on the entity class and `data-*` attributes (e.g. `.kul-card[data-kind="ghost"]`, `.kul-edge[data-link-kind="marriage"]`) — without disturbing these structural marks.
 
 `ThemeConfig` and `LayoutConfig` are `Default`-only structs in v1 — forward-compatibility seams for future per-emission or per-layout tweaks (opt-in source-span attributes, self-contained inline CSS, density, font metrics) that add fields without changing a function signature.
 
@@ -68,7 +76,7 @@ Distinctions that are properties of *what an element is*, rather than of theme, 
 
 **The canonical visual is theme- and interaction-agnostic. Theming and interactivity are chrome, owned by each consuming surface.** The test is a single question: *does the choice change how the kinship reads?*
 
-- **Structural (lives in Rust):** card position relative to other cards, card kind (canonical vs ghost), edge kind (birth vs adoption vs marriage), generation row, the CSS class vocabulary that lets chrome hook in. A wrong position misrepresents kinship; a wrong edge style conflates adoption and birth; a missing ghost loses a past structural fact.
+- **Structural (lives in Rust):** card position relative to other cards, card kind (canonical vs ghost), edge kind (birth vs adoption vs marriage), generation row, the entity-class + `data-*` attribute vocabulary that lets chrome hook in. A wrong position misrepresents kinship; a wrong edge style conflates adoption and birth; a missing ghost loses a past structural fact.
 - **Chrome (lives in the surface):** light/dark/high-contrast theme (CSS variable → CSS rule), pan/zoom (a webview JS library), hover effects (`:hover` over the existing classes), click-to-jump and editor-cursor sync (a webview ↔ extension message protocol). A theme does not change who is married to whom; a pan does not move Carol's parents to a different bar.
 
 Where a feature has a structural enabler and a chrome consumer — source spans enabling click-to-jump — the enabler lives in Rust and the handler lives in the surface.

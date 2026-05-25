@@ -112,10 +112,11 @@ kul-layout ── library
 kul-svg    ── library
               Theme-agnostic SVG emitter. Public surface is one
               function: `render(&PositionedShape, &ThemeConfig) ->
-              String`. Emits SVG with semantic CSS classes
-              (`kul-card`, `kul-edge--marriage`, `kul-edge--birth`,
-              etc.) and no inline colours; theming is a per-surface
-              stylesheet concern (ADR-0016). SVG-only forever —
+              String`. Emits SVG whose classes name the entity type
+              (`kul-card`, `kul-edge`) and whose every property is a
+              `data-*` attribute (ADR-0016, ADR-0021), with no inline
+              colours; theming is a per-surface stylesheet concern.
+              SVG-only forever —
               downstream consumers convert to raster via standard
               tools. Depends on kul-layout and kul-render.
 

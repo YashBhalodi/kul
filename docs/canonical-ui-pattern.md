@@ -30,7 +30,7 @@ Each person renders as exactly one *canonical* card, which may host one or more 
 
 ### The uniform card
 
-A person card is a uniform shape carrying at minimum the person's `name:`; other Kul fields may appear per renderer policy. Gender is **not** encoded by card shape, colour, or icon — a renderer that surfaces gender does so via a text label using Kul's three values (`male | female | other`). The only canonical card-appearance variation is canonical (solid border, full opacity) versus ghost (dotted border, faded fill, ↺ badge). Visual uniformity keeps attention on structure and stays culturally neutral.
+A person card is a uniform shape carrying at minimum the person's `name:`; other Kul fields may appear per renderer policy. Gender is **not** encoded by card shape, colour, or icon — a renderer that surfaces gender does so via a text label using Kul's three values (`male | female | other`). The only canonical card-appearance variation is canonical (solid border, full opacity) versus ghost (dotted border, faded fill, ↺ badge). Visual uniformity keeps attention on structure and stays culturally neutral. Consuming surfaces MAY opt out by selecting on the structural `data-gender` attribute the SVG carries (every declared property plumbs through as a `data-*` attribute, per [ADR-0021](./adr/0021-language-properties-plumb-to-svg.md)), but the canonical pattern does not.
 
 ### Absence, not placeholders
 
