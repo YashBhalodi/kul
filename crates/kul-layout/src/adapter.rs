@@ -384,23 +384,23 @@ impl<'a> Builder<'a> {
     /// generations, recursive polygamy) — each is built through the
     /// usual `build_person` recursion and measured by a local walker
     /// pass for its packed width `CW_i`. The geometry is then prescribed
-    /// analytically:
+    /// analytically in **children-centre space** (the invariant ties each
+    /// co-spouse to its marriage's children-centre, so laying out the
+    /// centres directly is cleaner than co-spouse space):
     ///
-    /// 1. Adjacent co-spouse spacing `s_i = max(cw + gap, CW_i +
-    ///    CW_{i+1} + 2*gap)` (children blocks live at the midpoints, a
-    ///    half-step apart, so this keeps them from overlapping).
-    /// 2. Cumulative co-spouse positions `p_1 = 0`, `p_{i+1} = p_i +
-    ///    s_i`.
-    /// 3. `hub_cx = (p_1 + p_N)/2`.
-    /// 4. Child-drop clearance: each child-bearing marriage's vertical
-    ///    drop at `C_i = (hub_cx + p_i)/2` must clear that co-spouse's
-    ///    own card, so `|p_i - hub_cx| >= cw + gap`. If too narrow,
-    ///    scale all co-spouse positions outward about `hub_cx`. (Middle
-    ///    co-spouses in odd N may sit near `hub_cx` and cannot satisfy
-    ///    this — accepted as a known limitation; their marriage edge is
-    ///    near-vertical and the child hangs ~directly below.)
-    /// 5. `C_i = (hub_cx + p_i)/2`; shift marriage i's children forest
-    ///    so its block centre lands on `C_i`.
+    /// 1. [`fan_children_centers`] places each marriage's children-centre
+    ///    `C_i` with adjacent spacing `max((CW_i + CW_{i+1})/2 + gap, clr)`
+    ///    (`clr = (cw + gap)/2`), centred so the outer two are symmetric
+    ///    about the hub, and enforces the child-drop clearance
+    ///    `|C_i - hub_cx| >= clr` for every child-bearing marriage — which
+    ///    keeps that marriage's drop outside its co-spouse card. For an
+    ///    odd N the middle marriage would land on the hub column; it is
+    ///    nudged off to `+clr` and the fan re-packs outward, keeping the
+    ///    hub centred (the outer co-spouses splay wider in exchange).
+    /// 2. `cospouse_cx_i = 2 * C_i - hub_cx` (the co-spouse mirrors the
+    ///    hub across the children-centre).
+    /// 3. Shift marriage `i`'s children forest so its block centre lands
+    ///    on `C_i`.
     ///
     /// The hub is a single walker *leaf* whose width reserves the full
     /// wing-to-wing extent (symmetric about `hub_cx`), so it packs
@@ -473,53 +473,35 @@ impl<'a> Builder<'a> {
             });
         }
 
-        // Step 1+2: cumulative co-spouse positions in hub-local x.
-        let mut positions: Vec<f64> = Vec::with_capacity(pending.len());
-        let mut p = 0.0_f64;
-        positions.push(p);
-        for w in pending.windows(2) {
-            let s = (cw + gap).max(w[0].children_width + w[1].children_width + 2.0 * gap);
-            p += s;
-            positions.push(p);
-        }
+        // Children-centre geometry (hub-local x). The fan is laid out in
+        // children-centre space because the governing invariant ties each
+        // co-spouse to its marriage's children-centre: `cospouse_cx = 2 *
+        // children_center - hub_cx`. Working in this frame lets the
+        // child-drop clearance be expressed as a single constraint on the
+        // children-centre — `|children_center - hub_cx| >= clr` with
+        // `clr = (cw + gap)/2` — which is what keeps a child-drop at the
+        // marriage-edge midpoint outside its co-spouse card.
+        let clr = (cw + gap) / 2.0;
+        let widths: Vec<f64> = pending.iter().map(|m| m.children_width).collect();
+        let bearing: Vec<bool> = pending.iter().map(|m| !m.child_roots.is_empty()).collect();
+        let relative = fan_children_centers(&widths, &bearing, gap, clr);
 
-        // Step 3: hub centre = midpoint of the co-spouse span.
-        let hub_cx = (positions[0] + positions[positions.len() - 1]) / 2.0;
+        // Origin the local frame so the hub (midpoint of the outer two
+        // children-centres, which `fan_children_centers` keeps at 0) sits
+        // at a convenient hub-local x. Any constant works — the fan is
+        // projected against the hub's global walker x in `finish` — but
+        // anchoring at 0 keeps the geometry readable.
+        let hub_cx = 0.0_f64;
 
-        // Step 4: child-drop clearance. Each child-bearing marriage's
-        // drop at C_i = (hub_cx + p_i)/2 must clear that co-spouse's
-        // card. Scale all positions outward about `hub_cx` by the
-        // smallest factor >= 1 that satisfies every child-bearing
-        // marriage. Middle co-spouses (|p_i - hub_cx| ~ 0 in odd N) are
-        // skipped — they cannot be cleared by scaling and are an
-        // accepted limitation.
-        let clearance = cw + gap;
-        let mut scale = 1.0_f64;
-        for (m, &pos) in pending.iter().zip(&positions) {
-            if m.child_roots.is_empty() {
-                continue;
-            }
-            let reach = (pos - hub_cx).abs();
-            if reach > f64::EPSILON {
-                scale = scale.max(clearance / reach);
-            }
-        }
-        if scale > 1.0 {
-            for pos in &mut positions {
-                *pos = hub_cx + scale * (*pos - hub_cx);
-            }
-        }
-
-        // Step 5: children centres + forest translation. Project each
-        // forest's local block centre onto C_i; the rigid shift is
-        // applied in `finish` (the forests are already laid out in the
-        // global walker frame from `build_person`, so we record their
-        // current block centre here and the target `children_center`).
+        // Children centres + co-spouse wings. `cospouse_cx` is the mirror
+        // of the hub across the children-centre; the forest's block centre
+        // pins to `children_center` (the marriage-edge midpoint) in
+        // `finish`.
         let mut marriages: Vec<FanMarriage> = Vec::with_capacity(pending.len());
         let mut min_wing = hub_cx;
         let mut max_wing = hub_cx;
-        for (m, &cospouse_cx) in pending.iter().zip(&positions) {
-            let children_center = (hub_cx + cospouse_cx) / 2.0;
+        for (m, &children_center) in pending.iter().zip(&relative) {
+            let cospouse_cx = 2.0 * children_center - hub_cx;
             // Reserve the co-spouse card extent (always present) and
             // the children block extent (when child-bearing).
             min_wing = min_wing.min(cospouse_cx - cw / 2.0);
@@ -960,6 +942,109 @@ fn fold_visual_row(
     }
 }
 
+/// Children-centre x for every marriage of a polygamy fan, in a hub-local
+/// frame where the hub sits at `0.0` (the midpoint of the outer two
+/// centres). The caller derives each co-spouse from the invariant
+/// `cospouse_cx = 2 * children_center - hub_cx` (ADR-0027, Approach 1).
+///
+/// `widths[i]` is marriage `i`'s children-block width (`0.0` if childless),
+/// `bearing[i]` whether marriage `i` has any children, `gap` the sibling
+/// gap, and `clr = (cw + gap)/2` the half-clearance that keeps a
+/// child-bearing marriage's drop (at its children-centre) outside its
+/// co-spouse card.
+///
+/// Two constraints are honoured:
+///
+/// 1. **Adjacent spacing** `c_{i+1} - c_i >= max((CW_i + CW_{i+1})/2 + gap,
+///    clr)` — children blocks live half a co-spouse step apart, so this
+///    keeps neighbouring blocks (and co-spouse cards) from overlapping.
+/// 2. **Band clearance** — every child-bearing marriage has
+///    `|c_i| >= clr`, so its child-drop lands at least `gap/2` outside its
+///    co-spouse card rather than through it.
+///
+/// The natural cumulative placement is centred (symmetric about 0). Each
+/// child-bearing centre that lands inside the forbidden band `(-clr, clr)`
+/// is then nudged out to the nearer edge (`+clr` for the lone middle of an
+/// odd N, which sits exactly on the hub column), and the fan re-packs
+/// outward from the centre so spacing is preserved; finally the outer two
+/// centres are mirrored so the hub stays at their midpoint (the inner
+/// marriages may sit asymmetrically — only the *outer* pair pins the hub).
+/// For N=2 with one childless side this pushes the child-bearing co-spouse
+/// (and its mirror) out to `±clr`; for the odd-N middle it splays the
+/// outer co-spouses wider in exchange for clearing the middle child.
+fn fan_children_centers(widths: &[f64], bearing: &[bool], gap: f64, clr: f64) -> Vec<f64> {
+    let n = widths.len();
+    debug_assert_eq!(n, bearing.len());
+    if n == 0 {
+        return Vec::new();
+    }
+
+    // Adjacent children-centre spacing (one per gap between marriages).
+    let spacing: Vec<f64> = widths
+        .windows(2)
+        .map(|w| ((w[0] + w[1]) / 2.0 + gap).max(clr))
+        .collect();
+
+    // Natural cumulative placement, then centre on the midpoint of the
+    // ends so the outer two are symmetric about 0.
+    let mut c: Vec<f64> = Vec::with_capacity(n);
+    let mut t = 0.0_f64;
+    c.push(t);
+    for &s in &spacing {
+        t += s;
+        c.push(t);
+    }
+    let mid = (c[0] + c[n - 1]) / 2.0;
+    for v in &mut c {
+        *v -= mid;
+    }
+
+    // Pivot = first centre at or right of the hub column. Everything from
+    // the pivot rightward packs outward to the right; everything left of
+    // it packs outward to the left. A child-bearing centre inside the band
+    // is the only thing that triggers re-packing; for the corpus that is
+    // the lone middle of an odd N (which lands exactly on the hub column),
+    // or the child-bearing side of an N=2 pair whose natural half-spacing
+    // is narrower than `clr`.
+    let pivot = c.iter().position(|&v| v >= 0.0).unwrap_or(n);
+
+    // Right of (and including) the pivot: sweep outward, holding each
+    // child-bearing centre at >= clr and each centre >= its inner
+    // neighbour plus that gap's spacing.
+    for i in pivot..n {
+        let mut floor = if i > 0 {
+            c[i - 1] + spacing[i - 1]
+        } else {
+            c[i]
+        };
+        if bearing[i] {
+            floor = floor.max(clr);
+        }
+        c[i] = c[i].max(floor);
+    }
+    // Left of the pivot: mirror sweep outward to the left.
+    for i in (0..pivot).rev() {
+        let mut ceil = if i + 1 < n {
+            c[i + 1] - spacing[i]
+        } else {
+            c[i]
+        };
+        if bearing[i] {
+            ceil = ceil.min(-clr);
+        }
+        c[i] = c[i].min(ceil);
+    }
+
+    // Pin the hub to the midpoint of the outer two centres: mirror the end
+    // pair to the wider of the two. Inner marriages keep their swept
+    // positions (they already clear the band and respect spacing).
+    let extent = c[0].abs().max(c[n - 1].abs());
+    c[0] = -extent;
+    c[n - 1] = extent;
+
+    c
+}
+
 fn push_card(
     cards: &mut Vec<PositionedCard>,
     tops: &mut std::collections::HashMap<String, (f64, f64)>,
@@ -1055,4 +1140,68 @@ fn route_edges(
         });
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fan_children_centers;
+
+    // Default layout metrics that drive the corpus (see `metrics.rs`):
+    // card_width 160, sibling_gap 32 → clr = (160 + 32) / 2 = 96, and a
+    // leaf children block is one card wide (160).
+    const GAP: f64 = 32.0;
+    const CLR: f64 = 96.0;
+    const LEAF: f64 = 160.0;
+
+    /// N=2 with a childless co-spouse and a single-child co-spouse
+    /// (example 04). The child-bearing side's natural half-spacing is
+    /// narrower than `clr`, so both centres are pushed out to `±clr` —
+    /// reproducing the byte-identical example-04 geometry (co-spouses at
+    /// `±2*clr = ±192` about the hub).
+    #[test]
+    fn n2_one_childless_one_child_clears_to_clr() {
+        let centers = fan_children_centers(&[0.0, LEAF], &[false, true], GAP, CLR);
+        assert_eq!(centers, vec![-CLR, CLR]);
+    }
+
+    /// N=3, one child each (example 15). The middle marriage would land
+    /// on the hub column; it is nudged to `+clr` and the outer pair
+    /// splays to `±(clr + spacing) = ±288`, keeping the hub at their
+    /// midpoint. Co-spouses derive as `2*center`: `[-576, +192, +576]`.
+    #[test]
+    fn n3_middle_nudged_off_hub_outer_splays() {
+        let centers = fan_children_centers(&[LEAF; 3], &[true; 3], GAP, CLR);
+        assert_eq!(centers, vec![-288.0, CLR, 288.0]);
+
+        // Every child-bearing centre clears the band, and the hub stays
+        // at the midpoint of the outer two.
+        for &c in &centers {
+            assert!(c.abs() >= CLR, "center {c} inside forbidden band");
+        }
+        assert_eq!((centers[0] + centers[2]) / 2.0, 0.0);
+    }
+
+    /// N=4, one child each: the inner pair straddles the band at
+    /// `±spacing/2 = ±96 = clr`, so nothing is nudged and the layout is
+    /// symmetric.
+    #[test]
+    fn n4_inner_pair_straddles_band_no_nudge() {
+        let centers = fan_children_centers(&[LEAF; 4], &[true; 4], GAP, CLR);
+        assert_eq!(centers, vec![-288.0, -CLR, CLR, 288.0]);
+    }
+
+    /// Odd N=5: the lone middle is nudged off the hub column and the fan
+    /// re-packs outward, with the hub still centred and every centre clear
+    /// of the band.
+    #[test]
+    fn n5_middle_nudged_hub_centered_and_clear() {
+        let centers = fan_children_centers(&[LEAF; 5], &[true; 5], GAP, CLR);
+        assert_eq!((centers[0] + centers[4]) / 2.0, 0.0);
+        for &c in &centers {
+            assert!(c.abs() >= CLR, "center {c} inside forbidden band");
+        }
+        for pair in centers.windows(2) {
+            assert!(pair[1] - pair[0] >= CLR, "adjacent centres overlap");
+        }
+    }
 }

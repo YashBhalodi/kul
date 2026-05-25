@@ -95,25 +95,35 @@ toward the centre, directly under the midpoint of that marriage's
   co-spouse keeps the same wing/mirror placement with an empty children
   block; its marriage edge lands on its top-centre.
 
-**Layout algorithm (hub-local x; the hub is centred afterward).** Let
-`cw = card_width`, `gap = sibling_gap`, and `CW_i` the packed width of
-marriage `i`'s children forest (0 if childless):
+**Layout algorithm (children-centre space; hub-local x).** Because the
+invariant ties each co-spouse to its marriage's children-centre
+(`cospouse_cx_i = 2*C_i - hub_cx`), the fan is laid out by positioning
+the **children-centres** directly and deriving the co-spouses from them.
+Let `cw = card_width`, `gap = sibling_gap`, `clr = (cw + gap)/2`
+(the half-clearance), and `CW_i` the packed width of marriage `i`'s
+children forest (0 if childless):
 
-1. Adjacent co-spouse spacing (hub-independent): `s_i = max(cw + gap,
-   CW_i + CW_{i+1} + 2*gap)` (children blocks live at the midpoints, a
-   half-step apart, so this keeps them from overlapping).
-2. Cumulative co-spouse positions: `p_1 = 0`, `p_{i+1} = p_i + s_i`.
-3. `hub_cx = (p_1 + p_N) / 2` (centre of the co-spouse span).
-4. **Child-drop clearance:** each child-bearing marriage's vertical
-   drop at `C_i = (hub_cx + p_i)/2` must clear that co-spouse's own
-   card, so `|p_i - hub_cx| >= cw + gap`. If too narrow, scale all
-   co-spouse positions outward about `hub_cx` (the canonical N=2-with-
-   one-small-child case exercises this). Middle co-spouses in odd N sit
-   near `hub_cx` and cannot satisfy this — accepted as a known
-   limitation (their marriage edge is near-vertical and the child hangs
-   ~directly below; see Consequences).
-5. `children_center_i = (hub_cx + p_i)/2`; shift marriage `i`'s
-   already-laid-out children forest so its block centre lands on `C_i`.
+1. Adjacent children-centre spacing: `spacing_i = max((CW_i +
+   CW_{i+1})/2 + gap, clr)` (children blocks live half a co-spouse step
+   apart, so this keeps neighbouring blocks — and co-spouse cards — from
+   overlapping).
+2. Cumulative placement `C_1 = 0`, `C_{i+1} = C_i + spacing_i`, then
+   re-centre on the midpoint of the ends so the outer two centres are
+   symmetric about the hub column (`hub_cx = (C_1 + C_N)/2`, taken as 0
+   in the local frame).
+3. **Child-drop clearance:** each child-bearing marriage's drop at `C_i`
+   must clear that co-spouse's own card, i.e. `|C_i - hub_cx| >= clr`
+   (equivalently `|cospouse_cx_i - hub_cx| >= cw + gap`). Any
+   child-bearing centre inside the forbidden band `(hub_cx - clr,
+   hub_cx + clr)` is nudged out to the nearer edge — for the lone middle
+   marriage of an odd N (which lands exactly on the hub column) that is
+   `hub_cx + clr` — and the fan re-packs outward from the centre to
+   preserve spacing. The outer two centres are then mirrored so the hub
+   stays at their midpoint; inner marriages may sit asymmetrically, since
+   only the outer pair pins the hub. The N=2-with-one-childless-side case
+   pushes the child-bearing co-spouse (and its mirror) out to `±clr`.
+4. `cospouse_cx_i = 2*C_i - hub_cx`; shift marriage `i`'s already-laid-out
+   children forest so its block centre lands on `C_i`.
 
 Monogamy (`hosted_marriages.len() == 1`) is unchanged: the classical
 hub-and-flanks cluster (host card + bar + joining card on one row)
@@ -182,17 +192,20 @@ stroke weight.
   hub footprint reserves the wings so the fan doesn't overlap its parent
   cluster (which still renders its monogamy bar).
 - **Example 15 (`15-polygamy-with-three-wives/`)** exercises N=3
-  polygamy with one child per marriage. The hub (Devraj) centres at 488;
-  the three co-spouses splay across row 1 — Meera at the outer-left wing
-  104, Alice in the middle at 488 (coincident with the hub), Diana at
-  the outer-right wing 872 — and each child sits at its marriage-edge
-  midpoint on row 2: Asha at 296, Priya at 488, Rohan at 680. The outer
-  two marriages gather their children toward the centre under each
-  edge's midpoint; the **middle marriage exhibits the odd-N limitation**
-  — Alice sits at the hub centre, so her marriage edge is vertical and
-  Priya hangs directly below the hub rather than being pulled toward a
-  wing. Three thick edges fan from one hub-bottom point; the half-
-  siblings render in distinct columns per P9.
+  polygamy with one child per marriage, and the odd-N middle nudge. The
+  hub (Devraj) centres at 680. The middle marriage (Alice) would land on
+  the hub column, so its children-centre is nudged off to `hub + clr =
+  680 + 96 = 776`, and the outer two marriages splay wider to keep the
+  hub centred: co-spouses on row 1 sit at Meera 104 (`hub - 576`), Alice
+  872 (`hub + 192`), Diana 1256 (`hub + 576`), and each child sits at its
+  marriage-edge midpoint on row 2: Asha at `(680 + 104)/2 = 392`, Priya
+  at `(680 + 872)/2 = 776`, Rohan at `(680 + 1256)/2 = 968`. Priya's drop
+  at x = 776 now clears Alice's card (left edge 792) by 16px — the same
+  `gap/2` clearance the wing co-spouses get — so the middle child no
+  longer crosses its co-spouse. The cost is the wider splay of the outer
+  co-spouses (±576 instead of the un-nudged ±384). Three thick edges fan
+  from one hub-bottom point; the half-siblings render in distinct columns
+  per P9.
 - **No bars for polygamy marriages.** `PositionedShape.bars` carries
   one rect per monogamy marriage only; polygamy marriages are pure
   edges. A polygamy hub that is *also* a monogamy host in a different
