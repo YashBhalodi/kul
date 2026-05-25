@@ -210,8 +210,7 @@ impl ResolvedDocument {
     /// use kul_core::span::FileId;
     ///
     /// let source = "person alice name:\"Alice\" gender:female\n";
-    /// let file = FileId::MANIFEST; // placeholder for doctest
-    /// let kul_file = FileId(1);
+    /// let kul_file = FileId::from_raw(1);
     /// let tokens = tokenize(source);
     /// let (statements, _) = parse(&tokens, kul_file);
     /// let kf = Arc::new(KulFile::new("test.kul", source, statements));
@@ -220,7 +219,6 @@ impl ResolvedDocument {
     ///
     /// let node = resolved.node_at(kul_file, 0).expect("a node");
     /// assert!(matches!(node, Node::Keyword(KeywordKind::Person, _)));
-    /// let _ = file; // silence unused
     /// ```
     pub fn node_at(&self, file: FileId, byte_offset: usize) -> Option<Node<'_>> {
         let kf = self.document().kul_file(file)?;
