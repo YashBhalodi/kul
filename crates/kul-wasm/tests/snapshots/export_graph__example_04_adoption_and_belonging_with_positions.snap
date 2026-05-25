@@ -1,0 +1,256 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "carlos",
+        "name": "Carlos Mendoza",
+        "gender": "male",
+        "born": {
+          "value": "1973-02-18",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1230,
+          1298
+        ]
+      },
+      {
+        "id": "rosa",
+        "name": "Rosa Mendoza",
+        "gender": "female",
+        "born": {
+          "value": "1975-09-24",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1299,
+          1367
+        ]
+      },
+      {
+        "id": "mateo",
+        "name": "Mateo Mendoza",
+        "gender": "male",
+        "born": {
+          "value": "2003-05-10",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1466,
+          1552
+        ]
+      },
+      {
+        "id": "bayani",
+        "name": "Bayani Mendoza",
+        "gender": "other",
+        "born": {
+          "value": "1995",
+          "precision": "year",
+          "circa": true
+        },
+        "span": [
+          1663,
+          1768
+        ]
+      },
+      {
+        "id": "dalisay",
+        "name": "Dalisay Mendoza",
+        "gender": "female",
+        "born": {
+          "value": "1990-08-03",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1846,
+          2040
+        ]
+      },
+      {
+        "id": "eduardo",
+        "name": "Eduardo Reyes",
+        "gender": "male",
+        "born": {
+          "value": "1962-03-11",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2077,
+          2145
+        ]
+      },
+      {
+        "id": "luz",
+        "name": "Luz Reyes",
+        "gender": "female",
+        "born": {
+          "value": "1965-12-02",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2146,
+          2214
+        ]
+      },
+      {
+        "id": "tomas",
+        "name": "Tomas Garcia",
+        "gender": "male",
+        "born": {
+          "value": "1958-06-25",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2324,
+          2389
+        ]
+      },
+      {
+        "id": "elena",
+        "name": "Elena Garcia",
+        "gender": "female",
+        "born": {
+          "value": "1960-10-14",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2390,
+          2455
+        ]
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_carlos_rosa",
+        "spouses": [
+          "carlos",
+          "rosa"
+        ],
+        "start": {
+          "value": "2000-01-15",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1369,
+          1421
+        ]
+      },
+      {
+        "id": "m_eduardo_luz",
+        "spouses": [
+          "eduardo",
+          "luz"
+        ],
+        "start": {
+          "value": "1988-07-09",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2216,
+          2268
+        ]
+      },
+      {
+        "id": "m_tomas_elena",
+        "spouses": [
+          "tomas",
+          "elena"
+        ],
+        "start": {
+          "value": "1985-03-01",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2457,
+          2509
+        ]
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_carlos_rosa",
+        "childId": "mateo",
+        "kind": "biological",
+        "span": [
+          1533,
+          1552
+        ]
+      },
+      {
+        "marriageId": "m_carlos_rosa",
+        "childId": "bayani",
+        "kind": "adoptive",
+        "start": {
+          "value": "2007-06-01",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1728,
+          1768
+        ]
+      },
+      {
+        "marriageId": "m_eduardo_luz",
+        "childId": "dalisay",
+        "kind": "biological",
+        "span": [
+          1919,
+          1938
+        ]
+      },
+      {
+        "marriageId": "m_tomas_elena",
+        "childId": "dalisay",
+        "kind": "adoptive",
+        "start": {
+          "value": "1994-04-20",
+          "precision": "day",
+          "circa": false
+        },
+        "end": {
+          "value": "1999-02-10",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1941,
+          1997
+        ]
+      },
+      {
+        "marriageId": "m_carlos_rosa",
+        "childId": "dalisay",
+        "kind": "adoptive",
+        "start": {
+          "value": "2002-11-30",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          2000,
+          2040
+        ]
+      }
+    ]
+  }
+}

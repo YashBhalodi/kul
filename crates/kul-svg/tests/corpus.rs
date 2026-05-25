@@ -63,91 +63,55 @@ fn pretty(svg: &str) -> String {
 }
 
 #[test]
-fn example_01_single_couple() {
-    let svg = render_example("01-single-couple");
+fn example_01_nuclear_family() {
+    let svg = render_example("01-nuclear-family");
     insta::assert_snapshot!(svg);
 }
 
 #[test]
-fn example_02_nuclear_family() {
-    let svg = render_example("02-nuclear-family");
+fn example_02_three_generations() {
+    let svg = render_example("02-three-generations");
     insta::assert_snapshot!(svg);
 }
 
 #[test]
-fn example_03_three_generations() {
-    let svg = render_example("03-three-generations");
+fn example_03_divorce_and_remarriage() {
+    let svg = render_example("03-divorce-and-remarriage");
     insta::assert_snapshot!(svg);
 }
 
 #[test]
-fn example_04_polygamous_family() {
-    let svg = render_example("04-polygamous-family");
+fn example_04_adoption_and_belonging() {
+    let svg = render_example("04-adoption-and-belonging");
     insta::assert_snapshot!(svg);
 }
 
 #[test]
-fn example_05_married_siblings() {
-    let svg = render_example("05-married-siblings");
+fn example_05_cousins_and_in_laws() {
+    let svg = render_example("05-cousins-and-in-laws");
     insta::assert_snapshot!(svg);
 }
 
 #[test]
-fn example_06_three_branch_dynasty() {
-    let svg = render_example("06-three-branch-dynasty");
+fn example_06_polygamous_household() {
+    let svg = render_example("06-polygamous-household");
     insta::assert_snapshot!(svg);
 }
 
 #[test]
-fn example_07_multi_file_extended_family() {
-    let svg = render_example("07-multi-file-extended-family");
+fn example_07_disconnected_lineages() {
+    let svg = render_example("07-disconnected-lineages");
     insta::assert_snapshot!(svg);
 }
 
 #[test]
-fn example_08_divorce_and_remarriage() {
-    let svg = render_example("08-divorce-and-remarriage");
+fn example_08_multi_file_project() {
+    let svg = render_example("08-multi-file-project");
     insta::assert_snapshot!(svg);
 }
 
 #[test]
-fn example_09_multi_adoption() {
-    let svg = render_example("09-multi-adoption");
-    insta::assert_snapshot!(svg);
-}
-
-#[test]
-fn example_10_disconnected_lineages_and_orphan() {
-    let svg = render_example("10-disconnected-lineages-and-orphan");
-    insta::assert_snapshot!(svg);
-}
-
-#[test]
-fn example_11_cousin_marriage() {
-    let svg = render_example("11-cousin-marriage");
-    insta::assert_snapshot!(svg);
-}
-
-#[test]
-fn example_12_polygamy_with_birth_family() {
-    let svg = render_example("12-polygamy-with-birth-family");
-    insta::assert_snapshot!(svg);
-}
-
-#[test]
-fn example_13_inter_family_marriage() {
-    let svg = render_example("13-inter-family-marriage");
-    insta::assert_snapshot!(svg);
-}
-
-#[test]
-fn example_14_grand_nested_inter_family() {
-    let svg = render_example("14-grand-nested-inter-family");
-    insta::assert_snapshot!(svg);
-}
-
-#[test]
-fn example_15_polygamy_with_three_wives() {
-    let svg = render_example("15-polygamy-with-three-wives");
+fn example_09_family_across_a_century() {
+    let svg = render_example("09-family-across-a-century");
     insta::assert_snapshot!(svg);
 }

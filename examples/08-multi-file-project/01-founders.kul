@@ -1,0 +1,16 @@
+# A multi-file project — file 1 of 3: the founders.
+#
+# A Kul project is a directory: one `kul.yml` manifest plus any number of
+# `.kul` files beside it. All files share ONE flat namespace — every
+# `person` and `marriage` id is visible from every file, with no imports
+# and no prefixes. So you are free to split a family however suits the
+# archive; here it is split by generation across three files.
+#
+# Ids declared here (the founders and their marriage) are referenced by
+# `birth` lines in the other files. Declaration order across files does
+# not matter — references resolve in both directions.
+
+person diego   name:"Diego Fernández"   gender:male    born:~1935
+person carmen  name:"Carmen Fernández"  gender:female  born:1938-07-19
+
+marriage m_diego_carmen diego carmen  start:1960-02-14

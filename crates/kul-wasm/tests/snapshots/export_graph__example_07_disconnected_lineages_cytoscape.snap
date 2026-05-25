@@ -1,0 +1,248 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "nodes": [
+      {
+        "data": {
+          "id": "p:jinho",
+          "type": "person",
+          "name": "Jin-ho Park",
+          "gender": "male",
+          "born": {
+            "value": "1960-04-12",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:soojin",
+          "type": "person",
+          "name": "Soo-jin Park",
+          "gender": "female",
+          "born": {
+            "value": "1963-08-25",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:minjun",
+          "type": "person",
+          "name": "Min-jun Park",
+          "gender": "male",
+          "born": {
+            "value": "1990-07-03",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:nadia",
+          "type": "person",
+          "name": "Nadia Haddad",
+          "gender": "female",
+          "born": {
+            "value": "1985",
+            "precision": "year",
+            "circa": true
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:bruno",
+          "type": "person",
+          "name": "Bruno Costa",
+          "gender": "male",
+          "born": {
+            "value": "1955-02-09",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:helena",
+          "type": "person",
+          "name": "Helena Costa",
+          "gender": "female",
+          "born": {
+            "value": "1958-11-28",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:tiago",
+          "type": "person",
+          "name": "Tiago Costa",
+          "gender": "male",
+          "born": {
+            "value": "1982-09-15",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:beatriz",
+          "type": "person",
+          "name": "Beatriz Costa",
+          "gender": "female",
+          "born": {
+            "value": "1985-03-30",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:carla",
+          "type": "person",
+          "name": "Carla Costa",
+          "gender": "female",
+          "born": {
+            "value": "1984-12-05",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:lucas",
+          "type": "person",
+          "name": "Lucas Costa",
+          "gender": "male",
+          "born": {
+            "value": "2012-04-22",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_jinho_soojin",
+          "type": "marriage",
+          "start": {
+            "value": "1988-05-14",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_bruno_helena",
+          "type": "marriage",
+          "start": {
+            "value": "1980-06-21",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_tiago_carla",
+          "type": "marriage",
+          "start": {
+            "value": "2010-10-16",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "source": "m:m_jinho_soojin",
+          "target": "p:jinho",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_jinho_soojin",
+          "target": "p:soojin",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_bruno_helena",
+          "target": "p:bruno",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_bruno_helena",
+          "target": "p:helena",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_tiago_carla",
+          "target": "p:tiago",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_tiago_carla",
+          "target": "p:carla",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_jinho_soojin",
+          "target": "p:minjun",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_bruno_helena",
+          "target": "p:tiago",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_bruno_helena",
+          "target": "p:beatriz",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_tiago_carla",
+          "target": "p:lucas",
+          "type": "biological_child"
+        }
+      }
+    ]
+  }
+}

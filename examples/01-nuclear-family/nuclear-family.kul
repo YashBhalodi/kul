@@ -1,0 +1,28 @@
+# A nuclear family — the smallest complete Kul document worth reading.
+#
+# Two people marry; two children are born to that marriage. This is the
+# classical descendency tree at its simplest: a couple joined by a
+# marriage edge, with their children hanging from the midpoint of that
+# edge one generation below.
+#
+# Everything Kul does is built on the three constructs shown here:
+#   - `person`   declares someone (a `name:` and `gender:` are required;
+#                every other field is optional and renders as absence).
+#   - `marriage` joins two people; the first-listed spouse is the *host*.
+#   - `birth`    (a sub-statement, indented under a person) says which
+#                marriage a person was born to — the parent link.
+
+# ---- The couple ----
+person hiroshi  name:"Hiroshi Tanaka"  gender:male    born:1978-02-11
+person yuki     name:"Yuki Tanaka"     gender:female  born:1980-06-30
+
+marriage m_hiroshi_yuki hiroshi yuki  start:2005-09-20
+
+# ---- Their children (born to m_hiroshi_yuki) ----
+# Each child's `birth` names the marriage, not the parents — children
+# attach to the marriage edge, matching how the data is written.
+person akiko  name:"Akiko Tanaka"  gender:female  born:2008-04-17
+  birth m_hiroshi_yuki
+
+person kenji  name:"Kenji Tanaka"  gender:male  born:2011-11-03
+  birth m_hiroshi_yuki

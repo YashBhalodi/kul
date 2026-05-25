@@ -1,0 +1,169 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "chinua",
+        "name": "Chinua Okeke",
+        "family": "Okeke",
+        "given": "Chinua",
+        "gender": "male",
+        "born": {
+          "value": "1925",
+          "precision": "year",
+          "circa": true
+        },
+        "died": {
+          "value": "1998-05-12",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1205,
+          1317
+        ]
+      },
+      {
+        "id": "adaeze",
+        "name": "Adaeze Okeke",
+        "family": "Okeke",
+        "given": "Adaeze",
+        "gender": "female",
+        "born": {
+          "value": "1930-03",
+          "precision": "month",
+          "circa": false
+        },
+        "span": [
+          1318,
+          1413
+        ]
+      },
+      {
+        "id": "emeka",
+        "name": "Emeka Okeke",
+        "gender": "male",
+        "born": {
+          "value": "1950",
+          "precision": "year",
+          "circa": false
+        },
+        "span": [
+          1498,
+          1580
+        ]
+      },
+      {
+        "id": "ngozi",
+        "name": "Ngozi Okeke",
+        "gender": "female",
+        "born": {
+          "value": "1955-08-19",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1581,
+          1645
+        ]
+      },
+      {
+        "id": "chidi",
+        "name": "Chidi Okeke",
+        "gender": "male",
+        "born": {
+          "value": "1980-11-14",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1726,
+          1812
+        ]
+      },
+      {
+        "id": "amara",
+        "name": "Amara Okeke",
+        "gender": "female",
+        "born": {
+          "value": "1983-07",
+          "precision": "month",
+          "circa": false
+        },
+        "span": [
+          1813,
+          1896
+        ]
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_chinua_adaeze",
+        "spouses": [
+          "chinua",
+          "adaeze"
+        ],
+        "start": {
+          "value": "1948-11-02",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1415,
+          1471
+        ]
+      },
+      {
+        "id": "m_emeka_ngozi",
+        "spouses": [
+          "emeka",
+          "ngozi"
+        ],
+        "start": {
+          "value": "1978-12-09",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1647,
+          1699
+        ]
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_chinua_adaeze",
+        "childId": "emeka",
+        "kind": "biological",
+        "span": [
+          1559,
+          1580
+        ]
+      },
+      {
+        "marriageId": "m_emeka_ngozi",
+        "childId": "chidi",
+        "kind": "biological",
+        "span": [
+          1793,
+          1812
+        ]
+      },
+      {
+        "marriageId": "m_emeka_ngozi",
+        "childId": "amara",
+        "kind": "biological",
+        "span": [
+          1877,
+          1896
+        ]
+      }
+    ]
+  }
+}

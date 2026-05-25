@@ -1,0 +1,305 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "nodes": [
+      {
+        "data": {
+          "id": "p:giuseppe",
+          "type": "person",
+          "name": "Giuseppe Rossi",
+          "gender": "male",
+          "born": {
+            "value": "1940-05-19",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:sofia",
+          "type": "person",
+          "name": "Sofia Rossi",
+          "gender": "female",
+          "born": {
+            "value": "1943-01-27",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:marco",
+          "type": "person",
+          "name": "Marco Rossi",
+          "gender": "male",
+          "born": {
+            "value": "1968-09-30",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:lucia",
+          "type": "person",
+          "name": "Lucia Rossi",
+          "gender": "female",
+          "born": {
+            "value": "1971-04-08",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:elena",
+          "type": "person",
+          "name": "Elena Bianchi",
+          "gender": "female",
+          "born": {
+            "value": "1970-11-15",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:matteo",
+          "type": "person",
+          "name": "Matteo Rossi",
+          "gender": "male",
+          "born": {
+            "value": "1997-02-14",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:aldo",
+          "type": "person",
+          "name": "Aldo Bianchi",
+          "gender": "male",
+          "born": {
+            "value": "1942-08-03",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:bianca",
+          "type": "person",
+          "name": "Bianca Bianchi",
+          "gender": "female",
+          "born": {
+            "value": "1945-12-21",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:paolo",
+          "type": "person",
+          "name": "Paolo Conti",
+          "gender": "male",
+          "born": {
+            "value": "1969-03-17",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:giulia",
+          "type": "person",
+          "name": "Giulia Conti",
+          "gender": "female",
+          "born": {
+            "value": "1998-06-26",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_giuseppe_sofia",
+          "type": "marriage",
+          "start": {
+            "value": "1965-06-12",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_marco_elena",
+          "type": "marriage",
+          "start": {
+            "value": "1995-07-22",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_aldo_bianca",
+          "type": "marriage",
+          "start": {
+            "value": "1967-05-30",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_lucia_paolo",
+          "type": "marriage",
+          "start": {
+            "value": "1996-10-05",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_matteo_giulia",
+          "type": "marriage",
+          "start": {
+            "value": "2020-09-12",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "source": "m:m_giuseppe_sofia",
+          "target": "p:giuseppe",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_giuseppe_sofia",
+          "target": "p:sofia",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_marco_elena",
+          "target": "p:marco",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_marco_elena",
+          "target": "p:elena",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_aldo_bianca",
+          "target": "p:aldo",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_aldo_bianca",
+          "target": "p:bianca",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_lucia_paolo",
+          "target": "p:lucia",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_lucia_paolo",
+          "target": "p:paolo",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_matteo_giulia",
+          "target": "p:matteo",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_matteo_giulia",
+          "target": "p:giulia",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_giuseppe_sofia",
+          "target": "p:marco",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_giuseppe_sofia",
+          "target": "p:lucia",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_aldo_bianca",
+          "target": "p:elena",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_marco_elena",
+          "target": "p:matteo",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_lucia_paolo",
+          "target": "p:giulia",
+          "type": "biological_child"
+        }
+      }
+    ]
+  }
+}

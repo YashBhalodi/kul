@@ -1,0 +1,66 @@
+---
+source: crates/kul-wasm/tests/format.rs
+expression: formatted
+---
+# Cousins and in-laws — one rule, two faces.
+#
+# When two people marry, the first-listed spouse is the *host* and the
+# second *joins* the host's family: the joiner's card moves next to the
+# host, and their tie back to their own birth family becomes a connecting
+# edge rather than uprooting anyone. This one "absorb rule" handles every
+# marriage at every scale. This Rossi family shows its two outcomes side
+# by side.
+#
+#   - Marrying in from outside. Marco marries Elena, who was born into
+#     the unrelated Bianchi family. Because the Bianchis aren't otherwise
+#     in this tree, Elena's birth family is drawn as a small sub-tree
+#     tucked beside the Rossis at the point where she joins.
+#
+#   - Marrying a cousin. Marco's son Matteo marries Lucia's daughter
+#     Giulia — first cousins, both already in this tree. Here the rule has
+#     nothing to pull in: Giulia's birth family is already on the canvas,
+#     so instead of a new sub-tree her tie is simply drawn as an edge back
+#     to her parents, and a faded ghost marks the spot in their children's
+#     row that her card left when she moved beside Matteo.
+#
+# Same rule both times — the only difference is whether the joining
+# spouse's family is already present.
+
+# ---- The Rossi grandparents ----
+person giuseppe  name:"Giuseppe Rossi"  gender:male    born:1940-05-19
+person sofia     name:"Sofia Rossi"     gender:female  born:1943-01-27
+
+marriage m_giuseppe_sofia giuseppe sofia  start:1965-06-12
+
+person marco  name:"Marco Rossi"  gender:male    born:1968-09-30
+  birth m_giuseppe_sofia
+person lucia  name:"Lucia Rossi"  gender:female  born:1971-04-08
+  birth m_giuseppe_sofia
+
+# ---- Marco marries Elena, who joins from the Bianchi family ----
+person elena  name:"Elena Bianchi"  gender:female  born:1970-11-15
+  birth m_aldo_bianca
+
+marriage m_marco_elena marco elena  start:1995-07-22
+
+person matteo  name:"Matteo Rossi"  gender:male  born:1997-02-14
+  birth m_marco_elena
+
+# Elena's birth family — unrelated to the Rossis, so it nests beside them.
+person aldo    name:"Aldo Bianchi"    gender:male    born:1942-08-03
+person bianca  name:"Bianca Bianchi"  gender:female  born:1945-12-21
+
+marriage m_aldo_bianca aldo bianca  start:1967-05-30
+
+# ---- Lucia marries Paolo ----
+person paolo  name:"Paolo Conti"  gender:male  born:1969-03-17
+
+marriage m_lucia_paolo lucia paolo  start:1996-10-05
+
+person giulia  name:"Giulia Conti"  gender:female  born:1998-06-26
+  birth m_lucia_paolo
+
+# ---- The cousin marriage: Matteo (Marco's son) and Giulia (Lucia's) ----
+# Both are already in this tree, so no new sub-tree is drawn; Giulia's
+# birth tie becomes an edge back to m_lucia_paolo.
+marriage m_matteo_giulia matteo giulia  start:2020-09-12

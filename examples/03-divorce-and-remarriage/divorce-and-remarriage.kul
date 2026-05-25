@@ -1,0 +1,43 @@
+# Divorce, remarriage, and a blended family.
+#
+# Erik and Astrid marry, have Linnea, then divorce. Each remarries and
+# has another child. This is where the canonical visual earns its keep.
+#
+# A marriage ends with an `end:` date and an `end_reason:` (the two
+# always travel together). Once both former spouses have moved on to new
+# marriages, where does their first marriage live, and what anchors the
+# child it produced?
+#
+# The answer is a **ghost**. A person has exactly one canonical card,
+# placed at their *current* intimacy — so Erik's card sits at his
+# marriage to Maja, and Astrid's at her marriage to Johan. Their ended
+# marriage still produced Linnea, so it leaves behind faded *spouse-
+# ghosts* of Erik and Astrid to hold that marriage's edge in place;
+# Linnea (who has no marriage of her own) is canonical there, in her
+# birth family. A ghost is mute: it anchors only the edge it stands for,
+# never the person's other relationships.
+
+# ---- The first marriage, later dissolved ----
+person erik    name:"Erik Lindqvist"    gender:male    born:1970-01-22
+person astrid  name:"Astrid Lindqvist"  gender:female  born:1972-10-08
+
+marriage m_erik_astrid erik astrid  start:1995-06-17  end:2003-06-15  end_reason:divorce
+
+person linnea  name:"Linnea Lindqvist"  gender:female  born:1998-03-29
+  birth m_erik_astrid
+
+# ---- Erik moves on ----
+person maja  name:"Maja Holm"  gender:female  born:1975-05-14
+
+marriage m_erik_maja erik maja  start:2006-08-26
+
+person oskar  name:"Oskar Lindqvist"  gender:male  born:2008-12-01
+  birth m_erik_maja
+
+# ---- Astrid moves on (she hosts this one) ----
+person johan  name:"Johan Berg"  gender:male  born:1971-07-30
+
+marriage m_astrid_johan astrid johan  start:2007-04-12
+
+person frida  name:"Frida Berg"  gender:female  born:2010-09-05
+  birth m_astrid_johan

@@ -135,83 +135,53 @@ macro_rules! clean_example {
 }
 
 clean_example!(
-    example_01_single_couple_is_clean,
-    "01-single-couple",
-    "single-couple"
-);
-clean_example!(
-    example_02_nuclear_family_is_clean,
-    "02-nuclear-family",
+    example_01_nuclear_family_is_clean,
+    "01-nuclear-family",
     "nuclear-family"
 );
 clean_example!(
-    example_03_three_generations_is_clean,
-    "03-three-generations",
+    example_02_three_generations_is_clean,
+    "02-three-generations",
     "three-generations"
 );
 clean_example!(
-    example_04_polygamous_family_is_clean,
-    "04-polygamous-family",
-    "polygamous-family"
-);
-clean_example!(
-    example_05_married_siblings_is_clean,
-    "05-married-siblings",
-    "married-siblings"
-);
-clean_example!(
-    example_06_three_branch_dynasty_is_clean,
-    "06-three-branch-dynasty",
-    "three-branch-dynasty"
-);
-clean_example!(
-    example_08_divorce_and_remarriage_is_clean,
-    "08-divorce-and-remarriage",
+    example_03_divorce_and_remarriage_is_clean,
+    "03-divorce-and-remarriage",
     "divorce-and-remarriage"
 );
 clean_example!(
-    example_09_multi_adoption_is_clean,
-    "09-multi-adoption",
-    "multi-adoption"
+    example_04_adoption_and_belonging_is_clean,
+    "04-adoption-and-belonging",
+    "adoption-and-belonging"
 );
 clean_example!(
-    example_10_disconnected_lineages_and_orphan_is_clean,
-    "10-disconnected-lineages-and-orphan",
-    "disconnected-lineages-and-orphan"
+    example_05_cousins_and_in_laws_is_clean,
+    "05-cousins-and-in-laws",
+    "cousins-and-in-laws"
 );
 clean_example!(
-    example_11_cousin_marriage_is_clean,
-    "11-cousin-marriage",
-    "cousin-marriage"
+    example_06_polygamous_household_is_clean,
+    "06-polygamous-household",
+    "polygamous-household"
 );
 clean_example!(
-    example_12_polygamy_with_birth_family_is_clean,
-    "12-polygamy-with-birth-family",
-    "polygamy-with-birth-family"
+    example_07_disconnected_lineages_is_clean,
+    "07-disconnected-lineages",
+    "disconnected-lineages"
 );
 clean_example!(
-    example_13_inter_family_marriage_is_clean,
-    "13-inter-family-marriage",
-    "inter-family-marriage"
-);
-clean_example!(
-    example_14_grand_nested_inter_family_is_clean,
-    "14-grand-nested-inter-family",
-    "grand-nested-inter-family"
-);
-clean_example!(
-    example_15_polygamy_with_three_wives_is_clean,
-    "15-polygamy-with-three-wives",
-    "polygamy-with-three-wives"
+    example_09_family_across_a_century_is_clean,
+    "09-family-across-a-century",
+    "family-across-a-century"
 );
 
 #[test]
-fn example_07_multi_file_extended_family_is_clean() {
-    let files = multi_file_inputs("07-multi-file-extended-family");
+fn example_08_multi_file_project_is_clean() {
+    let files = multi_file_inputs("08-multi-file-project");
     let envelope = kul_wasm::check(files, kul_core::manifest::Manifest::default());
     assert!(
         envelope.diagnostics.is_empty(),
-        "07-multi-file-extended-family produced diagnostics: {:#?}",
+        "08-multi-file-project produced diagnostics: {:#?}",
         envelope.diagnostics
     );
 }
@@ -227,21 +197,15 @@ fn every_example_has_a_dedicated_clean_check_test() {
         .collect();
     have.sort();
     let expected = [
-        "01-single-couple",
-        "02-nuclear-family",
-        "03-three-generations",
-        "04-polygamous-family",
-        "05-married-siblings",
-        "06-three-branch-dynasty",
-        "07-multi-file-extended-family",
-        "08-divorce-and-remarriage",
-        "09-multi-adoption",
-        "10-disconnected-lineages-and-orphan",
-        "11-cousin-marriage",
-        "12-polygamy-with-birth-family",
-        "13-inter-family-marriage",
-        "14-grand-nested-inter-family",
-        "15-polygamy-with-three-wives",
+        "01-nuclear-family",
+        "02-three-generations",
+        "03-divorce-and-remarriage",
+        "04-adoption-and-belonging",
+        "05-cousins-and-in-laws",
+        "06-polygamous-household",
+        "07-disconnected-lineages",
+        "08-multi-file-project",
+        "09-family-across-a-century",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),

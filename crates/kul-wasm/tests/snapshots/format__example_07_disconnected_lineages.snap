@@ -1,0 +1,48 @@
+---
+source: crates/kul-wasm/tests/format.rs
+expression: formatted
+---
+# Unrelated families in one document.
+#
+# A Kul document doesn't have to describe a single connected tree. It can
+# hold several families that share no relatives at all, plus lone
+# individuals with no recorded ties. Each disconnected group is its own
+# component, and the components are laid out left to right in the order
+# their first member is declared.
+#
+# That ordering rule has no exceptions — in particular, a person with no
+# ties (an "orphan") is a one-card component that sorts by declaration
+# order like everything else. Nadia below is declared between the Park
+# and Costa families, so she renders between them, not shunted to the end.
+# You control the arrangement simply by choosing the order you write
+# things in.
+
+# ---- The Park family ----
+person jinho   name:"Jin-ho Park"   gender:male    born:1960-04-12
+person soojin  name:"Soo-jin Park"  gender:female  born:1963-08-25
+
+marriage m_jinho_soojin jinho soojin  start:1988-05-14
+
+person minjun  name:"Min-jun Park"  gender:male  born:1990-07-03
+  birth m_jinho_soojin
+
+# ---- Nadia — declared with no ties of any kind ----
+person nadia  name:"Nadia Haddad"  gender:female  born:~1985
+
+# ---- The Costa family (a little larger, with a married child) ----
+person bruno   name:"Bruno Costa"   gender:male    born:1955-02-09
+person helena  name:"Helena Costa"  gender:female  born:1958-11-28
+
+marriage m_bruno_helena bruno helena  start:1980-06-21
+
+person tiago    name:"Tiago Costa"    gender:male    born:1982-09-15
+  birth m_bruno_helena
+person beatriz  name:"Beatriz Costa"  gender:female  born:1985-03-30
+  birth m_bruno_helena
+
+person carla  name:"Carla Costa"  gender:female  born:1984-12-05
+
+marriage m_tiago_carla tiago carla  start:2010-10-16
+
+person lucas  name:"Lucas Costa"  gender:male  born:2012-04-22
+  birth m_tiago_carla

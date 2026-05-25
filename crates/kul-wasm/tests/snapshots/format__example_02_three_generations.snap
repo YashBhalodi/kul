@@ -1,0 +1,43 @@
+---
+source: crates/kul-wasm/tests/format.rs
+expression: formatted
+---
+# Three generations — depth, dates, and what death does (and doesn't) do.
+#
+# The Okeke family across three generations. Beyond adding depth, this
+# example shows two things every real archive needs:
+#
+#   1. Dates you only partly know. A date may be a full `YYYY-MM-DD`, a
+#      `YYYY-MM`, a bare `YYYY`, or any of those prefixed with `~` for
+#      "approximately". Use the coarsest form the records justify — Kul
+#      compares partial and circa dates leniently, so you are never
+#      forced to invent precision you don't have.
+#
+#   2. Death is not divorce. A person's `died:` date records that they
+#      died; it does NOT end their marriage. Only a marriage's own `end:`
+#      field (always paired with `end_reason:`) ends one. So a widow
+#      stays in her family beside her late husband — see Chinua below,
+#      whose marriage carries no `end:` though he died in 1998. Divorce,
+#      which *does* end a marriage, is the next example.
+
+# ---- Generation 1: the founders ----
+# `family:` and `given:` are optional structured-name fields, useful for
+# tools that sort or group by surname; the displayed `name:` is enough on
+# its own. Chinua's birth year is only known approximately.
+person chinua  name:"Chinua Okeke"  gender:male    family:"Okeke"  given:"Chinua"  born:~1925    died:1998-05-12
+person adaeze  name:"Adaeze Okeke"  gender:female  family:"Okeke"  given:"Adaeze"  born:1930-03
+
+marriage m_chinua_adaeze chinua adaeze  start:1948-11-02
+
+# ---- Generation 2 ----
+person emeka  name:"Emeka Okeke"  gender:male    born:1950
+  birth m_chinua_adaeze
+person ngozi  name:"Ngozi Okeke"  gender:female  born:1955-08-19
+
+marriage m_emeka_ngozi emeka ngozi  start:1978-12-09
+
+# ---- Generation 3 ----
+person chidi  name:"Chidi Okeke"  gender:male    born:1980-11-14
+  birth m_emeka_ngozi
+person amara  name:"Amara Okeke"  gender:female  born:1983-07
+  birth m_emeka_ngozi

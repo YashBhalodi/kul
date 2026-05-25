@@ -1,0 +1,112 @@
+---
+source: crates/kul-layout/tests/corpus.rs
+expression: yaml
+---
+width: 400.0
+height: 432.0
+cards:
+- person_id: chinua
+  kind: canonical
+  x: 25.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Chinua Okeke
+- person_id: adaeze
+  kind: canonical
+  x: 215.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Adaeze Okeke
+- person_id: emeka
+  kind: canonical
+  x: 25.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Emeka Okeke
+- person_id: ngozi
+  kind: canonical
+  x: 215.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Ngozi Okeke
+- person_id: chidi
+  kind: canonical
+  x: 24.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Chidi Okeke
+- person_id: amara
+  kind: canonical
+  x: 216.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Amara Okeke
+edges:
+- kind: birth
+  routing: in_tree
+  child_id: emeka
+  marriage_id: m_chinua_adaeze
+  points:
+  - - 200.0
+    - 56.0
+  - - 200.0
+    - 156.0
+  - - 105.0
+    - 156.0
+  - - 105.0
+    - 184.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: chidi
+  marriage_id: m_emeka_ngozi
+  points:
+  - - 200.0
+    - 216.0
+  - - 200.0
+    - 316.0
+  - - 104.0
+    - 316.0
+  - - 104.0
+    - 344.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: amara
+  marriage_id: m_emeka_ngozi
+  points:
+  - - 200.0
+    - 216.0
+  - - 200.0
+    - 316.0
+  - - 296.0
+    - 316.0
+  - - 296.0
+    - 344.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: adaeze
+  marriage_id: m_chinua_adaeze
+  points:
+  - - 185.0
+    - 56.0
+  - - 215.0
+    - 56.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: ngozi
+  marriage_id: m_emeka_ngozi
+  points:
+  - - 185.0
+    - 216.0
+  - - 215.0
+    - 216.0
+  ended: false

@@ -1,0 +1,112 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 2,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 906,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "hiroshi",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Hiroshi Tanaka",
+            "gender": "male",
+            "born": {
+              "value": "1978-02-11",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_hiroshi_yuki",
+                "generation": 0,
+                "hostId": "hiroshi",
+                "joiningId": "yuki",
+                "joiningSlot": {
+                  "personId": "yuki",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Yuki Tanaka",
+                  "gender": "female",
+                  "born": {
+                    "value": "1980-06-30",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "2005-09-20",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "akiko",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Akiko Tanaka",
+                    "gender": "female",
+                    "born": {
+                      "value": "2008-04-17",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                },
+                {
+                  "slot": {
+                    "personId": "kenji",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Kenji Tanaka",
+                    "gender": "male",
+                    "born": {
+                      "value": "2011-11-03",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "akiko",
+      "marriageId": "m_hiroshi_yuki"
+    },
+    {
+      "kind": "birth",
+      "childId": "kenji",
+      "marriageId": "m_hiroshi_yuki"
+    }
+  ]
+}

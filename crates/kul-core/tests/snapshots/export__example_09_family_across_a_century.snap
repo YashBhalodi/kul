@@ -1,0 +1,613 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "oludare",
+        "name": "Oludare Adeyemi",
+        "family": "Adeyemi",
+        "given": "Oludare",
+        "gender": "male",
+        "born": {
+          "value": "1905",
+          "precision": "year",
+          "circa": true
+        },
+        "died": {
+          "value": "1980-07-04",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "folake",
+        "name": "Folake Adeyemi",
+        "family": "Adeyemi",
+        "given": "Folake",
+        "gender": "female",
+        "born": {
+          "value": "1910-03",
+          "precision": "month",
+          "circa": false
+        },
+        "died": {
+          "value": "1995-11-20",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "babatunde",
+        "name": "Babatunde Adeyemi",
+        "gender": "male",
+        "born": {
+          "value": "1930",
+          "precision": "year",
+          "circa": false
+        },
+        "died": {
+          "value": "2005-02-18",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "adunni",
+        "name": "Adunni Adeyemi",
+        "gender": "female",
+        "born": {
+          "value": "1933-08",
+          "precision": "month",
+          "circa": false
+        }
+      },
+      {
+        "id": "kehinde",
+        "name": "Kehinde Adeyemi",
+        "gender": "male",
+        "born": {
+          "value": "1936",
+          "precision": "year",
+          "circa": false
+        }
+      },
+      {
+        "id": "yetunde",
+        "name": "Yetunde Adeyemi",
+        "gender": "female",
+        "born": {
+          "value": "1935-02-28",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "amaka",
+        "name": "Amaka Adeyemi",
+        "gender": "female",
+        "born": {
+          "value": "1940-06-17",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "chukwu",
+        "name": "Chukwu Okafor",
+        "gender": "male",
+        "born": {
+          "value": "1931-10-05",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "simisola",
+        "name": "Simisola Bello",
+        "gender": "female",
+        "born": {
+          "value": "1940-12-01",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "titi",
+        "name": "Titi Adeyemi",
+        "gender": "female",
+        "born": {
+          "value": "1945-05-09",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "femi",
+        "name": "Femi Bello",
+        "gender": "male",
+        "born": {
+          "value": "1938-11-22",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "nnamdi",
+        "name": "Nnamdi Okafor",
+        "gender": "male",
+        "born": {
+          "value": "1905",
+          "precision": "year",
+          "circa": true
+        }
+      },
+      {
+        "id": "chiamaka",
+        "name": "Chiamaka Okafor",
+        "gender": "female",
+        "born": {
+          "value": "1908",
+          "precision": "year",
+          "circa": false
+        }
+      },
+      {
+        "id": "obi",
+        "name": "Obi Eze",
+        "gender": "male",
+        "born": {
+          "value": "1880",
+          "precision": "year",
+          "circa": true
+        }
+      },
+      {
+        "id": "ngozi",
+        "name": "Ngozi Eze",
+        "gender": "female",
+        "born": {
+          "value": "1885",
+          "precision": "year",
+          "circa": false
+        }
+      },
+      {
+        "id": "tunde",
+        "name": "Tunde Adeyemi",
+        "gender": "male",
+        "born": {
+          "value": "1957-04-19",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "bisi",
+        "name": "Bisi Adeyemi",
+        "gender": "female",
+        "born": {
+          "value": "1960-04",
+          "precision": "month",
+          "circa": false
+        }
+      },
+      {
+        "id": "segun",
+        "name": "Segun Adeyemi",
+        "gender": "male",
+        "born": {
+          "value": "1964-08-30",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "ada",
+        "name": "Ada Okafor",
+        "gender": "female",
+        "born": {
+          "value": "1960-01-22",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "emeka",
+        "name": "Emeka Okafor",
+        "gender": "male",
+        "born": {
+          "value": "1963-07-14",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "dayo",
+        "name": "Dayo Adeyemi",
+        "gender": "male",
+        "born": {
+          "value": "1965-03-08",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "lola",
+        "name": "Lola Adeyemi",
+        "gender": "female",
+        "born": {
+          "value": "1980-10-25",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "kunle",
+        "name": "Kunle Bello",
+        "gender": "male",
+        "born": {
+          "value": "1982-12-30",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "halima",
+        "name": "Halima Sani",
+        "gender": "female",
+        "born": {
+          "value": "1960-09-11",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "tunji",
+        "name": "Tunji Adeyemi",
+        "gender": "male",
+        "born": {
+          "value": "1958-06-04",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "folasade",
+        "name": "Folasade Okafor",
+        "gender": "female",
+        "born": {
+          "value": "1965-02-07",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "ronke",
+        "name": "Ronke Adeyemi",
+        "gender": "female",
+        "born": {
+          "value": "1968-04-13",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "zainab",
+        "name": "Zainab Adeyemi",
+        "gender": "female",
+        "born": {
+          "value": "1985-01-17",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "kemi",
+        "name": "Kemi Adeyemi",
+        "gender": "female",
+        "born": {
+          "value": "1990-07-29",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "tobi",
+        "name": "Tobi Adeyemi",
+        "gender": "male",
+        "born": {
+          "value": "1987-09-02",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "ife",
+        "name": "Ife Okafor",
+        "gender": "other",
+        "born": {
+          "value": "1993-03-11",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "dele",
+        "name": "Dele Adeyemi",
+        "gender": "male",
+        "born": {
+          "value": "1994-10-08",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_oludare_folake",
+        "spouses": [
+          "oludare",
+          "folake"
+        ],
+        "start": {
+          "value": "1928-04-10",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_babatunde_yetunde",
+        "spouses": [
+          "babatunde",
+          "yetunde"
+        ],
+        "start": {
+          "value": "1955-06-12",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_babatunde_amaka",
+        "spouses": [
+          "babatunde",
+          "amaka"
+        ],
+        "start": {
+          "value": "1962-09-03",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_adunni_chukwu",
+        "spouses": [
+          "adunni",
+          "chukwu"
+        ],
+        "start": {
+          "value": "1958-03-20",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_kehinde_simisola",
+        "spouses": [
+          "kehinde",
+          "simisola"
+        ],
+        "start": {
+          "value": "1962-01-15",
+          "precision": "day",
+          "circa": false
+        },
+        "end": {
+          "value": "1975-08-09",
+          "precision": "day",
+          "circa": false
+        },
+        "endReason": "divorce"
+      },
+      {
+        "id": "m_kehinde_titi",
+        "spouses": [
+          "kehinde",
+          "titi"
+        ],
+        "start": {
+          "value": "1978-05-22",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_simisola_femi",
+        "spouses": [
+          "simisola",
+          "femi"
+        ],
+        "start": {
+          "value": "1980-02-14",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_nnamdi_chiamaka",
+        "spouses": [
+          "nnamdi",
+          "chiamaka"
+        ],
+        "start": {
+          "value": "1929-07-18",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_obi_ngozi",
+        "spouses": [
+          "obi",
+          "ngozi"
+        ],
+        "start": {
+          "value": "1905-02-11",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_tunde_halima",
+        "spouses": [
+          "tunde",
+          "halima"
+        ],
+        "start": {
+          "value": "1982-07-07",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_bisi_tunji",
+        "spouses": [
+          "bisi",
+          "tunji"
+        ],
+        "start": {
+          "value": "1985-11-19",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_emeka_folasade",
+        "spouses": [
+          "emeka",
+          "folasade"
+        ],
+        "start": {
+          "value": "1990-08-15",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "id": "m_segun_ronke",
+        "spouses": [
+          "segun",
+          "ronke"
+        ],
+        "start": {
+          "value": "1992-05-26",
+          "precision": "day",
+          "circa": false
+        }
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_oludare_folake",
+        "childId": "babatunde",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_oludare_folake",
+        "childId": "adunni",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_oludare_folake",
+        "childId": "kehinde",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_nnamdi_chiamaka",
+        "childId": "chukwu",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_obi_ngozi",
+        "childId": "chiamaka",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_babatunde_yetunde",
+        "childId": "tunde",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_babatunde_yetunde",
+        "childId": "bisi",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_babatunde_amaka",
+        "childId": "segun",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_adunni_chukwu",
+        "childId": "ada",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_adunni_chukwu",
+        "childId": "emeka",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_kehinde_simisola",
+        "childId": "dayo",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_kehinde_titi",
+        "childId": "lola",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_simisola_femi",
+        "childId": "kunle",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_tunde_halima",
+        "childId": "zainab",
+        "kind": "adoptive",
+        "start": {
+          "value": "1988-06-04",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      {
+        "marriageId": "m_tunde_halima",
+        "childId": "kemi",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_bisi_tunji",
+        "childId": "tobi",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_emeka_folasade",
+        "childId": "ife",
+        "kind": "biological"
+      },
+      {
+        "marriageId": "m_segun_ronke",
+        "childId": "dele",
+        "kind": "biological"
+      }
+    ]
+  }
+}

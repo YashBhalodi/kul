@@ -1,0 +1,208 @@
+---
+source: crates/kul-wasm/tests/export_graph.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "nodes": [
+      {
+        "data": {
+          "id": "p:erik",
+          "type": "person",
+          "name": "Erik Lindqvist",
+          "gender": "male",
+          "born": {
+            "value": "1970-01-22",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:astrid",
+          "type": "person",
+          "name": "Astrid Lindqvist",
+          "gender": "female",
+          "born": {
+            "value": "1972-10-08",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:linnea",
+          "type": "person",
+          "name": "Linnea Lindqvist",
+          "gender": "female",
+          "born": {
+            "value": "1998-03-29",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:maja",
+          "type": "person",
+          "name": "Maja Holm",
+          "gender": "female",
+          "born": {
+            "value": "1975-05-14",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:oskar",
+          "type": "person",
+          "name": "Oskar Lindqvist",
+          "gender": "male",
+          "born": {
+            "value": "2008-12-01",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:johan",
+          "type": "person",
+          "name": "Johan Berg",
+          "gender": "male",
+          "born": {
+            "value": "1971-07-30",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "p:frida",
+          "type": "person",
+          "name": "Frida Berg",
+          "gender": "female",
+          "born": {
+            "value": "2010-09-05",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_erik_astrid",
+          "type": "marriage",
+          "start": {
+            "value": "1995-06-17",
+            "precision": "day",
+            "circa": false
+          },
+          "end": {
+            "value": "2003-06-15",
+            "precision": "day",
+            "circa": false
+          },
+          "endReason": "divorce"
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_erik_maja",
+          "type": "marriage",
+          "start": {
+            "value": "2006-08-26",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      },
+      {
+        "data": {
+          "id": "m:m_astrid_johan",
+          "type": "marriage",
+          "start": {
+            "value": "2007-04-12",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "source": "m:m_erik_astrid",
+          "target": "p:erik",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_erik_astrid",
+          "target": "p:astrid",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_erik_maja",
+          "target": "p:erik",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_erik_maja",
+          "target": "p:maja",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_astrid_johan",
+          "target": "p:astrid",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_astrid_johan",
+          "target": "p:johan",
+          "type": "spouse"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_erik_astrid",
+          "target": "p:linnea",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_erik_maja",
+          "target": "p:oskar",
+          "type": "biological_child"
+        }
+      },
+      {
+        "data": {
+          "source": "m:m_astrid_johan",
+          "target": "p:frida",
+          "type": "biological_child"
+        }
+      }
+    ]
+  }
+}

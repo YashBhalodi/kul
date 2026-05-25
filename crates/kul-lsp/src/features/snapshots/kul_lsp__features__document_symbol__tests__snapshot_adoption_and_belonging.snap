@@ -1,0 +1,435 @@
+---
+source: crates/kul-lsp/src/features/document_symbol.rs
+expression: syms
+---
+[
+  {
+    "name": "Carlos Mendoza",
+    "detail": "b. 1973",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 23,
+        "character": 0
+      },
+      "end": {
+        "line": 23,
+        "character": 68
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 23,
+        "character": 7
+      },
+      "end": {
+        "line": 23,
+        "character": 13
+      }
+    }
+  },
+  {
+    "name": "Rosa Mendoza",
+    "detail": "b. 1975",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 24,
+        "character": 0
+      },
+      "end": {
+        "line": 24,
+        "character": 68
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 24,
+        "character": 7
+      },
+      "end": {
+        "line": 24,
+        "character": 11
+      }
+    }
+  },
+  {
+    "name": "Carlos Mendoza & Rosa Mendoza",
+    "detail": "2000",
+    "kind": 24,
+    "range": {
+      "start": {
+        "line": 26,
+        "character": 0
+      },
+      "end": {
+        "line": 26,
+        "character": 52
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 26,
+        "character": 9
+      },
+      "end": {
+        "line": 26,
+        "character": 22
+      }
+    }
+  },
+  {
+    "name": "Mateo Mendoza",
+    "detail": "b. 2003",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 29,
+        "character": 0
+      },
+      "end": {
+        "line": 30,
+        "character": 21
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 29,
+        "character": 7
+      },
+      "end": {
+        "line": 29,
+        "character": 12
+      }
+    },
+    "children": [
+      {
+        "name": "birth m_carlos_rosa",
+        "kind": 8,
+        "range": {
+          "start": {
+            "line": 30,
+            "character": 2
+          },
+          "end": {
+            "line": 30,
+            "character": 21
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 30,
+            "character": 2
+          },
+          "end": {
+            "line": 30,
+            "character": 7
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Bayani Mendoza",
+    "detail": "b. ~1995",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 34,
+        "character": 0
+      },
+      "end": {
+        "line": 35,
+        "character": 42
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 34,
+        "character": 7
+      },
+      "end": {
+        "line": 34,
+        "character": 13
+      }
+    },
+    "children": [
+      {
+        "name": "adoption m_carlos_rosa",
+        "detail": "2007",
+        "kind": 8,
+        "range": {
+          "start": {
+            "line": 35,
+            "character": 2
+          },
+          "end": {
+            "line": 35,
+            "character": 42
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 35,
+            "character": 2
+          },
+          "end": {
+            "line": 35,
+            "character": 10
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Dalisay Mendoza",
+    "detail": "b. 1990",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 38,
+        "character": 0
+      },
+      "end": {
+        "line": 41,
+        "character": 42
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 38,
+        "character": 7
+      },
+      "end": {
+        "line": 38,
+        "character": 14
+      }
+    },
+    "children": [
+      {
+        "name": "birth m_eduardo_luz",
+        "kind": 8,
+        "range": {
+          "start": {
+            "line": 39,
+            "character": 2
+          },
+          "end": {
+            "line": 39,
+            "character": 21
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 39,
+            "character": 2
+          },
+          "end": {
+            "line": 39,
+            "character": 7
+          }
+        }
+      },
+      {
+        "name": "adoption m_tomas_elena",
+        "detail": "1994–1999",
+        "kind": 8,
+        "range": {
+          "start": {
+            "line": 40,
+            "character": 2
+          },
+          "end": {
+            "line": 40,
+            "character": 58
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 40,
+            "character": 2
+          },
+          "end": {
+            "line": 40,
+            "character": 10
+          }
+        }
+      },
+      {
+        "name": "adoption m_carlos_rosa",
+        "detail": "2002",
+        "kind": 8,
+        "range": {
+          "start": {
+            "line": 41,
+            "character": 2
+          },
+          "end": {
+            "line": 41,
+            "character": 42
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 41,
+            "character": 2
+          },
+          "end": {
+            "line": 41,
+            "character": 10
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Eduardo Reyes",
+    "detail": "b. 1962",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 44,
+        "character": 0
+      },
+      "end": {
+        "line": 44,
+        "character": 68
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 44,
+        "character": 7
+      },
+      "end": {
+        "line": 44,
+        "character": 14
+      }
+    }
+  },
+  {
+    "name": "Luz Reyes",
+    "detail": "b. 1965",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 45,
+        "character": 0
+      },
+      "end": {
+        "line": 45,
+        "character": 68
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 45,
+        "character": 7
+      },
+      "end": {
+        "line": 45,
+        "character": 10
+      }
+    }
+  },
+  {
+    "name": "Eduardo Reyes & Luz Reyes",
+    "detail": "1988",
+    "kind": 24,
+    "range": {
+      "start": {
+        "line": 47,
+        "character": 0
+      },
+      "end": {
+        "line": 47,
+        "character": 52
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 47,
+        "character": 9
+      },
+      "end": {
+        "line": 47,
+        "character": 22
+      }
+    }
+  },
+  {
+    "name": "Tomas Garcia",
+    "detail": "b. 1958",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 50,
+        "character": 0
+      },
+      "end": {
+        "line": 50,
+        "character": 65
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 50,
+        "character": 7
+      },
+      "end": {
+        "line": 50,
+        "character": 12
+      }
+    }
+  },
+  {
+    "name": "Elena Garcia",
+    "detail": "b. 1960",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 51,
+        "character": 0
+      },
+      "end": {
+        "line": 51,
+        "character": 65
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 51,
+        "character": 7
+      },
+      "end": {
+        "line": 51,
+        "character": 12
+      }
+    }
+  },
+  {
+    "name": "Tomas Garcia & Elena Garcia",
+    "detail": "1985",
+    "kind": 24,
+    "range": {
+      "start": {
+        "line": 53,
+        "character": 0
+      },
+      "end": {
+        "line": 53,
+        "character": 52
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 53,
+        "character": 9
+      },
+      "end": {
+        "line": 53,
+        "character": 22
+      }
+    }
+  }
+]

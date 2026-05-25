@@ -68,38 +68,23 @@ macro_rules! example_render_snapshot {
     };
 }
 
-example_render_snapshot!(example_01_single_couple, "01-single-couple");
-example_render_snapshot!(example_02_nuclear_family, "02-nuclear-family");
-example_render_snapshot!(example_03_three_generations, "03-three-generations");
-example_render_snapshot!(example_04_polygamous_family, "04-polygamous-family");
-example_render_snapshot!(example_05_married_siblings, "05-married-siblings");
-example_render_snapshot!(example_06_three_branch_dynasty, "06-three-branch-dynasty");
+example_render_snapshot!(example_01_nuclear_family, "01-nuclear-family");
+example_render_snapshot!(example_02_three_generations, "02-three-generations");
 example_render_snapshot!(
-    example_07_multi_file_extended_family,
-    "07-multi-file-extended-family"
+    example_03_divorce_and_remarriage,
+    "03-divorce-and-remarriage"
 );
 example_render_snapshot!(
-    example_08_divorce_and_remarriage,
-    "08-divorce-and-remarriage"
+    example_04_adoption_and_belonging,
+    "04-adoption-and-belonging"
 );
-example_render_snapshot!(example_09_multi_adoption, "09-multi-adoption");
+example_render_snapshot!(example_05_cousins_and_in_laws, "05-cousins-and-in-laws");
+example_render_snapshot!(example_06_polygamous_household, "06-polygamous-household");
+example_render_snapshot!(example_07_disconnected_lineages, "07-disconnected-lineages");
+example_render_snapshot!(example_08_multi_file_project, "08-multi-file-project");
 example_render_snapshot!(
-    example_10_disconnected_lineages_and_orphan,
-    "10-disconnected-lineages-and-orphan"
-);
-example_render_snapshot!(example_11_cousin_marriage, "11-cousin-marriage");
-example_render_snapshot!(
-    example_12_polygamy_with_birth_family,
-    "12-polygamy-with-birth-family"
-);
-example_render_snapshot!(example_13_inter_family_marriage, "13-inter-family-marriage");
-example_render_snapshot!(
-    example_14_grand_nested_inter_family,
-    "14-grand-nested-inter-family"
-);
-example_render_snapshot!(
-    example_15_polygamy_with_three_wives,
-    "15-polygamy-with-three-wives"
+    example_09_family_across_a_century,
+    "09-family-across-a-century"
 );
 
 /// Catch-all: a new `examples/<dir>/<stem>.kul` landing without a
@@ -116,21 +101,15 @@ fn every_example_has_a_render_snapshot() {
         .collect();
     have.sort();
     let expected = [
-        "01-single-couple",
-        "02-nuclear-family",
-        "03-three-generations",
-        "04-polygamous-family",
-        "05-married-siblings",
-        "06-three-branch-dynasty",
-        "07-multi-file-extended-family",
-        "08-divorce-and-remarriage",
-        "09-multi-adoption",
-        "10-disconnected-lineages-and-orphan",
-        "11-cousin-marriage",
-        "12-polygamy-with-birth-family",
-        "13-inter-family-marriage",
-        "14-grand-nested-inter-family",
-        "15-polygamy-with-three-wives",
+        "01-nuclear-family",
+        "02-three-generations",
+        "03-divorce-and-remarriage",
+        "04-adoption-and-belonging",
+        "05-cousins-and-in-laws",
+        "06-polygamous-household",
+        "07-disconnected-lineages",
+        "08-multi-file-project",
+        "09-family-across-a-century",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),

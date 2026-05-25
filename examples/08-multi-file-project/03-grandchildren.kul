@@ -1,0 +1,11 @@
+# File 3 of 3: the grandchildren.
+#
+# Each `birth` here names a marriage declared in 02-children.kul. Nothing
+# distinguishes a cross-file reference from a same-file one — the project
+# is resolved as a single merged namespace.
+
+person mateo  name:"Mateo Moreno"  gender:male  born:1987-08-04
+  birth m_sofia_ricardo
+
+person lucia  name:"Lucía Fernández"  gender:female  born:1992-03-18
+  birth m_javier_pilar

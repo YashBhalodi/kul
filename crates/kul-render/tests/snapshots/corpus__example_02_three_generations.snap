@@ -1,0 +1,174 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 2,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 1415,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "chinua",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Chinua Okeke",
+            "gender": "male",
+            "family": "Okeke",
+            "given": "Chinua",
+            "born": {
+              "value": "1925",
+              "precision": "year",
+              "circa": true
+            },
+            "died": {
+              "value": "1998-05-12",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_chinua_adaeze",
+                "generation": 0,
+                "hostId": "chinua",
+                "joiningId": "adaeze",
+                "joiningSlot": {
+                  "personId": "adaeze",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Adaeze Okeke",
+                  "gender": "female",
+                  "family": "Okeke",
+                  "given": "Adaeze",
+                  "born": {
+                    "value": "1930-03",
+                    "precision": "month",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1948-11-02",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "emeka",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Emeka Okeke",
+                    "gender": "male",
+                    "born": {
+                      "value": "1950",
+                      "precision": "year",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": [
+                    {
+                      "bar": {
+                        "marriageId": "m_emeka_ngozi",
+                        "generation": 1,
+                        "hostId": "emeka",
+                        "joiningId": "ngozi",
+                        "joiningSlot": {
+                          "personId": "ngozi",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Ngozi Okeke",
+                          "gender": "female",
+                          "born": {
+                            "value": "1955-08-19",
+                            "precision": "day",
+                            "circa": false
+                          }
+                        },
+                        "start": {
+                          "value": "1978-12-09",
+                          "precision": "day",
+                          "circa": false
+                        },
+                        "ended": false
+                      },
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "chidi",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Chidi Okeke",
+                            "gender": "male",
+                            "born": {
+                              "value": "1980-11-14",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        },
+                        {
+                          "slot": {
+                            "personId": "amara",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Amara Okeke",
+                            "gender": "female",
+                            "born": {
+                              "value": "1983-07",
+                              "precision": "month",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "emeka",
+      "marriageId": "m_chinua_adaeze"
+    },
+    {
+      "kind": "birth",
+      "childId": "chidi",
+      "marriageId": "m_emeka_ngozi"
+    },
+    {
+      "kind": "birth",
+      "childId": "amara",
+      "marriageId": "m_emeka_ngozi"
+    }
+  ]
+}

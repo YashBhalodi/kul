@@ -127,124 +127,82 @@ macro_rules! example_snapshot {
 }
 
 example_snapshot!(
-    example_01_single_couple,
-    example_01_single_couple_with_positions,
-    example_01_single_couple_cytoscape,
-    "01-single-couple",
-    "single-couple"
-);
-example_snapshot!(
-    example_02_nuclear_family,
-    example_02_nuclear_family_with_positions,
-    example_02_nuclear_family_cytoscape,
-    "02-nuclear-family",
+    example_01_nuclear_family,
+    example_01_nuclear_family_with_positions,
+    example_01_nuclear_family_cytoscape,
+    "01-nuclear-family",
     "nuclear-family"
 );
 example_snapshot!(
-    example_03_three_generations,
-    example_03_three_generations_with_positions,
-    example_03_three_generations_cytoscape,
-    "03-three-generations",
+    example_02_three_generations,
+    example_02_three_generations_with_positions,
+    example_02_three_generations_cytoscape,
+    "02-three-generations",
     "three-generations"
 );
 example_snapshot!(
-    example_04_polygamous_family,
-    example_04_polygamous_family_with_positions,
-    example_04_polygamous_family_cytoscape,
-    "04-polygamous-family",
-    "polygamous-family"
-);
-example_snapshot!(
-    example_05_married_siblings,
-    example_05_married_siblings_with_positions,
-    example_05_married_siblings_cytoscape,
-    "05-married-siblings",
-    "married-siblings"
-);
-example_snapshot!(
-    example_06_three_branch_dynasty,
-    example_06_three_branch_dynasty_with_positions,
-    example_06_three_branch_dynasty_cytoscape,
-    "06-three-branch-dynasty",
-    "three-branch-dynasty"
-);
-example_snapshot!(
-    example_08_divorce_and_remarriage,
-    example_08_divorce_and_remarriage_with_positions,
-    example_08_divorce_and_remarriage_cytoscape,
-    "08-divorce-and-remarriage",
+    example_03_divorce_and_remarriage,
+    example_03_divorce_and_remarriage_with_positions,
+    example_03_divorce_and_remarriage_cytoscape,
+    "03-divorce-and-remarriage",
     "divorce-and-remarriage"
 );
 example_snapshot!(
-    example_09_multi_adoption,
-    example_09_multi_adoption_with_positions,
-    example_09_multi_adoption_cytoscape,
-    "09-multi-adoption",
-    "multi-adoption"
+    example_04_adoption_and_belonging,
+    example_04_adoption_and_belonging_with_positions,
+    example_04_adoption_and_belonging_cytoscape,
+    "04-adoption-and-belonging",
+    "adoption-and-belonging"
 );
 example_snapshot!(
-    example_10_disconnected_lineages_and_orphan,
-    example_10_disconnected_lineages_and_orphan_with_positions,
-    example_10_disconnected_lineages_and_orphan_cytoscape,
-    "10-disconnected-lineages-and-orphan",
-    "disconnected-lineages-and-orphan"
+    example_05_cousins_and_in_laws,
+    example_05_cousins_and_in_laws_with_positions,
+    example_05_cousins_and_in_laws_cytoscape,
+    "05-cousins-and-in-laws",
+    "cousins-and-in-laws"
 );
 example_snapshot!(
-    example_11_cousin_marriage,
-    example_11_cousin_marriage_with_positions,
-    example_11_cousin_marriage_cytoscape,
-    "11-cousin-marriage",
-    "cousin-marriage"
+    example_06_polygamous_household,
+    example_06_polygamous_household_with_positions,
+    example_06_polygamous_household_cytoscape,
+    "06-polygamous-household",
+    "polygamous-household"
 );
 example_snapshot!(
-    example_12_polygamy_with_birth_family,
-    example_12_polygamy_with_birth_family_with_positions,
-    example_12_polygamy_with_birth_family_cytoscape,
-    "12-polygamy-with-birth-family",
-    "polygamy-with-birth-family"
+    example_07_disconnected_lineages,
+    example_07_disconnected_lineages_with_positions,
+    example_07_disconnected_lineages_cytoscape,
+    "07-disconnected-lineages",
+    "disconnected-lineages"
 );
 example_snapshot!(
-    example_13_inter_family_marriage,
-    example_13_inter_family_marriage_with_positions,
-    example_13_inter_family_marriage_cytoscape,
-    "13-inter-family-marriage",
-    "inter-family-marriage"
-);
-example_snapshot!(
-    example_14_grand_nested_inter_family,
-    example_14_grand_nested_inter_family_with_positions,
-    example_14_grand_nested_inter_family_cytoscape,
-    "14-grand-nested-inter-family",
-    "grand-nested-inter-family"
-);
-example_snapshot!(
-    example_15_polygamy_with_three_wives,
-    example_15_polygamy_with_three_wives_with_positions,
-    example_15_polygamy_with_three_wives_cytoscape,
-    "15-polygamy-with-three-wives",
-    "polygamy-with-three-wives"
+    example_09_family_across_a_century,
+    example_09_family_across_a_century_with_positions,
+    example_09_family_across_a_century_cytoscape,
+    "09-family-across-a-century",
+    "family-across-a-century"
 );
 
 /// Multi-file example: snapshots assert the WASM bridge unions persons,
 /// marriages, and parenthood links across every `.kul` file in the
 /// project, with the same envelope shape as the single-file path.
 #[test]
-fn example_07_multi_file_extended_family() {
-    let inputs = project_inputs(&examples_dir().join("07-multi-file-extended-family"));
+fn example_08_multi_file_project() {
+    let inputs = project_inputs(&examples_dir().join("08-multi-file-project"));
     let json = export_graph_json(&inputs, options_default());
     insta::assert_snapshot!(json);
 }
 
 #[test]
-fn example_07_multi_file_extended_family_with_positions() {
-    let inputs = project_inputs(&examples_dir().join("07-multi-file-extended-family"));
+fn example_08_multi_file_project_with_positions() {
+    let inputs = project_inputs(&examples_dir().join("08-multi-file-project"));
     let json = export_graph_json(&inputs, options_with_positions());
     insta::assert_snapshot!(json);
 }
 
 #[test]
-fn example_07_multi_file_extended_family_cytoscape() {
-    let inputs = project_inputs(&examples_dir().join("07-multi-file-extended-family"));
+fn example_08_multi_file_project_cytoscape() {
+    let inputs = project_inputs(&examples_dir().join("08-multi-file-project"));
     let json = export_graph_json(&inputs, options_cytoscape());
     insta::assert_snapshot!(json);
 }
@@ -260,21 +218,15 @@ fn every_example_has_a_dedicated_export_graph_test() {
         .collect();
     have.sort();
     let expected = [
-        "01-single-couple",
-        "02-nuclear-family",
-        "03-three-generations",
-        "04-polygamous-family",
-        "05-married-siblings",
-        "06-three-branch-dynasty",
-        "07-multi-file-extended-family",
-        "08-divorce-and-remarriage",
-        "09-multi-adoption",
-        "10-disconnected-lineages-and-orphan",
-        "11-cousin-marriage",
-        "12-polygamy-with-birth-family",
-        "13-inter-family-marriage",
-        "14-grand-nested-inter-family",
-        "15-polygamy-with-three-wives",
+        "01-nuclear-family",
+        "02-three-generations",
+        "03-divorce-and-remarriage",
+        "04-adoption-and-belonging",
+        "05-cousins-and-in-laws",
+        "06-polygamous-household",
+        "07-disconnected-lineages",
+        "08-multi-file-project",
+        "09-family-across-a-century",
     ];
     assert_eq!(
         have.iter().map(String::as_str).collect::<Vec<_>>(),
@@ -319,17 +271,17 @@ fn cross_surface_json_is_bit_identical_for_every_example_and_options_combo() {
 #[test]
 fn wasm_abi_signature_round_trips_to_export_with() {
     let path = examples_dir()
-        .join("01-single-couple")
-        .join("single-couple.kul");
+        .join("01-nuclear-family")
+        .join("nuclear-family.kul");
     let source = read(&path);
     let manifest = kul_core::manifest::Manifest::default();
     let files = vec![WasmInputFile {
-        name: "single-couple.kul".into(),
+        name: "nuclear-family.kul".into(),
         source: source.clone(),
     }];
     let via_abi = kul_wasm::export_graph(files, manifest.clone(), None);
     let via_native = kul_wasm::export_with(
-        &[InputFile::new("single-couple.kul", source)],
+        &[InputFile::new("nuclear-family.kul", source)],
         &manifest,
         ExportOptions::default(),
     );

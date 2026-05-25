@@ -1,0 +1,218 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 2,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 629,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "diego",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Diego Fernández",
+            "gender": "male",
+            "born": {
+              "value": "1935",
+              "precision": "year",
+              "circa": true
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_diego_carmen",
+                "generation": 0,
+                "hostId": "diego",
+                "joiningId": "carmen",
+                "joiningSlot": {
+                  "personId": "carmen",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Carmen Fernández",
+                  "gender": "female",
+                  "born": {
+                    "value": "1938-07-19",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1960-02-14",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "sofia",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Sofía Fernández",
+                    "gender": "female",
+                    "born": {
+                      "value": "1962-05-08",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": [
+                    {
+                      "bar": {
+                        "marriageId": "m_sofia_ricardo",
+                        "generation": 1,
+                        "hostId": "sofia",
+                        "joiningId": "ricardo",
+                        "joiningSlot": {
+                          "personId": "ricardo",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Ricardo Moreno",
+                          "gender": "male",
+                          "born": {
+                            "value": "1960-01-30",
+                            "precision": "day",
+                            "circa": false
+                          }
+                        },
+                        "start": {
+                          "value": "1985-06-15",
+                          "precision": "day",
+                          "circa": false
+                        },
+                        "ended": false
+                      },
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "mateo",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Mateo Moreno",
+                            "gender": "male",
+                            "born": {
+                              "value": "1987-08-04",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "slot": {
+                    "personId": "javier",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Javier Fernández",
+                    "gender": "male",
+                    "born": {
+                      "value": "1965-09-23",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": [
+                    {
+                      "bar": {
+                        "marriageId": "m_javier_pilar",
+                        "generation": 1,
+                        "hostId": "javier",
+                        "joiningId": "pilar",
+                        "joiningSlot": {
+                          "personId": "pilar",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Pilar Navarro",
+                          "gender": "female",
+                          "born": {
+                            "value": "1968-11-12",
+                            "precision": "day",
+                            "circa": false
+                          }
+                        },
+                        "start": {
+                          "value": "1990-04-27",
+                          "precision": "day",
+                          "circa": false
+                        },
+                        "ended": false
+                      },
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "lucia",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Lucía Fernández",
+                            "gender": "female",
+                            "born": {
+                              "value": "1992-03-18",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "sofia",
+      "marriageId": "m_diego_carmen"
+    },
+    {
+      "kind": "birth",
+      "childId": "javier",
+      "marriageId": "m_diego_carmen"
+    },
+    {
+      "kind": "birth",
+      "childId": "mateo",
+      "marriageId": "m_sofia_ricardo"
+    },
+    {
+      "kind": "birth",
+      "childId": "lucia",
+      "marriageId": "m_javier_pilar"
+    }
+  ]
+}

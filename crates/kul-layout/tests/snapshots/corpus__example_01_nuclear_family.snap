@@ -1,0 +1,74 @@
+---
+source: crates/kul-layout/tests/corpus.rs
+expression: yaml
+---
+width: 400.0
+height: 272.0
+cards:
+- person_id: hiroshi
+  kind: canonical
+  x: 25.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Hiroshi Tanaka
+- person_id: yuki
+  kind: canonical
+  x: 215.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Yuki Tanaka
+- person_id: akiko
+  kind: canonical
+  x: 24.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Akiko Tanaka
+- person_id: kenji
+  kind: canonical
+  x: 216.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Kenji Tanaka
+edges:
+- kind: birth
+  routing: in_tree
+  child_id: akiko
+  marriage_id: m_hiroshi_yuki
+  points:
+  - - 200.0
+    - 56.0
+  - - 200.0
+    - 156.0
+  - - 104.0
+    - 156.0
+  - - 104.0
+    - 184.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: kenji
+  marriage_id: m_hiroshi_yuki
+  points:
+  - - 200.0
+    - 56.0
+  - - 200.0
+    - 156.0
+  - - 296.0
+    - 156.0
+  - - 296.0
+    - 184.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: yuki
+  marriage_id: m_hiroshi_yuki
+  points:
+  - - 185.0
+    - 56.0
+  - - 215.0
+    - 56.0
+  ended: false

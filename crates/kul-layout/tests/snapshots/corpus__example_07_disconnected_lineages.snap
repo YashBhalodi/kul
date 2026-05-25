@@ -1,0 +1,164 @@
+---
+source: crates/kul-layout/tests/corpus.rs
+expression: yaml
+---
+width: 1164.0
+height: 432.0
+cards:
+- person_id: jinho
+  kind: canonical
+  x: 24.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Jin-ho Park
+- person_id: soojin
+  kind: canonical
+  x: 214.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Soo-jin Park
+- person_id: minjun
+  kind: canonical
+  x: 119.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Min-jun Park
+- person_id: nadia
+  kind: canonical
+  x: 406.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Nadia Haddad
+- person_id: bruno
+  kind: canonical
+  x: 741.5
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Bruno Costa
+- person_id: helena
+  kind: canonical
+  x: 931.5
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Helena Costa
+- person_id: tiago
+  kind: canonical
+  x: 598.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Tiago Costa
+- person_id: carla
+  kind: canonical
+  x: 788.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Carla Costa
+- person_id: lucas
+  kind: canonical
+  x: 693.0
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Lucas Costa
+- person_id: beatriz
+  kind: canonical
+  x: 980.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Beatriz Costa
+edges:
+- kind: birth
+  routing: in_tree
+  child_id: minjun
+  marriage_id: m_jinho_soojin
+  points:
+  - - 199.0
+    - 56.0
+  - - 199.0
+    - 156.0
+  - - 199.0
+    - 156.0
+  - - 199.0
+    - 184.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: tiago
+  marriage_id: m_bruno_helena
+  points:
+  - - 916.5
+    - 56.0
+  - - 916.5
+    - 156.0
+  - - 678.0
+    - 156.0
+  - - 678.0
+    - 184.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: beatriz
+  marriage_id: m_bruno_helena
+  points:
+  - - 916.5
+    - 56.0
+  - - 916.5
+    - 156.0
+  - - 1060.0
+    - 156.0
+  - - 1060.0
+    - 184.0
+  ended: false
+- kind: birth
+  routing: in_tree
+  child_id: lucas
+  marriage_id: m_tiago_carla
+  points:
+  - - 773.0
+    - 216.0
+  - - 773.0
+    - 316.0
+  - - 773.0
+    - 316.0
+  - - 773.0
+    - 344.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: soojin
+  marriage_id: m_jinho_soojin
+  points:
+  - - 184.0
+    - 56.0
+  - - 214.0
+    - 56.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: helena
+  marriage_id: m_bruno_helena
+  points:
+  - - 901.5
+    - 56.0
+  - - 931.5
+    - 56.0
+  ended: false
+- kind: marriage
+  routing: in_tree
+  child_id: carla
+  marriage_id: m_tiago_carla
+  points:
+  - - 758.0
+    - 216.0
+  - - 788.0
+    - 216.0
+  ended: false

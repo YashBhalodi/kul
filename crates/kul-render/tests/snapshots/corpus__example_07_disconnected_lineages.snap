@@ -1,0 +1,263 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 2,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 898,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "jinho",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Jin-ho Park",
+            "gender": "male",
+            "born": {
+              "value": "1960-04-12",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_jinho_soojin",
+                "generation": 0,
+                "hostId": "jinho",
+                "joiningId": "soojin",
+                "joiningSlot": {
+                  "personId": "soojin",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Soo-jin Park",
+                  "gender": "female",
+                  "born": {
+                    "value": "1963-08-25",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1988-05-14",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "minjun",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Min-jun Park",
+                    "gender": "male",
+                    "born": {
+                      "value": "1990-07-03",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "comp-2",
+      "sourceOrder": 1099,
+      "kind": {
+        "type": "orphanPerson",
+        "card": {
+          "personId": "nadia",
+          "kind": {
+            "kind": "canonical"
+          },
+          "generation": 0,
+          "name": "Nadia Haddad",
+          "gender": "female",
+          "born": {
+            "value": "1985",
+            "precision": "year",
+            "circa": true
+          }
+        }
+      }
+    },
+    {
+      "id": "comp-3",
+      "sourceOrder": 1365,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "bruno",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Bruno Costa",
+            "gender": "male",
+            "born": {
+              "value": "1955-02-09",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_bruno_helena",
+                "generation": 0,
+                "hostId": "bruno",
+                "joiningId": "helena",
+                "joiningSlot": {
+                  "personId": "helena",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Helena Costa",
+                  "gender": "female",
+                  "born": {
+                    "value": "1958-11-28",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1980-06-21",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "tiago",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Tiago Costa",
+                    "gender": "male",
+                    "born": {
+                      "value": "1982-09-15",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": [
+                    {
+                      "bar": {
+                        "marriageId": "m_tiago_carla",
+                        "generation": 1,
+                        "hostId": "tiago",
+                        "joiningId": "carla",
+                        "joiningSlot": {
+                          "personId": "carla",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "Carla Costa",
+                          "gender": "female",
+                          "born": {
+                            "value": "1984-12-05",
+                            "precision": "day",
+                            "circa": false
+                          }
+                        },
+                        "start": {
+                          "value": "2010-10-16",
+                          "precision": "day",
+                          "circa": false
+                        },
+                        "ended": false
+                      },
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "lucas",
+                            "kind": {
+                              "kind": "canonical"
+                            },
+                            "generation": 2,
+                            "name": "Lucas Costa",
+                            "gender": "male",
+                            "born": {
+                              "value": "2012-04-22",
+                              "precision": "day",
+                              "circa": false
+                            }
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "slot": {
+                    "personId": "beatriz",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Beatriz Costa",
+                    "gender": "female",
+                    "born": {
+                      "value": "1985-03-30",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "minjun",
+      "marriageId": "m_jinho_soojin"
+    },
+    {
+      "kind": "birth",
+      "childId": "tiago",
+      "marriageId": "m_bruno_helena"
+    },
+    {
+      "kind": "birth",
+      "childId": "beatriz",
+      "marriageId": "m_bruno_helena"
+    },
+    {
+      "kind": "birth",
+      "childId": "lucas",
+      "marriageId": "m_tiago_carla"
+    }
+  ]
+}

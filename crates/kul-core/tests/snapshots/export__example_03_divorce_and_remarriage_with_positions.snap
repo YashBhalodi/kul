@@ -1,0 +1,196 @@
+---
+source: crates/kul-core/tests/export.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 1,
+  "kul": "0.1",
+  "graph": {
+    "persons": [
+      {
+        "id": "erik",
+        "name": "Erik Lindqvist",
+        "gender": "male",
+        "born": {
+          "value": "1970-01-22",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1007,
+          1077
+        ]
+      },
+      {
+        "id": "astrid",
+        "name": "Astrid Lindqvist",
+        "gender": "female",
+        "born": {
+          "value": "1972-10-08",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1078,
+          1148
+        ]
+      },
+      {
+        "id": "linnea",
+        "name": "Linnea Lindqvist",
+        "gender": "female",
+        "born": {
+          "value": "1998-03-29",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1240,
+          1332
+        ]
+      },
+      {
+        "id": "maja",
+        "name": "Maja Holm",
+        "gender": "female",
+        "born": {
+          "value": "1975-05-14",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1360,
+          1421
+        ]
+      },
+      {
+        "id": "oskar",
+        "name": "Oskar Lindqvist",
+        "gender": "male",
+        "born": {
+          "value": "2008-12-01",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1473,
+          1559
+        ]
+      },
+      {
+        "id": "johan",
+        "name": "Johan Berg",
+        "gender": "male",
+        "born": {
+          "value": "1971-07-30",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1610,
+          1671
+        ]
+      },
+      {
+        "id": "frida",
+        "name": "Frida Berg",
+        "gender": "female",
+        "born": {
+          "value": "2010-09-05",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1729,
+          1815
+        ]
+      }
+    ],
+    "marriages": [
+      {
+        "id": "m_erik_astrid",
+        "spouses": [
+          "erik",
+          "astrid"
+        ],
+        "start": {
+          "value": "1995-06-17",
+          "precision": "day",
+          "circa": false
+        },
+        "end": {
+          "value": "2003-06-15",
+          "precision": "day",
+          "circa": false
+        },
+        "endReason": "divorce",
+        "span": [
+          1150,
+          1238
+        ]
+      },
+      {
+        "id": "m_erik_maja",
+        "spouses": [
+          "erik",
+          "maja"
+        ],
+        "start": {
+          "value": "2006-08-26",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1423,
+          1471
+        ]
+      },
+      {
+        "id": "m_astrid_johan",
+        "spouses": [
+          "astrid",
+          "johan"
+        ],
+        "start": {
+          "value": "2007-04-12",
+          "precision": "day",
+          "circa": false
+        },
+        "span": [
+          1673,
+          1727
+        ]
+      }
+    ],
+    "parenthoodLinks": [
+      {
+        "marriageId": "m_erik_astrid",
+        "childId": "linnea",
+        "kind": "biological",
+        "span": [
+          1313,
+          1332
+        ]
+      },
+      {
+        "marriageId": "m_erik_maja",
+        "childId": "oskar",
+        "kind": "biological",
+        "span": [
+          1542,
+          1559
+        ]
+      },
+      {
+        "marriageId": "m_astrid_johan",
+        "childId": "frida",
+        "kind": "biological",
+        "span": [
+          1795,
+          1815
+        ]
+      }
+    ]
+  }
+}

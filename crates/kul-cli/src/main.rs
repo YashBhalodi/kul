@@ -21,7 +21,7 @@ directory — no positional file argument is taken. `kul lsp` runs the
 language server over stdio for editor integrations.
 
 EXAMPLES:
-  cd examples/07-multi-file-extended-family && kul validate
+  cd examples/08-multi-file-project && kul validate
   cd my-family && kul validate --format json | jq .
   cd my-family && kul format          # canonicalize every .kul in place
   cd my-family && kul format --check  # CI gate: non-zero if anything is dirty

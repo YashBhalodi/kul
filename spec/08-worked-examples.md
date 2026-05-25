@@ -1,43 +1,60 @@
 # 8. Worked examples
 
-The four documents in [`../examples/`](../examples/) progressively exercise the language. Each is a complete, valid Kul 0.1 document and serves as both a tutorial and a test corpus for tooling.
+The projects in [`../examples/`](../examples/) progressively exercise the language. Each is a complete, valid Kul 0.1 project and serves as both a tutorial and a test corpus for tooling. This section highlights the language constructs each one introduces; see [`../examples/README.md`](../examples/README.md) for the full annotated list.
 
-## 8.1 A single couple
+## 8.1 A nuclear family
 
-[`../examples/01-single-couple/single-couple.kul`](../examples/01-single-couple/single-couple.kul)
+[`../examples/01-nuclear-family/nuclear-family.kul`](../examples/01-nuclear-family/nuclear-family.kul)
 
-A married couple, no children, marriage ongoing. Both persons are documentation roots (no `birth` sub-statement). Exercises: `person`, `marriage`, ongoing marriage (no `end`).
+A married couple with two children. Exercises the three core constructs: `person`, `marriage`, and the `birth` sub-statement that derives a child's parents from a marriage's spouses.
 
-## 8.2 A nuclear family
+## 8.2 Three generations
 
-[`../examples/02-nuclear-family/nuclear-family.kul`](../examples/02-nuclear-family/nuclear-family.kul)
+[`../examples/02-three-generations/three-generations.kul`](../examples/02-three-generations/three-generations.kul)
 
-Carol is the biological child of Alice and Bob's marriage. Exercises: `birth` sub-statement; biological parenthood derived from a marriage's spouses.
+Three generations of one family. Exercises multi-generation `birth` references, the optional `family:` / `given:` fields, the full range of date precision (`YYYY-MM-DD`, `YYYY-MM`, bare `YYYY`, and the `~` circa prefix), and `died:` — which records a death without ending the deceased's marriage (only a marriage's own `end:` does that).
 
-## 8.3 A three-generation family with adoption
+## 8.3 Divorce and remarriage
 
-[`../examples/03-three-generations/three-generations.kul`](../examples/03-three-generations/three-generations.kul)
+[`../examples/03-divorce-and-remarriage/divorce-and-remarriage.kul`](../examples/03-divorce-and-remarriage/divorce-and-remarriage.kul)
 
-Three generations. Alice is the biological daughter of Ramesh and Sita. Alice and Bob have a biological daughter Carol and an adopted son Ravi. The Alice-Bob marriage ends in divorce; Bob later dies. Exercises: multi-generation references, `adoption` sub-statement, `end`/`end_reason`, `died`, circa dates (`born:~1980`), comments and section headers.
+A couple divorces and each remarries. Exercises `end:` with its required `end_reason:`, and a person participating in more than one marriage over time.
 
-## 8.4 A polygamous family
+## 8.4 Adoption
 
-[`../examples/04-polygamous-family/polygamous-family.kul`](../examples/04-polygamous-family/polygamous-family.kul)
+[`../examples/04-adoption-and-belonging/adoption-and-belonging.kul`](../examples/04-adoption-and-belonging/adoption-and-belonging.kul)
 
-Devraj is concurrently married to Meera and Alice. Priya is the biological daughter of Alice and Devraj. Exercises: concurrent marriages for one spouse (polygamy); cross-family naming.
+A family built largely by adoption. Exercises the `adoption` sub-statement with its `start:` (and optional `end:`), a person carrying both a `birth` and multiple `adoption`s at once, and `gender:other`.
 
 ## 8.5 Host effect across a multi-family chain
 
-[`../examples/05-married-siblings/married-siblings.kul`](../examples/05-married-siblings/married-siblings.kul)
+[`../examples/05-cousins-and-in-laws/cousins-and-in-laws.kul`](../examples/05-cousins-and-in-laws/cousins-and-in-laws.kul)
 
-Two sons (Arjun, Vikram), each born of `m_ramesh_sita`, themselves marry into other families. The two child-marriages list the Sharma-born sibling first:
+An extended family in which one spouse marries in from another family and, later, two cousins marry. Per [Section 4.2](./04-top-level-statements.md#42-marriage-statement), the first-listed spouse of each marriage is the **host** and the second joins the host's family. The host position is what threads a parent marriage through to a child marriage as one continuous structural chain (parent marriage → host → child marriage); swapping the spouse identifiers in a marriage moves the host, and a layout consumer that follows the host edge sees the difference. Exercises deliberate host choice and its multi-family consequence.
 
-```
-marriage m_arjun_priya  arjun  priya   start:1975-11-04
-marriage m_vikram_nisha vikram nisha   start:1980-03-22
-```
+## 8.6 Concurrent marriages
 
-Per [Section 4.2](./04-top-level-statements.md#42-marriage-statement), `arjun` and `vikram` are the **hosts** of their respective marriages; `priya` and `nisha` join. The host position is what threads the founders' marriage `m_ramesh_sita` through to each child-marriage as one continuous structural chain (parent marriage → host → child marriage). Swapping the spouse identifiers in either marriage would make the in-law the host, breaking the chain at that branch — visible to any layout consumer that follows the host edge. Exercises: deliberate host choice; multi-family layout consequence.
+[`../examples/06-polygamous-household/polygamous-household.kul`](../examples/06-polygamous-household/polygamous-household.kul)
+
+One person concurrently married to three others. Exercises multiple un-ended marriages for a single spouse (polygamy) and rule [R14](./07-validation-rules.md): a person with two or more un-ended marriages must be the host of every one of them.
+
+## 8.7 Unrelated families and an orphan
+
+[`../examples/07-disconnected-lineages/disconnected-lineages.kul`](../examples/07-disconnected-lineages/disconnected-lineages.kul)
+
+Several families that share no relatives, plus a person declared with no ties at all. Exercises a single document holding multiple disconnected components, and a person who is neither a spouse nor a child.
+
+## 8.8 A multi-file project
+
+[`../examples/08-multi-file-project/`](../examples/08-multi-file-project/)
+
+One family split across three `.kul` files in one project directory. Exercises the project-wide flat namespace ([ADR-0015](../docs/adr/0015-global-project-namespace.md)): every id is visible from every file by bare name, with no imports, and `birth` lines resolve marriages declared in sibling files.
+
+## 8.9 A family across a century
+
+[`../examples/09-family-across-a-century/family-across-a-century.kul`](../examples/09-family-across-a-century/family-across-a-century.kul)
+
+A ~30-person dynasty that combines every construct above — widowhood, concurrent marriages, divorce and remarriage, adoption, marrying-in from other families, mixed date precision, and `gender:other` — in one realistic document.
 
 ---
 

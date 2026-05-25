@@ -1,0 +1,252 @@
+---
+source: crates/kul-render/tests/corpus.rs
+expression: json
+---
+{
+  "ok": true,
+  "schema": 2,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 1150,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "erik",
+            "kind": {
+              "kind": "ghost",
+              "reason": "pastMarriage"
+            },
+            "generation": 0,
+            "name": "Erik Lindqvist",
+            "gender": "male",
+            "born": {
+              "value": "1970-01-22",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_erik_astrid",
+                "generation": 0,
+                "hostId": "erik",
+                "joiningId": "astrid",
+                "joiningSlot": {
+                  "personId": "astrid",
+                  "kind": {
+                    "kind": "ghost",
+                    "reason": "pastMarriage"
+                  },
+                  "generation": 0,
+                  "name": "Astrid Lindqvist",
+                  "gender": "female",
+                  "born": {
+                    "value": "1972-10-08",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1995-06-17",
+                  "precision": "day",
+                  "circa": false
+                },
+                "end": {
+                  "value": "2003-06-15",
+                  "precision": "day",
+                  "circa": false
+                },
+                "endReason": "divorce",
+                "ended": true
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "linnea",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Linnea Lindqvist",
+                    "gender": "female",
+                    "born": {
+                      "value": "1998-03-29",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "comp-2",
+      "sourceOrder": 1423,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "erik",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Erik Lindqvist",
+            "gender": "male",
+            "born": {
+              "value": "1970-01-22",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_erik_maja",
+                "generation": 0,
+                "hostId": "erik",
+                "joiningId": "maja",
+                "joiningSlot": {
+                  "personId": "maja",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Maja Holm",
+                  "gender": "female",
+                  "born": {
+                    "value": "1975-05-14",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "2006-08-26",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "oskar",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Oskar Lindqvist",
+                    "gender": "male",
+                    "born": {
+                      "value": "2008-12-01",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "comp-3",
+      "sourceOrder": 1673,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "astrid",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Astrid Lindqvist",
+            "gender": "female",
+            "born": {
+              "value": "1972-10-08",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_astrid_johan",
+                "generation": 0,
+                "hostId": "astrid",
+                "joiningId": "johan",
+                "joiningSlot": {
+                  "personId": "johan",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Johan Berg",
+                  "gender": "male",
+                  "born": {
+                    "value": "1971-07-30",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "2007-04-12",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "frida",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "Frida Berg",
+                    "gender": "female",
+                    "born": {
+                      "value": "2010-09-05",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "linnea",
+      "marriageId": "m_erik_astrid"
+    },
+    {
+      "kind": "birth",
+      "childId": "oskar",
+      "marriageId": "m_erik_maja"
+    },
+    {
+      "kind": "birth",
+      "childId": "frida",
+      "marriageId": "m_astrid_johan"
+    }
+  ]
+}

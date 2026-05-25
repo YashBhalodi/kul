@@ -1,6 +1,6 @@
 //! Walker's-algorithm unit tests with hand-fabricated trees.
 //!
-//! The `examples/03-three-generations/` corpus does not naturally
+//! The example corpus does not naturally
 //! exercise sibling-subtree overlap (the case Walker's
 //! collision-avoidance machinery exists for). These tests cover the
 //! algorithm's contract independent of the canonical-pattern adapter.

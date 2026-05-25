@@ -20,7 +20,7 @@ import {
     format,
 } from '../../pkg/kul_wasm.js';
 
-const fixture = new URL('../../../../examples/03-three-generations/three-generations.kul', import.meta.url);
+const fixture = new URL('../../../../examples/02-three-generations/three-generations.kul', import.meta.url);
 const source = readFileSync(fixture, 'utf8');
 
 // JS callers construct the manifest inline — discovery is the host's job.
@@ -70,7 +70,7 @@ if (diag.primary.file !== 'input.kul') {
 // Multi-file invocation: read every `.kul` file in the multi-file
 // example and feed them in as an array. Confirms the array-based
 // signature carries cross-file resolution through the WASM ABI.
-const multiDir = fileURLToPath(new URL('../../../../examples/07-multi-file-extended-family/', import.meta.url));
+const multiDir = fileURLToPath(new URL('../../../../examples/08-multi-file-project/', import.meta.url));
 const multiFiles = readdirSync(multiDir)
     .filter((name) => name.endsWith('.kul'))
     .sort()
@@ -132,7 +132,7 @@ if (typeof persons[0].name !== 'string' || persons[0].name.length === 0) {
 }
 
 console.log(`smoke OK — kul-core ${coreVersion}, language ${langVersion}, schema ${schemaVersion}`);
-console.log(`format produced ${formatted.length} bytes for 03-three-generations/three-generations.kul`);
+console.log(`format produced ${formatted.length} bytes for 02-three-generations/three-generations.kul`);
 console.log(`check clean → 0 diagnostics; check broken → ${brokenResult.diagnostics.length} diagnostic(s), first ${diag.code}`);
 console.log(`exportGraph clean → ${persons.length} person(s), first "${persons[0].name}"`);
 console.log(`multi-file check → 0 diagnostics across ${multiFiles.length} files; exportGraph → ${multiPersons.length} person(s)`);

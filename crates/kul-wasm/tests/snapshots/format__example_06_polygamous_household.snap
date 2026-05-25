@@ -1,0 +1,53 @@
+---
+source: crates/kul-wasm/tests/format.rs
+expression: formatted
+---
+# A polygamous household.
+#
+# Kul records concurrent marriages directly: a person with two or more
+# un-ended marriages is a *hub*. Khalid is married to Aisha, Layla, and
+# Mariam at the same time. Each marriage is its own `marriage` statement;
+# nothing else is special about the syntax.
+#
+# One rule governs the shape (and it is enforced — rule R14): the hub
+# must be the host (first-listed spouse) of every one of their concurrent
+# marriages. That keeps the picture unambiguous — Khalid is the single
+# anchor the household fans out from. If a marriage listed the spouse
+# first, the validator would flag it and the fix is to swap the two
+# names.
+#
+# The renderer draws the hub once. Each spouse fans out to their own
+# side, and each marriage's children gather under that marriage's edge —
+# so half-siblings stay in distinct groups, one group per marriage. Here
+# the whole fan also sits inside Khalid's own birth family, one
+# generation below his parents.
+
+# ---- Khalid's birth family ----
+person omar    name:"Omar Al-Rashid"    gender:male    born:~1925
+person fatima  name:"Fatima Al-Rashid"  gender:female  born:1928-04-02
+
+marriage m_omar_fatima omar fatima  start:1945-08-17
+
+person khalid  name:"Khalid Al-Rashid"  gender:male  born:1950-03-29
+  birth m_omar_fatima
+
+# ---- Khalid's three concurrent marriages (he hosts each) ----
+person aisha   name:"Aisha Al-Rashid"   gender:female  born:1955-07-11
+person layla   name:"Layla Al-Rashid"   gender:female  born:1958-02-23
+person mariam  name:"Mariam Al-Rashid"  gender:female  born:1962-10-19
+
+marriage m_khalid_aisha  khalid aisha   start:1975-05-04
+marriage m_khalid_layla  khalid layla   start:1980-09-16
+marriage m_khalid_mariam khalid mariam  start:1985-12-28
+
+# ---- Children, grouped by marriage ----
+person yusuf  name:"Yusuf Al-Rashid"  gender:male  born:1977-06-13
+  birth m_khalid_aisha
+
+person zahra  name:"Zahra Al-Rashid"  gender:female  born:1982-01-08
+  birth m_khalid_layla
+
+person hassan  name:"Hassan Al-Rashid"  gender:male    born:1987-03-21
+  birth m_khalid_mariam
+person noor    name:"Noor Al-Rashid"    gender:female  born:1990-11-07
+  birth m_khalid_mariam
