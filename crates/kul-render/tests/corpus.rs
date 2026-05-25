@@ -2,7 +2,7 @@
 //! project in the workspace's `examples/` corpus.
 //!
 //! The corpus doubles as the principle-completeness contract: every
-//! canonical UI pattern principle (P1–P16) must be exercised by at
+//! canonical UI pattern principle must be exercised by at
 //! least one example, and the catch-all `every_example_has_a_snapshot`
 //! test fires when a new example lands without a matching snapshot.
 

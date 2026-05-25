@@ -190,7 +190,7 @@ impl LanguageServer for Backend {
                     "kulRender": {
                         // Canonical visual is theme-agnostic; the
                         // emitted SVG uses semantic CSS classes (see
-                        // ADR-0019 / ADR-0020).
+                        // ADR-0016).
                         "format": "svg",
                     },
                 })),

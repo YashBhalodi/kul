@@ -1,13 +1,14 @@
 //! Canonical UI pattern adapter — wraps [`crate::walker`] for kul's
 //! pattern primitives (thick marriage edges between adjacent spouses,
-//! ghost slots at host's birth-family position per P8, generation rows
-//! from generation indices, orthogonal right-angle edge routing).
+//! ghost slots at host's birth-family position per current-intimacy
+//! placement, generation rows from generation indices, orthogonal
+//! right-angle edge routing).
 //!
 //! The adapter consumes a [`kul_render::SuccessRender`] and builds an
 //! internal layout tree, runs Walker's over it, then projects the
 //! resulting positions back into a [`crate::PositionedShape`].
 //!
-//! ## Polygamy hubs (ADR-0027)
+//! ## Polygamy hubs (ADR-0020)
 //!
 //! When a person hosts ≥2 concurrent marriages, the adapter rearranges
 //! the cluster into a **fan** built on one invariant:
@@ -27,7 +28,7 @@
 //!   `2 * children_center_i - hub_cx`.
 //! - Each marriage's children at row R+2, centred at the marriage-edge
 //!   midpoint `children_center_i`. Children forests keep their full
-//!   walker layout (nested P6 birth families, deeper generations, even
+//!   walker layout (nested birth families, deeper generations, even
 //!   recursive polygamy) — only the forest's *block centre* is pinned
 //!   to the midpoint.
 //! - One thick [`EdgeKind::Marriage`] edge per marriage, routed
@@ -42,7 +43,7 @@
 //! and-flanks shape, the marriage rendered as a thick horizontal
 //! [`EdgeKind::Marriage`] edge spanning the gap between the two adjacent
 //! spouse cards at their vertical mid-height (the unified marriage
-//! connector, ADR-0027).
+//! connector, ADR-0020).
 //!
 //! The whole fan is laid out in a hub-local x via a per-marriage local
 //! walker pass (so children forests still get the tidy-tree treatment),
@@ -81,7 +82,7 @@ struct Node {
     /// Horizontal extent of the cluster.
     width: f64,
     /// Surface layout row (0.0 = top). Computed bottom-up per
-    /// ADR-0023, refined by ADR-0024. Carried as `f64` so future
+    /// ADR-0018. Carried as `f64` so future
     /// fractional-row primitives can flow through the same cascade
     /// without re-widening; in v1 every cluster lands on an integer
     /// row.
@@ -95,7 +96,7 @@ struct Node {
     /// ```
     ///
     /// The nesting clause pushes a host *down* to make room for any
-    /// P6 (grand-)nested sub-tree. The descendant-pull clause pulls a
+    /// (grand-)nested sub-tree from the absorb rule. The descendant-pull clause pulls a
     /// host *down* to sit one row above its closest descendant, so
     /// kin-symmetric ancestors across an inter-family marriage align
     /// on the same visual row. For a polygamy hub the fan's children
@@ -125,7 +126,7 @@ enum NodeKind {
         /// One entry per hosted marriage, in declaration order.
         hosted: Vec<HostedMarriage>,
     },
-    /// The hub of a polygamy fan (ADR-0027): one card at row R, sitting
+    /// The hub of a polygamy fan (ADR-0020): one card at row R, sitting
     /// alone. The hub is a single walker *leaf* whose width reserves the
     /// full wing-to-wing extent of the fan so it packs cleanly against
     /// siblings; the co-spouses (row R+1) and children forests (row
@@ -144,7 +145,7 @@ enum NodeKind {
     },
     /// A leaf person card with no hosted marriages.
     PersonLeaf { card: Box<PersonCard> },
-    /// A single-card orphan component (P12 + P13).
+    /// A single-card orphan component (a lone-card component, per source order).
     Orphan { card: Box<CardSlot> },
 }
 
@@ -154,7 +155,7 @@ struct HostedMarriage {
 }
 
 /// One marriage of a polygamy hub, with its fan geometry precomputed in
-/// the hub-local x frame (ADR-0027). The co-spouse card sits at the
+/// the hub-local x frame (ADR-0020). The co-spouse card sits at the
 /// wing position `cospouse_cx` (= `2 * children_center - hub_cx`); the
 /// marriage's children forest is rigidly translated so its block centre
 /// lands on `children_center`, which is also the midpoint of the
@@ -189,10 +190,10 @@ struct Builder<'a> {
     /// as direct structural parent-child relationships — i.e. the
     /// child's `PersonCard` was placed in the children row directly
     /// below that marriage's bar. Edges whose endpoints both resolve
-    /// but whose pair isn't here are the displaced-child / P11 case:
+    /// but whose pair isn't here are the displaced-child / cousin-marriage case:
     /// route them as [`EdgeRouting::CrossTree`].
     structural_edges: std::collections::HashSet<(String, String)>,
-    /// node_index → marriage_id, populated for every P16 child-ghost
+    /// node_index → marriage_id, populated for every past-intimacy child-ghost
     /// (past-adoption and past-bio). The edge router consults this so
     /// the parent-child edge from a past intimacy's bar terminates on
     /// the local child-ghost rather than crossing the canvas to the
@@ -216,7 +217,7 @@ impl<'a> Builder<'a> {
         match &component.kind {
             ComponentKind::FamilyTree { root } => {
                 // Pre-register the top root index so it sits at the
-                // *front* of `self.roots` for this component. Any P6
+                // *front* of `self.roots` for this component. Any
                 // nested birth-family sub-trees discovered during the
                 // DFS pre-order recursion in `build_person` push their
                 // roots onto `self.roots` immediately after, so each
@@ -263,7 +264,7 @@ impl<'a> Builder<'a> {
     /// Build a person subtree, with `min_visual_row` as the minimum
     /// visual row the subtree's root may sit at.
     ///
-    /// `min_visual_row` exists because the polygamy fan (ADR-0027)
+    /// `min_visual_row` exists because the polygamy fan (ADR-0020)
     /// inserts the co-spouse on its own row between the hub and the
     /// marriage's children, so every node strictly below a polygamy
     /// hub is visually one row deeper than its data-level
@@ -319,10 +320,11 @@ impl<'a> Builder<'a> {
         // children, in declaration order across marriages. Each
         // (marriage, child) pair is recorded as a structural edge so
         // edge routing can distinguish displaced-child relationships
-        // (P11, [`EdgeRouting::CrossTree`]) from the standard
-        // descendency-tree shape (P1, [`EdgeRouting::InTree`]).
+        // (the within-family absorb rule, [`EdgeRouting::CrossTree`])
+        // from the standard descendency-tree shape (the classical
+        // descendency tree, [`EdgeRouting::InTree`]).
         //
-        // ADR-0023: as we recurse into each P6 nested root we collect
+        // ADR-0018: as we recurse into each nested root we collect
         // its node index so the host's `visual_row` can be folded as
         // `max(host_floor, 1.0 + max(nested.visual_row))` after the
         // bottom-up traversal completes. Building nesteds (and their
@@ -332,10 +334,10 @@ impl<'a> Builder<'a> {
         let mut children: Vec<usize> = Vec::new();
         let mut nested_root_indices: Vec<usize> = Vec::new();
         for marriage in &card.hosted_marriages {
-            // P6: if this marriage's joining spouse carries a nested
+            // The absorb rule: if this marriage's joining spouse carries a nested
             // birth-family sub-tree, push it as an additional Walker
             // root *before* descending into the marriage's children
-            // (ADR-0022 sibling-root packing, DFS pre-order). Walker's
+            // (ADR-0018 sibling-root packing, DFS pre-order). Walker's
             // multi-root pass places it adjacent to the host tree on
             // the right; any grand-nesteds discovered inside this
             // sub-tree push themselves further right in turn. Nested
@@ -360,7 +362,8 @@ impl<'a> Builder<'a> {
                         reason: GhostReason::PastAdoption | GhostReason::PastBirth,
                     },
                 ) {
-                    // P16: this ghost is the child-anchor for the past
+                    // Past intimacies emit ghosts: this ghost is the
+                    // child-anchor for the past
                     // intimacy represented by `marriage.bar`. Edge
                     // routing keys on (child_id, marriage_id) so the
                     // parent-child edge lands here rather than on the
@@ -377,13 +380,13 @@ impl<'a> Builder<'a> {
         idx
     }
 
-    /// Build a polygamy hub per Approach 1 (ADR-0027): the host card
+    /// Build a polygamy hub per Approach 1 (ADR-0020): the host card
     /// alone at row R; each co-spouse mirrored across its marriage-edge
     /// midpoint at row R+1; each marriage's children forest centred on
     /// that midpoint at row R+2.
     ///
     /// The fan is laid out in a hub-local x. Children forests still get
-    /// the tidy-tree treatment (nested P6 birth families, deeper
+    /// the tidy-tree treatment (nested birth families, deeper
     /// generations, recursive polygamy) — each is built through the
     /// usual `build_person` recursion and measured by a local walker
     /// pass for its packed width `CW_i`. The geometry is then prescribed
@@ -414,7 +417,7 @@ impl<'a> Builder<'a> {
     fn build_polygamy_fan(&mut self, card: &PersonCard, host_floor: f64) -> usize {
         let hub_idx = self.nodes.len();
         // Provisional hub node — geometry, width, and visual_row are
-        // patched in below once the children forests are built and
+        // filled in below once the children forests are built and
         // measured. The hub leaf carries no walker children (the
         // forests are positioned locally, projected in `finish`).
         self.nodes.push(Node {
@@ -529,7 +532,7 @@ impl<'a> Builder<'a> {
 
         // Hub row fold: the fan's children sit two rows below the hub
         // (the co-spouse row is between), so the descendant-pull clause
-        // reads `min(child.visual_row) - 2.0`. A deep P6 nested under a
+        // reads `min(child.visual_row) - 2.0`. A deep nested sub-tree under a
         // child forest pushes that child below R+2 and pulls the whole
         // fan down in lockstep.
         let hub_visual_row = match min_child_row {
@@ -538,7 +541,7 @@ impl<'a> Builder<'a> {
         };
 
         // Attach the children forests as the hub's walker children so
-        // the global walker positions them (and any P6 nested roots
+        // the global walker positions them (and any nested roots
         // they declared, via the usual `self.roots` path) and reserves
         // the hub's contour against siblings. Their natural walker
         // positions are then *overridden* in `finish` — each forest is
@@ -569,7 +572,7 @@ impl<'a> Builder<'a> {
 
     /// Lay out the given forest roots with a local walker pass over the
     /// already-built `self.nodes` and return the packed extent width
-    /// (`0.0` for an empty forest). Used to size co-spouse spacing in
+    /// (`0.0` for an empty forest). Used for sizing co-spouse spacing in
     /// the polygamy fan before the global walker has run.
     fn measure_forest_width(&self, roots: &[usize]) -> f64 {
         if roots.is_empty() {
@@ -599,7 +602,7 @@ impl<'a> Builder<'a> {
             .collect();
         let mut positions = walker::run(&walker_input, &roots, config.sibling_gap);
 
-        // Polygamy fan reposition (ADR-0027, Approach 1). The global
+        // Polygamy fan reposition (ADR-0020, Approach 1). The global
         // walker positioned each hub's children forests by their natural
         // tidy-tree spread; override them so each marriage's forest is
         // rigidly translated to its prescribed marriage-edge midpoint
@@ -674,14 +677,14 @@ impl<'a> Builder<'a> {
         // Track each canonical / leaf card's top-center for edge routing.
         let mut card_tops: std::collections::HashMap<String, (f64, f64)> =
             std::collections::HashMap::new();
-        // P16 child-ghost positions (past-adoption and past-bio),
+        // Past-intimacy child-ghost positions (past-adoption and past-bio),
         // keyed by (person_id, marriage_id). Consulted ahead of
         // `card_tops` so the parent-child edge from a past intimacy
         // terminates on the local ghost, not the distant canonical
         // card.
         let mut ghost_card_tops: std::collections::HashMap<(String, String), (f64, f64)> =
             std::collections::HashMap::new();
-        // Marriage edges (ADR-0027): the unified marriage connector. One
+        // Marriage edges (ADR-0020): the unified marriage connector. One
         // thick horizontal edge per monogamy marriage (built in the
         // `PersonHost` arm, spanning the gap between the two adjacent
         // spouse cards) plus one thick edge per hosted marriage of a
@@ -707,7 +710,7 @@ impl<'a> Builder<'a> {
                     // exactly as before so spouse-card x positions stay
                     // byte-identical; the marriage now renders as a thick
                     // horizontal edge spanning the inter-card gap at the
-                    // cards' mid-height instead of a bar rect (ADR-0027).
+                    // cards' mid-height instead of a bar rect (ADR-0020).
                     let mut cursor = host_x + config.card_width;
                     let mid_y = row_top + config.card_height / 2.0;
                     for entry in hosted {
@@ -908,7 +911,7 @@ fn forest_extent(nodes: &[Node], roots: &[usize], positions: &[walker::LaidOut])
 
 /// Rigidly shift a forest (its `roots` and all descendants) by `delta`
 /// in `positions`. Used by the polygamy fan to pin each marriage's
-/// children block centre onto its marriage-edge midpoint (ADR-0027).
+/// children block centre onto its marriage-edge midpoint (ADR-0020).
 fn translate_forest(
     nodes: &[Node],
     roots: &[usize],
@@ -922,8 +925,8 @@ fn translate_forest(
     }
 }
 
-/// Bottom-up cascade for a cluster's `visual_row` per ADR-0023 +
-/// ADR-0024:
+/// Bottom-up cascade for a cluster's `visual_row` per ADR-0018 +
+/// ADR-0018:
 ///
 /// ```text
 /// visual_row(cluster) = max(
@@ -962,7 +965,7 @@ fn fold_visual_row(
 /// Children-centre x for every marriage of a polygamy fan, in a hub-local
 /// frame where the hub sits at `0.0` (the midpoint of the outer two
 /// centres). The caller derives each co-spouse from the invariant
-/// `cospouse_cx = 2 * children_center - hub_cx` (ADR-0027, Approach 1).
+/// `cospouse_cx = 2 * children_center - hub_cx` (ADR-0020, Approach 1).
 ///
 /// `widths[i]` is marriage `i`'s children-block width (`0.0` if childless),
 /// `bearing[i]` whether marriage `i` has any children, `gap` the sibling
@@ -1076,9 +1079,9 @@ fn push_card(
     };
     if matches!(kind, SlotKind::Canonical) {
         // Index canonical-card top-centres by person_id for the edge
-        // router's fall-through lookup. P8 parent-ghosts intentionally
-        // don't land here (P10: the ghost is mute and the child edge
-        // attaches to the bar). P16 child-ghosts get their own
+        // router's fall-through lookup. Past-marriage spouse-ghosts intentionally
+        // don't land here (ghosts are mute: the ghost is mute and the child edge
+        // attaches to the bar). Past-intimacy child-ghosts get their own
         // (person_id, marriage_id) index built alongside this map —
         // see `ghost_card_tops` in `finish()` — because the ghost IS
         // the edge's child endpoint at the past intimacy's row.
@@ -1105,17 +1108,17 @@ fn route_edges(
 ) -> Vec<PositionedEdge> {
     let mut out = Vec::with_capacity(render_edges.len());
     for edge in render_edges {
-        // P6 (ADR-0022): nested birth-family marriages are positioned as
+        // The absorb rule (ADR-0018): nested birth-family marriages are positioned as
         // additional Walker roots, so every render edge's marriage id
         // is in `bar_centers`. The map carries each marriage's
         // child-attach anchor — the gap midpoint of the monogamy
         // marriage edge, or the polygamy marriage-edge midpoint below the
-        // hub (ADR-0027) — so the parent-child edge routing needs no
+        // hub (ADR-0020) — so the parent-child edge routing needs no
         // per-shape branch.
         let &(bar_cx, bar_by) = bar_centers
             .get(&edge.marriage_id)
             .expect("every render edge's marriage must have a positioned anchor");
-        // P16: when a child has a child-ghost (past-adoption or
+        // Past intimacies emit ghosts: when a child has a child-ghost (past-adoption or
         // past-bio) at this marriage's children row, the parent-child
         // edge attaches to the local ghost rather than the canonical
         // card — the ghost is materialised precisely to be the local
@@ -1134,7 +1137,7 @@ fn route_edges(
             if structural_edges.contains(&(edge.marriage_id.clone(), edge.child_id.clone())) {
                 EdgeRouting::InTree
             } else {
-                // P11 / displaced-child: both endpoints sit in the laid-out
+                // The within-family absorb rule / displaced-child: both endpoints sit in the laid-out
                 // tree but the child is not a structural descendant of this
                 // marriage. The cousin-marriage case is the canonical
                 // exerciser. Geometry matches `InTree` (per ADR-0018);

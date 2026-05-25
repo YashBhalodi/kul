@@ -6,17 +6,18 @@
 //! consumer can drop into a webview, an HTML page, an `<img>` tag, or a
 //! self-contained file.
 //!
-//! The emitted SVG is **theme-agnostic** ([ADR-0019](../../docs/adr/0019-kul-svg-crate-boundary.md),
-//! [ADR-0020](../../docs/adr/0020-canonical-visual-vs-interaction-chrome.md)):
+//! The emitted SVG is **theme-agnostic** ([ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md),
+//! [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md)):
 //!
 //! - No inline `fill=` / `stroke=` / `color=`. Every visual element
 //!   carries a semantic CSS class name; theming is applied by the
 //!   consuming surface via a stylesheet.
-//! - Structural visual axes (P5 birth-vs-adoption dasharray, P15
-//!   ghost-card dasharray + ↺ badge) ship in the SVG directly because
+//! - Structural visual axes (the birth-vs-adoption dasharray of edges
+//!   encode link kind, the ghost-card dasharray + ↺ badge of the
+//!   uniform card) ship in the SVG directly because
 //!   they encode *what the element is*, not its theme.
 //! - Edge routing is orthogonal right-angle for `InTree` edges,
-//!   matching the classical descendency-tree convention (P1). Cross-
+//!   matching the classical descendency-tree convention. Cross-
 //!   tree edges (`PositionedEdge::routing == CrossTree`) land in F5.
 //!
 //! # Class vocabulary
@@ -27,7 +28,7 @@
 //! - `kul-edge`, `kul-edge--birth`, `kul-edge--adoption`,
 //!   `kul-edge--marriage` (the thick unified marriage connector —
 //!   monogamy horizontal segment or polygamy hub→spouse fan edge,
-//!   ADR-0027), `kul-edge--ended` (an ended monogamy marriage edge,
+//!   ADR-0020), `kul-edge--ended` (an ended monogamy marriage edge,
 //!   rendered translucent)
 //! - `kul-label-name`, `kul-ghost-badge`
 
@@ -42,7 +43,7 @@ use kul_layout::PositionedShape;
 /// The returned string is a complete `<svg ...>…</svg>` element with no
 /// inline colours and no script. Drop it into an HTML body, render it
 /// into an `<img>` src via a data URL, or wrap it in a default
-/// stylesheet for a self-contained file (per [ADR-0019](../../docs/adr/0019-kul-svg-crate-boundary.md)).
+/// stylesheet for a self-contained file (per [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md)).
 pub fn render(positioned: &PositionedShape, config: &ThemeConfig) -> String {
     emit::render(positioned, config)
 }

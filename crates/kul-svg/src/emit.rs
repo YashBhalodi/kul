@@ -13,7 +13,7 @@ use kul_render::GhostReason;
 
 /// Theme / emission configuration.
 ///
-/// Forward-compatibility seam (per [ADR-0019](../../docs/adr/0019-kul-svg-crate-boundary.md));
+/// Forward-compatibility seam (per [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md));
 /// only [`ThemeConfig::default()`] is constructed by any consumer in
 /// v1. Future fields (opt-in inline CSS for self-contained CLI export,
 /// opt-in source-span data attributes for click-to-jump) add here
@@ -61,7 +61,7 @@ fn write_card(out: &mut String, card: &PositionedCard) {
     };
     let _ = write!(out, r#"<g class="kul-card {kind_class}">"#);
     // Ghost cards ship with stroke-dasharray inline (structural, per
-    // P15 — see ADR-0019 §"Ghost visual treatment is structural").
+    // the uniform card — see ADR-0016 §"Ghost visual treatment is structural").
     let dash = if matches!(card.kind, SlotKind::Ghost { .. }) {
         r#" stroke-dasharray="3 2""#
     } else {
@@ -111,13 +111,13 @@ fn write_edge(out: &mut String, edge: &PositionedEdge) {
         EdgeRouting::InTree => "kul-edge--in-tree",
         EdgeRouting::CrossTree => "kul-edge--cross-tree",
     };
-    // An ended monogamy marriage edge (P8) carries `kul-edge--ended` so
-    // the surface stylesheet renders the connector translucent — the
-    // same "ended" predicate the old marriage bar used.
+    // An ended monogamy marriage edge (per current-intimacy placement)
+    // carries `kul-edge--ended` so the surface stylesheet renders the
+    // connector translucent, using the marriage's "ended" predicate.
     let ended_class = if edge.ended { " kul-edge--ended" } else { "" };
     // Adoption edges ship with stroke-dasharray inline (structural,
-    // per P5 — see ADR-0019 §"Edge dasharrays are structural").
-    // Marriage edges (ADR-0027) are solid like birth edges; the
+    // per edges encode link kind — see ADR-0016 §"Edge dasharrays are structural").
+    // Marriage edges (ADR-0020) are solid like birth edges; the
     // visual distinction is stroke weight (set by the consuming
     // stylesheet against `kul-edge--marriage`).
     let dash = match edge.kind {

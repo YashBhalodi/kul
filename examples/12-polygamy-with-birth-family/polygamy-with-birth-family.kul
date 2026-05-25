@@ -7,7 +7,7 @@
 #
 # Unlike example 04 (where Devraj has no birth family and the polygamy
 # floats as a mini-component), here the polygamous person sits inside
-# his birth family. P8's amendment for issue #142 (see ADR-0021) means
+# his birth family. P8's amendment for issue #142 (see ADR-0017) means
 # Devraj renders as one canonical card in Ramesh + Sita's children
 # row, hosting both bars side-by-side; Meera and Alice each appear
 # canonically as a co-spouse adjacent to Devraj. Priya's birth edge

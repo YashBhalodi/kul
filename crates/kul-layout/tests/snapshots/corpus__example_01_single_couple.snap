@@ -1,0 +1,32 @@
+---
+source: crates/kul-layout/tests/corpus.rs
+expression: yaml
+---
+width: 398.0
+height: 112.0
+cards:
+- person_id: alice
+  kind: canonical
+  x: 24.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Alice Sharma
+- person_id: bob
+  kind: canonical
+  x: 214.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Bob Sharma
+edges:
+- kind: marriage
+  routing: in_tree
+  child_id: bob
+  marriage_id: m_alice_bob
+  points:
+  - - 184.0
+    - 56.0
+  - - 214.0
+    - 56.0
+  ended: false

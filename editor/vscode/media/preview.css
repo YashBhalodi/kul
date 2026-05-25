@@ -3,8 +3,8 @@
  * Maps the kul-svg semantic class vocabulary to VSCode CSS variables
  * so the preview auto-tracks the active theme (light, dark, high-
  * contrast) without re-running the renderer. See
- * docs/adr/0019-kul-svg-crate-boundary.md and
- * docs/adr/0020-canonical-visual-vs-interaction-chrome.md. */
+ * docs/adr/0016-visualization-pipeline-crate-boundaries.md and
+ * docs/adr/0016-visualization-pipeline-crate-boundaries.md. */
 
 body {
     margin: 0;
@@ -33,7 +33,7 @@ svg {
     height: auto;
 }
 
-/* Card shape — uniform per P15. */
+/* Card shape — uniform per the uniform card. */
 .kul-card rect {
     fill: var(--vscode-editor-background);
     stroke: var(--vscode-editor-foreground);
@@ -60,7 +60,7 @@ svg {
     font-size: 12px;
 }
 
-/* Edges. Dasharray (P5 birth vs adoption) ships inline from kul-svg;
+/* Edges. Dasharray (birth vs adoption, per edges encode link kind) ships inline from kul-svg;
  * only colour and stroke width are theming. Birth / adoption /
  * marriage all share the base routing CSS; the modifier classes add
  * the per-kind visual distinction. */
@@ -73,7 +73,7 @@ svg {
     stroke: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
 }
 
-/* Marriage edge (ADR-0027): the unified marriage connector — solid and
+/* Marriage edge (ADR-0020): the unified marriage connector — solid and
  * thick. Monogamy renders a horizontal segment between adjacent
  * spouses; polygamy renders one edge per concurrent marriage, fanning
  * from the hub card to each co-spouse. The heavier stroke carries the
@@ -83,8 +83,8 @@ svg {
     stroke-width: 8.75;
 }
 
-/* An ended (divorced) monogamy marriage edge (P8) renders translucent,
- * matching the old ended-bar treatment. */
+/* An ended (divorced) monogamy marriage edge (per current-intimacy
+ * placement) renders translucent. */
 .kul-edge--ended {
     stroke-opacity: 0.6;
 }

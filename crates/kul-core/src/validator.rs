@@ -48,7 +48,7 @@ pub fn validate(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     // R14 walks marriages project-wide in source order: a polygamy hub
     // (≥2 un-ended marriages) MUST be the host (first-listed spouse) in
     // every one of those marriages, so authoring stays the single source
-    // of truth for who the hub is (ADR-0026).
+    // of truth for who the hub is (ADR-0020).
     diagnostics.extend(rule_14_polygamy_hub_must_host(resolved));
     diagnostics
 }
@@ -537,7 +537,7 @@ fn temporal_violation(
 ///
 /// Walks marriages in project-wide source order so diagnostics group
 /// stably for snapshot tests. See [`crate::diagnostic::detail`] — R14
-/// has a single sub-case and no detail tag. ADR-0026 records the
+/// has a single sub-case and no detail tag. ADR-0020 records the
 /// reasoning: aligning the per-person "polygamy hub" concept with the
 /// per-marriage "host" concept by language invariant rather than by
 /// renderer repair.

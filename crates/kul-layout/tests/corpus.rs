@@ -7,7 +7,7 @@
 //!
 //! The snapshot serialises [`PositionedShape`] to YAML for diff
 //! readability — `PositionedShape` is deliberately not `Serialize`
-//! (ADR-0018), so this test harness defines a local serialisable
+//! (ADR-0016), so this test harness defines a local serialisable
 //! mirror.
 
 use std::path::{Path, PathBuf};
@@ -63,6 +63,12 @@ fn layout_example(dir: &str) -> String {
     let positioned = layout(&shape, &LayoutConfig::default());
     let dump: PositionedDump = (&positioned).into();
     serde_yaml::to_string(&dump).expect("serialize positioned shape")
+}
+
+#[test]
+fn example_01_single_couple() {
+    let yaml = layout_example("01-single-couple");
+    insta::assert_snapshot!(yaml);
 }
 
 #[test]
@@ -151,7 +157,7 @@ fn example_15_polygamy_with_three_wives() {
 
 // ---- Serialisable mirror ------------------------------------------------
 //
-// `PositionedShape` is intentionally not `Serialize` (ADR-0018). The
+// `PositionedShape` is intentionally not `Serialize` (ADR-0016). The
 // snapshot test only needs a readable diff format; this module defines
 // the local mirror so the production crate does not gain a serde
 // dependency on its public types.

@@ -1,7 +1,7 @@
 //! Visual-vocabulary tests: pin the CSS-class seam decisions
-//! [ADR-0019](../../../docs/adr/0019-kul-svg-crate-boundary.md) commits
+//! [ADR-0016](../../../docs/adr/0016-visualization-pipeline-crate-boundaries.md) commits
 //! to (canonical vs ghost cards, birth vs adoption vs marriage edges,
-//! ended marriage edges per ADR-0027).
+//! ended marriage edges per ADR-0020).
 //!
 //! These tests construct `PositionedShape` values by hand so the
 //! emitter is exercised independent of the kul-render / kul-layout
@@ -101,7 +101,7 @@ fn past_adoption_ghost_card_emits_ghost_class_and_badge() {
 
 #[test]
 fn monogamy_marriage_edge_emits_marriage_class() {
-    // The unified marriage connector (ADR-0027): a monogamy marriage
+    // The unified marriage connector (ADR-0020): a monogamy marriage
     // renders as a thick horizontal `kul-edge--marriage` edge, not a
     // bar rect.
     let mut shape = empty_shape();
@@ -130,9 +130,9 @@ fn monogamy_marriage_edge_emits_marriage_class() {
 
 #[test]
 fn ended_monogamy_marriage_edge_emits_ended_class() {
-    // P8: an ended (divorced) monogamy marriage carries the
-    // `kul-edge--ended` modifier so the stylesheet renders the
-    // connector translucent — preserving the old ended-bar treatment.
+    // Per current-intimacy placement: an ended (divorced) monogamy
+    // marriage carries the `kul-edge--ended` modifier so the stylesheet
+    // renders the connector translucent.
     let mut shape = empty_shape();
     shape.edges.push(PositionedEdge {
         kind: EdgeKind::Marriage,
@@ -177,7 +177,7 @@ fn birth_edge_emits_birth_class_no_dasharray() {
 
 #[test]
 fn marriage_edge_emits_marriage_class_no_dasharray() {
-    // ADR-0027 marriage edge: solid, thick (stroke weight set by the
+    // ADR-0020 marriage edge: solid, thick (stroke weight set by the
     // consuming stylesheet via `kul-edge--marriage`), shares routing
     // CSS with birth / adoption — only the `--marriage` modifier
     // differs.
@@ -229,7 +229,7 @@ fn adoption_edge_emits_adoption_class_with_dasharray() {
 
 #[test]
 fn emitted_svg_has_no_inline_fill_or_stroke_color() {
-    // Theme-agnostic invariant: ADR-0019. Construct a shape with one
+    // Theme-agnostic invariant: ADR-0016. Construct a shape with one
     // of each primitive and confirm none of the emitted attributes
     // assert a colour.
     let mut shape = empty_shape();

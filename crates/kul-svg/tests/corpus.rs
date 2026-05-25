@@ -63,6 +63,12 @@ fn pretty(svg: &str) -> String {
 }
 
 #[test]
+fn example_01_single_couple() {
+    let svg = render_example("01-single-couple");
+    insta::assert_snapshot!(svg);
+}
+
+#[test]
 fn example_02_nuclear_family() {
     let svg = render_example("02-nuclear-family");
     insta::assert_snapshot!(svg);

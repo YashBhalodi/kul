@@ -4,7 +4,7 @@
 //! *says*, this shape is shaped to mirror what the canonical UI
 //! pattern *draws*. Every layout-meaningful fact the pattern's
 //! principles compute — generation index, canonical vs. ghost slot,
-//! component grouping, P6 nested birth-family sub-trees — is a field
+//! component grouping, nested birth-family sub-trees — is a field
 //! in the shape, so a surface renderer becomes a walker of the data
 //! rather than a re-implementer of the pattern. The schema-versioning
 //! contract is in [ADR-0017](../../docs/adr/0017-render-shape-schema-and-versioning.md).
@@ -60,13 +60,13 @@ pub struct SuccessRender {
     /// consumers can warn on version drift without re-reading the
     /// manifest.
     pub kul: String,
-    /// Top-level layout components, in P12 order: by the source position
+    /// Top-level layout components, in source order: by the source position
     /// of each component's first relevant declaration.
     pub components: Vec<Component>,
     /// Flat list of every parent-child edge in the document — birth
-    /// (P5 solid) and adoption (P5 dashed) alike. Routing (within-tree
-    /// vs. cross-tree) is renderer policy under P5/P11 and not pinned
-    /// here.
+    /// (solid) and adoption (dashed) alike, per edges encode link kind.
+    /// Routing (within-tree vs. cross-tree) is renderer policy and not
+    /// pinned here.
     pub edges: Vec<Edge>,
 }
 
@@ -85,14 +85,14 @@ pub struct FailureRender {
 /// canonical cards inside it anchor (directly or transitively) at the
 /// component's root. Cross-component edges may still connect components
 /// (e.g. an adopted child's bio-link to a marriage in a sibling
-/// component). Per P12, components arrange left-to-right by `sourceOrder`.
+/// component). Per source order, components arrange left-to-right by `sourceOrder`.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Component {
     /// Stable synthetic id (`comp-1`, `comp-2`, …) so cross-references
     /// in the edge list don't depend on array order.
     pub id: String,
-    /// Byte offset of the component's first relevant declaration (P12):
+    /// Byte offset of the component's first relevant declaration (source order):
     /// the earliest-declared marriage if the component has one,
     /// otherwise the earliest-declared person.
     pub source_order: usize,
@@ -106,15 +106,17 @@ pub struct Component {
 /// - [`ComponentKind::FamilyTree`] — a `PersonCard` and its
 ///   descendants. The root `PersonCard` is the outermost canonical
 ///   host of the component, with one or more marriage bars branching
-///   from its slot (per P2 + P8 — a person with concurrent un-ended
+///   from its slot (per one canonical card per person and
+///   current-intimacy placement — a person with concurrent un-ended
 ///   marriages shares one canonical anchor for all of them). For the
 ///   past-ended floating-bar fallback (no canonical host, e.g.
 ///   `examples/08`'s `m_alice_bob` after both spouses moved on), the
 ///   root `PersonCard` is a *ghost* — `slot.kind = Ghost { reason:
 ///   PastMarriage }` — rooted at the declared host. See
-///   [ADR-0021](../../docs/adr/0021-render-shape-family-tree-rooted-at-person-card.md).
+///   [ADR-0017](../../docs/adr/0017-render-shape-schema-and-versioning.md).
 /// - [`ComponentKind::OrphanPerson`] — a single canonical card with no
-///   anchor (P13 declared-with-no-edges orphans, plus the P8 fallback
+///   anchor (declared-with-no-edges orphans, per absence not
+///   placeholders, plus the current-intimacy-placement fallback
 ///   case of a joining spouse whose marriage ended and who has no birth
 ///   family declared, e.g. Bob in `examples/03-three-generations/`).
 #[derive(Debug, Clone, Serialize)]
@@ -130,7 +132,7 @@ pub enum ComponentKind {
 /// A marriage bar plus the children directly below it.
 ///
 /// `MarriageBranch` is the recursive building block of a family tree:
-/// each child may itself host marriages (P11 absorb rule applied
+/// each child may itself host marriages (the absorb rule applied
 /// uniformly), and each such hosted marriage is another `MarriageBranch`
 /// nested at the child's slot.
 #[derive(Debug, Clone, Serialize)]
@@ -150,8 +152,9 @@ pub struct MarriageBranch {
 pub struct PersonCard {
     pub slot: CardSlot,
     /// Marriages this person hosts, in declaration order. Each hosted
-    /// marriage's bar nests visually at this slot (P8: the bar's
-    /// canonical location is the host's birth-family slot). For a
+    /// marriage's bar nests visually at this slot (per current-intimacy
+    /// placement: the bar's canonical location is the host's
+    /// birth-family slot). For a
     /// canonical child the host's bar-slot is canonical too; for a host
     /// who has moved on (newer current intimacy elsewhere) the host's
     /// bar-slot becomes a ghost.
@@ -162,12 +165,12 @@ pub struct PersonCard {
 ///
 /// The host face of every bar is implicit — it is the parent
 /// [`PersonCard.slot`] in the tree (the bar branches from that
-/// card per P8's "the bar's canonical location is the host's
-/// birth-family slot"). Only the joining slot is duplicated on the
-/// bar because a joining spouse may be canonical at this bar or a
-/// ghost (P8); the host slot's canonical/ghost state is the parent
+/// card per current-intimacy placement's "the bar's canonical location
+/// is the host's birth-family slot"). Only the joining slot is
+/// duplicated on the bar because a joining spouse may be canonical at
+/// this bar or a ghost; the host slot's canonical/ghost state is the parent
 /// `PersonCard.slot.kind`. See
-/// [ADR-0021](../../docs/adr/0021-render-shape-family-tree-rooted-at-person-card.md).
+/// [ADR-0017](../../docs/adr/0017-render-shape-schema-and-versioning.md).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarriageBar {
@@ -176,31 +179,34 @@ pub struct MarriageBar {
     /// Generation row this bar sits on — derived from the host's
     /// canonical generation under the canonical-family graph.
     pub generation: u32,
-    /// Source-declaration id of the host (first-listed spouse, P3).
-    /// Kept for consumers cross-referencing by id; the host's
-    /// `CardSlot` is the parent `PersonCard.slot`.
+    /// Source-declaration id of the host (first-listed spouse, per the
+    /// absorb rule). Kept for consumers cross-referencing by id; the
+    /// host's `CardSlot` is the parent `PersonCard.slot`.
     pub host_id: String,
-    /// Source-declaration id of the joining spouse (second-listed, P3).
+    /// Source-declaration id of the joining spouse (second-listed, per
+    /// the absorb rule).
     pub joining_id: String,
     /// Slot for the joining spouse at the bar — canonical if the
-    /// joining spouse's canonical card is this bar (P8), ghost
-    /// otherwise.
+    /// joining spouse's canonical card is this bar (per current-intimacy
+    /// placement), ghost otherwise.
     pub joining_slot: CardSlot,
     pub start: ExportedDate,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end: Option<ExportedDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_reason: Option<String>,
-    /// `true` iff the marriage carries an `end:` field. Per P8 this is
+    /// `true` iff the marriage carries an `end:` field. Per
+    /// current-intimacy placement this is
     /// the canonical "ended" predicate (death is on the person, not
     /// the marriage); reified here so consumers don't have to re-
     /// derive it from `end.is_some()`.
     pub ended: bool,
-    /// Joining spouse's birth-family sub-tree (P6 recursive nesting),
-    /// when the joining spouse has a birth family that isn't already
-    /// being rendered in this component's context. Per P6 termination,
-    /// this is `None` when the recursion would re-enter the current
-    /// rendering context (cousin / sibling marriage, P11). The
+    /// Joining spouse's birth-family sub-tree (the absorb rule's
+    /// recursive nesting), when the joining spouse has a birth family
+    /// that isn't already being rendered in this component's context.
+    /// Per the absorb rule's termination, this is `None` when the
+    /// recursion would re-enter the current rendering context (cousin /
+    /// sibling marriage). The
     /// sub-tree is shaped exactly like a top-level
     /// [`ComponentKind::FamilyTree`]: a `PersonCard` rooted at the
     /// birth-family's outermost canonical host.
@@ -210,7 +216,7 @@ pub struct MarriageBar {
 
 /// One canonical or ghost card slot. The single visual primitive
 /// downstream surfaces render into the canonical UI pattern's
-/// "uniform card" (P15).
+/// uniform card.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CardSlot {
@@ -233,16 +239,16 @@ pub struct CardSlot {
     pub died: Option<ExportedDate>,
 }
 
-/// Whether a [`CardSlot`] is the person's canonical card (P2 — exactly
-/// one per person) or a ghost (P8, P16) anchoring a past structural
-/// fact.
+/// Whether a [`CardSlot`] is the person's canonical card (exactly
+/// one per person) or a ghost anchoring a past structural fact.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SlotKind {
-    /// The canonical card. Exactly one per declared person, per P2.
+    /// The canonical card. Exactly one per declared person, per one
+    /// canonical card per person.
     Canonical,
-    /// A ghost card. Mute per P10 — connects only to the marriage /
-    /// adoption bar it anchors.
+    /// A ghost card. Mute (ghosts are mute) — connects only to the
+    /// marriage / adoption bar it anchors.
     Ghost { reason: GhostReason },
 }
 
@@ -252,15 +258,15 @@ pub enum SlotKind {
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GhostReason {
-    /// P8 ghost: a spouse of a past marriage that produced children,
-    /// or of a past marriage whose host moved on. Anchors the bar's
-    /// children edges.
+    /// Past-marriage spouse-ghost: a spouse of a past marriage that
+    /// produced children, or of a past marriage whose host moved on.
+    /// Anchors the bar's children edges.
     PastMarriage,
-    /// P16 ghost: child-ghost at a past adoptive family. The canonical
+    /// Past-adoption child-ghost: at a past adoptive family. The canonical
     /// card lives at the most-recent adoption; each prior adoption's
     /// bar gets one child-ghost connected by a dashed edge.
     PastAdoption,
-    /// P16 ghost: child-ghost at the bio family when P8's canonical
+    /// Past-bio child-ghost: at the bio family when the current-intimacy
     /// chain selects a different intimacy (any adoption demotes the
     /// bio family from current to past). The bio marriage's bar gets
     /// one child-ghost in its children row connected by a solid edge.
@@ -269,7 +275,7 @@ pub enum GhostReason {
 
 /// One parent-child edge.
 ///
-/// Birth edges are solid; adoption edges dashed (P5). Cross-component
+/// Birth edges are solid; adoption edges dashed (edges encode link kind). Cross-component
 /// edges (a child whose canonical family is in one component but
 /// whose other parent-link points to a marriage in another component)
 /// are represented here uniformly — routing geometry is renderer
@@ -290,7 +296,7 @@ pub struct Edge {
 }
 
 /// Whether an [`Edge`] is a biological (solid) or adoptive (dashed)
-/// parent-child link, per P5.
+/// parent-child link, per edges encode link kind.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum EdgeKind {

@@ -28,7 +28,7 @@ For each comparison below, when a date has partial granularity it is treated as 
 
 ## Polygamy
 
-14. **Polygamy hub must host all un-ended marriages** — for each person `p`, let `un_ended_count` be the number of marriages where `p` is a spouse and the marriage has no `end:` field. If `un_ended_count ≥ 2`, `p` MUST be the [host](./04-top-level-statements.md#42-marriage-statement) (first-listed spouse) in every one of those un-ended marriages. The diagnostic anchors at the offending marriage's `<id>` token; one diagnostic per offending marriage. See [ADR-0026](../docs/adr/0026-polygamy-hub-equals-host.md).
+14. **Polygamy hub must host all un-ended marriages** — for each person `p`, let `un_ended_count` be the number of marriages where `p` is a spouse and the marriage has no `end:` field. If `un_ended_count ≥ 2`, `p` MUST be the [host](./04-top-level-statements.md#42-marriage-statement) (first-listed spouse) in every one of those un-ended marriages. The diagnostic anchors at the offending marriage's `<id>` token; one diagnostic per offending marriage. See [ADR-0020](../docs/adr/0020-polygamy-hub-and-fan.md).
 
 ## Manifest
 

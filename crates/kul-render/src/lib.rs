@@ -8,13 +8,14 @@
 //! *draws*. This crate is the projection between the two: input is the
 //! kinship-native [`ExportEnvelope`], output is a [`RenderShape`] whose
 //! hierarchy and primitives (components, marriage branches, card slots,
-//! ghost cards, P6 nested birth-family sub-trees) match the pattern's
+//! ghost cards, nested birth-family sub-trees) match the pattern's
 //! data form one-to-one.
 //!
 //! Every pattern decision — which spouse is canonical and which is a
-//! ghost (P8, P16), which slot lives at which generation row (P1),
-//! how components arrange in source order (P12), where P6 recursive
-//! nesting terminates (P11) — is computed up front and surfaced as
+//! ghost (current-intimacy placement, past intimacies emit ghosts),
+//! which slot lives at which generation row (the classical descendency
+//! tree), how components arrange in source order, where the absorb
+//! rule's nesting terminates — is computed up front and surfaced as
 //! data, so a surface renderer (VSCode preview, web visualizer,
 //! anything else downstream) becomes a walker of the shape, not a
 //! re-implementer of the pattern.
@@ -34,7 +35,7 @@
 //! AST or [`kul_core::semantic::ResolvedDocument`]. The audit in
 //! [#117] verified that shape carries every fact the canonical UI
 //! pattern needs, and the rationale for keeping it that way is
-//! recorded in [ADR-0016](../../docs/adr/0016-kul-render-crate-boundary.md).
+//! recorded in [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md).
 //!
 //! # Failure handling
 //!
@@ -68,7 +69,7 @@ pub use shape::{
 /// additions. See [ADR-0017](../../docs/adr/0017-render-shape-schema-and-versioning.md).
 ///
 /// Bumped from `1` to `2` by
-/// [ADR-0021](../../docs/adr/0021-render-shape-family-tree-rooted-at-person-card.md):
+/// [ADR-0017](../../docs/adr/0017-render-shape-schema-and-versioning.md):
 /// `ComponentKind::FamilyTree.root` flipped from `MarriageBranch` to
 /// `PersonCard` and `MarriageBar.host_slot` was dropped. Both are
 /// structural changes that would silently mis-represent data for
@@ -100,7 +101,7 @@ pub fn compute(check: &CheckResult) -> RenderShape {
 /// `marriages`, `parenthoodLinks`); the envelope's `cytoscape` shape
 /// is rejected — Cytoscape is a sibling projection of the kinship-
 /// native graph, not an input to this one. See
-/// [ADR-0016](../../docs/adr/0016-kul-render-crate-boundary.md).
+/// [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md).
 pub fn transform(envelope: &ExportEnvelope) -> RenderShape {
     match envelope {
         ExportEnvelope::Failure(f) => RenderShape::Failure(FailureRender {
