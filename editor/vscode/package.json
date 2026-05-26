@@ -2,7 +2,7 @@
   "name": "kul",
   "displayName": "KulLang",
   "description": "Syntax highlighting and editor support for Kul (.kul) kinship-description files.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "publisher": "YashBhalodi",
   "license": "MIT",
   "repository": {

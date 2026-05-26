@@ -4,7 +4,7 @@ All notable changes to KulLang are documented here. The format is based on [Keep
 
 The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi.kul`) ship in lockstep — one tag, one set of artifacts. Per-component notes live under each version.
 
-## [0.3.1] — 2026-05-26
+## [0.3.2] — 2026-05-26
 
 VSCode preview polish. The canonical-visual preview panel now reads in **colour, not just shape** — cards and each edge kind take a distinct hue from your active VSCode theme, so what an element *is* is legible at a glance. Under the hood the preview stylesheet is restructured into a semantic token layer that turns adding a future preview theme into a purely additive change. No language, library, CLI, LSP, or WASM behaviour changes — every Rust crate and the WASM package is byte-identical to `v0.3.0` aside from the lockstep version bump.
 

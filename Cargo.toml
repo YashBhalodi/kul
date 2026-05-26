@@ -12,7 +12,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/YashBhalodi/kul"
@@ -27,12 +27,12 @@ all = { level = "deny", priority = -1 }
 # can pick what they need. The `yaml` feature (manifest YAML parsing) is
 # on by default in `kul-core`, but `kul-wasm` opts out to keep the wasm
 # blob lean — a workspace dep with defaults-on would prevent that.
-kul-core = { path = "crates/kul-core", version = "0.3.1", default-features = false }
-kul-loader = { path = "crates/kul-loader", version = "0.3.1" }
-kul-render = { path = "crates/kul-render", version = "0.3.1" }
-kul-layout = { path = "crates/kul-layout", version = "0.3.1" }
-kul-svg = { path = "crates/kul-svg", version = "0.3.1" }
-kul-lsp = { path = "crates/kul-lsp", version = "0.3.1" }
+kul-core = { path = "crates/kul-core", version = "0.3.2", default-features = false }
+kul-loader = { path = "crates/kul-loader", version = "0.3.2" }
+kul-render = { path = "crates/kul-render", version = "0.3.2" }
+kul-layout = { path = "crates/kul-layout", version = "0.3.2" }
+kul-svg = { path = "crates/kul-svg", version = "0.3.2" }
+kul-lsp = { path = "crates/kul-lsp", version = "0.3.2" }
 miette = "7"
 thiserror = "2"
 clap = { version = "4", features = ["derive"] }
