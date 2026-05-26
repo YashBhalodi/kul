@@ -4,6 +4,19 @@ All notable changes to KulLang are documented here. The format is based on [Keep
 
 The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi.kul`) ship in lockstep — one tag, one set of artifacts. Per-component notes live under each version.
 
+## [0.3.1] — 2026-05-26
+
+VSCode preview polish. The canonical-visual preview panel now reads in **colour, not just shape** — cards and each edge kind take a distinct hue from your active VSCode theme, so what an element *is* is legible at a glance. Under the hood the preview stylesheet is restructured into a semantic token layer that turns adding a future preview theme into a purely additive change. No language, library, CLI, LSP, or WASM behaviour changes — every Rust crate and the WASM package is byte-identical to `v0.3.0` aside from the lockstep version bump.
+
+### `kul-vscode-extension`
+
+- **The preview panel colour-codes element kinds.** The default theme spreads colour across the theme-tracking `--vscode-charts-*` palette — cards blue, birth edges green, adoption edges orange, marriage edges purple (atop their existing heavier stroke) — so an element's kind reads by hue as well as by shape and line style. Each charts token falls back to its prior value, so a VSCode theme without the charts palette degrades gracefully to the previous monochrome appearance (#179).
+- **Preview CSS restructured into a `--kul-*` semantic token layer.** Every theme-bearing value now flows through element-bound `--kul-*` custom properties (`--kul-card-fill`, `--kul-edge-stroke`, …) defined per-theme inside a `body[data-theme="…"]` block; the application rules consume `var(--kul-*)` only, with no `var(--vscode-*)` outside the token definitions. `previewHtml()` emits `<body data-theme="vscode">`, so a future preview theme is a self-contained additive block plus one selector entry — the application rules never change again. The token names are theme-engine-neutral, sized for the planned `kul-svg` inline-CSS export to reuse the same vocabulary. Recorded as a 2026-05-26 amendment to [ADR-0016](./docs/adr/0016-visualization-pipeline-crate-boundaries.md) (#179, closes #178).
+
+### `kul-core`, the visual pipeline, `kul-cli`, `kul-lsp`, `@kullang/wasm`
+
+- **Lockstep version bump** — no functional changes. `kul-core`, `kul-loader`, `kul-render`, `kul-layout`, `kul-svg`, `kul-cli`, `kul-lsp`, and `@kullang/wasm` are byte-identical to `v0.3.0` aside from the bump that keeps every artifact aligned under one tag, per the [`release.yml` `verify` gate](./.github/workflows/release.yml).
+
 ## [0.3.0] — 2026-05-26
 
 The "visualization" release. Kul gains a **canonical visual** — a deterministic, parameter-free family-tree rendering of any valid project — and the full pipeline that produces it: three new crates project a checked project into structured render data, position it on a 2D plane, and emit a theme-agnostic SVG. That SVG reaches users three ways: a **live VSCode preview panel** (`Kul: Show Preview`), a **new `kul/render` LSP request**, and a **new `renderSvg` WASM operation** — all driven by the same engine, so the picture is identical wherever it's drawn. The visual is the classical descendency family tree, extended honestly for the cases the classical tree doesn't natively handle — adoption, divorce and remarriage, polygamy, and marriages that join unrelated families.
