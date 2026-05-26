@@ -2,11 +2,15 @@
 
 All notable changes to the **KulLang** VSCode extension are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.3.0] — 2026-05-26
 
 ### Added
 
-- New command **`Kul: Show Preview`** (`kul.preview.show`) opens a canonical-visual preview panel beside the active editor. Renders the active `.kul` document as theme-tracking SVG (light, dark, high-contrast). Debounced re-render (~300 ms) on edits; HTML error banner for documents with diagnostics. Backed by the LSP's new `kul/render` request. Tracks issue #125.
+- New command **`Kul: Show Preview`** (`kul.preview.show`) opens a canonical-visual preview panel beside the active editor. Renders the active `.kul` document as a family tree in theme-tracking SVG (light, dark, high-contrast). Debounced re-render (~300 ms) when the document or any sibling `.kul` in the same project changes; an error banner for documents with diagnostics. Backed by the language server's new `kul/render` request, so the preview matches the canonical visual every other Kul surface produces (#125).
+
+### Changed
+
+- The two export commands drop their redundant `Kul:` title prefix — the command palette already groups them under the **Kul** category.
 
 ## [0.1.3] — 2026-05-07
 

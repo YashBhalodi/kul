@@ -2,7 +2,7 @@
 
 > Kul — a kinship description language.
 
-A small, formally-specified DSL for modeling human families — persons, marriages, biological birth, and adoption — with first-class chronology and a full hand-built toolchain: parser, validator, formatter, language server, WASM bindings, and a VSCode extension.
+A small, formally-specified DSL for modeling human families — persons, marriages, biological birth, and adoption — with first-class chronology and a full hand-built toolchain: parser, validator, formatter, language server, a canonical family-tree visual renderer, WASM bindings, and a VSCode extension.
 
 [![Rust CI](https://github.com/YashBhalodi/kul/actions/workflows/rust.yml/badge.svg)](https://github.com/YashBhalodi/kul/actions/workflows/rust.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
@@ -50,14 +50,17 @@ Kul is **not** a GEDCOM replacement, **not** for genealogy research, and **not**
 
 Open a `.kul` file in VSCode (or VSCodium / Cursor / Windsurf / Theia / Gitpod / Kiro — the extension is published to both the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=YashBhalodi.kul) and [Open VSX](https://open-vsx.org/extension/YashBhalodi/kul)) and you get live diagnostics, hover, go-to-definition, find-references, rename, completion, formatting, document outline, and one-click export to JSON or Cytoscape graph format — all backed by the same `kul-core` engine the CLI runs.
 
+Run **Kul: Show Preview** and a panel opens beside the editor rendering the family as a canonical tree — generations as rows, spouses joined by a marriage edge, children below — updating live as you type and tracking your editor theme.
+
 For other editors, point any LSP client at the `kul-lsp` binary.
 
 ## Highlights
 
 - **Normative specification** — fourteen sections plus a standalone [EBNF grammar](./spec/grammar.ebnf), rigorous enough to implement an independent parser from. → [`spec/`](./spec/README.md)
-- **Thirteen validation rules** with line/column anchors: duplicate ids, unresolved references, self-marriage, end-consistency, and eight temporal contradictions (born-after-died, marriage-before-spouse-born, child-born-before-parent, adoption-before-adopter-born, parenthood cycles, …). → [Validation rules](./spec/07-validation-rules.md)
+- **Fourteen validation rules** with line/column anchors: duplicate ids, unresolved references, self-marriage, end-consistency, eight temporal contradictions (born-after-died, marriage-before-spouse-born, child-born-before-parent, adoption-before-adopter-born, parenthood cycles, …), and polygamy-hub consistency. → [Validation rules](./spec/07-validation-rules.md)
+- **A canonical family-tree visual.** Every valid project renders to one deterministic, parameter-free SVG — the classical descendency tree extended honestly for adoption, divorce and remarriage, polygamy, and marriages that join unrelated families. Live in the VSCode preview, over an LSP request, or via WASM in the browser; the same engine draws all three. → [Canonical UI pattern](./docs/canonical-ui-pattern.md)
 - **Hand-authored, machine-checked.** The formatter is opinionated, idempotent, zero-config; format-on-save canonicalizes to a single layout. → [ADR-0004](./docs/adr/0004-formatter-canonical-rules.md)
-- **End-to-end Rust toolchain** in one workspace: `kul-core` (lexer, parser, semantic resolution, validator, formatter, export, node-at-cursor query), `kul-cli`, `kul-lsp`, `kul-wasm`. One implementation; four packagings.
+- **End-to-end Rust toolchain** in one workspace: `kul-core` (lexer, parser, semantic resolution, validator, formatter, export, node-at-cursor query), the `kul-render` → `kul-layout` → `kul-svg` visual pipeline, `kul-cli`, `kul-lsp`, `kul-wasm`. One implementation; many packagings.
 - **Two stable JSON projections** — kinship-native (`persons`, `marriages`, `parenthoodLinks`) for downstream tooling, plus Cytoscape `nodes`/`edges` loadable directly into Cytoscape.js, Sigma.js, vis-network, and friends. Strict-on-errors envelope. → [Schema](./spec/16-export-schema.md)
 - **Browser-ready WASM** — `import { check, exportGraph, format } from '@kullang/wasm'` works out of the box in Vite, Webpack 5+, Next.js, SvelteKit, Nuxt, Astro. TypeScript types derived from Rust source and CI-diffed against drift. → [ADR-0011](./docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md), [ADR-0012](./docs/adr/0012-tsify-derived-types-committed-and-diffed.md)
 - **[Architectural Decision Records](./docs/adr/)** for every non-obvious design call — what was chosen, what was rejected, when it might be revisited. The codebase has a paper trail.
@@ -112,6 +115,8 @@ The extension is published to both the [VS Code Marketplace](https://marketplace
 
 Or search for **KulLang** in the editor's Extensions panel.
 
+Once installed, run **Kul: Show Preview** from the command palette (on any `.kul` file) to open the live canonical-visual panel beside your editor.
+
 Prefer to sideload? Each [GitHub Release](https://github.com/YashBhalodi/kul/releases/latest) attaches per-platform `kul-<version>-<target>.vsix` files (`darwin-arm64`, `darwin-x64`, `linux-x64`, `win32-x64`); pick the one matching your OS and install with `code --install-extension /path/to/kul-<version>-<target>.vsix`.
 
 ### Browser / Node
@@ -121,7 +126,7 @@ npm install @kullang/wasm
 ```
 
 ```ts
-import { check, exportGraph, format } from '@kullang/wasm';
+import { check, exportGraph, format, renderSvg } from '@kullang/wasm';
 
 const manifest = { kul: '0.1' };
 const files = [{ name: 'family.kul', source: 'person alice name:"Alice" gender:female\n' }];
@@ -130,9 +135,10 @@ check(files, manifest);                                    // { diagnostics: [] 
 exportGraph(files, manifest);                              // { ok: true, schema: 1, kul: "0.1", graph: { … } }
 exportGraph(files, manifest, { format: 'cytoscape' });     // { ok: true, …, graph: { nodes, edges } }
 format(files[0].source);                                   // canonicalized source (per-file)
+renderSvg(files, manifest);                                // { ok: true, svg: "<svg …>…</svg>" } ← the canonical visual
 ```
 
-A single `--target bundler` ESM build — works in Vite, Webpack 5+, Next.js, Turbopack, SvelteKit, Nuxt, Astro out of the box. The exported envelope is byte-identical to `kul export --format=json` — same shape on the server and in the browser.
+A single `--target bundler` ESM build — works in Vite, Webpack 5+, Next.js, Turbopack, SvelteKit, Nuxt, Astro out of the box. The exported envelope is byte-identical to `kul export --format=json`, and `renderSvg` produces the same canonical SVG as the VSCode preview — same shapes on the server and in the browser.
 
 ## Learn the language
 
