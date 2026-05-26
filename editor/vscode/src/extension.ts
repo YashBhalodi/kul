@@ -8,6 +8,8 @@ import {
     ServerOptions,
 } from "vscode-languageclient/node";
 
+import { getNonce, previewHtml } from "./preview-html";
+
 let client: LanguageClient | undefined;
 let previewPanel: vscode.WebviewPanel | undefined;
 let previewDebounce: NodeJS.Timeout | undefined;
@@ -204,9 +206,20 @@ async function showPreview(
     const cssUri = previewPanel.webview.asWebviewUri(
         vscode.Uri.joinPath(context.extensionUri, "media", "preview.css"),
     );
+    const scriptUri = previewPanel.webview.asWebviewUri(
+        vscode.Uri.joinPath(
+            context.extensionUri,
+            "media",
+            "vendor",
+            "dist",
+            "svg-pan-zoom.min.js",
+        ),
+    );
     previewPanel.webview.html = previewHtml(
-        cssUri,
+        cssUri.toString(),
+        scriptUri.toString(),
         previewPanel.webview.cspSource,
+        getNonce(),
     );
 
     previewPanel.onDidDispose(() => {
@@ -282,39 +295,6 @@ async function refreshPreview(uri: vscode.Uri): Promise<void> {
             diagnosticCount: count,
         });
     }
-}
-
-function previewHtml(cssUri: vscode.Uri, cspSource: string): string {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'unsafe-inline';">
-<link rel="stylesheet" href="${cssUri}">
-<title>Kul Preview</title>
-</head>
-<body data-theme="vscode">
-<div id="root"></div>
-<script>
-(function () {
-    const root = document.getElementById('root');
-    window.addEventListener('message', function (event) {
-        const msg = event.data;
-        if (!msg || typeof msg !== 'object') { return; }
-        if (msg.type === 'render') {
-            root.innerHTML = msg.svg;
-        } else if (msg.type === 'renderError') {
-            const banner = document.createElement('div');
-            banner.className = 'kul-error-banner';
-            banner.textContent = msg.message;
-            root.innerHTML = '';
-            root.appendChild(banner);
-        }
-    });
-}());
-</script>
-</body>
-</html>`;
 }
 
 export async function deactivate(): Promise<void> {

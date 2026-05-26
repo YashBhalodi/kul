@@ -44,7 +44,17 @@ body[data-theme="vscode"] {
     --kul-ended-edge-stroke-opacity: 0.6;
 }
 
+/* The preview is a pan/zoom surface (svg-pan-zoom): the SVG must fill a
+ * sized container rather than letterbox at its intrinsic size. So html/body
+ * claim the full panel height and #root fills it; box-sizing keeps the
+ * padding inside that height. */
+html,
 body {
+    height: 100%;
+}
+
+body {
+    box-sizing: border-box;
     margin: 0;
     padding: var(--kul-preview-padding);
     background-color: var(--kul-preview-bg);
@@ -55,6 +65,7 @@ body {
 
 #root {
     width: 100%;
+    height: 100%;
 }
 
 .kul-error-banner {
@@ -66,9 +77,13 @@ body {
     border-radius: var(--kul-error-radius);
 }
 
-svg {
-    max-width: 100%;
-    height: auto;
+/* Fill the container so svg-pan-zoom has a viewport to pan/zoom within.
+ * This overrides the v1 `max-width: 100%; height: auto` rule, which
+ * letterboxed the SVG at its intrinsic size and defeated pan/zoom. */
+#root svg {
+    width: 100%;
+    height: 100%;
+    max-width: none;
 }
 
 /* Card shape — uniform per the uniform card. */

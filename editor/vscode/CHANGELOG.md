@@ -2,6 +2,12 @@
 
 All notable changes to the **KulLang** VSCode extension are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- The preview panel is now an interactive **pan/zoom** surface (vendored `svg-pan-zoom`): drag to pan, wheel to zoom, and on-screen controls for zoom-in / zoom-out / reset-view. The first render fits-and-centers; subsequent debounced re-renders while editing preserve the current viewport, and the reset control returns to fit-and-center on demand (#134).
+
 ## [0.3.0] — 2026-05-26
 
 ### Added
