@@ -293,7 +293,7 @@ function previewHtml(cssUri: vscode.Uri, cspSource: string): string {
 <link rel="stylesheet" href="${cssUri}">
 <title>Kul Preview</title>
 </head>
-<body>
+<body data-theme="vscode">
 <div id="root"></div>
 <script>
 (function () {
