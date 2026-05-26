@@ -30,7 +30,7 @@ use serde::Serialize;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
-use crate::export::{ExportedDate, ExportedGraph};
+use crate::export::{ExportedDate, ExportedGraph, ParenthoodLinkKind};
 
 /// The Cytoscape JSON graph shape.
 #[derive(Debug, Clone, Serialize)]
@@ -173,9 +173,8 @@ pub fn to_cytoscape(graph: &ExportedGraph) -> CytoscapeGraph {
 
     for link in &graph.parenthood_links {
         let kind = match link.kind {
-            "biological" => "biological_child",
-            "adoptive" => "adoptive_child",
-            other => other,
+            ParenthoodLinkKind::Biological => "biological_child",
+            ParenthoodLinkKind::Adoptive => "adoptive_child",
         };
         edges.push(CytoscapeEdge {
             data: EdgeData {

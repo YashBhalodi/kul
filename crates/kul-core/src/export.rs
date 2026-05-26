@@ -240,15 +240,29 @@ pub struct ExportedMarriage {
     pub span: Option<[usize; 2]>,
 }
 
+/// What kind of parenthood a [`ExportedParenthoodLink`] records.
+///
+/// Serializes to the lowercase wire form `"biological"` / `"adoptive"`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "lowercase")]
+pub enum ParenthoodLinkKind {
+    /// Derived from a `birth` link.
+    Biological,
+    /// Derived from an `adoption` link.
+    Adoptive,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedParenthoodLink {
     pub marriage_id: String,
     pub child_id: String,
-    /// `"biological"` or `"adoptive"`. New kinds (e.g. surrogacy) would
-    /// land additively per [ADR-0010](../../../docs/adr/0010-export-schema-versioning.md).
-    pub kind: &'static str,
+    /// Which [`ParenthoodLinkKind`] this link records. New kinds (e.g.
+    /// surrogacy) would land additively as new variants per
+    /// [ADR-0010](../../../docs/adr/0010-export-schema-versioning.md).
+    pub kind: ParenthoodLinkKind,
     /// `start:` of an adoption. Always absent for biological links.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub start: Option<ExportedDate>,
@@ -420,7 +434,7 @@ fn build_parenthood_links(
             out.push(ExportedParenthoodLink {
                 marriage_id: birth.marriage_ref.name.clone(),
                 child_id: p.id.name.clone(),
-                kind: "biological",
+                kind: ParenthoodLinkKind::Biological,
                 start: None,
                 end: None,
                 span: span_if(options, birth.span),
@@ -430,7 +444,7 @@ fn build_parenthood_links(
             out.push(ExportedParenthoodLink {
                 marriage_id: adoption.marriage_ref.name.clone(),
                 child_id: p.id.name.clone(),
-                kind: "adoptive",
+                kind: ParenthoodLinkKind::Adoptive,
                 start: adoption.start().map(exported_date),
                 end: adoption.end().map(exported_date),
                 span: span_if(options, adoption.span),
@@ -651,9 +665,9 @@ marriage m2 c d start:1971
             .filter(|l| l.child_id == "kid")
             .collect();
         assert_eq!(kid_links.len(), 2);
-        assert_eq!(kid_links[0].kind, "biological");
+        assert_eq!(kid_links[0].kind, ParenthoodLinkKind::Biological);
         assert_eq!(kid_links[0].marriage_id, "m1");
-        assert_eq!(kid_links[1].kind, "adoptive");
+        assert_eq!(kid_links[1].kind, ParenthoodLinkKind::Adoptive);
         assert_eq!(kid_links[1].marriage_id, "m2");
         assert!(kid_links[1].start.is_some());
     }

@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use kul_core::export::{
     ExportedDate, ExportedGraph, ExportedMarriage, ExportedParenthoodLink, ExportedPerson,
+    ParenthoodLinkKind,
 };
 
 use crate::shape::{
@@ -39,9 +40,8 @@ fn build_edges(graph: &ExportedGraph) -> Vec<Edge> {
         .iter()
         .map(|link| Edge {
             kind: match link.kind {
-                "biological" => EdgeKind::Birth,
-                "adoptive" => EdgeKind::Adoption,
-                other => panic!("unknown parenthood link kind: {other}"),
+                ParenthoodLinkKind::Biological => EdgeKind::Birth,
+                ParenthoodLinkKind::Adoptive => EdgeKind::Adoption,
             },
             child_id: link.child_id.clone(),
             marriage_id: link.marriage_id.clone(),
@@ -130,7 +130,7 @@ impl<'a> Index<'a> {
         let adoption_links: HashMap<(String, String), &ExportedParenthoodLink> = graph
             .parenthood_links
             .iter()
-            .filter(|l| l.kind == "adoptive")
+            .filter(|l| l.kind == ParenthoodLinkKind::Adoptive)
             .map(|l| ((l.child_id.clone(), l.marriage_id.clone()), l))
             .collect();
 
@@ -165,11 +165,12 @@ impl<'a> Index<'a> {
                 continue;
             };
             match link.kind {
-                "biological" => persons[child].bio_marriage = Some(link.marriage_id.clone()),
-                "adoptive" => persons[child]
+                ParenthoodLinkKind::Biological => {
+                    persons[child].bio_marriage = Some(link.marriage_id.clone());
+                }
+                ParenthoodLinkKind::Adoptive => persons[child]
                     .adoption_marriages
                     .push(link.marriage_id.clone()),
-                _ => {}
             }
         }
 
