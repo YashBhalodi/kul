@@ -55,16 +55,16 @@ body {
 }
 
 /* Overlay pan/zoom controls: a floating cluster pinned to the panel's
- * top-right, above the SVG surface. A sibling of #root (not inside it), so
+ * bottom-left, above the SVG surface. A sibling of #root (not inside it), so
  * the per-render SVG swap never clears it. Hidden until the first render
  * and while an error banner is shown. */
 .kul-preview-controls {
     position: fixed;
-    top: var(--kul-control-inset);
-    right: var(--kul-control-inset);
+    bottom: var(--kul-control-inset);
+    left: var(--kul-control-inset);
     z-index: 10;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: var(--kul-control-gap);
     padding: var(--kul-control-padding);
     background-color: var(--kul-control-bg);
