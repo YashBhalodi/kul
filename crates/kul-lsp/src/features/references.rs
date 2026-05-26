@@ -52,29 +52,7 @@ pub fn references(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{test_open_file, test_project_entry};
-    use tower_lsp::lsp_types::Position;
-
-    fn url() -> Url {
-        Url::parse("file:///t.kul").unwrap()
-    }
-
-    fn position_for(source: &str, offset: usize) -> Position {
-        let mut line = 0u32;
-        let mut character = 0u32;
-        for (i, b) in source.bytes().enumerate() {
-            if i == offset {
-                break;
-            }
-            if b == b'\n' {
-                line += 1;
-                character = 0;
-            } else {
-                character += 1;
-            }
-        }
-        Position { line, character }
-    }
+    use crate::state::{idx, position_for, test_open_file, test_project_entry, test_url as url};
 
     fn refs_at(source: &str, offset: usize, include_decl: bool) -> Option<Vec<(u32, u32)>> {
         let doc = test_open_file(source);
@@ -83,10 +61,6 @@ mod tests {
                 .map(|l| (l.range.start.line, l.range.start.character))
                 .collect()
         })
-    }
-
-    fn idx(source: &str, pat: &str) -> usize {
-        source.find(pat).expect("pattern in source")
     }
 
     #[test]

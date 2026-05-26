@@ -133,13 +133,9 @@ fn severity_to_lsp(s: CoreSeverity) -> DiagnosticSeverity {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{test_open_file, test_project_entry};
+    use crate::state::{test_open_file, test_project_entry, test_url as url};
     use kul_core::diagnostic::fspan;
     use kul_core::span::ByteSpan;
-
-    fn url() -> Url {
-        Url::parse("file:///t.kul").unwrap()
-    }
 
     fn file_one() -> FileId {
         FileId::from_raw(1)
