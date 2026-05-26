@@ -30,7 +30,7 @@ Each person renders as exactly one *canonical* card, which may host one or more 
 
 ### The uniform card
 
-A person card is a uniform shape carrying at minimum the person's `name:`; other Kul fields may appear per renderer policy. Gender is **not** encoded by card shape, colour, or icon — a renderer that surfaces gender does so via a text label using Kul's three values (`male | female | other`). The only canonical card-appearance variation is canonical (solid border, full opacity) versus ghost (dotted border, faded fill, ↺ badge). Visual uniformity keeps attention on structure and stays culturally neutral. Consuming surfaces MAY opt out by selecting on the structural `data-gender` attribute the SVG carries (every declared property plumbs through as a `data-*` attribute, per [ADR-0021](./adr/0021-language-properties-plumb-to-svg.md)), but the canonical pattern does not.
+A person card is a uniform shape carrying at minimum the person's `name:`; other Kul fields may appear per renderer policy. Gender is **not** encoded by card shape, colour, or icon — a renderer that surfaces gender does so via a text label using Kul's three values (`male | female | other`). The only canonical card-appearance variation is canonical (solid border, full opacity) versus ghost (dotted border, faded fill). Visual uniformity keeps attention on structure and stays culturally neutral. Consuming surfaces MAY opt out by selecting on the structural `data-gender` attribute the SVG carries (every declared property plumbs through as a `data-*` attribute, per [ADR-0021](./adr/0021-language-properties-plumb-to-svg.md)), but the canonical pattern does not.
 
 ### Absence, not placeholders
 
@@ -88,7 +88,7 @@ so the co-spouse splays out toward the wing while the marriage's children gather
 
 ### Past intimacies emit ghosts
 
-Every intimacy the priority chain does *not* select is a past intimacy, and each one emits a **ghost** — a mute, visually distinct (dotted border, faded fill, ↺ badge) duplicate of the person, slotted into the past family at the position that intimacy would occupy if it were current. The ghost's only purpose is to anchor the edges that would otherwise traverse the canvas to the canonical card. One emission rule, three applications:
+Every intimacy the priority chain does *not* select is a past intimacy, and each one emits a **ghost** — a mute, visually distinct (dotted border, faded fill) duplicate of the person, slotted into the past family at the position that intimacy would occupy if it were current. The ghost's only purpose is to anchor the edges that would otherwise traverse the canvas to the canonical card. One emission rule, three applications:
 
 - **Past-marriage spouse-ghost** — an ended marriage whose moved-out spouse lives elsewhere (or a floating bar whose host has moved on). The ghost sits in the slot that spouse occupied, so the marriage's children edges still attach. A childless past marriage leaves no visual trace.
 - **Past-adoption child-ghost** — a demoted adoption (chain step 2 selected a more recent one). The bar gets a child-ghost connected by a dashed edge.
@@ -113,7 +113,7 @@ When a document describes multiple lineages with no intermarriage between them (
 | Element | Convention |
 | --- | --- |
 | **Canonical person card** | Solid border, opaque fill. Carries `name:` at minimum. |
-| **Ghost person card** | Dotted border, faded fill, ↺ badge in a corner. Mute; anchors a past structural fact. |
+| **Ghost person card** | Dotted border, faded fill. Mute; anchors a past structural fact. An interactive surface may add a ↺ badge in a corner (surface chrome; [ADR-0016](./adr/0016-visualization-pipeline-crate-boundaries.md)). |
 | **Marriage edge** | The unified marriage connector: a thick stroke (~8.75px in the default preview theme), distinct from the thin birth / adoption edges (1.5px). For **monogamy**, a horizontal segment between the two adjacent spouse cards at their vertical mid-height; the couple's children drop from its midpoint. For a **polygamy hub**, one edge per concurrent marriage, routed from the hub card's bottom to the co-spouse card's top with the same orthogonal right-angle geometry as a birth edge, the marriages fanning out of the single hub-bottom point ([ADR-0020](./adr/0020-polygamy-hub-and-fan.md)). An **ended** (divorced) marriage renders translucent. |
 | **Birth edge** | Solid line. Routes within a tree (marriage-edge midpoint → child below) or across trees (canonical card → a past or different-tree birth marriage). |
 | **Adoption edge** | Dashed line. Same routing; line style alone distinguishes it from birth. |

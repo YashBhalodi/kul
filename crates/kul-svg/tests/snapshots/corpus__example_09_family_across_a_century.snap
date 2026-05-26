@@ -121,12 +121,10 @@ expression: svg
 <g class="kul-card" data-person-id="chiamaka" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1908" data-generation="1">
 <rect x="2846.5" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
 <text class="kul-label-name" x="2926.5" y="216" text-anchor="middle" dominant-baseline="central">Chiamaka Okafor</text>
-<text class="kul-ghost-badge" x="2994.5" y="198" text-anchor="middle">↺</text>
 </g>
 <g class="kul-card" data-person-id="chukwu" data-kind="ghost" data-ghost-reason="past-birth" data-gender="male" data-is-alive="true" data-born="1931-10-05" data-generation="2">
 <rect x="2464.5" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
 <text class="kul-label-name" x="2544.5" y="376" text-anchor="middle" dominant-baseline="central">Chukwu Okafor</text>
-<text class="kul-ghost-badge" x="2612.5" y="358" text-anchor="middle">↺</text>
 </g>
 <g class="kul-card" data-person-id="ada" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1960-01-22" data-generation="3">
 <rect x="1315.5" y="504" width="160" height="64" rx="8" ry="8"/>
@@ -151,7 +149,6 @@ expression: svg
 <g class="kul-card" data-person-id="simisola" data-kind="ghost" data-ghost-reason="past-marriage" data-gender="female" data-is-alive="true" data-born="1940-12-01" data-generation="1">
 <rect x="1793.5" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
 <text class="kul-label-name" x="1873.5" y="376" text-anchor="middle" dominant-baseline="central">Simisola Bello</text>
-<text class="kul-ghost-badge" x="1941.5" y="358" text-anchor="middle">↺</text>
 </g>
 <g class="kul-card" data-person-id="titi" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1945-05-09" data-generation="1">
 <rect x="2177.5" y="344" width="160" height="64" rx="8" ry="8"/>

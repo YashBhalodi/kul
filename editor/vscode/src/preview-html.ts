@@ -47,7 +47,9 @@ const CONTROLS = `<div id="kul-controls" class="kul-preview-controls" role="grou
  * messages:
  *
  * - `render`: capture the live pan/zoom (if any), destroy the old instance,
- *   swap in the new SVG, then re-create the instance — re-applying the
+ *   swap in the new SVG, inject the ghost `↺` badges (surface chrome —
+ *   CSS cannot generate an SVG element, so the surface draws them;
+ *   ADR-0016), then re-create the instance — re-applying the
  *   captured viewport so a debounced live-edit re-render does not yank the
  *   view back to fit. The first render (no captured viewport) falls through
  *   to `fit`+`center`. A missing `<svg>` is guarded.
@@ -73,6 +75,34 @@ const BOOTSTRAP = `
 
     function showControls(visible) {
         if (controls) { controls.hidden = !visible; }
+    }
+
+    // The ghost ↺ badge is surface chrome (ADR-0016): CSS cannot
+    // generate an SVG element, so the surface draws it. For each ghost
+    // card, append a <text> badge near the card's top-right corner,
+    // placed from the card <rect>'s geometry. The node must be created
+    // in the SVG namespace — document.createElement('text') yields an
+    // inert HTML element that will not render inside <svg>. The
+    // .kul-ghost-badge rule + --kul-ghost-badge-* tokens style it. Runs
+    // on every render: each innerHTML swap wipes the prior badges.
+    function injectGhostBadges(svgRoot) {
+        const SVG_NS = 'http://www.w3.org/2000/svg';
+        const ghosts = svgRoot.querySelectorAll('.kul-card[data-kind="ghost"]');
+        ghosts.forEach(function (card) {
+            const rect = card.querySelector('rect');
+            if (!rect) { return; }
+            const x = parseFloat(rect.getAttribute('x'));
+            const y = parseFloat(rect.getAttribute('y'));
+            const w = parseFloat(rect.getAttribute('width'));
+            if (!isFinite(x) || !isFinite(y) || !isFinite(w)) { return; }
+            const badge = document.createElementNS(SVG_NS, 'text');
+            badge.setAttribute('class', 'kul-ghost-badge');
+            badge.setAttribute('x', String(x + w - 12));
+            badge.setAttribute('y', String(y + 14));
+            badge.setAttribute('text-anchor', 'middle');
+            badge.textContent = '↺';
+            card.appendChild(badge);
+        });
     }
 
     if (controls) {
@@ -101,6 +131,7 @@ const BOOTSTRAP = `
             root.innerHTML = msg.svg;
             const svg = root.querySelector('svg');
             if (!svg) { showControls(false); return; }
+            injectGhostBadges(svg);
             panZoom = svgPanZoom(svg, {
                 zoomEnabled: true,
                 panEnabled: true,

@@ -13,9 +13,9 @@
 //!   carries a semantic CSS class naming its *type*; theming is applied
 //!   by the consuming surface via a stylesheet.
 //! - Structural visual axes (the birth-vs-adoption dasharray of edges
-//!   encode link kind, the ghost-card dasharray + ↺ badge of the
-//!   uniform card) ship in the SVG directly because
-//!   they encode *what the element is*, not its theme.
+//!   encode link kind, the ghost-card dasharray of the uniform card)
+//!   ship in the SVG directly because they encode *what the element
+//!   is*, not its theme.
 //! - Every edge routes with one orthogonal right-angle geometry,
 //!   matching the classical descendency-tree convention (no routing
 //!   discriminator; [ADR-0018](../../docs/adr/0018-canonical-layout-algorithm.md)).
@@ -39,7 +39,7 @@
 //!   `data-adoption-end`; for the thick unified marriage connector
 //!   (ADR-0020) `data-host-id`, `data-joining-id`, `data-start`,
 //!   `data-end`, `data-end-reason`, `data-is-ended`.
-//! - `kul-label-name`, `kul-ghost-badge`
+//! - `kul-label-name` — the card's name `<text>`.
 
 mod emit;
 
