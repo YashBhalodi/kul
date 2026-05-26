@@ -203,6 +203,9 @@ async function showPreview(
         },
     );
 
+    const themeUri = previewPanel.webview.asWebviewUri(
+        vscode.Uri.joinPath(context.extensionUri, "media", "preview-themes.css"),
+    );
     const cssUri = previewPanel.webview.asWebviewUri(
         vscode.Uri.joinPath(context.extensionUri, "media", "preview.css"),
     );
@@ -216,6 +219,7 @@ async function showPreview(
         ),
     );
     previewPanel.webview.html = previewHtml(
+        themeUri.toString(),
         cssUri.toString(),
         scriptUri.toString(),
         previewPanel.webview.cspSource,

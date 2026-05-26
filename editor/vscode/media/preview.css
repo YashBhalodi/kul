@@ -1,63 +1,10 @@
-/* Kul preview stylesheet.
+/* Kul preview — application styles.
  *
- * The kul-svg output is theme-agnostic (ADR-0016): elements carry entity
- * classes (.kul-card, .kul-edge) and data-* attribute selectors (ghost,
- * link kind, ended) but no colours. Theming lives here, behind a layer of
- * element-bound `--kul-*` tokens: every rule consumes one `var(--kul-*)`,
- * and each theme supplies the token values in its own `body[data-theme]`
- * block. Adding a theme is one new block. `vscode` is the default, mapping
- * each token to its VSCode-variable chain so the preview tracks the active
- * VSCode theme. See ADR-0016 for the rationale. */
-
-body[data-theme="vscode"] {
-    /* Colours / fonts */
-    --kul-preview-bg: var(--vscode-editor-background);
-    --kul-preview-fg: var(--vscode-editor-foreground);
-    --kul-font-family: var(--vscode-editor-font-family);
-    --kul-error-bg: var(--vscode-inputValidation-errorBackground);
-    --kul-error-fg: var(--vscode-inputValidation-errorForeground, var(--vscode-editor-foreground));
-    --kul-error-border-color: var(--vscode-inputValidation-errorBorder);
-    --kul-card-fill: var(--vscode-editor-background);
-    --kul-card-stroke: var(--vscode-charts-blue, var(--vscode-editor-foreground));
-    --kul-ghost-fill: var(--vscode-editor-inactiveSelectionBackground, var(--vscode-editor-background));
-    --kul-ghost-stroke: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
-    --kul-label-fill: var(--vscode-editor-foreground);
-    --kul-ghost-label-fill: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
-    --kul-ghost-badge-fill: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
-    --kul-edge-stroke: var(--vscode-charts-green, var(--vscode-editor-foreground));
-    --kul-adoption-edge-stroke: var(--vscode-charts-orange, var(--vscode-descriptionForeground, var(--vscode-editor-foreground)));
-    --kul-marriage-edge-stroke: var(--vscode-charts-purple, var(--vscode-editor-foreground));
-
-    /* Dimensions / opacities / spacing */
-    --kul-font-size: var(--vscode-editor-font-size);
-    --kul-preview-padding: 16px;
-    --kul-error-padding: 12px 16px;
-    --kul-error-margin: 16px;
-    --kul-error-border-width: 1px;
-    --kul-error-radius: 3px;
-    --kul-card-stroke-width: 1.5;
-    --kul-ghost-fill-opacity: 0.5;
-    --kul-label-font-size: 13px;
-    --kul-ghost-badge-font-size: 12px;
-    --kul-edge-stroke-width: 1.5;
-    --kul-marriage-edge-stroke-width: 8.75;
-    --kul-ended-edge-stroke-opacity: 0.6;
-
-    /* Overlay pan/zoom controls */
-    --kul-control-bg: var(--vscode-editorWidget-background, var(--vscode-editor-background));
-    --kul-control-fg: var(--vscode-icon-foreground, var(--vscode-editor-foreground));
-    --kul-control-border-color: var(--vscode-editorWidget-border, var(--vscode-widget-border, transparent));
-    --kul-control-hover-bg: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
-    --kul-control-active-bg: var(--vscode-toolbar-activeBackground, var(--vscode-list-activeSelectionBackground, var(--vscode-toolbar-hoverBackground)));
-    --kul-control-focus-ring: var(--vscode-focusBorder, var(--vscode-editor-foreground));
-    --kul-control-shadow-color: var(--vscode-widget-shadow, transparent);
-    --kul-control-size: 28px;
-    --kul-control-icon-size: 16px;
-    --kul-control-radius: 6px;
-    --kul-control-gap: 4px;
-    --kul-control-padding: 4px;
-    --kul-control-inset: 12px;
-}
+ * The rules below are the application layer (ADR-0016): each consumes exactly
+ * one `var(--kul-*)` token and never hard-codes a colour or hooks a VSCode
+ * variable directly. The token values live per-theme in preview-themes.css;
+ * this file stays constant when a theme is added. Both stylesheets load into
+ * the same webview document, so the tokens defined there resolve here. */
 
 /* The preview is a pan/zoom surface (svg-pan-zoom): the SVG must fill a
  * sized container rather than letterbox at its intrinsic size. So html/body

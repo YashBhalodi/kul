@@ -134,13 +134,19 @@ const BOOTSTRAP = `
 /**
  * Build the full webview HTML.
  *
- * @param cssHref    webview URI of `media/preview.css`
+ * The two stylesheets are the ADR-0016 token split: `themeHref` carries the
+ * per-theme `--kul-*` token definitions, `styleHref` the application rules
+ * that consume them. The theme sheet is linked first.
+ *
+ * @param themeHref  webview URI of `media/preview-themes.css` (token layer)
+ * @param styleHref  webview URI of `media/preview.css` (application rules)
  * @param scriptHref webview URI of the vendored `svg-pan-zoom.min.js`
  * @param cspSource  the webview's `cspSource` (the `vscode-resource:` origin)
  * @param nonce      a fresh per-build nonce (see {@link getNonce})
  */
 export function previewHtml(
-    cssHref: string,
+    themeHref: string,
+    styleHref: string,
     scriptHref: string,
     cspSource: string,
     nonce: string,
@@ -154,7 +160,8 @@ export function previewHtml(
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
-<link rel="stylesheet" href="${cssHref}">
+<link rel="stylesheet" href="${themeHref}">
+<link rel="stylesheet" href="${styleHref}">
 <title>Kul Preview</title>
 </head>
 <body data-theme="vscode">

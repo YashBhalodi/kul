@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { getNonce, previewHtml } from "./preview-html";
 
+const THEME_HREF =
+    "https://file%2B.vscode-resource.example/media/preview-themes.css";
 const CSS_HREF = "https://file%2B.vscode-resource.example/media/preview.css";
 const SCRIPT_HREF =
     "https://file%2B.vscode-resource.example/media/vendor/dist/svg-pan-zoom.min.js";
@@ -9,7 +11,7 @@ const CSP_SOURCE = "https://file%2B.vscode-resource.example";
 const NONCE = "abc123ABC123abc123ABC123abc12345";
 
 function build(): string {
-    return previewHtml(CSS_HREF, SCRIPT_HREF, CSP_SOURCE, NONCE);
+    return previewHtml(THEME_HREF, CSS_HREF, SCRIPT_HREF, CSP_SOURCE, NONCE);
 }
 
 /** Pull a single CSP directive (e.g. `script-src`) out of the rendered HTML. */
@@ -64,8 +66,12 @@ describe("previewHtml scripts", () => {
         );
     });
 
-    it("links the preview stylesheet", () => {
-        expect(build()).toContain(`href="${CSS_HREF}"`);
+    it("links both the theme and application stylesheets", () => {
+        const html = build();
+        expect(html).toContain(`href="${THEME_HREF}"`);
+        expect(html).toContain(`href="${CSS_HREF}"`);
+        // Theme tokens are linked before the rules that consume them.
+        expect(html.indexOf(THEME_HREF)).toBeLessThan(html.indexOf(CSS_HREF));
     });
 });
 
