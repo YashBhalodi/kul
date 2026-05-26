@@ -105,6 +105,7 @@ pub enum EntityTarget<'a> {
 
 impl<'a> EntityTarget<'a> {
     /// The file the resolved declaration lives in.
+    #[must_use]
     pub fn file(self) -> FileId {
         match self {
             EntityTarget::Person { file, .. } | EntityTarget::Marriage { file, .. } => file,
@@ -115,6 +116,7 @@ impl<'a> EntityTarget<'a> {
     /// at the file that owns the declaration (not the file the reference
     /// sits in). This is the anchor goto-definition jumps to and rename
     /// includes in its workspace edit.
+    #[must_use]
     pub fn decl_span(self) -> FileSpan {
         match self {
             EntityTarget::Person { file, stmt } => FileSpan::new(file, stmt.id.span),
@@ -157,6 +159,7 @@ impl<'a> EntityNode<'a> {
     /// already on; for a resolved reference, the corresponding declaration
     /// in the file that owns it (which may be a sibling of the active
     /// URI's file under ADR-0015).
+    #[must_use]
     pub fn decl_span(&self) -> Option<FileSpan> {
         if self.is_decl {
             return Some(self.ident_span);
@@ -220,6 +223,7 @@ impl ResolvedDocument {
     /// let node = resolved.node_at(kul_file, 0).expect("a node");
     /// assert!(matches!(node, Node::Keyword(KeywordKind::Person, _)));
     /// ```
+    #[must_use]
     pub fn node_at(&self, file: FileId, byte_offset: usize) -> Option<Node<'_>> {
         let kf = self.document().kul_file(file)?;
         for stmt in &kf.statements {
@@ -357,6 +361,7 @@ impl<'a> Node<'a> {
     /// reference site), returns the [`EntityNode`] summary anchored at
     /// `file`. Returns `None` for keywords, field names/values, the
     /// version literal, and other non-id positions.
+    #[must_use]
     pub fn entity_reference(&self, file: FileId) -> Option<EntityNode<'a>> {
         match *self {
             Node::PersonDeclId(p) => Some(EntityNode {
@@ -395,6 +400,7 @@ impl<'a> Node<'a> {
     /// `Person`/`Marriage`/`Adoption` × `FieldName`/`FieldValue`
     /// variants — return the field summary. Returns `None` for
     /// keywords, id decls/refs, and whitespace.
+    #[must_use]
     pub fn field_node(&self) -> Option<FieldNode> {
         match *self {
             Node::PersonFieldName(f) => Some(field_node_of(

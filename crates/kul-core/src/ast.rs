@@ -40,6 +40,7 @@ impl KulFile {
     /// for callers (the pipeline in [`crate::check`], in-memory test
     /// fixtures) that have lex/parsed a source and want a `KulFile`
     /// without spelling out the three fields by name each time.
+    #[must_use]
     pub fn new(
         name: impl Into<String>,
         source: impl Into<String>,
@@ -65,6 +66,7 @@ pub struct InputFile {
 }
 
 impl InputFile {
+    #[must_use]
     pub fn new(name: impl Into<String>, source: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -111,6 +113,7 @@ impl Document {
     /// callers that loaded `kul.yml` from disk should use
     /// [`Document::with_manifest_source`] so manifest-side spans render
     /// against the real bytes.
+    #[must_use]
     pub fn new(manifest_name: impl Into<String>, kul_files: Vec<Arc<KulFile>>) -> Self {
         Self::with_manifest_source(manifest_name, String::new(), kul_files)
     }
@@ -118,6 +121,7 @@ impl Document {
     /// Build a [`Document`] with explicit `kul.yml` source bytes. Used
     /// by the pipeline entry points so any diagnostic anchored at
     /// [`FileId::MANIFEST`] has bytes to render against.
+    #[must_use]
     pub fn with_manifest_source(
         manifest_name: impl Into<String>,
         manifest_source: impl Into<String>,
@@ -132,6 +136,7 @@ impl Document {
 
     /// Resolve a [`FileId`] to the source bytes it indexes into. Returns
     /// `None` if the id is out of range.
+    #[must_use]
     pub fn source_of(&self, file: FileId) -> Option<&str> {
         if file == FileId::MANIFEST {
             return Some(self.manifest_source.as_str());
@@ -141,6 +146,7 @@ impl Document {
 
     /// Resolve a [`FileId`] to the canonical name it indexes into. Same
     /// out-of-range semantics as [`Document::source_of`].
+    #[must_use]
     pub fn name_of(&self, file: FileId) -> Option<&str> {
         if file == FileId::MANIFEST {
             return Some(self.manifest_name.as_str());
@@ -150,6 +156,7 @@ impl Document {
 
     /// Resolve a [`FileId`] to a `.kul` [`KulFile`], or `None` if the id
     /// is the manifest, out of range, or otherwise not a `.kul` file.
+    #[must_use]
     pub fn kul_file(&self, file: FileId) -> Option<&KulFile> {
         let idx = file.as_u32().checked_sub(1)? as usize;
         self.kul_files.get(idx).map(|a| a.as_ref())
@@ -178,6 +185,7 @@ pub enum Statement {
 }
 
 impl Statement {
+    #[must_use]
     pub fn id(&self) -> &Ident {
         match self {
             Statement::Person(p) => &p.id,
@@ -185,6 +193,7 @@ impl Statement {
         }
     }
 
+    #[must_use]
     pub fn kind_name(&self) -> &'static str {
         match self {
             Statement::Person(_) => "person",
@@ -213,6 +222,7 @@ pub struct PersonStmt {
 
 impl PersonStmt {
     /// First `name:` field as written, or `None` if absent (rule 3 fires).
+    #[must_use]
     pub fn name(&self) -> Option<&StringValue> {
         self.fields.iter().find_map(|f| match &f.kind {
             PersonFieldKind::Name(v) => Some(v),
@@ -223,6 +233,7 @@ impl PersonStmt {
     /// The person's `name:` value if present, otherwise their id. The
     /// canonical short label for tooling (LSP hover, completion details,
     /// document-symbol headers).
+    #[must_use]
     pub fn display_name(&self) -> &str {
         self.name()
             .map(|n| n.value.as_str())
@@ -230,6 +241,7 @@ impl PersonStmt {
     }
 
     /// First `family:` field, or `None`.
+    #[must_use]
     pub fn family(&self) -> Option<&StringValue> {
         self.fields.iter().find_map(|f| match &f.kind {
             PersonFieldKind::Family(v) => Some(v),
@@ -238,6 +250,7 @@ impl PersonStmt {
     }
 
     /// First `given:` field, or `None`.
+    #[must_use]
     pub fn given(&self) -> Option<&StringValue> {
         self.fields.iter().find_map(|f| match &f.kind {
             PersonFieldKind::Given(v) => Some(v),
@@ -246,6 +259,7 @@ impl PersonStmt {
     }
 
     /// First `born:` date, or `None`.
+    #[must_use]
     pub fn born(&self) -> Option<&DateLit> {
         self.fields.iter().find_map(|f| match &f.kind {
             PersonFieldKind::Born(d) => Some(d),
@@ -254,6 +268,7 @@ impl PersonStmt {
     }
 
     /// First `died:` date, or `None` (absence means alive per spec section 4.2).
+    #[must_use]
     pub fn died(&self) -> Option<&DateLit> {
         self.fields.iter().find_map(|f| match &f.kind {
             PersonFieldKind::Died(d) => Some(d),
@@ -262,6 +277,7 @@ impl PersonStmt {
     }
 
     /// First `gender:` field, or `None` (rule 3 fires when absent).
+    #[must_use]
     pub fn gender(&self) -> Option<&GenderValue> {
         self.fields.iter().find_map(|f| match &f.kind {
             PersonFieldKind::Gender(v) => Some(v),
@@ -280,6 +296,7 @@ impl PersonStmt {
     /// Used by R03 to avoid emitting "missing required field" when the
     /// writer clearly typed the field but got the value wrong (e.g.
     /// forgot quotes around a `name:` value).
+    #[must_use]
     pub fn has_field(&self, name: FieldName) -> bool {
         if self.malformed_fields.contains(&name) {
             return true;
@@ -317,6 +334,7 @@ pub struct AdoptionSub {
 
 impl AdoptionSub {
     /// First `start:` date, or `None` (rule 3 fires when absent).
+    #[must_use]
     pub fn start(&self) -> Option<&DateLit> {
         self.fields.iter().find_map(|f| match &f.kind {
             AdoptionFieldKind::Start(d) => Some(d),
@@ -325,6 +343,7 @@ impl AdoptionSub {
     }
 
     /// First `end:` date, or `None` (an open-ended adoption per spec 5.2).
+    #[must_use]
     pub fn end(&self) -> Option<&DateLit> {
         self.fields.iter().find_map(|f| match &f.kind {
             AdoptionFieldKind::End(d) => Some(d),
@@ -353,6 +372,7 @@ pub enum AdoptionFieldKind {
 }
 
 impl AdoptionFieldKind {
+    #[must_use]
     pub fn field_name(&self) -> FieldName {
         match self {
             AdoptionFieldKind::Start(_) => FieldName::Start,
@@ -360,6 +380,7 @@ impl AdoptionFieldKind {
         }
     }
 
+    #[must_use]
     pub fn value_span(&self) -> ByteSpan {
         match self {
             AdoptionFieldKind::Start(d) | AdoptionFieldKind::End(d) => d.span,
@@ -393,6 +414,7 @@ pub enum PersonFieldKind {
 }
 
 impl PersonFieldKind {
+    #[must_use]
     pub fn field_name(&self) -> FieldName {
         match self {
             PersonFieldKind::Name(_) => FieldName::Name,
@@ -404,6 +426,7 @@ impl PersonFieldKind {
         }
     }
 
+    #[must_use]
     pub fn value_span(&self) -> ByteSpan {
         match self {
             PersonFieldKind::Name(s) | PersonFieldKind::Family(s) | PersonFieldKind::Given(s) => {
@@ -447,6 +470,7 @@ pub struct MarriageStmt {
 
 impl MarriageStmt {
     /// First `start:` date, or `None` (rule 3 fires when absent).
+    #[must_use]
     pub fn start(&self) -> Option<&DateLit> {
         self.fields.iter().find_map(|f| match &f.kind {
             MarriageFieldKind::Start(d) => Some(d),
@@ -455,6 +479,7 @@ impl MarriageStmt {
     }
 
     /// First `end:` date, or `None` (an ongoing marriage).
+    #[must_use]
     pub fn end(&self) -> Option<&DateLit> {
         self.fields.iter().find_map(|f| match &f.kind {
             MarriageFieldKind::End(d) => Some(d),
@@ -464,6 +489,7 @@ impl MarriageStmt {
 
     /// First `end_reason:` field, or `None`. The validator's rule 5 requires
     /// `end` and `end_reason` to be both present or both absent.
+    #[must_use]
     pub fn end_reason(&self) -> Option<&EndReasonValue> {
         self.fields.iter().find_map(|f| match &f.kind {
             MarriageFieldKind::EndReason(v) => Some(v),
@@ -493,6 +519,7 @@ pub enum MarriageFieldKind {
 }
 
 impl MarriageFieldKind {
+    #[must_use]
     pub fn field_name(&self) -> FieldName {
         match self {
             MarriageFieldKind::Start(_) => FieldName::Start,
@@ -501,6 +528,7 @@ impl MarriageFieldKind {
         }
     }
 
+    #[must_use]
     pub fn value_span(&self) -> ByteSpan {
         match self {
             MarriageFieldKind::Start(d) | MarriageFieldKind::End(d) => d.span,
