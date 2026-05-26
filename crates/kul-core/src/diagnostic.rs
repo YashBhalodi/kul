@@ -61,6 +61,7 @@ impl Diagnostic {
     /// [`Diagnostic::warning`] / [`Diagnostic::note`] for non-error
     /// severities, or [`Diagnostic::unanchored_error`] when the diagnostic
     /// has no source position to point at (manifest-not-found).
+    #[must_use]
     pub fn error(code: &'static str, message: impl Into<String>, primary: FileSpan) -> Self {
         Self {
             code,
@@ -76,6 +77,7 @@ impl Diagnostic {
     /// `KUL-M01` ("manifest not found") and any future code that surfaces
     /// project-state failures the toolchain detects before opening a
     /// file. The would-be path is expected in `message`.
+    #[must_use]
     pub fn unanchored_error(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -89,6 +91,7 @@ impl Diagnostic {
 
     /// Build a warning diagnostic anchored at `primary`. Today only the
     /// `KUL-M05` (unknown manifest field) rule fires at this severity.
+    #[must_use]
     pub fn warning(code: &'static str, message: impl Into<String>, primary: FileSpan) -> Self {
         Self {
             code,
@@ -100,6 +103,7 @@ impl Diagnostic {
         }
     }
 
+    #[must_use]
     pub fn with_related(mut self, span: FileSpan, label: impl Into<String>) -> Self {
         self.related.push(RelatedSpan {
             span,
@@ -110,6 +114,7 @@ impl Diagnostic {
 
     /// Tag this diagnostic with a sub-case discriminator. See the
     /// `detail::*` module constants for the canonical values.
+    #[must_use]
     pub fn with_detail(mut self, detail: &'static str) -> Self {
         self.detail = Some(detail);
         self
@@ -119,6 +124,7 @@ impl Diagnostic {
 /// Helper: build a [`FileSpan`] from a `(file, byte-span)` pair. Common
 /// enough inside the parser/validator that a free function is worth the
 /// keystrokes it saves.
+#[must_use]
 pub fn fspan(file: FileId, span: ByteSpan) -> FileSpan {
     FileSpan::new(file, span)
 }

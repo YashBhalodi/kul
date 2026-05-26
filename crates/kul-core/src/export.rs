@@ -333,6 +333,7 @@ pub struct ExportedSpan {
 /// call). The `kul-wasm` `check` bridge calls this to expose diagnostics
 /// over the JS surface without reimplementing diagnostic-to-JSON walking
 /// or per-file `SourceMap` construction.
+#[must_use]
 pub fn export_diagnostics(check: &CheckResult) -> Vec<ExportedDiagnostic> {
     let document = check.document();
     let mut maps = SourceMapCache::new(document);
@@ -349,6 +350,7 @@ pub fn export_diagnostics(check: &CheckResult) -> Vec<ExportedDiagnostic> {
 /// envelope carrying the full diagnostic list. Warnings do not block;
 /// they are not surfaced in the success envelope today (additive — a
 /// future schema bump may include them).
+#[must_use]
 pub fn export(check: &CheckResult, options: ExportOptions) -> ExportEnvelope {
     if check.has_errors() {
         let diagnostics = export_diagnostics(check);

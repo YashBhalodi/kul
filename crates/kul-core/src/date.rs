@@ -21,6 +21,7 @@ impl DateLit {
     ///
     /// The single source of truth for how a date appears in `.kul` source
     /// after formatting and in tooling output (LSP hover, diagnostics).
+    #[must_use]
     pub fn format_canonical(&self) -> String {
         use std::fmt::Write;
         let mut s = String::with_capacity(11);
@@ -40,6 +41,7 @@ impl DateLit {
     /// Year-only short form: `[~]YYYY`. Used by the LSP (completion details,
     /// document-symbol details) to show a compact year without the
     /// month/day noise.
+    #[must_use]
     pub fn format_year(&self) -> String {
         use std::fmt::Write;
         let mut s = String::with_capacity(5);
@@ -50,6 +52,7 @@ impl DateLit {
         s
     }
 
+    #[must_use]
     pub fn lower_bound(&self) -> CalendarDay {
         let mut start = match (self.month, self.day) {
             (Some(m), Some(d)) => CalendarDay::new(self.year as i32, m as i32, d as i32),
@@ -62,6 +65,7 @@ impl DateLit {
         start
     }
 
+    #[must_use]
     pub fn upper_bound(&self) -> CalendarDay {
         let mut end = match (self.month, self.day) {
             (Some(m), Some(d)) => CalendarDay::new(self.year as i32, m as i32, d as i32),
@@ -81,6 +85,7 @@ impl DateLit {
 
 /// Return true iff every interpretation of `a` is strictly before every
 /// interpretation of `b`.
+#[must_use]
 pub fn before_strict(a: &DateLit, b: &DateLit) -> bool {
     a.upper_bound() < b.lower_bound()
 }
@@ -109,6 +114,7 @@ impl CalendarDay {
 /// Parse a date literal as written (e.g. `~1925-03-15`, `1950-04`, `2010`).
 /// Returns `Err` if the form is malformed or if the components are invalid
 /// (month not in 1..=12, day not valid for the month).
+#[must_use = "parsing a date is pointless if the result is discarded"]
 pub fn parse_date(raw: &str, span: ByteSpan) -> Result<DateLit, DateParseError> {
     let (circa, body) = if let Some(rest) = raw.strip_prefix('~') {
         (true, rest)
@@ -189,6 +195,7 @@ pub enum DateParseError {
 }
 
 impl DateParseError {
+    #[must_use]
     pub fn message(&self) -> &str {
         match self {
             DateParseError::Malformed(m) | DateParseError::OutOfRange(m) => m,
@@ -196,6 +203,7 @@ impl DateParseError {
     }
 }
 
+#[must_use]
 pub fn days_in_month(year: u16, month: u8) -> u8 {
     match month {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
@@ -211,6 +219,7 @@ pub fn days_in_month(year: u16, month: u8) -> u8 {
     }
 }
 
+#[must_use]
 pub fn is_leap_year(year: u16) -> bool {
     (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }

@@ -46,6 +46,7 @@ use crate::span::{ByteSpan, FileId};
 /// Pure path manipulation only — no filesystem IO. ADR-0014 keeps
 /// filesystem reads at the adapter layer; this function just rewrites
 /// one path into another.
+#[must_use]
 pub fn sibling_path(input: &Path) -> PathBuf {
     let parent = input.parent().unwrap_or_else(|| Path::new(""));
     parent.join("kul.yml")
@@ -105,12 +106,14 @@ pub struct ParseError {
 
 #[cfg(feature = "yaml")]
 impl ParseError {
+    #[must_use]
     pub fn message(&self) -> &str {
         &self.message
     }
 
     /// 0-indexed line/column reported by the YAML parser. Returned as a
     /// pair to keep the public surface free of `serde_yaml` types.
+    #[must_use]
     pub fn location(&self) -> Option<(usize, usize)> {
         self.location
     }
@@ -134,6 +137,7 @@ impl std::error::Error for ParseError {}
 /// pass that produces normative `KUL-Mxx` diagnostics, see
 /// [`validate`].
 #[cfg(feature = "yaml")]
+#[must_use = "parsing the manifest is pointless if the result is discarded"]
 pub fn parse(yaml: &str) -> Result<Manifest, ParseError> {
     serde_yaml::from_str(yaml).map_err(|err| ParseError {
         message: format!("invalid YAML: {err}"),
@@ -156,6 +160,7 @@ pub fn parse(yaml: &str) -> Result<Manifest, ParseError> {
 /// pre-built [`Manifest`] from the JS host), this function is unavailable
 /// and callers route around it through [`crate::check_with_manifest`].
 #[cfg(feature = "yaml")]
+#[must_use]
 pub fn validate(yaml: &str, manifest_file: FileId) -> (Option<Manifest>, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
     if yaml.is_empty() {
