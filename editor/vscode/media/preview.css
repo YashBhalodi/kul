@@ -1,50 +1,22 @@
-/* Kul preview stylesheet.
+/* Kul preview — application styles.
  *
- * The kul-svg output is theme-agnostic (ADR-0016): elements carry entity
- * classes (.kul-card, .kul-edge) and data-* attribute selectors (ghost,
- * link kind, ended) but no colours. Theming lives here, behind a layer of
- * element-bound `--kul-*` tokens: every rule consumes one `var(--kul-*)`,
- * and each theme supplies the token values in its own `body[data-theme]`
- * block. Adding a theme is one new block. `vscode` is the default, mapping
- * each token to its VSCode-variable chain so the preview tracks the active
- * VSCode theme. See ADR-0016 for the rationale. */
+ * The rules below are the application layer (ADR-0016): each consumes exactly
+ * one `var(--kul-*)` token and never hard-codes a colour or hooks a VSCode
+ * variable directly. The token values live per-theme in preview-themes.css;
+ * this file stays constant when a theme is added. Both stylesheets load into
+ * the same webview document, so the tokens defined there resolve here. */
 
-body[data-theme="vscode"] {
-    /* Colours / fonts */
-    --kul-preview-bg: var(--vscode-editor-background);
-    --kul-preview-fg: var(--vscode-editor-foreground);
-    --kul-font-family: var(--vscode-editor-font-family);
-    --kul-error-bg: var(--vscode-inputValidation-errorBackground);
-    --kul-error-fg: var(--vscode-inputValidation-errorForeground, var(--vscode-editor-foreground));
-    --kul-error-border-color: var(--vscode-inputValidation-errorBorder);
-    --kul-card-fill: var(--vscode-editor-background);
-    --kul-card-stroke: var(--vscode-charts-blue, var(--vscode-editor-foreground));
-    --kul-ghost-fill: var(--vscode-editor-inactiveSelectionBackground, var(--vscode-editor-background));
-    --kul-ghost-stroke: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
-    --kul-label-fill: var(--vscode-editor-foreground);
-    --kul-ghost-label-fill: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
-    --kul-ghost-badge-fill: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
-    --kul-edge-stroke: var(--vscode-charts-green, var(--vscode-editor-foreground));
-    --kul-adoption-edge-stroke: var(--vscode-charts-orange, var(--vscode-descriptionForeground, var(--vscode-editor-foreground)));
-    --kul-marriage-edge-stroke: var(--vscode-charts-purple, var(--vscode-editor-foreground));
-
-    /* Dimensions / opacities / spacing */
-    --kul-font-size: var(--vscode-editor-font-size);
-    --kul-preview-padding: 16px;
-    --kul-error-padding: 12px 16px;
-    --kul-error-margin: 16px;
-    --kul-error-border-width: 1px;
-    --kul-error-radius: 3px;
-    --kul-card-stroke-width: 1.5;
-    --kul-ghost-fill-opacity: 0.5;
-    --kul-label-font-size: 13px;
-    --kul-ghost-badge-font-size: 12px;
-    --kul-edge-stroke-width: 1.5;
-    --kul-marriage-edge-stroke-width: 8.75;
-    --kul-ended-edge-stroke-opacity: 0.6;
+/* The preview is a pan/zoom surface (svg-pan-zoom): the SVG must fill a
+ * sized container rather than letterbox at its intrinsic size. So html/body
+ * claim the full panel height and #root fills it; box-sizing keeps the
+ * padding inside that height. */
+html,
+body {
+    height: 100%;
 }
 
 body {
+    box-sizing: border-box;
     margin: 0;
     padding: var(--kul-preview-padding);
     background-color: var(--kul-preview-bg);
@@ -55,6 +27,7 @@ body {
 
 #root {
     width: 100%;
+    height: 100%;
 }
 
 .kul-error-banner {
@@ -66,22 +39,122 @@ body {
     border-radius: var(--kul-error-radius);
 }
 
-svg {
-    max-width: 100%;
-    height: auto;
+/* Fill the container so svg-pan-zoom has a viewport to pan/zoom within.
+ * This overrides the v1 `max-width: 100%; height: auto` rule, which
+ * letterboxed the SVG at its intrinsic size and defeated pan/zoom. The
+ * grab/grabbing cursor signals the surface is draggable. */
+#root svg {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    cursor: grab;
 }
 
-/* Card shape — uniform per the uniform card. */
+#root svg:active {
+    cursor: grabbing;
+}
+
+/* Overlay pan/zoom controls: a floating cluster pinned to the panel's
+ * bottom-left, above the SVG surface. A sibling of #root (not inside it), so
+ * the per-render SVG swap never clears it. Hidden until the first render
+ * and while an error banner is shown. */
+.kul-preview-controls {
+    position: fixed;
+    bottom: var(--kul-control-inset);
+    left: var(--kul-control-inset);
+    z-index: 10;
+    display: flex;
+    flex-direction: row;
+    gap: var(--kul-control-gap);
+    padding: var(--kul-control-padding);
+    background-color: var(--kul-control-bg);
+    border: 1px solid var(--kul-control-border-color);
+    border-radius: var(--kul-control-radius);
+    box-shadow: 0 2px 8px var(--kul-control-shadow-color);
+}
+
+.kul-preview-controls[hidden] {
+    display: none;
+}
+
+.kul-control-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--kul-control-size);
+    height: var(--kul-control-size);
+    padding: 0;
+    border: none;
+    border-radius: calc(var(--kul-control-radius) - 2px);
+    background-color: transparent;
+    color: var(--kul-control-fg);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.kul-control-btn svg {
+    display: block;
+    width: var(--kul-control-icon-size);
+    height: var(--kul-control-icon-size);
+}
+
+.kul-control-btn:hover {
+    background-color: var(--kul-control-hover-bg);
+}
+
+.kul-control-btn:active {
+    background-color: var(--kul-control-active-bg);
+}
+
+.kul-control-btn:focus-visible {
+    outline: 1px solid var(--kul-control-focus-ring);
+    outline-offset: -1px;
+}
+
+/* Card shape — uniform per the uniform card. The base stroke is the
+ * gender-neutral default; the per-gender rules below tint it. */
 .kul-card rect {
     fill: var(--kul-card-fill);
     stroke: var(--kul-card-stroke);
     stroke-width: var(--kul-card-stroke-width);
 }
 
+/* Gender is a structural data-* seam (ADR-0016): the card shape is
+ * gender-neutral, so the preview opts in by tinting the stroke per gender.
+ * The name label still carries identity; colour is supplementary. R03 makes
+ * gender required, so every card matches one of these. */
+.kul-card[data-gender="male"] rect {
+    stroke: var(--kul-card-stroke-male);
+}
+
+.kul-card[data-gender="female"] rect {
+    stroke: var(--kul-card-stroke-female);
+}
+
+.kul-card[data-gender="other"] rect {
+    stroke: var(--kul-card-stroke-other);
+}
+
 .kul-card[data-kind="ghost"] rect {
     fill: var(--kul-ghost-fill);
     stroke: var(--kul-ghost-stroke);
     fill-opacity: var(--kul-ghost-fill-opacity);
+}
+
+/* A ghost keeps its dashed outline + translucent fill (the ghost marker);
+ * the gender tint rides on top. The two-attribute selector outranks both the
+ * canonical per-gender rule and the ghost base, so it wins for ghost cards. */
+.kul-card[data-kind="ghost"][data-gender="male"] rect {
+    stroke: var(--kul-ghost-stroke-male);
+}
+
+.kul-card[data-kind="ghost"][data-gender="female"] rect {
+    stroke: var(--kul-ghost-stroke-female);
+}
+
+.kul-card[data-kind="ghost"][data-gender="other"] rect {
+    stroke: var(--kul-ghost-stroke-other);
 }
 
 .kul-label-name {

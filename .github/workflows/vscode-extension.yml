@@ -29,6 +29,9 @@ jobs:
       - name: Install extension dev dependencies
         working-directory: editor/vscode
         run: npm ci
+      - name: Run unit tests (Vitest)
+        working-directory: editor/vscode
+        run: npm test
       - name: Validate JSON files parse
         run: |
           set -e

@@ -1,0 +1,73 @@
+/* Kul preview — theme token definitions.
+ *
+ * This file is the theme layer (ADR-0016). The kul-svg output is
+ * theme-agnostic: elements carry entity classes (.kul-card, .kul-edge) and
+ * data-* attribute selectors (ghost, link kind, ended) but no colours. Each
+ * theme is a single self-contained `body[data-theme="…"]` block that supplies
+ * values for the element-bound `--kul-*` tokens; the application rules in
+ * preview.css consume exactly one `var(--kul-*)` per site and never change
+ * when a theme is added.
+ *
+ * Adding a theme is purely additive: copy the block below, change the
+ * `data-theme` selector, and re-map the token values. `previewHtml()` emits
+ * `<body data-theme="vscode">`, so `vscode` is the default — it maps each
+ * token to a VSCode palette variable so the preview tracks the active VSCode
+ * theme (light, dark, high-contrast). See ADR-0016 for the rationale. */
+
+body[data-theme="vscode"] {
+    /* Colours / fonts */
+    --kul-preview-bg: var(--vscode-editor-background);
+    --kul-preview-fg: var(--vscode-editor-foreground);
+    --kul-font-family: var(--vscode-editor-font-family);
+    --kul-error-bg: var(--vscode-inputValidation-errorBackground);
+    --kul-error-fg: var(--vscode-inputValidation-errorForeground, var(--vscode-editor-foreground));
+    --kul-error-border-color: var(--vscode-inputValidation-errorBorder);
+    --kul-card-fill: var(--vscode-editor-background);
+    --kul-card-stroke: var(--vscode-charts-blue, var(--vscode-editor-foreground));
+    /* Per-gender card stroke (the gender data-* seam, ADR-0016). One token per
+     * site even where hues coincide, so a future theme can vary each. */
+    --kul-card-stroke-male: var(--vscode-charts-blue, var(--vscode-editor-foreground));
+    --kul-card-stroke-female: var(--vscode-charts-red, var(--vscode-editor-foreground));
+    --kul-card-stroke-other: var(--vscode-charts-yellow, var(--vscode-editor-foreground));
+    --kul-ghost-fill: var(--vscode-editor-inactiveSelectionBackground, var(--vscode-editor-background));
+    --kul-ghost-stroke: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+    --kul-ghost-stroke-male: var(--vscode-charts-blue, var(--vscode-editor-foreground));
+    --kul-ghost-stroke-female: var(--vscode-charts-red, var(--vscode-editor-foreground));
+    --kul-ghost-stroke-other: var(--vscode-charts-yellow, var(--vscode-editor-foreground));
+    --kul-label-fill: var(--vscode-editor-foreground);
+    --kul-ghost-label-fill: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+    --kul-ghost-badge-fill: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+    --kul-edge-stroke: var(--vscode-charts-green, var(--vscode-editor-foreground));
+    --kul-adoption-edge-stroke: var(--vscode-charts-orange, var(--vscode-descriptionForeground, var(--vscode-editor-foreground)));
+    --kul-marriage-edge-stroke: var(--vscode-charts-purple, var(--vscode-editor-foreground));
+
+    /* Dimensions / opacities / spacing */
+    --kul-font-size: var(--vscode-editor-font-size);
+    --kul-preview-padding: 16px;
+    --kul-error-padding: 12px 16px;
+    --kul-error-margin: 16px;
+    --kul-error-border-width: 1px;
+    --kul-error-radius: 3px;
+    --kul-card-stroke-width: 1.5;
+    --kul-ghost-fill-opacity: 0.5;
+    --kul-label-font-size: 13px;
+    --kul-ghost-badge-font-size: 12px;
+    --kul-edge-stroke-width: 1.5;
+    --kul-marriage-edge-stroke-width: 8.75;
+    --kul-ended-edge-stroke-opacity: 0.6;
+
+    /* Overlay pan/zoom controls */
+    --kul-control-bg: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+    --kul-control-fg: var(--vscode-icon-foreground, var(--vscode-editor-foreground));
+    --kul-control-border-color: var(--vscode-editorWidget-border, var(--vscode-widget-border, transparent));
+    --kul-control-hover-bg: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+    --kul-control-active-bg: var(--vscode-toolbar-activeBackground, var(--vscode-list-activeSelectionBackground, var(--vscode-toolbar-hoverBackground)));
+    --kul-control-focus-ring: var(--vscode-focusBorder, var(--vscode-editor-foreground));
+    --kul-control-shadow-color: var(--vscode-widget-shadow, transparent);
+    --kul-control-size: 28px;
+    --kul-control-icon-size: 16px;
+    --kul-control-radius: 6px;
+    --kul-control-gap: 4px;
+    --kul-control-padding: 4px;
+    --kul-control-inset: 12px;
+}
