@@ -30,6 +30,8 @@
   "main": "./out/extension.js",
   "scripts": {
     "typecheck": "tsc -p . --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "bundle": "esbuild src/extension.ts --bundle --platform=node --target=node18 --external:vscode --outfile=out/extension.js --minify",
     "build": "npm run typecheck && npm run bundle",
     "watch": "esbuild src/extension.ts --bundle --platform=node --target=node18 --external:vscode --outfile=out/extension.js --sourcemap --watch",
@@ -146,6 +148,7 @@
     "@types/node": "^25.9.0",
     "@types/vscode": "^1.85.0",
     "esbuild": "^0.28.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
   }
 }
