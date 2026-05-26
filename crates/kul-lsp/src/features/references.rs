@@ -29,10 +29,7 @@ pub fn references(
     include_declaration: bool,
 ) -> Option<Vec<Location>> {
     let c = entry.cursor_for_uri(uri, position)?;
-    let entity = c
-        .resolved
-        .node_at(c.file, c.offset)?
-        .entity_reference(c.file)?;
+    let entity = c.entity()?;
 
     let mut spans = c.resolved.references_to(entity.name, entity.kind);
     if include_declaration && let Some(d) = entity.decl_span() {
@@ -47,14 +44,7 @@ pub fn references(
     Some(
         spans
             .into_iter()
-            .filter_map(|fs| {
-                let url = entry.url_for(fs.file)?;
-                let line_index = entry.line_index_for(fs.file)?;
-                Some(Location {
-                    uri: url.clone(),
-                    range: line_index.range(fs.span),
-                })
-            })
+            .filter_map(|fs| entry.location_for(fs))
             .collect(),
     )
 }

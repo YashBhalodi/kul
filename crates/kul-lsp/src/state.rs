@@ -23,9 +23,9 @@ use std::sync::Arc;
 use kul_core::CheckResult;
 use kul_core::ast::InputFile;
 use kul_core::semantic::ResolvedDocument;
-use kul_core::span::FileId;
+use kul_core::span::{FileId, FileSpan};
 use tokio::sync::RwLock;
-use tower_lsp::lsp_types::{FileChangeType, Position, Url};
+use tower_lsp::lsp_types::{FileChangeType, Location, Position, Url};
 
 use crate::convert::LineIndex;
 
@@ -146,6 +146,17 @@ impl ProjectEntry {
         self.line_indices.get(i)
     }
 
+    /// Map a project-wide [`FileSpan`] to an LSP [`Location`], or `None`
+    /// when the span's file isn't a `.kul` file in this project.
+    pub fn location_for(&self, fs: FileSpan) -> Option<Location> {
+        let url = self.url_for(fs.file)?;
+        let line_index = self.line_index_for(fs.file)?;
+        Some(Location {
+            uri: url.clone(),
+            range: line_index.range(fs.span),
+        })
+    }
+
     /// Every URL currently part of this project, in `FileId` order.
     pub fn project_urls(&self) -> &[Url] {
         &self.urls
@@ -229,6 +240,18 @@ pub struct Cursor<'a> {
     pub resolved: &'a ResolvedDocument,
     pub line_index: &'a LineIndex,
     pub offset: usize,
+}
+
+impl<'a> Cursor<'a> {
+    /// The entity (person/marriage id — declaration or reference) under
+    /// the cursor, if any. Collapses the
+    /// `node_at(...).entity_reference(...)` lookup that goto-definition,
+    /// find-references, and rename all share.
+    pub fn entity(&self) -> Option<kul_core::node_at::EntityNode<'a>> {
+        self.resolved
+            .node_at(self.file, self.offset)?
+            .entity_reference(self.file)
+    }
 }
 
 /// Thread-safe handle to the project cache.
