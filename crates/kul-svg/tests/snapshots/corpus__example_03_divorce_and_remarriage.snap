@@ -12,12 +12,10 @@ expression: svg
 <g class="kul-card" data-person-id="erik" data-kind="ghost" data-ghost-reason="past-marriage" data-gender="male" data-is-alive="true" data-born="1970-01-22" data-generation="0">
 <rect x="24" y="24" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
 <text class="kul-label-name" x="104" y="56" text-anchor="middle" dominant-baseline="central">Erik Lindqvist</text>
-<text class="kul-ghost-badge" x="172" y="38" text-anchor="middle">↺</text>
 </g>
 <g class="kul-card" data-person-id="astrid" data-kind="ghost" data-ghost-reason="past-marriage" data-gender="female" data-is-alive="true" data-born="1972-10-08" data-generation="0">
 <rect x="214" y="24" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
 <text class="kul-label-name" x="294" y="56" text-anchor="middle" dominant-baseline="central">Astrid Lindqvist</text>
-<text class="kul-ghost-badge" x="362" y="38" text-anchor="middle">↺</text>
 </g>
 <g class="kul-card" data-person-id="linnea" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1998-03-29" data-generation="1">
 <rect x="119" y="184" width="160" height="64" rx="8" ry="8"/>

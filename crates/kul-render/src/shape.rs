@@ -252,8 +252,9 @@ pub enum SlotKind {
 }
 
 /// Why a ghost card was emitted. The discriminator a surface
-/// renderer keys on for the dotted-border / faded-fill / `↺`-badge
-/// visual vocabulary.
+/// renderer keys on for the ghost visual vocabulary — the dotted
+/// border, the faded fill, and the surface-injected `↺` badge
+/// (chrome; ADR-0016).
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GhostReason {

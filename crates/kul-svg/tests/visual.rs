@@ -62,10 +62,6 @@ fn canonical_card_emits_entity_class_and_kind_attribute() {
         !svg.contains("stroke-dasharray"),
         "canonical card must not ship a stroke-dasharray: {svg}"
     );
-    assert!(
-        !svg.contains("kul-ghost-badge"),
-        "canonical card must not emit the ↺ badge: {svg}"
-    );
 }
 
 #[test]
@@ -105,7 +101,7 @@ fn card_with_died_is_not_alive_and_omits_undeclared_optionals() {
 }
 
 #[test]
-fn past_marriage_ghost_card_emits_ghost_reason_dasharray_and_badge() {
+fn past_marriage_ghost_card_emits_ghost_reason_and_dasharray() {
     let mut shape = empty_shape();
     let mut card = canonical_card("bob", "Bob");
     card.kind = SlotKind::Ghost {
@@ -121,11 +117,6 @@ fn past_marriage_ghost_card_emits_ghost_reason_dasharray_and_badge() {
         svg.contains(r#"stroke-dasharray="3 2""#),
         "expected ghost dasharray: {svg}"
     );
-    assert!(
-        svg.contains("kul-ghost-badge"),
-        "expected ↺ badge for a ghost: {svg}"
-    );
-    assert!(svg.contains("↺"), "expected ↺ glyph: {svg}");
 }
 
 #[test]

@@ -40,7 +40,6 @@ expression: svg
 <g class="kul-card" data-person-id="elena" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1">
 <rect x="883" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
 <text class="kul-label-name" x="963" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text>
-<text class="kul-ghost-badge" x="1031" y="198" text-anchor="middle">↺</text>
 </g>
 <g class="kul-card" data-person-id="matteo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1997-02-14" data-generation="2">
 <rect x="24" y="344" width="160" height="64" rx="8" ry="8"/>
@@ -61,6 +60,5 @@ expression: svg
 <g class="kul-card" data-person-id="giulia" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2">
 <rect x="501" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
 <text class="kul-label-name" x="581" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text>
-<text class="kul-ghost-badge" x="649" y="358" text-anchor="middle">↺</text>
 </g>
 </svg>

@@ -59,9 +59,10 @@ pub struct PositionedCard {
     /// carried so click-to-jump follow-ups (F10) can attach without
     /// changing the type. Surfaces as `data-person-id`.
     pub person_id: String,
-    /// Canonical vs ghost. The discriminator a surface
-    /// renderer keys on for the dotted-border + faded-fill + ↺-badge
-    /// visual vocabulary. Surfaces as `data-kind` (plus `data-ghost-reason`
+    /// Canonical vs ghost. The discriminator a surface renderer keys
+    /// on for the ghost visual vocabulary — the dotted border, the
+    /// faded fill, and the surface-injected `↺` badge (chrome;
+    /// ADR-0016). Surfaces as `data-kind` (plus `data-ghost-reason`
     /// for a ghost).
     pub kind: SlotKind,
     /// Top-left x coordinate of the card.

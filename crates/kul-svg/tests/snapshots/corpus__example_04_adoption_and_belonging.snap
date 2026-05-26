@@ -42,7 +42,6 @@ expression: svg
 <g class="kul-card" data-person-id="dalisay" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1990-08-03" data-generation="1">
 <rect x="695" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
 <text class="kul-label-name" x="775" y="216" text-anchor="middle" dominant-baseline="central">Dalisay Mendoza</text>
-<text class="kul-ghost-badge" x="843" y="198" text-anchor="middle">↺</text>
 </g>
 <g class="kul-card" data-person-id="tomas" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1958-06-25" data-generation="0">
 <rect x="982" y="24" width="160" height="64" rx="8" ry="8"/>
@@ -55,6 +54,5 @@ expression: svg
 <g class="kul-card" data-person-id="dalisay" data-kind="ghost" data-ghost-reason="past-adoption" data-gender="female" data-is-alive="true" data-born="1990-08-03" data-generation="1">
 <rect x="1077" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
 <text class="kul-label-name" x="1157" y="216" text-anchor="middle" dominant-baseline="central">Dalisay Mendoza</text>
-<text class="kul-ghost-badge" x="1225" y="198" text-anchor="middle">↺</text>
 </g>
 </svg>

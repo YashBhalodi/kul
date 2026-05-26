@@ -47,15 +47,15 @@ fn write_open(out: &mut String, shape: &PositionedShape) {
 fn write_card(out: &mut String, card: &PositionedCard) {
     // Entity class names the type only; every property is a `data-*`
     // attribute (ADR-0016 class vocabulary, ADR-0021 plumb-through).
-    let (kind, ghost_reason, ghost_badge) = match card.kind {
-        SlotKind::Canonical => ("canonical", None, None),
+    let (kind, ghost_reason) = match card.kind {
+        SlotKind::Canonical => ("canonical", None),
         SlotKind::Ghost { reason } => {
             let reason = match reason {
                 GhostReason::PastMarriage => "past-marriage",
                 GhostReason::PastAdoption => "past-adoption",
                 GhostReason::PastBirth => "past-birth",
             };
-            ("ghost", Some(reason), Some("↺"))
+            ("ghost", Some(reason))
         }
     };
     let _ = write!(
@@ -108,17 +108,6 @@ fn write_card(out: &mut String, card: &PositionedCard) {
         y = fmt_num(label_y),
         name = escape_xml(&card.name),
     );
-    if let Some(glyph) = ghost_badge {
-        let badge_x = card.x + card.width - 12.0;
-        let badge_y = card.y + 14.0;
-        let _ = write!(
-            out,
-            r#"<text class="kul-ghost-badge" x="{x}" y="{y}" text-anchor="middle">{g}</text>"#,
-            x = fmt_num(badge_x),
-            y = fmt_num(badge_y),
-            g = glyph,
-        );
-    }
     out.push_str("</g>");
 }
 
