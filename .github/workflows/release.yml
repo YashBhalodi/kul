@@ -103,7 +103,7 @@ jobs:
           "$BIN" --version
           # CLI subcommands are CWD-rooted (issue #83) — run from the
           # example project directory rather than passing a path.
-          (cd examples/03-three-generations && "$BIN" validate)
+          (cd examples/02-three-generations && "$BIN" validate)
       - name: Package
         id: package
         shell: bash
