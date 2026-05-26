@@ -2,12 +2,18 @@
 
 All notable changes to the **KulLang** VSCode extension are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.3.3] — 2026-05-26
 
 ### Added
 
 - The preview panel is now an interactive **pan/zoom** surface (vendored `svg-pan-zoom`): drag to pan, wheel to zoom, and on-screen controls for zoom-in / zoom-out / reset-view. The first render fits-and-centers; subsequent debounced re-renders while editing preserve the current viewport, and the reset control returns to fit-and-center on demand (#134).
 - The default preview theme now tints each person card's outline by gender (male / female / other), for canonical and ghost cards alike — opting into the gender data-* seam the renderer already emits (#134).
+
+## [0.3.2] — 2026-05-26
+
+### Added
+
+- The preview panel now **colour-codes element kinds** from your active VSCode theme — cards blue, birth edges green, adoption edges orange, marriage edges purple (atop their existing line styles) — so what an element *is* reads by hue as well as by shape. A theme without a charts palette degrades gracefully to the previous monochrome appearance (#179).
 
 ## [0.3.0] — 2026-05-26
 

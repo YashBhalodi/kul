@@ -4,6 +4,20 @@ All notable changes to KulLang are documented here. The format is based on [Keep
 
 The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi.kul`) ship in lockstep — one tag, one set of artifacts. Per-component notes live under each version.
 
+## [0.3.3] — 2026-05-26
+
+VSCode preview interactivity. The canonical-visual preview panel is now a **pan/zoom surface** — drag to pan, wheel to zoom, on-screen controls to zoom in/out and reset — and it holds your viewport steady across the debounced re-renders that fire while you type, so the picture no longer jumps back to fit on every keystroke. The default theme also tints each person card's outline by gender. Under the hood the webview's content-security policy tightens from an `'unsafe-inline'` script allowance to a per-build nonce, and the preview stylesheet splits into a dedicated token file. No language, library, CLI, LSP, or WASM behaviour changes — every Rust crate and the WASM package is byte-identical to `v0.3.0` aside from the lockstep version bump.
+
+### `kul-vscode-extension`
+
+- **The preview panel is an interactive pan/zoom surface.** Drag to pan, scroll/wheel to zoom, and use the themed on-screen controls (zoom-in / zoom-out / reset-view) in the bottom-left corner. The first render fits-and-centers the tree; subsequent debounced re-renders while you edit preserve the current pan and zoom, so the view stays put instead of snapping back, and the reset control returns to fit-and-center on demand. Powered by a vendored `svg-pan-zoom` shipped as a static webview asset (BSD-2-Clause) rather than a runtime dependency; a single pan/zoom instance persists across re-renders and tears down cleanly when a document enters an error state (#134).
+- **Per-gender card-outline tinting.** The default preview theme now tints each person card's outline by gender (male / female / other) for canonical and ghost cards alike, opting into the `data-gender` attribute the SVG emitter already plumbs through (#134).
+- **Hardened webview CSP and a two-file stylesheet split.** The preview webview's `script-src` moves off `'unsafe-inline'` onto a per-build nonce. The preview stylesheet splits into `preview-themes.css` (the per-theme `--kul-*` token definitions) and `preview.css` (the application rules that consume them), making the [ADR-0016](./docs/adr/0016-visualization-pipeline-crate-boundaries.md) token-layer split physical rather than conventional — adding a future preview theme touches only the themes file. A new Vitest harness (`npm test`) covers the vscode-free `previewHtml` / `getNonce` module and runs in the extension's CI lane (#134).
+
+### `kul-core`, the visual pipeline, `kul-cli`, `kul-lsp`, `@kullang/wasm`
+
+- **Lockstep version bump** — no functional changes. `kul-core`, `kul-loader`, `kul-render`, `kul-layout`, `kul-svg`, `kul-cli`, `kul-lsp`, and `@kullang/wasm` are byte-identical to `v0.3.0` aside from the bump that keeps every artifact aligned under one tag, per the [`release.yml` `verify` gate](./.github/workflows/release.yml).
+
 ## [0.3.2] — 2026-05-26
 
 VSCode preview polish. The canonical-visual preview panel now reads in **colour, not just shape** — cards and each edge kind take a distinct hue from your active VSCode theme, so what an element *is* is legible at a glance. Under the hood the preview stylesheet is restructured into a semantic token layer that turns adding a future preview theme into a purely additive change. No language, library, CLI, LSP, or WASM behaviour changes — every Rust crate and the WASM package is byte-identical to `v0.3.0` aside from the lockstep version bump.
