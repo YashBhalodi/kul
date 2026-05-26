@@ -22,6 +22,24 @@ export function getNonce(): string {
     return text;
 }
 
+// Inline SVG glyphs for the overlay controls. `currentColor` lets the icon
+// track the button's themed `color`, so a single `--kul-control-fg` token
+// drives every glyph (ADR-0016). `aria-hidden` keeps them out of the
+// accessibility tree — the buttons carry their own `aria-label`.
+const ICON_ZOOM_IN = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+const ICON_ZOOM_OUT = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+const ICON_RESET = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 6V3.5A.5.5 0 0 1 3.5 3H6M10 3h2.5a.5.5 0 0 1 .5.5V6M13 10v2.5a.5.5 0 0 1-.5.5H10M6 13H3.5a.5.5 0 0 1-.5-.5V10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+// The overlay control cluster. Lives as a sibling of #root (not inside it),
+// so the per-render `root.innerHTML = …` swap never wipes it; it is wired
+// once and acts on the current pan/zoom instance. Hidden until the first
+// successful render and re-hidden on error.
+const CONTROLS = `<div id="kul-controls" class="kul-preview-controls" role="group" aria-label="Diagram view controls" hidden>
+<button type="button" class="kul-control-btn" data-action="zoom-in" title="Zoom in" aria-label="Zoom in">${ICON_ZOOM_IN}</button>
+<button type="button" class="kul-control-btn" data-action="reset" title="Reset view" aria-label="Reset view">${ICON_RESET}</button>
+<button type="button" class="kul-control-btn" data-action="zoom-out" title="Zoom out" aria-label="Zoom out">${ICON_ZOOM_OUT}</button>
+</div>`;
+
 /**
  * The inline bootstrap that runs inside the webview. It owns a single
  * module-level `svg-pan-zoom` instance (the global `svgPanZoom` comes from
@@ -35,10 +53,15 @@ export function getNonce(): string {
  *   to `fit`+`center`. A missing `<svg>` is guarded.
  * - `renderError`: tear the instance down so no stale pan/zoom surface
  *   survives behind the error banner.
+ *
+ * The on-screen controls are custom HTML (`controlIconsEnabled: false`)
+ * wired here: zoom-in / zoom-out step the zoom, reset returns to the
+ * instance's fit-and-centered original state.
  */
 const BOOTSTRAP = `
 (function () {
     const root = document.getElementById('root');
+    const controls = document.getElementById('kul-controls');
     let panZoom = null;
 
     function teardown() {
@@ -46,6 +69,21 @@ const BOOTSTRAP = `
             panZoom.destroy();
             panZoom = null;
         }
+    }
+
+    function showControls(visible) {
+        if (controls) { controls.hidden = !visible; }
+    }
+
+    if (controls) {
+        controls.addEventListener('click', function (event) {
+            const btn = event.target.closest('button[data-action]');
+            if (!btn || !panZoom) { return; }
+            const action = btn.getAttribute('data-action');
+            if (action === 'zoom-in') { panZoom.zoomIn(); }
+            else if (action === 'zoom-out') { panZoom.zoomOut(); }
+            else if (action === 'reset') { panZoom.reset(); }
+        });
     }
 
     window.addEventListener('message', function (event) {
@@ -62,11 +100,11 @@ const BOOTSTRAP = `
             }
             root.innerHTML = msg.svg;
             const svg = root.querySelector('svg');
-            if (!svg) { return; }
+            if (!svg) { showControls(false); return; }
             panZoom = svgPanZoom(svg, {
                 zoomEnabled: true,
                 panEnabled: true,
-                controlIconsEnabled: true,
+                controlIconsEnabled: false,
                 fit: true,
                 center: true,
                 minZoom: 0.25,
@@ -79,8 +117,10 @@ const BOOTSTRAP = `
                 panZoom.zoom(savedZoom);
                 panZoom.pan(savedPan);
             }
+            showControls(true);
         } else if (msg.type === 'renderError') {
             teardown();
+            showControls(false);
             const banner = document.createElement('div');
             banner.className = 'kul-error-banner';
             banner.textContent = msg.message;
@@ -119,6 +159,7 @@ export function previewHtml(
 </head>
 <body data-theme="vscode">
 <div id="root"></div>
+${CONTROLS}
 <script nonce="${nonce}" src="${scriptHref}"></script>
 <script nonce="${nonce}">${BOOTSTRAP}</script>
 </body>

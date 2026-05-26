@@ -42,6 +42,21 @@ body[data-theme="vscode"] {
     --kul-edge-stroke-width: 1.5;
     --kul-marriage-edge-stroke-width: 8.75;
     --kul-ended-edge-stroke-opacity: 0.6;
+
+    /* Overlay pan/zoom controls */
+    --kul-control-bg: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+    --kul-control-fg: var(--vscode-icon-foreground, var(--vscode-editor-foreground));
+    --kul-control-border-color: var(--vscode-editorWidget-border, var(--vscode-widget-border, transparent));
+    --kul-control-hover-bg: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+    --kul-control-active-bg: var(--vscode-toolbar-activeBackground, var(--vscode-list-activeSelectionBackground, var(--vscode-toolbar-hoverBackground)));
+    --kul-control-focus-ring: var(--vscode-focusBorder, var(--vscode-editor-foreground));
+    --kul-control-shadow-color: var(--vscode-widget-shadow, transparent);
+    --kul-control-size: 28px;
+    --kul-control-icon-size: 16px;
+    --kul-control-radius: 6px;
+    --kul-control-gap: 4px;
+    --kul-control-padding: 4px;
+    --kul-control-inset: 12px;
 }
 
 /* The preview is a pan/zoom surface (svg-pan-zoom): the SVG must fill a
@@ -79,11 +94,75 @@ body {
 
 /* Fill the container so svg-pan-zoom has a viewport to pan/zoom within.
  * This overrides the v1 `max-width: 100%; height: auto` rule, which
- * letterboxed the SVG at its intrinsic size and defeated pan/zoom. */
+ * letterboxed the SVG at its intrinsic size and defeated pan/zoom. The
+ * grab/grabbing cursor signals the surface is draggable. */
 #root svg {
     width: 100%;
     height: 100%;
     max-width: none;
+    cursor: grab;
+}
+
+#root svg:active {
+    cursor: grabbing;
+}
+
+/* Overlay pan/zoom controls: a floating cluster pinned to the panel's
+ * top-right, above the SVG surface. A sibling of #root (not inside it), so
+ * the per-render SVG swap never clears it. Hidden until the first render
+ * and while an error banner is shown. */
+.kul-preview-controls {
+    position: fixed;
+    top: var(--kul-control-inset);
+    right: var(--kul-control-inset);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: var(--kul-control-gap);
+    padding: var(--kul-control-padding);
+    background-color: var(--kul-control-bg);
+    border: 1px solid var(--kul-control-border-color);
+    border-radius: var(--kul-control-radius);
+    box-shadow: 0 2px 8px var(--kul-control-shadow-color);
+}
+
+.kul-preview-controls[hidden] {
+    display: none;
+}
+
+.kul-control-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--kul-control-size);
+    height: var(--kul-control-size);
+    padding: 0;
+    border: none;
+    border-radius: calc(var(--kul-control-radius) - 2px);
+    background-color: transparent;
+    color: var(--kul-control-fg);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.kul-control-btn svg {
+    display: block;
+    width: var(--kul-control-icon-size);
+    height: var(--kul-control-icon-size);
+}
+
+.kul-control-btn:hover {
+    background-color: var(--kul-control-hover-bg);
+}
+
+.kul-control-btn:active {
+    background-color: var(--kul-control-active-bg);
+}
+
+.kul-control-btn:focus-visible {
+    outline: 1px solid var(--kul-control-focus-ring);
+    outline-offset: -1px;
 }
 
 /* Card shape — uniform per the uniform card. */

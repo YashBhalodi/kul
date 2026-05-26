@@ -77,3 +77,23 @@ describe("previewHtml bootstrap", () => {
         expect(html).toContain("if (!svg)");
     });
 });
+
+describe("previewHtml overlay controls", () => {
+    it("renders custom HTML buttons for zoom-in, reset, and zoom-out", () => {
+        const html = build();
+        expect(html).toContain('data-action="zoom-in"');
+        expect(html).toContain('data-action="reset"');
+        expect(html).toContain('data-action="zoom-out"');
+    });
+
+    it("uses custom controls, not the library's built-in icons", () => {
+        expect(build()).toContain("controlIconsEnabled: false");
+    });
+
+    it("wires the buttons to the pan/zoom instance", () => {
+        const html = build();
+        expect(html).toContain("panZoom.zoomIn()");
+        expect(html).toContain("panZoom.zoomOut()");
+        expect(html).toContain("panZoom.reset()");
+    });
+});
