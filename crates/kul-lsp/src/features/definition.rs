@@ -19,10 +19,7 @@ use crate::state::ProjectEntry;
 /// reference, keyword, field, whitespace, EOF, URI not in the project).
 pub fn definition(entry: &ProjectEntry, uri: &Url, position: Position) -> Option<Location> {
     let c = entry.cursor_for_uri(uri, position)?;
-    let entity = c
-        .resolved
-        .node_at(c.file, c.offset)?
-        .entity_reference(c.file)?;
+    let entity = c.entity()?;
     // Goto-def from a decl is a no-op; resolved refs jump to the target.
     if entity.is_decl {
         return None;
@@ -30,12 +27,7 @@ pub fn definition(entry: &ProjectEntry, uri: &Url, position: Position) -> Option
     // The cursor seam carries the resolved target's owning file directly
     // (ADR-0015), so no second resolver query is needed.
     let decl = entity.decl_span()?;
-    let target_url = entry.url_for(decl.file)?;
-    let target_line_index = entry.line_index_for(decl.file)?;
-    Some(Location {
-        uri: target_url.clone(),
-        range: target_line_index.range(decl.span),
-    })
+    entry.location_for(decl)
 }
 
 #[cfg(test)]

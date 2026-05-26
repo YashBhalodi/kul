@@ -181,6 +181,13 @@ export interface Manifest {
     kul: string;
 }
 
+/**
+ * What kind of parenthood a [`ExportedParenthoodLink`] records.
+ *
+ * Serializes to the lowercase wire form `\"biological\"` / `\"adoptive\"`.
+ */
+export type ParenthoodLinkKind = "biological" | "adoptive";
+
 export interface CytoscapeEdge {
     data: EdgeData;
 }
@@ -246,10 +253,11 @@ export interface ExportedParenthoodLink {
     marriageId: string;
     childId: string;
     /**
-     * `\"biological\"` or `\"adoptive\"`. New kinds (e.g. surrogacy) would
-     * land additively per [ADR-0010](../../../docs/adr/0010-export-schema-versioning.md).
+     * Which [`ParenthoodLinkKind`] this link records. New kinds (e.g.
+     * surrogacy) would land additively as new variants per
+     * [ADR-0010](../../../docs/adr/0010-export-schema-versioning.md).
      */
-    kind: string;
+    kind: ParenthoodLinkKind;
     /**
      * `start:` of an adoption. Always absent for biological links.
      */

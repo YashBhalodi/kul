@@ -425,7 +425,10 @@ fn project_ordering(envelope: &kul_core::export::ExportEnvelope) -> OrderingProj
             .map(|l| ParenthoodOrdering {
                 child_id: l.child_id.clone(),
                 marriage_id: l.marriage_id.clone(),
-                kind: l.kind.to_string(),
+                kind: serde_json::to_value(l.kind)
+                    .ok()
+                    .and_then(|v| v.as_str().map(str::to_owned))
+                    .expect("ParenthoodLinkKind serializes to a string"),
             })
             .collect(),
     }

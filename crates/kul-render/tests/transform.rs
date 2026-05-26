@@ -10,7 +10,8 @@
 
 use kul_core::export::{
     ExportEnvelope, ExportedDate, ExportedDiagnostic, ExportedGraph, ExportedMarriage,
-    ExportedParenthoodLink, ExportedPerson, FailureEnvelope, GraphPayload, SuccessEnvelope,
+    ExportedParenthoodLink, ExportedPerson, FailureEnvelope, GraphPayload, ParenthoodLinkKind,
+    SuccessEnvelope,
 };
 use kul_render::transform;
 
@@ -53,7 +54,7 @@ fn bio(child: &str, marriage_id: &str) -> ExportedParenthoodLink {
     ExportedParenthoodLink {
         marriage_id: marriage_id.to_string(),
         child_id: child.to_string(),
-        kind: "biological",
+        kind: ParenthoodLinkKind::Biological,
         start: None,
         end: None,
         span: None,
@@ -64,7 +65,7 @@ fn adoption(child: &str, marriage_id: &str, start_y: u32) -> ExportedParenthoodL
     ExportedParenthoodLink {
         marriage_id: marriage_id.to_string(),
         child_id: child.to_string(),
-        kind: "adoptive",
+        kind: ParenthoodLinkKind::Adoptive,
         start: Some(year(start_y)),
         end: None,
         span: None,

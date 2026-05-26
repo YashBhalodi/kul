@@ -101,11 +101,7 @@ pub fn rename(
     let c = entry
         .cursor_for_uri(uri, position)
         .ok_or(RenameError::NotRenameable)?;
-    let entity = c
-        .resolved
-        .node_at(c.file, c.offset)
-        .and_then(|n| n.entity_reference(c.file))
-        .ok_or(RenameError::NotRenameable)?;
+    let entity = c.entity().ok_or(RenameError::NotRenameable)?;
     // `decl_span()` returns the project-wide anchor (ADR-0015): for a
     // reference it points at the target's owning file directly, no
     // re-query needed. `None` here means the cursor sits on an
