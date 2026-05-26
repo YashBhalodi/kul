@@ -163,32 +163,7 @@ pub fn rename(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{test_open_file, test_project_entry};
-
-    fn url() -> Url {
-        Url::parse("file:///t.kul").unwrap()
-    }
-
-    fn position_for(source: &str, offset: usize) -> Position {
-        let mut line = 0u32;
-        let mut character = 0u32;
-        for (i, b) in source.bytes().enumerate() {
-            if i == offset {
-                break;
-            }
-            if b == b'\n' {
-                line += 1;
-                character = 0;
-            } else {
-                character += 1;
-            }
-        }
-        Position { line, character }
-    }
-
-    fn idx(source: &str, pat: &str) -> usize {
-        source.find(pat).expect("pattern in source")
-    }
+    use crate::state::{idx, position_for, test_open_file, test_project_entry, test_url as url};
 
     fn run_rename(
         source: &str,

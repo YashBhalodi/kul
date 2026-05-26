@@ -640,6 +640,43 @@ pub(crate) fn test_open_file(source: &str) -> ProjectEntry {
     test_project_entry(&[("t.kul", source)])
 }
 
+/// The `file:///t.kul` URL that single-file test fixtures
+/// ([`test_open_file`]) live at. The per-feature test modules import this
+/// as `url` so their `url()` call sites stay unchanged.
+#[cfg(test)]
+pub(crate) fn test_url() -> Url {
+    Url::parse("file:///t.kul").unwrap()
+}
+
+/// Byte offset of the first occurrence of `pat` in `source`. The
+/// per-feature cursor tests use this to anchor a cursor on a known token.
+#[cfg(test)]
+pub(crate) fn idx(source: &str, pat: &str) -> usize {
+    source.find(pat).expect("pattern in source")
+}
+
+/// LSP [`Position`] for a byte `offset` in `source`, via a naive byte
+/// scan that counts `\n`s and UTF-8 bytes. Deliberately *not* routed
+/// through [`LineIndex`] — the cursor tests want the raw byte→line/col
+/// mapping their assertions were written against.
+#[cfg(test)]
+pub(crate) fn position_for(source: &str, offset: usize) -> Position {
+    let mut line = 0u32;
+    let mut character = 0u32;
+    for (i, b) in source.bytes().enumerate() {
+        if i == offset {
+            break;
+        }
+        if b == b'\n' {
+            line += 1;
+            character = 0;
+        } else {
+            character += 1;
+        }
+    }
+    Position { line, character }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

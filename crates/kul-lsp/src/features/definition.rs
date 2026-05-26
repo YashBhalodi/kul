@@ -33,37 +33,11 @@ pub fn definition(entry: &ProjectEntry, uri: &Url, position: Position) -> Option
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{test_open_file, test_project_entry};
-    use tower_lsp::lsp_types::Position;
-
-    fn url() -> Url {
-        Url::parse("file:///t.kul").unwrap()
-    }
-
-    fn position_for(source: &str, offset: usize) -> Position {
-        let mut line = 0u32;
-        let mut character = 0u32;
-        for (i, b) in source.bytes().enumerate() {
-            if i == offset {
-                break;
-            }
-            if b == b'\n' {
-                line += 1;
-                character = 0;
-            } else {
-                character += 1;
-            }
-        }
-        Position { line, character }
-    }
+    use crate::state::{idx, position_for, test_open_file, test_project_entry, test_url as url};
 
     fn def_at(source: &str, offset: usize) -> Option<Location> {
         let doc = test_open_file(source);
         definition(&doc, &url(), position_for(source, offset))
-    }
-
-    fn idx(source: &str, pat: &str) -> usize {
-        source.find(pat).expect("pattern in source")
     }
 
     #[test]

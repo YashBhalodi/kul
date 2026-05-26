@@ -333,11 +333,7 @@ fn position_lt(a: Position, b: Position) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::test_open_file;
-
-    fn url() -> Url {
-        Url::parse("file:///t.kul").unwrap()
-    }
+    use crate::state::{idx, test_open_file, test_url as url};
 
     fn full_doc_range(line_index: &LineIndex) -> Range {
         Range {
@@ -566,10 +562,6 @@ mod tests {
             request_range,
         );
         assert!(actions.is_empty(), "expected no actions for clean line");
-    }
-
-    fn idx(source: &str, pat: &str) -> usize {
-        source.find(pat).expect("pattern in source")
     }
 
     #[test]

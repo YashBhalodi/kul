@@ -227,7 +227,7 @@ fn escape(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::test_open_file;
+    use crate::state::{idx, test_open_file};
 
     fn hover_at(source: &str, offset: usize) -> Option<String> {
         let doc = test_open_file(source);
@@ -236,10 +236,6 @@ mod tests {
             HoverContents::Markup(MarkupContent { value, .. }) => value,
             _ => panic!("expected markup contents"),
         })
-    }
-
-    fn idx(source: &str, pat: &str) -> usize {
-        source.find(pat).expect("pattern in source")
     }
 
     #[test]
