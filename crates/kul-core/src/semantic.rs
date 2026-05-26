@@ -48,6 +48,7 @@ pub enum EntityKind {
 }
 
 impl EntityKind {
+    #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
             EntityKind::Person => "person",
@@ -75,6 +76,7 @@ pub struct EntityRef<'a> {
 
 impl EntityRef<'_> {
     /// The declaration's id span as a project-wide [`FileSpan`].
+    #[must_use]
     pub fn span(&self) -> FileSpan {
         fspan(self.file, self.id.span)
     }
@@ -134,6 +136,7 @@ impl ResolvedDocument {
     /// The underlying parsed multi-file [`Document`]. Useful for downstream
     /// consumers that need access to source bytes or per-file names; rules
     /// inside this crate go through the typed queries below instead.
+    #[must_use]
     pub fn document(&self) -> &Document {
         &self.document
     }
@@ -142,6 +145,7 @@ impl ResolvedDocument {
     /// a refcount bump, no allocation. Useful for callers that want to hold
     /// onto the document alongside the resolved view (the LSP document
     /// cache, downstream tooling) without copying source bytes.
+    #[must_use]
     pub fn document_arc(&self) -> Arc<Document> {
         Arc::clone(&self.document)
     }
@@ -204,6 +208,7 @@ impl ResolvedDocument {
     /// Look up a person by id anywhere in the project. Returns `None` if
     /// no entity has this id, or if one does but it's a marriage. Lookups
     /// are project-wide per ADR-0015.
+    #[must_use]
     pub fn person(&self, id: &str) -> Option<&PersonStmt> {
         self.person_with_file(id).map(|(_, p)| p)
     }
@@ -213,6 +218,7 @@ impl ResolvedDocument {
     /// [`Self::person`]. Used by the cursor seam ([`Node::PersonRef`]) so
     /// downstream features (goto-definition, find-references, rename) can
     /// see which file the target lives in without re-querying.
+    #[must_use]
     pub fn person_with_file(&self, id: &str) -> Option<(FileId, &PersonStmt)> {
         let entity = self.entity_record(id)?;
         if entity.kind != EntityKind::Person {
@@ -229,12 +235,14 @@ impl ResolvedDocument {
 
     /// Look up a marriage by id anywhere in the project. Same `None`
     /// rules as [`Self::person`].
+    #[must_use]
     pub fn marriage(&self, id: &str) -> Option<&MarriageStmt> {
         self.marriage_with_file(id).map(|(_, m)| m)
     }
 
     /// File-aware sibling of [`Self::marriage`] — same shape as
     /// [`Self::person_with_file`].
+    #[must_use]
     pub fn marriage_with_file(&self, id: &str) -> Option<(FileId, &MarriageStmt)> {
         let entity = self.entity_record(id)?;
         if entity.kind != EntityKind::Marriage {
@@ -251,6 +259,7 @@ impl ResolvedDocument {
 
     /// Look up an entity (person or marriage) by id anywhere in the
     /// project, regardless of kind. Used by reference-resolution checks.
+    #[must_use]
     pub fn entity(&self, id: &str) -> Option<EntityRef<'_>> {
         let entity = self.entity_record(id)?;
         let kf = self.document.kul_file(entity.file)?;
@@ -280,6 +289,7 @@ impl ResolvedDocument {
     /// (the completion classifier) refine that with the current line's
     /// indent. Returns `None` only when the cursor is before any
     /// statement, or `file` is out of range.
+    #[must_use]
     pub fn statement_at(&self, file: FileId, byte_offset: usize) -> Option<&Statement> {
         let kf = self.document.kul_file(file)?;
         let mut chosen = None;
@@ -327,6 +337,7 @@ impl ResolvedDocument {
     /// Unresolved references whose name happens to match `id` are still
     /// returned, so rename and find-references both work on partly-broken
     /// documents.
+    #[must_use]
     pub fn references_to(&self, id: &str, kind: EntityKind) -> Vec<FileSpan> {
         let mut out = Vec::new();
         for (file, kf) in self.document.kul_files() {
@@ -365,6 +376,7 @@ impl ResolvedDocument {
     /// reports them). Parent lookups happen project-wide; the link's
     /// file is the child's owning file, which may differ from the
     /// parent's.
+    #[must_use]
     pub fn parents_of<'a>(&'a self, person: &PersonStmt) -> Vec<ParentLink<'a>> {
         let mut out = Vec::new();
         let person_file = self.file_of_person(person);
@@ -421,6 +433,7 @@ impl ResolvedDocument {
 /// (including rule 02 — unresolved references) live in
 /// [`crate::validator`] and run as a separate pass over the
 /// [`ResolvedDocument`].
+#[must_use]
 pub fn resolve(document: Arc<Document>) -> (ResolvedDocument, Vec<Diagnostic>) {
     let mut entities: HashMap<String, ResolvedEntity> = HashMap::new();
     let mut diagnostics: Vec<Diagnostic> = Vec::new();
