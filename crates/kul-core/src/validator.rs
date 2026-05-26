@@ -571,11 +571,8 @@ pub fn rule_14_polygamy_hub_must_host(resolved: &ResolvedDocument) -> Vec<Diagno
         }
     }
     let mut out = Vec::new();
-    for (file, kf) in resolved.document().kul_files() {
-        for stmt in &kf.statements {
-            let Statement::Marriage(m) = stmt else {
-                continue;
-            };
+    for file in resolved.document().kul_file_ids() {
+        for m in resolved.marriages_in(file) {
             if m.end().is_some() {
                 continue;
             }
