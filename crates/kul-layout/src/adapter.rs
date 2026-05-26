@@ -560,7 +560,7 @@ impl<'a> Builder<'a> {
         // regardless of the forests' narrower natural spread.
         let forest_children: Vec<usize> = marriages
             .iter()
-            .flat_map(|m| m.child_roots.clone())
+            .flat_map(|m| m.child_roots.iter().copied())
             .collect();
 
         let hub = &mut self.nodes[hub_idx];
