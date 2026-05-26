@@ -112,17 +112,49 @@ body {
     outline-offset: -1px;
 }
 
-/* Card shape — uniform per the uniform card. */
+/* Card shape — uniform per the uniform card. The base stroke is the
+ * gender-neutral default; the per-gender rules below tint it. */
 .kul-card rect {
     fill: var(--kul-card-fill);
     stroke: var(--kul-card-stroke);
     stroke-width: var(--kul-card-stroke-width);
 }
 
+/* Gender is a structural data-* seam (ADR-0016): the card shape is
+ * gender-neutral, so the preview opts in by tinting the stroke per gender.
+ * The name label still carries identity; colour is supplementary. R03 makes
+ * gender required, so every card matches one of these. */
+.kul-card[data-gender="male"] rect {
+    stroke: var(--kul-card-stroke-male);
+}
+
+.kul-card[data-gender="female"] rect {
+    stroke: var(--kul-card-stroke-female);
+}
+
+.kul-card[data-gender="other"] rect {
+    stroke: var(--kul-card-stroke-other);
+}
+
 .kul-card[data-kind="ghost"] rect {
     fill: var(--kul-ghost-fill);
     stroke: var(--kul-ghost-stroke);
     fill-opacity: var(--kul-ghost-fill-opacity);
+}
+
+/* A ghost keeps its dashed outline + translucent fill (the ghost marker);
+ * the gender tint rides on top. The two-attribute selector outranks both the
+ * canonical per-gender rule and the ghost base, so it wins for ghost cards. */
+.kul-card[data-kind="ghost"][data-gender="male"] rect {
+    stroke: var(--kul-ghost-stroke-male);
+}
+
+.kul-card[data-kind="ghost"][data-gender="female"] rect {
+    stroke: var(--kul-ghost-stroke-female);
+}
+
+.kul-card[data-kind="ghost"][data-gender="other"] rect {
+    stroke: var(--kul-ghost-stroke-other);
 }
 
 .kul-label-name {
