@@ -46,6 +46,8 @@ fn person_symbol(line_index: &LineIndex, p: &PersonStmt) -> DocumentSymbol {
     for adoption in &p.adoptions {
         children.push(adoption_symbol(line_index, adoption));
     }
+    // reason: tower-lsp deprecates `DocumentSymbol.deprecated`, but the struct literal
+    // still requires the field, so the lint is allowed at this person construction site.
     #[allow(deprecated)]
     DocumentSymbol {
         name,
@@ -71,6 +73,8 @@ fn marriage_symbol(
 ) -> DocumentSymbol {
     let a = display_name_or(file, resolved, &m.spouse_a.name);
     let b = display_name_or(file, resolved, &m.spouse_b.name);
+    // reason: tower-lsp deprecates `DocumentSymbol.deprecated`, but the struct literal
+    // still requires the field, so the lint is allowed at this marriage construction site.
     #[allow(deprecated)]
     DocumentSymbol {
         name: format!("{a} & {b}"),
@@ -85,6 +89,8 @@ fn marriage_symbol(
 }
 
 fn birth_symbol(line_index: &LineIndex, b: &BirthSub) -> DocumentSymbol {
+    // reason: tower-lsp deprecates `DocumentSymbol.deprecated`, but the struct literal
+    // still requires the field, so the lint is allowed at this birth construction site.
     #[allow(deprecated)]
     DocumentSymbol {
         name: format!("birth {}", b.marriage_ref.name),
@@ -99,6 +105,8 @@ fn birth_symbol(line_index: &LineIndex, b: &BirthSub) -> DocumentSymbol {
 }
 
 fn adoption_symbol(line_index: &LineIndex, a: &AdoptionSub) -> DocumentSymbol {
+    // reason: tower-lsp deprecates `DocumentSymbol.deprecated`, but the struct literal
+    // still requires the field, so the lint is allowed at this adoption construction site.
     #[allow(deprecated)]
     DocumentSymbol {
         name: format!("adoption {}", a.marriage_ref.name),
