@@ -166,6 +166,71 @@ interface RenderResponse {
     diagnostics?: { code: string }[];
 }
 
+/** LSP-protocol position (0-based line/character). */
+interface LspPosition {
+    line: number;
+    character: number;
+}
+
+/** LSP-protocol location returned by `kul/locate`. */
+interface LspLocation {
+    uri: string;
+    range: { start: LspPosition; end: LspPosition };
+}
+
+interface LocateResponse {
+    location: LspLocation | null;
+}
+
+/**
+ * Message posted by the webview when a person card or marriage bar is
+ * clicked (issue #135). The id is a project-wide entity id; the uri is
+ * carried by `previewUri`, so the message stays minimal.
+ */
+interface RevealSourceMessage {
+    type: "revealSource";
+    id: string;
+}
+
+/**
+ * Resolve a clicked entity id to its declaration via `kul/locate` and
+ * reveal it in an editor. A null location (stale id, no live
+ * declaration) is a silent no-op — no dialog, debug log only.
+ */
+async function revealSource(id: string): Promise<void> {
+    if (!client || !previewUri) {
+        return;
+    }
+    let response: LocateResponse;
+    try {
+        response = await client.sendRequest<LocateResponse>("kul/locate", {
+            uri: previewUri.toString(),
+            id,
+        });
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        client.outputChannel.appendLine(
+            `kul/locate failed for id "${id}": ${message}`,
+        );
+        return;
+    }
+    const location = response.location;
+    if (!location) {
+        client.outputChannel.appendLine(
+            `kul/locate: no declaration for id "${id}"`,
+        );
+        return;
+    }
+    const targetUri = vscode.Uri.parse(location.uri);
+    const selection = new vscode.Range(
+        location.range.start.line,
+        location.range.start.character,
+        location.range.end.line,
+        location.range.end.character,
+    );
+    await vscode.window.showTextDocument(targetUri, { selection });
+}
+
 async function showPreview(
     context: vscode.ExtensionContext,
 ): Promise<void> {
@@ -225,6 +290,21 @@ async function showPreview(
         previewPanel.webview.cspSource,
         getNonce(),
     );
+
+    // Click-to-source (issue #135): the webview posts a `revealSource`
+    // message when a card or marriage bar is clicked.
+    previewPanel.webview.onDidReceiveMessage((message: unknown) => {
+        if (
+            message &&
+            typeof message === "object" &&
+            (message as { type?: unknown }).type === "revealSource"
+        ) {
+            const { id } = message as RevealSourceMessage;
+            if (typeof id === "string" && id.length > 0) {
+                void revealSource(id);
+            }
+        }
+    });
 
     previewPanel.onDidDispose(() => {
         previewPanel = undefined;

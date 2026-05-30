@@ -12,6 +12,7 @@ pub mod document_symbol;
 pub mod export;
 pub mod formatting;
 pub mod hover;
+pub mod locate;
 pub mod references;
 pub mod rename;
 pub mod render;

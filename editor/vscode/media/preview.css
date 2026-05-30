@@ -54,6 +54,21 @@ body {
     cursor: grabbing;
 }
 
+/* Click affordance (#135): svg-pan-zoom sets the grab cursor on the <svg>
+ * root, which descendants inherit. The elements that click-to-source targets
+ * override it with a pointer so they read as clickable; everything else (empty
+ * canvas, birth/adoption edges) keeps the inherited pan cursor. Inherited
+ * values carry no specificity, so these descendant rules win — no !important. */
+.kul-card {
+    cursor: pointer;
+}
+
+/* Marriage bars only. Birth/adoption edges share the .kul-edge class but are
+ * not clickable, so they are excluded by the attribute selector. */
+.kul-edge[data-link-kind="marriage"] {
+    cursor: pointer;
+}
+
 /* Overlay pan/zoom controls: a floating cluster pinned to the panel's
  * bottom-left, above the SVG surface. A sibling of #root (not inside it), so
  * the per-render SVG swap never clears it. Hidden until the first render
