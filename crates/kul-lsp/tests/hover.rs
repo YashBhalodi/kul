@@ -1,5 +1,4 @@
-//! Integration test: open a document and verify `textDocument/hover`
-//! responses contain the expected content for each node variant.
+//! Integration test for `textDocument/hover`.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -108,7 +107,6 @@ fn open_fixture(handle: &mut Handle, uri: &str) {
     let init = handle
         .recv_response(1, Instant::now() + Duration::from_secs(5))
         .expect("initialize");
-    // Server should advertise hover capability.
     let caps = &init["result"]["capabilities"];
     assert_eq!(caps["hoverProvider"].as_bool(), Some(true));
 
@@ -146,7 +144,6 @@ fn hover_on_person_decl_id() {
     let kul_url = common::fixture_url("hover_on_person_decl_id", "hov.kul", FIXTURE);
     let uri = kul_url.as_str();
     open_fixture(&mut handle, uri);
-    // line 0 = `person alice ...`. Column 7 is on `alice`.
     let resp = hover_at(&mut handle, uri, 10, 0, 7);
     let body = resp["result"]["contents"]["value"]
         .as_str()
@@ -163,7 +160,6 @@ fn hover_on_marriage_decl_id() {
     let kul_url = common::fixture_url("hover_on_marriage_decl_id", "hov.kul", FIXTURE);
     let uri = kul_url.as_str();
     open_fixture(&mut handle, uri);
-    // line 2 = `marriage m alice bob ...`. Column 9 is on `m`.
     let resp = hover_at(&mut handle, uri, 11, 2, 9);
     let body = resp["result"]["contents"]["value"]
         .as_str()
@@ -180,7 +176,6 @@ fn hover_on_keyword() {
     let kul_url = common::fixture_url("hover_on_keyword", "hov.kul", FIXTURE);
     let uri = kul_url.as_str();
     open_fixture(&mut handle, uri);
-    // line 0 column 0 — the `person` keyword.
     let resp = hover_at(&mut handle, uri, 12, 0, 0);
     let body = resp["result"]["contents"]["value"]
         .as_str()
@@ -195,10 +190,7 @@ fn hover_on_whitespace_returns_null() {
     let kul_url = common::fixture_url("hover_on_whitespace_returns_null", "hov.kul", FIXTURE);
     let uri = kul_url.as_str();
     open_fixture(&mut handle, uri);
-    // Far past EOL on line 0 — no node there.
     let resp = hover_at(&mut handle, uri, 13, 0, 200);
-    // Some clients may receive `result: null` (no hover); we accept either
-    // null or a missing field.
     let result = &resp["result"];
     assert!(
         result.is_null() || result.get("contents").is_none(),

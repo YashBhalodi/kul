@@ -1,14 +1,7 @@
-//! End-to-end snapshot test: run the full pipeline
-//! (`kul_core::check` → `kul_render::compute` → `kul_layout::layout`)
-//! over each example project the layout adapter currently supports.
-//!
-//! Every example project in the corpus is covered here, one test
-//! per example.
-//!
-//! The snapshot serialises [`PositionedShape`] to YAML for diff
-//! readability — `PositionedShape` is deliberately not `Serialize`
-//! (ADR-0016), so this test harness defines a local serialisable
-//! mirror.
+//! End-to-end snapshot test: full pipeline (`kul_core::check` →
+//! `kul_render::compute` → `kul_layout::layout`) per example, with a
+//! local YAML mirror because `PositionedShape` is not `Serialize`
+//! (ADR-0016).
 
 use std::path::{Path, PathBuf};
 
@@ -118,13 +111,6 @@ fn example_09_family_across_a_century() {
     let yaml = layout_example("09-family-across-a-century");
     insta::assert_snapshot!(yaml);
 }
-
-// ---- Serialisable mirror ------------------------------------------------
-//
-// `PositionedShape` is intentionally not `Serialize` (ADR-0016). The
-// snapshot test only needs a readable diff format; this module defines
-// the local mirror so the production crate does not gain a serde
-// dependency on its public types.
 
 #[derive(Serialize)]
 struct PositionedDump {

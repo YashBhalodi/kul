@@ -1,50 +1,20 @@
 //! The canonical UI pattern as data.
 //!
-//! `kul-core::export` produces a kinship-native graph — `persons`,
-//! `marriages`, `parenthood_links` — mirroring the language primitives
-//! one-to-one. That shape is faithful to what the source *says*; it is
-//! not yet shaped for what the canonical UI pattern
-//! ([`docs/canonical-ui-pattern.md`](../../docs/canonical-ui-pattern.md))
-//! *draws*. This crate is the projection between the two: input is the
-//! kinship-native [`ExportEnvelope`], output is a [`RenderShape`] whose
-//! hierarchy and primitives (components, marriage branches, card slots,
-//! ghost cards, nested birth-family sub-trees) match the pattern's
-//! data form one-to-one.
+//! Projects the kinship-native [`ExportEnvelope`] into a [`RenderShape`]
+//! whose hierarchy and primitives (components, marriage branches, card
+//! slots, ghost cards, nested birth-family sub-trees) match the
+//! canonical UI pattern's data form one-to-one. Every pattern decision
+//! — canonical-vs-ghost, generation row, component order, absorb-rule
+//! termination — is precomputed so a surface renderer is a walker of
+//! the shape, not a re-implementer of the pattern.
 //!
-//! Every pattern decision — which spouse is canonical and which is a
-//! ghost (current-intimacy placement, past intimacies emit ghosts),
-//! which slot lives at which generation row (the classical descendency
-//! tree), how components arrange in source order, where the absorb
-//! rule's nesting terminates — is computed up front and surfaced as
-//! data, so a surface renderer (VSCode preview, web visualizer,
-//! anything else downstream) becomes a walker of the shape, not a
-//! re-implementer of the pattern.
+//! Reads only the kinship-native graph (never AST or
+//! [`kul_core::semantic::ResolvedDocument`]); see ADR-0016. Failure
+//! envelopes pass through verbatim as [`RenderShape::Failure`].
 //!
-//! # Two surfaces
-//!
-//! - [`compute`] — convenience entry point. Takes a [`CheckResult`],
-//!   calls [`kul_core::export::export`] with positions on, then runs
-//!   [`transform`] over the resulting envelope. The shape every
-//!   downstream consumer wants when starting from a checked project.
-//! - [`transform`] — pure transformer over an already-exported
-//!   envelope. Surfaced so fabricated [`ExportEnvelope`] fixtures can
-//!   drive the projection in tests without having to round-trip
-//!   through a `.kul` source.
-//!
-//! The kinship-native shape is the only thing read here — never the
-//! AST or [`kul_core::semantic::ResolvedDocument`]. The audit in
-//! [#117] verified that shape carries every fact the canonical UI
-//! pattern needs, and the rationale for keeping it that way is
-//! recorded in [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md).
-//!
-//! # Failure handling
-//!
-//! If the input [`ExportEnvelope`] is a failure envelope, [`transform`]
-//! and [`compute`] return [`RenderShape::Failure`] carrying the same
-//! diagnostics — the canonical UI pattern only meaningfully applies to
-//! a valid document.
-//!
-//! [#117]: https://github.com/YashBhalodi/kul/issues/117
+//! - [`compute`] — entry from a [`CheckResult`].
+//! - [`transform`] — pure transform over an already-exported envelope,
+//!   so fabricated fixtures can drive the projection in tests.
 
 pub mod shape;
 
@@ -58,32 +28,13 @@ pub use shape::{
     MarriageBranch, PersonCard, RenderShape, SlotKind, SuccessRender,
 };
 
-/// Schema version for [`RenderShape`].
-///
-/// Bumped under the same policy as [`kul_core::export::SCHEMA_VERSION`]
-/// (per [ADR-0010](../../docs/adr/0010-export-schema-versioning.md)):
-/// a new integer is allocated only when downstream renderers might
-/// silently mis-represent data by ignoring a new construct. Adding a new
-/// optional field, a new ghost reason, or a new component kind value
-/// does NOT bump the schema — consumers treat them as forward-compatible
-/// additions. See [ADR-0017](../../docs/adr/0017-render-shape-schema-and-versioning.md).
-///
-/// Bumped from `1` to `2` by
-/// [ADR-0017](../../docs/adr/0017-render-shape-schema-and-versioning.md):
-/// `ComponentKind::FamilyTree.root` flipped from `MarriageBranch` to
-/// `PersonCard` and `MarriageBar.host_slot` was dropped. Both are
-/// structural changes that would silently mis-represent data for
-/// schema-1 consumers.
+/// Schema version for [`RenderShape`]. Bumped only when a schema change
+/// would silently mis-represent data for older consumers (ADR-0010 / ADR-0017);
+/// new optional fields, ghost reasons, or component kinds do not bump.
 pub const RENDER_SCHEMA_VERSION: u32 = 2;
 
-/// Run the export-then-project pipeline against a checked project and
-/// return its [`RenderShape`].
-///
-/// Calls [`kul_core::export::export`] with `with_positions: true` —
-/// source spans propagate through to the render shape so a surface
-/// renderer can map a click on a card back to its source declaration —
-/// then feeds the envelope through [`transform`]. If the export fails,
-/// the failure envelope's diagnostics pass through verbatim.
+/// Export-then-project. Exports with `with_positions: true` so a surface
+/// renderer can map clicks back to source declarations.
 pub fn compute(check: &CheckResult) -> RenderShape {
     let envelope = export(
         check,
@@ -96,12 +47,8 @@ pub fn compute(check: &CheckResult) -> RenderShape {
 }
 
 /// Project a kinship-native [`ExportEnvelope`] into a [`RenderShape`].
-///
-/// Pure transformer. Reads only the kinship-native graph (`persons`,
-/// `marriages`, `parenthoodLinks`); the envelope's `cytoscape` shape
-/// is rejected — Cytoscape is a sibling projection of the kinship-
-/// native graph, not an input to this one. See
-/// [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md).
+/// Cytoscape envelopes are rejected — Cytoscape is a sibling projection,
+/// not an input here (ADR-0016).
 pub fn transform(envelope: &ExportEnvelope) -> RenderShape {
     match envelope {
         ExportEnvelope::Failure(f) => RenderShape::Failure(FailureRender {

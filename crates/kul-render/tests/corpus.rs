@@ -1,10 +1,6 @@
-//! End-to-end snapshot tests: `compute(&check)` over every Kul example
-//! project in the workspace's `examples/` corpus.
-//!
-//! The corpus doubles as the principle-completeness contract: every
-//! canonical UI pattern principle must be exercised by at
-//! least one example, and the catch-all `every_example_has_a_snapshot`
-//! test fires when a new example lands without a matching snapshot.
+//! End-to-end `compute(&check)` snapshots over the `examples/` corpus.
+//! Doubles as the principle-completeness contract via the catch-all
+//! `every_example_has_a_snapshot` test.
 
 use std::path::{Path, PathBuf};
 
@@ -30,8 +26,8 @@ fn read(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()))
 }
 
-/// Load every `.kul` file from `dir` (lexicographic order, matching
-/// what `kul-loader::load` does on disk) into a `CheckResult`.
+/// Load every `.kul` file from `dir` lexicographically (mirrors
+/// `kul-loader::load` on-disk order).
 fn check_example(dir: &Path) -> CheckResult {
     let mut entries: Vec<PathBuf> = std::fs::read_dir(dir)
         .unwrap_or_else(|err| panic!("read_dir {}: {err}", dir.display()))
@@ -87,9 +83,7 @@ example_render_snapshot!(
     "09-family-across-a-century"
 );
 
-/// Catch-all: a new `examples/<dir>/<stem>.kul` landing without a
-/// matching snapshot in this file fires here. Mirrors the same
-/// discipline `kul-core`'s `tests/export.rs` enforces.
+/// Catch-all: a new example dir without a snapshot in this file fires here.
 #[test]
 fn every_example_has_a_render_snapshot() {
     let mut have: Vec<String> = std::fs::read_dir(examples_dir())

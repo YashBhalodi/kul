@@ -1,10 +1,5 @@
-//! Integration test: spawn `kul-lsp`, complete the handshake, open a
-//! document, send a `kul/export` custom request, and verify the response
-//! envelope.
-//!
-//! Mirrors the hand-rolled minimal LSP client used by the other
-//! integration tests so the cross-process behaviour is exercised end-to-
-//! end (Content-Length framing, JSON-RPC, custom-method routing).
+//! Integration test for the `kul/export` custom request — end-to-end
+//! via Content-Length framing, JSON-RPC, custom-method routing.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -116,7 +111,6 @@ fn handshake(handle: &mut Handle) {
     );
     let init = handle.recv(Duration::from_secs(5)).expect("initialize");
     let init: Value = serde_json::from_str(&init).expect("valid json");
-    // Verify the experimental capability advertises kulExport.
     let experimental = &init["result"]["capabilities"]["experimental"];
     assert_eq!(experimental["kulExport"]["formats"][0], "json");
     assert_eq!(experimental["kulExport"]["formats"][1], "cytoscape");
@@ -229,7 +223,6 @@ fn export_unknown_document_returns_invalid_params_error() {
     let response = send_export(&mut handle, 400, uri, "json", false);
     let error = &response["error"];
     assert!(!error.is_null(), "expected error response, got {response}");
-    // -32602 is JSON-RPC's `Invalid Params`.
     assert_eq!(error["code"], -32602);
     assert!(
         error["message"].as_str().unwrap().contains("not open"),

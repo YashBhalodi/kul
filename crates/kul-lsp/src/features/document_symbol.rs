@@ -1,14 +1,8 @@
 //! Document symbols for `textDocument/documentSymbol`.
 //!
-//! Builds the hierarchical outline view: persons and marriages at the top
-//! level, with `birth` and `adoption` sub-statements nested under their
-//! parent person. Labels prefer human-readable display names (the `name:`
-//! field for persons, the spouses' display names for marriages) and fall
-//! back to ids when those aren't available.
-//!
-//! Pure dispatch over the parsed AST — no async, no LSP plumbing beyond
-//! `lsp_types`. Always returns *something*, even when the document has
-//! errors; partial results in the outline beat an empty pane.
+//! Labels prefer display names (the `name:` field; for marriages, the
+//! spouses' display names) and fall back to ids. Always returns something,
+//! even when the document has errors — partial results beat an empty pane.
 
 use kul_core::ast::{AdoptionSub, BirthSub, MarriageStmt, PersonStmt, Statement};
 use kul_core::date::DateLit;
@@ -18,8 +12,7 @@ use tower_lsp::lsp_types::{DocumentSymbol, SymbolKind};
 
 use crate::convert::LineIndex;
 
-/// Build the document-symbol tree for the outline view. Order mirrors source
-/// order; sub-statements nest under their parent person.
+/// Build the document-symbol tree for the outline view.
 pub fn document_symbols(
     file: FileId,
     resolved: &ResolvedDocument,
@@ -46,8 +39,7 @@ fn person_symbol(line_index: &LineIndex, p: &PersonStmt) -> DocumentSymbol {
     for adoption in &p.adoptions {
         children.push(adoption_symbol(line_index, adoption));
     }
-    // reason: tower-lsp deprecates `DocumentSymbol.deprecated`, but the struct literal
-    // still requires the field, so the lint is allowed at this person construction site.
+    // reason: tower-lsp deprecates `DocumentSymbol.deprecated` but still requires the field.
     #[allow(deprecated)]
     DocumentSymbol {
         name,
@@ -192,7 +184,6 @@ mod tests {
 
     #[test]
     fn person_without_name_falls_back_to_id() {
-        // No `name:` field — still surfaced in the outline so navigation works.
         let src = "person alice gender:female\n";
         let syms = symbols_for(src);
         assert_eq!(names(&syms), vec!["alice"]);
@@ -284,7 +275,6 @@ mod tests {
     fn selection_range_points_at_id_not_full_statement() {
         let src = "person alice name:\"Alice\" gender:female\n";
         let syms = symbols_for(src);
-        // Range covers the full line; selection_range covers only `alice`.
         let sel = syms[0].selection_range;
         assert_eq!(sel.start.line, 0);
         assert_eq!(sel.start.character, 7);
@@ -299,9 +289,6 @@ mod tests {
                    person kid name:\"K\" gender:other\n  birth m\n";
         let syms = symbols_for(src);
         let kid = syms.iter().find(|s| s.name == "K").unwrap();
-        // The kid's range should cover both the statement line and the
-        // indented `birth m` line, so the outline-tree expansion arrow lands
-        // on the correct range when the user clicks.
         assert!(kid.range.end.line > kid.range.start.line);
     }
 

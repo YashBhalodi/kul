@@ -1,17 +1,11 @@
-//! Validator: runs spec rules against a [`ResolvedDocument`].
+//! Validator: spec rules against a [`ResolvedDocument`].
 //!
-//! Each rule is a small function `rule_NN(...) -> Vec<Diagnostic>` taking a
-//! resolved document and returning diagnostics. The top-level [`validate`]
-//! is the composition of every implemented rule. Rules query the document
-//! through [`ResolvedDocument`]'s typed methods — they never enumerate
-//! `document.statements` themselves.
-//!
-//! Rules walk `.kul` files one at a time for source-order diagnostic
-//! grouping, but every cross-reference query (`entity`, `marriage`,
-//! `person`, `spouses_of`, `parents_of`) is project-wide per ADR-0015:
-//! references resolve against every file in the project, not just the
-//! current one. Rule 13 (parenthood cycles) walks the whole project's
-//! parent graph in one pass.
+//! Each rule is a `rule_NN(...) -> Vec<Diagnostic>`. Rules query through
+//! [`ResolvedDocument`]'s typed methods — they never enumerate
+//! `document.statements` themselves. Rules iterate files one at a time
+//! for source-order grouping, but cross-reference lookups are
+//! project-wide (ADR-0015). R13 walks the whole project's parent graph
+//! in one pass.
 
 use crate::ast::{EndReason, Gender, Ident, MarriageStmt, PersonStmt, Statement};
 use crate::date::{DateLit, before_strict};
@@ -23,12 +17,8 @@ use crate::span::FileId;
 pub fn validate(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for file in resolved.document().kul_file_ids() {
-        // R02 must run first inside each file: it's the source-order pass
-        // over raw statements that reports "no entity with this id," and
-        // downstream rules already trust that resolved spouse/parent
-        // links exist. Keeping it at the top of the per-file walk
-        // preserves the diagnostic ordering R02-then-R03+ that callers
-        // (and snapshot tests) rely on.
+        // R02 first: downstream rules trust that resolved spouse/parent
+        // links exist. Diagnostic order R02→R03+ is part of the contract.
         diagnostics.extend(rule_02_unresolved_references(resolved, file));
         diagnostics.extend(rule_03_required_fields(resolved, file));
         diagnostics.extend(rule_04_self_marriage(resolved, file));
@@ -41,21 +31,15 @@ pub fn validate(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
         diagnostics.extend(rule_11_bio_child_born_before_parent(resolved, file));
         diagnostics.extend(rule_12_adoption_before_adopter_born(resolved, file));
     }
-    // R13 walks the project-wide parent graph in one pass (ADR-0015): a
-    // cycle that spans two files is detected as a single cycle, not as
-    // two separate per-file fragments.
+    // R13/R14 walk project-wide so cross-file cycles and hubs are
+    // reported as single violations (ADR-0015, ADR-0020).
     diagnostics.extend(rule_13_parenthood_cycles(resolved));
-    // R14 walks marriages project-wide in source order: a polygamy hub
-    // (≥2 un-ended marriages) MUST be the host (first-listed spouse) in
-    // every one of those marriages, so authoring stays the single source
-    // of truth for who the hub is (ADR-0020).
     diagnostics.extend(rule_14_polygamy_hub_must_host(resolved));
     diagnostics
 }
 
-/// Rule 2 — every marriage spouse, `birth` ref, and `adoption` ref must
-/// resolve to a declared id of the appropriate kind anywhere in the
-/// project. Cross-file references resolve cleanly (per ADR-0015).
+/// R02 — every spouse / `birth` ref / `adoption` ref must resolve to a
+/// declared id of the correct kind. Project-wide (ADR-0015).
 pub fn rule_02_unresolved_references(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for stmt in resolved.statements_in(file) {
@@ -172,11 +156,8 @@ fn check_marriage_ref(
     }
 }
 
-/// Rule 3 — required fields missing.
-///
-/// A `person` MUST have `name` and `gender`.
-/// A `marriage` MUST have `start`. (The two spouses are positional and
-/// enforced by the grammar — a missing spouse is a parse error.)
+/// R03 — required fields. `person` needs `name` + `gender`; `marriage`
+/// needs `start` (spouses are positional and enforced by the grammar).
 pub fn rule_03_required_fields(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for p in resolved.persons_in(file) {
@@ -225,8 +206,7 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument, file: FileId) -> Vec
     out
 }
 
-/// Rule 4 — self-marriage. A marriage's two spouse identifiers must be
-/// distinct.
+/// R04 — spouses must be distinct.
 pub fn rule_04_self_marriage(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for m in resolved.marriages_in(file) {
@@ -249,9 +229,8 @@ fn self_marriage_diagnostic(file: FileId, m: &MarriageStmt) -> Diagnostic {
     .with_related(fspan(file, m.spouse_a.span), "first spouse listed here")
 }
 
-/// Rule 5 — `end` and `end_reason` must both be present or both absent.
-/// Rule 5b (KUL-R05b) — `end_reason` value must be in the v1 vocabulary
-/// (currently just `divorce`).
+/// R05 — `end` and `end_reason` are both present or both absent.
+/// R05b — `end_reason` value must be in vocabulary (`divorce` in v1).
 pub fn rule_05_end_consistency(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for m in resolved.marriages_in(file) {
@@ -303,7 +282,7 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument, file: FileId) -> Vec
     out
 }
 
-/// Rule 6 — `person.died < person.born`.
+/// R06 — `person.died < person.born`.
 pub fn rule_06_died_before_born(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     resolved
         .persons_in(file)
@@ -321,7 +300,7 @@ pub fn rule_06_died_before_born(resolved: &ResolvedDocument, file: FileId) -> Ve
         .collect()
 }
 
-/// Rule 7 — `marriage.end < marriage.start`.
+/// R07 — `marriage.end < marriage.start`.
 pub fn rule_07_marriage_end_before_start(
     resolved: &ResolvedDocument,
     file: FileId,
@@ -342,7 +321,7 @@ pub fn rule_07_marriage_end_before_start(
         .collect()
 }
 
-/// Rule 8 — `adoption.end < adoption.start`.
+/// R08 — `adoption.end < adoption.start`.
 pub fn rule_08_adoption_end_before_start(
     resolved: &ResolvedDocument,
     file: FileId,
@@ -371,7 +350,7 @@ pub fn rule_08_adoption_end_before_start(
     out
 }
 
-/// Rule 9 — `marriage.start < S.born` for either spouse `S`.
+/// R09 — `marriage.start < S.born` for either spouse `S`.
 pub fn rule_09_marriage_before_spouse_born(
     resolved: &ResolvedDocument,
     file: FileId,
@@ -400,7 +379,7 @@ pub fn rule_09_marriage_before_spouse_born(
     out
 }
 
-/// Rule 10 — `marriage.start > S.died` for either spouse `S`.
+/// R10 — `marriage.start > S.died` for either spouse `S`.
 pub fn rule_10_spouse_died_before_marriage(
     resolved: &ResolvedDocument,
     file: FileId,
@@ -429,7 +408,7 @@ pub fn rule_10_spouse_died_before_marriage(
     out
 }
 
-/// Rule 11 — bio child born before either bio parent.
+/// R11 — bio child born before either bio parent.
 pub fn rule_11_bio_child_born_before_parent(
     resolved: &ResolvedDocument,
     file: FileId,
@@ -462,7 +441,7 @@ pub fn rule_11_bio_child_born_before_parent(
     out
 }
 
-/// Rule 12 — `adoption.start < P.born` for either adoptive parent `P`.
+/// R12 — `adoption.start < P.born` for either adoptive parent `P`.
 pub fn rule_12_adoption_before_adopter_born(
     resolved: &ResolvedDocument,
     file: FileId,
@@ -526,44 +505,24 @@ fn temporal_violation(
     )
 }
 
-/// Rule 14 — polygamy hub must host all un-ended marriages.
-///
-/// For each person `p`, count their un-ended marriages (marriages where
-/// `p` is a spouse and the marriage has no `end:`). If that count is
-/// ≥ 2, `p` is a **polygamy hub** and MUST be the declared host
-/// (first-listed spouse) of every one of those un-ended marriages. The
-/// rule fires once per offending marriage — the marriages where the hub
-/// is the joining spouse rather than the host.
-///
-/// Walks marriages in project-wide source order so diagnostics group
-/// stably for snapshot tests. See [`crate::diagnostic::detail`] — R14
-/// has a single sub-case and no detail tag. ADR-0020 records the
-/// reasoning: aligning the per-person "polygamy hub" concept with the
-/// per-marriage "host" concept by language invariant rather than by
-/// renderer repair.
+/// R14 — a polygamy hub (≥2 un-ended marriages) must be the host
+/// (first-listed spouse) in every one of those marriages. Fires once per
+/// offending marriage where the hub is the joining spouse. ADR-0020.
 pub fn rule_14_polygamy_hub_must_host(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
-    // Cache un-ended-marriage counts per person id. A polygamy hub is
-    // any person with count ≥ 2; the cache means the per-marriage loop
-    // below stays a single pass rather than re-walking every marriage
-    // for each spouse it touches.
     let mut un_ended_count: std::collections::HashMap<&str, usize> =
         std::collections::HashMap::new();
     for m in resolved.marriages() {
         if m.end().is_some() {
             continue;
         }
-        // Only count marriages where both spouse positions resolve to
-        // a person. R02 already condemns marriages with unresolved or
-        // wrong-kind spouses; folding those into the hub count would
-        // cascade R02 into a misleading R14 on an otherwise clean
-        // sibling marriage.
+        // Skip marriages whose spouses don't both resolve / are equal —
+        // R02 / R04 already report those; folding them into the count
+        // would cascade those rules into a misleading R14.
         let spouses: Vec<&PersonStmt> = resolved.spouses_of(m).collect();
         if spouses.len() != 2 {
             continue;
         }
         if spouses[0].id.name == spouses[1].id.name {
-            // R04 already reports self-marriage; counting both sides
-            // would inflate the count and mask R04 with an R14.
             continue;
         }
         for spouse in spouses {
@@ -576,16 +535,9 @@ pub fn rule_14_polygamy_hub_must_host(resolved: &ResolvedDocument) -> Vec<Diagno
             if m.end().is_some() {
                 continue;
             }
-            // The joining spouse (spouse_b) is the only candidate for
-            // an R14 violation on this marriage — spouse_a is host by
-            // definition. R14 fires when the joining spouse is a hub
-            // (≥2 un-ended marriages) and therefore should have been
-            // the first-listed spouse instead.
-            //
-            // Skip marriages whose spouse positions don't both resolve
-            // to a person: R02 already reports unresolved / wrong-kind
-            // refs, and R14 layered on top would be a cascading
-            // diagnostic rather than a distinct violation.
+            // Only the joining spouse (spouse_b) can violate R14 — host
+            // (spouse_a) is host by definition. Skip unresolved spouses
+            // (R02 covers those).
             if resolved.person(&m.spouse_a.name).is_none() {
                 continue;
             }
@@ -616,9 +568,7 @@ fn polygamy_hub_diagnostic(
         Some(Gender::Male) => "he",
         Some(Gender::Other) | None => "they",
     };
-    // The Fix line shows the spouses swapped: the hub moves to first
-    // position. The `...` placeholder elides field text so the message
-    // stays compact regardless of how many fields the marriage carries.
+    // "Fix:" shows the hub moved to first position; `...` elides fields.
     let message = format!(
         "{name} has {hub_count} concurrent un-ended marriages; {pronoun} must be the declared host (first spouse) in all of them.\nCurrently: marriage {id} {a} {b} ...\nFix:       marriage {id} {hub_name} {other} ...",
         name = hub.id.name,
@@ -633,11 +583,9 @@ fn polygamy_hub_diagnostic(
     Diagnostic::error("KUL-R14", message, fspan(file, m.id.span))
 }
 
-/// Rule 13 — no person may appear as their own ancestor in the parent
-/// graph (union of bio and adoptive parent links). The parent graph
-/// spans every file in the project (per ADR-0015); a cycle that crosses
-/// files is reported as a single cycle, with each related-span anchored
-/// at the file containing that particular parent-link.
+/// R13 — no person may appear as their own ancestor in the parent graph
+/// (bio ∪ adoptive). Cross-file cycles report as a single cycle with
+/// per-link related-spans (ADR-0015).
 pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for cycle in crate::cycles::find_cycles(resolved) {
@@ -645,9 +593,6 @@ pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument) -> Vec<Diagnostic>
             .members
             .first()
             .expect("cycle must have at least one member");
-        // Anchor R13's primary at the head's own declaration file —
-        // looking up the head's owning file uses the project-wide id
-        // index, which knows where every declared person lives.
         let head_file = resolved
             .entity(&head.id.name)
             .map(|e| e.file)

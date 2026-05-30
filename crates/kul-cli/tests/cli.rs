@@ -1,9 +1,5 @@
-//! End-to-end CLI tests.
-//!
-//! Every subcommand operates on the project rooted at CWD (issue #83);
-//! each test sets `current_dir` on the spawned `kul` process to point
-//! at an example or a temp-fixture project root. Multi-file scenarios
-//! exercise the project-wide validator semantics R01 / R02 / R13.
+//! End-to-end CLI tests. Each test sets `current_dir` on the spawned
+//! `kul` process at an example or temp-fixture project root.
 
 use std::path::PathBuf;
 
@@ -19,9 +15,7 @@ fn examples_dir() -> PathBuf {
         .join("examples")
 }
 
-/// Workspace `target/` scratch directory for tests that build a
-/// throwaway project on disk. Each test calls
-/// `tempdir("test-name")` to claim its own subdirectory.
+/// Workspace `target/` scratch directory for a throwaway project.
 fn tempdir(name: &str) -> PathBuf {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -36,18 +30,13 @@ fn tempdir(name: &str) -> PathBuf {
     dir
 }
 
-/// Like [`tempdir`] but also writes a default `kul.yml` so the
-/// directory parses as a Kul project root. The shape every CLI test
-/// wants when it exercises the happy path (`validate`, `format`,
-/// `export`) — only the no-manifest negative tests still use
-/// [`tempdir`] directly.
+/// Like [`tempdir`] but writes a default `kul.yml` so the directory
+/// parses as a Kul project root.
 fn project_dir(name: &str) -> PathBuf {
     let dir = tempdir(name);
     std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").unwrap();
     dir
 }
-
-// === `kul validate` ===
 
 #[test]
 fn validate_in_single_file_project_root_succeeds() {
@@ -87,8 +76,6 @@ fn validate_outside_project_root_errors() {
 
 #[test]
 fn validate_rejects_positional_argument() {
-    // Sanity-check that the positional file arg is gone — passing any
-    // bare path must trip the clap-level usage error (exit code 2).
     Command::cargo_bin("kul")
         .unwrap()
         .current_dir(examples_dir().join("01-nuclear-family"))
@@ -114,8 +101,7 @@ fn validate_json_format_emits_jsonl() {
     let dir = project_dir("validate-json");
     std::fs::write(
         dir.join("alice.kul"),
-        // Missing `name:` — KUL-R03 anchors at the id.
-        "person alice gender:female\n",
+        "person alice gender:female\n", // missing `name:` triggers KUL-R03
     )
     .unwrap();
     let output = Command::cargo_bin("kul")
@@ -135,8 +121,6 @@ fn validate_json_format_emits_jsonl() {
     assert!(value["primary"]["column"].is_u64());
 }
 
-// === Multi-file cross-file diagnostic coverage ===
-
 #[test]
 fn cross_file_duplicate_id_surfaces_r01() {
     let dir = project_dir("cross-file-r01");
@@ -147,7 +131,6 @@ fn cross_file_duplicate_id_surfaces_r01() {
     .unwrap();
     std::fs::write(
         dir.join("b.kul"),
-        // Same id `alice` declared in a sibling file — R01 cross-file.
         "person alice  name:\"Alice Duplicate\"  gender:female  born:1951\n",
     )
     .unwrap();
@@ -171,7 +154,6 @@ fn cross_file_unresolved_reference_surfaces_r02() {
     .unwrap();
     std::fs::write(
         dir.join("b.kul"),
-        // `m_alice_ghost` is declared nowhere in the project — R02.
         "person carol  name:\"Carol\"  gender:female  born:1975\n  birth m_alice_ghost\n",
     )
     .unwrap();
@@ -188,7 +170,7 @@ fn cross_file_unresolved_reference_surfaces_r02() {
 #[test]
 fn cross_file_parent_cycle_surfaces_r13() {
     let dir = project_dir("cross-file-r13");
-    // alice's father is bob (declared in b.kul).
+    // alice's father is bob in b.kul; bob's parent is alice in a.kul — cycle across files.
     std::fs::write(
         dir.join("a.kul"),
         "person alice  name:\"Alice\"  gender:female  born:1950\n  adoption m_bob_self alice\n\
@@ -196,7 +178,6 @@ fn cross_file_parent_cycle_surfaces_r13() {
          person bob_partner  name:\"Bob Partner\"  gender:female  born:1925\n",
     )
     .unwrap();
-    // bob's parent is alice — closes the cycle across files.
     std::fs::write(
         dir.join("b.kul"),
         "person bob  name:\"Bob\"  gender:male  born:1948\n  adoption m_alice_self bob\n\
@@ -214,13 +195,8 @@ fn cross_file_parent_cycle_surfaces_r13() {
         .stderr(contains("KUL-R13"));
 }
 
-// === `kul format` ===
-
 #[test]
 fn format_check_passes_on_every_example_project() {
-    // Every example in the workspace must be canonical at HEAD. Each
-    // example is its own project root (a directory with a `kul.yml`),
-    // so we run `kul format --check` once per project directory.
     let mut project_roots: Vec<PathBuf> = std::fs::read_dir(examples_dir())
         .unwrap()
         .flatten()
@@ -245,7 +221,6 @@ fn format_check_passes_on_every_example_project() {
 #[test]
 fn format_rewrites_every_kul_file_in_project() {
     let dir = project_dir("format-multi-file");
-    // Two files, both dirty — fields out of canonical order.
     let dirty_a = "person alice  born:1950  name:\"Alice\"  gender:female\n";
     let dirty_b = "person bob    born:1948  name:\"Bob\"    gender:male\n";
     std::fs::write(dir.join("a.kul"), dirty_a).unwrap();
@@ -278,7 +253,6 @@ fn format_check_reports_diff_without_writing() {
         .code(1)
         .stderr(contains("alice.kul"))
         .stderr(contains("not formatted"));
-    // File must not have been touched.
     assert_eq!(
         std::fs::read_to_string(dir.join("alice.kul")).unwrap(),
         dirty
@@ -298,15 +272,10 @@ fn format_outside_project_root_errors() {
         .stderr(contains("not a Kul project root"));
 }
 
-/// When parse errors block formatting, the user sees the same miette
-/// rendering `kul validate` would have produced — diagnostic code,
-/// source span, caret anchor — plus the "cannot format" header line.
-/// Regression test for the shared diagnostic renderer (`commands::diag`)
-/// being wired into `format`.
+/// Parse errors surface through the same miette renderer `validate` uses.
 #[test]
 fn format_with_parse_errors_renders_miette_report() {
     let dir = project_dir("format-parse-error");
-    // `person` keyword missing the required id — KUL-P02 / KUL-P03 fires.
     std::fs::write(dir.join("broken.kul"), "person\n").unwrap();
     Command::cargo_bin("kul")
         .unwrap()
@@ -316,15 +285,11 @@ fn format_with_parse_errors_renders_miette_report() {
         .failure()
         .code(1)
         .stderr(contains("cannot format project with parse errors"))
-        // miette produces a `[KUL-Pxx]` code annotation in its report.
         .stderr(contains("KUL-P"));
 }
 
-/// A cross-file duplicate id (R01) carries a related-span anchored in
-/// the *other* file. miette's single-source renderer can't draw it into
-/// the same source block, so the shared CLI renderer appends a
-/// `see also: <file>:<line>:<col> — …` footnote. Regression test
-/// for that line surfacing under `kul validate`.
+/// Cross-file related-spans surface as a `see also: …` footnote since
+/// miette's single-source renderer can't draw them inline.
 #[test]
 fn validate_cross_file_duplicate_emits_see_also_footnote() {
     let dir = project_dir("validate-cross-file-r01");
@@ -346,12 +311,9 @@ fn validate_cross_file_duplicate_emits_see_also_footnote() {
         .failure()
         .code(1)
         .stderr(contains("KUL-R01"))
-        // The "see also" footnote anchors at the *other* file's path.
         .stderr(contains("see also:"))
         .stderr(contains("a.kul"));
 }
-
-// === `kul export` ===
 
 #[test]
 fn export_single_file_project_emits_success_envelope() {
@@ -394,10 +356,6 @@ fn export_multi_file_project_emits_one_envelope_with_unioned_graph() {
     let marriages = env["graph"]["marriages"]
         .as_array()
         .expect("marriages array");
-    // The fixture has founders + parents + grandchildren spread
-    // across three files — assert the export contains more than one
-    // person and at least one marriage to confirm the union actually
-    // crosses file boundaries.
     assert!(
         persons.len() > 2,
         "expected unioned persons across files; got {}",
@@ -481,8 +439,6 @@ fn export_format_svg_streams_self_contained_svg() {
         .expect("run kul export --format svg");
     assert!(output.status.success(), "expected exit 0");
     let stdout = String::from_utf8(output.stdout).unwrap();
-    // Self-contained: a complete SVG carrying an inline <style>, with the
-    // baked `--kul-*` tokens and no VSCode-specific theme variables.
     assert!(stdout.starts_with("<svg"), "expected an SVG document");
     assert!(
         stdout.contains("<style>"),
@@ -492,7 +448,6 @@ fn export_format_svg_streams_self_contained_svg() {
         !stdout.contains("var(--vscode-"),
         "self-contained SVG must not reference VSCode theme variables",
     );
-    // Pin the full geometry + baked theme.
     insta::assert_snapshot!(stdout);
 }
 
@@ -513,8 +468,6 @@ fn export_format_svg_with_positions_is_usage_error() {
 #[test]
 fn export_format_svg_on_error_project_writes_nothing_to_stdout() {
     let dir = project_dir("export-svg-error");
-    // Missing required `name:` triggers KUL-R03 — an error-severity
-    // diagnostic that blocks the render.
     std::fs::write(dir.join("broken.kul"), "person alice gender:female\n").unwrap();
     let output = Command::cargo_bin("kul")
         .unwrap()
@@ -547,8 +500,6 @@ fn export_outside_project_root_errors() {
         .code(1)
         .stderr(contains("not a Kul project root"));
 }
-
-// === Misc ===
 
 #[test]
 fn version_flag_prints_both_versions() {

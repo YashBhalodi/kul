@@ -1,5 +1,4 @@
-//! Integration test for `textDocument/formatting`. Spawns the server,
-//! opens a document, requests formatting, and verifies the response shape.
+//! Integration test for `textDocument/formatting`.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};

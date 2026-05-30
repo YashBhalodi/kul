@@ -1,9 +1,5 @@
-//! Shared test helpers for LSP integration tests.
-//!
-//! Each LSP integration test now needs an on-disk `kul.yml` next to the
-//! `.kul` file under test, because the language server discovers the
-//! project manifest via the file system at `did_open` time. This module
-//! owns the tempdir layout so the test bodies stay focused.
+//! Shared test helpers: tempdir layout with `kul.yml` + `.kul` files
+//! so `did_open`-time project discovery finds a manifest on disk.
 
 use std::path::PathBuf;
 

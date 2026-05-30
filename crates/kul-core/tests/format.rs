@@ -1,15 +1,10 @@
-//! Property tests for the formatter against the example corpus and the
-//! valid-input slice of the validator corpus.
+//! Formatter property tests over the example corpus and valid validator corpus.
 //!
-//! Two properties land here, both per [ADR 0004]:
-//!
+//! Per [ADR 0004]:
 //! - **Idempotence**: `format_source(format_source(s)) == format_source(s)`.
-//!   Once the formatter has touched a file, running it again must be a
-//!   no-op. Tested byte-for-byte.
-//! - **Round-trip**: `parse(format_source(s))` produces an AST equivalent
-//!   to `parse(s)` modulo span positions. We use `format(&Document)` as a
-//!   span-erasing canonical form: two ASTs that print to the same string
-//!   under the AST-only formatter are structurally equal.
+//! - **Round-trip**: `parse(format_source(s))` is structurally equal to
+//!   `parse(s)` modulo spans; `format(&KulFile)` serves as the span-erasing
+//!   canonical form.
 //!
 //! [ADR 0004]: https://github.com/YashBhalodi/kul/blob/main/docs/adr/0004-formatter-canonical-rules.md
 
@@ -33,8 +28,6 @@ fn first_kul_file(check: &kul_core::CheckResult) -> KulFile {
 }
 
 fn workspace_root() -> PathBuf {
-    // CARGO_MANIFEST_DIR points at crates/kul-core; the workspace root is
-    // two levels up.
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     manifest
         .parent()
@@ -47,8 +40,6 @@ fn corpus_files() -> Vec<PathBuf> {
     let mut files = Vec::new();
     let examples = workspace_root().join("examples");
     if examples.is_dir() {
-        // Each per-example subdirectory carries one or more `.kul` files
-        // alongside its `kul.yml`. Walk one level deep into every subdir.
         for example_dir in std::fs::read_dir(&examples)
             .expect("read examples dir")
             .flatten()
@@ -68,9 +59,6 @@ fn corpus_files() -> Vec<PathBuf> {
     }
     let valid = workspace_root().join("crates/kul-core/tests/corpus/valid");
     if valid.is_dir() {
-        // Like `examples/`, each fixture is a one-file project in its own
-        // subdirectory (`<name>/<name>.kul` beside a `kul.yml`); descend one
-        // level into every subdir to collect the `.kul` files.
         for fixture_dir in std::fs::read_dir(&valid)
             .expect("read valid corpus")
             .flatten()
@@ -122,8 +110,6 @@ fn format_source_round_trips_ast_through_corpus() {
         let original_ast = first_kul_file(&check_one(&source));
         let formatted = format_source(&source);
         let reparsed_ast = first_kul_file(&check_one(&formatted));
-        // `format(&KulFile)` is span-blind, so two ASTs that print equal
-        // are equal modulo span positions — exactly the equivalence we want.
         assert_eq!(
             format(&original_ast),
             format(&reparsed_ast),

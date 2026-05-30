@@ -1,6 +1,4 @@
-//! Integration test for `textDocument/references`. Spawns the server,
-//! opens a fixture, and verifies reference locations come back for each
-//! supported cursor position.
+//! Integration test for `textDocument/references`.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -159,11 +157,9 @@ fn references_on_person_decl_returns_spouse_position() {
     );
     let uri = kul_url.as_str();
     open_fixture(&mut handle, uri);
-    // Line 0 col 7 = `alice` decl id.
     let resp = references_at(&mut handle, uri, 10, 0, 7, false);
     let result = resp["result"].as_array().expect("array");
     assert_eq!(result.len(), 1);
-    // Spouse position is on the marriage line (line 2).
     assert_eq!(result[0]["range"]["start"]["line"].as_u64(), Some(2));
 }
 
@@ -177,7 +173,6 @@ fn references_on_marriage_decl_returns_birth_and_adoption() {
     );
     let uri = kul_url.as_str();
     open_fixture(&mut handle, uri);
-    // Line 2 col 9 = `m` decl id ("marriage " is 9 chars).
     let resp = references_at(&mut handle, uri, 11, 2, 9, false);
     let result = resp["result"].as_array().expect("array");
     assert_eq!(result.len(), 2);
@@ -195,7 +190,6 @@ fn references_with_include_declaration_returns_decl_first() {
     open_fixture(&mut handle, uri);
     let resp = references_at(&mut handle, uri, 12, 0, 7, true);
     let result = resp["result"].as_array().expect("array");
-    // `alice` has 1 ref + 1 decl = 2.
     assert_eq!(result.len(), 2);
     // Sorted by position: decl on line 0 comes first.
     assert_eq!(result[0]["range"]["start"]["line"].as_u64(), Some(0));
@@ -207,7 +201,6 @@ fn references_on_keyword_returns_null() {
     let kul_url = common::fixture_url("references_on_keyword_returns_null", "r.kul", FIXTURE);
     let uri = kul_url.as_str();
     open_fixture(&mut handle, uri);
-    // Line 0 col 0 = `person` keyword.
     let resp = references_at(&mut handle, uri, 13, 0, 0, true);
     assert!(resp["result"].is_null());
 }

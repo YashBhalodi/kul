@@ -1,37 +1,27 @@
 //! Single source of truth for the per-field taxonomy.
 //!
-//! Every fact about a Kul field — its value shape, its short completion
-//! description, its long-form hover documentation, and which statement
-//! shapes it appears on — is recorded here. Hover, completion, and
-//! semantic-token features all consume rows from this table; the AST
-//! enums (`PersonFieldKind`, `MarriageFieldKind`, `AdoptionFieldKind`)
-//! provide the path from a parsed value back to its [`FieldName`].
-//!
-//! Adding a new field is a one-row change: extend [`FieldName`] in the
-//! lexer, add a row to [`META`], and add the `FieldName` to the relevant
-//! `*_FIELDS` slice. The AST enum and parser also need the new variant;
-//! the validator then picks it up via existing per-rule code.
+//! Hover, completion, and semantic-token features all consume rows from
+//! [`META`]. Adding a field: extend [`FieldName`] in the lexer, add a
+//! [`META`] row, and add the variant to the relevant `*_FIELDS` slice
+//! (plus the matching AST enum and parser).
 
 use crate::lexer::FieldName;
 
-/// The shape of a field's value as written in source. Drives both syntax
-/// highlighting (string vs. number vs. enum-member) and completion
-/// (whether to wrap the inserted value in quotes).
+/// The shape of a field's value as written in source. Drives syntax
+/// highlighting and completion (e.g. whether to quote the insertion).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValueKind {
-    /// A double-quoted string literal: `name:"Alice"`.
+    /// `name:"Alice"`.
     String,
-    /// A date literal (`YYYY[-MM[-DD]]`, optionally `~`-prefixed).
+    /// `YYYY[-MM[-DD]]`, optionally `~`-prefixed.
     Date,
-    /// One of a small set of enum keywords (`gender`, `end_reason`).
+    /// Enum keyword (`gender`, `end_reason`).
     Enum,
 }
 
-/// Which top-level / sub-statement shape a field can appear on. The same
-/// `FieldName` may participate in more than one shape (e.g. `start` and
-/// `end` appear on both `marriage` and `adoption`); a `(StatementKind,
-/// FieldName)` pair is what selects a unique row in the per-statement
-/// field list.
+/// Statement shape a field appears on. The same `FieldName` may appear
+/// on multiple shapes (`start`/`end` on both marriage and adoption); the
+/// `(StatementKind, FieldName)` pair selects a unique row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatementKind {
     Person,
@@ -44,23 +34,21 @@ pub enum StatementKind {
 pub struct FieldMeta {
     pub name: FieldName,
     pub value_kind: ValueKind,
-    /// One-line description used in completion-item details and the like.
+    /// One-line description for completion-item details.
     pub short_doc: &'static str,
-    /// Long-form Markdown for hover popovers. Self-contained — already
-    /// includes the bold field-name header and any examples.
+    /// Self-contained Markdown for hover popovers (includes the bold
+    /// header and any examples).
     pub hover_md: &'static str,
 }
 
-/// Look up the metadata row for a field name. Total over [`FieldName`]:
-/// every variant has exactly one row.
+/// Look up the metadata row for a field name. Total over [`FieldName`].
 pub fn meta(name: FieldName) -> &'static FieldMeta {
     META.iter()
         .find(|m| m.name == name)
         .expect("every FieldName must have a row in META")
 }
 
-/// The fields valid on a given statement shape, in the canonical order
-/// the formatter and completion lists use.
+/// Fields valid on a statement shape, in canonical order.
 pub fn fields_for(kind: StatementKind) -> &'static [FieldName] {
     match kind {
         StatementKind::Person => PERSON_FIELDS,
@@ -145,8 +133,6 @@ mod tests {
 
     #[test]
     fn every_field_name_has_a_row() {
-        // Compile-time exhaustiveness via the match below; the test fails
-        // if a new FieldName lands without a META row.
         for name in [
             FieldName::Name,
             FieldName::Family,
@@ -180,10 +166,7 @@ mod tests {
 
     #[test]
     fn person_fields_match_spec_field_order() {
-        // The spec (§15.2) fixes the canonical field order; the formatter's
-        // canonical column layout and completion's item list both consume
-        // it from `fields_for`. If a new variant lands, this test is the
-        // smallest signal that `PERSON_FIELDS` needs an update.
+        // Spec §15.2 fixes the canonical person-field order.
         assert_eq!(
             fields_for(StatementKind::Person),
             &[

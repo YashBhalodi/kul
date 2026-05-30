@@ -1,70 +1,37 @@
 //! Buchheim et al. (2002) O(n) Reingold–Tilford–Walker tidy-tree
 //! algorithm.
 //!
-//! Pure algorithm — no kul vocabulary lives here. The input is a
-//! generic tree of [`InputNode`]s carrying each node's natural width
-//! and the indices of its children; the output is the same tree with
-//! a final x-coordinate per node.
-//!
-//! ## Algorithm shape
-//!
-//! Two walks:
+//! Pure algorithm — no kul vocabulary. Two walks:
 //!
 //! 1. **First walk, post-order ([`first_walk`]).** Assigns each
-//!    interior node a *preliminary* x that centers it above its
-//!    children, then resolves sibling-subtree collisions by shifting
-//!    the right subtree and recording a per-subtree `modifier` that
-//!    propagates the shift to descendants in the second pass.
+//!    interior node a preliminary x centered above its children;
+//!    resolves sibling-subtree collisions via per-subtree `modifier`.
 //! 2. **Second walk, pre-order ([`second_walk`]).** Accumulates the
-//!    modifiers down the tree to compute each node's final absolute
-//!    x.
+//!    modifiers down the tree to compute each final x.
 //!
-//! The collision-avoidance uses Buchheim's thread + ancestor + change
-//! / shift machinery to amortise the contour walks; the implementation
-//! sticks close to the paper's pseudocode for ease of review.
-//!
-//! ## Why bother
-//!
-//! No corpus example triggers
-//! sibling-subtree overlap. Walker is in place anyway so the next
-//! follow-up issue that *does* introduce overlap (multi-branch
-//! dynasties under source order, cousin-marriage under the absorb rule) lands without
-//! algorithmic work — the adapter just hands a wider tree in.
+//! Implementation sticks close to the paper's pseudocode for ease of
+//! review.
 
-/// One node in the layout tree the algorithm consumes.
-///
-/// The caller (the adapter) builds a `Vec<InputNode>` flat-indexed
-/// representation: child indices reference positions in the same
-/// vector. Root nodes have no parent; sibling order is the order they
-/// appear in their parent's `children` slice.
+/// One node in the layout tree. Flat-indexed representation: child
+/// indices reference positions in the same `Vec<InputNode>`.
 #[derive(Debug, Clone)]
 pub struct InputNode {
-    /// Natural horizontal extent of this node's cluster (e.g. card
-    /// width for a single card, card + bar + card for a host that
-    /// hosts one marriage). Walker positions the node's *center*; the
-    /// width contributes the left and right contour points.
+    /// Walker positions the node's *center*; width contributes the
+    /// left and right contour points.
     pub width: f64,
-    /// Indices (into the same `Vec<InputNode>`) of this node's
-    /// children in declaration order.
     pub children: Vec<usize>,
 }
 
-/// Per-node result after [`run`]. The `x` value is the cluster's
-/// center on the layout x-axis; the caller derives the cluster's
+/// Per-node result after [`run`]. The caller derives the cluster's
 /// left edge by subtracting `width / 2`.
 #[derive(Debug, Clone, Copy)]
 pub struct LaidOut {
-    /// Final x-coordinate of the cluster's center.
     pub x: f64,
 }
 
-/// Run Walker's algorithm over `nodes` rooted at the indices in
-/// `roots`, separated by `sibling_gap`. Returns one [`LaidOut`] per
-/// input node, indexed identically.
-///
-/// Multiple roots are positioned as if they were siblings under a
-/// virtual super-root — they share the same collision-avoidance pass
-/// and end up left-to-right in `roots` order.
+/// Run Walker's algorithm over `nodes` rooted at `roots`, separated by
+/// `sibling_gap`. Multiple roots are treated as siblings under a virtual
+/// super-root.
 pub fn run(nodes: &[InputNode], roots: &[usize], sibling_gap: f64) -> Vec<LaidOut> {
     let n = nodes.len();
     if n == 0 || roots.is_empty() {
@@ -86,7 +53,6 @@ pub fn run(nodes: &[InputNode], roots: &[usize], sibling_gap: f64) -> Vec<LaidOu
         })
         .collect();
 
-    // Stitch parent pointers and sibling numbers in one pass.
     for (i, node) in nodes.iter().enumerate() {
         for (n_idx, &child) in node.children.iter().enumerate() {
             state[child].parent = Some(i);
@@ -94,23 +60,19 @@ pub fn run(nodes: &[InputNode], roots: &[usize], sibling_gap: f64) -> Vec<LaidOu
         }
     }
 
-    // Set sibling numbers on the roots themselves so the algorithm
-    // can treat them as siblings of one virtual super-root.
+    // Treat roots as siblings of one virtual super-root.
     for (n_idx, &root) in roots.iter().enumerate() {
         state[root].number = n_idx;
     }
 
-    // First walk over every root (post-order).
     for &root in roots {
         first_walk(&mut state, root, sibling_gap);
     }
 
-    // Pack roots left-to-right. Walker centers each subtree on its
-    // root's prelim, but the subtree's bounding-box left can differ
-    // from `root.prelim - root.width/2` when descendants extend
-    // further out. First do a tentative second_walk to read off the
-    // natural bounding box, then re-walk with the shift baked into
-    // the initial modifier so it propagates to every descendant.
+    // Pack roots left-to-right. A subtree's bounding-box left can
+    // differ from `root.prelim - root.width/2`, so do a tentative
+    // second_walk to read off the natural bounding box, then re-walk
+    // with the shift baked into the initial modifier.
     let mut cursor = 0.0_f64;
     for (i, &root) in roots.iter().enumerate() {
         second_walk(&mut state, root, 0.0);
@@ -148,7 +110,6 @@ struct State {
 
 fn first_walk(state: &mut [State], v: usize, sibling_gap: f64) {
     if state[v].children.is_empty() {
-        // Leaf: prelim is its own offset from a left sibling, if any.
         if let Some(w) = left_sibling(state, v) {
             state[v].prelim = state[w].prelim + min_separation(state, v, w, sibling_gap);
         } else {
@@ -200,8 +161,6 @@ fn leftmost_sibling(state: &[State], v: usize) -> Option<usize> {
     Some(state[parent].children[0])
 }
 
-/// Required separation between adjacent siblings' centers given their
-/// half-widths and the requested gap.
 fn min_separation(state: &[State], a: usize, b: usize, sibling_gap: f64) -> f64 {
     state[a].width / 2.0 + sibling_gap + state[b].width / 2.0
 }

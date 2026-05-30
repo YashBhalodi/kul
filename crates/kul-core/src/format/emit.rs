@@ -1,7 +1,5 @@
-//! The layout engine: takes the cell-stream produced by
-//! [`super::cells`] and turns it into aligned, padded text. Owns the
-//! per-region buffer, computes per-column widths inside each alignment
-//! group, and emits the final line walks.
+//! Layout engine: buffers a region of cell-streams, computes per-group
+//! column widths, and emits aligned text.
 
 use std::collections::HashMap;
 
@@ -15,8 +13,8 @@ use super::cells::{
 pub(super) struct Emitter {
     out: String,
     region: Vec<RegionItem>,
-    /// Monotonic id used to scope each `person`'s sub-statements. Reset at
-    /// every region flush so ids don't grow unbounded across a document.
+    /// Per-region scope id for a person's sub-statements; reset at each
+    /// region flush.
     next_parent_id: u32,
 }
 
@@ -71,14 +69,9 @@ impl Emitter {
         self.region.push(RegionItem::Comment { indent, text });
     }
 
-    /// Compute per-group, per-column widths and emit the buffered region.
-    /// After this returns, the buffer is empty and the parent-id counter
-    /// resets, so each region's sub-statement scoping is independent.
-    ///
-    /// Widths are stored per group as `Vec<Option<usize>>` indexed by the
-    /// canonical column index of the group's kind; `None` marks a column
-    /// that no line in the group carries (and therefore is *not present* in
-    /// the rendered layout — the renderer emits no placeholder for it).
+    /// Compute per-group widths and flush the buffered region. `None` in
+    /// a width vec marks a column no line carries — the renderer emits
+    /// no placeholder for it.
     pub(super) fn end_region(&mut self) {
         if self.region.is_empty() {
             return;
@@ -128,9 +121,7 @@ impl Emitter {
         self.out
     }
 
-    /// Append a blank-line separator to the output if the file already has
-    /// content. Suppressed at file start so the output never *begins* with
-    /// a blank line (ADR-0004 rule 6).
+    /// Append a blank-line separator (ADR-0004 rule 6: never at file start).
     pub(super) fn append_separator(&mut self) {
         if !self.out.is_empty() {
             self.out.push('\n');
@@ -164,24 +155,13 @@ impl Emitter {
 
 /// Render one line of an alignment group.
 ///
-/// Walks the canonical column sequence for `kind` left-to-right. For each
-/// column that is *present in the group* (i.e. has a `Some` entry in
-/// `widths`), the line either:
+/// Walks the canonical column sequence for `kind`. Each present column
+/// either emits the line's cell (padded, or unpadded if last), or emits
+/// whitespace placeholder if the line lacks the cell but has more cells
+/// to the right. Stops at the last actual cell — no trailing whitespace.
 ///
-/// - emits the cell at that column padded to the column width (if the line
-///   carries the cell and it is not the line's last cell), or
-/// - emits the cell unpadded (if it is the line's last cell), or
-/// - emits whitespace of the column's width (if the line lacks the cell but
-///   has further actual cells to its right).
-///
-/// After the line's last actual cell the renderer stops — no trailing
-/// whitespace is emitted through subsequent column slots, because trailing
-/// whitespace would corrupt idempotence on editors that strip it.
-///
-/// Inter-column separators are determined by the two adjacent columns'
-/// canonical `CellKind`s (single space after a keyword or between
-/// positionals/references; two spaces before fields/comments). The
-/// separator is independent of which cells the current line carries.
+/// Inter-column separator is decided by adjacent canonical `CellKind`s:
+/// single space between structurals, double space before fields/comments.
 fn emit_aligned_line(
     indent: usize,
     kind: KindTag,
@@ -195,7 +175,7 @@ fn emit_aligned_line(
         out.push(' ');
     }
 
-    // The line's last actual cell — beyond this column, the renderer stops.
+    // Stop after this column.
     let last_col = cells
         .last()
         .expect("a line always has at least the keyword cell")
@@ -216,10 +196,8 @@ fn emit_aligned_line(
                 Sep::Double => out.push_str("  "),
             }
         }
-        // Use char count rather than byte length — the corpus is ASCII
-        // today, but a non-ASCII identifier (e.g. "Élise") should still
-        // count as one column position per Unicode scalar. Display width
-        // for CJK is a separate problem we punt on for now.
+        // char count, not byte length: non-ASCII identifiers count one
+        // column per Unicode scalar. CJK display-width is out of scope.
         if let Some(cell) = cells.iter().find(|c| c.col == col_idx) {
             out.push_str(&cell.text);
             if col_idx != last_col {
@@ -245,15 +223,12 @@ enum Sep {
 }
 
 fn separator_between(prev: CellKind, next: CellKind) -> Sep {
-    // Spec rules: single space after a keyword and between positionals;
-    // two spaces before any field; two spaces before an inline comment.
+    // Single space between structurals; double space before fields/comments.
     match next {
         CellKind::Field(_) | CellKind::Comment => Sep::Double,
         CellKind::Keyword | CellKind::Positional | CellKind::Reference => match prev {
             CellKind::Keyword | CellKind::Positional | CellKind::Reference => Sep::Single,
-            // Field-or-comment → positional shouldn't happen in canonical
-            // output (positionals come first). Treat as single space if it
-            // ever does so we don't panic.
+            // Field/comment → structural is not canonical; default safely.
             CellKind::Field(_) | CellKind::Comment => Sep::Single,
         },
     }

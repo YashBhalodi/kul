@@ -1,6 +1,4 @@
-//! Integration test for `textDocument/semanticTokens/full`. Spawns the
-//! server, opens a fixture, and verifies the legend in `initializeResult`
-//! plus the encoded token stream returned by the request.
+//! Integration test for `textDocument/semanticTokens/full`.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -182,16 +180,13 @@ fn full_request_returns_encoded_token_stream() {
     let data = resp["result"]["data"]
         .as_array()
         .expect("data is an array of u32 5-tuples");
-    // Three statements × at least 5 tokens each = >= 15 entries × 5 = 75 u32s.
-    // The actual count is fixed but asserting a floor keeps the test robust
-    // to additive token-stream changes (legend additions etc.).
+    // Floor (not exact count) keeps the test robust to additive
+    // legend changes.
     assert!(data.len() >= 75, "got {} u32s", data.len());
     assert_eq!(data.len() % 5, 0, "data length must be a multiple of 5");
-    // The very first token is `person` on line 0, column 0 with type
-    // `keyword` (index 0 in the legend).
     assert_eq!(data[0].as_u64(), Some(0), "delta_line");
     assert_eq!(data[1].as_u64(), Some(0), "delta_start");
-    assert_eq!(data[2].as_u64(), Some(6), "length"); // "person"
+    assert_eq!(data[2].as_u64(), Some(6), "length");
     assert_eq!(data[3].as_u64(), Some(0), "tokenType=keyword");
     assert_eq!(data[4].as_u64(), Some(0), "modifiers");
 }

@@ -1,11 +1,8 @@
 //! Multi-file project tests (per ADR-0015).
 //!
-//! Fixtures live under `tests/fixtures/multi-file/<scenario>/` and each
-//! carries a `kul.yml` plus one or more `.kul` files. The tests drive
-//! `kul_core::check` with the project as it would arrive at the
-//! toolchain edge (manifest YAML + a vector of `InputFile`s), and
-//! snapshot the rendered diagnostic list so regressions to R01 / R02 /
-//! R13 cross-file semantics or to KUL-M06 surface as snapshot diffs.
+//! Fixtures under `tests/fixtures/multi-file/<scenario>/` drive
+//! `kul_core::check` and snapshot rendered diagnostics so regressions to
+//! cross-file R01 / R02 / R13 or to KUL-M06 surface as snapshot diffs.
 
 use std::path::{Path, PathBuf};
 
@@ -27,8 +24,7 @@ fn read(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()))
 }
 
-/// Load a multi-file project fixture. Returns `(manifest_yaml, inputs)`
-/// in stable lexicographic order over the directory's `.kul` files so
+/// Load a multi-file project fixture. Files are sorted lexicographically so
 /// snapshot output is deterministic.
 fn load_project(scenario: &str) -> (String, Vec<InputFile>) {
     let dir = fixture_dir(scenario);
@@ -58,11 +54,8 @@ fn check_project(scenario: &str) -> (Vec<InputFile>, CheckResult) {
     (inputs, result)
 }
 
-/// Resolve a `FileId` into the input-order index it points at (1-based,
-/// per the multi-file `Document` convention where `FileId(0)` is the
-/// manifest). Snapshot output uses this rather than the raw `FileId` so
-/// reordering the fixture's input list flips snapshots in a way a
-/// reviewer can read.
+/// Render a `FileId` as its source filename. Used in snapshots so reordering
+/// fixture inputs produces a reviewer-readable diff rather than a raw id swap.
 fn file_label(file: FileId, inputs: &[InputFile]) -> String {
     if file == FileId::MANIFEST {
         return "kul.yml".to_string();
@@ -108,10 +101,6 @@ fn render_one(d: &Diagnostic, inputs: &[InputFile]) -> String {
 
 #[test]
 fn cross_file_resolution_is_quiet() {
-    // Two files: a.kul declares alice + bob; b.kul declares marriage
-    // m_alice_bob (referencing alice and bob across the file boundary)
-    // and a child carol whose `birth m_alice_bob` resolves across-file.
-    // Under project-wide resolution every reference resolves; no R02.
     let (inputs, result) = check_project("cross-file-resolution");
     assert!(
         result.diagnostics.is_empty(),
@@ -119,7 +108,6 @@ fn cross_file_resolution_is_quiet() {
         render_diagnostics(&result, &inputs)
     );
 
-    // Sanity: every id is reachable via the project-wide lookups.
     let resolved = result.resolved();
     assert!(resolved.person("alice").is_some());
     assert!(resolved.person("bob").is_some());
@@ -129,16 +117,12 @@ fn cross_file_resolution_is_quiet() {
 
 #[test]
 fn project_wide_iteration_walks_every_file() {
-    // Project-wide `persons()` returns every declared person regardless
-    // of which file owns it; the per-file helpers restrict to one file.
     let (inputs, result) = check_project("cross-file-resolution");
     let resolved = result.resolved();
 
     let all_persons: Vec<&str> = resolved.persons().map(|p| p.id.name.as_str()).collect();
     assert_eq!(all_persons, ["alice", "bob", "carol"]);
 
-    // First file declares alice + bob; second declares carol. The
-    // input order determines `FileId` assignment.
     let a_kul_idx = inputs.iter().position(|i| i.name == "a.kul").unwrap();
     let b_kul_idx = inputs.iter().position(|i| i.name == "b.kul").unwrap();
     let a_kul = FileId::from_raw((a_kul_idx + 1) as u32);
@@ -155,13 +139,12 @@ fn project_wide_iteration_walks_every_file() {
     assert_eq!(in_a, ["alice", "bob"]);
     assert_eq!(in_b, ["carol"]);
 
-    // The marriage and its spouses cross the file boundary.
     let m = resolved.marriage("m_alice_bob").expect("marriage resolves");
     let spouses: Vec<&str> = resolved.spouses_of(m).map(|p| p.id.name.as_str()).collect();
     assert_eq!(spouses, ["alice", "bob"]);
 
-    // `entity()` reports the declaring file, so cross-file consumers
-    // (LSP, future renames) can route to the right URI.
+    // `entity()` reports the declaring file so cross-file consumers can
+    // route to the right URI.
     let alice_entity = resolved.entity("alice").expect("alice resolved");
     assert_eq!(alice_entity.file, a_kul);
     assert_eq!(alice_entity.kind, EntityKind::Person);
@@ -171,9 +154,6 @@ fn project_wide_iteration_walks_every_file() {
 
 #[test]
 fn cross_file_duplicate_id_fires_r01_with_primary_on_second() {
-    // first.kul and second.kul both declare `person alice`. R01 fires
-    // with the primary on the second-discovered declaration and a
-    // related-span on the first.
     let (inputs, result) = check_project("cross-file-duplicate");
 
     let r01: Vec<&Diagnostic> = result
@@ -187,9 +167,7 @@ fn cross_file_duplicate_id_fires_r01_with_primary_on_second() {
     let primary = d.primary.expect("R01 must anchor");
     let related = d.related.first().expect("R01 carries related-span");
 
-    // first.kul appears earlier in `inputs` (alphabetic order); its file
-    // id is the smaller of the two. The primary anchors at the *second*
-    // discovery, the related-span at the *first*.
+    // Primary anchors on the second discovery, related-span on the first.
     let first_idx = inputs.iter().position(|i| i.name == "first.kul").unwrap();
     let second_idx = inputs.iter().position(|i| i.name == "second.kul").unwrap();
     assert!(
@@ -206,8 +184,6 @@ fn cross_file_duplicate_id_fires_r01_with_primary_on_second() {
 
 #[test]
 fn empty_project_fires_kul_m06() {
-    // A project directory with `kul.yml` but zero `.kul` files emits
-    // KUL-M06 anchored at the manifest start. Severity error.
     let (inputs, result) = check_project("empty-project");
     assert!(inputs.is_empty(), "fixture has no .kul files");
     let m06: Vec<&Diagnostic> = result
@@ -224,13 +200,9 @@ fn empty_project_fires_kul_m06() {
 
 #[test]
 fn r13_parenthood_cycle_spans_two_files() {
-    // Cross-file parenthood cycle:
-    // file a.kul: person `a` is adopted into `m_branch_b` (declared in b.kul);
-    //             marriage `m_branch_a` spouses are `a` and `partner_a`.
-    // file b.kul: person `b` is bio child of `m_branch_a` (declared in a.kul);
-    //             marriage `m_branch_b` spouses are `b` and `partner_b`.
-    // Cycle: a's parent set includes b (via m_branch_b) → b's parent set includes a
-    // (via m_branch_a) → a. R13 detects it as one cycle.
+    // a.kul and b.kul each declare a marriage whose only child is adopted
+    // or born into the other file's marriage — a's parent ancestry runs
+    // through b's marriage and vice versa. R13 detects the single cycle.
     let (inputs, result) = check_project("cross-file-cycle");
     let r13: Vec<&Diagnostic> = result
         .diagnostics

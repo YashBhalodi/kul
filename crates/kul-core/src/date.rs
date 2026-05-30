@@ -1,9 +1,9 @@
 //! Date literals, ranges, and the strict-before comparison.
 //!
-//! Spec section 3.5 defines three granularities (`YYYY`, `YYYY-MM`,
-//! `YYYY-MM-DD`) and an optional `~` (circa) prefix that adds ±5 years of
-//! tolerance. Comparisons treat partial / circa dates as closed intervals
-//! and only fire when one interval is strictly before the other.
+//! Three granularities (`YYYY`, `YYYY-MM`, `YYYY-MM-DD`) plus an optional
+//! `~` (circa) prefix adding ±5 years of tolerance (spec 3.5). Partial and
+//! circa dates are closed intervals; comparison fires only on strict
+//! before.
 
 use crate::span::ByteSpan;
 
@@ -17,10 +17,8 @@ pub struct DateLit {
 }
 
 impl DateLit {
-    /// Canonical Kul source rendering: `[~]YYYY[-MM[-DD]]`.
-    ///
-    /// The single source of truth for how a date appears in `.kul` source
-    /// after formatting and in tooling output (LSP hover, diagnostics).
+    /// Canonical Kul source rendering: `[~]YYYY[-MM[-DD]]`. Single source
+    /// of truth for date rendering in formatted source and tooling output.
     #[must_use]
     pub fn format_canonical(&self) -> String {
         use std::fmt::Write;
@@ -38,9 +36,7 @@ impl DateLit {
         s
     }
 
-    /// Year-only short form: `[~]YYYY`. Used by the LSP (completion details,
-    /// document-symbol details) to show a compact year without the
-    /// month/day noise.
+    /// Year-only short form: `[~]YYYY`. Compact display label.
     #[must_use]
     pub fn format_year(&self) -> String {
         use std::fmt::Write;
@@ -298,16 +294,13 @@ mod tests {
 
     #[test]
     fn before_strict_partial_overlap() {
-        // `1900` covers all of 1900; `1900-06` is mid-1900 — overlap.
         assert!(!before_strict(&d("1900"), &d("1900-06")));
         assert!(!before_strict(&d("1900-06"), &d("1900")));
     }
 
     #[test]
     fn before_strict_circa_overlap() {
-        // ~1900 covers 1895..1905; 1903 is inside — not strictly before.
         assert!(!before_strict(&d("~1900"), &d("1903")));
-        // ~1900 ends at 1905-12-31; 1906 is strictly after.
         assert!(before_strict(&d("~1900"), &d("1906")));
     }
 

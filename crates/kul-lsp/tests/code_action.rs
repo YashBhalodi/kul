@@ -1,5 +1,4 @@
-//! Integration test for `textDocument/codeAction`. Spawns the server,
-//! opens a document with diagnostics, and verifies quick-fixes come back.
+//! Integration test for `textDocument/codeAction` quick-fixes.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -158,7 +157,6 @@ fn missing_gender_returns_three_quick_fixes() {
     let kul_url = common::fixture_url("missing_gender_returns_three_quick_fixes", "ca.kul", source);
     let uri = kul_url.as_str();
     open_doc(&mut handle, uri, source);
-    // Cursor on line 0 anywhere.
     let resp = code_action(&mut handle, uri, 10, 0, 0, 0, 12);
     let actions = resp["result"].as_array().expect("array of actions");
     let titles: Vec<&str> = actions.iter().filter_map(|a| a["title"].as_str()).collect();
@@ -180,7 +178,6 @@ fn end_without_end_reason_returns_add_divorce_fix() {
     );
     let uri = kul_url.as_str();
     open_doc(&mut handle, uri, source);
-    // Range covers line 2.
     let resp = code_action(&mut handle, uri, 11, 2, 0, 2, 50);
     let actions = resp["result"].as_array().expect("array of actions");
     assert!(
@@ -200,7 +197,6 @@ fn no_diagnostics_returns_null_or_empty() {
     let uri = kul_url.as_str();
     open_doc(&mut handle, uri, source);
     let resp = code_action(&mut handle, uri, 12, 0, 0, 2, 80);
-    // Either null or an empty array is acceptable.
     let result = &resp["result"];
     let empty = result.is_null() || result.as_array().is_some_and(|a| a.is_empty());
     assert!(empty, "expected no actions, got {result}");

@@ -1,14 +1,8 @@
-//! Hand-written recursive-descent parser for Kul.
-//!
-//! Consumes the token stream from [`crate::lexer`] and produces a
-//! [`KulFile`]'s statement list together with parse diagnostics. On an
+//! Hand-written recursive-descent parser. Panic-mode recovery: on an
 //! unexpected token the parser emits a diagnostic, advances to the next
-//! newline (panic-mode recovery), and resumes parsing the next statement.
-//!
-//! The parser is per-file: it is given the [`FileId`] the source belongs
-//! to and wraps every [`ByteSpan`] it emits on a diagnostic into a
-//! [`FileSpan`] anchored at that id. AST nodes themselves keep bare
-//! `ByteSpan` — their owning [`KulFile`] supplies file context.
+//! newline, and resumes. AST nodes keep bare [`ByteSpan`]s; diagnostic
+//! spans get wrapped into [`FileSpan`]s anchored at the parser's
+//! [`FileId`].
 
 use crate::ast::{
     AdoptionField, AdoptionFieldKind, AdoptionSub, BirthSub, EndReason, EndReasonValue, Gender,
@@ -20,26 +14,18 @@ use crate::diagnostic::{Diagnostic, fspan};
 use crate::lexer::{EnumKw, FieldName, Token, TokenKind};
 use crate::span::{ByteSpan, FileId};
 
-/// Parse a token stream into top-level statements plus parse-time
-/// diagnostics. `file` is the [`FileId`] every diagnostic's primary span
-/// belongs to.
+/// Parse a token stream into top-level statements plus diagnostics.
 pub fn parse(tokens: &[Token], file: FileId) -> (Vec<Statement>, Vec<Diagnostic>) {
     Parser::new(tokens, file).run()
 }
 
-/// Outcome of parsing a single `<name>:<value>` field on a person statement.
-/// Distinguishes "we parsed a clean field", "we got a value-parse error but
-/// recovered at the next field boundary", and "we hit something we can't
-/// recover from on this statement".
+/// Outcome of parsing one person field.
 enum PersonFieldOutcome {
     Field(PersonField),
-    /// Field-name keyword was matched, value parse failed, recovery landed
-    /// at the next field boundary. The field name is recorded so the
-    /// validator's required-field check (R03) can suppress its "missing"
-    /// diagnostic.
+    /// Field-name matched, value parse failed; recovery is at the next
+    /// field boundary. Recorded so R03's "missing field" check is silenced.
     Malformed(FieldName),
-    /// Unrecoverable on this statement (e.g. missing colon). The caller
-    /// should stop parsing fields for this statement.
+    /// Statement-level unrecoverable (e.g. missing colon).
     Fatal,
 }
 
@@ -60,7 +46,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Build a [`crate::span::FileSpan`] anchored on this parser's file.
     fn fspan(&self, span: ByteSpan) -> crate::span::FileSpan {
         fspan(self.file, span)
     }
@@ -68,7 +53,6 @@ impl<'a> Parser<'a> {
     fn run(mut self) -> (Vec<Statement>, Vec<Diagnostic>) {
         let mut statements: Vec<Statement> = Vec::new();
 
-        // Surface lex errors as diagnostics before discarding the tokens.
         for tok in self.tokens {
             if let TokenKind::Error(msg) = &tok.kind {
                 self.diagnostics.push(Diagnostic::error(
@@ -79,7 +63,6 @@ impl<'a> Parser<'a> {
             }
         }
 
-        // Skip any leading newlines / indents.
         self.skip_blank_lines();
 
         loop {
@@ -156,15 +139,9 @@ impl<'a> Parser<'a> {
                         fields.push(field);
                     }
                     PersonFieldOutcome::Malformed(name) => {
-                        // Value-parse diagnostic was already pushed; recovery
-                        // landed at the next field boundary (or newline) so we
-                        // can keep parsing more fields on this line.
                         malformed_fields.push(name);
                     }
-                    PersonFieldOutcome::Fatal => {
-                        // recover_to_newline already invoked inside parse_person_field
-                        break;
-                    }
+                    PersonFieldOutcome::Fatal => break,
                 },
                 _ => {
                     let span = self.peek().span;
@@ -199,9 +176,8 @@ impl<'a> Parser<'a> {
         })
     }
 
-    /// Consume zero or more indented `birth` / `adoption` sub-statements that
-    /// follow a `person` statement. Returns the parsed sub-statements and the
-    /// span covering all of them (for use in the parent statement's span).
+    /// Consume indented `birth`/`adoption` sub-statements after a person.
+    /// Returns the parsed subs and their combined span.
     fn parse_person_sub_statements(
         &mut self,
     ) -> (
@@ -214,7 +190,6 @@ impl<'a> Parser<'a> {
         let mut total_span: Option<crate::span::ByteSpan> = None;
 
         loop {
-            // Skip blank lines (with or without leading indent).
             match self.peek_kind() {
                 TokenKind::Newline => {
                     self.advance();
@@ -222,13 +197,12 @@ impl<'a> Parser<'a> {
                 }
                 TokenKind::Indent => match self.peek_kind_at(1) {
                     TokenKind::Newline => {
-                        // blank indented line
                         self.advance();
                         self.advance();
                         continue;
                     }
                     TokenKind::BirthKw => {
-                        self.advance(); // Indent
+                        self.advance();
                         if let Some(b) = self.parse_birth_sub() {
                             total_span = Some(match total_span {
                                 Some(s) => s.merge(b.span),
@@ -246,7 +220,7 @@ impl<'a> Parser<'a> {
                         }
                     }
                     TokenKind::AdoptionKw => {
-                        self.advance(); // Indent
+                        self.advance();
                         if let Some(a) = self.parse_adoption_sub() {
                             total_span = Some(match total_span {
                                 Some(s) => s.merge(a.span),
@@ -564,7 +538,6 @@ impl<'a> Parser<'a> {
         let name_span = name_tok.span;
         let mut span = name_span;
 
-        // Expect colon.
         let colon_tok = self.peek().clone();
         if !matches!(colon_tok.kind, TokenKind::Colon) {
             self.diagnostics.push(Diagnostic::error(
@@ -655,8 +628,8 @@ impl<'a> Parser<'a> {
             ),
             self.fspan(tok.span),
         ));
-        // Skip the malformed value but stop at the next field keyword so a
-        // following `gender:female` etc. on the same line still parses.
+        // Stop at the next field keyword so e.g. a following `gender:female`
+        // on the same line still parses.
         self.recover_to_field_boundary();
         None
     }
@@ -681,12 +654,8 @@ impl<'a> Parser<'a> {
         Some(PersonFieldKind::Gender(value))
     }
 
-    /// Peek the next token, hand it to `accept`. On `Some(value)`, advance
-    /// and return it. On `None`, push a diagnostic of the form
-    /// "<expected>, found <token>" with `code` and `recover_to_newline()`.
-    ///
-    /// Centralizes the "value expected here, recover on mismatch" pattern
-    /// shared by every field-value parser.
+    /// Peek the next token via `accept`; on match, advance. On miss, push
+    /// `"<expected>, found <token>"` with `code` and recover to newline.
     fn expect_value<T>(
         &mut self,
         code: &'static str,
@@ -707,8 +676,7 @@ impl<'a> Parser<'a> {
         None
     }
 
-    /// Consume a `Newline` if present. No-op at EOF or if recovery has
-    /// already moved past the newline (e.g. into the next statement).
+    /// Consume a `Newline` if present; no-op at EOF.
     fn consume_newline(&mut self) {
         if matches!(self.peek_kind(), TokenKind::Newline) {
             self.advance();
@@ -730,10 +698,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Skip tokens up to (but NOT past) the next field-name keyword,
-    /// newline, or EOF. Used after a value-parse failure where the rest of
-    /// the line is plausibly intact — e.g. `name:Alice Sharma gender:female`
-    /// should still let `gender:female` parse.
+    /// Skip up to (not past) the next field keyword, newline, or EOF.
+    /// E.g. `name:Alice Sharma gender:female` still parses `gender:female`.
     fn recover_to_field_boundary(&mut self) {
         while !matches!(
             self.peek_kind(),
@@ -744,8 +710,7 @@ impl<'a> Parser<'a> {
     }
 
     fn peek(&self) -> &Token {
-        // After construction the token stream always ends with Eof, so this
-        // index is always valid.
+        // Token stream always ends with Eof, so the index is always valid.
         &self.tokens[self.pos.min(self.tokens.len() - 1)]
     }
 

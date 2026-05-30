@@ -1,10 +1,6 @@
-//! Integration test: spawn `kul-lsp` as a subprocess, complete the LSP
-//! handshake, send `didOpen`, and verify the log message.
-//!
-//! Hand-rolled minimal LSP client (Content-Length framing + JSON-RPC). We
-//! avoid pulling in `lsp-server` or another test client because the surface
-//! we need is tiny and the test must exercise the actual binary, not a
-//! library impersonation of it.
+//! End-to-end handshake + `didOpen` against the real `kul-lsp` binary.
+//! Hand-rolled client so the test exercises the binary, not a library
+//! impersonation of it.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -13,8 +9,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 fn binary_path() -> std::path::PathBuf {
-    // Cargo sets CARGO_BIN_EXE_<name> for binaries the test crate's package
-    // produces.
     let path = env!("CARGO_BIN_EXE_kul-lsp");
     std::path::PathBuf::from(path)
 }
@@ -164,14 +158,14 @@ fn handshake_and_did_open() {
         &did_open_notification(kul_url.as_str(), "person alice\n"),
     );
 
-    // The server emits a `window/logMessage` from `initialized`. Drain it so
-    // the shutdown response is unambiguous.
+    // Drain the `window/logMessage` from `initialized` so the shutdown
+    // response is unambiguous.
     let deadline = Instant::now() + Duration::from_secs(2);
     let _ = handle.recv_until(deadline, |msg| msg.contains("kul-lsp initialized"));
 
     write_message(&mut handle.stdin, &shutdown_request());
-    // After `did_open`, the server emits a `publishDiagnostics`
-    // notification. Drain through it to find the shutdown *response*.
+    // Drain through the `publishDiagnostics` notification triggered by
+    // `did_open` to find the shutdown *response*.
     let shutdown_response = handle
         .recv_until(Instant::now() + Duration::from_secs(5), |msg| {
             msg.contains("\"id\":2")

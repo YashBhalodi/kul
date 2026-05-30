@@ -1,17 +1,8 @@
-// Pure webview-HTML generation for the Kul preview panel.
-//
-// This module is deliberately free of any `vscode` import so the static
-// HTML contract (CSP shape, nonce stamping, vendored-script wiring, and the
-// pan/zoom bootstrap) can be unit-tested under Vitest without a browser or
-// the VSCode host. `extension.ts` supplies the webview-resolved hrefs and a
-// fresh nonce; everything here is string-in, string-out.
+// Pure webview-HTML generation for the Kul preview panel. No `vscode` import
+// so the static HTML contract can be unit-tested under Vitest.
 
-/**
- * Build a cryptographically-unguessable nonce for the webview CSP. Mirrors
- * the standard VSCode webview pattern: 32 chars from a fixed alphabet. A
- * fresh nonce is generated per webview-HTML build and stamped on every
- * `<script>` so the CSP can drop `'unsafe-inline'`.
- */
+// 32-char nonce stamped on every `<script>` so the CSP can drop
+// `'unsafe-inline'`. Standard VSCode webview pattern.
 export function getNonce(): string {
     let text = "";
     const chars =
@@ -22,25 +13,15 @@ export function getNonce(): string {
     return text;
 }
 
-// Inline SVG glyphs for the overlay controls. `currentColor` lets the icon
-// track the button's themed `color`, so a single `--kul-control-fg` token
-// drives every glyph (ADR-0016). `aria-hidden` keeps them out of the
-// accessibility tree — the buttons carry their own `aria-label`.
+// `currentColor` lets icons track the button's themed `color` via a single
+// `--kul-control-fg` token (ADR-0016).
 const ICON_ZOOM_IN = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 const ICON_ZOOM_OUT = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 const ICON_RESET = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 6V3.5A.5.5 0 0 1 3.5 3H6M10 3h2.5a.5.5 0 0 1 .5.5V6M13 10v2.5a.5.5 0 0 1-.5.5H10M6 13H3.5a.5.5 0 0 1-.5-.5V10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-// Info "ⓘ" — toggles the chrome legend (#157).
 const ICON_INFO = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="4.75" r="0.85" fill="currentColor"/><path d="M8 7.25v4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 
-// The overlay control cluster. Lives as a sibling of #root (not inside it),
-// so the per-render `root.innerHTML = …` swap never wipes it; it is wired
-// once and acts on the current pan/zoom instance. Hidden until the first
-// successful render and re-hidden on error.
-//
-// The cluster is two zones separated by a vertical divider: the three
-// pan/zoom buttons on the left, and the legend-toggle (ⓘ) button on the
-// right. The toggle starts at `aria-pressed="false"` because the legend
-// itself is hidden by default (the user opts in via the icon).
+// Sibling of #root (not a child) so the per-render `root.innerHTML = …` swap
+// never wipes it. Hidden until the first successful render.
 const CONTROLS = `<div id="kul-controls" class="kul-preview-controls" role="group" aria-label="Diagram view controls" hidden>
 <button type="button" class="kul-control-btn" data-action="zoom-in" title="Zoom in" aria-label="Zoom in">${ICON_ZOOM_IN}</button>
 <button type="button" class="kul-control-btn" data-action="reset" title="Reset view" aria-label="Reset view">${ICON_RESET}</button>
@@ -49,73 +30,35 @@ const CONTROLS = `<div id="kul-controls" class="kul-preview-controls" role="grou
 <button type="button" class="kul-control-btn" data-action="toggle-legend" title="Show legend" aria-label="Show legend" aria-pressed="false">${ICON_INFO}</button>
 </div>`;
 
-// The chrome legend overlay (issue #157, ADR-0022). A sibling of #root,
-// so the per-render `root.innerHTML = …` swap never wipes it; populated
-// from the rendered SVG DOM on each successful render. Hidden by default —
-// the user opts in via the ⓘ button in #kul-controls; re-hidden on error.
+// ADR-0022: sibling of #root, populated from the rendered SVG on each render.
 const LEGEND = `<div id="kul-legend" class="kul-preview-legend" role="region" aria-label="Diagram legend" hidden></div>`;
 
-/**
- * The structured model for one hover tooltip: a typed header (entity-kind
- * `title` + a human `identity` line) over a list of field `rows`.
- */
 export interface TooltipModel {
     /** Entity-kind kicker: "Person" / "Marriage" / "Adoption". */
     title: string;
-    /**
-     * The human identity line: a person's display name, a marriage's two
-     * spouse names ("A & B"), or an adoption's child name. Empty when no name
-     * could be resolved (degenerate DOM) — the header then shows only `title`.
-     */
+    /** Display name (person), "A & B" (marriage), or child name (adoption);
+     * empty when no name could be resolved. */
     identity: string;
-    /** Remaining display fields, one `{ label, value }` per row, in emit order. */
     rows: Array<{ label: string; value: string }>;
 }
 
 /**
- * Build the hover-tooltip model for a preview entity from its raw `data-*`
- * attributes (issue #192). This is the single source of truth for the tooltip
- * content: it is exported for Vitest and also embedded verbatim into
- * {@link BOOTSTRAP} via `.toString()`, so the webview and the tests run the
- * exact same code. It must therefore stay self-contained — no module imports,
- * no closure over module-level constants — so its serialized source runs
- * standalone inside the IIFE. The one collaborator it takes is `resolveName`,
- * a caller-supplied `id → display name` lookup (the webview resolves it off
- * the rendered cards; tests pass a map), so the function itself stays pure.
+ * Single source of truth for tooltip content. Exported for Vitest AND embedded
+ * verbatim into {@link BOOTSTRAP} via `.toString()`, so it must stay
+ * self-contained: no module imports, no closure over module-level constants.
+ * `resolveName` is caller-supplied (webview reads cards; tests pass a map).
  *
- * Progressive disclosure (ADR-0021 / #156): the diagram stays name-only and
- * every Person/Marriage/Adoption property already rides the SVG as a `data-*`
- * attribute, so the tooltip reads them directly — no LSP round-trip. The
- * presentation is curated rather than purely mechanical: a typed header names
- * what the reader is looking at — a person's full name (which is *not* a
- * `data-*` attribute, only the card's rendered label, hence `resolveName`), a
- * marriage's two spouses, an adoption's child — over generic field rows.
- *
- * Rows stay generic with a denylist: every `data-*` attribute surfaces as a
- * row except a fixed structural set (ids, kinds, generation, the `data-is-*`
- * booleans, ghost reason), so a new display field added upstream appears
- * automatically; empty values are omitted (no placeholder rows); order is the
- * DOM emit order.
- *
- * - Label: strip `data-`, `-`→space, capitalize the first letter
- *   (`data-end-reason` → "End reason"). A 2-entry override map disambiguates
- *   `family` → "Family name" and `given` → "Given name".
- * - Value: capitalize the first cased character (`male` → "Male",
- *   `divorce` → "Divorce"); a value with no letters — a date like `1850` or
- *   the approximate `~1850` — passes through verbatim, preserving the `~`.
- *
- * Returns `null` for an entity that gets no tooltip — a birth edge (purely
- * structural: it ties parents to a child but exposes no fields of its own) or
- * any element that is neither a person card nor a marriage/adoption edge.
+ * ADR-0021 / #156: every Person/Marriage/Adoption property rides the SVG as a
+ * `data-*` attribute, so the tooltip reads them directly — no LSP round-trip.
+ * Rows use a denylist of structural attrs so new display fields surface
+ * automatically. Returns `null` for birth edges (purely structural) and
+ * anything that is not a person card or marriage/adoption edge.
  */
 export function buildTooltip(
     attrs: ReadonlyArray<{ name: string; value: string }>,
     resolveName: (id: string) => string,
 ): TooltipModel | null {
-    // Structural attributes that drive identity / layout / styling rather than
-    // describing the entity to the reader. Everything else (born, died,
-    // family, given, gender, start, end, end-reason, adoption-start/end, and
-    // any future display field) surfaces automatically.
+    // Structural attrs: identity / layout / styling, not user-facing fields.
     const DENYLIST = new Set([
         "data-person-id",
         "data-marriage-id",
@@ -130,8 +73,7 @@ export function buildTooltip(
         "data-is-ended",
         "data-is-past",
     ]);
-    // Two keys whose humanized label ("Family" / "Given") would read
-    // ambiguously on its own.
+    // "Family" / "Given" on their own read ambiguously.
     const LABEL_OVERRIDES: Record<string, string> = {
         family: "Family name",
         given: "Given name",
@@ -152,11 +94,10 @@ export function buildTooltip(
         }
         return false;
     }
-    // Capitalize the first cased (alphabetic) character, leaving the rest —
-    // and any leading non-letter such as the `~` approximate marker —
-    // verbatim. A value with no letters (a bare or approximate date) is
-    // returned unchanged. `toLowerCase() !== toUpperCase()` is a
-    // locale-robust "is this a cased letter" test that avoids per-char regex.
+    // Capitalize the first cased character, leaving the rest (and any leading
+    // non-letter like the `~` approximate marker) verbatim. Bare/approximate
+    // dates pass through unchanged. `toLowerCase() !== toUpperCase()` is a
+    // locale-robust "is cased letter" test.
     function displayValue(raw: string): string {
         for (let i = 0; i < raw.length; i++) {
             const ch = raw[i];
@@ -167,14 +108,11 @@ export function buildTooltip(
         return raw;
     }
 
-    // The typed header. A person card carries data-person-id; an edge carries
-    // data-link-kind. Birth edges (and anything unrecognized) get no tooltip.
     let title: string;
     let identity: string;
     if (has("data-person-id")) {
         title = "Person";
-        // The display name is the card's rendered label, not a data-*
-        // attribute, so it comes through resolveName keyed on the card's id.
+        // Display name lives on the card's rendered label, not a data-* attr.
         identity = resolveName(get("data-person-id"));
     } else {
         const linkKind = get("data-link-kind");
@@ -212,35 +150,22 @@ export function buildTooltip(
     return { title: title, identity: identity, rows: rows };
 }
 
-/** One row of the chrome legend overlay (#157). */
 export interface LegendRow {
     /** Stable key — surfaces on the row's `data-row` attribute. */
     key: string;
     /** Human label shown beside the swatch. English only (ADR-0022). */
     label: string;
-    /**
-     * The CSS selector the chrome runs against the rendered SVG to decide
-     * whether this row's category is present in the current diagram. Only
-     * categories actually surfaced get a row — no adoption edges, no
-     * adoption row — so the legend stays tight against the diagram it
-     * keys.
-     */
+    /** CSS selector tested against the rendered SVG; only present categories
+     * yield a row. */
     presenceSelector: string;
 }
 
 /**
- * The normative legend table (issue #157, ADR-0022).
- *
- * Both the chrome legend (this surface) and the CLI baked legend
- * (`crates/kul-svg/src/emit.rs`) conform to this exact order and these
- * exact label strings — `docs/canonical-ui-pattern.md` carries the
- * single normative spec. Adding a new category is a same-PR change
- * across this table, the kul-svg `LegendRow` enum, and the canonical
- * pattern doc.
- *
- * Each row's `presenceSelector` keys on the same `data-*` attribute the
- * production SVG carries (ADR-0021), so the chrome's "is this present?"
- * test reads the same seam the diagram itself uses.
+ * Normative legend table (ADR-0022). The chrome legend (here) and the CLI
+ * baked legend (`crates/kul-svg/src/emit.rs`) share order + label strings;
+ * `docs/canonical-ui-pattern.md` is the normative spec. Adding a category is
+ * a same-PR change across this table, the kul-svg `LegendRow` enum, and the
+ * canonical pattern doc.
  */
 export const LEGEND_ROWS: ReadonlyArray<LegendRow> = [
     {
@@ -276,8 +201,7 @@ export const LEGEND_ROWS: ReadonlyArray<LegendRow> = [
     {
         key: "marriage",
         label: "Marriage",
-        // An un-ended marriage. If every marriage in this diagram is
-        // ended, only the "Ended marriage" row appears below.
+        // Un-ended only; ended marriages get their own row below.
         presenceSelector:
             '.kul-edge[data-link-kind="marriage"]:not([data-is-ended="true"])',
     },
@@ -290,13 +214,8 @@ export const LEGEND_ROWS: ReadonlyArray<LegendRow> = [
 ];
 
 /**
- * Filter {@link LEGEND_ROWS} to those whose category is present in the
- * current diagram.
- *
- * Takes a `querySelector`-like predicate so it stays DOM-free and unit
- * testable: the webview passes `(sel) => svgRoot.querySelector(sel)`,
- * tests pass a stub keyed by selector. Both surfaces preserve the
- * canonical row order.
+ * Filter {@link LEGEND_ROWS} to categories present in the diagram. Takes a
+ * `querySelector`-like predicate so it stays DOM-free and unit testable.
  */
 export function presentLegendRows(
     querySelector: (selector: string) => unknown,
@@ -307,17 +226,11 @@ export function presentLegendRows(
 }
 
 /**
- * The inline-SVG markup for one row's swatch — a miniature of the real
- * glyph carrying the production class + `data-*` attributes, so the
- * surrounding stylesheet themes it for free (ADR-0022). Only structural
- * attributes that ship inline on the real glyph (the ghost dashed
- * border, the adoption dashed edge) ship here; colour and stroke-width
- * come from CSS (`.kul-legend-swatch …` overrides marriage stroke-width
- * down to a swatch-scale block, never colour).
- *
- * Returned as a string so the bootstrap can inject it via `innerHTML`
- * inside the swatch `<svg>` wrapper, and so tests can pin the markup
- * verbatim. Empty string for an unknown key (defensive).
+ * Inline-SVG markup for one swatch: a miniature of the real glyph carrying the
+ * production class + `data-*` attributes so the stylesheet themes it for free
+ * (ADR-0022). Only structural inline attrs (ghost dashed border, adoption
+ * dashed edge) ship here; colour/stroke-width come from CSS. Empty string for
+ * an unknown key.
  */
 export function legendSwatchInnerSvg(key: string): string {
     switch (key) {
@@ -350,24 +263,12 @@ export function legendSwatchInnerSvg(key: string): string {
 }
 
 /**
- * The inline bootstrap that runs inside the webview. It owns a single
- * module-level `svg-pan-zoom` instance (the global `svgPanZoom` comes from
- * the vendored script) and reconciles it against `render` / `renderError`
- * messages:
- *
- * - `render`: capture the live pan/zoom (if any), destroy the old instance,
- *   swap in the new SVG, inject the ghost `↺` badges (surface chrome —
- *   CSS cannot generate an SVG element, so the surface draws them;
- *   ADR-0016), then re-create the instance — re-applying the
- *   captured viewport so a debounced live-edit re-render does not yank the
- *   view back to fit. The first render (no captured viewport) falls through
- *   to `fit`+`center`. A missing `<svg>` is guarded.
- * - `renderError`: tear the instance down so no stale pan/zoom surface
- *   survives behind the error banner.
- *
- * The on-screen controls are custom HTML (`controlIconsEnabled: false`)
- * wired here: zoom-in / zoom-out step the zoom, reset returns to the
- * instance's fit-and-centered original state.
+ * Inline bootstrap that runs inside the webview. Owns a single module-level
+ * `svg-pan-zoom` instance and reconciles it against `render` / `renderError`
+ * messages: on `render`, it captures the live viewport, destroys the old
+ * instance, swaps in the new SVG, and re-applies the saved viewport so live
+ * edits don't yank the view back to fit. On `renderError`, it tears the
+ * instance down so no stale pan/zoom surface survives behind the banner.
  */
 const BOOTSTRAP = `
 (function () {
@@ -377,42 +278,23 @@ const BOOTSTRAP = `
     const vscode = acquireVsCodeApi();
     let panZoom = null;
 
-    // Hover tooltip (issue #192). The content-building logic is embedded
-    // verbatim from the exported buildTooltip() so the webview and its Vitest
-    // unit tests run identical code; see preview-html.ts for the contract.
-    // Bound to a local const rather than dropped in as a bare declaration:
-    // the production esbuild --minify pass renames the internal function, so
-    // its serialized name can't be relied on — the const fixes the name the
-    // bootstrap calls regardless of how the body was minified.
+    // Embedded verbatim from the exported source so webview and Vitest run
+    // identical code. Bound to a const because esbuild --minify renames the
+    // inner function — the const fixes the callable name.
     const buildTooltip = ${buildTooltip.toString()};
 
-    // Chrome legend (issue #157, ADR-0022). The normative row table and the
-    // swatch-markup builder are serialized verbatim from the exported source
-    // so the webview and its Vitest unit tests stay in lockstep. The same
-    // minify-renaming guard the tooltip uses applies — bind the embedded
-    // function to a stable const before the bootstrap calls it.
+    // ADR-0022 normative table + swatch builder embedded; same minify guard.
     const LEGEND_ROWS = ${JSON.stringify(LEGEND_ROWS)};
     const legendSwatchInnerSvg = ${legendSwatchInnerSvg.toString()};
 
-    // Click-to-source (issue #135): a click on a person card or a
-    // marriage bar posts { type: 'revealSource', id } so the extension
-    // can open the declaration via kul/locate. Persons resolve through
-    // data-person-id; marriage bars are data-link-kind="marriage" and
-    // carry the id in data-marriage-id. Birth/adoption edges also carry
-    // data-marriage-id but are NOT clickable — keying on
-    // data-link-kind="marriage" (not "has data-marriage-id") keeps them
-    // inert. closest(...) handles clicks landing on a child node of the
-    // card/path. Registered on #root, which survives every innerHTML swap.
+    // Click-to-source. Birth/adoption edges also carry data-marriage-id, so
+    // keying on data-link-kind="marriage" (not the bare attr) keeps them
+    // inert. Registered on #root, which survives every innerHTML swap.
     if (root) {
         root.addEventListener('click', function (event) {
-            // Pull keyboard focus into the iframe so the window-level
-            // keydown handler (issue #180) receives arrows/+/-/0. Clicking a
-            // non-focusable SVG does NOT move focus off the text editor on
-            // its own, so the diagram surface (#root, tabindex="-1") is
-            // focused explicitly here. tabindex="-1" keeps it out of the Tab
-            // order; the inline outline:none on #root suppresses the focus
-            // ring the host would otherwise paint, honoring the
-            // no-focus-ring decision.
+            // Clicking a non-focusable SVG doesn't move focus off the text
+            // editor; focus #root explicitly so the window keydown handler
+            // receives arrows/+/-/0.
             root.focus();
             const person = event.target.closest('[data-person-id]');
             if (person) {
@@ -432,24 +314,11 @@ const BOOTSTRAP = `
         });
     }
 
-    // Hover tooltip (issue #192): progressive disclosure of an entity's full
-    // field set. A single floating <div> is reused, anchored to the hovered
-    // card/edge, clamped to the viewport, and torn down on mouseleave, on
-    // re-render, and on pan/zoom so it never strands over a moved diagram.
-    // The content is built from the element's own data-* attributes (the #156
-    // seam) plus card-label name resolution via the embedded buildTooltip — no
-    // LSP round-trip, and birth edges (purely structural) yield no model, so
-    // they show nothing. Coexists with click-to-source (#135) and selection
-    // sync (#137):
-    // distinct events on the same elements, and the panel is pointer-events:
-    // none so it never intercepts a hover or click.
-    // Hover-intent delay: the tooltip is scheduled on enter and only shown
-    // after the pointer rests on an entity for HOVER_DELAY_MS, so a cursor
-    // merely passing over cards on its way elsewhere never flashes popups.
-    // Leaving the entity, switching entities, a pan/zoom, or a re-render
-    // before it fires cancels the pending reveal (all route through
-    // removeTooltip, which clears the timer). 350ms tracks VSCode's own
-    // editor-hover feel while still reading as deliberate.
+    // A single floating <div> is reused, anchored to the hovered card/edge
+    // and torn down on mouseleave, re-render, and pan/zoom so it never
+    // strands. Hover-intent delay (350ms tracks VSCode's editor-hover feel)
+    // avoids flashing on pointer pass-through; any leave/switch/pan/render
+    // routes through removeTooltip, which clears the pending timer.
     const HOVER_DELAY_MS = 350;
     let hoverTarget = null;
     let hoverTimer = null;
@@ -465,28 +334,23 @@ const BOOTSTRAP = `
         }
         hoverTarget = null;
     }
-    // The factor the tooltip (and its anchor gap) scale by: the live diagram
-    // user-unit→pixel zoom, so it reads as part of the drawing — but capped so
-    // that at very high zoom it stops growing into a wall of text and settles
-    // at a reasonable size. It still shrinks freely below 1× when zoomed out.
+    // Live diagram user-unit→pixel zoom, capped so very high zoom doesn't
+    // balloon the tooltip; shrinks freely below 1× when zoomed out.
     const MAX_TOOLTIP_SCALE = 1.5;
     function tooltipScale() {
         const sizes = panZoom && panZoom.getSizes ? panZoom.getSizes() : null;
         const z = sizes && sizes.realZoom > 0 ? sizes.realZoom : 1;
         return z < MAX_TOOLTIP_SCALE ? z : MAX_TOOLTIP_SCALE;
     }
-    // Anchor below the element's left edge, then clamp into the viewport,
-    // flipping above if the panel would overflow the bottom. Read after the
-    // panel is in the DOM so getBoundingClientRect() reports its real size.
+    // Anchor below the element's left edge, clamp to viewport, flip above if
+    // the panel would overflow the bottom.
     function positionTooltip(target) {
         if (!tooltipEl || typeof target.getBoundingClientRect !== 'function') {
             return;
         }
         const anchor = target.getBoundingClientRect();
         const tip = tooltipEl.getBoundingClientRect();
-        // The card-to-tooltip gap scales with the diagram (like the tooltip
-        // itself, same capped factor) so the offset stays proportional at any
-        // zoom; the viewport safety margin stays a fixed screen distance.
+        // Gap scales with the diagram so it stays proportional at any zoom.
         const GAP = 8 * tooltipScale();
         const MARGIN = 4;
         let left = anchor.left;
@@ -502,12 +366,8 @@ const BOOTSTRAP = `
         tooltipEl.style.left = left + 'px';
         tooltipEl.style.top = top + 'px';
     }
-    // Resolve a person id to the name shown on its card. The display name is
-    // the card's rendered <text class="kul-label-name"> (it is not a data-*
-    // attribute), so the tooltip's person/spouse/child names are read straight
-    // from the same labels the diagram shows. Falls back to the raw id if the
-    // card is absent (degenerate DOM). Mirrors the F12 id selector — ids are
-    // author identifiers used unescaped there too.
+    // The display name lives on the card's rendered <text class="kul-label-name">,
+    // not a data-* attr. Falls back to raw id if the card is absent.
     function resolveName(id) {
         if (!id || !root) { return id || ''; }
         const card = root.querySelector('[data-person-id="' + id + '"]');
@@ -526,18 +386,10 @@ const BOOTSTRAP = `
         const el = document.createElement('div');
         el.className = 'kul-tooltip';
         el.setAttribute('role', 'tooltip');
-        // Scale the tooltip with the diagram so it reads as an inline part of
-        // it, not a fixed-size screen overlay (issue #192 follow-up): its px
-        // metrics are treated as diagram user-units and multiplied by the live
-        // user-unit→pixel factor (realZoom — the same mapping F12's centring
-        // uses). Zoom in, the tooltip grows with the cards; zoom out, it
-        // shrinks with them (small enough to be unreadable at the far end, by
-        // design — the reader zooms into the area they care about), capped at
-        // the high end so it never balloons. Anchored from the top-left corner
-        // so the scale grows down-right from there.
+        // Treat px metrics as diagram user-units so the tooltip reads as part
+        // of the drawing rather than a fixed-size screen overlay.
         el.style.transformOrigin = 'top left';
         el.style.transform = 'scale(' + tooltipScale() + ')';
-        // Typed header: an entity-kind kicker over the resolved identity line.
         const header = document.createElement('div');
         header.className = 'kul-tooltip-header';
         const kind = document.createElement('span');
@@ -551,10 +403,8 @@ const BOOTSTRAP = `
             header.appendChild(name);
         }
         el.appendChild(header);
-        // Field rows fill a single two-column grid (label | value) so the
-        // labels and values line up as columns across every row, rather than
-        // each row sizing its own gap. Cells are appended directly to the grid
-        // — no per-row wrapper — so the columns share one track sizing.
+        // Cells append directly to a single two-column grid (no per-row
+        // wrapper) so labels and values share one track sizing.
         if (model.rows.length) {
             const fields = document.createElement('div');
             fields.className = 'kul-tooltip-fields';
@@ -575,20 +425,15 @@ const BOOTSTRAP = `
         positionTooltip(target);
     }
     if (root) {
-        // Delegated on #root (which survives every innerHTML swap), mirroring
-        // click-to-source. mouseover/mouseout bubble — closest() resolves the
-        // entity from whichever child node (rect/text/path) the event lands
-        // on. The hoverTarget guard skips rebuilds while moving within the
-        // same entity; mouseout only clears when the pointer leaves the entity
-        // (relatedTarget outside it), not when crossing between its children.
+        // Delegated on #root via bubbling. hoverTarget skips rebuilds while
+        // moving within the same entity; mouseout only clears when the pointer
+        // leaves it (relatedTarget outside), not when crossing children.
         root.addEventListener('mouseover', function (event) {
             const entity = event.target.closest('.kul-card, .kul-edge');
             if (entity === hoverTarget) { return; }
             removeTooltip();
             if (entity) {
                 hoverTarget = entity;
-                // Arm the reveal; it fires only if the pointer is still here
-                // after the delay (removeTooltip clears it otherwise).
                 hoverTimer = setTimeout(function () {
                     hoverTimer = null;
                     showTooltip(entity);
@@ -603,9 +448,8 @@ const BOOTSTRAP = `
         });
     }
 
-    // Handle of the in-flight selection-centring animation (issue #137), so
-    // a new highlight or a teardown can cancel it before it fights the new
-    // target / a destroyed instance.
+    // Handle for the in-flight centring tween, so a new highlight or teardown
+    // can cancel it before it fights the new target / destroyed instance.
     let panAnimRaf = null;
     function cancelPanAnim() {
         if (panAnimRaf !== null) {
@@ -622,33 +466,18 @@ const BOOTSTRAP = `
         }
     }
 
-    // Selection sync (issue #137), the inverse of click-to-source: the
-    // extension posts { type: 'highlightEntity', id, kind } when the editor
-    // cursor lands on a person/marriage (id: null clears). Highlighting is
-    // stateless — every message first strips .kul-selected from all prior
-    // matches, then re-applies it to the one element the id+kind name. The
-    // selector keys persons on data-person-id and marriages on
-    // data-link-kind="marriage" + data-marriage-id, so birth/adoption edges
-    // (which also carry data-marriage-id) stay inert, mirroring the
-    // click-to-source predicate.
+    // Selection-sync highlighting is stateless: every message strips
+    // .kul-selected from prior matches, then re-applies it.
     function clearHighlight() {
         root.querySelectorAll('.kul-selected').forEach(function (el) {
             el.classList.remove('kul-selected');
         });
     }
 
-    // Smoothly pan (translate only — never zoom; issue #137) so the matched
-    // element ends at the viewport centre. svg-pan-zoom folds the SVG's
-    // viewBox into getSizes().realZoom and the pan baseline, so a getBBox()
-    // point in user coords maps to a viewport pixel as pan + realZoom*point;
-    // the pan that lands the bbox centre on the viewport centre is therefore
-    // width/2 - centre*realZoom. Rather than snapping there (jarring as the
-    // cursor moves), a requestAnimationFrame loop eases the pan from its
-    // current value to the target over PAN_ANIM_MS — the same rAF-driven
-    // smoothness as the keyboard pan (issue #180). A new highlight cancels
-    // the in-flight tween (cancelPanAnim) and re-eases from wherever it got
-    // to, so rapid cursor moves chase the latest target without stacking.
-    // Guards a missing/zero bbox (detached or unrendered element).
+    // Translate only — never zoom. svg-pan-zoom maps a user-coord point to
+    // viewport pixels as pan + realZoom*point, so the pan that centres a
+    // bbox is width/2 - centre*realZoom. Eased over rAF so rapid cursor
+    // moves chase the latest target without snapping or stacking.
     const PAN_ANIM_MS = 500;
     function panToElement(el) {
         if (!panZoom || typeof el.getBBox !== 'function') { return; }
@@ -664,7 +493,6 @@ const BOOTSTRAP = `
         const start = panZoom.getPan();
         const dx = targetX - start.x;
         const dy = targetY - start.y;
-        // Already centred (sub-pixel): set exactly and skip the tween.
         if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
             panZoom.pan({ x: targetX, y: targetY });
             return;
@@ -673,7 +501,7 @@ const BOOTSTRAP = `
         function step(now) {
             if (!panZoom) { panAnimRaf = null; return; }
             const t = Math.min(1, (now - startTime) / PAN_ANIM_MS);
-            // ease-out cubic: fast departure, gentle arrival.
+            // ease-out cubic.
             const eased = 1 - Math.pow(1 - t, 3);
             panZoom.pan({ x: start.x + dx * eased, y: start.y + dy * eased });
             panAnimRaf = t < 1 ? requestAnimationFrame(step) : null;
@@ -697,14 +525,9 @@ const BOOTSTRAP = `
         if (controls) { controls.hidden = !visible; }
     }
 
-    // The ghost ↺ badge is surface chrome (ADR-0016): CSS cannot
-    // generate an SVG element, so the surface draws it. For each ghost
-    // card, append a <text> badge near the card's top-right corner,
-    // placed from the card <rect>'s geometry. The node must be created
-    // in the SVG namespace — document.createElement('text') yields an
-    // inert HTML element that will not render inside <svg>. The
-    // .kul-ghost-badge rule + --kul-ghost-badge-* tokens style it. Runs
-    // on every render: each innerHTML swap wipes the prior badges.
+    // ADR-0016: CSS cannot generate an SVG element, so the surface draws the
+    // ghost ↺ badge. createElementNS is required — document.createElement
+    // yields an inert HTML element that won't render inside <svg>.
     function injectGhostBadges(svgRoot) {
         const SVG_NS = 'http://www.w3.org/2000/svg';
         const ghosts = svgRoot.querySelectorAll('.kul-card[data-kind="ghost"]');
@@ -725,21 +548,10 @@ const BOOTSTRAP = `
         });
     }
 
-    // Chrome legend (issue #157, ADR-0022). Two-step lifecycle:
-    //
-    // 1. renderLegend(svg) runs on every successful render — walks the
-    //    rendered SVG DOM, rebuilds the row list for the categories
-    //    actually present, and remembers whether there's anything to show.
-    //    It does NOT control visibility; that is legendVisible's job.
-    // 2. applyLegendVisibility() reconciles legend.hidden from the user's
-    //    toggle state (legendVisible, default false) and whether the
-    //    current diagram has any rows. A click on the ⓘ control flips
-    //    legendVisible and re-applies.
-    //
-    // Hidden by default so the legend is opt-in chrome — the ⓘ button in
-    // #kul-controls is the discovery affordance. hideLegend() clears the
-    // panel completely on error / no-svg (legendVisible stays as-is so
-    // the user's preference persists across the next render).
+    // Two-step lifecycle (ADR-0022): renderLegend(svg) rebuilds the row list
+    // from the SVG DOM on each render; applyLegendVisibility() reconciles
+    // legend.hidden from the user's toggle state AND content presence.
+    // hideLegend() clears the panel on error but preserves legendVisible.
     let legendVisible = false;
     let legendHasContent = false;
     function renderLegend(svgRoot) {
@@ -769,8 +581,6 @@ const BOOTSTRAP = `
         const toggle = document.querySelector('button[data-action="toggle-legend"]');
         if (toggle) {
             toggle.setAttribute('aria-pressed', String(shouldShow));
-            // Mirror the visible state into the label/title so screen readers
-            // and the native tooltip flip to "Hide legend" while it's open.
             const labelText = shouldShow ? 'Hide legend' : 'Show legend';
             toggle.setAttribute('aria-label', labelText);
             toggle.setAttribute('title', labelText);
@@ -794,8 +604,7 @@ const BOOTSTRAP = `
             const btn = event.target.closest('button[data-action]');
             if (!btn) { return; }
             const action = btn.getAttribute('data-action');
-            // Legend toggle is independent of svg-pan-zoom — it works even
-            // before the first render (no-op if no content yet).
+            // Toggle works before the first render; pan/zoom actions require it.
             if (action === 'toggle-legend') { toggleLegend(); return; }
             if (!panZoom) { return; }
             if (action === 'zoom-in') { panZoom.zoomIn(); }
@@ -804,23 +613,10 @@ const BOOTSTRAP = `
         });
     }
 
-    // Keyboard pan/zoom for sighted keyboard users (issue #180), mirroring
-    // the mouse + on-screen-button controls. Fires whenever the preview
-    // iframe holds focus (clicking the diagram or tabbing to a control
-    // button). A modifier (ctrl/meta/alt) bails without preventDefault so
-    // VSCode shortcuts like Cmd+0 still pass through; the null guard mirrors
-    // the controls-click handler.
-    //
-    // Arrows scroll the viewport (panBy with scroll semantics — ArrowDown
-    // reveals content below). Rather than panning once per keydown — which
-    // rides the OS key-repeat and stutters (initial-repeat delay, then
-    // discrete jumps) — held arrows are tracked in a set and a
-    // requestAnimationFrame loop pans PAN_SPEED px/frame while any are down,
-    // giving smooth ~60fps motion. keyup clears the key; window blur clears
-    // all so a key can't stick when focus leaves mid-hold. +/=/-/0 stay
-    // discrete one-shots sharing the exact zoom/reset methods the buttons
-    // call. Repeat keydowns are harmless: re-adding a held key is a no-op and
-    // the rAF loop is already running.
+    // Modifier (ctrl/meta/alt) bails without preventDefault so VSCode
+    // shortcuts like Cmd+0 still pass through. Held arrows drive a rAF loop
+    // (12 px/frame) instead of one-shot per keydown, avoiding OS key-repeat
+    // stutter. blur clears the held set so a key can't stick mid-hold.
     const PAN_SPEED = 12;
     const heldPan = new Set();
     let panRaf = null;
@@ -864,14 +660,12 @@ const BOOTSTRAP = `
         const msg = event.data;
         if (!msg || typeof msg !== 'object') { return; }
         if (msg.type === 'render') {
-            // Drop any open hover tooltip before the SVG it anchors to is
-            // swapped out (issue #192).
+            // Drop the tooltip before its anchor SVG is swapped out.
             removeTooltip();
             let savedPan = null;
             let savedZoom = null;
             if (panZoom) {
-                // Stop any in-flight selection tween before the instance it
-                // drives is destroyed (issue #137).
+                // Stop the in-flight tween before its instance is destroyed.
                 cancelPanAnim();
                 savedPan = panZoom.getPan();
                 savedZoom = panZoom.getZoom();
@@ -894,9 +688,7 @@ const BOOTSTRAP = `
                 zoomScaleSensitivity: 0.3,
                 dblClickZoomEnabled: true,
                 mouseWheelZoomEnabled: true,
-                // Any pan/zoom (drag, wheel, keyboard, buttons, or the
-                // selection-centring tween) drops the hover tooltip so it
-                // never strands at a stale screen position (issue #192).
+                // Any pan/zoom drops the tooltip so it never strands stale.
                 onPan: removeTooltip,
                 onZoom: removeTooltip,
             });
@@ -923,17 +715,9 @@ const BOOTSTRAP = `
 `;
 
 /**
- * Build the full webview HTML.
- *
- * The two stylesheets are the ADR-0016 token split: `themeHref` carries the
- * per-theme `--kul-*` token definitions, `styleHref` the application rules
- * that consume them. The theme sheet is linked first.
- *
- * @param themeHref  webview URI of `media/preview-themes.css` (token layer)
- * @param styleHref  webview URI of `media/preview.css` (application rules)
- * @param scriptHref webview URI of the vendored `svg-pan-zoom.min.js`
- * @param cspSource  the webview's `cspSource` (the `vscode-resource:` origin)
- * @param nonce      a fresh per-build nonce (see {@link getNonce})
+ * Build the full webview HTML. The two stylesheets are the ADR-0016 token
+ * split: `themeHref` carries the per-theme `--kul-*` tokens, `styleHref` the
+ * application rules that consume them.
  */
 export function previewHtml(
     themeHref: string,
@@ -942,9 +726,9 @@ export function previewHtml(
     cspSource: string,
     nonce: string,
 ): string {
-    // script-src is nonce-gated (no 'unsafe-inline' — browsers ignore it
-    // once a nonce is present). style-src keeps 'unsafe-inline' for the
-    // injected SVG's structural inline styles (ADR-0016).
+    // script-src is nonce-gated (browsers ignore 'unsafe-inline' once a nonce
+    // is present). style-src keeps 'unsafe-inline' for the injected SVG's
+    // structural inline styles (ADR-0016).
     const csp = `default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${cspSource};`;
     return `<!DOCTYPE html>
 <html lang="en">

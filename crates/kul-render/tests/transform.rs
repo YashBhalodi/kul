@@ -1,12 +1,5 @@
-//! Unit snapshot tests for [`kul_render::transform`] driven by
-//! fabricated [`ExportEnvelope`]s.
-//!
-//! These cover edge cases the public `examples/` corpus doesn't
-//! naturally surface — the absorb rule's cross-component nesting,
-//! past-adoption ghosts with three or more adoptions, pure-host
-//! polygamy collapsing onto one canonical card (current-intimacy
-//! placement, one canonical card per person, ADR-0017), and the
-//! failure-envelope passthrough.
+//! Fabricated-envelope unit snapshots covering edge cases the
+//! `examples/` corpus doesn't naturally surface.
 
 use kul_core::export::{
     ExportEnvelope, ExportedDate, ExportedDiagnostic, ExportedGraph, ExportedMarriage,
@@ -86,11 +79,8 @@ fn render_pretty(envelope: &ExportEnvelope) -> String {
     serde_json::to_string_pretty(&shape).expect("serialize render shape")
 }
 
-/// The absorb rule: two separately-rooted families bound by an
-/// inter-family marriage. Bob's birth family is `m_bob_parents`; Bob
-/// joins Alice (`m_alice_bob`) so per the absorb rule Bob's birth
-/// family nests at his connection point. There's no shared rendering
-/// context to terminate recursion, so the nested sub-tree is emitted.
+/// Absorb rule: Bob's birth family nests at his joining slot in
+/// `m_alice_bob` (cross-component, so recursion does not terminate).
 #[test]
 fn p6_joining_spouse_birth_family_nests_at_connection_point() {
     let envelope = success(ExportedGraph {
@@ -110,9 +100,8 @@ fn p6_joining_spouse_birth_family_nests_at_connection_point() {
     insta::assert_snapshot!(render_pretty(&envelope));
 }
 
-/// Past intimacies emit ghosts: three adoptions for one child. The
-/// most-recent (by `start:`) is canonical; the earlier two each get a
-/// child-ghost at their respective adoption bars.
+/// Three adoptions: most-recent is canonical, earlier two each get a
+/// child-ghost at their adoption bar.
 #[test]
 fn p16_three_adoptions_emit_one_canonical_and_two_past_ghosts() {
     let envelope = success(ExportedGraph {
@@ -139,14 +128,9 @@ fn p16_three_adoptions_emit_one_canonical_and_two_past_ghosts() {
     insta::assert_snapshot!(render_pretty(&envelope));
 }
 
-/// Current-intimacy placement and one canonical card per person
-/// (ADR-0017): pure-host polygamy collapses onto one
-/// canonical card. Devraj hosts two concurrent un-ended marriages
-/// (`m_devraj_meera`, `m_devraj_alice`); the render shape produces
-/// one component whose root `PersonCard` is Devraj's single
-/// canonical card with both bars in `hosted_marriages`. Each
-/// co-spouse appears canonically as the joining slot of her own bar.
-/// No ghost is emitted — both marriages are current intimacies.
+/// Pure-host polygamy collapses onto one canonical card (ADR-0017):
+/// Devraj's two un-ended hosted marriages share one root PersonCard,
+/// each co-spouse canonical at her own bar.
 #[test]
 fn p8_pure_host_polygamy_shares_canonical_anchor() {
     let envelope = success(ExportedGraph {
@@ -210,14 +194,12 @@ fn p8_pure_host_polygamy_shares_canonical_anchor() {
         );
     }
 
-    // Lock the full structural shape as well, so future regressions
-    // surface as a snapshot diff rather than only an assert failure.
+    // Lock the full shape so regressions surface as snapshot diffs.
     insta::assert_snapshot!(render_pretty(&envelope));
 }
 
-/// Current-intimacy-placement fallback: a joining spouse in an ended
-/// marriage with no birth family becomes an orphan-component card and
-/// renders as a ghost at the past marriage's bar.
+/// Joining spouse of an ended marriage with no birth family becomes
+/// an orphan component, rendering as a ghost at the past bar.
 #[test]
 fn p8_joining_spouse_of_ended_marriage_becomes_orphan_component() {
     let envelope = success(ExportedGraph {
@@ -239,9 +221,7 @@ fn p8_joining_spouse_of_ended_marriage_becomes_orphan_component() {
     insta::assert_snapshot!(render_pretty(&envelope));
 }
 
-/// Empty document — exporter returns a success envelope with empty
-/// collections. Transform should yield an empty `components` /
-/// `edges` set, not panic.
+/// Empty document yields empty `components`/`edges`, no panic.
 #[test]
 fn empty_document_yields_empty_shape() {
     let envelope = success(ExportedGraph {
@@ -252,9 +232,7 @@ fn empty_document_yields_empty_shape() {
     insta::assert_snapshot!(render_pretty(&envelope));
 }
 
-/// Failure envelopes pass through verbatim: the render shape carries
-/// the same diagnostic list so a surface renderer can handle either
-/// kind of result without first checking the input variant.
+/// Failure envelopes pass through verbatim, carrying the same diagnostics.
 #[test]
 fn failure_envelope_passes_through_with_diagnostics() {
     let envelope = ExportEnvelope::Failure(FailureEnvelope {

@@ -1,14 +1,6 @@
-//! `kul/render` custom LSP request.
-//!
-//! Routes the full canonical-visual pipeline through the language
-//! server so a client (today, the VSCode preview panel) can produce an
-//! SVG visualisation of the in-memory buffer (including unsaved edits)
-//! without shelling out to a second binary.
-//!
-//! Mirrors the `kul/export` shape ([`crate::features::export`]):
-//! request takes a document URI; success response carries the
-//! rendered SVG string; failure response carries the same diagnostic
-//! list the upstream pipeline produced.
+//! `kul/render` custom LSP request — routes the canonical-visual pipeline
+//! (render → layout → svg) so the preview panel can render the in-memory
+//! buffer without shelling out. Mirrors the `kul/export` envelope shape.
 
 use kul_core::export::ExportedDiagnostic;
 use kul_layout::{LayoutConfig, layout};
@@ -19,19 +11,16 @@ use tower_lsp::lsp_types::Url;
 
 use crate::state::ProjectEntry;
 
-/// Request parameters for `kul/render`. Camel-case to match LSP custom
-/// requests, which conventionally mirror the protocol's casing.
+/// Request parameters for `kul/render`.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderParams {
-    /// The document to render. Must already be open
-    /// (`textDocument/didOpen`).
+    /// The document to render. Must already be open.
     pub uri: Url,
 }
 
-/// `kul/render` response envelope. Untagged success/failure
-/// discriminated by `ok`, matching the [`kul_core::export::ExportEnvelope`]
-/// precedent.
+/// `kul/render` response envelope, discriminated by `ok` (matches
+/// [`kul_core::export::ExportEnvelope`]).
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub enum RenderResponse {
@@ -42,26 +31,21 @@ pub enum RenderResponse {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderSuccess {
-    /// Always `true`. Consumer-facing discriminator.
+    /// Always `true`.
     pub ok: bool,
-    /// The rendered SVG string (theme-agnostic; see kul-svg).
     pub svg: String,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderFailure {
-    /// Always `false`. Consumer-facing discriminator.
+    /// Always `false`.
     pub ok: bool,
-    /// Verbatim copy of the upstream export failure's diagnostic list.
     pub diagnostics: Vec<ExportedDiagnostic>,
 }
 
-/// Possible reasons `kul/render` cannot satisfy the request before
-/// even running the pipeline.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RenderRequestError {
-    /// The URI is not in the document cache.
     DocumentNotOpen,
 }
 
@@ -75,15 +59,9 @@ impl RenderRequestError {
     }
 }
 
-/// Pure projection: turn a cached [`ProjectEntry`] plus parsed params
-/// into a render response. Lives outside `Backend` so the unit tests
-/// can exercise it without spawning the full LSP server.
-///
-/// The render is project-wide: every URI in the same project produces
-/// the same SVG (one project = one graph per ADR-0015). The `uri`
-/// parameter is decorative for this layer; the integration tests pin
-/// the protocol-level contract that the request identifies the
-/// project to render.
+/// Turn a cached [`ProjectEntry`] plus parsed params into a render
+/// response. Project-wide (ADR-0015): every URI in the same project
+/// produces the same SVG.
 pub fn render_for(
     entry: &ProjectEntry,
     _params: &RenderParams,
@@ -142,7 +120,6 @@ mod tests {
 
     #[test]
     fn render_dirty_document_returns_failure_with_diagnostics() {
-        // Missing required `name:` triggers R03.
         let doc = test_open_file("person alice gender:female\n");
         let response = render_for(&doc, &dummy_params()).expect("ok");
         match response {

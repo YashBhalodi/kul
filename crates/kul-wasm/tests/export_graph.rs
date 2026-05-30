@@ -1,26 +1,9 @@
 //! Snapshot + cross-surface tests for the WASM `exportGraph` bridge.
 //!
-//! Three contracts:
-//!
-//! - **Per-example snapshots** lock the envelope shape per option combo
-//!   (default, `withPositions: true`, `format: "cytoscape"`). Mirrors the
-//!   matrix in `kul-core::tests::export` so any drift between the CLI
-//!   export envelope and the WASM bridge surfaces immediately. The
-//!   multi-file example (`07-multi-file-extended-family`) is included to
-//!   exercise the array-based signature end-to-end.
-//! - **Cross-surface bit-identical** asserts that the pretty-printed JSON
-//!   from the WASM bridge equals the pretty-printed JSON from a direct
-//!   `kul_core::export::export` call for every example × every option
-//!   combo, including the multi-file case. WASM `check` has no CLI
-//!   counterpart, but `exportGraph` does, and the two surfaces must speak
-//!   the same JSON regardless of how many files the project holds.
-//! - **Failure round-trip** confirms strict-on-errors produces a byte-for-
-//!   byte identical failure envelope across the two surfaces.
-//!
-//! See [ADR-0011](../../../docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md)
-//! — `exportGraph` exists so JS-ecosystem consumers can reach
-//! `kul_core::export::export` without shelling out to the CLI, with the
-//! same envelope shape on both surfaces.
+//! Per-example snapshots (default, `withPositions`, cytoscape) lock the
+//! envelope shape; a cross-surface test asserts byte-identical JSON
+//! against `kul_core::export::export` for every example × option combo;
+//! a failure round-trip covers strict-on-errors.
 
 use std::path::{Path, PathBuf};
 
@@ -183,9 +166,6 @@ example_snapshot!(
     "family-across-a-century"
 );
 
-/// Multi-file example: snapshots assert the WASM bridge unions persons,
-/// marriages, and parenthood links across every `.kul` file in the
-/// project, with the same envelope shape as the single-file path.
 #[test]
 fn example_08_multi_file_project() {
     let inputs = project_inputs(&examples_dir().join("08-multi-file-project"));
@@ -263,11 +243,8 @@ fn cross_surface_json_is_bit_identical_for_every_example_and_options_combo() {
     }
 }
 
-/// The wasm-bridge `exportGraph` is implemented in terms of
-/// [`kul_wasm::export_with`], which the Rust-side snapshots above call
-/// directly. This smoke test instead drives the public wasm-ABI signature
-/// (`Vec<WasmInputFile>`) to confirm the `WasmInputFile` → `InputFile`
-/// conversion is wired up correctly and produces the same envelope.
+/// Drives the public wasm-ABI signature (`Vec<WasmInputFile>`) to
+/// confirm the `WasmInputFile` → `InputFile` conversion is wired up.
 #[test]
 fn wasm_abi_signature_round_trips_to_export_with() {
     let path = examples_dir()

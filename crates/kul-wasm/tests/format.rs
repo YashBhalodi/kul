@@ -1,11 +1,6 @@
-//! Snapshot tests for the WASM `format` bridge.
-//!
-//! Sweeps every `examples/*/<name>.kul` and asserts the bridge round-trips
-//! the formatted source unchanged. The formatter itself is exhaustively
-//! property-tested in `kul-core::tests::format`; these snapshots verify
-//! that the WASM seam adds no transformation. A new example file forces
-//! a corresponding snapshot review here, mirroring the corpus-contract
-//! pattern in `kul-core::tests::export`.
+//! Snapshot tests for the WASM `format` bridge. Sweeps every
+//! `examples/*/<name>.kul` to verify the WASM seam adds no
+//! transformation on top of `kul-core::format`.
 
 use std::path::{Path, PathBuf};
 
@@ -72,11 +67,8 @@ example_snapshot!(
     "disconnected-lineages"
 );
 
-// The multi-file project (per ADR-0015) is per-file from `format`'s
-// perspective — the formatter takes one source at a time even after
-// PRD 0001's signature lift (per ADR-0011's "rule of three" stance and
-// PRD 0001's explicit "format stays per-source"). Snapshot each of the
-// three files independently.
+// Multi-file project: `format` stays per-source (ADR-0011), so snapshot
+// each file independently.
 example_snapshot!(
     example_08_multi_file_project_01_founders,
     "08-multi-file-project",
@@ -135,8 +127,7 @@ fn version_metadata_is_exposed() {
 
 #[test]
 fn format_returns_string_for_partial_parse_input() {
-    // Best-effort contract: format must never panic or return None even
-    // when the input fails to fully parse. Mirrors `kul_core::format::format_source`.
+    // Best-effort contract: must not panic on un-parseable input.
     let _ = kul_wasm::format_source("person");
     let _ = kul_wasm::format_source("");
     let _ = kul_wasm::format_source("@@@ not kul @@@");

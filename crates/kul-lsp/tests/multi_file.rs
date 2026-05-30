@@ -1,21 +1,7 @@
-//! Integration tests for the project-keyed cache and cross-file features
-//! introduced in issue #85.
-//!
-//! These tests drive the real `kul-lsp` binary via the same stdio LSP
-//! client every other integration test in this crate uses. They cover:
-//!
-//! - Two `did_open`s in the same project share one cached check.
-//! - `did_change` on one URI only updates that URI's overlay; the
-//!   sibling reads disk-backed source.
-//! - `did_close` on the last URI evicts the project.
-//! - Cross-file goto-definition jumps to a sibling file's declaration.
-//! - Cross-file find-references surfaces uses in sibling files.
-//! - Cross-file rename produces a workspace edit keyed by every
-//!   affected URL.
-//! - Diagnostics broadcast: an R02 in a sibling file is published
-//!   under the sibling's URI even when only the other file is open.
-//! - Two unrelated projects in the same workspace do not leak
-//!   diagnostics across project boundaries.
+//! Integration tests for the project-keyed cache and cross-file features:
+//! shared check across siblings, overlay isolation, project eviction,
+//! cross-file goto/references/rename, broadcast diagnostics, and project
+//! isolation in a multi-project workspace.
 
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -106,9 +92,7 @@ impl Handle {
     }
 
     /// Drain notifications until `deadline`, collecting per-URI
-    /// `publishDiagnostics` payloads. The last publish for a given URI
-    /// wins (later publishes overwrite earlier ones — that's the LSP
-    /// semantics).
+    /// `publishDiagnostics`. Last publish per URI wins (LSP semantics).
     fn collect_publishes(&self, deadline: Instant) -> BTreeMap<String, Value> {
         let mut out: BTreeMap<String, Value> = BTreeMap::new();
         loop {
@@ -175,8 +159,7 @@ fn did_close(handle: &mut Handle, uri: &str) {
     write_message(&mut handle.stdin, &msg);
 }
 
-/// Diagnostic codes the LSP published for `uri` in the most recent
-/// publish, as a sorted vec.
+/// Sorted diagnostic codes in the most recent publish for `uri`.
 fn codes_in(publishes: &BTreeMap<String, Value>, uri: &str) -> Vec<String> {
     let Some(v) = publishes.get(uri) else {
         return Vec::new();
@@ -215,8 +198,6 @@ fn cross_file_definition_jumps_to_sibling_file() {
     handshake(&mut handle);
     did_open(&mut handle, joneses_uri, JONESES);
 
-    // The `birth m_alice_bob` line in joneses.kul is line 4 (0-indexed).
-    // `m_alice_bob` starts at column 8 (after "  birth ").
     let req = json!({
         "jsonrpc": "2.0",
         "id": 10,
@@ -237,8 +218,6 @@ fn cross_file_definition_jumps_to_sibling_file() {
         Some(smiths_uri),
         "definition should resolve to the sibling smiths.kul file"
     );
-    // `marriage m_alice_bob` is on line 2 of smiths.kul, with the id
-    // starting at column "marriage ".len() = 9.
     assert_eq!(result["range"]["start"]["line"].as_u64(), Some(2));
     assert_eq!(result["range"]["start"]["character"].as_u64(), Some(9));
 }
@@ -256,7 +235,6 @@ fn cross_file_references_surface_uses_in_sibling_file() {
     handshake(&mut handle);
     did_open(&mut handle, smiths_uri, SMITHS);
 
-    // Cursor on `m_alice_bob` decl in smiths.kul (line 2, col 9).
     let req = json!({
         "jsonrpc": "2.0",
         "id": 11,
@@ -294,7 +272,6 @@ fn cross_file_rename_produces_workspace_edit_for_every_affected_file() {
     handshake(&mut handle);
     did_open(&mut handle, smiths_uri, SMITHS);
 
-    // Rename `m_alice_bob` (line 2, col 9 in smiths.kul) → `m_smiths`.
     let req = json!({
         "jsonrpc": "2.0",
         "id": 12,
@@ -329,11 +306,8 @@ fn cross_file_rename_produces_workspace_edit_for_every_affected_file() {
 
 #[test]
 fn did_open_publishes_diagnostics_for_every_project_file() {
-    // joneses.kul references `m_alice_bob` (defined in smiths.kul), so
-    // the project-wide check should report no R02. Both files publish
-    // empty diagnostic lists. The point: when the user opens only
-    // smiths.kul, joneses.kul still gets a publish so the Problems pane
-    // shows project-wide health.
+    // Opening one file must publish for every sibling so the Problems
+    // pane reflects project-wide health, not just the open buffer.
     let (_, urls) = common::fixture_project(
         "multi_file_broadcasts_diagnostics",
         &[("smiths.kul", SMITHS), ("joneses.kul", JONESES)],
@@ -345,7 +319,6 @@ fn did_open_publishes_diagnostics_for_every_project_file() {
     handshake(&mut handle);
     did_open(&mut handle, smiths_uri, SMITHS);
 
-    // Collect publishes for a moment.
     let publishes = handle.collect_publishes(Instant::now() + Duration::from_millis(800));
     assert!(
         publishes.contains_key(smiths_uri),
@@ -361,11 +334,8 @@ fn did_open_publishes_diagnostics_for_every_project_file() {
 
 #[test]
 fn diagnostics_in_sibling_file_surface_under_sibling_uri() {
-    // Variant of the broadcast test that *introduces* an error in the
-    // unopened file. smiths.kul is unchanged; we redefine joneses.kul
-    // with a `birth m_missing` referencing an id no file declares — an
-    // R02. The user only opens smiths.kul; the publish for joneses.kul
-    // should still carry the R02 diagnostic.
+    // An R02 in the unopened sibling must publish under the sibling's
+    // URI when only smiths.kul is open.
     let joneses_with_error = "person eve name:\"Eve\" gender:female\n  birth m_missing\n";
     let (_, urls) = common::fixture_project(
         "multi_file_diag_in_unopened_file",
@@ -393,11 +363,8 @@ fn diagnostics_in_sibling_file_surface_under_sibling_uri() {
 
 #[test]
 fn two_open_uris_in_one_project_share_one_check() {
-    // Opening two files of the same project should produce diagnostics
-    // that reflect the project's joint state — not two independent
-    // single-file checks. If the cache treated each URI separately,
-    // joneses.kul would fire R02 for `m_alice_bob` (no decl in its own
-    // file). With one project-wide check, R02 is silent.
+    // Per-URI caching would fire R02 for `m_alice_bob` in joneses.kul;
+    // one project-wide check keeps the cross-file reference resolved.
     let (_, urls) = common::fixture_project(
         "multi_file_shared_check",
         &[("smiths.kul", SMITHS), ("joneses.kul", JONESES)],
@@ -420,11 +387,8 @@ fn two_open_uris_in_one_project_share_one_check() {
 
 #[test]
 fn did_change_on_one_file_does_not_corrupt_sibling_source() {
-    // joneses.kul references `m_alice_bob`. We open it (project loads
-    // smiths.kul from disk), then send a `did_change` for joneses.kul
-    // that drops the reference. The expectation: smiths.kul's
-    // declarations stay visible (we read its source from disk, not
-    // from the joneses.kul overlay).
+    // An overlay on one URI must not bleed into the sibling's source —
+    // siblings come from disk, not from the open file's overlay.
     let (_, urls) = common::fixture_project(
         "multi_file_overlay_isolation",
         &[("smiths.kul", SMITHS), ("joneses.kul", JONESES)],
@@ -443,8 +407,6 @@ fn did_change_on_one_file_does_not_corrupt_sibling_source() {
     );
 
     let publishes = handle.collect_publishes(Instant::now() + Duration::from_millis(800));
-    // smiths.kul never opened in editor but its diagnostics should
-    // publish — and it should be clean.
     let smiths_codes = codes_in(&publishes, smiths_uri);
     assert!(
         smiths_codes.is_empty(),
@@ -464,7 +426,6 @@ fn close_of_last_uri_evicts_project_and_clears_diagnostics() {
     let mut handle = Handle::spawn();
     handshake(&mut handle);
     did_open(&mut handle, smiths_uri, SMITHS);
-    // Wait for the initial broadcast.
     let _ = handle.collect_publishes(Instant::now() + Duration::from_millis(400));
 
     did_close(&mut handle, smiths_uri);

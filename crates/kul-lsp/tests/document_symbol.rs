@@ -1,5 +1,4 @@
-//! Integration test for `textDocument/documentSymbol`. Spawns the server,
-//! opens a fixture, and verifies the outline tree shape and selection ranges.
+//! Integration test for `textDocument/documentSymbol`.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -152,13 +151,11 @@ fn outline_lists_persons_marriages_and_nests_birth() {
 
     let resp = document_symbol(&mut handle, uri, 10);
     let result = resp["result"].as_array().expect("array of symbols");
-    assert_eq!(result.len(), 4); // alice, bob, m, kid
+    assert_eq!(result.len(), 4);
 
-    // Names: persons use display names; marriage uses spouse names.
     let names: Vec<&str> = result.iter().map(|s| s["name"].as_str().unwrap()).collect();
     assert_eq!(names, vec!["Alice", "Bob", "Alice & Bob", "Kid"]);
 
-    // The marriage's selection range points at its id `m` (line 2, col 9).
     let marriage = &result[2];
     assert_eq!(
         marriage["selectionRange"]["start"]["line"].as_u64(),
@@ -169,7 +166,6 @@ fn outline_lists_persons_marriages_and_nests_birth() {
         Some(9),
     );
 
-    // Kid has a `birth m` child symbol.
     let kid = &result[3];
     let children = kid["children"].as_array().expect("kid has children");
     assert_eq!(children.len(), 1);

@@ -1,12 +1,5 @@
-//! Shared diagnostic rendering for CLI subcommands.
-//!
-//! `validate`, `format`, and `export` all reach for the same two
-//! diagnostic surfaces: a miette terminal report for humans and a
-//! JSONL stream for scripts. Concentrating both here keeps the
-//! subcommand modules focused on their unique work (writing the export
-//! envelope, deciding whether to format in place, etc.) and ensures the
-//! exact rendering rules — cross-file "see also" footnotes, theme
-//! selection, JSON shape — stay in lock-step across commands.
+//! Shared diagnostic rendering (miette terminal + JSONL) for `validate`,
+//! `format`, and `export`.
 
 use std::collections::HashMap;
 use std::io::{self, Write};
@@ -18,20 +11,14 @@ use miette::{GraphicalReportHandler, GraphicalTheme};
 use serde::Serialize;
 
 /// Render every diagnostic in `result` to stderr in miette's terminal
-/// format. Cross-file related-info (which miette's single-source layout
-/// can't draw into the same block) is surfaced as a `see also` footnote
-/// line so the user still learns where the related span lives.
-///
-/// `no_color` forces the no-color theme unconditionally; otherwise the
-/// renderer auto-selects based on whether stderr is a TTY.
+/// format. Cross-file related-info is surfaced as a `see also` footnote
+/// line since miette's single-source layout can't draw it inline.
 pub fn render_human(result: &CheckResult, no_color: bool) {
     render_human_matching(result, no_color, |_| true);
 }
 
-/// Same as [`render_human`] but renders only diagnostics for which
-/// `keep` returns true. `format`'s "cannot format with parse errors"
-/// path uses this to show only the parse-level diagnostics that block
-/// formatting (semantic-rule errors are not formatting blockers).
+/// Like [`render_human`] but renders only diagnostics for which `keep`
+/// returns true.
 pub fn render_human_matching(
     result: &CheckResult,
     no_color: bool,
@@ -45,9 +32,6 @@ pub fn render_human_matching(
     let handler = GraphicalReportHandler::new_themed(theme);
     let mut buf = String::new();
     let document = result.document();
-    // Per-file source maps populated lazily — the "see also" footnotes
-    // need line/column, but most diagnostics don't have cross-file
-    // related-info, so we don't want to pay for a map until we do.
     let mut maps: HashMap<FileId, SourceMap> = HashMap::new();
     for diag in result.diagnostics.iter().filter(|d| keep(d)) {
         let renderable = RenderableDiagnostic::for_diagnostic(document, diag);
@@ -80,15 +64,12 @@ fn cross_file_related_line(
     )
 }
 
-/// Render every diagnostic in `result` as one JSON object per line on
-/// stdout. Schema is documented in `kul help validate`. The renderer is
-/// streaming: callers that pipe into `jq` see one record at a time.
+/// Render every diagnostic as one JSON object per line on stdout.
+/// Schema is documented in `kul help validate`.
 pub fn render_json(result: &CheckResult) -> io::Result<()> {
     let stdout = io::stdout();
     let mut out = stdout.lock();
     let document = result.document();
-    // Lazily build per-file SourceMaps so we don't pay the cost for
-    // files the diagnostic list never anchors into.
     let mut maps: HashMap<FileId, SourceMap> = HashMap::new();
     for diag in &result.diagnostics {
         let record = JsonDiagnostic::new(document, &mut maps, diag);
@@ -179,16 +160,13 @@ fn severity_str(s: Severity) -> &'static str {
     }
 }
 
-/// True if `code` belongs to the lex/parse families (`KUL-Lxx` /
-/// `KUL-Pxx`). `format` uses this to identify the diagnostics that
-/// block in-place formatting (semantic-rule errors are not blockers —
-/// the formatter still produces well-formed output for them).
+/// True for lex/parse diagnostic codes (`KUL-Lxx` / `KUL-Pxx`). These
+/// block in-place formatting; semantic-rule errors do not.
 pub fn is_parse_code(code: &str) -> bool {
     code.starts_with("KUL-L") || code.starts_with("KUL-P")
 }
 
-/// Predicate convenience for [`render_human_matching`]: diagnostics
-/// that are error-severity and produced by lex/parse.
+/// Error-severity lex/parse diagnostics — the formatting blockers.
 pub fn is_blocking_parse_error(d: &Diagnostic) -> bool {
     matches!(d.severity, Severity::Error) && is_parse_code(d.code)
 }

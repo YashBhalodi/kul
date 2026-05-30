@@ -1,40 +1,22 @@
 //! `kul/entityAt` custom LSP request.
 //!
-//! Maps a source cursor position to the project-wide entity id (a person
-//! or a marriage) under it, so the VSCode preview panel can highlight the
-//! matching card or marriage bar. This is the inverse of
-//! [`crate::features::locate`]: `kul/locate` turns a clicked entity id into
-//! a source [`Location`](tower_lsp::lsp_types::Location); `kul/entityAt`
-//! turns a cursor position into an entity id.
-//!
-//! Resolution reuses the same cursor seam goto-definition walks:
-//! [`ProjectEntry::cursor_for_uri`] → [`Cursor::entity`]. The reported id
-//! is the resolved declaration's id — the decl id when the cursor is on a
-//! declaration, the resolved target's decl id when it is on a reference.
-//! A cursor on a keyword, field name/value, whitespace, EOF, or an
-//! *unresolved* reference yields `entity: null`.
-//!
-//! Resolution is project-wide (ADR-0015): a cursor in a sibling `.kul`
-//! file resolves to the same entity the preview (opened on another file)
-//! rendered. Only a URI that is not open in the language server is a
-//! request error (mirrors [`crate::features::render`] and
-//! [`crate::features::locate`]).
+//! Inverse of [`crate::features::locate`]: turns a cursor position into the
+//! project-wide entity id under it (ADR-0015) so the preview panel can
+//! highlight the matching card. A cursor on a keyword, field, whitespace,
+//! EOF, or unresolved reference yields `entity: null`.
 
 use serde::{Deserialize, Serialize};
 use tower_lsp::lsp_types::{Position, Url};
 
 use crate::state::ProjectEntry;
 
-/// Request parameters for `kul/entityAt`. Camel-case to match LSP custom
-/// requests, which conventionally mirror the protocol's casing.
+/// Request parameters for `kul/entityAt`.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EntityAtParams {
-    /// The document the cursor is in. Must already be open
-    /// (`textDocument/didOpen`). Resolution is project-wide, so a cursor
-    /// in a sibling file still resolves against the whole project.
+    /// The document the cursor is in. Must already be open. Resolution is
+    /// project-wide (ADR-0015).
     pub uri: Url,
-    /// The cursor position (LSP 0-based line/character).
     pub position: Position,
 }
 
@@ -42,33 +24,25 @@ pub struct EntityAtParams {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Entity {
-    /// The resolved declaration id (a person id or a marriage id), keying
-    /// the rendered SVG's `data-person-id` / `data-marriage-id`.
+    /// The resolved declaration id, keying `data-person-id` / `data-marriage-id` in SVG.
     pub id: String,
     /// `"person"` or `"marriage"`.
     pub kind: String,
 }
 
 /// `kul/entityAt` response. `entity` is `null` when the cursor is not on a
-/// resolved person/marriage id (keyword, field, whitespace, EOF, or an
-/// unresolved reference).
+/// resolved person/marriage id.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EntityAtResponse {
-    /// The entity under the cursor, or `None` for a non-entity position.
     pub entity: Option<Entity>,
 }
 
-/// Pure projection: resolve the cursor in `params` against a cached
-/// [`ProjectEntry`] to the entity (decl or resolved reference) under it.
-/// Lives outside `Backend` so the unit tests can exercise it without
-/// spawning the full LSP server.
-///
-/// Returns `EntityAtResponse { entity: None }` for any position that is
-/// not a resolved person/marriage id — that is a successful "nothing
-/// selected" answer, not an error. Gating on `target.is_some()` keeps an
-/// unresolved reference (which has a name but no live declaration) from
-/// reporting a phantom highlight.
+/// Resolve the cursor in `params` to the entity (decl or resolved
+/// reference) under it. A non-entity position yields `entity: None` —
+/// that is a successful "nothing selected", not an error. Gating on
+/// `target.is_some()` keeps an unresolved reference from reporting a
+/// phantom highlight.
 pub fn entity_at(entry: &ProjectEntry, params: &EntityAtParams) -> EntityAtResponse {
     let entity = entry
         .cursor_for_uri(&params.uri, params.position)
@@ -86,8 +60,6 @@ mod tests {
     use super::*;
     use crate::state::{idx, position_for, test_open_file, test_project_entry, test_url as url};
 
-    /// Resolve `(id, kind)` for the cursor at byte `offset` in a single-file
-    /// fixture. `None` means `entity: null`.
     fn entity_at_offset(source: &str, offset: usize) -> Option<(String, String)> {
         let doc = test_open_file(source);
         entity_at(
@@ -157,7 +129,7 @@ mod tests {
     #[test]
     fn keyword_resolves_to_null() {
         let src = "person alice name:\"A\" gender:female\n";
-        assert!(entity_at_offset(src, 0).is_none()); // `person` keyword
+        assert!(entity_at_offset(src, 0).is_none());
     }
 
     #[test]
@@ -185,17 +157,13 @@ mod tests {
         assert!(entity_at_offset(src, src.len()).is_none());
     }
 
-    /// Cross-file resolution: a cursor on a reference whose declaration
-    /// lives in a sibling `.kul` file resolves to that declaration's id.
-    /// This is the project-wide namespace payoff (ADR-0015) — the cursor
-    /// can sit in one file while the preview is opened on another.
+    /// Cross-file resolution (ADR-0015): cursor in one file, decl in another.
     #[test]
     fn cross_file_resolved_reference() {
         let alice_src = "person alice name:\"Alice\" gender:female\n";
         let marriage_src = "person bob name:\"Bob\" gender:male\nmarriage m alice bob start:2010\n";
         let entry = test_project_entry(&[("alice.kul", alice_src), ("marriage.kul", marriage_src)]);
         let marriage_url = Url::parse("file:///marriage.kul").unwrap();
-        // Cursor on `alice` inside `marriage m alice bob`, declared in alice.kul.
         let alice_ref_offset = marriage_src.find(" alice ").unwrap() + 1;
         let entity = entity_at(
             &entry,

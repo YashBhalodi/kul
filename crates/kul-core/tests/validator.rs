@@ -29,10 +29,8 @@ fn render_diagnostics(diags: &[Diagnostic]) -> String {
 }
 
 fn read_corpus(rel: &str) -> String {
-    // Each fixture lives in its own one-file project directory so the loader
-    // (ADR-0015) never globs sibling fixtures into one project: a `rel` of
-    // `valid/<name>.kul` resolves to `valid/<name>/<name>.kul`, beside a
-    // `kul.yml`. Call sites keep passing the flat `<dir>/<name>.kul` key.
+    // Each fixture is a one-file project (ADR-0015): a `rel` of
+    // `valid/<name>.kul` resolves to `valid/<name>/<name>.kul`.
     let (dir, file) = rel.split_once('/').expect("corpus key is `<dir>/<file>`");
     let name = file
         .strip_suffix(".kul")
@@ -233,7 +231,7 @@ fn date_feb_29_non_leap_rejected() {
 
 #[test]
 fn rule_06_partial_overlap_does_not_fire() {
-    // born:1925, died:1925-08 — overlap, so we should NOT fire R06.
+    // born:1925 and died:1925-08 overlap, so R06 must not fire.
     let src = "person p name:\"P\" born:1925 died:1925-08 gender:other\n";
     let result = check(src);
     assert!(
@@ -245,7 +243,7 @@ fn rule_06_partial_overlap_does_not_fire() {
 
 #[test]
 fn rule_06_circa_overlap_does_not_fire() {
-    // ~1900 covers 1895..1905; 1903 is inside — strictly-before is false.
+    // ~1900 covers 1895..1905; 1903 falls inside, so strictly-before is false.
     let src = "person p name:\"P\" born:~1900 died:1903 gender:other\n";
     let result = check(src);
     assert!(
@@ -348,8 +346,8 @@ fn rule_14_mutually_polygamous() {
 
 #[test]
 fn rule_14_monogamy_is_clean() {
-    // N=1 un-ended marriage — the rule does not fire even though the
-    // joining spouse is not the host.
+    // N=1 un-ended marriage: rule does not fire even when the joining
+    // spouse is not the host.
     let src = "\
 person alice name:\"Alice\" gender:female
 person bob   name:\"Bob\"   gender:male
@@ -366,9 +364,8 @@ marriage m_alice_bob alice bob start:1990-01-01
 
 #[test]
 fn rule_14_sequential_mixed_role_is_clean() {
-    // alice hosts an ended marriage (m_alice_bob) and is the joining
-    // spouse in a current marriage (m_devraj_alice). un_ended_count for
-    // alice is 1 → not a polygamy hub → R14 does not fire.
+    // Alice's un_ended_count is 1 (one ended, one current) → not a
+    // polygamy hub, R14 does not fire.
     let src = "\
 person alice  name:\"Alice\"  gender:female
 person bob    name:\"Bob\"    gender:male
@@ -387,8 +384,8 @@ marriage m_devraj_alice devraj alice  start:1995-06-15
 
 #[test]
 fn rule_14_all_ended_is_clean() {
-    // Two marriages that both have ended — un_ended_count is zero for
-    // every person, so R14 cannot fire.
+    // Every marriage ended → un_ended_count is zero everywhere → R14
+    // cannot fire.
     let src = "\
 person alice  name:\"Alice\"  gender:female
 person bob    name:\"Bob\"    gender:male
@@ -407,8 +404,7 @@ marriage m_devraj_alice devraj alice  start:1990-01-01 end:1998-04-12 end_reason
 
 #[test]
 fn rule_14_pure_host_concurrent_n2_is_clean() {
-    // Devraj hosts two un-ended marriages — the polygamy hub is also
-    // the host of every concurrent marriage, so R14 is satisfied.
+    // Hub hosts every concurrent marriage → R14 satisfied.
     let src = "\
 person alice  name:\"Alice\"  gender:female
 person devraj name:\"Devraj\" gender:male
@@ -427,8 +423,8 @@ marriage m_devraj_alice devraj alice  start:1992-02-14
 
 #[test]
 fn rule_14_pure_host_concurrent_n3_is_clean() {
-    // Same shape as N=2 with a third un-ended marriage. R14 stays
-    // satisfied at every concurrent N when the hub hosts each one.
+    // N=3 shape: hub hosts each concurrent marriage; R14 stays satisfied
+    // at every N.
     let src = "\
 person alice  name:\"Alice\"  gender:female
 person devraj name:\"Devraj\" gender:male
@@ -447,12 +443,9 @@ marriage m_devraj_priya devraj priya  start:1995-08-22
     );
 }
 
-/// When a string-field value fails to parse, the parser should still mark
-/// the field as attempted so the validator's required-field check (R03)
-/// doesn't add a misleading "missing field" diagnostic on top of the parse
-/// error. And recovery shouldn't swallow the rest of the line — the
-/// `gender:` field after the malformed `name:` should still parse, so its
-/// R03 doesn't fire either.
+/// A malformed string-field value must not cascade into a misleading R03
+/// "missing field" diagnostic, and recovery must still parse the next field
+/// on the line.
 #[test]
 fn malformed_string_value_suppresses_cascading_missing_field_r03() {
     let result = check("person alice name:Alice gender:female\n");
@@ -465,9 +458,8 @@ fn malformed_string_value_suppresses_cascading_missing_field_r03() {
     );
 }
 
-/// Real repro from the LSP report: the malformed value spans multiple
-/// tokens (`Alice Sharma`). Recovery still has to skip past `Sharma` and
-/// land on `gender:female` so it parses cleanly with no cascading R03.
+/// A malformed value spanning multiple tokens (`Alice Sharma`) must skip
+/// past `Sharma` to the next field without a cascading R03.
 #[test]
 fn malformed_multi_token_string_value_recovers_at_next_field() {
     let result = check("person alice name:Alice Sharma gender:female\n");

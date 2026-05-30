@@ -1,53 +1,31 @@
 //! Canonical formatter for Kul documents.
 //!
-//! The formatter has two entry points:
-//!
-//! - [`format`] takes only an AST and produces canonical output. It is the
-//!   right call for code-generation tools that build a [`Document`] in
-//!   memory and want to print it: there is no source to thread through, and
-//!   comments aren't in the AST anyway.
-//! - [`format_source`] takes a Kul source string and reformats it. It
-//!   parses internally and threads the original bytes through so comments
-//!   round-trip per [ADR 0004] rule 7. The CLI and LSP use this entry point.
+//! Two entry points: [`format`] (AST-only, for code-gen tools — comments
+//! aren't in the AST) and [`format_source`] (string-in / string-out,
+//! comments preserved per ADR-0004 rule 7).
 //!
 //! ## Per-region sparse alignment
 //!
-//! Both entry points convert each rendered line to a sequence of
-//! [`cells::Cell`]s and queue it into a region buffer. A *region* is the run
-//! of lines between two blank lines (or document start/end); the blank line
-//! is the only region boundary.
+//! A *region* is the run of lines between blank lines (the only region
+//! boundary). Within a region, lines bucket into *alignment groups* by
+//! `(indent, kind)`, or `(indent, kind, parent_person_id)` for
+//! sub-statements so siblings under different parents don't cross-align.
 //!
-//! When a region flushes, lines are bucketed into *alignment groups* by a
-//! key that captures who they share columns with:
-//!
-//! - top-level lines: `(indent, kind)`;
-//! - sub-statements (`birth`, `adoption`): `(indent, kind, parent_person_id)`,
-//!   so two sub-statements under different persons never share a group even
-//!   when they're in the same region.
-//!
-//! Each statement kind carries a fixed canonical column ordering (matching
-//! the field-order spec §14.2). Each cell is tagged with its column index in
-//! that ordering when built. A column is *present* in a group iff at least
-//! one line in the group has a cell at that index; the column's width is the
-//! max content width across lines that carry it. When emitting a line, the
-//! formatter walks the canonical column sequence in order, padding actual
-//! cells, emitting whitespace placeholders for columns the line lacks but
-//! the group has, and stopping at the line's last actual cell — no trailing
-//! whitespace is added through subsequent column slots. Shape no longer
-//! participates in grouping; same-keyword lines share columns regardless of
-//! which optional fields each carries.
+//! Each kind has a fixed canonical column ordering (spec §14.2). Each cell
+//! is tagged with its column index when built. A column is *present* in a
+//! group iff at least one line carries it; the width is the max across
+//! carriers. When emitting, the formatter walks the canonical sequence,
+//! padding cells and whitespace placeholders, then stops at the line's
+//! last actual cell — no trailing whitespace through later slots. Shape
+//! is not part of the group key.
 //!
 //! ## Internal layout
 //!
-//! - [`cells`] — the cell grammar: `Cell`, `CellKind`, `KindTag`, the
-//!   canonical column tables, and the AST→Cell builders. Also owns the
-//!   small value-stringifiers (`quote_string`, `gender_str`,
-//!   `end_reason_str`).
-//! - [`emit`] — the layout engine: `Emitter`, region buffering, per-group
-//!   width computation, and the line-emission walk.
-//! - [`source`] — the source-pass formatter that preserves comments by
-//!   re-scanning the original bytes (the lexer drops them) and threading
-//!   them through the emitter at their original lines.
+//! - [`cells`] — cell grammar (`Cell`, `CellKind`, `KindTag`), canonical
+//!   column tables, AST→Cell builders, value stringifiers.
+//! - [`emit`] — `Emitter`, region buffering, width computation, line walk.
+//! - [`source`] — source-pass formatter; preserves comments by re-scanning
+//!   the original bytes (the lexer drops them).
 //!
 //! [ADR 0004]: https://github.com/YashBhalodi/kul/blob/main/docs/adr/0004-formatter-canonical-rules.md
 
@@ -62,11 +40,8 @@ use source::SourceFormatter;
 
 /// Format a parsed [`KulFile`] to canonical Kul source.
 ///
-/// Comments are not preserved — the AST doesn't model them, so the only
-/// caller who should reach for this entry point is code that builds a
-/// `KulFile` in memory (e.g. a code-generation tool). For
-/// source-to-source formatting use [`format_source`]. The output ends
-/// with a trailing newline if the file is non-empty.
+/// Comments are NOT preserved (not in the AST). For source-to-source use
+/// [`format_source`]. Output ends with a trailing newline if non-empty.
 pub fn format(file: &KulFile) -> String {
     let mut emitter = Emitter::new();
     for stmt in &file.statements {
@@ -77,15 +52,9 @@ pub fn format(file: &KulFile) -> String {
 
 /// Format a Kul source string to its canonical form.
 ///
-/// Per ADR-0011, formatting is per-file (project-scoped canonicalization
-/// is out of scope). Comments are preserved byte-for-byte per
-/// [ADR 0004] rule 7. The function lexes and parses internally; if the
-/// parser produces a partial AST (because of recoverable parse errors),
-/// this still returns *some* output reflecting what was parseable.
-/// Callers that need to reject malformed input should run
-/// [`crate::check`] first and bail on parse-error diagnostics.
-///
-/// [ADR 0004]: https://github.com/YashBhalodi/kul/blob/main/docs/adr/0004-formatter-canonical-rules.md
+/// Per-file (ADR-0011). Comments preserved byte-for-byte per ADR-0004
+/// rule 7. Returns partial output on recoverable parse errors; callers
+/// who need strictness should run [`crate::check`] first.
 pub fn format_source(source: &str) -> String {
     use crate::span::FileId;
     let tokens = crate::lexer::tokenize(source);
@@ -126,11 +95,6 @@ mod tests {
 
     #[test]
     fn shape_difference_aligns_on_shared_columns() {
-        // alice has `born:`; bob doesn't. Under sparse-by-field-name (ADR-0004
-        // amendment 2026-05-07), the two share columns up through their
-        // common cells: keyword, positional, name, gender. bob's line stops
-        // at his last actual cell (`gender:male`) — no whitespace placeholder
-        // for `born:` because bob has nothing further to its right.
         let src = "person alice name:\"Alice\" gender:female born:1950\n\
                    person bo name:\"Bob\" gender:male\n";
         let out = format_source(src);
@@ -157,8 +121,6 @@ mod tests {
 
     #[test]
     fn whole_line_comment_is_transparent_to_alignment() {
-        // Comments no longer break alignment under the per-region rule —
-        // same-shape lines on either side of a comment join one group.
         let src = "person alice name:\"Alice\" gender:female\n\
                    # divider\n\
                    person bo name:\"Bob\" gender:male\n";
@@ -179,9 +141,6 @@ mod tests {
                    marriage m1 a bb start:1972\n\
                    marriage mm cc a start:1990\n";
         let out = format_source(src);
-        // m1/mm align at col 10; spouse_a column at 13 (a/cc, padded so the
-        // next column starts at the same offset); spouse_b column at 16
-        // (bb/a, padded); start: at 20.
         assert!(
             out.contains("marriage m1 a  bb  start:1972\n"),
             "row 1 missing alignment, got:\n{out}"
@@ -194,7 +153,6 @@ mod tests {
 
     #[test]
     fn sub_statements_align_within_a_person_block() {
-        // Two adoptions with same shape under one person align.
         let src = "person alice name:\"A\" gender:female\n\
                    person bb name:\"B\" gender:male\n\
                    marriage m alice bb start:1972\n\
@@ -210,9 +168,6 @@ mod tests {
 
     #[test]
     fn sub_statements_under_different_persons_do_not_cross_align() {
-        // Two persons in the same region, each with one adoption. Because
-        // sub-statements scope per parent, the adoption-id columns are sized
-        // independently and the longer id does not pad the shorter one.
         let src = "person alice name:\"A\" gender:female\n\
                    \x20\x20adoption m_short  start:1980\n\
                    person bob name:\"B\" gender:male\n\
@@ -230,13 +185,10 @@ mod tests {
 
     #[test]
     fn person_with_substatement_aligns_to_neighbor_across_sub() {
-        // Per the 2026-05-06 amendment: a sub-statement between two same-
-        // shape persons no longer breaks alignment.
         let src = "person alice name:\"A\" gender:female\n\
                    \x20\x20birth m_a\n\
                    person bo name:\"B\" gender:male\n";
         let out = format_source(src);
-        // alice and bo share columns; the birth sits at indent 2 between.
         assert_eq!(
             out,
             "person alice  name:\"A\"  gender:female\n\
@@ -259,11 +211,6 @@ mod tests {
 
     #[test]
     fn inline_comment_on_one_row_aligns_shared_columns() {
-        // alice has a trailing inline comment; bo does not. Under
-        // sparse-by-field-name they're still in the same group (same indent,
-        // same keyword) and share columns up through bo's last actual cell.
-        // bo's `gender:male` ends shorter — no trailing whitespace for the
-        // missing comment column.
         let src = "person alice name:\"Alice\" gender:female  # alpha\n\
                    person bo name:\"Bob\" gender:male\n";
         let out = format_source(src);
@@ -336,11 +283,6 @@ mod tests {
 
     #[test]
     fn person_with_extra_died_field_aligns_shared_columns_with_neighbor() {
-        // Two consecutive `person` lines, one carrying an extra `died:` field.
-        // alice (no `died`) and bob (with `died`) are consecutive in the same
-        // region. The user expects the columns they share — name, gender,
-        // born — to line up; bob's extra `died:` cell sits past the shared
-        // prefix at its natural width.
         let src = "person alice name:\"Alice Sharma\" gender:female born:1950-04-12\n\
                    person bob name:\"Bob Sharma\" gender:male born:1948-11-30 died:2020-03-15\n";
         let out = format_source(src);
@@ -353,11 +295,6 @@ mod tests {
 
     #[test]
     fn missing_middle_field_inserts_whitespace_placeholder() {
-        // alice has [name, gender, born]; bob has [name, gender, family,
-        // born, died]. `family:` is in the middle of bob's line per spec
-        // §14.2 canonical order. Sparse-by-field-name puts a whitespace
-        // placeholder of `family:`-column-width on alice's line so her
-        // `born:` column-aligns with bob's.
         let src = "person alice name:\"Alice\" gender:female born:1950\n\
                    person bob name:\"Bob\" gender:male family:\"Sharma\" born:1948 died:2020\n";
         let out = format_source(src);
@@ -370,9 +307,6 @@ mod tests {
 
     #[test]
     fn adjacent_regions_size_columns_independently() {
-        // Two regions of `person` lines, separated by a blank line. Each
-        // region has its own multi-line group with its own widest cells, so
-        // a long id in region A must not pad ids in region B.
         let src = "person alexandria name:\"A\" gender:female\n\
                    person beatrice   name:\"B\" gender:female\n\
                    \n\
@@ -391,9 +325,6 @@ mod tests {
 
     #[test]
     fn three_regions_each_keep_their_own_widths() {
-        // Region 1 has the widest `name:` (long string); region 2 has the
-        // widest id; region 3 is narrowest. Confirms each region's column
-        // widths are computed in isolation — no cross-region bleed.
         let src = "person a name:\"Alexandria the Great\" gender:female\n\
                    person b name:\"Bo\"                    gender:female\n\
                    \n\
@@ -418,10 +349,6 @@ mod tests {
 
     #[test]
     fn marriage_region_between_person_regions_is_independent() {
-        // person block, marriage block, person block — three regions, three
-        // independent groups (with different keywords, so even within a
-        // region they wouldn't have shared columns). Verifies the blank-line
-        // boundary plus the per-keyword grouping interact cleanly.
         let src = "person alice name:\"Alice\" gender:female\n\
                    person bo    name:\"Bob\"   gender:male\n\
                    \n\
@@ -446,10 +373,6 @@ mod tests {
 
     #[test]
     fn last_cell_left_of_rightmost_column_emits_no_trailing_whitespace() {
-        // bob's last actual cell is `gender:male` even though the group's
-        // rightmost present column is `comment` (alice has one). Bob's line
-        // must end immediately after `gender:male` — no padding through the
-        // remaining slots.
         let src = "person alice name:\"Alice\" gender:female  # n\n\
                    person bo name:\"Bob\" gender:male\n";
         let out = format_source(src);

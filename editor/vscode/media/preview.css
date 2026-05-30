@@ -1,15 +1,9 @@
-/* Kul preview — application styles.
- *
- * The rules below are the application layer (ADR-0016): each consumes exactly
- * one `var(--kul-*)` token and never hard-codes a colour or hooks a VSCode
- * variable directly. The token values live per-theme in preview-themes.css;
- * this file stays constant when a theme is added. Both stylesheets load into
- * the same webview document, so the tokens defined there resolve here. */
+/* Application layer (ADR-0016): each rule consumes exactly one `var(--kul-*)`
+ * token and never hard-codes a colour or hooks a VSCode variable directly.
+ * Token values live per-theme in preview-themes.css. */
 
-/* The preview is a pan/zoom surface (svg-pan-zoom): the SVG must fill a
- * sized container rather than letterbox at its intrinsic size. So html/body
- * claim the full panel height and #root fills it; box-sizing keeps the
- * padding inside that height. */
+/* The preview is a pan/zoom surface (svg-pan-zoom): the SVG must fill a sized
+ * container rather than letterbox at its intrinsic size. */
 html,
 body {
     height: 100%;
@@ -39,10 +33,6 @@ body {
     border-radius: var(--kul-error-radius);
 }
 
-/* Fill the container so svg-pan-zoom has a viewport to pan/zoom within.
- * This overrides the v1 `max-width: 100%; height: auto` rule, which
- * letterboxed the SVG at its intrinsic size and defeated pan/zoom. The
- * grab/grabbing cursor signals the surface is draggable. */
 #root svg {
     width: 100%;
     height: 100%;
@@ -54,25 +44,22 @@ body {
     cursor: grabbing;
 }
 
-/* Click affordance (#135): svg-pan-zoom sets the grab cursor on the <svg>
- * root, which descendants inherit. The elements that click-to-source targets
- * override it with a pointer so they read as clickable; everything else (empty
- * canvas, birth/adoption edges) keeps the inherited pan cursor. Inherited
- * values carry no specificity, so these descendant rules win — no !important. */
+/* svg-pan-zoom sets `cursor: grab` on the <svg> root, which descendants
+ * inherit. Clickable entities override with `pointer`; everything else keeps
+ * the pan cursor. Inherited values carry no specificity, so these descendant
+ * rules win — no `!important`. */
 .kul-card {
     cursor: pointer;
 }
 
-/* Marriage bars only. Birth/adoption edges share the .kul-edge class but are
- * not clickable, so they are excluded by the attribute selector. */
+/* Marriage bars only — birth/adoption edges share .kul-edge but aren't
+ * clickable. */
 .kul-edge[data-link-kind="marriage"] {
     cursor: pointer;
 }
 
-/* Overlay pan/zoom controls: a floating cluster pinned to the panel's
- * bottom-left, above the SVG surface. A sibling of #root (not inside it), so
- * the per-render SVG swap never clears it. Hidden until the first render
- * and while an error banner is shown. */
+/* Floating cluster pinned bottom-left, above the SVG. Sibling of #root (not
+ * inside it) so the per-render SVG swap never clears it. */
 .kul-preview-controls {
     position: fixed;
     bottom: var(--kul-control-inset);
@@ -127,15 +114,10 @@ body {
     outline-offset: -1px;
 }
 
-/* A pressed toggle (e.g. the legend ⓘ button while the legend is open) holds
- * the active background so the on/off state is visible at a glance. */
 .kul-control-btn[aria-pressed="true"] {
     background-color: var(--kul-control-active-bg);
 }
 
-/* Vertical separator between the pan/zoom buttons and the legend toggle.
- * Sized to be a hairline, not a full-height bar, so it reads as a chip
- * divider inside one chrome cluster. */
 .kul-control-divider {
     width: 1px;
     height: var(--kul-control-divider-height);
@@ -144,8 +126,6 @@ body {
     flex-shrink: 0;
 }
 
-/* Card shape — uniform per the uniform card. The base stroke is the
- * gender-neutral default; the per-gender rules below tint it. */
 .kul-card rect {
     fill: var(--kul-card-fill);
     stroke: var(--kul-card-stroke);
@@ -153,20 +133,16 @@ body {
     transition: stroke-width var(--kul-hover-transition-duration);
 }
 
-/* Hover affordance (#136): hovering a clickable card thickens its rect stroke,
- * reinforcing the F10 click-to-source target. Width-only — the per-gender
- * stroke colour (ADR-0016) and ghost translucency are untouched, so the bump
- * stacks with zero specificity conflict. `.kul-card:hover rect` (0,2,1)
- * outranks the base `.kul-card rect` (0,1,1); it does not gate on data-kind,
- * so ghost cards (also clickable) get the bump too. */
+/* Width-only hover bump: `.kul-card:hover rect` (0,2,1) outranks the base
+ * `.kul-card rect` (0,1,1), so the per-gender stroke colour and ghost
+ * translucency stack without specificity conflict. */
 .kul-card:hover rect {
     stroke-width: var(--kul-card-hover-stroke-width);
 }
 
-/* Gender is a structural data-* seam (ADR-0016): the card shape is
- * gender-neutral, so the preview opts in by tinting the stroke per gender.
- * The name label still carries identity; colour is supplementary. R03 makes
- * gender required, so every card matches one of these. */
+/* Gender is a structural data-* seam (ADR-0016): card shape is gender-neutral,
+ * preview opts in by tinting the stroke per gender. R03 makes gender
+ * required, so every card matches one of these. */
 .kul-card[data-gender="male"] rect {
     stroke: var(--kul-card-stroke-male);
 }
@@ -185,9 +161,8 @@ body {
     fill-opacity: var(--kul-ghost-fill-opacity);
 }
 
-/* A ghost keeps its dashed outline + translucent fill (the ghost marker);
- * the gender tint rides on top. The two-attribute selector outranks both the
- * canonical per-gender rule and the ghost base, so it wins for ghost cards. */
+/* Two-attribute selector outranks both the per-gender rule and the ghost base,
+ * so ghosts keep their dashed outline + translucent fill plus the gender tint. */
 .kul-card[data-kind="ghost"][data-gender="male"] rect {
     stroke: var(--kul-ghost-stroke-male);
 }
@@ -214,9 +189,8 @@ body {
     font-size: var(--kul-ghost-badge-font-size);
 }
 
-/* Edges. The birth/adoption dasharray ships inline from kul-svg (structural,
- * ADR-0016); only colour and stroke-width are themed. The data-link-kind
- * selectors below add the per-kind distinction over this base. */
+/* Birth/adoption dasharray ships inline from kul-svg (structural, ADR-0016);
+ * only colour and stroke-width are themed. */
 .kul-edge {
     stroke: var(--kul-edge-stroke);
     stroke-width: var(--kul-edge-stroke-width);
@@ -226,53 +200,38 @@ body {
     stroke: var(--kul-adoption-edge-stroke);
 }
 
-/* Marriage connector (ADR-0020): a distinct colour and heavier stroke so it
- * reads apart from the thin birth/adoption edges. */
+/* Marriage connector (ADR-0020): distinct colour and heavier stroke to read
+ * apart from thin birth/adoption edges. */
 .kul-edge[data-link-kind="marriage"] {
     stroke: var(--kul-marriage-edge-stroke);
     stroke-width: var(--kul-marriage-edge-stroke-width);
     transition: stroke-width var(--kul-hover-transition-duration);
 }
 
-/* Hover affordance (#136): only marriage bars are clickable among edges (F10),
- * so only they thicken on hover. Birth/adoption edges keep `cursor: grab` and
- * stay inert. Width-only: the `data-is-ended="true"` rule below sets only
- * stroke-opacity, so an ended marriage keeps its translucency and still gains
- * the hover width. */
+/* Only marriage bars are clickable among edges. Width-only — the
+ * data-is-ended="true" rule below sets only stroke-opacity, so an ended
+ * marriage keeps its translucency and still gains the hover width. */
 .kul-edge[data-link-kind="marriage"]:hover {
     stroke-width: var(--kul-marriage-edge-hover-stroke-width);
 }
 
-/* An ended (divorced) marriage edge renders translucent. */
 .kul-edge[data-is-ended="true"] {
     stroke-opacity: var(--kul-ended-edge-stroke-opacity);
 }
 
-/* Selection sync (#137): the card/bar the editor cursor sits on is wrapped
- * in a prominent outline ring rather than recolouring the shape, so the
- * entity keeps its own gender tint / marriage colour and the selection still
- * reads unmistakably. The ring colour is reserved for selection — a hue used
- * nowhere else in the palette — and outline-offset floats it just outside the
- * shape. `outline` is a separate box from `stroke`, so this never fights the
- * per-gender or hover stroke rules (no specificity conflict). The marriage
- * selector keys on data-link-kind="marriage" so birth/adoption edges (which
- * the highlight never targets) cannot match. */
+/* Selection outline (not stroke), so the entity keeps its gender tint /
+ * marriage colour without specificity conflict. The ring colour is reserved
+ * for selection — a hue used nowhere else in the palette. */
 .kul-card.kul-selected rect,
 .kul-edge[data-link-kind="marriage"].kul-selected {
     outline: var(--kul-selected-outline-width) solid var(--kul-selected-outline-color);
     outline-offset: var(--kul-selected-outline-offset);
 }
 
-/* Hover tooltip (#192): a JS-injected floating panel that surfaces a hovered
- * entity's data-* fields (born/died/family/given/gender, marriage start/end/
- * end-reason, adoption start/end). The bootstrap appends it to <body> and sets
- * position:fixed left/top after measuring + clamping to the viewport, so the
- * rule supplies only the box, not the placement. pointer-events:none keeps it
- * from intercepting the hover/click underneath (so F10 click-to-source and F12
- * selection sync are untouched) and prevents it from flickering its own
- * mouseout. The floating-panel box (fixed position, themed bg/border/shadow,
- * radius) is kept self-contained here so a future legend / hover-help (#157)
- * could lift it into a shared `.kul-floating-panel` primitive. */
+/* JS-injected hover tooltip. Bootstrap appends to <body> and sets fixed
+ * left/top after measuring + viewport-clamping, so the rule supplies only the
+ * box. pointer-events:none keeps it from intercepting hover/click underneath
+ * and prevents it from flickering its own mouseout. */
 .kul-tooltip {
     position: fixed;
     z-index: 20;
@@ -290,17 +249,14 @@ body {
     gap: var(--kul-tooltip-row-gap);
 }
 
-/* Typed header (#192): an entity-kind kicker ("Person" / "Marriage" /
- * "Adoption") stacked over the resolved identity line (a person's name, a
- * marriage's two spouses, an adoption's child). A hairline rule divides it
- * from the field rows — but only when rows follow, so a header-only tooltip
- * (no fields) has no dangling separator. */
 .kul-tooltip-header {
     display: flex;
     flex-direction: column;
     gap: var(--kul-tooltip-header-line-gap);
 }
 
+/* Hairline divider only when rows follow — a header-only tooltip has no
+ * dangling separator. */
 .kul-tooltip-header:not(:last-child) {
     margin-bottom: var(--kul-tooltip-header-gap);
     padding-bottom: var(--kul-tooltip-header-gap);
@@ -319,10 +275,8 @@ body {
     color: var(--kul-tooltip-title-fg);
 }
 
-/* Fields are a single two-column grid (label | value): one track for the
- * labels, one for the values, so both line up as columns across every row
- * regardless of label/value width. The label column is dimmed so the values
- * read as primary. */
+/* Two-column grid (label | value) so both columns line up across rows
+ * regardless of label/value width. */
 .kul-tooltip-fields {
     display: grid;
     grid-template-columns: auto auto;
@@ -334,33 +288,11 @@ body {
     color: var(--kul-tooltip-label-fg);
 }
 
-/* Chrome legend (#157, ADR-0022): a compact bottom-left overlay listing the
- * diagram's visual vocabulary — gender stroke tints, ghost (past record), and
- * the four edge treatments. The swatches are miniature glyphs carrying the
- * production `.kul-card` / `.kul-edge` classes + `data-*` attributes, so the
- * rules above paint them with the same theme tokens the diagram uses (the
- * only swatch-scale override is the marriage stroke-width below; swatch
- * colour is never overridden).
- *
- * Layout: a two-column grid with default row-flow, so the canonical row
- * order (`docs/canonical-ui-pattern.md`) reads left-to-right, top-to-bottom
- * — rows 1-2 in the first row of the grid, rows 3-4 in the second, etc.
- * Sized for a glance-and-go reference rather than a primary panel — the
- * UI font (not the editor font), a smaller font-size, tighter padding,
- * and shrunken swatches keep it small even with all eight rows present.
- *
- * Visually subdued: re-uses the pan/zoom control panel's bg/border/shadow
- * tokens so the legend sits in the same chrome family rather than competing
- * for attention as a separate kind of overlay.
- *
- * Hidden by default; the ⓘ toggle in #kul-controls reveals it. Stays opt-in
- * across renders — the bootstrap rebuilds row content on each render but
- * `legendVisible` (false at start) gates the panel's `hidden` attribute.
- *
- * pointer-events:none lets clicks/hover pass through to the diagram below,
- * and incidentally suppresses the `.kul-card:hover` stroke bump on the
- * static swatches. Sits just above the pan/zoom controls at the same left
- * inset. */
+/* Chrome legend (ADR-0022): compact bottom-left overlay listing the diagram's
+ * visual vocabulary. Swatches carry production .kul-card/.kul-edge classes +
+ * data-* attributes, so the rules above paint them with the same tokens the
+ * diagram uses. pointer-events:none lets clicks/hover pass through and
+ * incidentally suppresses the .kul-card:hover bump on static swatches. */
 .kul-preview-legend {
     position: fixed;
     bottom: var(--kul-legend-inset-bottom);
@@ -399,10 +331,8 @@ body {
     display: block;
 }
 
-/* Swatch-scale override (ADR-0022): the production 8.75px marriage stroke
- * would dominate a swatch-scale row, so it is clamped to a still-distinct
- * thick line. Colour (`var(--kul-marriage-edge-stroke)`) is unchanged so
- * the swatch tracks the theme. */
+/* The production 8.75px marriage stroke would dominate a swatch-scale row,
+ * so it is clamped to a still-distinct thick line. Colour stays themed. */
 .kul-legend-swatch .kul-edge[data-link-kind="marriage"] {
     stroke-width: var(--kul-legend-marriage-stroke-width);
 }

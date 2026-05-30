@@ -1,13 +1,9 @@
 //! Byte offset ↔ LSP `Position` conversion.
 //!
 //! LSP positions are 0-indexed lines and 0-indexed UTF-16 code units within
-//! the line. `kul-core` uses UTF-8 byte offsets. The translation is
-//! error-prone (off-by-one on UTF-8 multi-byte input causes silently-wrong
-//! highlight ranges), so this module is small but heavily tested.
-//!
-//! CRLF: the `\r` is treated as part of the line content for column
-//! purposes. LSP clients tolerate both conventions; staying byte-faithful
-//! avoids ambiguity when the editor and server disagree about line endings.
+//! the line; `kul-core` uses UTF-8 byte offsets. CRLF: `\r` is treated as
+//! part of the line content for column purposes, so we stay byte-faithful
+//! when editor and server disagree about line endings.
 
 use std::sync::Arc;
 
@@ -15,14 +11,10 @@ use tower_lsp::lsp_types::{Position, Range};
 
 use kul_core::span::ByteSpan;
 
-/// Index of line-start byte offsets in a source string.
+/// Index of line-start byte offsets in a source string. Lookup is O(log lines).
 ///
-/// Built once per source; lookup is O(log lines).
-///
-/// Holds the source as an [`Arc<str>`] so callers (notably [`crate::state::Document`])
-/// can share the same heap buffer rather than carrying a duplicate copy. Constructing
-/// a `LineIndex` from a `&str` allocates a fresh `Arc<str>`; constructing from an
-/// existing `Arc<str>` is just a refcount bump.
+/// Holds the source as an [`Arc<str>`] so callers can share the same heap
+/// buffer rather than carrying a duplicate copy.
 #[derive(Debug, Clone)]
 pub struct LineIndex {
     line_starts: Vec<usize>,
@@ -30,9 +22,7 @@ pub struct LineIndex {
 }
 
 impl LineIndex {
-    /// Build a line index from `source`. Accepts anything that converts into
-    /// `Arc<str>` — `&str` (clones once), `String` (reuses the heap buffer),
-    /// `Arc<str>` (refcount bump only, source is shared).
+    /// Build a line index from `source`.
     pub fn new(source: impl Into<Arc<str>>) -> Self {
         let source: Arc<str> = source.into();
         let mut line_starts = vec![0];
@@ -52,8 +42,7 @@ impl LineIndex {
         &self.source
     }
 
-    /// The shared `Arc<str>` backing this index, so callers can hold the
-    /// same heap buffer without copying it.
+    /// The shared `Arc<str>` backing this index.
     pub fn source_arc(&self) -> Arc<str> {
         Arc::clone(&self.source)
     }
@@ -76,10 +65,8 @@ impl LineIndex {
     }
 
     /// Convert an LSP `Position` into a UTF-8 byte offset. Returns `None` if
-    /// the line is past EOF.
-    ///
-    /// Out-of-range characters (e.g. cursor past the end of a line) clamp to
-    /// the line's last code unit — matches what VSCode does.
+    /// the line is past EOF; out-of-range characters clamp to the line's
+    /// last code unit (matches VSCode).
     pub fn byte_offset(&self, position: Position) -> Option<usize> {
         let line_idx = position.line as usize;
         if line_idx >= self.line_starts.len() {
@@ -91,8 +78,7 @@ impl LineIndex {
             .get(line_idx + 1)
             .copied()
             .unwrap_or(self.source.len());
-        // Strip `\n` and a preceding `\r` so the column count reflects the
-        // logical line, not the trailing newline machinery.
+        // Strip `\n` and a preceding `\r` so column count reflects the logical line.
         let raw_line = &self.source[line_start..line_end];
         let logical_line = raw_line
             .strip_suffix('\n')
@@ -108,8 +94,7 @@ impl LineIndex {
             }
             let units = c.len_utf16() as u32;
             if utf16_count + units > position.character {
-                // Cursor lands inside a surrogate pair — clamp to the
-                // character's start byte (closest valid byte boundary).
+                // Cursor inside a surrogate pair — clamp to char's start byte.
                 break;
             }
             utf16_count += units;
@@ -178,12 +163,9 @@ mod tests {
     fn crlf_line_breaks() {
         let src = "ab\r\ncd\r\n";
         let idx = LineIndex::new(src);
-        // CR is part of line 0 (bytes 0..3 are "ab\r"); the newline at byte
-        // 3 starts line 1 at byte 4.
-        assert_eq!(idx.position(2), pos(0, 2)); // before \r
-        assert_eq!(idx.position(3), pos(0, 3)); // on \r
-        assert_eq!(idx.position(4), pos(1, 0)); // after \n
-        // Round-trip from line 1 col 0 lands at byte 4 (start of "cd").
+        assert_eq!(idx.position(2), pos(0, 2));
+        assert_eq!(idx.position(3), pos(0, 3));
+        assert_eq!(idx.position(4), pos(1, 0));
         assert_eq!(idx.byte_offset(pos(1, 0)), Some(4));
         assert_eq!(idx.byte_offset(pos(1, 2)), Some(6));
     }
@@ -197,9 +179,7 @@ mod tests {
     #[test]
     fn byte_offset_past_eol_clamps_to_logical_end() {
         let idx = LineIndex::new("ab\ncd\n");
-        // Asking for column 99 on line 0 clamps to end of "ab" = byte 2.
         assert_eq!(idx.byte_offset(pos(0, 99)), Some(2));
-        // Asking for column 99 on line 1 clamps to end of "cd" = byte 5.
         assert_eq!(idx.byte_offset(pos(1, 99)), Some(5));
     }
 

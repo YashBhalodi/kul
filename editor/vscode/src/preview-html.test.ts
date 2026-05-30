@@ -9,12 +9,10 @@ import {
     previewHtml,
 } from "./preview-html";
 
-/** Shorthand for the `{ name, value }` attribute shape buildTooltip takes. */
 function attr(name: string, value: string): { name: string; value: string } {
     return { name, value };
 }
 
-/** An `id → name` resolver backed by a map, falling back to the id. */
 function namer(map: Record<string, string> = {}): (id: string) => string {
     return (id) => map[id] ?? id;
 }
@@ -31,7 +29,6 @@ function build(): string {
     return previewHtml(THEME_HREF, CSS_HREF, SCRIPT_HREF, CSP_SOURCE, NONCE);
 }
 
-/** Pull a single CSP directive (e.g. `script-src`) out of the rendered HTML. */
 function cspDirective(html: string, name: string): string {
     const match = html.match(
         /content="([^"]*)"\s*>/,
@@ -65,7 +62,7 @@ describe("previewHtml CSP", () => {
         expect(scriptSrc).not.toContain("'unsafe-inline'");
     });
 
-    it("keeps 'unsafe-inline' on style-src (unchanged)", () => {
+    it("keeps 'unsafe-inline' on style-src", () => {
         const styleSrc = cspDirective(build(), "style-src");
         expect(styleSrc).toContain(CSP_SOURCE);
         expect(styleSrc).toContain("'unsafe-inline'");
@@ -122,11 +119,7 @@ describe("previewHtml overlay controls", () => {
 
     it("adds a vertical divider between pan/zoom and the legend toggle", () => {
         const html = build();
-        // A hairline span separates the two zones of the control cluster.
         expect(html).toContain('class="kul-control-divider"');
-        // The divider sits between the three pan/zoom buttons and the
-        // legend toggle button — i.e. after data-action="zoom-out", before
-        // data-action="toggle-legend".
         const zoomOutIdx = html.indexOf('data-action="zoom-out"');
         const dividerIdx = html.indexOf('class="kul-control-divider"');
         const toggleIdx = html.indexOf('data-action="toggle-legend"');
@@ -137,7 +130,6 @@ describe("previewHtml overlay controls", () => {
     it("includes a legend-toggle (ⓘ) button that starts unpressed", () => {
         const html = build();
         expect(html).toContain('data-action="toggle-legend"');
-        // Default state is hidden, so the toggle starts unpressed.
         expect(html).toMatch(
             /data-action="toggle-legend"[^>]*aria-pressed="false"/,
         );
@@ -150,8 +142,7 @@ describe("previewHtml click-to-source", () => {
     });
 
     it("attaches a click listener on #root", () => {
-        // #root survives every innerHTML swap, so the listener is wired
-        // there once rather than per-render on the SVG.
+        // #root survives every innerHTML swap; wire the listener there once.
         expect(build()).toContain("root.addEventListener('click'");
     });
 
@@ -171,9 +162,8 @@ describe("previewHtml click-to-source", () => {
     });
 
     it("ignores birth/adoption edges (keys on marriage, not bare data-marriage-id)", () => {
-        // Birth/adoption edges carry data-marriage-id too. The predicate
-        // must select on data-link-kind="marriage" so those stay inert —
-        // there must be no closest("[data-marriage-id]") selector.
+        // Birth/adoption edges carry data-marriage-id too; the predicate
+        // must key on data-link-kind="marriage" so those stay inert.
         expect(build()).not.toContain("closest('[data-marriage-id]')");
         expect(build()).not.toContain('closest("[data-marriage-id]")');
     });
@@ -193,8 +183,6 @@ describe("previewHtml selection sync", () => {
     });
 
     it("treats a null id as clear-only", () => {
-        // highlightEntity returns after clearing when id is falsy, so a
-        // { id: null } message strips the highlight without re-applying.
         expect(build()).toContain("if (!id) { return; }");
     });
 
@@ -209,8 +197,6 @@ describe("previewHtml selection sync", () => {
 
     it("pans (translate only) to centre the matched element", () => {
         const html = build();
-        // Centering reads the live viewport via getSizes()+getBBox() and
-        // calls panZoom.pan(...) — never zoom.
         expect(html).toContain("panZoom.getSizes()");
         expect(html).toContain("getBBox()");
         expect(html).toContain("panZoom.pan(");
@@ -219,16 +205,12 @@ describe("previewHtml selection sync", () => {
 
     it("eases the centring pan over rAF rather than snapping", () => {
         const html = build();
-        // The centring tween is requestAnimationFrame-driven (like the
-        // keyboard pan) and cancels the prior tween so rapid cursor moves
-        // chase the latest target without stacking.
         expect(html).toContain("requestAnimationFrame(step)");
         expect(html).toContain("cancelPanAnim()");
         expect(html).toContain("performance.now()");
     });
 });
 
-/** Convenience: the rows of a built model (asserting it isn't null). */
 function rowsOf(
     attrs: Array<{ name: string; value: string }>,
     resolve = namer(),
@@ -303,8 +285,6 @@ describe("buildTooltip typed header", () => {
 
 describe("buildTooltip rows — denylist", () => {
     it("omits the structural attributes, keeping only display fields", () => {
-        // A canonical person card carries identity/layout/styling attributes
-        // alongside its display fields; only the latter become rows.
         const rows = rowsOf([
             attr("data-person-id", "alice"),
             attr("data-kind", "canonical"),
@@ -445,17 +425,12 @@ describe("buildTooltip rows — value capitalization", () => {
 
 describe("previewHtml hover tooltip", () => {
     it("embeds the shared buildTooltip logic in the bootstrap", () => {
-        // The webview runs the exact same content-builder the tests cover, so
-        // its source is serialized into the bootstrap rather than reimplemented.
         expect(build()).toContain("function buildTooltip(");
     });
 
     it("binds the embedded builder to a const so minify-renaming can't break the call", () => {
-        // The production esbuild --minify pass renames the internal function,
-        // so a bare `function NAME(){}` declaration would no longer match the
-        // `buildTooltip(...)` call site (ReferenceError). Binding the
-        // serialized source to `const buildTooltip = …` fixes the callable
-        // name regardless of how the body was minified.
+        // esbuild --minify renames the inner function, so binding the
+        // serialized source to a const fixes the callable name.
         expect(build()).toContain("const buildTooltip = function");
     });
 
@@ -468,9 +443,6 @@ describe("previewHtml hover tooltip", () => {
 
     it("delays the reveal on a hover-intent timer, cancellable before it fires", () => {
         const html = build();
-        // The tooltip is scheduled via setTimeout(HOVER_DELAY_MS) rather than
-        // shown immediately, and removeTooltip clears the pending timer so a
-        // quick pass-over / leave / pan / re-render never flashes a popup.
         expect(html).toContain("const HOVER_DELAY_MS =");
         expect(html).toContain("hoverTimer = setTimeout(");
         expect(html).toContain("clearTimeout(hoverTimer)");
@@ -478,8 +450,6 @@ describe("previewHtml hover tooltip", () => {
 
     it("resolves names off the card labels for the typed header", () => {
         const html = build();
-        // The person/spouse/child names come from the rendered .kul-label-name
-        // text (not a data-* attribute), resolved by id.
         expect(html).toContain("function resolveName(id)");
         expect(html).toContain(".kul-label-name");
         expect(html).toContain("buildTooltip(attrs, resolveName)");
@@ -504,10 +474,6 @@ describe("previewHtml hover tooltip", () => {
 
     it("scales the tooltip with the diagram, capped at the high end", () => {
         const html = build();
-        // The tooltip is sized in diagram units: it reads svg-pan-zoom's live
-        // realZoom and applies it as a CSS scale, so it grows/shrinks with the
-        // surrounding cards rather than staying a fixed screen overlay — but
-        // clamped to MAX_TOOLTIP_SCALE so very high zoom doesn't balloon it.
         expect(html).toContain("panZoom.getSizes");
         expect(html).toContain("sizes.realZoom");
         expect(html).toContain("const MAX_TOOLTIP_SCALE =");
@@ -543,9 +509,8 @@ describe("LEGEND_ROWS normative table", () => {
     });
 
     it("keys each row on the production data-* attribute (the seam, not a new vocabulary)", () => {
-        // The selectors target the same `data-*` attributes the live SVG
-        // carries (ADR-0021), so a category's presence test reads the same
-        // contract the diagram itself uses.
+        // Selectors target the same `data-*` attributes the live SVG carries
+        // (ADR-0021), so presence tests read the same contract as the diagram.
         const map = Object.fromEntries(
             LEGEND_ROWS.map((r) => [r.key, r.presenceSelector]),
         );
@@ -555,8 +520,6 @@ describe("LEGEND_ROWS normative table", () => {
         expect(map["past-record"]).toContain('data-kind="ghost"');
         expect(map["birth"]).toContain('data-link-kind="birth"');
         expect(map["adoption"]).toContain('data-link-kind="adoption"');
-        // Marriage selects un-ended marriages only — ended marriages get
-        // their own row below.
         expect(map["marriage"]).toContain('data-link-kind="marriage"');
         expect(map["marriage"]).toContain(':not([data-is-ended="true"])');
         expect(map["ended-marriage"]).toContain('data-link-kind="marriage"');
@@ -565,10 +528,6 @@ describe("LEGEND_ROWS normative table", () => {
 });
 
 describe("presentLegendRows dynamic presence", () => {
-    /**
-     * Build a fake `querySelector` that returns a truthy result iff the
-     * given selector is in the `present` set. Avoids any DOM dependency.
-     */
     function fakeHas(present: ReadonlyArray<string>): (selector: string) => unknown {
         const set = new Set(present);
         return (selector) => (set.has(selector) ? {} : null);
@@ -585,8 +544,6 @@ describe("presentLegendRows dynamic presence", () => {
     });
 
     it("filters to only the present categories (no adoption → no Adoption row)", () => {
-        // A nuclear-family-shaped diagram: male+female parents, one
-        // marriage (un-ended), one birth edge.
         const present = [
             '.kul-card[data-gender="male"]',
             '.kul-card[data-gender="female"]',
@@ -642,8 +599,7 @@ describe("legendSwatchInnerSvg", () => {
         );
         const adoption = legendSwatchInnerSvg("adoption");
         expect(adoption).toContain('data-link-kind="adoption"');
-        // Adoption's inline dasharray mirrors production (ADR-0016
-        // "structural dasharrays ship inline").
+        // ADR-0016: structural dasharrays ship inline.
         expect(adoption).toContain('stroke-dasharray="6 4"');
         expect(legendSwatchInnerSvg("marriage")).toContain(
             'class="kul-edge" data-link-kind="marriage"',
@@ -654,8 +610,7 @@ describe("legendSwatchInnerSvg", () => {
     });
 
     it("never bakes a colour into a swatch (no fill/stroke= attributes beyond fill=none)", () => {
-        // Colour is owned by the surrounding stylesheet via the data-*
-        // seam — swatches carry no inline colour (ADR-0022).
+        // ADR-0022: colour comes from the stylesheet via the data-* seam.
         for (const row of LEGEND_ROWS) {
             const svg = legendSwatchInnerSvg(row.key);
             const stripped = svg.replace(/fill="none"/g, "");
@@ -674,62 +629,45 @@ describe("previewHtml chrome legend overlay", () => {
         const html = build();
         expect(html).toContain('id="kul-legend"');
         expect(html).toContain('class="kul-preview-legend"');
-        // Hidden until the first successful render (mirrors #kul-controls).
         expect(html).toMatch(/id="kul-legend"[^>]*hidden/);
     });
 
     it("embeds the normative LEGEND_ROWS table in the bootstrap", () => {
         const html = build();
-        // Embedded verbatim via JSON.stringify so the webview and Vitest
-        // run identical row definitions.
         expect(html).toContain("const LEGEND_ROWS = ");
-        // The canonical labels appear in the embedded JSON.
         expect(html).toContain('"Male"');
         expect(html).toContain('"Past record"');
         expect(html).toContain('"Ended marriage"');
     });
 
     it("embeds legendSwatchInnerSvg behind a stable const for minify safety", () => {
-        // Same minify-renaming guard as buildTooltip: bind the embedded
-        // function to a const so the bootstrap's call site keeps working
-        // after esbuild renames the inner function.
         expect(build()).toContain("const legendSwatchInnerSvg = function");
     });
 
     it("builds rows from the rendered SVG DOM via the same querySelectorAll seam", () => {
         const html = build();
         expect(html).toContain("renderLegend(svg)");
-        // The presence check filters LEGEND_ROWS by querySelector against
-        // the SVG root — same selectors the row table declares.
         expect(html).toContain("svgRoot.querySelector(row.presenceSelector)");
     });
 
     it("hides the legend on render error and on a missing <svg>", () => {
         const html = build();
-        // Both error paths reach hideLegend so the overlay never strands
-        // a stale row table above an error banner.
         expect(html).toContain("hideLegend()");
         expect(html).toMatch(/if \(!svg\) \{ showControls\(false\); hideLegend\(\)/);
     });
 
     it("tracks whether the current diagram has any legend content", () => {
-        // Visibility is gated on two things: the user's toggle state AND
-        // whether there are any categories to show — a click on ⓘ with an
-        // empty diagram is a no-op rather than a vacant panel reveal.
+        // Visibility gates on user toggle AND content presence, so clicking
+        // ⓘ on an empty diagram is a no-op rather than a vacant reveal.
         expect(build()).toContain("legendHasContent");
     });
 
     it("starts hidden — the ⓘ toggle is the discovery affordance", () => {
-        // legendVisible defaults to `false` so the legend is opt-in chrome
-        // rather than always-on. The bootstrap reveals it only after the
-        // user clicks the legend toggle.
         expect(build()).toContain("let legendVisible = false");
     });
 
     it("flips the toggle and re-applies visibility on a toggle-legend click", () => {
         const html = build();
-        // The control-click handler routes "toggle-legend" to toggleLegend,
-        // which flips legendVisible and re-runs applyLegendVisibility.
         expect(html).toContain("action === 'toggle-legend'");
         expect(html).toContain("toggleLegend()");
         expect(html).toContain("legendVisible = !legendVisible");
@@ -738,9 +676,6 @@ describe("previewHtml chrome legend overlay", () => {
 
     it("reflects the open/closed state into the toggle button (aria-pressed + label)", () => {
         const html = build();
-        // The button's aria-pressed mirrors the live state for screen
-        // readers, and the visible aria-label / title flip to "Hide legend"
-        // while the panel is open so the affordance stays accurate.
         expect(html).toContain("setAttribute('aria-pressed', String(shouldShow))");
         expect(html).toContain("'Hide legend'");
         expect(html).toContain("'Show legend'");

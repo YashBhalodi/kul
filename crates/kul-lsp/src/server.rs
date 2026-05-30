@@ -1,11 +1,6 @@
-//! `tower-lsp::LanguageServer` implementation.
-//!
-//! One method per LSP capability. Each method is a thin shell that:
-//! 1. Translates the LSP request into a `kul-core` query (or pure feature
-//!    function — see `features::*`).
-//! 2. Translates the result back into an LSP response.
-//!
-//! This is the only async layer in the crate — every callee is sync.
+//! `tower-lsp::LanguageServer` implementation. One method per LSP
+//! capability; each is a thin shell over a pure `features::*` function.
+//! This is the only async layer in the crate.
 
 use kul_core::export::ExportEnvelope;
 use serde_json::json;
@@ -49,10 +44,8 @@ impl Backend {
         }
     }
 
-    /// Handler for the `kul/export` custom request. Reads the cached
-    /// project for the given URI, runs the export, and returns the
-    /// envelope verbatim. Strict-on-errors is the export function's
-    /// contract — this adapter does not interpret the envelope.
+    /// Handler for `kul/export`. Returns the envelope verbatim;
+    /// strict-on-errors is the export function's contract.
     pub async fn export(&self, params: ExportParams) -> Result<ExportEnvelope> {
         let uri = params.uri.clone();
         let result = self
@@ -74,10 +67,7 @@ impl Backend {
         }
     }
 
-    /// Handler for the `kul/render` custom request. Reads the cached
-    /// project for the given URI, runs the kul-render → kul-layout →
-    /// kul-svg pipeline, and returns either the SVG string (success)
-    /// or the upstream diagnostic list (failure).
+    /// Handler for `kul/render`. Runs render → layout → svg.
     pub async fn render(&self, params: RenderParams) -> Result<RenderResponse> {
         let uri = params.uri.clone();
         let result = self
@@ -99,12 +89,7 @@ impl Backend {
         }
     }
 
-    /// Handler for the `kul/locate` custom request. Resolves a
-    /// project-wide entity id (person or marriage) to the [`Location`]
-    /// of its declaration's id token, for click-to-source from the
-    /// preview panel. An id with no live declaration is not an error —
-    /// the response carries `location: null`. Only a URI that is not in
-    /// the project cache is a request error (mirrors [`Self::render`]).
+    /// Handler for `kul/locate` — id → decl `Location` for click-to-source.
     pub async fn locate(&self, params: LocateParams) -> Result<LocateResponse> {
         let uri = params.uri.clone();
         let result = self
@@ -121,13 +106,7 @@ impl Backend {
         }
     }
 
-    /// Handler for the `kul/entityAt` custom request. Resolves a source
-    /// cursor position to the project-wide entity id (person or marriage)
-    /// under it, for cursor-to-card highlight sync in the preview panel
-    /// (the inverse of [`Self::locate`]). A position that is not on a
-    /// resolved entity id is not an error — the response carries
-    /// `entity: null`. Only a URI that is not in the project cache is a
-    /// request error (mirrors [`Self::render`] and [`Self::locate`]).
+    /// Handler for `kul/entityAt` — cursor → entity id (inverse of [`Self::locate`]).
     pub async fn entity_at(&self, params: EntityAtParams) -> Result<EntityAtResponse> {
         let uri = params.uri.clone();
         let result = self
@@ -144,15 +123,9 @@ impl Backend {
         }
     }
 
-    /// Broadcast diagnostics for every `.kul` file in the project that
-    /// owns `uri`. The Problems pane reflects project-wide health
-    /// (issue #85): a file the user never opened still surfaces its
-    /// diagnostics as soon as a sibling file is opened.
-    ///
-    /// `active_uri_version` carries the LSP version of the URI that
-    /// triggered the broadcast (`did_open` / `did_change`). Other URIs
-    /// in the project are published with `None` because their LSP
-    /// version is not the active one.
+    /// Broadcast diagnostics for every `.kul` file in the project so the
+    /// Problems pane reflects project-wide health. Other URIs publish
+    /// with version `None` since they aren't the active one.
     async fn publish_project(&self, active_uri: &Url, active_uri_version: Option<i32>) {
         let snapshot = self
             .documents
@@ -172,10 +145,9 @@ impl Backend {
     }
 }
 
-/// Collect the per-URL LSP diagnostic lists for every `.kul` file in
-/// the project entry. Each URL gets either its translated diagnostics
-/// or an empty list (so a file that just left the error state still
-/// receives a publish that clears its stale squiggles).
+/// Per-URL LSP diagnostic lists for every `.kul` file in the project.
+/// Each URL gets either its translated diagnostics or an empty list —
+/// the empty list clears stale squiggles for files that left the error state.
 fn collect_project_diagnostics(
     entry: &ProjectEntry,
 ) -> Vec<(Url, Vec<tower_lsp::lsp_types::Diagnostic>)> {
@@ -223,21 +195,15 @@ impl LanguageServer for Backend {
                         },
                     ),
                 ),
-                // Custom (non-LSP-standard) capability advertised under
-                // `experimental` so a client can detect support before
-                // sending the request. The shape mirrors the request
-                // params: clients send `kul/export` with `{ uri, format,
-                // withPositions? }` and receive an export envelope
-                // verbatim. See `crates/kul-lsp/src/features/export.rs`.
+                // Custom capabilities advertised under `experimental` so
+                // clients can detect support before sending the request.
                 experimental: Some(json!({
                     "kulExport": {
                         "formats": ["json", "cytoscape"],
                         "supportsPositions": true,
                     },
                     "kulRender": {
-                        // Canonical visual is theme-agnostic; the
-                        // emitted SVG uses semantic CSS classes (see
-                        // ADR-0016).
+                        // Theme-agnostic SVG with semantic CSS classes (ADR-0016).
                         "format": "svg",
                     },
                 })),
@@ -254,17 +220,9 @@ impl LanguageServer for Backend {
         self.client
             .log_message(MessageType::INFO, "kul-lsp initialized")
             .await;
-        // Dynamically register file watchers for the two globs the
-        // project model cares about — sibling `.kul` files and the
-        // project manifest. VSCode (and any client that supports
-        // dynamic registration) performs the OS-level watching and
-        // pushes events to `did_change_watched_files`. Issue #86.
-        //
-        // Fire-and-forget via `tokio::spawn`: the registration is a
-        // request whose `await` would otherwise block the
-        // `initialized` task on a client response. A client that
-        // doesn't support dynamic registration (or never answers) must
-        // not stall the rest of the LSP lifecycle.
+        // Register file watchers for `.kul` and `kul.yml`. Fire-and-forget
+        // via `tokio::spawn` so a client that doesn't support dynamic
+        // registration can't stall the LSP lifecycle.
         let client = self.client.clone();
         tokio::spawn(async move {
             let registrations = vec![Registration {
@@ -309,7 +267,7 @@ impl LanguageServer for Backend {
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri;
         let version = params.text_document.version;
-        // Full sync: the last content change carries the whole document.
+        // Full sync: last change carries the whole document.
         let Some(change) = params.content_changes.into_iter().next_back() else {
             return;
         };
@@ -332,10 +290,6 @@ impl LanguageServer for Backend {
             match action {
                 WatchAction::Ignored { .. } => {}
                 WatchAction::Reloaded { cleared } => {
-                    // The project still exists — broadcast its
-                    // diagnostics. `publish_project` looks the project
-                    // up by the URI's root, which is the same root the
-                    // watcher event named.
                     self.publish_project(&uri, None).await;
                     for url in cleared {
                         self.client.publish_diagnostics(url, Vec::new(), None).await;
@@ -355,19 +309,12 @@ impl LanguageServer for Backend {
         tracing::info!(uri = %uri, "document closed");
         let (urls, evicted) = self.documents.close(&uri).await;
         if evicted {
-            // Last URI of the project closed: clear squiggles for every
-            // file the project ever surfaced.
             for url in urls {
                 self.client.publish_diagnostics(url, Vec::new(), None).await;
             }
-            // Ensure the closing URI itself sees the clearing publish,
-            // even when the project entry was never built (e.g. a
-            // close without a matching open).
+            // Also clear the closing URI in case the project entry was never built.
             self.client.publish_diagnostics(uri, Vec::new(), None).await;
         } else {
-            // The closed URI's overlay flipped to `None`; the project
-            // still has open URIs. Publish a clearing list for the
-            // closed URI and refresh diagnostics for the rest.
             self.client
                 .publish_diagnostics(uri.clone(), Vec::new(), None)
                 .await;

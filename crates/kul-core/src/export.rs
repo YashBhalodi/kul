@@ -1,35 +1,15 @@
 //! Canonical JSON export of a Kul document.
 //!
-//! Projects a [`CheckResult`] into an [`ExportEnvelope`] suitable for
-//! downstream consumers (visualizers, web apps, scripts). The envelope is
-//! strict-on-errors: if `check.has_errors()` returns true, the envelope
-//! carries the diagnostic list instead of the graph. Warnings do not block.
+//! Strict-on-errors: errors return a failure envelope with the diagnostic
+//! list; warnings do not block. The kinship-native shape exposes three
+//! flat collections (`persons`, `marriages`, `parenthood_links`) keyed
+//! only by id — consumers compose derived views.
 //!
-//! The graph shape is **kinship-native** — three top-level collections that
-//! mirror the language's primitives:
+//! Dates are tagged `{ value, precision, circa }` so consumers don't
+//! re-parse a `~YYYY-MM-DD` string.
 //!
-//! - `persons` — every declared person with id, name, gender, optional
-//!   `family` / `given` / `born` / `died` fields.
-//! - `marriages` — every declared marriage with id, the two spouse ids,
-//!   `start`, optional `end` and `end_reason`.
-//! - `parenthood_links` — every `birth` and `adoption` sub-statement, each
-//!   carrying the marriage id, the child id, and a `kind` discriminator.
-//!
-//! Cross-references are by id only — there are no embedded objects or
-//! derived projections (e.g. `person.children`). Consumers compose those
-//! views over the flat collections.
-//!
-//! Dates are tagged: `{ value, precision, circa }` rather than a flat ISO
-//! string. The value is `YYYY[-MM[-DD]]` without the `~` prefix; the
-//! `circa` flag carries the modifier separately so consumers can render
-//! `~1980` as `c. 1980` (or whatever they prefer) without parsing the
-//! string.
-//!
-//! See [`spec/16-export-schema.md`](../../../spec/16-export-schema.md) for
-//! the normative schema and [ADR-0008](../../../docs/adr/0008-export-kinship-native-shape.md),
-//! [ADR-0009](../../../docs/adr/0009-export-strict-on-diagnostics.md), and
-//! [ADR-0010](../../../docs/adr/0010-export-schema-versioning.md) for the
-//! load-bearing decisions.
+//! See [`spec/16-export-schema.md`](../../../spec/16-export-schema.md),
+//! ADR-0008, ADR-0009, ADR-0010.
 
 pub mod cytoscape;
 
@@ -45,67 +25,44 @@ use crate::semantic::ResolvedDocument;
 use crate::span::{ByteSpan, FileId, FileSpan, SourceMap};
 use std::collections::HashMap;
 
-/// The export schema version. Bumped only when consumers might silently
-/// mis-represent data by ignoring a new construct (e.g. a brand-new
-/// top-level collection). Adding optional fields, new enum values, or new
-/// `parenthood_links.kind` values does NOT bump the schema — consumers
-/// handle these as forward-compatible additions per
-/// [ADR-0010](../../../docs/adr/0010-export-schema-versioning.md).
+/// Export schema version. Bump only when consumers could silently
+/// mis-represent data by ignoring a new construct (e.g. a new top-level
+/// collection). Additive fields/enum values stay on the same version per
+/// ADR-0010.
 pub const SCHEMA_VERSION: u32 = 1;
 
-/// The Kul language version this `kul-core` build implements. Surfaced in
-/// the success envelope as `kul:` so consumers can warn the user when the
-/// source predates a feature they rely on. Distinct from `crate::VERSION`,
-/// which is the implementation version of this crate.
+/// Kul language version this build implements. Distinct from
+/// `crate::VERSION` (the crate implementation version).
 pub const LANGUAGE_VERSION: &str = "0.1";
 
-/// Output format for [`export`].
-///
-/// `Deserialize` accepts the lowercase wire form (`"json"`, `"cytoscape"`)
-/// so JS-side consumers and CLI flag parsing share one vocabulary. See
-/// [`ExportOptions`] for the camelCase wrapper that `kul-wasm`'s
-/// `exportGraph` uses on its options input.
+/// Output format for [`export`]. Lowercase wire form shared by CLI flags
+/// and JS consumers.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum ExportFormat {
-    /// The canonical kinship-native JSON shape — three flat collections
-    /// (`persons`, `marriages`, `parenthood_links`) mirroring the
-    /// language primitives. See [`spec/16-export-schema.md`](../../../spec/16-export-schema.md).
+    /// Kinship-native JSON: `persons` / `marriages` / `parenthood_links`.
     #[default]
     Json,
-    /// The Cytoscape JSON shape — `nodes` + `edges`, with marriages
-    /// promoted to first-class nodes. Loadable into Cytoscape Desktop,
-    /// Cytoscape.js, Sigma.js, vis-network, and similar generic graph
-    /// tooling without modification. See [`cytoscape`].
+    /// Cytoscape JSON: `nodes` + `edges`, marriage-as-node. See
+    /// [`cytoscape`].
     Cytoscape,
 }
 
-/// Caller-tunable knobs for [`export`]. Defaults are the most common path.
-///
-/// `Deserialize` is camelCase and field-level `default` so a JS-side caller
-/// can pass `{}`, `{ withPositions: true }`, or `{ format: "cytoscape" }`
-/// and the omitted fields fall back to [`ExportOptions::default`]. The
-/// `kul-wasm` `exportGraph` bridge uses this directly.
+/// Tunable knobs for [`export`]. CamelCase Deserialize with per-field
+/// defaults so JS callers can pass `{}` or partial objects.
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify), tsify(from_wasm_abi))]
 #[serde(default, rename_all = "camelCase")]
 pub struct ExportOptions {
     pub format: ExportFormat,
-    /// When `true`, every exported entity carries a `span: [byte_start,
-    /// byte_end]` field pointing back to its declaration in the source.
-    /// Default `false` keeps the envelope compact; opt in when the
-    /// consumer needs to map a click on a graph node back to a source
-    /// location ("highlight Alice's declaration").
+    /// Attach `span: [byte_start, byte_end]` to every entity. Opt in when
+    /// the consumer needs to map a graph node back to its source location.
     pub with_positions: bool,
 }
 
-/// The export envelope returned by [`export`]. Either a success payload
-/// carrying the graph, or a failure payload carrying the diagnostic list.
-///
-/// Serialized untagged: serde picks the variant by structure. Both variants
-/// carry an `ok` boolean so consumers can discriminate without inspecting
-/// other fields.
+/// The export envelope: success (graph) or failure (diagnostics).
+/// Untagged with a shared `ok` boolean for consumer discrimination.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify), tsify(into_wasm_abi))]
 #[serde(untagged, rename_all = "camelCase")]
@@ -120,40 +77,28 @@ pub enum ExportEnvelope {
 pub struct SuccessEnvelope {
     /// Always `true`. Consumer-facing discriminator.
     pub ok: bool,
-    /// Schema version this envelope conforms to. See [`SCHEMA_VERSION`].
+    /// Schema version (see [`SCHEMA_VERSION`]).
     pub schema: u32,
-    /// Kul language version of the source document, sourced from the
-    /// project manifest's `kul:` field (`kul.yml`).
+    /// Kul language version from the manifest's `kul:` field.
     pub kul: String,
-    /// The exported graph. Either the kinship-native shape (the canonical
-    /// foundation) or a derived shape such as Cytoscape, depending on
-    /// [`ExportOptions::format`]. Untagged in the JSON: the consumer
-    /// knows which shape to expect from the format they requested.
+    /// The exported graph (shape determined by [`ExportOptions::format`]).
     pub graph: GraphPayload,
 }
 
-/// A graph payload inside a [`SuccessEnvelope`].
-///
-/// Untagged at the wire level: the JSON looks identical to whichever
-/// inner shape was chosen (kinship-native objects with `persons` /
-/// `marriages` / `parenthood_links`, or cytoscape objects with `nodes` /
-/// `edges`). Consumers know which to expect based on the `--format` they
-/// asked for; the envelope's `schema` is the same integer regardless of
-/// shape because both shapes are projections of the same underlying data.
+/// Graph payload inside a [`SuccessEnvelope`]. Untagged on the wire — the
+/// consumer knows which shape from the `--format` they requested.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum GraphPayload {
-    /// The kinship-native graph: three flat collections.
+    /// Kinship-native: three flat collections.
     Native(ExportedGraph),
-    /// The Cytoscape graph: `nodes` + `edges` with marriage-as-node
-    /// modeling. Derived from [`Native`].
+    /// Cytoscape: `nodes` + `edges`, derived from [`Native`].
     Cytoscape(cytoscape::CytoscapeGraph),
 }
 
 impl GraphPayload {
-    /// Borrow as the kinship-native graph, or `None` if this payload is
-    /// in another shape. Test helper.
+    /// Borrow as the kinship-native graph, or `None`.
     pub fn as_native(&self) -> Option<&ExportedGraph> {
         match self {
             GraphPayload::Native(g) => Some(g),
@@ -161,8 +106,7 @@ impl GraphPayload {
         }
     }
 
-    /// Borrow as the Cytoscape graph, or `None` if this payload is in
-    /// another shape. Test helper.
+    /// Borrow as the Cytoscape graph, or `None`.
     pub fn as_cytoscape(&self) -> Option<&cytoscape::CytoscapeGraph> {
         match self {
             GraphPayload::Cytoscape(g) => Some(g),
@@ -177,9 +121,7 @@ impl GraphPayload {
 pub struct FailureEnvelope {
     /// Always `false`. Consumer-facing discriminator.
     pub ok: bool,
-    /// Every diagnostic the validator produced — errors, warnings, and
-    /// notes alike — so the consumer sees the full picture of why export
-    /// refused.
+    /// Every diagnostic the validator produced (errors, warnings, notes).
     pub diagnostics: Vec<ExportedDiagnostic>,
 }
 
@@ -214,8 +156,7 @@ pub struct ExportedPerson {
     pub born: Option<ExportedDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub died: Option<ExportedDate>,
-    /// `[byte_start, byte_end]` covering the source-level statement.
-    /// Present only when `ExportOptions::with_positions` was `true`.
+    /// `[byte_start, byte_end]`. Present iff `with_positions`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub span: Option<[usize; 2]>,
 }
@@ -225,31 +166,25 @@ pub struct ExportedPerson {
 #[serde(rename_all = "camelCase")]
 pub struct ExportedMarriage {
     pub id: String,
-    /// The two spouse ids, in declaration order. Both ids resolve to a
-    /// `person` in `persons` (the failure envelope would have fired
-    /// otherwise).
+    /// Two spouse ids, in declaration order. Both resolve to entries in
+    /// `persons` (export refuses otherwise).
     pub spouses: [String; 2],
     pub start: ExportedDate,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end: Option<ExportedDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_reason: Option<String>,
-    /// `[byte_start, byte_end]` covering the source-level statement.
-    /// Present only when `ExportOptions::with_positions` was `true`.
+    /// `[byte_start, byte_end]`. Present iff `with_positions`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub span: Option<[usize; 2]>,
 }
 
-/// What kind of parenthood a [`ExportedParenthoodLink`] records.
-///
-/// Serializes to the lowercase wire form `"biological"` / `"adoptive"`.
+/// Parenthood kind. Wire form: `"biological"` / `"adoptive"`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum ParenthoodLinkKind {
-    /// Derived from a `birth` link.
     Biological,
-    /// Derived from an `adoption` link.
     Adoptive,
 }
 
@@ -259,26 +194,20 @@ pub enum ParenthoodLinkKind {
 pub struct ExportedParenthoodLink {
     pub marriage_id: String,
     pub child_id: String,
-    /// Which [`ParenthoodLinkKind`] this link records. New kinds (e.g.
-    /// surrogacy) would land additively as new variants per
-    /// [ADR-0010](../../../docs/adr/0010-export-schema-versioning.md).
     pub kind: ParenthoodLinkKind,
-    /// `start:` of an adoption. Always absent for biological links.
+    /// `start:` of an adoption. Absent for biological links.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub start: Option<ExportedDate>,
-    /// `end:` of an adoption. Always absent for biological links.
+    /// `end:` of an adoption. Absent for biological links.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end: Option<ExportedDate>,
-    /// `[byte_start, byte_end]` covering the source-level `birth` or
-    /// `adoption` sub-statement. Present only when
-    /// `ExportOptions::with_positions` was `true`.
+    /// `[byte_start, byte_end]`. Present iff `with_positions`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub span: Option<[usize; 2]>,
 }
 
-/// A date as projected into the envelope. Splits the source `~YYYY[-MM[-DD]]`
-/// form into `value` (no circa marker), `precision` (year / month / day),
-/// and `circa` (the `~` flag) so consumers don't have to re-parse strings.
+/// Projected date: `value` (no circa marker), `precision`
+/// (year/month/day), and `circa` flag.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
@@ -295,8 +224,7 @@ pub struct ExportedDiagnostic {
     pub code: String,
     pub severity: &'static str,
     pub message: String,
-    /// `None` for unanchored diagnostics (e.g. `KUL-M01`); the message
-    /// carries the would-be location in that case.
+    /// `None` for unanchored diagnostics (e.g. `KUL-M01`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub primary: Option<ExportedSpan>,
     pub related: Vec<ExportedRelated>,
@@ -315,9 +243,8 @@ pub struct ExportedRelated {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedSpan {
-    /// Canonical name of the file this span anchors into (the
-    /// `InputFile.name` the toolchain originally fed in, or the
-    /// manifest's `manifest_name` for `KUL-Mxx` codes).
+    /// Canonical file name (`InputFile.name`, or `manifest_name` for
+    /// `KUL-Mxx`).
     pub file: String,
     pub byte_start: usize,
     pub byte_end: usize,
@@ -325,14 +252,8 @@ pub struct ExportedSpan {
     pub column: usize,
 }
 
-/// Project every diagnostic in a [`CheckResult`] into the wire-shape
-/// [`ExportedDiagnostic`] used by the failure envelope.
-///
-/// Each diagnostic's primary [`FileSpan`] is rendered with its file's
-/// own [`SourceMap`] (built lazily and cached for the duration of the
-/// call). The `kul-wasm` `check` bridge calls this to expose diagnostics
-/// over the JS surface without reimplementing diagnostic-to-JSON walking
-/// or per-file `SourceMap` construction.
+/// Project every diagnostic in a [`CheckResult`] into [`ExportedDiagnostic`].
+/// Per-file [`SourceMap`]s are built lazily and cached for the call.
 #[must_use]
 pub fn export_diagnostics(check: &CheckResult) -> Vec<ExportedDiagnostic> {
     let document = check.document();
@@ -344,12 +265,9 @@ pub fn export_diagnostics(check: &CheckResult) -> Vec<ExportedDiagnostic> {
         .collect()
 }
 
-/// Project a [`CheckResult`] into an [`ExportEnvelope`].
-///
-/// Strict on errors: any error-severity diagnostic returns a failure
-/// envelope carrying the full diagnostic list. Warnings do not block;
-/// they are not surfaced in the success envelope today (additive — a
-/// future schema bump may include them).
+/// Project a [`CheckResult`] into an [`ExportEnvelope`]. Strict on
+/// errors; warnings do not block (not surfaced in success envelopes
+/// today).
 #[must_use]
 pub fn export(check: &CheckResult, options: ExportOptions) -> ExportEnvelope {
     if check.has_errors() {
@@ -373,9 +291,7 @@ pub fn export(check: &CheckResult, options: ExportOptions) -> ExportEnvelope {
     })
 }
 
-/// Lazily-built per-file [`SourceMap`] cache. The diagnostic list may
-/// span the manifest plus any number of `.kul` files; each file gets at
-/// most one [`SourceMap`] built on first need.
+/// Lazily-built per-file [`SourceMap`] cache.
 struct SourceMapCache<'a> {
     document: &'a Document,
     maps: HashMap<FileId, SourceMap>,
@@ -616,7 +532,7 @@ mod tests {
 
     #[test]
     fn errors_block_with_failure_envelope() {
-        let env = export_source("person alice gender:female\n"); // missing name → R03
+        let env = export_source("person alice gender:female\n");
         let ExportEnvelope::Failure(f) = env else {
             panic!("expected failure");
         };

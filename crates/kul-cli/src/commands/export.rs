@@ -1,10 +1,6 @@
-//! `kul export` subcommand — project-wide.
-//!
-//! Reads every `.kul` file in the current Kul project (CWD must hold
-//! a sibling `kul.yml`), runs `check` on the union, and writes one
-//! envelope to stdout carrying every person, marriage, and
-//! parenthood-link in the project. Errors block: any error-severity
-//! diagnostic produces the failure envelope and a non-zero exit.
+//! `kul export` subcommand — projects the CWD Kul project to a single
+//! envelope on stdout. Error-severity diagnostics block and produce the
+//! failure envelope with a non-zero exit.
 
 use std::io::{self, Write};
 use std::process::ExitCode;
@@ -19,15 +15,11 @@ use crate::commands::project::load_and_check;
 
 #[derive(Copy, Clone, Debug, clap::ValueEnum, PartialEq, Eq)]
 pub enum CliExportFormat {
-    /// Canonical kinship-native shape — `persons`, `marriages`,
-    /// `parenthood_links`. Spec §15.
+    /// Canonical kinship-native shape (spec §15).
     Json,
-    /// Cytoscape JSON — `nodes` + `edges`, marriage-as-node bipartite
-    /// modeling. Loadable into Cytoscape.js, Sigma.js, vis-network, etc.
+    /// Cytoscape JSON — `nodes` + `edges`, marriage-as-node bipartite.
     Cytoscape,
-    /// Self-contained SVG of the canonical visual — the same pipeline
-    /// the VSCode preview uses, with a neutral light theme baked in so
-    /// the file renders standalone. Streams to stdout (`> tree.svg`).
+    /// Self-contained SVG of the canonical visual, streamed to stdout.
     Svg,
 }
 
@@ -36,8 +28,6 @@ impl From<CliExportFormat> for ExportFormat {
         match value {
             CliExportFormat::Json => ExportFormat::Json,
             CliExportFormat::Cytoscape => ExportFormat::Cytoscape,
-            // `Svg` runs the canonical-visual pipeline, not the kinship
-            // envelope projection — `run` branches before reaching here.
             CliExportFormat::Svg => {
                 unreachable!("svg is rendered via the visual pipeline, not an ExportFormat")
             }
@@ -57,9 +47,6 @@ pub fn run(opts: Options) -> ExitCode {
     }
 }
 
-/// The kinship-native envelope path (`json` / `cytoscape`): project the
-/// checked project to an [`ExportEnvelope`](kul_core::export::ExportEnvelope)
-/// and write it to stdout.
 fn run_envelope(opts: Options) -> ExitCode {
     let (_project, check) = match load_and_check() {
         Ok(x) => x,
@@ -86,11 +73,8 @@ fn run_envelope(opts: Options) -> ExitCode {
     }
 }
 
-/// The canonical-visual path (`svg`): run the same pipeline the LSP's
-/// `kul/render` uses (`compute → layout → render`) and stream a
-/// self-contained SVG to stdout. `--with-positions` is a JSON-envelope
-/// concept (it attaches source spans to exported entities) and is
-/// meaningless for SVG, so combining the two is a usage error.
+/// `--with-positions` is JSON-envelope-only; combining with SVG is a
+/// usage error.
 fn run_svg(with_positions: bool) -> ExitCode {
     if with_positions {
         eprintln!(
@@ -104,19 +88,13 @@ fn run_svg(with_positions: bool) -> ExitCode {
     };
     let shape = compute(&check);
     match shape {
-        // Error-severity diagnostics block the render: nothing reaches
-        // stdout, the diagnostics render to stderr (the same surface
-        // `validate` uses), and the exit code is non-zero.
         RenderShape::Failure(_) => {
             diag::render_human(&check, false);
             ExitCode::from(1)
         }
         RenderShape::Success(_) => {
             let positioned = layout(&shape, &LayoutConfig::default());
-            // Self-contained + legend (ADR-0022): a standalone exported
-            // SVG is self-explanatory — the baked stylesheet themes the
-            // dynamic legend's swatches via the same `--kul-*` tokens
-            // the diagram uses.
+            // Self-contained + legend per ADR-0022.
             let svg = render(
                 &positioned,
                 &ThemeConfig::with_self_contained(true).with_legend(true),

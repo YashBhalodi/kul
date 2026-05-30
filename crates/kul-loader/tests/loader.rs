@@ -1,17 +1,7 @@
-//! Tests for the project loader.
-//!
-//! Fixtures live in `tests/fixtures/<scenario>/` and exercise the
-//! loader's filesystem-level behaviour: happy path, missing manifest,
-//! empty project (no `.kul` files), subdirectories ignored,
-//! non-`.kul` files ignored, and an unreadable `.kul` file. Error
-//! variants are snapshot-tested through their `Display` impl so the
-//! human-facing rendering stays stable.
-//!
-//! Both entry points are exercised here: [`load`] (strict, CLI-shaped)
-//! and [`discover`] (lenient, LSP-shaped). The shared discovery rule
-//! lives once in the loader; the tests cover that both projections of
-//! it agree on what counts as a `.kul` file and what the iteration
-//! order is.
+//! Tests for the project loader. Fixtures live in
+//! `tests/fixtures/<scenario>/`. Error rendering is snapshot-tested
+//! through `Display`. Both [`load`] (strict) and [`discover`]
+//! (lenient) are exercised against the shared discovery rule.
 
 use std::path::PathBuf;
 
@@ -36,9 +26,6 @@ fn happy_path_loads_manifest_and_all_kul_files_in_order() {
         input_names(&project),
         ["01-founders.kul", "02-children.kul"]
     );
-    // The first file's bytes match the fixture; sanity-checks the
-    // loader actually read the source rather than handing back empty
-    // strings.
     assert!(project.inputs[0].source.contains("person alice"));
     assert!(project.inputs[1].source.contains("person carol"));
 }
@@ -65,10 +52,8 @@ fn missing_manifest_returns_typed_error() {
 #[test]
 fn missing_manifest_rendering_is_stable() {
     let err = load(&fixture("missing-manifest")).expect_err("expected error");
-    // Strip the absolute path prefix so the snapshot stays portable
-    // across checkout locations, then normalize separators so the
-    // snapshot matches on Windows too (`PathBuf::Display` renders
-    // `\` on Windows, `/` on Unix).
+    // Strip absolute path prefix and normalize separators so the
+    // snapshot stays portable across checkouts and across Windows/Unix.
     let rendered = err
         .to_string()
         .replace(env!("CARGO_MANIFEST_DIR"), "<crate-root>")
@@ -80,16 +65,13 @@ fn missing_manifest_rendering_is_stable() {
 fn empty_project_loads_with_no_inputs() {
     let project = load(&fixture("empty-project")).expect("load");
     assert!(project.inputs.is_empty());
-    // KUL-M06 is `kul_core::check`'s job — the loader stays silent
-    // on the empty case and the diagnostic flows through the normal
-    // check pipeline.
     assert!(project.manifest_yaml.contains("kul: \"0.1\""));
 }
 
 #[test]
 fn subdirectories_are_ignored() {
+    // Fixture has a `notes/scratch.kul` that must not appear.
     let project = load(&fixture("with-subdirs")).expect("load");
-    // The fixture has a `notes/scratch.kul` that must not appear.
     assert_eq!(input_names(&project), ["main.kul"]);
 }
 
@@ -101,9 +83,9 @@ fn non_kul_files_are_ignored() {
 
 #[test]
 fn directory_named_with_kul_extension_is_skipped() {
-    // A directory like `notes.kul/` should be ignored (subdirectories
-    // rule) rather than tripping a read error. We build this at
-    // test-time to keep the on-disk fixture set simple.
+    // `notes.kul/` must be ignored (subdirectory rule) rather than
+    // tripping a read error. Built at test-time to avoid checking a
+    // directory into the fixture set.
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -147,14 +129,12 @@ fn unreadable_kul_file_surfaces_input_read_error() {
         "person alice name:\"Alice\" gender:female born:1950\n",
     )
     .unwrap();
-    // 0o000 — the test must run as a non-root user to be effective;
-    // root would bypass the permission check entirely.
+    // Must run as non-root; root would bypass the permission check.
     std::fs::set_permissions(&bad, std::fs::Permissions::from_mode(0o000)).unwrap();
 
     let result = load(&root);
 
-    // Restore readability so cargo can clean up the file even if the
-    // assertion below fails.
+    // Restore readability so cargo can clean up even if the assertion fails.
     let _ = std::fs::set_permissions(&bad, std::fs::Permissions::from_mode(0o644));
 
     let err = result.expect_err("expected error");
@@ -164,17 +144,12 @@ fn unreadable_kul_file_surfaces_input_read_error() {
     );
 }
 
-// --- discover() — the lenient, LSP-shaped projection ----------------
-
 fn file_names(project: &DiscoveredProject) -> Vec<&str> {
     project.files.iter().map(|f| f.name.as_str()).collect()
 }
 
 #[test]
 fn discover_happy_path_matches_load() {
-    // Both projections agree on which files belong to the project and
-    // in what order — the shared enumerator is exercised through both
-    // entry points.
     let strict = load(&fixture("happy-path")).expect("load");
     let lenient = discover(&fixture("happy-path"));
 
@@ -186,9 +161,6 @@ fn discover_happy_path_matches_load() {
 
 #[test]
 fn discover_tolerates_missing_manifest() {
-    // The LSP keeps an editor session usable even when the manifest is
-    // absent. The lenient projection returns empty YAML but still
-    // populates `manifest_name` with the expected path label.
     let project = discover(&fixture("missing-manifest"));
     assert_eq!(project.manifest_yaml, "");
     assert!(
@@ -200,9 +172,8 @@ fn discover_tolerates_missing_manifest() {
 
 #[test]
 fn discover_path_field_is_absolute_and_readable() {
-    // The LSP turns `path` into a `file://` URL — verify the loader
-    // hands back a real path that round-trips, not a relative or
-    // mangled one.
+    // The LSP turns `path` into a `file://` URL — the loader must
+    // hand back a real, absolute path that round-trips.
     let project = discover(&fixture("happy-path"));
     for f in &project.files {
         assert!(
@@ -222,8 +193,6 @@ fn discover_path_field_is_absolute_and_readable() {
 
 #[test]
 fn discover_skips_subdirs_like_load() {
-    // The flat-directory rule (ADR-0015) must hold for the lenient path
-    // too — a nested `.kul` under a subdirectory is invisible to both.
     let project = discover(&fixture("with-subdirs"));
     assert_eq!(file_names(&project), ["main.kul"]);
 }
@@ -236,10 +205,8 @@ fn discover_skips_non_kul_like_load() {
 
 #[test]
 fn discover_unreadable_directory_yields_empty_files() {
-    // Pointing discover at a path that isn't a directory at all is the
-    // "unreadable directory" path: read_dir fails, the lenient
-    // projection swallows the error and returns an empty file list.
-    // The manifest_yaml stays empty too.
+    // Pointing discover at a non-directory exercises the `read_dir`
+    // failure path: lenient projection swallows it and returns empty.
     let not_a_directory = fixture("happy-path").join("01-founders.kul");
     assert!(not_a_directory.exists(), "fixture sanity check");
     let project = discover(&not_a_directory);
@@ -250,10 +217,8 @@ fn discover_unreadable_directory_yields_empty_files() {
 #[cfg(unix)]
 #[test]
 fn discover_skips_unreadable_kul_file() {
-    // The strict loader errors on this case; the lenient projection
-    // silently drops the file. Mirror the layout of
-    // `unreadable_kul_file_surfaces_input_read_error` so the contrast
-    // between the two postures is obvious.
+    // Counterpart to `unreadable_kul_file_surfaces_input_read_error`:
+    // strict errors, lenient silently drops the file.
     use std::os::unix::fs::PermissionsExt;
 
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -278,8 +243,7 @@ fn discover_skips_unreadable_kul_file() {
 
     let project = discover(&root);
 
-    // Restore readability so cargo can clean up the file even if the
-    // assertion below fails.
+    // Restore readability so cargo can clean up even if the assertion fails.
     let _ = std::fs::set_permissions(&bad, std::fs::Permissions::from_mode(0o644));
 
     assert_eq!(file_names(&project), ["good.kul"]);

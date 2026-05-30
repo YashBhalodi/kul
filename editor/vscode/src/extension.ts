@@ -19,9 +19,8 @@ let selectionDebounce: NodeJS.Timeout | undefined;
 let previewUri: vscode.Uri | undefined;
 
 const PREVIEW_DEBOUNCE_MS = 300;
-// Selection sync (issue #137) reacts to cursor movement, which fires far
-// more often than edits — a tighter debounce than PREVIEW_DEBOUNCE_MS keeps
-// the highlight feeling live without flooding the server.
+// Cursor movement fires far more often than edits; tighter debounce keeps
+// the highlight live without flooding the server.
 const SELECTION_DEBOUNCE_MS = 50;
 
 export async function activate(
@@ -172,13 +171,11 @@ interface RenderResponse {
     diagnostics?: { code: string }[];
 }
 
-/** LSP-protocol position (0-based line/character). */
 interface LspPosition {
     line: number;
     character: number;
 }
 
-/** LSP-protocol location returned by `kul/locate`. */
 interface LspLocation {
     uri: string;
     range: { start: LspPosition; end: LspPosition };
@@ -188,26 +185,16 @@ interface LocateResponse {
     location: LspLocation | null;
 }
 
-/** Entity returned by `kul/entityAt` — `null` when the cursor is off any entity. */
 interface EntityAtResponse {
     entity: { id: string; kind: "person" | "marriage" } | null;
 }
 
-/**
- * Message posted by the webview when a person card or marriage bar is
- * clicked (issue #135). The id is a project-wide entity id; the uri is
- * carried by `previewUri`, so the message stays minimal.
- */
 interface RevealSourceMessage {
     type: "revealSource";
     id: string;
 }
 
-/**
- * Resolve a clicked entity id to its declaration via `kul/locate` and
- * reveal it in an editor. A null location (stale id, no live
- * declaration) is a silent no-op — no dialog, debug log only.
- */
+// A null location (stale id, no live declaration) is a silent no-op.
 async function revealSource(id: string): Promise<void> {
     if (!client || !previewUri) {
         return;
@@ -242,15 +229,9 @@ async function revealSource(id: string): Promise<void> {
     await vscode.window.showTextDocument(targetUri, { selection });
 }
 
-/**
- * Selection sync (issue #137), the inverse of {@link revealSource}: resolve
- * a source cursor position to its entity via `kul/entityAt` and tell the
- * webview to highlight the matching card or marriage bar. Resolution is
- * project-wide (ADR-0015), so `uri` is the file the cursor is in (which may
- * be a sibling of `previewUri`). A cursor that is off any entity (keyword,
- * field, whitespace, unresolved reference) resolves to `null`, posted as a
- * clear. A request failure is a silent clear — debug log only.
- */
+// Resolve a source cursor position to its entity via `kul/entityAt` and tell
+// the webview to highlight the matching card/bar. Resolution is project-wide
+// (ADR-0015); a cursor off any entity resolves to null, posted as a clear.
 async function syncSelection(
     uri: vscode.Uri,
     position: vscode.Position,
@@ -303,7 +284,7 @@ async function showPreview(
     previewUri = editor.document.uri;
 
     if (previewPanel) {
-        previewPanel.reveal(vscode.ViewColumn.Beside, /* preserveFocus */ true);
+        previewPanel.reveal(vscode.ViewColumn.Beside, true);
         void refreshPreview(previewUri);
         return;
     }
@@ -343,8 +324,6 @@ async function showPreview(
         getNonce(),
     );
 
-    // Click-to-source (issue #135): the webview posts a `revealSource`
-    // message when a card or marriage bar is clicked.
     previewPanel.webview.onDidReceiveMessage((message: unknown) => {
         if (
             message &&
@@ -374,8 +353,8 @@ async function showPreview(
         }
     });
 
-    // Debounced re-render on document changes in the project that
-    // owns the active URI.
+    // Re-render on changes to the previewed URI or sibling .kul files in the
+    // same directory (project-wide per ADR-0015).
     previewListener = vscode.workspace.onDidChangeTextDocument((event) => {
         if (!previewUri) {
             return;
@@ -383,9 +362,6 @@ async function showPreview(
         if (event.document.languageId !== "kul") {
             return;
         }
-        // Re-render if the changed document is the previewed URI or
-        // a sibling .kul in the same directory (project-wide per
-        // ADR-0015).
         const previewDir = path.dirname(previewUri.fsPath);
         const changedDir = path.dirname(event.document.uri.fsPath);
         if (changedDir !== previewDir) {
@@ -402,11 +378,7 @@ async function showPreview(
         }, PREVIEW_DEBOUNCE_MS);
     });
 
-    // Selection sync (issue #137): when the cursor moves in a project-dir
-    // `.kul` file, resolve its entity and highlight the matching card/bar.
-    // Reuses the same same-dir predicate as the re-render listener above;
-    // only the primary cursor (selections[0]) drives the highlight —
-    // secondary cursors are ignored (v1 scope).
+    // Only the primary cursor (selections[0]) drives the highlight.
     selectionListener = vscode.window.onDidChangeTextEditorSelection((event) => {
         if (!previewUri) {
             return;
@@ -430,7 +402,6 @@ async function showPreview(
         }, SELECTION_DEBOUNCE_MS);
     });
 
-    // Initial render.
     await refreshPreview(previewUri);
 }
 
@@ -457,9 +428,8 @@ async function refreshPreview(uri: vscode.Uri): Promise<void> {
             type: "render",
             svg: response.svg,
         });
-        // Re-assert the cursor's highlight: a live-edit re-render rebuilds
-        // the SVG and drops the prior `.kul-selected`, so re-resolve the
-        // active editor's cursor (issue #137) and post it after the swap.
+        // A live-edit re-render rebuilds the SVG and drops the prior
+        // `.kul-selected`, so re-resolve the cursor and post it after the swap.
         const editor = vscode.window.activeTextEditor;
         if (editor && editor.document.languageId === "kul") {
             const editorDir = path.dirname(editor.document.uri.fsPath);
@@ -526,15 +496,13 @@ function bundledServerPath(
     }
     const exe = process.platform === "win32" ? "kul-lsp.exe" : "kul-lsp";
     const p = path.join(context.extensionPath, "server", subdir, exe);
-    // vsce's zip layer drops the execute bit, so a marketplace-installed
-    // binary lands as -rw-r--r--. Restore +x on Unix before the
-    // executable check so the bundled LSP can actually launch.
+    // vsce's zip layer drops the execute bit; restore +x on Unix so the
+    // bundled LSP can actually launch.
     if (process.platform !== "win32") {
         try {
             fs.chmodSync(p, 0o755);
         } catch {
-            // File may not exist (Fix A means only one platform's binary
-            // is bundled per vsix); fall through to the existence check.
+            // File may not exist; fall through to the existence check.
         }
     }
     return p;
@@ -558,7 +526,6 @@ function existsAndExecutable(p: string): boolean {
             return false;
         }
         if (process.platform !== "win32") {
-            // X bit set for owner, group, or other.
             return (st.mode & 0o111) !== 0;
         }
         return true;

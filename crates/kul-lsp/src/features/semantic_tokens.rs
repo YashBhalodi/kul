@@ -1,13 +1,8 @@
 //! Semantic tokens for `textDocument/semanticTokens/full`.
 //!
-//! Walks the AST in source order and emits one token per keyword, identifier,
-//! field name, enum value, date, and string literal. The legend is the
-//! ordered list of `SemanticTokenType`s the server reports in
-//! `initializeResult`; clients map a `tokenType` index back through it.
-//!
-//! Pure dispatch over the parsed AST — no async, no LSP plumbing beyond
-//! `lsp_types`. The encoded stream is line/character-delta-compressed per
-//! the LSP spec.
+//! Walks the AST in source order and emits one token per keyword,
+//! identifier, field name, enum value, date, and string literal. The
+//! encoded stream is line/character-delta-compressed per the LSP spec.
 
 use kul_core::ast::{AdoptionSub, BirthSub, MarriageStmt, PersonStmt, Statement};
 use kul_core::field_meta::{self, ValueKind};
@@ -20,9 +15,8 @@ use tower_lsp::lsp_types::{
 
 use crate::convert::LineIndex;
 
-/// The legend the server advertises. A token's `token_type` field indexes
-/// into this list. The order is part of the protocol contract — appending
-/// new types is fine; reordering breaks every connected client.
+/// The legend the server advertises. The order is part of the protocol
+/// contract — appending new types is fine; reordering breaks every client.
 pub fn legend() -> SemanticTokensLegend {
     SemanticTokensLegend {
         token_types: vec![
@@ -52,9 +46,7 @@ struct RawToken {
     token_type: u32,
 }
 
-/// Build the semantic-token stream for the document. The result is an
-/// LSP-encoded `SemanticTokens` payload — `data` is a flat `Vec<u32>` of
-/// 5-tuples after delta encoding.
+/// Build the semantic-token stream for the document.
 pub fn semantic_tokens(
     file: FileId,
     resolved: &ResolvedDocument,
@@ -67,10 +59,7 @@ pub fn semantic_tokens(
             Statement::Marriage(m) => emit_marriage(&mut raw, m),
         }
     }
-    // Source order isn't guaranteed across siblings (sub-statement order is
-    // birth-then-adoptions, which can interleave with the next person's
-    // header in pathological inputs). Sort once at the edge to keep the
-    // emit functions oblivious to ordering.
+    // Source order isn't guaranteed across siblings; sort once at the edge.
     raw.sort_by_key(|t| (t.span.start, t.span.end));
     SemanticTokens {
         result_id: None,
@@ -145,8 +134,7 @@ fn emit_marriage(out: &mut Vec<RawToken>, m: &MarriageStmt) {
     }
 }
 
-/// Emit the two tokens for a single `field:value` pair: the property name
-/// and the value (typed by the field's [`ValueKind`]).
+/// Emit name + value tokens for a `field:value` pair.
 fn emit_field(
     out: &mut Vec<RawToken>,
     name_span: ByteSpan,
@@ -179,9 +167,9 @@ fn encode(raw: &[RawToken], line_index: &LineIndex) -> Vec<SemanticToken> {
     };
     for tok in raw {
         let range = line_index.range(tok.span);
-        // The LSP spec requires multi-line tokens to be split; none of our
-        // literals span lines (the lexer rejects newlines inside strings,
-        // and dates / idents are by construction single-line).
+        // LSP requires multi-line tokens to be split; none of our literals
+        // span lines (lexer rejects newlines in strings; dates/idents are
+        // single-line by construction).
         if range.start.line != range.end.line {
             continue;
         }
@@ -212,9 +200,7 @@ mod tests {
     use super::*;
     use crate::state::test_open_file;
 
-    /// Decoded view of a token: the kind name (looked up via the legend) and
-    /// the literal source slice it covers. Snapshot-friendly, and a much
-    /// better diff than 5-tuples of integers.
+    /// Decoded view of a token — snapshot-friendly, better diff than 5-tuples.
     #[derive(Debug)]
     struct Decoded {
         line: u32,
@@ -341,7 +327,6 @@ mod tests {
             (0, 7, 5)
         );
         let alice_str = decoded.iter().find(|d| d.text == "\"Alice\"").unwrap();
-        // 7 utf-16 code units for the quoted form.
         assert_eq!(alice_str.length, 7);
     }
 
@@ -423,9 +408,7 @@ mod tests {
     fn tokens_are_sorted_and_non_overlapping() {
         let src = include_str!("../../../../examples/02-three-generations/three-generations.kul");
         let (sem, _) = tokens_for(src);
-        // After delta encoding, every entry has either delta_line > 0 or
-        // (delta_line == 0 && delta_start > 0), and length > 0. That's
-        // exactly the LSP-spec requirement on the encoded stream.
+        // Per LSP spec: delta_line > 0 or (delta_line == 0 && delta_start > 0), length > 0.
         for t in &sem.data {
             assert!(t.length > 0, "zero-length token: {t:?}");
             assert!(
@@ -445,12 +428,9 @@ mod tests {
 
     #[test]
     fn parse_errors_still_emit_partial_stream() {
-        // Half a `person` decl plus a complete one — the second still gets
-        // tokens even though the first half-statement parses with errors.
+        // Half a `person` decl plus a complete one — second still gets tokens.
         let src = "person\nperson alice name:\"A\" gender:female\n";
         let (_, decoded) = tokens_for(src);
-        // We don't pin the recovery shape, but the second line's tokens
-        // should be present.
         assert!(
             decoded
                 .iter()

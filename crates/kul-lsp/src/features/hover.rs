@@ -1,14 +1,7 @@
 //! Hover content for `textDocument/hover`.
 //!
-//! Pure dispatch over [`kul_core::node_at::Node`]: each shape (keyword,
-//! id, field) maps to a Markdown content builder. The async
-//! `Backend::hover` method is a thin shell over [`hover`].
-//!
-//! Field-shape variants (`Person`/`Marriage`/`Adoption` ×
-//! `FieldName`/`FieldValue`) are handled uniformly through
-//! [`Node::field_node`] — the field summary the cursor seam exposes,
-//! mirroring how the entity-aware features (definition, references,
-//! rename) phrase themselves against [`Node::entity_reference`].
+//! Dispatch over [`kul_core::node_at::Node`]: each shape (keyword, id,
+//! field) maps to a Markdown content builder.
 
 use kul_core::ast::{MarriageStmt, PersonStmt, Statement};
 use kul_core::field_meta;
@@ -22,9 +15,7 @@ use crate::convert::LineIndex;
 
 const SPEC_BASE: &str = "https://github.com/YashBhalodi/kul/blob/main/spec";
 
-/// Build a hover response for the cursor at `byte_offset`, or `None` if
-/// nothing useful sits there. Pure: no async, no `Client`, no `tower-lsp`
-/// types beyond `lsp_types`.
+/// Build a hover response for the cursor at `byte_offset`.
 pub fn hover(
     file: FileId,
     resolved: &ResolvedDocument,
@@ -65,9 +56,6 @@ pub fn hover(
         | Node::MarriageFieldValue(_)
         | Node::AdoptionFieldName(_)
         | Node::AdoptionFieldValue(_) => {
-            // Field arms are uniform per ADR-0001: a single
-            // `field_node()` accessor on the cursor seam, dispatched on
-            // is_name vs value.
             let field = node
                 .field_node()
                 .expect("field_node returns Some for the six field Node variants");
@@ -84,10 +72,8 @@ pub fn hover(
     })
 }
 
-/// Render the hover panel for a field. On the `name:` side the panel is
-/// the field's spec-quoted documentation alone; on the value side it
-/// appends the literal source text in a code span so the user sees what
-/// they actually typed.
+/// On the `name:` side, just the field's doc. On the value side, append
+/// the literal source text in a code span.
 fn field_hover(field: FieldNode, source: &str) -> (String, ByteSpan) {
     let doc = field_meta::meta(field.name).hover_md;
     if field.is_name {
@@ -289,7 +275,6 @@ mod tests {
             .map(|i| marriage_line + i + 1)
             .unwrap();
         let body = hover_at(src, alice_ref).unwrap();
-        // Same content as the decl panel.
         assert!(body.contains("person alice"));
         assert!(body.contains("Alice"));
     }
@@ -305,7 +290,6 @@ mod tests {
         let body = hover_at(src, ghost).unwrap();
         assert!(body.contains("not declared") || body.contains("no `person`"));
         assert!(body.contains("KUL-R02"));
-        // Doesn't dump a full panel.
         assert!(!body.contains("- gender:"));
     }
 

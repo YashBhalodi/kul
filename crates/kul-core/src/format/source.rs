@@ -1,11 +1,7 @@
-//! Source-pass formatter: reformats a `.kul` source string by routing the
-//! parsed AST through the [`super::emit::Emitter`] while keeping comments
-//! threaded through at their original lines (per ADR-0004 rule 7).
-//!
-//! The lexer drops comments entirely, so this module has to re-scan the
-//! source byte-by-byte to know where they live. Only the `format_source`
-//! entry point in [`super`] uses this; the AST-only `format` entry point
-//! stays comment-free.
+//! Source-pass formatter: routes the AST through [`super::emit::Emitter`]
+//! while threading comments through at their original lines (ADR-0004
+//! rule 7). The lexer drops comments, so this module re-scans the source
+//! byte-by-byte.
 
 use crate::ast::{KulFile, MarriageStmt, PersonStmt, Statement};
 
@@ -16,13 +12,11 @@ use super::emit::Emitter;
 
 #[derive(Debug, Clone)]
 struct Comment {
-    /// 0-indexed source line number.
     line: usize,
-    /// `true` iff the line had non-whitespace content before `#`.
+    /// True iff the line had non-whitespace content before `#`.
     is_inline: bool,
-    /// Byte offset of `#`.
     hash_start: usize,
-    /// Byte offset just past the comment text — exclusive of `\r` and `\n`.
+    /// Just past the comment text, exclusive of CR/LF.
     end: usize,
 }
 
@@ -30,8 +24,7 @@ pub(super) struct SourceFormatter<'a> {
     source: &'a str,
     doc: &'a KulFile,
     line_starts: Vec<usize>,
-    /// `comment_by_line[L] = index into comments`, or `usize::MAX` if line L
-    /// has no comment. At most one comment per source line by construction.
+    /// `comment_by_line[L] = idx into comments`, or `usize::MAX` if none.
     comment_by_line: Vec<usize>,
     comments: Vec<Comment>,
     emitter: Emitter,
@@ -108,10 +101,9 @@ impl<'a> SourceFormatter<'a> {
         let mut sub_cursor = header_line + 1;
         for sub in &subs {
             let sub_line = self.line_of_byte(sub.span_start());
-            // Whole-line comments inside the person block ride along in the
-            // region buffer at indent 2 (per spec §14.7). They don't break
-            // sub-statement alignment — same-keyword subs under the same
-            // parent still join one group.
+            // Whole-line comments inside the person block ride at indent 2
+            // (spec §14.7); blank lines inside the block are dropped (ADR-0004
+            // rule 6).
             for line in sub_cursor..sub_line {
                 if let Some((is_inline, range)) = self.comment_view(line) {
                     if !is_inline {
@@ -119,7 +111,6 @@ impl<'a> SourceFormatter<'a> {
                         self.emitter.emit_comment(2, text);
                     }
                 }
-                // Blank lines inside a person block are removed (ADR rule 6).
             }
             let inline = self.inline_comment_text(sub_line).map(str::to_owned);
             let (kind, cells) = build_sub_cells(sub, inline.as_deref());
@@ -189,16 +180,14 @@ impl<'a> SourceFormatter<'a> {
             .all(|b| b == b' ' || b == b'\t' || b == b'\r' || b == b'\n')
     }
 
-    /// Walk `range` of source lines between two top-level statements: queue
-    /// any whole-line comments into the current region (or close the region
-    /// first if a blank line appeared) and remember whether a blank line was
-    /// seen so the caller can emit a separator before the next statement.
+    /// Queue whole-line comments in `range` into the current region (or
+    /// close it first on a blank-line boundary). Tracks whether the range
+    /// contained a blank line so the caller can emit a separator.
     fn queue_loose_lines(&mut self, range: std::ops::Range<usize>, pending_blank: &mut bool) {
         for line in range {
             if let Some((is_inline, text_range)) = self.comment_view(line) {
                 if is_inline {
-                    // The line is part of an emitted statement; the inline
-                    // comment is appended where the statement is rendered.
+                    // Inline comments are emitted with their statement.
                     continue;
                 }
                 if *pending_blank {
@@ -223,8 +212,7 @@ impl<'a> SourceFormatter<'a> {
     }
 
     /// End the current region, optionally emitting a blank-line separator
-    /// before the next region begins. The blank line is suppressed when the
-    /// output is empty so the file never starts with one (ADR rule 6).
+    /// (suppressed at file start per ADR-0004 rule 6).
     fn close_region(&mut self, emit_blank: bool) {
         self.emitter.end_region();
         if emit_blank {
@@ -243,9 +231,8 @@ fn compute_line_starts(source: &str) -> Vec<usize> {
     v
 }
 
-/// Walk `source` byte-by-byte and collect every comment, skipping `#` that
-/// fall inside a string literal. The lexer drops comments entirely, so the
-/// formatter has to re-scan the source itself.
+/// Re-scan `source` byte-by-byte to collect every comment, skipping `#`
+/// that falls inside a string literal.
 fn scan_comments(source: &str) -> Vec<Comment> {
     let bytes = source.as_bytes();
     let mut out = Vec::new();
@@ -266,9 +253,7 @@ fn scan_comments(source: &str) -> Vec<Comment> {
             line += 1;
             line_has_non_ws = false;
             commented_this_line = false;
-            // `in_string` carries across lines; the lexer treats raw newlines
-            // inside a string as part of its content. Real Kul docs don't
-            // exercise this, but we mirror the lexer to keep parity.
+            // `in_string` carries across lines to mirror the lexer.
             continue;
         }
         if in_string {

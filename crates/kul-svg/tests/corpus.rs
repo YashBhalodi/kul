@@ -1,7 +1,4 @@
-//! End-to-end snapshot test: run the full pipeline
-//! (`kul_core::check` → `kul_render::compute` → `kul_layout::layout` →
-//! `kul_svg::render`) over each example project the layout adapter
-//! currently supports, snapshotting the raw SVG string.
+//! End-to-end SVG snapshot test over each example project.
 
 use std::path::{Path, PathBuf};
 
@@ -55,9 +52,7 @@ fn render_example(dir: &str) -> String {
     pretty(&render(&positioned, &ThemeConfig::default()))
 }
 
-/// Split the SVG into one element per line at element boundaries
-/// (`><`) so diff readers don't have to scroll horizontally. Text
-/// content stays attached to its parent tag.
+/// One element per line so snapshot diffs don't scroll horizontally.
 fn pretty(svg: &str) -> String {
     svg.replace("><", ">\n<")
 }
