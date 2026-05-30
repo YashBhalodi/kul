@@ -1,0 +1,47 @@
+---
+source: crates/kul-cli/tests/cli.rs
+expression: stdout
+---
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 432" width="400" height="432"><style>
+svg {
+  --kul-preview-bg: #ffffff;
+  --kul-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --kul-card-fill: #ffffff;
+  --kul-card-stroke: #455a64;
+  --kul-card-stroke-male: #1565c0;
+  --kul-card-stroke-female: #c2185b;
+  --kul-card-stroke-other: #f9a825;
+  --kul-ghost-fill: #eceff1;
+  --kul-ghost-stroke: #90a4ae;
+  --kul-ghost-stroke-male: #1565c0;
+  --kul-ghost-stroke-female: #c2185b;
+  --kul-ghost-stroke-other: #f9a825;
+  --kul-label-fill: #1a1a1a;
+  --kul-ghost-label-fill: #607d8b;
+  --kul-edge-stroke: #2e7d32;
+  --kul-adoption-edge-stroke: #ef6c00;
+  --kul-marriage-edge-stroke: #6a1b9a;
+  --kul-card-stroke-width: 1.5;
+  --kul-edge-stroke-width: 1.5;
+  --kul-marriage-edge-stroke-width: 8.75;
+  --kul-ghost-fill-opacity: 0.5;
+  --kul-ended-edge-stroke-opacity: 0.6;
+  --kul-label-font-size: 13px;
+  background-color: var(--kul-preview-bg);
+  font-family: var(--kul-font-family);
+}
+.kul-card rect { fill: var(--kul-card-fill); stroke: var(--kul-card-stroke); stroke-width: var(--kul-card-stroke-width); }
+.kul-card[data-gender="male"] rect { stroke: var(--kul-card-stroke-male); }
+.kul-card[data-gender="female"] rect { stroke: var(--kul-card-stroke-female); }
+.kul-card[data-gender="other"] rect { stroke: var(--kul-card-stroke-other); }
+.kul-card[data-kind="ghost"] rect { fill: var(--kul-ghost-fill); stroke: var(--kul-ghost-stroke); fill-opacity: var(--kul-ghost-fill-opacity); }
+.kul-card[data-kind="ghost"][data-gender="male"] rect { stroke: var(--kul-ghost-stroke-male); }
+.kul-card[data-kind="ghost"][data-gender="female"] rect { stroke: var(--kul-ghost-stroke-female); }
+.kul-card[data-kind="ghost"][data-gender="other"] rect { stroke: var(--kul-ghost-stroke-other); }
+.kul-label-name { fill: var(--kul-label-fill); font-size: var(--kul-label-font-size); }
+.kul-card[data-kind="ghost"] .kul-label-name { fill: var(--kul-ghost-label-fill); }
+.kul-edge { stroke: var(--kul-edge-stroke); stroke-width: var(--kul-edge-stroke-width); }
+.kul-edge[data-link-kind="adoption"] { stroke: var(--kul-adoption-edge-stroke); }
+.kul-edge[data-link-kind="marriage"] { stroke: var(--kul-marriage-edge-stroke); stroke-width: var(--kul-marriage-edge-stroke-width); }
+.kul-edge[data-is-ended="true"] { stroke-opacity: var(--kul-ended-edge-stroke-opacity); }
+</style><path class="kul-edge" data-marriage-id="m_chinua_adaeze" data-link-kind="birth" data-child-id="emeka" data-is-past="false" fill="none" d="M 200 56 L 200 146 Q 200 156 190 156 L 115 156 Q 105 156 105 166 L 105 184"/><path class="kul-edge" data-marriage-id="m_emeka_ngozi" data-link-kind="birth" data-child-id="chidi" data-is-past="false" fill="none" d="M 200 216 L 200 306 Q 200 316 190 316 L 114 316 Q 104 316 104 326 L 104 344"/><path class="kul-edge" data-marriage-id="m_emeka_ngozi" data-link-kind="birth" data-child-id="amara" data-is-past="false" fill="none" d="M 200 216 L 200 306 Q 200 316 210 316 L 286 316 Q 296 316 296 326 L 296 344"/><path class="kul-edge" data-marriage-id="m_chinua_adaeze" data-link-kind="marriage" data-host-id="chinua" data-joining-id="adaeze" data-start="1948-11-02" data-is-ended="false" fill="none" d="M 185 56 L 215 56"/><path class="kul-edge" data-marriage-id="m_emeka_ngozi" data-link-kind="marriage" data-host-id="emeka" data-joining-id="ngozi" data-start="1978-12-09" data-is-ended="false" fill="none" d="M 185 216 L 215 216"/><g class="kul-card" data-person-id="chinua" data-kind="canonical" data-gender="male" data-is-alive="false" data-born="~1925" data-died="1998-05-12" data-family="Okeke" data-given="Chinua" data-generation="0"><rect x="25" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="105" y="56" text-anchor="middle" dominant-baseline="central">Chinua Okeke</text></g><g class="kul-card" data-person-id="adaeze" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1930-03" data-family="Okeke" data-given="Adaeze" data-generation="0"><rect x="215" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Adaeze Okeke</text></g><g class="kul-card" data-person-id="emeka" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1950" data-generation="1"><rect x="25" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="105" y="216" text-anchor="middle" dominant-baseline="central">Emeka Okeke</text></g><g class="kul-card" data-person-id="ngozi" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1955-08-19" data-generation="1"><rect x="215" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="295" y="216" text-anchor="middle" dominant-baseline="central">Ngozi Okeke</text></g><g class="kul-card" data-person-id="chidi" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1980-11-14" data-generation="2"><rect x="24" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="376" text-anchor="middle" dominant-baseline="central">Chidi Okeke</text></g><g class="kul-card" data-person-id="amara" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1983-07" data-generation="2"><rect x="216" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="296" y="376" text-anchor="middle" dominant-baseline="central">Amara Okeke</text></g></svg>

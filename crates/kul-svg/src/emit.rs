@@ -11,20 +11,55 @@ use kul_render::GhostReason;
 
 /// Theme / emission configuration.
 ///
-/// Forward-compatibility seam (per [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md));
-/// only [`ThemeConfig::default()`] is constructed by any consumer in
-/// v1. Future fields (opt-in inline CSS for self-contained CLI export,
-/// opt-in source-span data attributes for click-to-jump) add here
-/// without changing [`crate::render`]'s signature.
+/// Forward-compatibility seam (per [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md)):
+/// the output stays theme-agnostic by default, and opt-in fields tune
+/// emission without changing [`crate::render`]'s signature. The private
+/// trailing field keeps construction additive — build with
+/// `ThemeConfig { self_contained: true, ..Default::default() }`.
+// A private unit field — not `#[non_exhaustive]` — reserves room for
+// future additive fields. Cross-crate construction goes through
+// [`ThemeConfig::with_self_contained`] / [`ThemeConfig::default`] rather
+// than a struct literal, so a new field never breaks a caller.
+#[allow(clippy::manual_non_exhaustive)]
 #[derive(Debug, Clone, Default)]
 pub struct ThemeConfig {
-    #[doc(hidden)]
+    /// Bake a concrete neutral light theme into the SVG as an inline
+    /// `<style>` (the first child of the root `<svg>`), making the file
+    /// self-contained: it renders correctly opened in any browser,
+    /// dropped into an `<img>`, or embedded in a static page with no
+    /// external CSS. Default `false` keeps the output theme-agnostic
+    /// (no inline colours) per ADR-0016; only `kul export --format=svg`
+    /// opts in. The baked stylesheet reuses the `--kul-*` token
+    /// vocabulary (a subset of the VSCode preview's structural rules)
+    /// and excludes all surface chrome — pan/zoom, hover, selection, and
+    /// the ghost `↺` badge. Read directly; construct via
+    /// [`ThemeConfig::with_self_contained`].
+    pub self_contained: bool,
     _private: (),
 }
 
-pub(crate) fn render(positioned: &PositionedShape, _config: &ThemeConfig) -> String {
+impl ThemeConfig {
+    /// Build a config with [`self_contained`](ThemeConfig::self_contained)
+    /// set. The construction seam for consumers outside this crate (the
+    /// private field blocks a struct literal), keeping new fields purely
+    /// additive.
+    pub fn with_self_contained(self_contained: bool) -> Self {
+        Self {
+            self_contained,
+            _private: (),
+        }
+    }
+}
+
+pub(crate) fn render(positioned: &PositionedShape, config: &ThemeConfig) -> String {
     let mut out = String::with_capacity(2048);
     write_open(&mut out, positioned);
+    // The inline stylesheet, when opted in, is the first child of the
+    // root `<svg>` so its `svg`-scoped tokens are in scope for every
+    // element below.
+    if config.self_contained {
+        out.push_str(SELF_CONTAINED_STYLE);
+    }
     for edge in &positioned.edges {
         write_edge(&mut out, edge);
     }
@@ -34,6 +69,60 @@ pub(crate) fn render(positioned: &PositionedShape, _config: &ThemeConfig) -> Str
     out.push_str("</svg>");
     out
 }
+
+/// Concrete neutral light theme baked into a self-contained SVG
+/// ([`ThemeConfig::self_contained`]). The token table fixes one default
+/// palette in hex; the application rules below are the *structural*
+/// subset of `editor/vscode/media/preview.css` — card fill/stroke, the
+/// per-gender tint, the ghost translucency, edge colours per link kind,
+/// and the ended-marriage fade. Everything chrome is excluded: pan/zoom
+/// controls, the error banner, `:hover`, selection sync, and the ghost
+/// `↺` badge (an exported ghost shows its dashed border + translucent
+/// fill and no badge, per ADR-0016). The structural dasharrays ship
+/// inline from the emitter and need no CSS.
+const SELF_CONTAINED_STYLE: &str = r#"<style>
+svg {
+  --kul-preview-bg: #ffffff;
+  --kul-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --kul-card-fill: #ffffff;
+  --kul-card-stroke: #455a64;
+  --kul-card-stroke-male: #1565c0;
+  --kul-card-stroke-female: #c2185b;
+  --kul-card-stroke-other: #f9a825;
+  --kul-ghost-fill: #eceff1;
+  --kul-ghost-stroke: #90a4ae;
+  --kul-ghost-stroke-male: #1565c0;
+  --kul-ghost-stroke-female: #c2185b;
+  --kul-ghost-stroke-other: #f9a825;
+  --kul-label-fill: #1a1a1a;
+  --kul-ghost-label-fill: #607d8b;
+  --kul-edge-stroke: #2e7d32;
+  --kul-adoption-edge-stroke: #ef6c00;
+  --kul-marriage-edge-stroke: #6a1b9a;
+  --kul-card-stroke-width: 1.5;
+  --kul-edge-stroke-width: 1.5;
+  --kul-marriage-edge-stroke-width: 8.75;
+  --kul-ghost-fill-opacity: 0.5;
+  --kul-ended-edge-stroke-opacity: 0.6;
+  --kul-label-font-size: 13px;
+  background-color: var(--kul-preview-bg);
+  font-family: var(--kul-font-family);
+}
+.kul-card rect { fill: var(--kul-card-fill); stroke: var(--kul-card-stroke); stroke-width: var(--kul-card-stroke-width); }
+.kul-card[data-gender="male"] rect { stroke: var(--kul-card-stroke-male); }
+.kul-card[data-gender="female"] rect { stroke: var(--kul-card-stroke-female); }
+.kul-card[data-gender="other"] rect { stroke: var(--kul-card-stroke-other); }
+.kul-card[data-kind="ghost"] rect { fill: var(--kul-ghost-fill); stroke: var(--kul-ghost-stroke); fill-opacity: var(--kul-ghost-fill-opacity); }
+.kul-card[data-kind="ghost"][data-gender="male"] rect { stroke: var(--kul-ghost-stroke-male); }
+.kul-card[data-kind="ghost"][data-gender="female"] rect { stroke: var(--kul-ghost-stroke-female); }
+.kul-card[data-kind="ghost"][data-gender="other"] rect { stroke: var(--kul-ghost-stroke-other); }
+.kul-label-name { fill: var(--kul-label-fill); font-size: var(--kul-label-font-size); }
+.kul-card[data-kind="ghost"] .kul-label-name { fill: var(--kul-ghost-label-fill); }
+.kul-edge { stroke: var(--kul-edge-stroke); stroke-width: var(--kul-edge-stroke-width); }
+.kul-edge[data-link-kind="adoption"] { stroke: var(--kul-adoption-edge-stroke); }
+.kul-edge[data-link-kind="marriage"] { stroke: var(--kul-marriage-edge-stroke); stroke-width: var(--kul-marriage-edge-stroke-width); }
+.kul-edge[data-is-ended="true"] { stroke-opacity: var(--kul-ended-edge-stroke-opacity); }
+</style>"#;
 
 fn write_open(out: &mut String, shape: &PositionedShape) {
     let _ = write!(
