@@ -18,8 +18,9 @@ use kul_render::GhostReason;
 /// `ThemeConfig { self_contained: true, ..Default::default() }`.
 // A private unit field — not `#[non_exhaustive]` — reserves room for
 // future additive fields. Cross-crate construction goes through
-// [`ThemeConfig::with_self_contained`] / [`ThemeConfig::default`] rather
-// than a struct literal, so a new field never breaks a caller.
+// [`ThemeConfig::with_self_contained`] / [`ThemeConfig::with_legend`]
+// / [`ThemeConfig::default`] rather than a struct literal, so a new
+// field never breaks a caller.
 #[allow(clippy::manual_non_exhaustive)]
 #[derive(Debug, Clone, Default)]
 pub struct ThemeConfig {
@@ -35,6 +36,19 @@ pub struct ThemeConfig {
     /// the ghost `↺` badge. Read directly; construct via
     /// [`ThemeConfig::with_self_contained`].
     pub self_contained: bool,
+    /// Emit a legend (the canonical-pattern visual key) in a reserved
+    /// band at the bottom-left of the diagram. The legend is built from
+    /// the [`PositionedShape`] — rows appear only for categories the
+    /// diagram actually surfaces (ADR-0022). The legend's *colour*
+    /// resolves through the surrounding stylesheet (no hardcoded swatch
+    /// colours are emitted), so it is only meaningful when a matching
+    /// stylesheet is present — typically together with
+    /// [`self_contained`](ThemeConfig::self_contained), which bakes
+    /// the small `.kul-legend …` size-override block alongside the
+    /// structural rules. Default `false` keeps the always-emitted
+    /// (preview / wasm) SVG byte-unchanged and ships no English on
+    /// that path. Construct via [`ThemeConfig::with_legend`].
+    pub legend: bool,
     _private: (),
 }
 
@@ -46,14 +60,45 @@ impl ThemeConfig {
     pub fn with_self_contained(self_contained: bool) -> Self {
         Self {
             self_contained,
-            _private: (),
+            ..Default::default()
         }
+    }
+
+    /// Chainable setter for [`legend`](ThemeConfig::legend). Composes
+    /// with [`with_self_contained`](ThemeConfig::with_self_contained) —
+    /// `ThemeConfig::with_self_contained(true).with_legend(true)` is
+    /// the CLI export's combined opt-in (ADR-0022).
+    pub fn with_legend(mut self, legend: bool) -> Self {
+        self.legend = legend;
+        self
     }
 }
 
 pub(crate) fn render(positioned: &PositionedShape, config: &ThemeConfig) -> String {
     let mut out = String::with_capacity(2048);
-    write_open(&mut out, positioned);
+    // The legend (ADR-0022) is an emission concern, not a layout
+    // concern: the positioned shape is unchanged and the legend is
+    // appended into a reserved bottom-left band that grows the viewBox
+    // by exactly its own height + gap, never overlapping the diagram.
+    let rows = if config.legend {
+        legend_rows(positioned)
+    } else {
+        Vec::new()
+    };
+    let legend_extra_height = if rows.is_empty() {
+        0.0
+    } else {
+        LEGEND_GAP + (rows.len() as f64) * LEGEND_ROW_HEIGHT + LEGEND_BOTTOM_PAD
+    };
+    // The diagram is almost always wider than the legend; max() guards
+    // the degenerate two-card-no-edges case where the legend overflows.
+    let canvas_width = if rows.is_empty() {
+        positioned.width
+    } else {
+        positioned.width.max(LEGEND_TOTAL_WIDTH)
+    };
+    let canvas_height = positioned.height + legend_extra_height;
+    write_open(&mut out, canvas_width, canvas_height);
     // The inline stylesheet, when opted in, is the first child of the
     // root `<svg>` so its `svg`-scoped tokens are in scope for every
     // element below.
@@ -65,6 +110,9 @@ pub(crate) fn render(positioned: &PositionedShape, config: &ThemeConfig) -> Stri
     }
     for card in &positioned.cards {
         write_card(&mut out, card);
+    }
+    if !rows.is_empty() {
+        write_legend(&mut out, &rows, positioned.height + LEGEND_GAP);
     }
     out.push_str("</svg>");
     out
@@ -105,6 +153,8 @@ svg {
   --kul-ghost-fill-opacity: 0.5;
   --kul-ended-edge-stroke-opacity: 0.6;
   --kul-label-font-size: 13px;
+  --kul-legend-label-font-size: 12px;
+  --kul-legend-marriage-edge-stroke-width: 5;
   background-color: var(--kul-preview-bg);
   font-family: var(--kul-font-family);
 }
@@ -122,14 +172,16 @@ svg {
 .kul-edge[data-link-kind="adoption"] { stroke: var(--kul-adoption-edge-stroke); }
 .kul-edge[data-link-kind="marriage"] { stroke: var(--kul-marriage-edge-stroke); stroke-width: var(--kul-marriage-edge-stroke-width); }
 .kul-edge[data-is-ended="true"] { stroke-opacity: var(--kul-ended-edge-stroke-opacity); }
+.kul-legend-label { fill: var(--kul-label-fill); font-size: var(--kul-legend-label-font-size); }
+.kul-legend .kul-edge[data-link-kind="marriage"] { stroke-width: var(--kul-legend-marriage-edge-stroke-width); }
 </style>"#;
 
-fn write_open(out: &mut String, shape: &PositionedShape) {
+fn write_open(out: &mut String, width: f64, height: f64) {
     let _ = write!(
         out,
         r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}">"#,
-        w = fmt_num(shape.width),
-        h = fmt_num(shape.height),
+        w = fmt_num(width),
+        h = fmt_num(height),
     );
 }
 
@@ -284,6 +336,228 @@ const CARD_CORNER_RADIUS: f64 = 8.0;
 /// corners can target the `kul-edge` class and re-emit, but the
 /// default canonical visual is soft.
 const EDGE_CORNER_RADIUS: f64 = 10.0;
+
+// -- Legend (ADR-0022) -----------------------------------------------
+//
+// The legend is appended into a reserved bottom-left band when
+// `ThemeConfig::legend` is set. Each row is a swatch + a label; the
+// swatch is a miniature of the real glyph, carrying the production
+// `kul-card` / `kul-edge` class plus the same `data-*` attributes —
+// so the surrounding stylesheet themes it for free. Only size /
+// stroke-width / dash are tuned for swatch scale via the small
+// `.kul-legend …` block in `SELF_CONTAINED_STYLE`; colour is never
+// overridden there.
+
+/// Vertical gap between the diagram's bottom edge and the first
+/// legend row, *and* the row pitch's structural anchor.
+const LEGEND_GAP: f64 = 16.0;
+/// Height of one legend row — sized so the production 8.75px marriage
+/// stroke (clamped to 5px via `.kul-legend` override) still reads as a
+/// distinct thick line in the row, not the whole row.
+const LEGEND_ROW_HEIGHT: f64 = 22.0;
+/// Extra space below the last row before the viewBox bottom edge.
+const LEGEND_BOTTOM_PAD: f64 = 8.0;
+/// X inset of the swatch column from the canvas's left edge.
+const LEGEND_LEFT_PAD: f64 = 16.0;
+/// Horizontal swatch span (rect width, edge segment length).
+const LEGEND_SWATCH_WIDTH: f64 = 30.0;
+/// Vertical swatch span for the rect (card) swatches; edge swatches
+/// are single horizontal lines through the row's centre.
+const LEGEND_SWATCH_HEIGHT: f64 = 14.0;
+/// Gap between swatch and its label.
+const LEGEND_LABEL_GAP: f64 = 10.0;
+/// Conservative label-column budget — labels are short English words,
+/// not measured, so this only matters for the degenerate "diagram
+/// narrower than the legend" case where the viewBox max()es up to fit.
+const LEGEND_LABEL_BUDGET: f64 = 130.0;
+/// Total horizontal footprint a legend occupies in the canvas.
+const LEGEND_TOTAL_WIDTH: f64 = LEGEND_LEFT_PAD
+    + LEGEND_SWATCH_WIDTH
+    + LEGEND_LABEL_GAP
+    + LEGEND_LABEL_BUDGET
+    + LEGEND_LEFT_PAD;
+
+/// The canonical legend categories, in their normative order
+/// (`docs/canonical-ui-pattern.md`). Each is dynamic: a row appears
+/// only when the diagram contains at least one element of that
+/// category — no adoption edges → no adoption row.
+#[derive(Clone, Copy)]
+enum LegendRow {
+    GenderMale,
+    GenderFemale,
+    GenderOther,
+    PastRecord,
+    Birth,
+    Adoption,
+    Marriage,
+    EndedMarriage,
+}
+
+impl LegendRow {
+    /// The English label string for this row (hardcoded inside the
+    /// emitter; the opt-in `legend=true` path is the only consumer, so
+    /// no English ships on the always-emitted SVG — see ADR-0022).
+    fn label(self) -> &'static str {
+        match self {
+            LegendRow::GenderMale => "Male",
+            LegendRow::GenderFemale => "Female",
+            LegendRow::GenderOther => "Other",
+            LegendRow::PastRecord => "Past record",
+            LegendRow::Birth => "Birth",
+            LegendRow::Adoption => "Adoption",
+            LegendRow::Marriage => "Marriage",
+            LegendRow::EndedMarriage => "Ended marriage",
+        }
+    }
+}
+
+/// Walk the [`PositionedShape`] and emit the rows whose category is
+/// present, in canonical order.
+fn legend_rows(shape: &PositionedShape) -> Vec<LegendRow> {
+    let mut rows = Vec::new();
+    let has_gender = |g: &str| shape.cards.iter().any(|c| c.gender == g);
+    if has_gender("male") {
+        rows.push(LegendRow::GenderMale);
+    }
+    if has_gender("female") {
+        rows.push(LegendRow::GenderFemale);
+    }
+    if has_gender("other") {
+        rows.push(LegendRow::GenderOther);
+    }
+    if shape
+        .cards
+        .iter()
+        .any(|c| matches!(c.kind, SlotKind::Ghost { .. }))
+    {
+        rows.push(LegendRow::PastRecord);
+    }
+    if shape
+        .edges
+        .iter()
+        .any(|e| matches!(e.kind, EdgeKind::Birth { .. }))
+    {
+        rows.push(LegendRow::Birth);
+    }
+    if shape
+        .edges
+        .iter()
+        .any(|e| matches!(e.kind, EdgeKind::Adoption { .. }))
+    {
+        rows.push(LegendRow::Adoption);
+    }
+    if shape.edges.iter().any(|e| {
+        matches!(
+            &e.kind,
+            EdgeKind::Marriage {
+                is_ended: false,
+                ..
+            }
+        )
+    }) {
+        rows.push(LegendRow::Marriage);
+    }
+    if shape
+        .edges
+        .iter()
+        .any(|e| matches!(&e.kind, EdgeKind::Marriage { is_ended: true, .. }))
+    {
+        rows.push(LegendRow::EndedMarriage);
+    }
+    rows
+}
+
+fn write_legend(out: &mut String, rows: &[LegendRow], legend_top: f64) {
+    out.push_str(r#"<g class="kul-legend">"#);
+    for (i, row) in rows.iter().enumerate() {
+        let row_top = legend_top + (i as f64) * LEGEND_ROW_HEIGHT;
+        let center_y = row_top + LEGEND_ROW_HEIGHT / 2.0;
+        let swatch_top = center_y - LEGEND_SWATCH_HEIGHT / 2.0;
+        write_legend_swatch(out, *row, LEGEND_LEFT_PAD, swatch_top, center_y);
+        let _ = write!(
+            out,
+            r#"<text class="kul-legend-label" x="{x}" y="{y}" dominant-baseline="central">{label}</text>"#,
+            x = fmt_num(LEGEND_LEFT_PAD + LEGEND_SWATCH_WIDTH + LEGEND_LABEL_GAP),
+            y = fmt_num(center_y),
+            label = escape_xml(row.label()),
+        );
+    }
+    out.push_str("</g>");
+}
+
+fn write_legend_swatch(out: &mut String, row: LegendRow, x: f64, swatch_top: f64, center_y: f64) {
+    match row {
+        LegendRow::GenderMale | LegendRow::GenderFemale | LegendRow::GenderOther => {
+            let gender = match row {
+                LegendRow::GenderMale => "male",
+                LegendRow::GenderFemale => "female",
+                LegendRow::GenderOther => "other",
+                _ => unreachable!(),
+            };
+            // Carry data-kind="canonical" + data-gender so the production
+            // `.kul-card[data-gender="…"] rect` rule themes the stroke
+            // automatically — no hardcoded swatch colour.
+            let _ = write!(
+                out,
+                r#"<g class="kul-card" data-kind="canonical" data-gender="{gender}"><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="3" ry="3"/></g>"#,
+                x = fmt_num(x),
+                y = fmt_num(swatch_top),
+                w = fmt_num(LEGEND_SWATCH_WIDTH),
+                h = fmt_num(LEGEND_SWATCH_HEIGHT),
+            );
+        }
+        LegendRow::PastRecord => {
+            // Ghost card: `data-kind="ghost"` triggers the production
+            // faded-fill rule; the dashed border ships inline (structural,
+            // ADR-0016) exactly as on a real ghost card.
+            let _ = write!(
+                out,
+                r#"<g class="kul-card" data-kind="ghost"><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="3" ry="3" stroke-dasharray="3 2"/></g>"#,
+                x = fmt_num(x),
+                y = fmt_num(swatch_top),
+                w = fmt_num(LEGEND_SWATCH_WIDTH),
+                h = fmt_num(LEGEND_SWATCH_HEIGHT),
+            );
+        }
+        LegendRow::Birth => {
+            let _ = write!(
+                out,
+                r#"<path class="kul-edge" data-link-kind="birth" fill="none" d="M {x1} {y} L {x2} {y}"/>"#,
+                x1 = fmt_num(x),
+                x2 = fmt_num(x + LEGEND_SWATCH_WIDTH),
+                y = fmt_num(center_y),
+            );
+        }
+        LegendRow::Adoption => {
+            // Adoption inline dasharray mirrors the production edge.
+            let _ = write!(
+                out,
+                r#"<path class="kul-edge" data-link-kind="adoption" fill="none" d="M {x1} {y} L {x2} {y}" stroke-dasharray="6 4"/>"#,
+                x1 = fmt_num(x),
+                x2 = fmt_num(x + LEGEND_SWATCH_WIDTH),
+                y = fmt_num(center_y),
+            );
+        }
+        LegendRow::Marriage => {
+            let _ = write!(
+                out,
+                r#"<path class="kul-edge" data-link-kind="marriage" fill="none" d="M {x1} {y} L {x2} {y}"/>"#,
+                x1 = fmt_num(x),
+                x2 = fmt_num(x + LEGEND_SWATCH_WIDTH),
+                y = fmt_num(center_y),
+            );
+        }
+        LegendRow::EndedMarriage => {
+            let _ = write!(
+                out,
+                r#"<path class="kul-edge" data-link-kind="marriage" data-is-ended="true" fill="none" d="M {x1} {y} L {x2} {y}"/>"#,
+                x1 = fmt_num(x),
+                x2 = fmt_num(x + LEGEND_SWATCH_WIDTH),
+                y = fmt_num(center_y),
+            );
+        }
+    }
+}
 
 /// Convert an orthogonal polyline (each segment axis-aligned) into an
 /// SVG path string with each interior corner rounded by a

@@ -113,7 +113,14 @@ fn run_svg(with_positions: bool) -> ExitCode {
         }
         RenderShape::Success(_) => {
             let positioned = layout(&shape, &LayoutConfig::default());
-            let svg = render(&positioned, &ThemeConfig::with_self_contained(true));
+            // Self-contained + legend (ADR-0022): a standalone exported
+            // SVG is self-explanatory — the baked stylesheet themes the
+            // dynamic legend's swatches via the same `--kul-*` tokens
+            // the diagram uses.
+            let svg = render(
+                &positioned,
+                &ThemeConfig::with_self_contained(true).with_legend(true),
+            );
             let stdout = io::stdout();
             let mut out = stdout.lock();
             if let Err(err) = writeln!(out, "{svg}") {

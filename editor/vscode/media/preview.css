@@ -316,3 +316,55 @@ body {
 .kul-tooltip-label {
     color: var(--kul-tooltip-label-fg);
 }
+
+/* Chrome legend (#157, ADR-0022): a floating bottom-left overlay that lists
+ * the diagram's visual vocabulary — gender stroke tints, ghost (past record),
+ * and the four edge treatments. The swatches are miniature glyphs carrying
+ * the production `.kul-card` / `.kul-edge` classes + `data-*` attributes, so
+ * the rules above paint them with the same theme tokens the diagram uses
+ * (the only swatch-scale override is the marriage stroke-width below; colour
+ * is never overridden). pointer-events:none lets clicks/hover pass through to
+ * the diagram below, and incidentally suppresses the `.kul-card:hover`
+ * stroke bump on the static swatches. Sits just above the pan/zoom controls
+ * at the same left inset; hidden until the first successful render. */
+.kul-preview-legend {
+    position: fixed;
+    bottom: var(--kul-legend-inset-bottom);
+    left: var(--kul-legend-inset-left);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: var(--kul-legend-row-gap);
+    padding: var(--kul-legend-padding);
+    background-color: var(--kul-legend-bg);
+    color: var(--kul-legend-fg);
+    border: 1px solid var(--kul-legend-border-color);
+    border-radius: var(--kul-legend-radius);
+    box-shadow: 0 2px 8px var(--kul-legend-shadow-color);
+    font-size: var(--kul-legend-font-size);
+    pointer-events: none;
+}
+
+.kul-preview-legend[hidden] {
+    display: none;
+}
+
+.kul-legend-row {
+    display: flex;
+    align-items: center;
+    gap: var(--kul-legend-label-gap);
+}
+
+.kul-legend-swatch {
+    width: var(--kul-legend-swatch-width);
+    height: var(--kul-legend-swatch-height);
+    flex-shrink: 0;
+}
+
+/* Swatch-scale override (ADR-0022): the production 8.75px marriage stroke
+ * would dominate a 30×18 swatch row, so it is clamped to a still-distinct
+ * thick line. Colour (`var(--kul-marriage-edge-stroke)`) is unchanged so
+ * the swatch tracks the theme. */
+.kul-legend-swatch .kul-edge[data-link-kind="marriage"] {
+    stroke-width: var(--kul-legend-marriage-stroke-width);
+}

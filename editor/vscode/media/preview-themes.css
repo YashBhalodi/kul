@@ -113,4 +113,30 @@ body[data-theme="vscode"] {
     --kul-tooltip-header-line-gap: 1px;
     --kul-tooltip-kind-font-size: 0.85em;
     --kul-tooltip-title-weight: 600;
+
+    /* Chrome legend (#157, ADR-0022): reuses the control-panel chrome
+     * vocabulary so a theme change re-themes both, then adds its own row /
+     * swatch dimensions. The swatches themselves pick up colour from the
+     * existing `--kul-card-*` / `--kul-edge-*` / `--kul-marriage-*` tokens
+     * the diagram already consumes (no new colour tokens). */
+    --kul-legend-bg: var(--kul-control-bg);
+    --kul-legend-fg: var(--vscode-editor-foreground);
+    --kul-legend-border-color: var(--kul-control-border-color);
+    --kul-legend-shadow-color: var(--kul-control-shadow-color);
+    --kul-legend-font-size: var(--vscode-editor-font-size);
+    --kul-legend-radius: var(--kul-control-radius);
+    --kul-legend-padding: 8px 10px;
+    --kul-legend-row-gap: 6px;
+    --kul-legend-label-gap: 10px;
+    --kul-legend-swatch-width: 32px;
+    --kul-legend-swatch-height: 18px;
+    /* Stacked just above the pan/zoom controls at the same left inset.
+     * One token swap re-positions the legend (e.g. top-left or bottom-right)
+     * for a future theme. */
+    --kul-legend-inset-bottom: calc(var(--kul-control-inset) + var(--kul-control-size) + 8px);
+    --kul-legend-inset-left: var(--kul-control-inset);
+    /* Swatch-scale override (ADR-0022): the production 8.75px marriage stroke
+     * would dominate a 18px row, so it is clamped to a still-distinct thick
+     * line. Colour stays themed. */
+    --kul-legend-marriage-stroke-width: 5;
 }
