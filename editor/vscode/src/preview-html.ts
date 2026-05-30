@@ -41,6 +41,94 @@ const CONTROLS = `<div id="kul-controls" class="kul-preview-controls" role="grou
 </div>`;
 
 /**
+ * Build the hover-tooltip rows for a preview entity from its raw `data-*`
+ * attributes (issue #192). This is the single source of truth for the
+ * row-building logic: it is exported for Vitest and also embedded verbatim
+ * into {@link BOOTSTRAP} via `.toString()`, so the webview and the tests run
+ * the exact same code. It must therefore stay self-contained — no module
+ * imports, no closure over module-level constants — so its serialized source
+ * runs standalone inside the IIFE.
+ *
+ * Progressive disclosure (ADR-0021 / #156): the diagram stays name-only and
+ * every Person/Marriage/Adoption property already rides the SVG as a `data-*`
+ * attribute, so the tooltip reads them directly — no LSP round-trip. Rendering
+ * is generic with a denylist: every `data-*` attribute surfaces as a row
+ * except a fixed structural set (ids, kinds, generation, the `data-is-*`
+ * booleans, ghost reason), so a new display field added upstream appears here
+ * automatically. Empty values are omitted (no placeholder rows), so an entity
+ * with no display fields — e.g. a birth edge — yields `[]` and shows no
+ * tooltip. Rows preserve the input (DOM emit) order.
+ *
+ * - Label: strip `data-`, `-`→space, capitalize the first letter
+ *   (`data-end-reason` → "End reason"). A 2-entry override map disambiguates
+ *   `family` → "Family name" and `given` → "Given name".
+ * - Value: capitalize the first cased character (`male` → "Male",
+ *   `divorce` → "Divorce"); a value with no letters — a date like `1850` or
+ *   the approximate `~1850` — passes through verbatim, preserving the `~`.
+ */
+export function buildTooltipRows(
+    attrs: ReadonlyArray<{ name: string; value: string }>,
+): Array<{ label: string; value: string }> {
+    // Structural attributes that drive identity / layout / styling rather than
+    // describing the entity to the reader. Everything else (born, died,
+    // family, given, gender, start, end, end-reason, adoption-start/end, and
+    // any future display field) surfaces automatically.
+    const DENYLIST = new Set([
+        "data-person-id",
+        "data-marriage-id",
+        "data-host-id",
+        "data-joining-id",
+        "data-child-id",
+        "data-kind",
+        "data-link-kind",
+        "data-generation",
+        "data-ghost-reason",
+        "data-is-alive",
+        "data-is-ended",
+        "data-is-past",
+    ]);
+    // Two keys whose humanized label ("Family" / "Given") would read
+    // ambiguously on its own.
+    const LABEL_OVERRIDES: Record<string, string> = {
+        family: "Family name",
+        given: "Given name",
+    };
+    // Capitalize the first cased (alphabetic) character, leaving the rest —
+    // and any leading non-letter such as the `~` approximate marker —
+    // verbatim. A value with no letters (a bare or approximate date) is
+    // returned unchanged. `toLowerCase() !== toUpperCase()` is a
+    // locale-robust "is this a cased letter" test that avoids per-char regex.
+    function displayValue(raw: string): string {
+        for (let i = 0; i < raw.length; i++) {
+            const ch = raw[i];
+            if (ch.toLowerCase() !== ch.toUpperCase()) {
+                return raw.slice(0, i) + ch.toUpperCase() + raw.slice(i + 1);
+            }
+        }
+        return raw;
+    }
+    const rows: Array<{ label: string; value: string }> = [];
+    for (const attr of attrs) {
+        const name = attr.name;
+        const value = attr.value;
+        if (name.indexOf("data-") !== 0) {
+            continue;
+        }
+        if (DENYLIST.has(name) || value === "") {
+            continue;
+        }
+        const key = name.slice("data-".length);
+        let label = LABEL_OVERRIDES[key];
+        if (!label) {
+            const spaced = key.replace(/-/g, " ");
+            label = spaced.charAt(0).toUpperCase() + spaced.slice(1);
+        }
+        rows.push({ label: label, value: displayValue(value) });
+    }
+    return rows;
+}
+
+/**
  * The inline bootstrap that runs inside the webview. It owns a single
  * module-level `svg-pan-zoom` instance (the global `svgPanZoom` comes from
  * the vendored script) and reconciles it against `render` / `renderError`
@@ -66,6 +154,11 @@ const BOOTSTRAP = `
     const controls = document.getElementById('kul-controls');
     const vscode = acquireVsCodeApi();
     let panZoom = null;
+
+    // Hover tooltip (issue #192). The row-building logic is embedded verbatim
+    // from the exported buildTooltipRows() so the webview and its Vitest
+    // unit tests run identical code; see preview-html.ts for the contract.
+    ${buildTooltipRows.toString()}
 
     // Click-to-source (issue #135): a click on a person card or a
     // marriage bar posts { type: 'revealSource', id } so the extension
@@ -101,6 +194,101 @@ const BOOTSTRAP = `
                 if (id) {
                     vscode.postMessage({ type: 'revealSource', id: id });
                 }
+            }
+        });
+    }
+
+    // Hover tooltip (issue #192): progressive disclosure of an entity's full
+    // field set. A single floating <div> is reused, anchored to the hovered
+    // card/edge, clamped to the viewport, and torn down on mouseleave, on
+    // re-render, and on pan/zoom so it never strands over a moved diagram.
+    // The rows are built generically from the element's own data-* attributes
+    // (the #156 seam) via the embedded buildTooltipRows — no LSP round-trip,
+    // and birth edges (structural attributes only) yield no rows, so they show
+    // nothing. Coexists with click-to-source (#135) and selection sync (#137):
+    // distinct events on the same elements, and the panel is pointer-events:
+    // none so it never intercepts a hover or click.
+    let hoverTarget = null;
+    let tooltipEl = null;
+    function removeTooltip() {
+        if (tooltipEl) {
+            tooltipEl.remove();
+            tooltipEl = null;
+        }
+        hoverTarget = null;
+    }
+    // Anchor below the element's left edge, then clamp into the viewport,
+    // flipping above if the panel would overflow the bottom. Read after the
+    // panel is in the DOM so getBoundingClientRect() reports its real size.
+    function positionTooltip(target) {
+        if (!tooltipEl || typeof target.getBoundingClientRect !== 'function') {
+            return;
+        }
+        const anchor = target.getBoundingClientRect();
+        const tip = tooltipEl.getBoundingClientRect();
+        const GAP = 8;
+        const MARGIN = 4;
+        let left = anchor.left;
+        let top = anchor.bottom + GAP;
+        if (left + tip.width > window.innerWidth - MARGIN) {
+            left = window.innerWidth - MARGIN - tip.width;
+        }
+        if (left < MARGIN) { left = MARGIN; }
+        if (top + tip.height > window.innerHeight - MARGIN) {
+            top = anchor.top - GAP - tip.height;
+        }
+        if (top < MARGIN) { top = MARGIN; }
+        tooltipEl.style.left = left + 'px';
+        tooltipEl.style.top = top + 'px';
+    }
+    function showTooltip(target) {
+        const attrs = [];
+        for (let i = 0; i < target.attributes.length; i++) {
+            const a = target.attributes[i];
+            attrs.push({ name: a.name, value: a.value });
+        }
+        const rows = buildTooltipRows(attrs);
+        if (rows.length === 0) { return; }
+        const el = document.createElement('div');
+        el.className = 'kul-tooltip';
+        el.setAttribute('role', 'tooltip');
+        rows.forEach(function (row) {
+            const rowEl = document.createElement('div');
+            rowEl.className = 'kul-tooltip-row';
+            const label = document.createElement('span');
+            label.className = 'kul-tooltip-label';
+            label.textContent = row.label;
+            const value = document.createElement('span');
+            value.className = 'kul-tooltip-value';
+            value.textContent = row.value;
+            rowEl.appendChild(label);
+            rowEl.appendChild(value);
+            el.appendChild(rowEl);
+        });
+        document.body.appendChild(el);
+        tooltipEl = el;
+        positionTooltip(target);
+    }
+    if (root) {
+        // Delegated on #root (which survives every innerHTML swap), mirroring
+        // click-to-source. mouseover/mouseout bubble — closest() resolves the
+        // entity from whichever child node (rect/text/path) the event lands
+        // on. The hoverTarget guard skips rebuilds while moving within the
+        // same entity; mouseout only clears when the pointer leaves the entity
+        // (relatedTarget outside it), not when crossing between its children.
+        root.addEventListener('mouseover', function (event) {
+            const entity = event.target.closest('.kul-card, .kul-edge');
+            if (entity === hoverTarget) { return; }
+            removeTooltip();
+            if (entity) {
+                hoverTarget = entity;
+                showTooltip(entity);
+            }
+        });
+        root.addEventListener('mouseout', function (event) {
+            const to = event.relatedTarget;
+            if (hoverTarget && (!to || !hoverTarget.contains(to))) {
+                removeTooltip();
             }
         });
     }
@@ -298,6 +486,9 @@ const BOOTSTRAP = `
         const msg = event.data;
         if (!msg || typeof msg !== 'object') { return; }
         if (msg.type === 'render') {
+            // Drop any open hover tooltip before the SVG it anchors to is
+            // swapped out (issue #192).
+            removeTooltip();
             let savedPan = null;
             let savedZoom = null;
             if (panZoom) {
@@ -324,6 +515,11 @@ const BOOTSTRAP = `
                 zoomScaleSensitivity: 0.3,
                 dblClickZoomEnabled: true,
                 mouseWheelZoomEnabled: true,
+                // Any pan/zoom (drag, wheel, keyboard, buttons, or the
+                // selection-centring tween) drops the hover tooltip so it
+                // never strands at a stale screen position (issue #192).
+                onPan: removeTooltip,
+                onZoom: removeTooltip,
             });
             if (savedZoom !== null) {
                 panZoom.zoom(savedZoom);
@@ -333,6 +529,7 @@ const BOOTSTRAP = `
         } else if (msg.type === 'highlightEntity') {
             highlightEntity(msg.id, msg.kind);
         } else if (msg.type === 'renderError') {
+            removeTooltip();
             teardown();
             showControls(false);
             const banner = document.createElement('div');

@@ -245,3 +245,43 @@ body {
     outline: var(--kul-selected-outline-width) solid var(--kul-selected-outline-color);
     outline-offset: var(--kul-selected-outline-offset);
 }
+
+/* Hover tooltip (#192): a JS-injected floating panel that surfaces a hovered
+ * entity's data-* fields (born/died/family/given/gender, marriage start/end/
+ * end-reason, adoption start/end). The bootstrap appends it to <body> and sets
+ * position:fixed left/top after measuring + clamping to the viewport, so the
+ * rule supplies only the box, not the placement. pointer-events:none keeps it
+ * from intercepting the hover/click underneath (so F10 click-to-source and F12
+ * selection sync are untouched) and prevents it from flickering its own
+ * mouseout. The floating-panel box (fixed position, themed bg/border/shadow,
+ * radius) is kept self-contained here so a future legend / hover-help (#157)
+ * could lift it into a shared `.kul-floating-panel` primitive. */
+.kul-tooltip {
+    position: fixed;
+    z-index: 20;
+    max-width: var(--kul-tooltip-max-width);
+    padding: var(--kul-tooltip-padding);
+    background-color: var(--kul-tooltip-bg);
+    color: var(--kul-tooltip-fg);
+    border: 1px solid var(--kul-tooltip-border-color);
+    border-radius: var(--kul-tooltip-radius);
+    box-shadow: 0 2px 8px var(--kul-tooltip-shadow-color);
+    font-size: var(--kul-tooltip-font-size);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--kul-tooltip-row-gap);
+}
+
+/* Each field is a label/value pair on one row; the label column is dimmed so
+ * the value reads as primary. */
+.kul-tooltip-row {
+    display: flex;
+    flex-direction: row;
+    gap: var(--kul-tooltip-col-gap);
+    justify-content: space-between;
+}
+
+.kul-tooltip-label {
+    color: var(--kul-tooltip-label-fg);
+}

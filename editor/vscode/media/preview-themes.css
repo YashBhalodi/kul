@@ -48,6 +48,18 @@ body[data-theme="vscode"] {
      * dark, and high-contrast themes. Swap this one token to retheme it. */
     --kul-selected-outline-color: #ff2d95;
 
+    /* Hover tooltip (#192): the progressive-disclosure panel surfacing an
+     * entity's data-* fields. Mapped to the VSCode editor-hover-widget palette
+     * so it reads as a native hover popover and tracks the active theme across
+     * light, dark, and high-contrast — the single vscode block covers every
+     * theme exactly as the tokens above do. The label column is dimmed
+     * (descriptionForeground) so the key reads as secondary to its value. */
+    --kul-tooltip-bg: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
+    --kul-tooltip-fg: var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground));
+    --kul-tooltip-border-color: var(--vscode-editorHoverWidget-border, var(--vscode-widget-border, transparent));
+    --kul-tooltip-shadow-color: var(--vscode-widget-shadow, transparent);
+    --kul-tooltip-label-fg: var(--vscode-descriptionForeground, var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground)));
+
     /* Dimensions / opacities / spacing */
     --kul-font-size: var(--vscode-editor-font-size);
     --kul-preview-padding: 16px;
@@ -82,4 +94,12 @@ body[data-theme="vscode"] {
     --kul-control-gap: 4px;
     --kul-control-padding: 4px;
     --kul-control-inset: 12px;
+
+    /* Hover tooltip dimensions (#192) */
+    --kul-tooltip-font-size: var(--vscode-editor-font-size);
+    --kul-tooltip-max-width: 320px;
+    --kul-tooltip-padding: 6px 10px;
+    --kul-tooltip-radius: 4px;
+    --kul-tooltip-row-gap: 2px;
+    --kul-tooltip-col-gap: 12px;
 }
