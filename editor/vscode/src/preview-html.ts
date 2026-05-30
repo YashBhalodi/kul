@@ -83,8 +83,9 @@ const BOOTSTRAP = `
             // non-focusable SVG does NOT move focus off the text editor on
             // its own, so the diagram surface (#root, tabindex="-1") is
             // focused explicitly here. tabindex="-1" keeps it out of the Tab
-            // order, and programmatic focus does not trigger :focus-visible,
-            // so no focus ring is drawn.
+            // order; the inline outline:none on #root suppresses the focus
+            // ring the host would otherwise paint, honoring the
+            // no-focus-ring decision.
             root.focus();
             const person = event.target.closest('[data-person-id]');
             if (person) {
@@ -259,7 +260,7 @@ export function previewHtml(
 <title>Kul Preview</title>
 </head>
 <body data-theme="vscode">
-<div id="root" tabindex="-1"></div>
+<div id="root" tabindex="-1" style="outline: none;"></div>
 ${CONTROLS}
 <script nonce="${nonce}" src="${scriptHref}"></script>
 <script nonce="${nonce}">${BOOTSTRAP}</script>
