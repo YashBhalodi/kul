@@ -127,11 +127,11 @@ impl<'a> Index<'a> {
             .enumerate()
             .map(|(i, m)| (m.id.as_str(), i))
             .collect();
-        let adoption_links: HashMap<(String, String), &ExportedParenthoodLink> = graph
+        let adoption_links: HashMap<(&'a str, &'a str), &'a ExportedParenthoodLink> = graph
             .parenthood_links
             .iter()
             .filter(|l| l.kind == ParenthoodLinkKind::Adoptive)
-            .map(|l| ((l.child_id.clone(), l.marriage_id.clone()), l))
+            .map(|l| ((l.child_id.as_str(), l.marriage_id.as_str()), l))
             .collect();
 
         // Per-person derived facts: hosted/joined marriages, bio
@@ -179,10 +179,11 @@ impl<'a> Index<'a> {
         // sits at index 0 so `canonical_adoption()` is a one-line lookup
         // and `past adoptions` is `[1..]`. The ghost-emission rule.
         for facts in persons.iter_mut() {
-            let person_id = facts.person.id.clone();
+            let person: &ExportedPerson = facts.person;
+            let person_id = person.id.as_str();
             facts.adoption_marriages.sort_by(|a, b| {
-                let key_a = adoption_sort_key(&adoption_links, &person_id, a);
-                let key_b = adoption_sort_key(&adoption_links, &person_id, b);
+                let key_a = adoption_sort_key(&adoption_links, person_id, a);
+                let key_b = adoption_sort_key(&adoption_links, person_id, b);
                 key_b.cmp(&key_a)
             });
         }
@@ -312,13 +313,13 @@ impl<'a> Index<'a> {
 }
 
 /// Adoption ordering key: (start date desc, declaration-order tiebreak).
-fn adoption_sort_key<'a>(
-    links: &'a HashMap<(String, String), &'a ExportedParenthoodLink>,
+fn adoption_sort_key(
+    links: &HashMap<(&str, &str), &ExportedParenthoodLink>,
     person_id: &str,
     marriage_id: &str,
 ) -> SortableDate {
     links
-        .get(&(person_id.to_string(), marriage_id.to_string()))
+        .get(&(person_id, marriage_id))
         .and_then(|l| l.start.as_ref())
         .map(SortableDate::from)
         .unwrap_or(SortableDate::missing())
