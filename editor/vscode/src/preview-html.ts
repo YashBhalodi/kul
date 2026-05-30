@@ -300,7 +300,12 @@ const BOOTSTRAP = `
         }
         const anchor = target.getBoundingClientRect();
         const tip = tooltipEl.getBoundingClientRect();
-        const GAP = 8;
+        // The card-to-tooltip gap scales with the diagram (like the tooltip
+        // itself) so the offset stays proportional at any zoom; the viewport
+        // safety margin stays a fixed screen distance.
+        const sizes = panZoom && panZoom.getSizes ? panZoom.getSizes() : null;
+        const scale = sizes && sizes.realZoom > 0 ? sizes.realZoom : 1;
+        const GAP = 8 * scale;
         const MARGIN = 4;
         let left = anchor.left;
         let top = anchor.bottom + GAP;
@@ -339,6 +344,18 @@ const BOOTSTRAP = `
         const el = document.createElement('div');
         el.className = 'kul-tooltip';
         el.setAttribute('role', 'tooltip');
+        // Scale the tooltip with the diagram so it reads as an inline part of
+        // it, not a fixed-size screen overlay (issue #192 follow-up): its px
+        // metrics are treated as diagram user-units and multiplied by the live
+        // user-unit→pixel factor (realZoom — the same mapping F12's centring
+        // uses). Zoom in, the tooltip grows with the cards; zoom out, it
+        // shrinks with them (small enough to be unreadable at the far end, by
+        // design — the reader zooms into the area they care about). Anchored
+        // from the top-left corner so the scale grows down-right from there.
+        const sizes = panZoom && panZoom.getSizes ? panZoom.getSizes() : null;
+        const scale = sizes && sizes.realZoom > 0 ? sizes.realZoom : 1;
+        el.style.transformOrigin = 'top left';
+        el.style.transform = 'scale(' + scale + ')';
         // Typed header: an entity-kind kicker over the resolved identity line.
         const header = document.createElement('div');
         header.className = 'kul-tooltip-header';
