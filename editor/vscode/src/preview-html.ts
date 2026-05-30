@@ -151,7 +151,7 @@ const BOOTSTRAP = `
     // the in-flight tween (cancelPanAnim) and re-eases from wherever it got
     // to, so rapid cursor moves chase the latest target without stacking.
     // Guards a missing/zero bbox (detached or unrendered element).
-    const PAN_ANIM_MS = 200;
+    const PAN_ANIM_MS = 500;
     function panToElement(el) {
         if (!panZoom || typeof el.getBBox !== 'function') { return; }
         const bbox = el.getBBox();
