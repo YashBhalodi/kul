@@ -162,8 +162,8 @@ fn first_walk(state: &mut [State], v: usize, sibling_gap: f64) {
             default_ancestor = apportion(state, w, default_ancestor, sibling_gap);
         }
         execute_shifts(state, v);
-        let first = *state[v].children.first().unwrap();
-        let last = *state[v].children.last().unwrap();
+        let first = state[v].children[0];
+        let last = state[v].children[state[v].children.len() - 1];
         let midpoint = (state[first].prelim + state[last].prelim) / 2.0;
         if let Some(w) = left_sibling(state, v) {
             state[v].prelim = state[w].prelim + min_separation(state, v, w, sibling_gap);
@@ -176,9 +176,9 @@ fn first_walk(state: &mut [State], v: usize, sibling_gap: f64) {
 
 fn second_walk(state: &mut [State], v: usize, m: f64) {
     state[v].x = state[v].prelim + m;
-    let children = state[v].children.clone();
     let new_m = m + state[v].modifier;
-    for c in children {
+    for i in 0..state[v].children.len() {
+        let c = state[v].children[i];
         second_walk(state, c, new_m);
     }
 }
