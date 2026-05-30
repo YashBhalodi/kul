@@ -26,6 +26,7 @@ use tower_lsp::lsp_types::{
 use tower_lsp::{Client, LanguageServer};
 
 use crate::features::export::{ExportParams, ExportRequestError, export_for};
+use crate::features::locate::{LocateParams, LocateResponse, locate};
 use crate::features::render::{RenderParams, RenderRequestError, RenderResponse, render_for};
 use crate::features::{
     code_action, completion, definition, diagnostics, document_symbol, formatting, hover,
@@ -94,6 +95,28 @@ impl Backend {
                 data: None,
             }),
             Some(Ok(response)) => Ok(response),
+        }
+    }
+
+    /// Handler for the `kul/locate` custom request. Resolves a
+    /// project-wide entity id (person or marriage) to the [`Location`]
+    /// of its declaration's id token, for click-to-source from the
+    /// preview panel. An id with no live declaration is not an error —
+    /// the response carries `location: null`. Only a URI that is not in
+    /// the project cache is a request error (mirrors [`Self::render`]).
+    pub async fn locate(&self, params: LocateParams) -> Result<LocateResponse> {
+        let uri = params.uri.clone();
+        let result = self
+            .documents
+            .with_project(&uri, |entry| locate(entry, &params))
+            .await;
+        match result {
+            None => Err(Error {
+                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
+                message: format!("document not open: {uri}").into(),
+                data: None,
+            }),
+            Some(response) => Ok(response),
         }
     }
 
