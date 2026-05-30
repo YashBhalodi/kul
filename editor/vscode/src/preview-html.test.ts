@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTooltipRows, getNonce, previewHtml } from "./preview-html";
+import { buildTooltip, getNonce, previewHtml } from "./preview-html";
 
-/** Shorthand for the `{ name, value }` attribute shape buildTooltipRows takes. */
+/** Shorthand for the `{ name, value }` attribute shape buildTooltip takes. */
 function attr(name: string, value: string): { name: string; value: string } {
     return { name, value };
+}
+
+/** An `id → name` resolver backed by a map, falling back to the id. */
+function namer(map: Record<string, string> = {}): (id: string) => string {
+    return (id) => map[id] ?? id;
 }
 
 const THEME_HREF =
@@ -193,11 +198,84 @@ describe("previewHtml selection sync", () => {
     });
 });
 
-describe("buildTooltipRows denylist", () => {
+/** Convenience: the rows of a built model (asserting it isn't null). */
+function rowsOf(
+    attrs: Array<{ name: string; value: string }>,
+    resolve = namer(),
+): Array<{ label: string; value: string }> {
+    const model = buildTooltip(attrs, resolve);
+    expect(model).not.toBeNull();
+    return model!.rows;
+}
+
+describe("buildTooltip typed header", () => {
+    it("titles a person card and resolves its display name", () => {
+        const model = buildTooltip(
+            [attr("data-person-id", "alice"), attr("data-gender", "female")],
+            namer({ alice: "Alice Adeyemi" }),
+        );
+        expect(model?.title).toBe("Person");
+        expect(model?.identity).toBe("Alice Adeyemi");
+    });
+
+    it("titles a marriage edge and joins both spouse names", () => {
+        const model = buildTooltip(
+            [
+                attr("data-link-kind", "marriage"),
+                attr("data-host-id", "a"),
+                attr("data-joining-id", "b"),
+                attr("data-start", "1962"),
+            ],
+            namer({ a: "Babatunde Adeyemi", b: "Amaka Adeyemi" }),
+        );
+        expect(model?.title).toBe("Marriage");
+        expect(model?.identity).toBe("Babatunde Adeyemi & Amaka Adeyemi");
+    });
+
+    it("titles an adoption edge and resolves the child name", () => {
+        const model = buildTooltip(
+            [
+                attr("data-link-kind", "adoption"),
+                attr("data-child-id", "c"),
+                attr("data-adoption-start", "1990"),
+            ],
+            namer({ c: "Bisi Adeyemi" }),
+        );
+        expect(model?.title).toBe("Adoption");
+        expect(model?.identity).toBe("Bisi Adeyemi");
+    });
+
+    it("falls back to the id when a name can't be resolved", () => {
+        const model = buildTooltip(
+            [attr("data-person-id", "ghost42")],
+            namer(),
+        );
+        expect(model?.identity).toBe("ghost42");
+    });
+
+    it("returns null for a birth edge (purely structural)", () => {
+        expect(
+            buildTooltip(
+                [
+                    attr("data-link-kind", "birth"),
+                    attr("data-child-id", "c"),
+                    attr("data-is-past", "true"),
+                ],
+                namer({ c: "Bisi Adeyemi" }),
+            ),
+        ).toBeNull();
+    });
+
+    it("returns null for an element that is neither a card nor a known edge", () => {
+        expect(buildTooltip([attr("class", "kul-canvas")], namer())).toBeNull();
+    });
+});
+
+describe("buildTooltip rows — denylist", () => {
     it("omits the structural attributes, keeping only display fields", () => {
         // A canonical person card carries identity/layout/styling attributes
         // alongside its display fields; only the latter become rows.
-        const rows = buildTooltipRows([
+        const rows = rowsOf([
             attr("data-person-id", "alice"),
             attr("data-kind", "canonical"),
             attr("data-gender", "female"),
@@ -212,7 +290,8 @@ describe("buildTooltipRows denylist", () => {
     });
 
     it("ignores non-data-* attributes entirely", () => {
-        const rows = buildTooltipRows([
+        const rows = rowsOf([
+            attr("data-person-id", "p"),
             attr("class", "kul-card"),
             attr("transform", "translate(10,20)"),
             attr("data-given", "Alice"),
@@ -221,7 +300,8 @@ describe("buildTooltipRows denylist", () => {
     });
 
     it("omits empty values (no placeholder rows)", () => {
-        const rows = buildTooltipRows([
+        const rows = rowsOf([
+            attr("data-person-id", "p"),
             attr("data-born", "1850"),
             attr("data-died", ""),
             attr("data-family", ""),
@@ -230,9 +310,9 @@ describe("buildTooltipRows denylist", () => {
     });
 });
 
-describe("buildTooltipRows scope and order", () => {
+describe("buildTooltip rows — scope and order", () => {
     it("surfaces a person's non-empty fields in DOM (emit) order", () => {
-        const rows = buildTooltipRows([
+        const rows = rowsOf([
             attr("data-person-id", "p"),
             attr("data-kind", "canonical"),
             attr("data-gender", "male"),
@@ -253,7 +333,7 @@ describe("buildTooltipRows scope and order", () => {
     });
 
     it("surfaces a marriage edge's start, end, and end-reason", () => {
-        const rows = buildTooltipRows([
+        const rows = rowsOf([
             attr("data-marriage-id", "m1"),
             attr("data-link-kind", "marriage"),
             attr("data-host-id", "a"),
@@ -271,7 +351,7 @@ describe("buildTooltipRows scope and order", () => {
     });
 
     it("surfaces an adoption edge's adoption start/end", () => {
-        const rows = buildTooltipRows([
+        const rows = rowsOf([
             attr("data-marriage-id", "m1"),
             attr("data-link-kind", "adoption"),
             attr("data-child-id", "c"),
@@ -284,72 +364,69 @@ describe("buildTooltipRows scope and order", () => {
             { label: "Adoption end", value: "1905" },
         ]);
     });
-
-    it("yields no rows for a birth edge (structural attributes only)", () => {
-        const rows = buildTooltipRows([
-            attr("data-marriage-id", "m1"),
-            attr("data-link-kind", "birth"),
-            attr("data-child-id", "c"),
-            attr("data-is-past", "true"),
-        ]);
-        expect(rows).toEqual([]);
-    });
 });
 
-describe("buildTooltipRows label humanization", () => {
+describe("buildTooltip rows — label humanization", () => {
     it("strips data-, turns - into space, and capitalizes", () => {
-        expect(buildTooltipRows([attr("data-end-reason", "x")])[0].label).toBe(
-            "End reason",
-        );
-        expect(buildTooltipRows([attr("data-adoption-start", "x")])[0].label).toBe(
-            "Adoption start",
-        );
+        expect(
+            rowsOf([attr("data-link-kind", "marriage"), attr("data-end-reason", "x")])[0]
+                .label,
+        ).toBe("End reason");
+        expect(
+            rowsOf([
+                attr("data-link-kind", "adoption"),
+                attr("data-adoption-start", "x"),
+            ])[0].label,
+        ).toBe("Adoption start");
     });
 
     it("applies the family/given override map", () => {
-        expect(buildTooltipRows([attr("data-family", "x")])[0].label).toBe(
-            "Family name",
-        );
-        expect(buildTooltipRows([attr("data-given", "x")])[0].label).toBe(
-            "Given name",
-        );
+        expect(
+            rowsOf([attr("data-person-id", "p"), attr("data-family", "x")])[0].label,
+        ).toBe("Family name");
+        expect(
+            rowsOf([attr("data-person-id", "p"), attr("data-given", "x")])[0].label,
+        ).toBe("Given name");
     });
 });
 
-describe("buildTooltipRows value capitalization", () => {
+describe("buildTooltip rows — value capitalization", () => {
     it("capitalizes the first letter of a worded value", () => {
-        expect(buildTooltipRows([attr("data-gender", "male")])[0].value).toBe(
-            "Male",
-        );
         expect(
-            buildTooltipRows([attr("data-end-reason", "divorce")])[0].value,
+            rowsOf([attr("data-person-id", "p"), attr("data-gender", "male")])[0].value,
+        ).toBe("Male");
+        expect(
+            rowsOf([
+                attr("data-link-kind", "marriage"),
+                attr("data-end-reason", "divorce"),
+            ])[0].value,
         ).toBe("Divorce");
     });
 
     it("passes dates through verbatim, preserving the ~ approximate marker", () => {
-        expect(buildTooltipRows([attr("data-born", "1850")])[0].value).toBe(
-            "1850",
-        );
-        expect(buildTooltipRows([attr("data-died", "~1890")])[0].value).toBe(
-            "~1890",
-        );
+        expect(
+            rowsOf([attr("data-person-id", "p"), attr("data-born", "1850")])[0].value,
+        ).toBe("1850");
+        expect(
+            rowsOf([attr("data-person-id", "p"), attr("data-died", "~1890")])[0].value,
+        ).toBe("~1890");
     });
 });
 
 describe("previewHtml hover tooltip", () => {
-    it("embeds the shared buildTooltipRows logic in the bootstrap", () => {
-        // The webview runs the exact same row-builder the tests cover, so its
-        // source is serialized into the bootstrap rather than re-implemented.
-        expect(build()).toContain("function buildTooltipRows(");
+    it("embeds the shared buildTooltip logic in the bootstrap", () => {
+        // The webview runs the exact same content-builder the tests cover, so
+        // its source is serialized into the bootstrap rather than reimplemented.
+        expect(build()).toContain("function buildTooltip(");
     });
 
     it("binds the embedded builder to a const so minify-renaming can't break the call", () => {
         // The production esbuild --minify pass renames the internal function,
         // so a bare `function NAME(){}` declaration would no longer match the
-        // `buildTooltipRows(...)` call site (ReferenceError). Binding the
-        // serialized source to `const buildTooltipRows = …` fixes the callable
+        // `buildTooltip(...)` call site (ReferenceError). Binding the
+        // serialized source to `const buildTooltip = …` fixes the callable
         // name regardless of how the body was minified.
-        expect(build()).toContain("const buildTooltipRows = function");
+        expect(build()).toContain("const buildTooltip = function");
     });
 
     it("delegates hover on #root via mouseover/mouseout", () => {
@@ -359,9 +436,20 @@ describe("previewHtml hover tooltip", () => {
         expect(html).toContain("closest('.kul-card, .kul-edge')");
     });
 
-    it("builds a floating .kul-tooltip div anchored to the hovered element", () => {
+    it("resolves names off the card labels for the typed header", () => {
+        const html = build();
+        // The person/spouse/child names come from the rendered .kul-label-name
+        // text (not a data-* attribute), resolved by id.
+        expect(html).toContain("function resolveName(id)");
+        expect(html).toContain(".kul-label-name");
+        expect(html).toContain("buildTooltip(attrs, resolveName)");
+    });
+
+    it("builds a floating .kul-tooltip div with a typed header", () => {
         const html = build();
         expect(html).toContain("'kul-tooltip'");
+        expect(html).toContain("'kul-tooltip-header'");
+        expect(html).toContain("'kul-tooltip-kind'");
         expect(html).toContain("getBoundingClientRect()");
         expect(html).toContain("document.body.appendChild(el)");
     });

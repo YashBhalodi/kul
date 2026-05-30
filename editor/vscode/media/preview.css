@@ -273,6 +273,35 @@ body {
     gap: var(--kul-tooltip-row-gap);
 }
 
+/* Typed header (#192): an entity-kind kicker ("Person" / "Marriage" /
+ * "Adoption") stacked over the resolved identity line (a person's name, a
+ * marriage's two spouses, an adoption's child). A hairline rule divides it
+ * from the field rows — but only when rows follow, so a header-only tooltip
+ * (no fields) has no dangling separator. */
+.kul-tooltip-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kul-tooltip-header-line-gap);
+}
+
+.kul-tooltip-header:not(:last-child) {
+    margin-bottom: var(--kul-tooltip-header-gap);
+    padding-bottom: var(--kul-tooltip-header-gap);
+    border-bottom: 1px solid var(--kul-tooltip-separator-color);
+}
+
+.kul-tooltip-kind {
+    font-size: var(--kul-tooltip-kind-font-size);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--kul-tooltip-kind-fg);
+}
+
+.kul-tooltip-title {
+    font-weight: var(--kul-tooltip-title-weight);
+    color: var(--kul-tooltip-title-fg);
+}
+
 /* Each field is a label/value pair on one row; the label column is dimmed so
  * the value reads as primary. */
 .kul-tooltip-row {

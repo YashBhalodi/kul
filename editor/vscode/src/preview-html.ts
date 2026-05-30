@@ -41,23 +41,46 @@ const CONTROLS = `<div id="kul-controls" class="kul-preview-controls" role="grou
 </div>`;
 
 /**
- * Build the hover-tooltip rows for a preview entity from its raw `data-*`
- * attributes (issue #192). This is the single source of truth for the
- * row-building logic: it is exported for Vitest and also embedded verbatim
- * into {@link BOOTSTRAP} via `.toString()`, so the webview and the tests run
- * the exact same code. It must therefore stay self-contained — no module
- * imports, no closure over module-level constants — so its serialized source
- * runs standalone inside the IIFE.
+ * The structured model for one hover tooltip: a typed header (entity-kind
+ * `title` + a human `identity` line) over a list of field `rows`.
+ */
+export interface TooltipModel {
+    /** Entity-kind kicker: "Person" / "Marriage" / "Adoption". */
+    title: string;
+    /**
+     * The human identity line: a person's display name, a marriage's two
+     * spouse names ("A & B"), or an adoption's child name. Empty when no name
+     * could be resolved (degenerate DOM) — the header then shows only `title`.
+     */
+    identity: string;
+    /** Remaining display fields, one `{ label, value }` per row, in emit order. */
+    rows: Array<{ label: string; value: string }>;
+}
+
+/**
+ * Build the hover-tooltip model for a preview entity from its raw `data-*`
+ * attributes (issue #192). This is the single source of truth for the tooltip
+ * content: it is exported for Vitest and also embedded verbatim into
+ * {@link BOOTSTRAP} via `.toString()`, so the webview and the tests run the
+ * exact same code. It must therefore stay self-contained — no module imports,
+ * no closure over module-level constants — so its serialized source runs
+ * standalone inside the IIFE. The one collaborator it takes is `resolveName`,
+ * a caller-supplied `id → display name` lookup (the webview resolves it off
+ * the rendered cards; tests pass a map), so the function itself stays pure.
  *
  * Progressive disclosure (ADR-0021 / #156): the diagram stays name-only and
  * every Person/Marriage/Adoption property already rides the SVG as a `data-*`
- * attribute, so the tooltip reads them directly — no LSP round-trip. Rendering
- * is generic with a denylist: every `data-*` attribute surfaces as a row
- * except a fixed structural set (ids, kinds, generation, the `data-is-*`
- * booleans, ghost reason), so a new display field added upstream appears here
- * automatically. Empty values are omitted (no placeholder rows), so an entity
- * with no display fields — e.g. a birth edge — yields `[]` and shows no
- * tooltip. Rows preserve the input (DOM emit) order.
+ * attribute, so the tooltip reads them directly — no LSP round-trip. The
+ * presentation is curated rather than purely mechanical: a typed header names
+ * what the reader is looking at — a person's full name (which is *not* a
+ * `data-*` attribute, only the card's rendered label, hence `resolveName`), a
+ * marriage's two spouses, an adoption's child — over generic field rows.
+ *
+ * Rows stay generic with a denylist: every `data-*` attribute surfaces as a
+ * row except a fixed structural set (ids, kinds, generation, the `data-is-*`
+ * booleans, ghost reason), so a new display field added upstream appears
+ * automatically; empty values are omitted (no placeholder rows); order is the
+ * DOM emit order.
  *
  * - Label: strip `data-`, `-`→space, capitalize the first letter
  *   (`data-end-reason` → "End reason"). A 2-entry override map disambiguates
@@ -65,10 +88,15 @@ const CONTROLS = `<div id="kul-controls" class="kul-preview-controls" role="grou
  * - Value: capitalize the first cased character (`male` → "Male",
  *   `divorce` → "Divorce"); a value with no letters — a date like `1850` or
  *   the approximate `~1850` — passes through verbatim, preserving the `~`.
+ *
+ * Returns `null` for an entity that gets no tooltip — a birth edge (purely
+ * structural: it ties parents to a child but exposes no fields of its own) or
+ * any element that is neither a person card nor a marriage/adoption edge.
  */
-export function buildTooltipRows(
+export function buildTooltip(
     attrs: ReadonlyArray<{ name: string; value: string }>,
-): Array<{ label: string; value: string }> {
+    resolveName: (id: string) => string,
+): TooltipModel | null {
     // Structural attributes that drive identity / layout / styling rather than
     // describing the entity to the reader. Everything else (born, died,
     // family, given, gender, start, end, end-reason, adoption-start/end, and
@@ -93,6 +121,22 @@ export function buildTooltipRows(
         family: "Family name",
         given: "Given name",
     };
+    function get(name: string): string {
+        for (const attr of attrs) {
+            if (attr.name === name) {
+                return attr.value;
+            }
+        }
+        return "";
+    }
+    function has(name: string): boolean {
+        for (const attr of attrs) {
+            if (attr.name === name) {
+                return true;
+            }
+        }
+        return false;
+    }
     // Capitalize the first cased (alphabetic) character, leaving the rest —
     // and any leading non-letter such as the `~` approximate marker —
     // verbatim. A value with no letters (a bare or approximate date) is
@@ -107,6 +151,31 @@ export function buildTooltipRows(
         }
         return raw;
     }
+
+    // The typed header. A person card carries data-person-id; an edge carries
+    // data-link-kind. Birth edges (and anything unrecognized) get no tooltip.
+    let title: string;
+    let identity: string;
+    if (has("data-person-id")) {
+        title = "Person";
+        // The display name is the card's rendered label, not a data-*
+        // attribute, so it comes through resolveName keyed on the card's id.
+        identity = resolveName(get("data-person-id"));
+    } else {
+        const linkKind = get("data-link-kind");
+        if (linkKind === "marriage") {
+            title = "Marriage";
+            const host = resolveName(get("data-host-id"));
+            const joining = resolveName(get("data-joining-id"));
+            identity = host && joining ? host + " & " + joining : host || joining;
+        } else if (linkKind === "adoption") {
+            title = "Adoption";
+            identity = resolveName(get("data-child-id"));
+        } else {
+            return null;
+        }
+    }
+
     const rows: Array<{ label: string; value: string }> = [];
     for (const attr of attrs) {
         const name = attr.name;
@@ -125,7 +194,7 @@ export function buildTooltipRows(
         }
         rows.push({ label: label, value: displayValue(value) });
     }
-    return rows;
+    return { title: title, identity: identity, rows: rows };
 }
 
 /**
@@ -155,14 +224,14 @@ const BOOTSTRAP = `
     const vscode = acquireVsCodeApi();
     let panZoom = null;
 
-    // Hover tooltip (issue #192). The row-building logic is embedded verbatim
-    // from the exported buildTooltipRows() so the webview and its Vitest
+    // Hover tooltip (issue #192). The content-building logic is embedded
+    // verbatim from the exported buildTooltip() so the webview and its Vitest
     // unit tests run identical code; see preview-html.ts for the contract.
     // Bound to a local const rather than dropped in as a bare declaration:
     // the production esbuild --minify pass renames the internal function, so
     // its serialized name can't be relied on — the const fixes the name the
     // bootstrap calls regardless of how the body was minified.
-    const buildTooltipRows = ${buildTooltipRows.toString()};
+    const buildTooltip = ${buildTooltip.toString()};
 
     // Click-to-source (issue #135): a click on a person card or a
     // marriage bar posts { type: 'revealSource', id } so the extension
@@ -206,10 +275,11 @@ const BOOTSTRAP = `
     // field set. A single floating <div> is reused, anchored to the hovered
     // card/edge, clamped to the viewport, and torn down on mouseleave, on
     // re-render, and on pan/zoom so it never strands over a moved diagram.
-    // The rows are built generically from the element's own data-* attributes
-    // (the #156 seam) via the embedded buildTooltipRows — no LSP round-trip,
-    // and birth edges (structural attributes only) yield no rows, so they show
-    // nothing. Coexists with click-to-source (#135) and selection sync (#137):
+    // The content is built from the element's own data-* attributes (the #156
+    // seam) plus card-label name resolution via the embedded buildTooltip — no
+    // LSP round-trip, and birth edges (purely structural) yield no model, so
+    // they show nothing. Coexists with click-to-source (#135) and selection
+    // sync (#137):
     // distinct events on the same elements, and the panel is pointer-events:
     // none so it never intercepts a hover or click.
     let hoverTarget = null;
@@ -245,18 +315,45 @@ const BOOTSTRAP = `
         tooltipEl.style.left = left + 'px';
         tooltipEl.style.top = top + 'px';
     }
+    // Resolve a person id to the name shown on its card. The display name is
+    // the card's rendered <text class="kul-label-name"> (it is not a data-*
+    // attribute), so the tooltip's person/spouse/child names are read straight
+    // from the same labels the diagram shows. Falls back to the raw id if the
+    // card is absent (degenerate DOM). Mirrors the F12 id selector — ids are
+    // author identifiers used unescaped there too.
+    function resolveName(id) {
+        if (!id || !root) { return id || ''; }
+        const card = root.querySelector('[data-person-id="' + id + '"]');
+        if (!card) { return id; }
+        const label = card.querySelector('.kul-label-name');
+        return label && label.textContent ? label.textContent : id;
+    }
     function showTooltip(target) {
         const attrs = [];
         for (let i = 0; i < target.attributes.length; i++) {
             const a = target.attributes[i];
             attrs.push({ name: a.name, value: a.value });
         }
-        const rows = buildTooltipRows(attrs);
-        if (rows.length === 0) { return; }
+        const model = buildTooltip(attrs, resolveName);
+        if (!model) { return; }
         const el = document.createElement('div');
         el.className = 'kul-tooltip';
         el.setAttribute('role', 'tooltip');
-        rows.forEach(function (row) {
+        // Typed header: an entity-kind kicker over the resolved identity line.
+        const header = document.createElement('div');
+        header.className = 'kul-tooltip-header';
+        const kind = document.createElement('span');
+        kind.className = 'kul-tooltip-kind';
+        kind.textContent = model.title;
+        header.appendChild(kind);
+        if (model.identity) {
+            const name = document.createElement('span');
+            name.className = 'kul-tooltip-title';
+            name.textContent = model.identity;
+            header.appendChild(name);
+        }
+        el.appendChild(header);
+        model.rows.forEach(function (row) {
             const rowEl = document.createElement('div');
             rowEl.className = 'kul-tooltip-row';
             const label = document.createElement('span');
