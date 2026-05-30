@@ -1,18 +1,9 @@
-/* Kul preview — theme token definitions.
- *
- * This file is the theme layer (ADR-0016). The kul-svg output is
- * theme-agnostic: elements carry entity classes (.kul-card, .kul-edge) and
- * data-* attribute selectors (ghost, link kind, ended) but no colours. Each
- * theme is a single self-contained `body[data-theme="…"]` block that supplies
- * values for the element-bound `--kul-*` tokens; the application rules in
- * preview.css consume exactly one `var(--kul-*)` per site and never change
- * when a theme is added.
- *
- * Adding a theme is purely additive: copy the block below, change the
- * `data-theme` selector, and re-map the token values. `previewHtml()` emits
- * `<body data-theme="vscode">`, so `vscode` is the default — it maps each
- * token to a VSCode palette variable so the preview tracks the active VSCode
- * theme (light, dark, high-contrast). See ADR-0016 for the rationale. */
+/* Theme layer (ADR-0016): kul-svg output is theme-agnostic; each theme is a
+ * self-contained `body[data-theme="…"]` block supplying values for the
+ * element-bound `--kul-*` tokens preview.css consumes. Adding a theme is
+ * purely additive: copy the block, change the selector, re-map values.
+ * `vscode` is the default — it maps tokens to VSCode palette variables so the
+ * preview tracks the active VSCode theme. */
 
 body[data-theme="vscode"] {
     /* Colours / fonts */
@@ -24,8 +15,7 @@ body[data-theme="vscode"] {
     --kul-error-border-color: var(--vscode-inputValidation-errorBorder);
     --kul-card-fill: var(--vscode-editor-background);
     --kul-card-stroke: var(--vscode-charts-blue, var(--vscode-editor-foreground));
-    /* Per-gender card stroke (the gender data-* seam, ADR-0016). One token per
-     * site even where hues coincide, so a future theme can vary each. */
+    /* One token per gender even where hues coincide, so a future theme can vary each. */
     --kul-card-stroke-male: var(--vscode-charts-blue, var(--vscode-editor-foreground));
     --kul-card-stroke-female: var(--vscode-charts-red, var(--vscode-editor-foreground));
     --kul-card-stroke-other: var(--vscode-charts-yellow, var(--vscode-editor-foreground));
@@ -40,29 +30,18 @@ body[data-theme="vscode"] {
     --kul-edge-stroke: var(--vscode-charts-green, var(--vscode-editor-foreground));
     --kul-adoption-edge-stroke: var(--vscode-charts-orange, var(--vscode-descriptionForeground, var(--vscode-editor-foreground)));
     --kul-marriage-edge-stroke: var(--vscode-charts-purple, var(--vscode-editor-foreground));
-    /* Selection sync (#137): a prominent outline colour reserved for the
-     * cursor-selected entity. Deliberately a hue used nowhere else in the
-     * palette (not the per-gender blue/red/yellow, nor the green/orange/purple
-     * edges) so the selection reads unambiguously, and a fixed vivid magenta
-     * rather than a VSCode palette var so it stays equally bold across light,
-     * dark, and high-contrast themes. Swap this one token to retheme it. */
+    /* Fixed vivid magenta (not a VSCode palette var) so selection stays equally
+     * bold across light, dark, and high-contrast — and is a hue used nowhere
+     * else in the palette. Swap this one token to retheme it. */
     --kul-selected-outline-color: #ff2d95;
 
-    /* Hover tooltip (#192): the progressive-disclosure panel surfacing an
-     * entity's data-* fields. Mapped to the VSCode editor-hover-widget palette
-     * so it reads as a native hover popover and tracks the active theme across
-     * light, dark, and high-contrast — the single vscode block covers every
-     * theme exactly as the tokens above do. The label column is dimmed
-     * (descriptionForeground) so the key reads as secondary to its value. */
+    /* Mapped to the VSCode editor-hover-widget palette so the tooltip reads as
+     * a native hover popover and tracks the active theme. */
     --kul-tooltip-bg: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
     --kul-tooltip-fg: var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground));
     --kul-tooltip-border-color: var(--vscode-editorHoverWidget-border, var(--vscode-widget-border, transparent));
     --kul-tooltip-shadow-color: var(--vscode-widget-shadow, transparent);
     --kul-tooltip-label-fg: var(--vscode-descriptionForeground, var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground)));
-    /* Typed header: the entity-kind kicker reads as secondary (dimmed), the
-     * identity name as primary; a hairline rule (the status-bar prominent
-     * border, falling back to the hover-widget border) divides it from the
-     * field rows. */
     --kul-tooltip-kind-fg: var(--vscode-descriptionForeground, var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground)));
     --kul-tooltip-title-fg: var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground));
     --kul-tooltip-separator-color: var(--vscode-editorHoverWidget-statusBarBackground, var(--vscode-editorHoverWidget-border, var(--vscode-widget-border, transparent)));
@@ -101,13 +80,10 @@ body[data-theme="vscode"] {
     --kul-control-gap: 4px;
     --kul-control-padding: 4px;
     --kul-control-inset: 12px;
-    /* Hairline divider between the pan/zoom buttons and the legend ⓘ
-     * toggle inside the control cluster. Re-uses the panel's own border
-     * colour so it reads as a chip divider, not a fresh visual. */
     --kul-control-divider-color: var(--kul-control-border-color);
     --kul-control-divider-height: 18px;
 
-    /* Hover tooltip dimensions (#192) */
+    /* Hover tooltip dimensions */
     --kul-tooltip-font-size: var(--vscode-editor-font-size);
     --kul-tooltip-max-width: 320px;
     --kul-tooltip-padding: 6px 10px;
@@ -119,15 +95,9 @@ body[data-theme="vscode"] {
     --kul-tooltip-kind-font-size: 0.85em;
     --kul-tooltip-title-weight: 600;
 
-    /* Chrome legend (#157, ADR-0022): a compact reference card sized for a
-     * glance, not a primary panel. Reuses the pan/zoom control panel's
-     * bg/border/shadow tokens so the legend sits in the same chrome family
-     * — same surface kind, not a competing overlay. Uses the UI font
-     * (`--vscode-font-family`) rather than the editor font so it reads as
-     * chrome rather than as code. The swatches themselves pick up colour
-     * from the existing `--kul-card-*` / `--kul-edge-*` / `--kul-marriage-*`
-     * tokens the diagram already consumes (no new colour tokens). One token
-     * swap re-positions or re-skins the panel. */
+    /* Chrome legend (ADR-0022). Reuses the pan/zoom control panel's
+     * bg/border/shadow tokens so the legend sits in the same chrome family.
+     * UI font (not editor font) so it reads as chrome rather than code. */
     --kul-legend-bg: var(--kul-control-bg);
     --kul-legend-fg: var(--vscode-editor-foreground);
     --kul-legend-border-color: var(--kul-control-border-color);
@@ -141,16 +111,12 @@ body[data-theme="vscode"] {
     --kul-legend-label-gap: 8px;
     --kul-legend-swatch-width: 22px;
     --kul-legend-swatch-height: 12px;
-    /* Stacked above the pan/zoom controls at the same left inset, with a
-     * clear visual gap between the two chrome panels (their borders +
-     * shadows otherwise read as one stacked stroke). */
+    /* Stacked above the pan/zoom controls with a clear gap (their borders +
+     * shadows would otherwise read as one stacked stroke). */
     --kul-legend-inset-bottom: calc(var(--kul-control-inset) + var(--kul-control-size) + 14px);
     --kul-legend-inset-left: var(--kul-control-inset);
-    /* Swatch-scale override (ADR-0022): the production 8.75px marriage stroke
-     * would dominate a 12px row, so it is clamped to a still-distinct thick
-     * line. Set in SVG user-units (the swatch viewBox is 0 0 30 18, so the
-     * rendered px is ~⅔ of this value) — 5 here renders as ~3px versus the
-     * birth/adoption 1.5 → ~1px, a clear ~3× ratio that mirrors the diagram's
-     * thick-vs-thin contrast. Colour stays themed. */
+    /* Set in SVG user-units (swatch viewBox 0 0 30 18, rendered ~⅔ of value) —
+     * 5 → ~3px versus birth/adoption 1.5 → ~1px, mirroring the diagram's
+     * thick-vs-thin contrast. */
     --kul-legend-marriage-stroke-width: 5;
 }
