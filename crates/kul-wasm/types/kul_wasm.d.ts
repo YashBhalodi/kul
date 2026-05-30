@@ -1,9 +1,69 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
- * A date as projected into the envelope. Splits the source `~YYYY[-MM[-DD]]`
- * form into `value` (no circa marker), `precision` (year / month / day),
- * and `circa` (the `~` flag) so consumers don\'t have to re-parse strings.
+ * Failure arm of [`RenderEnvelope`]. Same diagnostic shape as
+ * [`export_graph`]\'s failure path.
+ */
+export interface RenderFailure {
+    /**
+     * Always `false`. Consumer-facing discriminator.
+     */
+    ok: boolean;
+    diagnostics: ExportedDiagnostic[];
+}
+
+/**
+ * Graph payload inside a [`SuccessEnvelope`]. Untagged on the wire — the
+ * consumer knows which shape from the `--format` they requested.
+ */
+export type GraphPayload = ExportedGraph | CytoscapeGraph;
+
+/**
+ * JS-side return type of [`check`]. Empty `diagnostics` means clean;
+ * consumers discriminate on emptiness, not an `ok` field (ADR-0011).
+ */
+export interface CheckEnvelope {
+    diagnostics: ExportedDiagnostic[];
+}
+
+/**
+ * JS-side return type of [`render_svg`]. Untagged success/failure
+ * discriminated by `ok`, bit-identical to
+ * `kul_lsp::features::render::RenderResponse`. Rule-of-three: a shared
+ * crate emerges only when a third independent consumer materializes.
+ */
+export type RenderEnvelope = RenderSuccess | RenderFailure;
+
+/**
+ * One `.kul` input file as the JS host hands it to the bridge. Mirrors
+ * [`kul_core::ast::InputFile`]; exists separately so `tsify` can derive
+ * a TS type without leaking the feature dependency onto `kul-core`.
+ */
+export interface WasmInputFile {
+    name: string;
+    source: string;
+}
+
+/**
+ * Output format for [`export`]. Lowercase wire form shared by CLI flags
+ * and JS consumers.
+ */
+export type ExportFormat = "json" | "cytoscape";
+
+/**
+ * Parenthood kind. Wire form: `\"biological\"` / `\"adoptive\"`.
+ */
+export type ParenthoodLinkKind = "biological" | "adoptive";
+
+/**
+ * Per-node `data` payload. Untagged: serialized variant is chosen by
+ * which fields are present.
+ */
+export type NodeData = PersonNodeData | MarriageNodeData;
+
+/**
+ * Projected date: `value` (no circa marker), `precision`
+ * (year/month/day), and `circa` flag.
  */
 export interface ExportedDate {
     value: string;
@@ -12,114 +72,7 @@ export interface ExportedDate {
 }
 
 /**
- * A graph payload inside a [`SuccessEnvelope`].
- *
- * Untagged at the wire level: the JSON looks identical to whichever
- * inner shape was chosen (kinship-native objects with `persons` /
- * `marriages` / `parenthood_links`, or cytoscape objects with `nodes` /
- * `edges`). Consumers know which to expect based on the `--format` they
- * asked for; the envelope\'s `schema` is the same integer regardless of
- * shape because both shapes are projections of the same underlying data.
- */
-export type GraphPayload = ExportedGraph | CytoscapeGraph;
-
-/**
- * Caller-tunable knobs for [`export`]. Defaults are the most common path.
- *
- * `Deserialize` is camelCase and field-level `default` so a JS-side caller
- * can pass `{}`, `{ withPositions: true }`, or `{ format: \"cytoscape\" }`
- * and the omitted fields fall back to [`ExportOptions::default`]. The
- * `kul-wasm` `exportGraph` bridge uses this directly.
- */
-export interface ExportOptions {
-    format?: ExportFormat;
-    /**
-     * When `true`, every exported entity carries a `span: [byte_start,
-     * byte_end]` field pointing back to its declaration in the source.
-     * Default `false` keeps the envelope compact; opt in when the
-     * consumer needs to map a click on a graph node back to a source
-     * location (\"highlight Alice\'s declaration\").
-     */
-    withPositions?: boolean;
-}
-
-/**
- * Failure arm of [`RenderEnvelope`]. Same diagnostic shape as the
- * failure path of [`export_graph`]; consumers narrowing on `ok: false`
- * reuse the diagnostic-rendering code they already have.
- */
-export interface RenderFailure {
-    /**
-     * Always `false`. Consumer-facing discriminator.
-     */
-    ok: boolean;
-    /**
-     * Every diagnostic the validator produced — errors, warnings, and
-     * notes alike — so the consumer sees the full picture of why the
-     * render refused.
-     */
-    diagnostics: ExportedDiagnostic[];
-}
-
-/**
- * JS-side return type of [`check`]. Carries the full diagnostic list —
- * errors, warnings, and notes alike. An empty `diagnostics` array means
- * a clean project; consumers discriminate on emptiness rather than an
- * `ok` field, per [ADR-0011](../../docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md).
- *
- * Diagnostic entries reuse `kul_core::export::ExportedDiagnostic` — the
- * same shape that the failure-envelope path of `kul export` emits, so the
- * TS type lands as a single source of truth across CLI export and WASM
- * check.
- */
-export interface CheckEnvelope {
-    diagnostics: ExportedDiagnostic[];
-}
-
-/**
- * JS-side return type of [`render_svg`]. Untagged success/failure
- * discriminated by `ok`, bit-identical at the JSON level to
- * `kul_lsp::features::render::RenderResponse` — the two adapters
- * independently construct the same envelope so JS consumers and LSP
- * clients see the same bytes regardless of how the pipeline is
- * invoked. Rule-of-three: the two adapters declare their own
- * envelopes today; a shared crate emerges only when a third
- * independent consumer materializes.
- */
-export type RenderEnvelope = RenderSuccess | RenderFailure;
-
-/**
- * One `.kul` input file as the JS host hands it to the bridge — a name
- * (path / URI / opaque label) plus the raw source bytes. Mirrors
- * [`kul_core::ast::InputFile`] one-to-one; the bridge converts on the
- * way in. The wasm-bridge type exists so `tsify` can derive a TS type
- * without leaking the `tsify` feature dependency onto `kul-core`\'s
- * public input shape.
- */
-export interface WasmInputFile {
-    name: string;
-    source: string;
-}
-
-/**
- * One node\'s `data` payload. Untagged: the variant is chosen at
- * serialization time by which fields are present, matching the Cytoscape
- * convention of \"the data object is whatever the consumer wants.\
- */
-export type NodeData = PersonNodeData | MarriageNodeData;
-
-/**
- * Output format for [`export`].
- *
- * `Deserialize` accepts the lowercase wire form (`\"json\"`, `\"cytoscape\"`)
- * so JS-side consumers and CLI flag parsing share one vocabulary. See
- * [`ExportOptions`] for the camelCase wrapper that `kul-wasm`\'s
- * `exportGraph` uses on its options input.
- */
-export type ExportFormat = "json" | "cytoscape";
-
-/**
- * Success arm of [`RenderEnvelope`]. Carries the rendered SVG string.
+ * Success arm of [`RenderEnvelope`].
  */
 export interface RenderSuccess {
     /**
@@ -127,8 +80,7 @@ export interface RenderSuccess {
      */
     ok: boolean;
     /**
-     * The rendered SVG string. Theme-agnostic — semantic CSS classes
-     * only, no inline colours. See kul-svg for the class vocabulary.
+     * Theme-agnostic SVG (semantic CSS classes, no inline colours).
      */
     svg: string;
 }
@@ -142,12 +94,8 @@ export interface CytoscapeGraph {
 }
 
 /**
- * The export envelope returned by [`export`]. Either a success payload
- * carrying the graph, or a failure payload carrying the diagnostic list.
- *
- * Serialized untagged: serde picks the variant by structure. Both variants
- * carry an `ok` boolean so consumers can discriminate without inspecting
- * other fields.
+ * The export envelope: success (graph) or failure (diagnostics).
+ * Untagged with a shared `ok` boolean for consumer discrimination.
  */
 export type ExportEnvelope = SuccessEnvelope | FailureEnvelope;
 
@@ -161,32 +109,28 @@ export interface ExportedGraph {
 }
 
 /**
- * Typed representation of a `kul.yml` manifest.
- *
- * One field today (`kul_version`); the manifest schema evolves alongside
- * the Kul language version per the additivity principle. Adapters
- * (`kul-cli`, `kul-lsp`, `kul-wasm`) are responsible for loading the
- * on-disk YAML / JS object before handing it to `kul-core`; `kul-core`
- * itself never reads the filesystem.
- *
- * Serializes / deserializes with the `kul:` field name (matches the
- * on-disk YAML schema and the JS object the WASM bridge accepts).
+ * Tunable knobs for [`export`]. CamelCase Deserialize with per-field
+ * defaults so JS callers can pass `{}` or partial objects.
  */
-export interface Manifest {
+export interface ExportOptions {
+    format?: ExportFormat;
     /**
-     * The Kul language version that the sibling `.kul` files conform
-     * to. Format is `MAJOR.MINOR`, matching the previously-in-grammar
-     * version literal. Surfaced in the export envelope\'s `kul:` field.
+     * Attach `span: [byte_start, byte_end]` to every entity. Opt in when
+     * the consumer needs to map a graph node back to its source location.
      */
-    kul: string;
+    withPositions?: boolean;
 }
 
 /**
- * What kind of parenthood a [`ExportedParenthoodLink`] records.
- *
- * Serializes to the lowercase wire form `\"biological\"` / `\"adoptive\"`.
+ * Typed `kul.yml` manifest. Serialized with the `kul:` field name.
  */
-export type ParenthoodLinkKind = "biological" | "adoptive";
+export interface Manifest {
+    /**
+     * Language version (`MAJOR.MINOR`) the sibling `.kul` files target.
+     * Surfaced in the export envelope\'s `kul:` field.
+     */
+    kul: string;
+}
 
 export interface CytoscapeEdge {
     data: EdgeData;
@@ -198,11 +142,11 @@ export interface CytoscapeNode {
 
 export interface EdgeData {
     /**
-     * `m:<marriage-id>` (always; every edge originates at a marriage).
+     * `m:<marriage-id>`. Every edge originates at a marriage.
      */
     source: string;
     /**
-     * `p:<person-id>` (always; every edge ends at a person).
+     * `p:<person-id>`. Every edge ends at a person.
      */
     target: string;
     /**
@@ -210,11 +154,11 @@ export interface EdgeData {
      */
     type: string;
     /**
-     * `start:` of an adoption. Always absent on spouse and bio-child edges.
+     * `start:` of an adoption. Absent on spouse/bio-child edges.
      */
     start?: ExportedDate;
     /**
-     * `end:` of an adoption. Always absent on spouse and bio-child edges.
+     * `end:` of an adoption. Absent on spouse/bio-child edges.
      */
     end?: ExportedDate;
 }
@@ -224,8 +168,7 @@ export interface ExportedDiagnostic {
     severity: string;
     message: string;
     /**
-     * `None` for unanchored diagnostics (e.g. `KUL-M01`); the message
-     * carries the would-be location in that case.
+     * `None` for unanchored diagnostics (e.g. `KUL-M01`).
      */
     primary?: ExportedSpan;
     related: ExportedRelated[];
@@ -234,17 +177,15 @@ export interface ExportedDiagnostic {
 export interface ExportedMarriage {
     id: string;
     /**
-     * The two spouse ids, in declaration order. Both ids resolve to a
-     * `person` in `persons` (the failure envelope would have fired
-     * otherwise).
+     * Two spouse ids, in declaration order. Both resolve to entries in
+     * `persons` (export refuses otherwise).
      */
     spouses: [string, string];
     start: ExportedDate;
     end?: ExportedDate;
     endReason?: string;
     /**
-     * `[byte_start, byte_end]` covering the source-level statement.
-     * Present only when `ExportOptions::with_positions` was `true`.
+     * `[byte_start, byte_end]`. Present iff `with_positions`.
      */
     span?: [number, number];
 }
@@ -252,24 +193,17 @@ export interface ExportedMarriage {
 export interface ExportedParenthoodLink {
     marriageId: string;
     childId: string;
-    /**
-     * Which [`ParenthoodLinkKind`] this link records. New kinds (e.g.
-     * surrogacy) would land additively as new variants per
-     * [ADR-0010](../../../docs/adr/0010-export-schema-versioning.md).
-     */
     kind: ParenthoodLinkKind;
     /**
-     * `start:` of an adoption. Always absent for biological links.
+     * `start:` of an adoption. Absent for biological links.
      */
     start?: ExportedDate;
     /**
-     * `end:` of an adoption. Always absent for biological links.
+     * `end:` of an adoption. Absent for biological links.
      */
     end?: ExportedDate;
     /**
-     * `[byte_start, byte_end]` covering the source-level `birth` or
-     * `adoption` sub-statement. Present only when
-     * `ExportOptions::with_positions` was `true`.
+     * `[byte_start, byte_end]`. Present iff `with_positions`.
      */
     span?: [number, number];
 }
@@ -283,8 +217,7 @@ export interface ExportedPerson {
     born?: ExportedDate;
     died?: ExportedDate;
     /**
-     * `[byte_start, byte_end]` covering the source-level statement.
-     * Present only when `ExportOptions::with_positions` was `true`.
+     * `[byte_start, byte_end]`. Present iff `with_positions`.
      */
     span?: [number, number];
 }
@@ -295,9 +228,8 @@ export interface ExportedRelated extends ExportedSpan {
 
 export interface ExportedSpan {
     /**
-     * Canonical name of the file this span anchors into (the
-     * `InputFile.name` the toolchain originally fed in, or the
-     * manifest\'s `manifest_name` for `KUL-Mxx` codes).
+     * Canonical file name (`InputFile.name`, or `manifest_name` for
+     * `KUL-Mxx`).
      */
     file: string;
     byteStart: number;
@@ -312,9 +244,7 @@ export interface FailureEnvelope {
      */
     ok: boolean;
     /**
-     * Every diagnostic the validator produced — errors, warnings, and
-     * notes alike — so the consumer sees the full picture of why export
-     * refused.
+     * Every diagnostic the validator produced (errors, warnings, notes).
      */
     diagnostics: ExportedDiagnostic[];
 }
@@ -356,19 +286,15 @@ export interface SuccessEnvelope {
      */
     ok: boolean;
     /**
-     * Schema version this envelope conforms to. See [`SCHEMA_VERSION`].
+     * Schema version (see [`SCHEMA_VERSION`]).
      */
     schema: number;
     /**
-     * Kul language version of the source document, sourced from the
-     * project manifest\'s `kul:` field (`kul.yml`).
+     * Kul language version from the manifest\'s `kul:` field.
      */
     kul: string;
     /**
-     * The exported graph. Either the kinship-native shape (the canonical
-     * foundation) or a derived shape such as Cytoscape, depending on
-     * [`ExportOptions::format`]. Untagged in the JSON: the consumer
-     * knows which shape to expect from the format they requested.
+     * The exported graph (shape determined by [`ExportOptions::format`]).
      */
     graph: GraphPayload;
 }
