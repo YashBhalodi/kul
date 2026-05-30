@@ -302,13 +302,15 @@ body {
     color: var(--kul-tooltip-title-fg);
 }
 
-/* Each field is a label/value pair on one row; the label column is dimmed so
- * the value reads as primary. */
-.kul-tooltip-row {
-    display: flex;
-    flex-direction: row;
-    gap: var(--kul-tooltip-col-gap);
-    justify-content: space-between;
+/* Fields are a single two-column grid (label | value): one track for the
+ * labels, one for the values, so both line up as columns across every row
+ * regardless of label/value width. The label column is dimmed so the values
+ * read as primary. */
+.kul-tooltip-fields {
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: var(--kul-tooltip-col-gap);
+    row-gap: var(--kul-tooltip-row-gap);
 }
 
 .kul-tooltip-label {

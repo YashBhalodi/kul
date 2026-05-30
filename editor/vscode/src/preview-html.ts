@@ -370,19 +370,25 @@ const BOOTSTRAP = `
             header.appendChild(name);
         }
         el.appendChild(header);
-        model.rows.forEach(function (row) {
-            const rowEl = document.createElement('div');
-            rowEl.className = 'kul-tooltip-row';
-            const label = document.createElement('span');
-            label.className = 'kul-tooltip-label';
-            label.textContent = row.label;
-            const value = document.createElement('span');
-            value.className = 'kul-tooltip-value';
-            value.textContent = row.value;
-            rowEl.appendChild(label);
-            rowEl.appendChild(value);
-            el.appendChild(rowEl);
-        });
+        // Field rows fill a single two-column grid (label | value) so the
+        // labels and values line up as columns across every row, rather than
+        // each row sizing its own gap. Cells are appended directly to the grid
+        // — no per-row wrapper — so the columns share one track sizing.
+        if (model.rows.length) {
+            const fields = document.createElement('div');
+            fields.className = 'kul-tooltip-fields';
+            model.rows.forEach(function (row) {
+                const label = document.createElement('span');
+                label.className = 'kul-tooltip-label';
+                label.textContent = row.label;
+                const value = document.createElement('span');
+                value.className = 'kul-tooltip-value';
+                value.textContent = row.value;
+                fields.appendChild(label);
+                fields.appendChild(value);
+            });
+            el.appendChild(fields);
+        }
         document.body.appendChild(el);
         tooltipEl = el;
         positionTooltip(target);

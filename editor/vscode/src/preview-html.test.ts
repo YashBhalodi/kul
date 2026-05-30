@@ -445,11 +445,12 @@ describe("previewHtml hover tooltip", () => {
         expect(html).toContain("buildTooltip(attrs, resolveName)");
     });
 
-    it("builds a floating .kul-tooltip div with a typed header", () => {
+    it("builds a floating .kul-tooltip div with a typed header and field grid", () => {
         const html = build();
         expect(html).toContain("'kul-tooltip'");
         expect(html).toContain("'kul-tooltip-header'");
         expect(html).toContain("'kul-tooltip-kind'");
+        expect(html).toContain("'kul-tooltip-fields'");
         expect(html).toContain("getBoundingClientRect()");
         expect(html).toContain("document.body.appendChild(el)");
     });
