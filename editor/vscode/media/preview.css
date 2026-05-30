@@ -231,20 +231,17 @@ body {
     stroke-opacity: var(--kul-ended-edge-stroke-opacity);
 }
 
-/* Selection sync (#137): the card whose declaration/reference the editor
- * cursor sits on takes the focus-border stroke colour, overriding the
- * per-gender tint. Colour-based, unlike the width-only hover, so a card that
- * is both hovered and selected reads as both. `.kul-card.kul-selected rect`
- * (0,3,1) outranks the per-gender (0,2,1) and hover (0,2,1) rules. */
-.kul-card.kul-selected rect {
-    stroke: var(--kul-selected-stroke);
-    stroke-width: var(--kul-selected-card-stroke-width);
-}
-
-/* The selected marriage bar takes the same focus-border colour. Keyed on
- * data-link-kind="marriage" so birth/adoption edges (which the highlight
- * never targets) cannot match. The colour swap is distinct from the
- * width-only marriage hover. */
+/* Selection sync (#137): the card/bar the editor cursor sits on is wrapped
+ * in a prominent outline ring rather than recolouring the shape, so the
+ * entity keeps its own gender tint / marriage colour and the selection still
+ * reads unmistakably. The ring colour is reserved for selection — a hue used
+ * nowhere else in the palette — and outline-offset floats it just outside the
+ * shape. `outline` is a separate box from `stroke`, so this never fights the
+ * per-gender or hover stroke rules (no specificity conflict). The marriage
+ * selector keys on data-link-kind="marriage" so birth/adoption edges (which
+ * the highlight never targets) cannot match. */
+.kul-card.kul-selected rect,
 .kul-edge[data-link-kind="marriage"].kul-selected {
-    stroke: var(--kul-selected-stroke);
+    outline: var(--kul-selected-outline-width) solid var(--kul-selected-outline-color);
+    outline-offset: var(--kul-selected-outline-offset);
 }
