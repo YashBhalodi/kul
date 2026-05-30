@@ -101,6 +101,11 @@ body[data-theme="vscode"] {
     --kul-control-gap: 4px;
     --kul-control-padding: 4px;
     --kul-control-inset: 12px;
+    /* Hairline divider between the pan/zoom buttons and the legend ⓘ
+     * toggle inside the control cluster. Re-uses the panel's own border
+     * colour so it reads as a chip divider, not a fresh visual. */
+    --kul-control-divider-color: var(--kul-control-border-color);
+    --kul-control-divider-height: 18px;
 
     /* Hover tooltip dimensions (#192) */
     --kul-tooltip-font-size: var(--vscode-editor-font-size);
@@ -113,4 +118,39 @@ body[data-theme="vscode"] {
     --kul-tooltip-header-line-gap: 1px;
     --kul-tooltip-kind-font-size: 0.85em;
     --kul-tooltip-title-weight: 600;
+
+    /* Chrome legend (#157, ADR-0022): a compact reference card sized for a
+     * glance, not a primary panel. Reuses the pan/zoom control panel's
+     * bg/border/shadow tokens so the legend sits in the same chrome family
+     * — same surface kind, not a competing overlay. Uses the UI font
+     * (`--vscode-font-family`) rather than the editor font so it reads as
+     * chrome rather than as code. The swatches themselves pick up colour
+     * from the existing `--kul-card-*` / `--kul-edge-*` / `--kul-marriage-*`
+     * tokens the diagram already consumes (no new colour tokens). One token
+     * swap re-positions or re-skins the panel. */
+    --kul-legend-bg: var(--kul-control-bg);
+    --kul-legend-fg: var(--vscode-editor-foreground);
+    --kul-legend-border-color: var(--kul-control-border-color);
+    --kul-legend-shadow-color: var(--kul-control-shadow-color);
+    --kul-legend-font-family: var(--vscode-font-family);
+    --kul-legend-font-size: 11px;
+    --kul-legend-radius: var(--kul-control-radius);
+    --kul-legend-padding: 8px 10px;
+    --kul-legend-row-gap: 6px;
+    --kul-legend-col-gap: 24px;
+    --kul-legend-label-gap: 8px;
+    --kul-legend-swatch-width: 22px;
+    --kul-legend-swatch-height: 12px;
+    /* Stacked above the pan/zoom controls at the same left inset, with a
+     * clear visual gap between the two chrome panels (their borders +
+     * shadows otherwise read as one stacked stroke). */
+    --kul-legend-inset-bottom: calc(var(--kul-control-inset) + var(--kul-control-size) + 14px);
+    --kul-legend-inset-left: var(--kul-control-inset);
+    /* Swatch-scale override (ADR-0022): the production 8.75px marriage stroke
+     * would dominate a 12px row, so it is clamped to a still-distinct thick
+     * line. Set in SVG user-units (the swatch viewBox is 0 0 30 18, so the
+     * rendered px is ~⅔ of this value) — 5 here renders as ~3px versus the
+     * birth/adoption 1.5 → ~1px, a clear ~3× ratio that mirrors the diagram's
+     * thick-vs-thin contrast. Colour stays themed. */
+    --kul-legend-marriage-stroke-width: 5;
 }

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTooltip, getNonce, previewHtml } from "./preview-html";
+import {
+    buildTooltip,
+    getNonce,
+    LEGEND_ROWS,
+    legendSwatchInnerSvg,
+    presentLegendRows,
+    previewHtml,
+} from "./preview-html";
 
 /** Shorthand for the `{ name, value }` attribute shape buildTooltip takes. */
 function attr(name: string, value: string): { name: string; value: string } {
@@ -111,6 +118,29 @@ describe("previewHtml overlay controls", () => {
         expect(html).toContain("panZoom.zoomIn()");
         expect(html).toContain("panZoom.zoomOut()");
         expect(html).toContain("panZoom.reset()");
+    });
+
+    it("adds a vertical divider between pan/zoom and the legend toggle", () => {
+        const html = build();
+        // A hairline span separates the two zones of the control cluster.
+        expect(html).toContain('class="kul-control-divider"');
+        // The divider sits between the three pan/zoom buttons and the
+        // legend toggle button — i.e. after data-action="zoom-out", before
+        // data-action="toggle-legend".
+        const zoomOutIdx = html.indexOf('data-action="zoom-out"');
+        const dividerIdx = html.indexOf('class="kul-control-divider"');
+        const toggleIdx = html.indexOf('data-action="toggle-legend"');
+        expect(zoomOutIdx).toBeLessThan(dividerIdx);
+        expect(dividerIdx).toBeLessThan(toggleIdx);
+    });
+
+    it("includes a legend-toggle (ⓘ) button that starts unpressed", () => {
+        const html = build();
+        expect(html).toContain('data-action="toggle-legend"');
+        // Default state is hidden, so the toggle starts unpressed.
+        expect(html).toMatch(
+            /data-action="toggle-legend"[^>]*aria-pressed="false"/,
+        );
     });
 });
 
@@ -482,5 +512,237 @@ describe("previewHtml hover tooltip", () => {
         expect(html).toContain("sizes.realZoom");
         expect(html).toContain("const MAX_TOOLTIP_SCALE =");
         expect(html).toContain("'scale(' + tooltipScale()");
+    });
+});
+
+describe("LEGEND_ROWS normative table", () => {
+    it("lists the canonical eight rows in normative order", () => {
+        expect(LEGEND_ROWS.map((r) => r.key)).toEqual([
+            "gender-male",
+            "gender-female",
+            "gender-other",
+            "past-record",
+            "birth",
+            "adoption",
+            "marriage",
+            "ended-marriage",
+        ]);
+    });
+
+    it("uses the normative English label strings", () => {
+        expect(LEGEND_ROWS.map((r) => r.label)).toEqual([
+            "Male",
+            "Female",
+            "Other",
+            "Past record",
+            "Birth",
+            "Adoption",
+            "Marriage",
+            "Ended marriage",
+        ]);
+    });
+
+    it("keys each row on the production data-* attribute (the seam, not a new vocabulary)", () => {
+        // The selectors target the same `data-*` attributes the live SVG
+        // carries (ADR-0021), so a category's presence test reads the same
+        // contract the diagram itself uses.
+        const map = Object.fromEntries(
+            LEGEND_ROWS.map((r) => [r.key, r.presenceSelector]),
+        );
+        expect(map["gender-male"]).toContain('data-gender="male"');
+        expect(map["gender-female"]).toContain('data-gender="female"');
+        expect(map["gender-other"]).toContain('data-gender="other"');
+        expect(map["past-record"]).toContain('data-kind="ghost"');
+        expect(map["birth"]).toContain('data-link-kind="birth"');
+        expect(map["adoption"]).toContain('data-link-kind="adoption"');
+        // Marriage selects un-ended marriages only — ended marriages get
+        // their own row below.
+        expect(map["marriage"]).toContain('data-link-kind="marriage"');
+        expect(map["marriage"]).toContain(':not([data-is-ended="true"])');
+        expect(map["ended-marriage"]).toContain('data-link-kind="marriage"');
+        expect(map["ended-marriage"]).toContain('data-is-ended="true"');
+    });
+});
+
+describe("presentLegendRows dynamic presence", () => {
+    /**
+     * Build a fake `querySelector` that returns a truthy result iff the
+     * given selector is in the `present` set. Avoids any DOM dependency.
+     */
+    function fakeHas(present: ReadonlyArray<string>): (selector: string) => unknown {
+        const set = new Set(present);
+        return (selector) => (set.has(selector) ? {} : null);
+    }
+
+    it("returns every row when every category is present, in canonical order", () => {
+        const allSelectors = LEGEND_ROWS.map((r) => r.presenceSelector);
+        const rows = presentLegendRows(fakeHas(allSelectors));
+        expect(rows.map((r) => r.key)).toEqual(LEGEND_ROWS.map((r) => r.key));
+    });
+
+    it("returns the empty list when no category is present", () => {
+        expect(presentLegendRows(fakeHas([])).length).toBe(0);
+    });
+
+    it("filters to only the present categories (no adoption → no Adoption row)", () => {
+        // A nuclear-family-shaped diagram: male+female parents, one
+        // marriage (un-ended), one birth edge.
+        const present = [
+            '.kul-card[data-gender="male"]',
+            '.kul-card[data-gender="female"]',
+            '.kul-edge[data-link-kind="birth"]',
+            '.kul-edge[data-link-kind="marriage"]:not([data-is-ended="true"])',
+        ];
+        const rows = presentLegendRows(fakeHas(present));
+        expect(rows.map((r) => r.key)).toEqual([
+            "gender-male",
+            "gender-female",
+            "birth",
+            "marriage",
+        ]);
+    });
+
+    it("shows only Ended marriage when the only marriage in the diagram is ended", () => {
+        const present = [
+            '.kul-card[data-gender="male"]',
+            '.kul-card[data-gender="female"]',
+            '.kul-edge[data-link-kind="marriage"][data-is-ended="true"]',
+        ];
+        const rows = presentLegendRows(fakeHas(present));
+        expect(rows.map((r) => r.key)).toEqual([
+            "gender-male",
+            "gender-female",
+            "ended-marriage",
+        ]);
+    });
+});
+
+describe("legendSwatchInnerSvg", () => {
+    it("emits a card swatch reusing the production class + data-* per gender", () => {
+        expect(legendSwatchInnerSvg("gender-male")).toContain(
+            'class="kul-card" data-kind="canonical" data-gender="male"',
+        );
+        expect(legendSwatchInnerSvg("gender-female")).toContain(
+            'data-gender="female"',
+        );
+        expect(legendSwatchInnerSvg("gender-other")).toContain(
+            'data-gender="other"',
+        );
+    });
+
+    it("emits a ghost swatch with the inline structural dashed border (mirrors production)", () => {
+        const svg = legendSwatchInnerSvg("past-record");
+        expect(svg).toContain('class="kul-card" data-kind="ghost"');
+        expect(svg).toContain('stroke-dasharray="3 2"');
+    });
+
+    it("emits edge swatches reusing the production class + data-link-kind", () => {
+        expect(legendSwatchInnerSvg("birth")).toContain(
+            'class="kul-edge" data-link-kind="birth"',
+        );
+        const adoption = legendSwatchInnerSvg("adoption");
+        expect(adoption).toContain('data-link-kind="adoption"');
+        // Adoption's inline dasharray mirrors production (ADR-0016
+        // "structural dasharrays ship inline").
+        expect(adoption).toContain('stroke-dasharray="6 4"');
+        expect(legendSwatchInnerSvg("marriage")).toContain(
+            'class="kul-edge" data-link-kind="marriage"',
+        );
+        const ended = legendSwatchInnerSvg("ended-marriage");
+        expect(ended).toContain('data-link-kind="marriage"');
+        expect(ended).toContain('data-is-ended="true"');
+    });
+
+    it("never bakes a colour into a swatch (no fill/stroke= attributes beyond fill=none)", () => {
+        // Colour is owned by the surrounding stylesheet via the data-*
+        // seam — swatches carry no inline colour (ADR-0022).
+        for (const row of LEGEND_ROWS) {
+            const svg = legendSwatchInnerSvg(row.key);
+            const stripped = svg.replace(/fill="none"/g, "");
+            expect(stripped).not.toContain(' fill="');
+            expect(stripped).not.toContain(' stroke="');
+        }
+    });
+
+    it("returns the empty string for an unknown key (defensive)", () => {
+        expect(legendSwatchInnerSvg("not-a-real-row")).toBe("");
+    });
+});
+
+describe("previewHtml chrome legend overlay", () => {
+    it("renders the legend container as a sibling of #root (survives innerHTML swaps)", () => {
+        const html = build();
+        expect(html).toContain('id="kul-legend"');
+        expect(html).toContain('class="kul-preview-legend"');
+        // Hidden until the first successful render (mirrors #kul-controls).
+        expect(html).toMatch(/id="kul-legend"[^>]*hidden/);
+    });
+
+    it("embeds the normative LEGEND_ROWS table in the bootstrap", () => {
+        const html = build();
+        // Embedded verbatim via JSON.stringify so the webview and Vitest
+        // run identical row definitions.
+        expect(html).toContain("const LEGEND_ROWS = ");
+        // The canonical labels appear in the embedded JSON.
+        expect(html).toContain('"Male"');
+        expect(html).toContain('"Past record"');
+        expect(html).toContain('"Ended marriage"');
+    });
+
+    it("embeds legendSwatchInnerSvg behind a stable const for minify safety", () => {
+        // Same minify-renaming guard as buildTooltip: bind the embedded
+        // function to a const so the bootstrap's call site keeps working
+        // after esbuild renames the inner function.
+        expect(build()).toContain("const legendSwatchInnerSvg = function");
+    });
+
+    it("builds rows from the rendered SVG DOM via the same querySelectorAll seam", () => {
+        const html = build();
+        expect(html).toContain("renderLegend(svg)");
+        // The presence check filters LEGEND_ROWS by querySelector against
+        // the SVG root — same selectors the row table declares.
+        expect(html).toContain("svgRoot.querySelector(row.presenceSelector)");
+    });
+
+    it("hides the legend on render error and on a missing <svg>", () => {
+        const html = build();
+        // Both error paths reach hideLegend so the overlay never strands
+        // a stale row table above an error banner.
+        expect(html).toContain("hideLegend()");
+        expect(html).toMatch(/if \(!svg\) \{ showControls\(false\); hideLegend\(\)/);
+    });
+
+    it("tracks whether the current diagram has any legend content", () => {
+        // Visibility is gated on two things: the user's toggle state AND
+        // whether there are any categories to show — a click on ⓘ with an
+        // empty diagram is a no-op rather than a vacant panel reveal.
+        expect(build()).toContain("legendHasContent");
+    });
+
+    it("starts hidden — the ⓘ toggle is the discovery affordance", () => {
+        // legendVisible defaults to `false` so the legend is opt-in chrome
+        // rather than always-on. The bootstrap reveals it only after the
+        // user clicks the legend toggle.
+        expect(build()).toContain("let legendVisible = false");
+    });
+
+    it("flips the toggle and re-applies visibility on a toggle-legend click", () => {
+        const html = build();
+        // The control-click handler routes "toggle-legend" to toggleLegend,
+        // which flips legendVisible and re-runs applyLegendVisibility.
+        expect(html).toContain("action === 'toggle-legend'");
+        expect(html).toContain("toggleLegend()");
+        expect(html).toContain("legendVisible = !legendVisible");
+        expect(html).toContain("applyLegendVisibility()");
+    });
+
+    it("reflects the open/closed state into the toggle button (aria-pressed + label)", () => {
+        const html = build();
+        // The button's aria-pressed mirrors the live state for screen
+        // readers, and the visible aria-label / title flip to "Hide legend"
+        // while the panel is open so the affordance stays accurate.
+        expect(html).toContain("setAttribute('aria-pressed', String(shouldShow))");
+        expect(html).toContain("'Hide legend'");
+        expect(html).toContain("'Show legend'");
     });
 });

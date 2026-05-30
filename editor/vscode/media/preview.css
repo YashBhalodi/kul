@@ -127,6 +127,23 @@ body {
     outline-offset: -1px;
 }
 
+/* A pressed toggle (e.g. the legend ⓘ button while the legend is open) holds
+ * the active background so the on/off state is visible at a glance. */
+.kul-control-btn[aria-pressed="true"] {
+    background-color: var(--kul-control-active-bg);
+}
+
+/* Vertical separator between the pan/zoom buttons and the legend toggle.
+ * Sized to be a hairline, not a full-height bar, so it reads as a chip
+ * divider inside one chrome cluster. */
+.kul-control-divider {
+    width: 1px;
+    height: var(--kul-control-divider-height);
+    background-color: var(--kul-control-divider-color);
+    align-self: center;
+    flex-shrink: 0;
+}
+
 /* Card shape — uniform per the uniform card. The base stroke is the
  * gender-neutral default; the per-gender rules below tint it. */
 .kul-card rect {
@@ -315,4 +332,77 @@ body {
 
 .kul-tooltip-label {
     color: var(--kul-tooltip-label-fg);
+}
+
+/* Chrome legend (#157, ADR-0022): a compact bottom-left overlay listing the
+ * diagram's visual vocabulary — gender stroke tints, ghost (past record), and
+ * the four edge treatments. The swatches are miniature glyphs carrying the
+ * production `.kul-card` / `.kul-edge` classes + `data-*` attributes, so the
+ * rules above paint them with the same theme tokens the diagram uses (the
+ * only swatch-scale override is the marriage stroke-width below; swatch
+ * colour is never overridden).
+ *
+ * Layout: a two-column grid with default row-flow, so the canonical row
+ * order (`docs/canonical-ui-pattern.md`) reads left-to-right, top-to-bottom
+ * — rows 1-2 in the first row of the grid, rows 3-4 in the second, etc.
+ * Sized for a glance-and-go reference rather than a primary panel — the
+ * UI font (not the editor font), a smaller font-size, tighter padding,
+ * and shrunken swatches keep it small even with all eight rows present.
+ *
+ * Visually subdued: re-uses the pan/zoom control panel's bg/border/shadow
+ * tokens so the legend sits in the same chrome family rather than competing
+ * for attention as a separate kind of overlay.
+ *
+ * Hidden by default; the ⓘ toggle in #kul-controls reveals it. Stays opt-in
+ * across renders — the bootstrap rebuilds row content on each render but
+ * `legendVisible` (false at start) gates the panel's `hidden` attribute.
+ *
+ * pointer-events:none lets clicks/hover pass through to the diagram below,
+ * and incidentally suppresses the `.kul-card:hover` stroke bump on the
+ * static swatches. Sits just above the pan/zoom controls at the same left
+ * inset. */
+.kul-preview-legend {
+    position: fixed;
+    bottom: var(--kul-legend-inset-bottom);
+    left: var(--kul-legend-inset-left);
+    z-index: 10;
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: var(--kul-legend-col-gap);
+    row-gap: var(--kul-legend-row-gap);
+    padding: var(--kul-legend-padding);
+    background-color: var(--kul-legend-bg);
+    color: var(--kul-legend-fg);
+    border: 1px solid var(--kul-legend-border-color);
+    border-radius: var(--kul-legend-radius);
+    box-shadow: 0 2px 8px var(--kul-legend-shadow-color);
+    font-family: var(--kul-legend-font-family);
+    font-size: var(--kul-legend-font-size);
+    pointer-events: none;
+}
+
+.kul-preview-legend[hidden] {
+    display: none;
+}
+
+.kul-legend-row {
+    display: flex;
+    align-items: center;
+    gap: var(--kul-legend-label-gap);
+    line-height: 1;
+}
+
+.kul-legend-swatch {
+    width: var(--kul-legend-swatch-width);
+    height: var(--kul-legend-swatch-height);
+    flex-shrink: 0;
+    display: block;
+}
+
+/* Swatch-scale override (ADR-0022): the production 8.75px marriage stroke
+ * would dominate a swatch-scale row, so it is clamped to a still-distinct
+ * thick line. Colour (`var(--kul-marriage-edge-stroke)`) is unchanged so
+ * the swatch tracks the theme. */
+.kul-legend-swatch .kul-edge[data-link-kind="marriage"] {
+    stroke-width: var(--kul-legend-marriage-stroke-width);
 }

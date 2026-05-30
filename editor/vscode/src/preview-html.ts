@@ -29,16 +29,31 @@ export function getNonce(): string {
 const ICON_ZOOM_IN = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 const ICON_ZOOM_OUT = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 const ICON_RESET = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 6V3.5A.5.5 0 0 1 3.5 3H6M10 3h2.5a.5.5 0 0 1 .5.5V6M13 10v2.5a.5.5 0 0 1-.5.5H10M6 13H3.5a.5.5 0 0 1-.5-.5V10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+// Info "ⓘ" — toggles the chrome legend (#157).
+const ICON_INFO = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="4.75" r="0.85" fill="currentColor"/><path d="M8 7.25v4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 
 // The overlay control cluster. Lives as a sibling of #root (not inside it),
 // so the per-render `root.innerHTML = …` swap never wipes it; it is wired
 // once and acts on the current pan/zoom instance. Hidden until the first
 // successful render and re-hidden on error.
+//
+// The cluster is two zones separated by a vertical divider: the three
+// pan/zoom buttons on the left, and the legend-toggle (ⓘ) button on the
+// right. The toggle starts at `aria-pressed="false"` because the legend
+// itself is hidden by default (the user opts in via the icon).
 const CONTROLS = `<div id="kul-controls" class="kul-preview-controls" role="group" aria-label="Diagram view controls" hidden>
 <button type="button" class="kul-control-btn" data-action="zoom-in" title="Zoom in" aria-label="Zoom in">${ICON_ZOOM_IN}</button>
 <button type="button" class="kul-control-btn" data-action="reset" title="Reset view" aria-label="Reset view">${ICON_RESET}</button>
 <button type="button" class="kul-control-btn" data-action="zoom-out" title="Zoom out" aria-label="Zoom out">${ICON_ZOOM_OUT}</button>
+<span class="kul-control-divider" aria-hidden="true"></span>
+<button type="button" class="kul-control-btn" data-action="toggle-legend" title="Show legend" aria-label="Show legend" aria-pressed="false">${ICON_INFO}</button>
 </div>`;
+
+// The chrome legend overlay (issue #157, ADR-0022). A sibling of #root,
+// so the per-render `root.innerHTML = …` swap never wipes it; populated
+// from the rendered SVG DOM on each successful render. Hidden by default —
+// the user opts in via the ⓘ button in #kul-controls; re-hidden on error.
+const LEGEND = `<div id="kul-legend" class="kul-preview-legend" role="region" aria-label="Diagram legend" hidden></div>`;
 
 /**
  * The structured model for one hover tooltip: a typed header (entity-kind
@@ -197,6 +212,143 @@ export function buildTooltip(
     return { title: title, identity: identity, rows: rows };
 }
 
+/** One row of the chrome legend overlay (#157). */
+export interface LegendRow {
+    /** Stable key — surfaces on the row's `data-row` attribute. */
+    key: string;
+    /** Human label shown beside the swatch. English only (ADR-0022). */
+    label: string;
+    /**
+     * The CSS selector the chrome runs against the rendered SVG to decide
+     * whether this row's category is present in the current diagram. Only
+     * categories actually surfaced get a row — no adoption edges, no
+     * adoption row — so the legend stays tight against the diagram it
+     * keys.
+     */
+    presenceSelector: string;
+}
+
+/**
+ * The normative legend table (issue #157, ADR-0022).
+ *
+ * Both the chrome legend (this surface) and the CLI baked legend
+ * (`crates/kul-svg/src/emit.rs`) conform to this exact order and these
+ * exact label strings — `docs/canonical-ui-pattern.md` carries the
+ * single normative spec. Adding a new category is a same-PR change
+ * across this table, the kul-svg `LegendRow` enum, and the canonical
+ * pattern doc.
+ *
+ * Each row's `presenceSelector` keys on the same `data-*` attribute the
+ * production SVG carries (ADR-0021), so the chrome's "is this present?"
+ * test reads the same seam the diagram itself uses.
+ */
+export const LEGEND_ROWS: ReadonlyArray<LegendRow> = [
+    {
+        key: "gender-male",
+        label: "Male",
+        presenceSelector: '.kul-card[data-gender="male"]',
+    },
+    {
+        key: "gender-female",
+        label: "Female",
+        presenceSelector: '.kul-card[data-gender="female"]',
+    },
+    {
+        key: "gender-other",
+        label: "Other",
+        presenceSelector: '.kul-card[data-gender="other"]',
+    },
+    {
+        key: "past-record",
+        label: "Past record",
+        presenceSelector: '.kul-card[data-kind="ghost"]',
+    },
+    {
+        key: "birth",
+        label: "Birth",
+        presenceSelector: '.kul-edge[data-link-kind="birth"]',
+    },
+    {
+        key: "adoption",
+        label: "Adoption",
+        presenceSelector: '.kul-edge[data-link-kind="adoption"]',
+    },
+    {
+        key: "marriage",
+        label: "Marriage",
+        // An un-ended marriage. If every marriage in this diagram is
+        // ended, only the "Ended marriage" row appears below.
+        presenceSelector:
+            '.kul-edge[data-link-kind="marriage"]:not([data-is-ended="true"])',
+    },
+    {
+        key: "ended-marriage",
+        label: "Ended marriage",
+        presenceSelector:
+            '.kul-edge[data-link-kind="marriage"][data-is-ended="true"]',
+    },
+];
+
+/**
+ * Filter {@link LEGEND_ROWS} to those whose category is present in the
+ * current diagram.
+ *
+ * Takes a `querySelector`-like predicate so it stays DOM-free and unit
+ * testable: the webview passes `(sel) => svgRoot.querySelector(sel)`,
+ * tests pass a stub keyed by selector. Both surfaces preserve the
+ * canonical row order.
+ */
+export function presentLegendRows(
+    querySelector: (selector: string) => unknown,
+): ReadonlyArray<LegendRow> {
+    return LEGEND_ROWS.filter(
+        (row) => querySelector(row.presenceSelector) != null,
+    );
+}
+
+/**
+ * The inline-SVG markup for one row's swatch — a miniature of the real
+ * glyph carrying the production class + `data-*` attributes, so the
+ * surrounding stylesheet themes it for free (ADR-0022). Only structural
+ * attributes that ship inline on the real glyph (the ghost dashed
+ * border, the adoption dashed edge) ship here; colour and stroke-width
+ * come from CSS (`.kul-legend-swatch …` overrides marriage stroke-width
+ * down to a swatch-scale block, never colour).
+ *
+ * Returned as a string so the bootstrap can inject it via `innerHTML`
+ * inside the swatch `<svg>` wrapper, and so tests can pin the markup
+ * verbatim. Empty string for an unknown key (defensive).
+ */
+export function legendSwatchInnerSvg(key: string): string {
+    switch (key) {
+        case "gender-male":
+        case "gender-female":
+        case "gender-other": {
+            const gender = key.substring("gender-".length);
+            return (
+                '<g class="kul-card" data-kind="canonical" data-gender="' +
+                gender +
+                '"><rect x="0.75" y="2" width="28.5" height="14" rx="3" ry="3"/></g>'
+            );
+        }
+        case "past-record":
+            return (
+                '<g class="kul-card" data-kind="ghost">' +
+                '<rect x="0.75" y="2" width="28.5" height="14" rx="3" ry="3" stroke-dasharray="3 2"/></g>'
+            );
+        case "birth":
+            return '<path class="kul-edge" data-link-kind="birth" fill="none" d="M 0 9 L 30 9"/>';
+        case "adoption":
+            return '<path class="kul-edge" data-link-kind="adoption" fill="none" d="M 0 9 L 30 9" stroke-dasharray="6 4"/>';
+        case "marriage":
+            return '<path class="kul-edge" data-link-kind="marriage" fill="none" d="M 0 9 L 30 9"/>';
+        case "ended-marriage":
+            return '<path class="kul-edge" data-link-kind="marriage" data-is-ended="true" fill="none" d="M 0 9 L 30 9"/>';
+        default:
+            return "";
+    }
+}
+
 /**
  * The inline bootstrap that runs inside the webview. It owns a single
  * module-level `svg-pan-zoom` instance (the global `svgPanZoom` comes from
@@ -221,6 +373,7 @@ const BOOTSTRAP = `
 (function () {
     const root = document.getElementById('root');
     const controls = document.getElementById('kul-controls');
+    const legend = document.getElementById('kul-legend');
     const vscode = acquireVsCodeApi();
     let panZoom = null;
 
@@ -232,6 +385,14 @@ const BOOTSTRAP = `
     // its serialized name can't be relied on — the const fixes the name the
     // bootstrap calls regardless of how the body was minified.
     const buildTooltip = ${buildTooltip.toString()};
+
+    // Chrome legend (issue #157, ADR-0022). The normative row table and the
+    // swatch-markup builder are serialized verbatim from the exported source
+    // so the webview and its Vitest unit tests stay in lockstep. The same
+    // minify-renaming guard the tooltip uses applies — bind the embedded
+    // function to a stable const before the bootstrap calls it.
+    const LEGEND_ROWS = ${JSON.stringify(LEGEND_ROWS)};
+    const legendSwatchInnerSvg = ${legendSwatchInnerSvg.toString()};
 
     // Click-to-source (issue #135): a click on a person card or a
     // marriage bar posts { type: 'revealSource', id } so the extension
@@ -564,11 +725,79 @@ const BOOTSTRAP = `
         });
     }
 
+    // Chrome legend (issue #157, ADR-0022). Two-step lifecycle:
+    //
+    // 1. renderLegend(svg) runs on every successful render — walks the
+    //    rendered SVG DOM, rebuilds the row list for the categories
+    //    actually present, and remembers whether there's anything to show.
+    //    It does NOT control visibility; that is legendVisible's job.
+    // 2. applyLegendVisibility() reconciles legend.hidden from the user's
+    //    toggle state (legendVisible, default false) and whether the
+    //    current diagram has any rows. A click on the ⓘ control flips
+    //    legendVisible and re-applies.
+    //
+    // Hidden by default so the legend is opt-in chrome — the ⓘ button in
+    // #kul-controls is the discovery affordance. hideLegend() clears the
+    // panel completely on error / no-svg (legendVisible stays as-is so
+    // the user's preference persists across the next render).
+    let legendVisible = false;
+    let legendHasContent = false;
+    function renderLegend(svgRoot) {
+        if (!legend) { return; }
+        const present = LEGEND_ROWS.filter(function (row) {
+            return svgRoot.querySelector(row.presenceSelector) !== null;
+        });
+        legendHasContent = present.length > 0;
+        if (!legendHasContent) {
+            legend.innerHTML = '';
+        } else {
+            legend.innerHTML = present.map(function (row) {
+                return '<div class="kul-legend-row" data-row="' + row.key + '">' +
+                    '<svg class="kul-legend-swatch" viewBox="0 0 30 18" aria-hidden="true">' +
+                    legendSwatchInnerSvg(row.key) +
+                    '</svg>' +
+                    '<span class="kul-legend-label">' + row.label + '</span>' +
+                    '</div>';
+            }).join('');
+        }
+        applyLegendVisibility();
+    }
+    function applyLegendVisibility() {
+        if (!legend) { return; }
+        const shouldShow = legendVisible && legendHasContent;
+        legend.hidden = !shouldShow;
+        const toggle = document.querySelector('button[data-action="toggle-legend"]');
+        if (toggle) {
+            toggle.setAttribute('aria-pressed', String(shouldShow));
+            // Mirror the visible state into the label/title so screen readers
+            // and the native tooltip flip to "Hide legend" while it's open.
+            const labelText = shouldShow ? 'Hide legend' : 'Show legend';
+            toggle.setAttribute('aria-label', labelText);
+            toggle.setAttribute('title', labelText);
+        }
+    }
+    function toggleLegend() {
+        legendVisible = !legendVisible;
+        applyLegendVisibility();
+    }
+    function hideLegend() {
+        if (legend) {
+            legendHasContent = false;
+            legend.innerHTML = '';
+            legend.hidden = true;
+        }
+        applyLegendVisibility();
+    }
+
     if (controls) {
         controls.addEventListener('click', function (event) {
             const btn = event.target.closest('button[data-action]');
-            if (!btn || !panZoom) { return; }
+            if (!btn) { return; }
             const action = btn.getAttribute('data-action');
+            // Legend toggle is independent of svg-pan-zoom — it works even
+            // before the first render (no-op if no content yet).
+            if (action === 'toggle-legend') { toggleLegend(); return; }
+            if (!panZoom) { return; }
             if (action === 'zoom-in') { panZoom.zoomIn(); }
             else if (action === 'zoom-out') { panZoom.zoomOut(); }
             else if (action === 'reset') { panZoom.reset(); }
@@ -651,8 +880,9 @@ const BOOTSTRAP = `
             }
             root.innerHTML = msg.svg;
             const svg = root.querySelector('svg');
-            if (!svg) { showControls(false); return; }
+            if (!svg) { showControls(false); hideLegend(); return; }
             injectGhostBadges(svg);
+            renderLegend(svg);
             panZoom = svgPanZoom(svg, {
                 zoomEnabled: true,
                 panEnabled: true,
@@ -681,6 +911,7 @@ const BOOTSTRAP = `
             removeTooltip();
             teardown();
             showControls(false);
+            hideLegend();
             const banner = document.createElement('div');
             banner.className = 'kul-error-banner';
             banner.textContent = msg.message;
@@ -727,6 +958,7 @@ export function previewHtml(
 <body data-theme="vscode">
 <div id="root" tabindex="-1" style="outline: none;"></div>
 ${CONTROLS}
+${LEGEND}
 <script nonce="${nonce}" src="${scriptHref}"></script>
 <script nonce="${nonce}">${BOOTSTRAP}</script>
 </body>

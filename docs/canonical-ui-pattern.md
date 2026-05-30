@@ -118,6 +118,25 @@ When a document describes multiple lineages with no intermarriage between them (
 | **Birth edge** | Solid line. Routes within a tree (marriage-edge midpoint → child below) or across trees (canonical card → a past or different-tree birth marriage). |
 | **Adoption edge** | Dashed line. Same routing; line style alone distinguishes it from birth. |
 
+## Legend (the visual key)
+
+Surfaces MAY render a **legend** — a small key to the visual vocabulary above — as either baked-in band on a standalone file or floating chrome over an interactive canvas (see [ADR-0022](./adr/0022-svg-legend.md) for the CLI baked-band vs. preview chrome split). When they do, both kinds of surface conform to the same normative table below: the same canonical order, the same exact label strings, and the same dynamic-presence rule. Each swatch is a **miniature of the real glyph carrying the production class + `data-*` attribute** the row keys on — so the existing stylesheet paints both the diagram and the swatch from one set of tokens (no new colour tokens; no hardcoded swatch hex). Only size / stroke-width / dash are tuned for swatch scale.
+
+**Dynamic presence:** a row appears only when the diagram contains at least one element of that category. A diagram with no adoption edges renders no adoption row; a diagram with no `other`-gender person renders no `other` row. The marriage (#7) and ended-marriage (#8) rows are independently dynamic, so a diagram whose only marriage is ended shows just #8.
+
+| # | Label (English, exact) | Swatch reuses | Presence rule |
+| - | --- | --- | --- |
+| 1 | Male | `.kul-card[data-gender="male"]` | Any card with `data-gender="male"` |
+| 2 | Female | `.kul-card[data-gender="female"]` | Any card with `data-gender="female"` |
+| 3 | Other | `.kul-card[data-gender="other"]` | Any card with `data-gender="other"` |
+| 4 | Past record | `.kul-card[data-kind="ghost"]` (the dashed border ships inline as on a real ghost card) | Any card with `data-kind="ghost"` |
+| 5 | Birth | `.kul-edge[data-link-kind="birth"]` | Any edge with `data-link-kind="birth"` |
+| 6 | Adoption | `.kul-edge[data-link-kind="adoption"]` (the dashed pattern ships inline as on a real adoption edge) | Any edge with `data-link-kind="adoption"` |
+| 7 | Marriage | `.kul-edge[data-link-kind="marriage"]` (un-ended) | Any marriage edge with `data-is-ended="false"` |
+| 8 | Ended marriage | `.kul-edge[data-link-kind="marriage"][data-is-ended="true"]` | Any marriage edge with `data-is-ended="true"` |
+
+Labels are English only; i18n is a clean additive follow-up (see [ADR-0022](./adr/0022-svg-legend.md)'s anti-suggestions). Both surfaces — the kul-svg CLI baked legend and the VSCode preview chrome legend — own this table verbatim; adding or renaming a category is a same-PR change to this table, the kul-svg `LegendRow` enum, and the preview's `LEGEND_ROWS` constant.
+
 ## Evolving this document
 
 This pattern co-evolves with the Kul language specification. When [`spec/`](../spec/README.md) gains a new construct — a new sub-statement, a new field that affects layout, a broadened semantic on an existing field, a new top-level statement — the responsible PR updates this document in the same change, because deciding how the new construct renders is part of shipping it. Extend the principles in place; do not restart from scratch. A new construct should slot in as a new application of an existing principle wherever possible (the way a future family-unit link would become a fourth ghost flavor), rather than as a parallel rule.
