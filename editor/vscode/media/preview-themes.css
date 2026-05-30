@@ -49,12 +49,15 @@ body[data-theme="vscode"] {
     --kul-error-border-width: 1px;
     --kul-error-radius: 3px;
     --kul-card-stroke-width: 1.5;
+    --kul-card-hover-stroke-width: 2.5;
     --kul-ghost-fill-opacity: 0.5;
     --kul-label-font-size: 13px;
     --kul-ghost-badge-font-size: 12px;
     --kul-edge-stroke-width: 1.5;
     --kul-marriage-edge-stroke-width: 8.75;
+    --kul-marriage-edge-hover-stroke-width: 10.5;
     --kul-ended-edge-stroke-opacity: 0.6;
+    --kul-hover-transition-duration: 0.1s;
 
     /* Overlay pan/zoom controls */
     --kul-control-bg: var(--vscode-editorWidget-background, var(--vscode-editor-background));

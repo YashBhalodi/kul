@@ -133,6 +133,17 @@ body {
     fill: var(--kul-card-fill);
     stroke: var(--kul-card-stroke);
     stroke-width: var(--kul-card-stroke-width);
+    transition: stroke-width var(--kul-hover-transition-duration);
+}
+
+/* Hover affordance (#136): hovering a clickable card thickens its rect stroke,
+ * reinforcing the F10 click-to-source target. Width-only — the per-gender
+ * stroke colour (ADR-0016) and ghost translucency are untouched, so the bump
+ * stacks with zero specificity conflict. `.kul-card:hover rect` (0,2,1)
+ * outranks the base `.kul-card rect` (0,1,1); it does not gate on data-kind,
+ * so ghost cards (also clickable) get the bump too. */
+.kul-card:hover rect {
+    stroke-width: var(--kul-card-hover-stroke-width);
 }
 
 /* Gender is a structural data-* seam (ADR-0016): the card shape is
@@ -203,6 +214,16 @@ body {
 .kul-edge[data-link-kind="marriage"] {
     stroke: var(--kul-marriage-edge-stroke);
     stroke-width: var(--kul-marriage-edge-stroke-width);
+    transition: stroke-width var(--kul-hover-transition-duration);
+}
+
+/* Hover affordance (#136): only marriage bars are clickable among edges (F10),
+ * so only they thicken on hover. Birth/adoption edges keep `cursor: grab` and
+ * stay inert. Width-only: the `data-is-ended="true"` rule below sets only
+ * stroke-opacity, so an ended marriage keeps its translucency and still gains
+ * the hover width. */
+.kul-edge[data-link-kind="marriage"]:hover {
+    stroke-width: var(--kul-marriage-edge-hover-stroke-width);
 }
 
 /* An ended (divorced) marriage edge renders translucent. */
