@@ -176,4 +176,14 @@ describe("previewHtml selection sync", () => {
         expect(html).toContain("panZoom.pan(");
         expect(html).toContain("panToElement(el)");
     });
+
+    it("eases the centring pan over rAF rather than snapping", () => {
+        const html = build();
+        // The centring tween is requestAnimationFrame-driven (like the
+        // keyboard pan) and cancels the prior tween so rapid cursor moves
+        // chase the latest target without stacking.
+        expect(html).toContain("requestAnimationFrame(step)");
+        expect(html).toContain("cancelPanAnim()");
+        expect(html).toContain("performance.now()");
+    });
 });

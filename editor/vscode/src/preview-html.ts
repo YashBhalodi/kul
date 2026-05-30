@@ -105,7 +105,19 @@ const BOOTSTRAP = `
         });
     }
 
+    // Handle of the in-flight selection-centring animation (issue #137), so
+    // a new highlight or a teardown can cancel it before it fights the new
+    // target / a destroyed instance.
+    let panAnimRaf = null;
+    function cancelPanAnim() {
+        if (panAnimRaf !== null) {
+            cancelAnimationFrame(panAnimRaf);
+            panAnimRaf = null;
+        }
+    }
+
     function teardown() {
+        cancelPanAnim();
         if (panZoom) {
             panZoom.destroy();
             panZoom = null;
@@ -127,13 +139,19 @@ const BOOTSTRAP = `
         });
     }
 
-    // Pan (translate only — never zoom; issue #137) so the matched element
-    // sits at the viewport centre. svg-pan-zoom folds the SVG's viewBox into
-    // getSizes().realZoom and the pan baseline, so a getBBox() point in user
-    // coords maps to a viewport pixel as pan + realZoom*point. The pan that
-    // lands the bbox centre on the viewport centre is therefore
-    // width/2 - centre*realZoom. Guards a missing/zero bbox (detached or
-    // unrendered element).
+    // Smoothly pan (translate only — never zoom; issue #137) so the matched
+    // element ends at the viewport centre. svg-pan-zoom folds the SVG's
+    // viewBox into getSizes().realZoom and the pan baseline, so a getBBox()
+    // point in user coords maps to a viewport pixel as pan + realZoom*point;
+    // the pan that lands the bbox centre on the viewport centre is therefore
+    // width/2 - centre*realZoom. Rather than snapping there (jarring as the
+    // cursor moves), a requestAnimationFrame loop eases the pan from its
+    // current value to the target over PAN_ANIM_MS — the same rAF-driven
+    // smoothness as the keyboard pan (issue #180). A new highlight cancels
+    // the in-flight tween (cancelPanAnim) and re-eases from wherever it got
+    // to, so rapid cursor moves chase the latest target without stacking.
+    // Guards a missing/zero bbox (detached or unrendered element).
+    const PAN_ANIM_MS = 200;
     function panToElement(el) {
         if (!panZoom || typeof el.getBBox !== 'function') { return; }
         const bbox = el.getBBox();
@@ -142,10 +160,27 @@ const BOOTSTRAP = `
         const realZoom = sizes.realZoom;
         const cx = bbox.x + bbox.width / 2;
         const cy = bbox.y + bbox.height / 2;
-        panZoom.pan({
-            x: sizes.width / 2 - cx * realZoom,
-            y: sizes.height / 2 - cy * realZoom,
-        });
+        const targetX = sizes.width / 2 - cx * realZoom;
+        const targetY = sizes.height / 2 - cy * realZoom;
+        cancelPanAnim();
+        const start = panZoom.getPan();
+        const dx = targetX - start.x;
+        const dy = targetY - start.y;
+        // Already centred (sub-pixel): set exactly and skip the tween.
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+            panZoom.pan({ x: targetX, y: targetY });
+            return;
+        }
+        const startTime = performance.now();
+        function step(now) {
+            if (!panZoom) { panAnimRaf = null; return; }
+            const t = Math.min(1, (now - startTime) / PAN_ANIM_MS);
+            // ease-out cubic: fast departure, gentle arrival.
+            const eased = 1 - Math.pow(1 - t, 3);
+            panZoom.pan({ x: start.x + dx * eased, y: start.y + dy * eased });
+            panAnimRaf = t < 1 ? requestAnimationFrame(step) : null;
+        }
+        panAnimRaf = requestAnimationFrame(step);
     }
 
     function highlightEntity(id, kind) {
@@ -266,6 +301,9 @@ const BOOTSTRAP = `
             let savedPan = null;
             let savedZoom = null;
             if (panZoom) {
+                // Stop any in-flight selection tween before the instance it
+                // drives is destroyed (issue #137).
+                cancelPanAnim();
                 savedPan = panZoom.getPan();
                 savedZoom = panZoom.getZoom();
                 panZoom.destroy();
