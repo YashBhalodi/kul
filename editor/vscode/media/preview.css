@@ -245,3 +245,74 @@ body {
     outline: var(--kul-selected-outline-width) solid var(--kul-selected-outline-color);
     outline-offset: var(--kul-selected-outline-offset);
 }
+
+/* Hover tooltip (#192): a JS-injected floating panel that surfaces a hovered
+ * entity's data-* fields (born/died/family/given/gender, marriage start/end/
+ * end-reason, adoption start/end). The bootstrap appends it to <body> and sets
+ * position:fixed left/top after measuring + clamping to the viewport, so the
+ * rule supplies only the box, not the placement. pointer-events:none keeps it
+ * from intercepting the hover/click underneath (so F10 click-to-source and F12
+ * selection sync are untouched) and prevents it from flickering its own
+ * mouseout. The floating-panel box (fixed position, themed bg/border/shadow,
+ * radius) is kept self-contained here so a future legend / hover-help (#157)
+ * could lift it into a shared `.kul-floating-panel` primitive. */
+.kul-tooltip {
+    position: fixed;
+    z-index: 20;
+    max-width: var(--kul-tooltip-max-width);
+    padding: var(--kul-tooltip-padding);
+    background-color: var(--kul-tooltip-bg);
+    color: var(--kul-tooltip-fg);
+    border: 1px solid var(--kul-tooltip-border-color);
+    border-radius: var(--kul-tooltip-radius);
+    box-shadow: 0 2px 8px var(--kul-tooltip-shadow-color);
+    font-size: var(--kul-tooltip-font-size);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--kul-tooltip-row-gap);
+}
+
+/* Typed header (#192): an entity-kind kicker ("Person" / "Marriage" /
+ * "Adoption") stacked over the resolved identity line (a person's name, a
+ * marriage's two spouses, an adoption's child). A hairline rule divides it
+ * from the field rows — but only when rows follow, so a header-only tooltip
+ * (no fields) has no dangling separator. */
+.kul-tooltip-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kul-tooltip-header-line-gap);
+}
+
+.kul-tooltip-header:not(:last-child) {
+    margin-bottom: var(--kul-tooltip-header-gap);
+    padding-bottom: var(--kul-tooltip-header-gap);
+    border-bottom: 1px solid var(--kul-tooltip-separator-color);
+}
+
+.kul-tooltip-kind {
+    font-size: var(--kul-tooltip-kind-font-size);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--kul-tooltip-kind-fg);
+}
+
+.kul-tooltip-title {
+    font-weight: var(--kul-tooltip-title-weight);
+    color: var(--kul-tooltip-title-fg);
+}
+
+/* Fields are a single two-column grid (label | value): one track for the
+ * labels, one for the values, so both line up as columns across every row
+ * regardless of label/value width. The label column is dimmed so the values
+ * read as primary. */
+.kul-tooltip-fields {
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: var(--kul-tooltip-col-gap);
+    row-gap: var(--kul-tooltip-row-gap);
+}
+
+.kul-tooltip-label {
+    color: var(--kul-tooltip-label-fg);
+}
