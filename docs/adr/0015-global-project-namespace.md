@@ -9,7 +9,7 @@
 
 ADR-0014 deliberately left the cross-file resolution question open. It introduced `FileId`, `FileSpan`, `KulFile`, and the multi-file `Document` so the toolchain could *talk about* multiple files at the type level, but committed only to **per-file id namespaces**: R01 fired only within one file, R02 looked up references only within the declaring file, and the resolved id index was a `HashMap<FileId, HashMap<String, ResolvedEntity>>`. The rationale at the time was explicit: the structural retrofit should not decide a language feature on issue #63's behalf — "Position B keeps the namespace policy minimal and lets #63's PRD design cross-file resolution from a clean slate."
 
-[PRD 0001 — Multi-file Kul projects with cross-file id references](../prd/0001-multi-file-kul-projects.md) (tracking issue #63) is that PRD. The product question it answers: *how do authors of large family trees split a `.kul` file across multiple files while still being able to reference the same person or marriage from any file?* Three positions were considered (full history in [the PRD's grilling session](../prd/0001-multi-file-kul-projects.md#user-stories)):
+Issue #63 raised that product question: *how do authors of large family trees split a `.kul` file across multiple files while still being able to reference the same person or marriage from any file?* Three positions were considered:
 
 - **Position A — global namespace across the project.** Every declared id is visible from every file. Cross-file references are bare names; collisions across files fire R01.
 - **Position B — per-file namespaces (status quo).** Each file is its own scope; cross-file references would need explicit syntax.
