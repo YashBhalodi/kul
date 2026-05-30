@@ -158,7 +158,11 @@ const BOOTSTRAP = `
     // Hover tooltip (issue #192). The row-building logic is embedded verbatim
     // from the exported buildTooltipRows() so the webview and its Vitest
     // unit tests run identical code; see preview-html.ts for the contract.
-    ${buildTooltipRows.toString()}
+    // Bound to a local const rather than dropped in as a bare declaration:
+    // the production esbuild --minify pass renames the internal function, so
+    // its serialized name can't be relied on — the const fixes the name the
+    // bootstrap calls regardless of how the body was minified.
+    const buildTooltipRows = ${buildTooltipRows.toString()};
 
     // Click-to-source (issue #135): a click on a person card or a
     // marriage bar posts { type: 'revealSource', id } so the extension

@@ -343,6 +343,15 @@ describe("previewHtml hover tooltip", () => {
         expect(build()).toContain("function buildTooltipRows(");
     });
 
+    it("binds the embedded builder to a const so minify-renaming can't break the call", () => {
+        // The production esbuild --minify pass renames the internal function,
+        // so a bare `function NAME(){}` declaration would no longer match the
+        // `buildTooltipRows(...)` call site (ReferenceError). Binding the
+        // serialized source to `const buildTooltipRows = …` fixes the callable
+        // name regardless of how the body was minified.
+        expect(build()).toContain("const buildTooltipRows = function");
+    });
+
     it("delegates hover on #root via mouseover/mouseout", () => {
         const html = build();
         expect(html).toContain("root.addEventListener('mouseover'");
