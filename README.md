@@ -50,7 +50,7 @@ Kul is **not** a GEDCOM replacement, **not** for genealogy research, and **not**
 
 Open a `.kul` file in VSCode (or VSCodium / Cursor / Windsurf / Theia / Gitpod / Kiro — the extension is published to both the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=YashBhalodi.kul) and [Open VSX](https://open-vsx.org/extension/YashBhalodi/kul)) and you get live diagnostics, hover, go-to-definition, find-references, rename, completion, formatting, document outline, and one-click export to JSON or Cytoscape graph format — all backed by the same `kul-core` engine the CLI runs.
 
-Run **Kul: Show Preview** and a panel opens beside the editor rendering the family as a canonical tree — generations as rows, spouses joined by a marriage edge, children below — colour-coded by element kind. Drag to pan and scroll to zoom; the view updates live as you type, holds its viewport across edits, and tracks your editor theme.
+Run **Kul: Show Preview** and a panel opens beside the editor rendering the family as a canonical tree — generations as rows, spouses joined by a marriage edge, children below — colour-coded by element kind. Drag to pan and scroll to zoom (or arrow-keys to pan and `+`/`-`/`0` to zoom); click a card or marriage bar to jump to its source declaration; the editor cursor highlights the matching element back; hover surfaces an entity's details inline. The view updates live as you type, holds its viewport across edits, and tracks your editor theme.
 
 For other editors, point any LSP client at the `kul-lsp` binary.
 
@@ -100,6 +100,7 @@ kul format                                    # canonicalize every .kul file in 
 kul format --check                            # CI gate (non-zero if anything is not canonical)
 kul export                                    # one kinship-native JSON envelope for the whole project
 kul export --format cytoscape                 # graph viz JSON
+kul export --format svg                       # self-contained canonical SVG (drop into any browser)
 kul lsp                                       # speak LSP over stdio
 ```
 

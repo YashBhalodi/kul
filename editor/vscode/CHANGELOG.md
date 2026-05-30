@@ -2,6 +2,21 @@
 
 All notable changes to the **KulLang** VSCode extension are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.4] — 2026-05-30
+
+### Added
+
+- **Click a card or marriage bar to jump to its source.** Clicking a person card or a marriage bar in the preview opens the declaration and selects its id token (cursor swaps to a pointer to surface the affordance). Birth/adoption edges stay inert — they keep the pan cursor and have no click action (#135).
+- **Editor cursor highlights the matching preview element.** Moving the cursor onto a `person` or `marriage` declaration (or a reference to one) wraps the matching card / marriage bar in a magenta selection ring — a hue reserved for selection so it stays equally prominent across light, dark, and high-contrast themes. The viewport eases over to centre the match; a new highlight cancels any in-flight pan and re-eases (#137).
+- **Hover tooltip surfaces an entity's details.** Hovering a person card or a marriage / adoption edge opens a tooltip after a hover-intent delay: a typed header (person name, marriage spouses, or adoption child) plus a two-column field grid built from the entity's properties. Scales with the diagram, anchored at the cursor, viewport-clamped, dismissed on `mouseleave` / re-render / pan / zoom (#156).
+- **Hover affordance for clickable elements.** Person cards and marriage bars bump their stroke width on hover, reinforcing the click target while preserving the gender colour encoding (#136).
+- **Keyboard pan/zoom for the preview viewport.** Arrow keys pan (smooth `requestAnimationFrame` motion), `+` / `=` zoom in, `-` zooms out, `0` resets. Modifier guards keep `Cmd+0` / `Ctrl+=` passing through to VSCode (#180).
+- **Diagram legend.** A compact bottom-left reference card keys the diagram's visual vocabulary (card kinds and edge kinds), built from the rendered SVG so swatch colours can never drift from the diagram. Opt-in via a new `ⓘ` "Show legend" toggle in the control cluster — hidden by default to keep the canvas uncluttered. Companion to the CLI baked legend; both conform to the same normative key (#157).
+
+### Changed
+
+- The ghost ↺ badge is now drawn by the preview rather than baked into the SVG, since it's an element-marker that CSS cannot generate from a presentation attribute (#182).
+
 ## [0.3.3] — 2026-05-26
 
 ### Added
