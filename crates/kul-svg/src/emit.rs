@@ -88,7 +88,11 @@ pub(crate) fn render(positioned: &PositionedShape, config: &ThemeConfig) -> Stri
     let legend_extra_height = if rows.is_empty() {
         0.0
     } else {
-        LEGEND_GAP + (rows.len() as f64) * LEGEND_ROW_HEIGHT + LEGEND_BOTTOM_PAD
+        // gap above + panel height (rows + 2× internal pad) + bottom inset.
+        LEGEND_GAP
+            + (rows.len() as f64) * LEGEND_ROW_HEIGHT
+            + 2.0 * LEGEND_PANEL_PAD_Y
+            + LEGEND_PANEL_INSET
     };
     // The diagram is almost always wider than the legend; max() guards
     // the degenerate two-card-no-edges case where the legend overflows.
@@ -155,6 +159,9 @@ svg {
   --kul-label-font-size: 13px;
   --kul-legend-label-font-size: 12px;
   --kul-legend-marriage-edge-stroke-width: 5;
+  --kul-legend-panel-bg: #f7f9fa;
+  --kul-legend-panel-border: #cfd8dc;
+  --kul-legend-panel-border-width: 1;
   background-color: var(--kul-preview-bg);
   font-family: var(--kul-font-family);
 }
@@ -172,6 +179,7 @@ svg {
 .kul-edge[data-link-kind="adoption"] { stroke: var(--kul-adoption-edge-stroke); }
 .kul-edge[data-link-kind="marriage"] { stroke: var(--kul-marriage-edge-stroke); stroke-width: var(--kul-marriage-edge-stroke-width); }
 .kul-edge[data-is-ended="true"] { stroke-opacity: var(--kul-ended-edge-stroke-opacity); }
+.kul-legend-bg { fill: var(--kul-legend-panel-bg); stroke: var(--kul-legend-panel-border); stroke-width: var(--kul-legend-panel-border-width); }
 .kul-legend-label { fill: var(--kul-label-fill); font-size: var(--kul-legend-label-font-size); }
 .kul-legend .kul-edge[data-link-kind="marriage"] { stroke-width: var(--kul-legend-marriage-edge-stroke-width); }
 </style>"#;
@@ -340,25 +348,34 @@ const EDGE_CORNER_RADIUS: f64 = 10.0;
 // -- Legend (ADR-0022) -----------------------------------------------
 //
 // The legend is appended into a reserved bottom-left band when
-// `ThemeConfig::legend` is set. Each row is a swatch + a label; the
-// swatch is a miniature of the real glyph, carrying the production
-// `kul-card` / `kul-edge` class plus the same `data-*` attributes —
-// so the surrounding stylesheet themes it for free. Only size /
-// stroke-width / dash are tuned for swatch scale via the small
-// `.kul-legend …` block in `SELF_CONTAINED_STYLE`; colour is never
-// overridden there.
+// `ThemeConfig::legend` is set. The band is a self-contained **panel**:
+// a rounded background rect with a subtle fill + thin border, drawn
+// behind the rows so it reads as one chrome block. Each row inside the
+// panel is a swatch + a label; the swatch is a miniature of the real
+// glyph carrying the production `kul-card` / `kul-edge` class + the
+// same `data-*` attributes, so the surrounding stylesheet themes it for
+// free. Only size / stroke-width / dash are tuned for swatch scale via
+// the small `.kul-legend …` block in `SELF_CONTAINED_STYLE`; **swatch
+// colours are never overridden** — the panel rect is its own structural
+// element and carries panel-specific tokens.
 
-/// Vertical gap between the diagram's bottom edge and the first
-/// legend row, *and* the row pitch's structural anchor.
+/// Vertical gap between the diagram's bottom edge and the panel's top.
 const LEGEND_GAP: f64 = 16.0;
+/// Inset of the panel from the canvas's left and bottom edges, so the
+/// panel never sits flush against the viewBox boundary.
+const LEGEND_PANEL_INSET: f64 = 8.0;
+/// Internal horizontal padding inside the panel (between the rounded
+/// rect and the swatch column / label column).
+const LEGEND_PANEL_PAD_X: f64 = 14.0;
+/// Internal vertical padding inside the panel (between the rounded
+/// rect and the first / last row).
+const LEGEND_PANEL_PAD_Y: f64 = 10.0;
+/// Corner radius of the panel rect.
+const LEGEND_PANEL_RADIUS: f64 = 6.0;
 /// Height of one legend row — sized so the production 8.75px marriage
 /// stroke (clamped to 5px via `.kul-legend` override) still reads as a
 /// distinct thick line in the row, not the whole row.
 const LEGEND_ROW_HEIGHT: f64 = 22.0;
-/// Extra space below the last row before the viewBox bottom edge.
-const LEGEND_BOTTOM_PAD: f64 = 8.0;
-/// X inset of the swatch column from the canvas's left edge.
-const LEGEND_LEFT_PAD: f64 = 16.0;
 /// Horizontal swatch span (rect width, edge segment length).
 const LEGEND_SWATCH_WIDTH: f64 = 30.0;
 /// Vertical swatch span for the rect (card) swatches; edge swatches
@@ -369,13 +386,16 @@ const LEGEND_LABEL_GAP: f64 = 10.0;
 /// Conservative label-column budget — labels are short English words,
 /// not measured, so this only matters for the degenerate "diagram
 /// narrower than the legend" case where the viewBox max()es up to fit.
-const LEGEND_LABEL_BUDGET: f64 = 130.0;
-/// Total horizontal footprint a legend occupies in the canvas.
-const LEGEND_TOTAL_WIDTH: f64 = LEGEND_LEFT_PAD
+const LEGEND_LABEL_BUDGET: f64 = 120.0;
+/// Width of the panel rect (rounded background).
+const LEGEND_PANEL_WIDTH: f64 = LEGEND_PANEL_PAD_X
     + LEGEND_SWATCH_WIDTH
     + LEGEND_LABEL_GAP
     + LEGEND_LABEL_BUDGET
-    + LEGEND_LEFT_PAD;
+    + LEGEND_PANEL_PAD_X;
+/// Total horizontal footprint the legend occupies in the canvas
+/// (panel + outer left/right insets).
+const LEGEND_TOTAL_WIDTH: f64 = LEGEND_PANEL_INSET + LEGEND_PANEL_WIDTH + LEGEND_PANEL_INSET;
 
 /// The canonical legend categories, in their normative order
 /// (`docs/canonical-ui-pattern.md`). Each is dynamic: a row appears
@@ -467,17 +487,34 @@ fn legend_rows(shape: &PositionedShape) -> Vec<LegendRow> {
     rows
 }
 
-fn write_legend(out: &mut String, rows: &[LegendRow], legend_top: f64) {
+fn write_legend(out: &mut String, rows: &[LegendRow], panel_top: f64) {
+    let panel_x = LEGEND_PANEL_INSET;
+    let panel_height = 2.0 * LEGEND_PANEL_PAD_Y + (rows.len() as f64) * LEGEND_ROW_HEIGHT;
+    let rows_top = panel_top + LEGEND_PANEL_PAD_Y;
+    let swatch_x = panel_x + LEGEND_PANEL_PAD_X;
+    let label_x = swatch_x + LEGEND_SWATCH_WIDTH + LEGEND_LABEL_GAP;
     out.push_str(r#"<g class="kul-legend">"#);
+    // Panel background — a rounded rect drawn first so the rows sit on
+    // top. The fill / stroke come from `--kul-legend-panel-*` tokens, so
+    // a future theme re-skins the panel without touching this emitter.
+    let _ = write!(
+        out,
+        r#"<rect class="kul-legend-bg" x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" ry="{r}"/>"#,
+        x = fmt_num(panel_x),
+        y = fmt_num(panel_top),
+        w = fmt_num(LEGEND_PANEL_WIDTH),
+        h = fmt_num(panel_height),
+        r = fmt_num(LEGEND_PANEL_RADIUS),
+    );
     for (i, row) in rows.iter().enumerate() {
-        let row_top = legend_top + (i as f64) * LEGEND_ROW_HEIGHT;
+        let row_top = rows_top + (i as f64) * LEGEND_ROW_HEIGHT;
         let center_y = row_top + LEGEND_ROW_HEIGHT / 2.0;
         let swatch_top = center_y - LEGEND_SWATCH_HEIGHT / 2.0;
-        write_legend_swatch(out, *row, LEGEND_LEFT_PAD, swatch_top, center_y);
+        write_legend_swatch(out, *row, swatch_x, swatch_top, center_y);
         let _ = write!(
             out,
             r#"<text class="kul-legend-label" x="{x}" y="{y}" dominant-baseline="central">{label}</text>"#,
-            x = fmt_num(LEGEND_LEFT_PAD + LEGEND_SWATCH_WIDTH + LEGEND_LABEL_GAP),
+            x = fmt_num(label_x),
             y = fmt_num(center_y),
             label = escape_xml(row.label()),
         );

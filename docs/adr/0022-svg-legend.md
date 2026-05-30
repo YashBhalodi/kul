@@ -42,7 +42,11 @@ Only **size, stroke-width, and dash** are tuned for legibility at swatch scale (
 - A `.kul-legend-label` rule (CLI) / `--kul-legend-*` token family (preview) sets the label font size.
 - A `.kul-legend …[data-link-kind="marriage"]` rule clamps the marriage stroke-width down to a swatch-scale block.
 
-**Colour is never overridden in `.kul-legend`.** Adding a theme is unchanged: re-map the `--kul-*` tokens, and both diagram and legend re-theme together.
+**Swatch colour is never overridden.** Adding a theme is unchanged: re-map the `--kul-*` tokens, and both diagram and legend re-theme together.
+
+### Panel: a rounded background frames the rows
+
+Both surfaces draw the legend inside a **panel** — a rounded background that visually groups the rows into one chrome block. The CLI bakes a `<rect class="kul-legend-bg">` as the first child of the legend group (so the rows render on top); the preview's HTML overlay already has its own `background-color` + `border-radius` on the `.kul-preview-legend` container. The panel is **a new structural element**, not a swatch override — it carries its own `--kul-legend-panel-bg` / `--kul-legend-panel-border` tokens, distinct from the swatch tokens. The "swatch colour never overridden" rule continues to hold; the panel rect is outside its scope.
 
 ### Dynamic, present-only rows
 

@@ -594,15 +594,15 @@ fn legend_swatches_reuse_production_classes_and_data_attrs() {
 
 #[test]
 fn legend_swatch_overrides_only_size_in_baked_css() {
-    // The `.kul-legend` block in the baked stylesheet may tune only
-    // size / stroke-width / dash — never colour.
+    // The swatch-targeting `.kul-legend …` rules may tune only
+    // size / stroke-width / dash on the production glyphs — never colour.
+    // (The panel rect `.kul-legend-bg` is its own structural element and
+    // carries panel-specific tokens; that's separate from swatch overrides.)
     let shape = full_vocab_shape();
     let svg = render(
         &shape,
         &ThemeConfig::with_self_contained(true).with_legend(true),
     );
-    // The marriage stroke-width override is present, and it consumes the
-    // token (no hardcoded width). Colour overrides are absent.
     assert!(
         svg.contains(".kul-legend .kul-edge[data-link-kind=\"marriage\"]"),
         "expected the marriage stroke-width override: {svg}"
@@ -611,20 +611,70 @@ fn legend_swatch_overrides_only_size_in_baked_css() {
         svg.contains("--kul-legend-marriage-edge-stroke-width"),
         "marriage stroke override must consume a token: {svg}"
     );
-    // No `stroke:` or `fill:` declaration inside `.kul-legend`.
+    // The marriage swatch rule must only set stroke-width — never `stroke:`
+    // or `fill:`.
+    let marr_start = svg
+        .find(".kul-legend .kul-edge[data-link-kind=\"marriage\"]")
+        .expect("marriage rule");
+    let marr_end = marr_start + svg[marr_start..].find('}').expect("rule close");
+    let marr_rule = &svg[marr_start..marr_end];
+    assert!(
+        !marr_rule.contains("stroke:") && !marr_rule.contains("fill:"),
+        "marriage swatch override must not override colour: {marr_rule}"
+    );
+    // Every colour in `.kul-legend*` rules must be token-bound — no hex
+    // literals leak into the legend stylesheet block.
     let legend_block_start = svg.find(".kul-legend").expect("legend rule");
-    let legend_block_end = svg[legend_block_start..]
-        .find("</style>")
-        .map(|i| legend_block_start + i)
-        .unwrap_or(svg.len());
+    let legend_block_end = legend_block_start
+        + svg[legend_block_start..]
+            .find("</style>")
+            .expect("style close");
     let legend_block = &svg[legend_block_start..legend_block_end];
     assert!(
-        !legend_block.contains("stroke:"),
-        ".kul-legend block must not override stroke colour: {legend_block}"
+        !legend_block.contains('#'),
+        ".kul-legend* rules must use --kul-* tokens, not hex literals: {legend_block}"
+    );
+}
+
+#[test]
+fn legend_emits_a_rounded_panel_background() {
+    // The panel rect ships first inside the `.kul-legend` group so rows
+    // sit on top of it; its rounded corners and colours come from the
+    // `--kul-legend-panel-*` tokens (no hardcoded hex on the element).
+    let shape = full_vocab_shape();
+    let svg = render(
+        &shape,
+        &ThemeConfig::with_self_contained(true).with_legend(true),
+    );
+    let group_start = svg.find(r#"<g class="kul-legend">"#).expect("legend group");
+    let after_group = &svg[group_start + r#"<g class="kul-legend">"#.len()..];
+    // First child of the legend group is the panel rect.
+    assert!(
+        after_group.starts_with(r#"<rect class="kul-legend-bg""#),
+        "panel rect must be the first child of the legend group: {after_group}"
+    );
+    // Rounded corners (`rx`/`ry`) are present and non-zero.
+    let panel_end =
+        group_start + r#"<g class="kul-legend">"#.len() + after_group.find("/>").unwrap();
+    let panel_rect = &svg[group_start..=panel_end];
+    assert!(
+        panel_rect.contains("rx=\"6\""),
+        "panel rect must carry the configured corner radius: {panel_rect}"
+    );
+    // No hardcoded colour on the panel element itself — the baked
+    // stylesheet's `.kul-legend-bg` rule paints it via tokens.
+    assert!(
+        !panel_rect.contains(" fill=\""),
+        "panel rect must not carry inline fill: {panel_rect}"
     );
     assert!(
-        !legend_block.contains("fill:") || legend_block.contains("fill: var(--kul-label-fill)"),
-        ".kul-legend block fill must come from a token, not a hex literal: {legend_block}"
+        !panel_rect.contains(" stroke=\""),
+        "panel rect must not carry inline stroke: {panel_rect}"
+    );
+    // The baked stylesheet defines the panel's fill / stroke via tokens.
+    assert!(
+        svg.contains(".kul-legend-bg { fill: var(--kul-legend-panel-bg);"),
+        "expected the .kul-legend-bg rule keyed on panel tokens: {svg}"
     );
 }
 
