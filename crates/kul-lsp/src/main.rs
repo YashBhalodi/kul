@@ -1,5 +1,3 @@
-//! `kul-lsp` binary entry point.
-
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
     let mut args = std::env::args().skip(1);

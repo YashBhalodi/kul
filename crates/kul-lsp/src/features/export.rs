@@ -1,15 +1,7 @@
-//! `kul/export` custom LSP request.
-//!
-//! Routes the `kul export` projection through the language server so the
-//! VSCode extension can produce an envelope from the in-memory buffer
-//! (including unsaved edits) without shelling out to a second binary.
-//!
-//! The request takes a document URI plus a format (`json` or `cytoscape`)
-//! and an optional `withPositions` flag, reads the cached
-//! [`crate::state::Document`], and runs `kul_core::export::export`. The
-//! response is the envelope (success or failure) verbatim — strict-on-
-//! errors discipline is owned by the export function, not by this
-//! adapter.
+//! `kul/export` custom LSP request — routes the `kul export` projection
+//! through the language server so the extension can export the in-memory
+//! buffer without shelling out. Strict-on-errors is the export function's
+//! contract; this adapter passes the envelope through verbatim.
 
 use kul_core::export::{ExportEnvelope, ExportFormat, ExportOptions, export};
 use serde::Deserialize;
@@ -17,30 +9,23 @@ use tower_lsp::lsp_types::Url;
 
 use crate::state::ProjectEntry;
 
-/// Request parameters for `kul/export`. Camel-case to match LSP custom
-/// requests, which conventionally mirror the protocol's casing.
+/// Request parameters for `kul/export`.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExportParams {
-    /// The document to export. Must already be open (`textDocument/didOpen`).
+    /// The document to export. Must already be open.
     pub uri: Url,
-    /// Output format — `"json"` (canonical kinship-native) or
-    /// `"cytoscape"` (bipartite marriage-as-node).
+    /// `"json"` (canonical) or `"cytoscape"` (bipartite marriage-as-node).
     pub format: String,
-    /// When `true`, every exported entity carries a `span: [start, end]`
-    /// pointing back to its source declaration. Default `false`.
+    /// When `true`, each exported entity carries `span: [start, end]`.
     #[serde(default)]
     pub with_positions: bool,
 }
 
-/// Possible reasons `kul/export` cannot satisfy the request before even
-/// running the export.
+/// Reasons `kul/export` rejects the request before running the export.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExportRequestError {
-    /// The URI is not in the document cache.
     DocumentNotOpen,
-    /// The `format` field carried a value other than `"json"` or
-    /// `"cytoscape"`.
     UnknownFormat(String),
 }
 
@@ -57,15 +42,9 @@ impl ExportRequestError {
     }
 }
 
-/// Pure projection: turn a cached [`ProjectEntry`] plus parsed params
-/// into an envelope. Lives outside `Backend` so the integration test
-/// can exercise it without spawning the full LSP server.
-///
-/// Manifest failures (KUL-Mxx) flow through the export envelope as
-/// regular failure-envelope diagnostics now (post-issue-70); this
-/// function no longer needs a separate manifest-unavailable error.
-/// The export is project-wide: every URI in the same project produces
-/// the same envelope (one project = one graph per ADR-0015).
+/// Turn a cached [`ProjectEntry`] plus parsed params into an envelope.
+/// Project-wide (ADR-0015): every URI in the same project produces the
+/// same envelope.
 pub fn export_for(
     entry: &ProjectEntry,
     params: &ExportParams,
@@ -93,10 +72,6 @@ mod tests {
     use super::*;
     use crate::state::test_open_file;
 
-    /// `export_for` consumes only the cached `OpenFile` and the parsed
-    /// params; the params' URI is decorative for these tests, so we
-    /// reuse one stable opaque URL across the suite and let
-    /// `test_open_file` build the cached check from in-memory source.
     fn dummy_uri() -> Url {
         Url::parse("file:///dummy.kul").unwrap()
     }

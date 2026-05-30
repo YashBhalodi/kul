@@ -19,8 +19,6 @@ fn lex_minimal_person() {
 
 #[test]
 fn lex_kul_is_a_normal_identifier_now() {
-    // Sanity: after the manifest refactor (issue 69), `kul` is no longer a
-    // keyword — it lexes like any other identifier.
     let source = "person kul name:\"K\" gender:other\n";
     insta::assert_snapshot!(render_tokens(source));
 }

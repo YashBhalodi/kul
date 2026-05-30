@@ -1,12 +1,10 @@
-//! The cell grammar: typed line atoms, canonical column tables, and the
-//! AST-to-cell builders that the [`super::emit::Emitter`] then aligns.
+//! Cell grammar: typed line atoms, canonical column tables, and the
+//! AST-to-cell builders consumed by [`super::emit::Emitter`].
 //!
-//! A formatted line is a sparse sequence of [`Cell`]s, each tagged with the
-//! canonical column index it occupies in its statement kind's layout. The
-//! tables here (`canonical_columns`, `structural_prefix`, `field_column`,
-//! `comment_column`) are the single source of truth for that layout; field
-//! ordering itself flows from [`crate::field_meta::fields_for`] so the
-//! formatter and completion can never disagree.
+//! A line is a sparse sequence of [`Cell`]s, each tagged with the
+//! canonical column index for its statement kind. Field ordering flows
+//! from [`crate::field_meta::fields_for`] so the formatter and completion
+//! cannot disagree.
 
 use std::sync::LazyLock;
 
@@ -20,33 +18,28 @@ use crate::lexer::FieldName;
 #[derive(Debug, Clone)]
 pub(super) struct Cell {
     pub(super) text: String,
-    /// Index of this cell in the canonical column ordering for its statement
-    /// kind (see [`canonical_columns`]). Each cell builder assigns this when
-    /// constructing the line so the alignment pass can place cells in their
-    /// canonical column regardless of which optional fields are present. The
-    /// cell's `CellKind` is therefore implicit — `canonical_columns(kind)[col]`
-    /// is the single source of truth.
+    /// Canonical column index (see [`canonical_columns`]); the cell's
+    /// `CellKind` is implicit at `canonical_columns(kind)[col]`.
     pub(super) col: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) enum CellKind {
-    /// A statement keyword: `person`, `marriage`, `birth`, `adoption`.
+    /// `person`, `marriage`, `birth`, `adoption`.
     Keyword,
-    /// A positional id (the bound id of a `person` or `marriage`).
-    /// Single space after.
+    /// Bound id of `person`/`marriage`. Single space after.
     Positional,
-    /// A reference positional in a `marriage` or `birth`/`adoption` line.
+    /// Reference positional (marriage spouses, birth/adoption parent).
     /// Single space after.
     Reference,
-    /// A `name:value` field. Two spaces after.
+    /// `name:value` field. Two spaces after.
     Field(FieldName),
-    /// An inline comment, always the last cell on its line.
+    /// Trailing inline comment.
     Comment,
 }
 
-/// Identifies the statement kind of a line. Drives both the canonical column
-/// ordering and the alignment-group key.
+/// Statement kind of a line; drives the canonical column ordering and the
+/// alignment-group key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) enum KindTag {
     Person,
@@ -55,16 +48,9 @@ pub(super) enum KindTag {
     Adoption,
 }
 
-/// Canonical column kinds for a statement kind, in the order they appear on
-/// a line. The column at index `i` always has the same `CellKind` for every
-/// line in a group; lines may *omit* optional columns (everything past the
-/// required structural prefix), in which case the formatter emits whitespace
-/// of that column's width if the line has any further cells to its right.
-///
-/// Field columns flow from [`field_meta::fields_for`] (the spec-§15.2 order)
-/// so the formatter and completion can never disagree about field order.
-/// Structural cells (keyword, positional id, spouse / marriage references,
-/// trailing comment) are formatter-only.
+/// Canonical column kinds for a statement kind, in order. Field columns
+/// flow from [`field_meta::fields_for`] (spec §15.2); structural cells
+/// (keyword, positional, references, comment) are formatter-only.
 pub(super) fn canonical_columns(kind: KindTag) -> &'static [CellKind] {
     static PERSON: LazyLock<Vec<CellKind>> = LazyLock::new(|| build_columns(KindTag::Person));
     static MARRIAGE: LazyLock<Vec<CellKind>> = LazyLock::new(|| build_columns(KindTag::Marriage));
@@ -78,8 +64,8 @@ pub(super) fn canonical_columns(kind: KindTag) -> &'static [CellKind] {
     }
 }
 
-/// Structural cells preceding the field columns for a kind. Same-keyword
-/// lines always carry every prefix cell.
+/// Structural cells preceding the field columns. Same-keyword lines
+/// always carry every prefix cell.
 fn structural_prefix(kind: KindTag) -> &'static [CellKind] {
     use CellKind::*;
     match kind {
@@ -90,8 +76,7 @@ fn structural_prefix(kind: KindTag) -> &'static [CellKind] {
     }
 }
 
-/// `StatementKind` for line shapes that carry fields. `Birth` has no fields;
-/// it never reaches `field_meta`.
+/// `StatementKind` for line shapes that carry fields. `Birth` has none.
 fn statement_kind(kind: KindTag) -> Option<StatementKind> {
     match kind {
         KindTag::Person => Some(StatementKind::Person),
@@ -112,9 +97,9 @@ fn build_columns(kind: KindTag) -> Vec<CellKind> {
     out
 }
 
-/// Column index of `name` in `kind`'s canonical layout. Panics if the field
-/// isn't valid for the kind — callers are field-kind-typed (`PersonFieldKind`
-/// etc.) so a wrong combination is a programmer error.
+/// Column index of `name` in `kind`'s canonical layout. Panics on
+/// invalid combinations (callers are field-kind-typed, so a mismatch is
+/// a programmer error).
 fn field_column(kind: KindTag, name: FieldName) -> u8 {
     canonical_columns(kind)
         .iter()
@@ -122,17 +107,14 @@ fn field_column(kind: KindTag, name: FieldName) -> u8 {
         .expect("field is part of this kind's canonical columns") as u8
 }
 
-/// Column index of the trailing comment cell — always the last column.
+/// Column index of the trailing comment cell (always last).
 fn comment_column(kind: KindTag) -> u8 {
     (canonical_columns(kind).len() - 1) as u8
 }
 
-/// Identifies which lines share columns with each other within a region.
-///
-/// Two lines align iff their `GroupKey`s are equal. `parent` is `None` for
-/// top-level statements (region-scoped) and `Some(id)` for sub-statements
-/// (parent-scoped); two sub-statements under different persons never share
-/// a group even with identical `(indent, kind)`.
+/// Alignment-group key. Two lines align iff their `GroupKey`s match.
+/// `parent` is `Some(id)` for sub-statements so siblings under different
+/// parents never cross-align.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) struct GroupKey {
     pub(super) indent: usize,
@@ -142,18 +124,15 @@ pub(super) struct GroupKey {
 
 #[derive(Debug, Clone)]
 pub(super) enum RegionItem {
-    /// A statement (or version) line that participates in an alignment group.
+    /// A line that participates in an alignment group.
     Aligned {
         indent: usize,
         cells: Vec<Cell>,
         group: GroupKey,
     },
-    /// A whole-line comment with its already-resolved indent and the raw
-    /// `#…` text. Comments never participate in alignment.
+    /// A whole-line comment. Never aligned.
     Comment { indent: usize, text: String },
 }
-
-// === AST → cells ===
 
 pub(super) fn build_person_cells(p: &PersonStmt, inline_comment: Option<&str>) -> Vec<Cell> {
     let kind = KindTag::Person;
@@ -354,8 +333,6 @@ fn field_cell(kind: KindTag, name: FieldName, value: &str) -> Cell {
     }
 }
 
-// === Value stringifiers ===
-
 fn quote_string(value: &str) -> String {
     let mut s = String::with_capacity(value.len() + 2);
     s.push('"');
@@ -381,9 +358,7 @@ fn gender_str(g: Gender) -> &'static str {
 fn end_reason_str(e: &EndReason) -> String {
     match e {
         EndReason::Divorce => "divorce".to_string(),
-        // The validator surfaces unknown end_reason values as KUL-R05b; the
-        // formatter still re-emits whatever the user wrote so the diagnostic
-        // anchors stay meaningful and the file isn't silently mangled.
+        // Re-emit verbatim so KUL-R05b's anchor stays meaningful.
         EndReason::Unknown(s) => s.clone(),
     }
 }

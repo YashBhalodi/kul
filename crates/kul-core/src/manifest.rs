@@ -1,26 +1,16 @@
 //! Project manifest (`kul.yml`).
 //!
-//! A Kul project is "a `kul.yml` plus one or more `.kul` files in the
-//! same directory." The manifest carries metadata *about* the source —
-//! most notably the Kul language version the sibling `.kul` files
-//! target — lifted out of the grammar so the DSL itself contains only
-//! kinship.
+//! A Kul project is `kul.yml` plus one or more sibling `.kul` files. The
+//! manifest carries the language version, lifted out of the grammar so
+//! the DSL contains only kinship. See
+//! [`spec/14-project-manifest.md`](../../../spec/14-project-manifest.md)
+//! and ADR-0013.
 //!
-//! The manifest is normative (every Kul-language consumer honours it)
-//! and required (a `.kul` file without a sibling `kul.yml` is not a
-//! valid Kul project). See [`spec/14-project-manifest.md`](../../../spec/14-project-manifest.md)
-//! and [ADR-0013](../../../docs/adr/0013-project-manifest.md) for the
-//! load-bearing decisions.
-//!
-//! Adapters own filesystem / JS-host I/O. `kul-core` itself never reads
-//! the filesystem; the [`parse`] helper turns a YAML string the adapter
-//! has already loaded into a typed [`Manifest`]. The richer
-//! [`validate`] pass is what [`crate::check`] calls — it produces a
-//! [`Manifest`] *and* a diagnostic list with `KUL-M02..M05` codes
-//! anchored at the manifest's [`FileId`]. `KUL-M01` (manifest missing
-//! on disk) is the adapter's responsibility to detect and report; it is
-//! the only manifest-related code that has no anchor in `kul.yml` (the
-//! file isn't there).
+//! Adapters own filesystem I/O; `kul-core` never reads the FS. [`parse`]
+//! is the thin YAML→typed helper; [`validate`] is the richer pass
+//! [`crate::check`] uses, producing a [`Manifest`] plus `KUL-M02..M05`
+//! diagnostics. `KUL-M01` (manifest missing) is unanchored and owned by
+//! the adapter.
 
 use std::path::{Path, PathBuf};
 
@@ -34,51 +24,29 @@ use crate::export::LANGUAGE_VERSION;
 #[cfg(feature = "yaml")]
 use crate::span::{ByteSpan, FileId};
 
-/// Resolve the project manifest path for a `.kul` input.
-///
-/// Per [`spec/14-project-manifest.md`](../../../spec/14-project-manifest.md)
-/// §14.3, the manifest for `<dir>/<file>.kul` is `<dir>/kul.yml` — same
-/// directory, no walk-up. This is the one authoritative encoding of the
-/// rule; CLI and LSP adapters both call it so a future spec edit (say,
-/// allowing `kul.yaml` as an alias, or supporting walk-up) lands in one
-/// place.
-///
-/// Pure path manipulation only — no filesystem IO. ADR-0014 keeps
-/// filesystem reads at the adapter layer; this function just rewrites
-/// one path into another.
+/// Resolve the manifest path for a `.kul` input: `<dir>/kul.yml`, same
+/// directory, no walk-up (spec §14.3). Pure path manipulation, no I/O.
 #[must_use]
 pub fn sibling_path(input: &Path) -> PathBuf {
     let parent = input.parent().unwrap_or_else(|| Path::new(""));
     parent.join("kul.yml")
 }
 
-/// Versions of the Kul language this `kul-core` build accepts in the
-/// manifest's `kul:` field. Today only `0.1` is recognized; new versions
-/// land as additive entries here in lockstep with the spec.
+/// Language versions accepted in the manifest's `kul:` field.
 #[cfg(feature = "yaml")]
 const RECOGNIZED_VERSIONS: &[&str] = &[LANGUAGE_VERSION];
 
-/// Top-level field names the v1 manifest schema knows about. Any other
-/// top-level key surfaces as `KUL-M05` (warning).
+/// Top-level manifest fields the v1 schema knows; anything else fires
+/// `KUL-M05` (warning).
 #[cfg(feature = "yaml")]
 const KNOWN_FIELDS: &[&str] = &["kul"];
 
-/// Typed representation of a `kul.yml` manifest.
-///
-/// One field today (`kul_version`); the manifest schema evolves alongside
-/// the Kul language version per the additivity principle. Adapters
-/// (`kul-cli`, `kul-lsp`, `kul-wasm`) are responsible for loading the
-/// on-disk YAML / JS object before handing it to `kul-core`; `kul-core`
-/// itself never reads the filesystem.
-///
-/// Serializes / deserializes with the `kul:` field name (matches the
-/// on-disk YAML schema and the JS object the WASM bridge accepts).
+/// Typed `kul.yml` manifest. Serialized with the `kul:` field name.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify), tsify(from_wasm_abi, into_wasm_abi))]
 pub struct Manifest {
-    /// The Kul language version that the sibling `.kul` files conform
-    /// to. Format is `MAJOR.MINOR`, matching the previously-in-grammar
-    /// version literal. Surfaced in the export envelope's `kul:` field.
+    /// Language version (`MAJOR.MINOR`) the sibling `.kul` files target.
+    /// Surfaced in the export envelope's `kul:` field.
     #[serde(rename = "kul")]
     pub kul_version: String,
 }
@@ -91,16 +59,12 @@ impl Default for Manifest {
     }
 }
 
-/// YAML parse failure, carrying both a human-readable message and (when
-/// available) the line/column reported by `serde_yaml` so the manifest
-/// validator pass can anchor a `KUL-M02` diagnostic at the right
-/// position.
+/// YAML parse failure carrying the message and (when available) the
+/// 0-indexed line/column for `KUL-M02` anchoring.
 #[cfg(feature = "yaml")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseError {
     message: String,
-    /// 0-indexed line/column from `serde_yaml`. `None` when the YAML
-    /// library did not surface a location (rare).
     location: Option<(usize, usize)>,
 }
 
@@ -111,8 +75,7 @@ impl ParseError {
         &self.message
     }
 
-    /// 0-indexed line/column reported by the YAML parser. Returned as a
-    /// pair to keep the public surface free of `serde_yaml` types.
+    /// 0-indexed `(line, column)` from the YAML parser.
     #[must_use]
     pub fn location(&self) -> Option<(usize, usize)> {
         self.location
@@ -129,12 +92,8 @@ impl std::fmt::Display for ParseError {
 #[cfg(feature = "yaml")]
 impl std::error::Error for ParseError {}
 
-/// Parse a `kul.yml` payload into a typed [`Manifest`].
-///
-/// Unknown fields are tolerated (per ADR-0013's additivity stance);
-/// missing required fields surface as a [`ParseError`] with a
-/// `invalid YAML: <serde-yaml message>` body. For the project-level
-/// pass that produces normative `KUL-Mxx` diagnostics, see
+/// Parse a `kul.yml` payload into a typed [`Manifest`]. Unknown fields
+/// are tolerated (ADR-0013). For the diagnostic-producing pass, see
 /// [`validate`].
 #[cfg(feature = "yaml")]
 #[must_use = "parsing the manifest is pointless if the result is discarded"]
@@ -145,29 +104,17 @@ pub fn parse(yaml: &str) -> Result<Manifest, ParseError> {
     })
 }
 
-/// Project-level manifest validator pass: parses `yaml` if it can, then
-/// walks the document for schema-shape problems, returning a typed
-/// [`Manifest`] (when one could be assembled) plus the diagnostic list
-/// (`KUL-M02..M05`) anchored at `manifest_file`.
-///
-/// `KUL-M01` (manifest missing on disk) is *not* produced here — the
-/// adapter detects that case before calling, since `kul-core` doesn't
-/// see the filesystem. When the manifest body could not be parsed at
-/// all, the function returns `(None, …)` with a `KUL-M02` diagnostic
-/// and the caller falls back to [`Manifest::default`].
-///
-/// When the `yaml` feature is disabled (e.g. WASM builds that get a
-/// pre-built [`Manifest`] from the JS host), this function is unavailable
-/// and callers route around it through [`crate::check_with_manifest`].
+/// Project-level manifest validator. Returns a typed [`Manifest`] (when
+/// assemblable) plus `KUL-M02..M05` diagnostics anchored at
+/// `manifest_file`. `KUL-M01` is owned by the adapter (kul-core doesn't
+/// see the filesystem).
 #[cfg(feature = "yaml")]
 #[must_use]
 pub fn validate(yaml: &str, manifest_file: FileId) -> (Option<Manifest>, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
     if yaml.is_empty() {
-        // The manifest source is empty — the adapter is calling us as
-        // part of a check pipeline that doesn't have a real `kul.yml`.
-        // We fall back to the default manifest (Manifest::default uses
-        // the build's LANGUAGE_VERSION) without emitting anything.
+        // In-memory caller without a real `kul.yml`; fall back to
+        // [`Manifest::default`] silently.
         return (None, diagnostics);
     }
     let value: serde_yaml::Value = match serde_yaml::from_str(yaml) {
@@ -186,9 +133,8 @@ pub fn validate(yaml: &str, manifest_file: FileId) -> (Option<Manifest>, Vec<Dia
     let mapping = match &value {
         serde_yaml::Value::Mapping(m) => m,
         _ => {
-            // YAML parsed to something other than a mapping (a bare
-            // scalar at the document root, for instance). Surface it as
-            // M02 — the YAML is structurally valid but not a manifest.
+            // YAML parsed but not a mapping (e.g. bare scalar). Surface
+            // as M02 — structurally valid YAML but not a manifest.
             let span = ByteSpan::new(0, yaml.len().min(1));
             diagnostics.push(Diagnostic::error(
                 manifest_codes::M02_MALFORMED_YAML,
@@ -263,8 +209,7 @@ pub fn validate(yaml: &str, manifest_file: FileId) -> (Option<Manifest>, Vec<Dia
     (Some(Manifest { kul_version }), diagnostics)
 }
 
-/// Convert a `serde_yaml` (line, column) into a [`ByteSpan`] covering
-/// one byte at that position. Used as the anchor for `KUL-M02`.
+/// `serde_yaml` location → one-byte [`ByteSpan`] for KUL-M02 anchoring.
 #[cfg(feature = "yaml")]
 fn serde_yaml_span(yaml: &str, loc: Option<serde_yaml::Location>) -> ByteSpan {
     let Some(loc) = loc else {
@@ -274,8 +219,7 @@ fn serde_yaml_span(yaml: &str, loc: Option<serde_yaml::Location>) -> ByteSpan {
     ByteSpan::new(start, (start + 1).min(yaml.len()))
 }
 
-/// Map a 0-indexed `(line, column)` into a byte offset in `yaml`. Out-of-
-/// range positions clamp to the end of the source.
+/// 0-indexed `(line, column)` → byte offset; clamps to end of source.
 #[cfg(feature = "yaml")]
 fn byte_offset_at(yaml: &str, line: usize, column: usize) -> usize {
     let mut current_line = 0usize;
@@ -290,9 +234,8 @@ fn byte_offset_at(yaml: &str, line: usize, column: usize) -> usize {
     yaml.len()
 }
 
-/// Find the byte span of a top-level `<key>:` token in `yaml`. Best-
-/// effort: if the literal `<key>:` is not at column 0 of any line,
-/// returns `0..0` (rare; fires only on hand-crafted malformed input).
+/// Byte span of a top-level `<key>:` token. Best-effort; returns `0..0`
+/// if not at column 0.
 #[cfg(feature = "yaml")]
 fn locate_key(yaml: &str, key: &str) -> ByteSpan {
     let needle_a = format!("\n{key}:");
@@ -307,28 +250,23 @@ fn locate_key(yaml: &str, key: &str) -> ByteSpan {
     ByteSpan::new(0, 0)
 }
 
-/// Find the byte span of a top-level `<key>:` *value* in `yaml`. Like
-/// [`locate_key`] but anchors on the value text after the `:`.
+/// Byte span of a top-level `<key>:` value (the text after `:`).
 #[cfg(feature = "yaml")]
 fn locate_key_value(yaml: &str, key: &str) -> ByteSpan {
     let key_span = locate_key(yaml, key);
     if key_span.is_empty() {
         return key_span;
     }
-    let after_key = key_span.end + 1; // skip the `:`
-    let after_key = after_key.min(yaml.len());
-    // Skip whitespace
+    let after_key = (key_span.end + 1).min(yaml.len());
     let bytes = yaml.as_bytes();
     let mut start = after_key;
     while start < bytes.len() && (bytes[start] == b' ' || bytes[start] == b'\t') {
         start += 1;
     }
-    // Find end of line (or end of value: until newline or end)
     let mut end = start;
     while end < bytes.len() && bytes[end] != b'\n' && bytes[end] != b'\r' {
         end += 1;
     }
-    // Trim trailing whitespace
     while end > start && (bytes[end - 1] == b' ' || bytes[end - 1] == b'\t') {
         end -= 1;
     }
@@ -352,8 +290,6 @@ mod tests {
 
     #[test]
     fn sibling_path_handles_bare_filename_without_parent() {
-        // `family.kul` has no parent — the rule is "same directory", which
-        // for a relative bare filename is the current working directory.
         assert_eq!(
             sibling_path(Path::new("family.kul")),
             PathBuf::from("kul.yml")
@@ -430,9 +366,6 @@ mod tests {
 
     #[test]
     fn validate_empty_yaml_returns_no_diagnostics_and_no_manifest() {
-        // The empty-input shortcut: in-memory callers (e.g. format
-        // tooling) pass an empty `manifest_yaml` and get back the
-        // default [`Manifest`] without spurious M-series diagnostics.
         let (m, diags) = validate("", FileId::MANIFEST);
         assert!(m.is_none());
         assert!(diags.is_empty());

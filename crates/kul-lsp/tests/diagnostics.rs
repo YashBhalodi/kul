@@ -1,10 +1,6 @@
-//! Integration test: open a multi-error document and verify the
-//! `textDocument/publishDiagnostics` notification matches what
-//! `kul_core::check` produces directly.
-//!
-//! This is the proof that the LSP layer is a faithful adapter — same
-//! diagnostics, same codes, same byte ranges (round-tripped through the
-//! UTF-16 ↔ byte conversion).
+//! `publishDiagnostics` matches `kul_core::check` byte-for-byte —
+//! proves the LSP layer is a faithful adapter through the UTF-16
+//! conversion.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -218,8 +214,6 @@ fn publish_diagnostics_match_kul_core() {
         );
     }
 
-    // Sanity: at least one rule should fire on this fixture, and we should
-    // see codes from across the spec range — not just R03 over and over.
     let codes: std::collections::BTreeSet<&str> = lsp_diags
         .iter()
         .map(|d| d["code"].as_str().expect("code"))
@@ -254,7 +248,6 @@ fn close_clears_diagnostics() {
     );
     write_message(&mut handle.stdin, &did_open);
 
-    // First publish should carry diagnostics (person `a` is missing name + gender).
     let publish = handle
         .recv_until(Instant::now() + Duration::from_secs(5), |v| {
             v.get("method")

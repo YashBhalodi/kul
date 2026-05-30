@@ -1,56 +1,35 @@
 //! Byte spans and conversion to line/column.
 //!
-//! All AST nodes carry a [`ByteSpan`] — `(start, end)` byte offsets into the
-//! source — because they live inside one [`crate::ast::KulFile`] and the
-//! file context is implicit. Diagnostics, by contrast, carry a [`FileSpan`]
-//! — a [`ByteSpan`] paired with a [`FileId`] — so a project-level
-//! diagnostic list can interleave manifest issues, parse errors, and rule
-//! violations across all files of a [`crate::ast::Document`] without losing
-//! file provenance. Rendering converts byte offsets to line/column once at
-//! the edge, via [`SourceMap::line_col`].
+//! AST nodes carry bare [`ByteSpan`]s (file context comes from the owning
+//! [`crate::ast::KulFile`]). Diagnostics carry [`FileSpan`]s so a
+//! project-level list can interleave issues across files without losing
+//! provenance. Rendering converts to line/column at the edge via
+//! [`SourceMap::line_col`].
 
 use std::ops::Range;
 
-/// Opaque identifier for one input file in a [`crate::ast::Document`].
+/// Opaque file identifier inside a [`crate::ast::Document`].
 ///
-/// Indices into `Document.files`, with a stable convention: `FileId(0)`
-/// is always the project manifest (`kul.yml`); subsequent ids are the
-/// `.kul` files in the order the toolchain assembled them. Construction
-/// is mostly internal to `kul_core` — adapters and tests reach for
-/// [`FileId::MANIFEST`] or read ids out of an existing [`FileSpan`] —
-/// but [`FileId::from_raw`] is available as a back door for testing
-/// edge cases that need a synthetic id. The integer itself is opaque:
-/// downstream consumers are not expected to interpret it beyond "two
-/// equal ids are the same file."
+/// `FileId(0)` is the manifest; subsequent ids are `.kul` files in input
+/// order. Equality is the only operation downstream should rely on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct FileId(pub(crate) u32);
 
 impl FileId {
-    /// The conventional id of the project manifest (`kul.yml`) inside a
-    /// [`crate::ast::Document`]. Adapters that want to anchor a manifest
-    /// diagnostic without first consulting the document use this
-    /// constant.
+    /// Conventional id of the project manifest (`kul.yml`).
     pub const MANIFEST: FileId = FileId(0);
 
-    /// Construct a [`FileId`] from its raw index. Reserved for tests and
-    /// adapter code that builds synthetic [`crate::ast::Document`]s for
-    /// fixtures; production code reads ids out of existing values.
+    /// Construct from a raw index. For tests and synthetic fixtures.
     pub const fn from_raw(idx: u32) -> Self {
         FileId(idx)
     }
 
-    /// The raw index. Exposed for diagnostic tooling that wants to embed
-    /// the id in a serialized form (e.g. JSON snapshots).
     pub fn as_u32(self) -> u32 {
         self.0
     }
 }
 
-/// A `(file, byte-range)` pair: the project-wide locator a diagnostic
-/// anchors on. Decouples a span from the implicit "this file" context that
-/// AST nodes can rely on, so a [`crate::diagnostic::Diagnostic`] can point
-/// into any file of a multi-file [`crate::ast::Document`] — the manifest,
-/// or any `.kul` file — without ambiguity.
+/// `(file, byte-range)` locator for project-wide diagnostic anchoring.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FileSpan {
     pub file: FileId,
@@ -110,10 +89,7 @@ pub struct LineCol {
     pub column: usize,
 }
 
-/// Maps byte offsets to 1-indexed line/column positions.
-///
-/// Built once per source string. Uses a sorted vector of line-start byte
-/// offsets; lookup is O(log lines).
+/// Maps byte offsets to 1-indexed line/column. O(log lines) lookup.
 #[derive(Debug, Clone)]
 pub struct SourceMap {
     line_starts: Vec<usize>,
@@ -134,11 +110,8 @@ impl SourceMap {
         }
     }
 
-    /// Convert a byte offset into a 1-indexed line and column.
-    ///
-    /// Column is counted in bytes from the start of the line. (Sufficient for
-    /// the diagnostic anchors we need; UTF-8 multi-byte characters render
-    /// correctly when the renderer also receives the source string.)
+    /// Byte offset → 1-indexed `LineCol`. Column is in bytes from the
+    /// line start; renderers receive the source string for UTF-8 display.
     pub fn line_col(&self, offset: usize) -> LineCol {
         let offset = offset.min(self.source_len);
         let line_idx = match self.line_starts.binary_search(&offset) {

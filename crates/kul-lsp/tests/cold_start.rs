@@ -1,8 +1,6 @@
-//! Sanity bench: how long does spawn → `initialize` response take?
-//!
-//! Treats this as a test (not a `cargo bench` benchmark) so it runs as part
-//! of `just check`. Prints the measurement so a human can eyeball the
-//! number; asserts a generous upper bound so it doesn't flake on slow CI.
+//! Sanity bench: spawn → `initialize` response wall-clock under a generous
+//! ceiling. Runs as a regular test so `just check` catches catastrophic
+//! regressions without flaking on slow CI.
 
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
@@ -61,16 +59,13 @@ fn cold_start_under_budget() {
 
     eprintln!("cold-start (spawn → initialize response): {:?}", elapsed);
 
-    // PRD target is 100ms on a developer machine; CI runners can be slower
-    // and process spawn alone has wide variance. Asserting a 1s ceiling
-    // catches catastrophic regressions without flaking on cold caches.
+    // PRD target is 100ms; the 1s ceiling absorbs CI runner variance.
     assert!(
         elapsed < Duration::from_secs(1),
         "cold start exceeded 1s budget: {:?}",
         elapsed
     );
 
-    // Cleanup. Don't care about the exit code.
     let _ = child.kill();
     let _ = child.wait();
 }

@@ -1,14 +1,7 @@
 //! Code actions for `textDocument/codeAction`.
 //!
-//! Quick-fixes are dispatched by a direct `match` on the diagnostic's
-//! code, one arm per `KUL-Rxx` that ships a fix. Adding a new fix is one
-//! arm plus the provider function. The compiler doesn't enforce
-//! exhaustiveness (codes are `&'static str`s, not an enum) but a missing
-//! arm means a code with no fixes — the correct outcome.
-//!
-//! The action's underlying [`WorkspaceEdit`] applies one or more text
-//! edits to the document; clients invoke them via the lightbulb in the
-//! gutter or the right-click menu.
+//! Quick-fixes dispatch by direct `match` on the diagnostic code, one arm
+//! per `KUL-Rxx` that ships a fix.
 
 use std::collections::HashMap;
 
@@ -24,10 +17,6 @@ use tower_lsp::lsp_types::{
 use crate::convert::LineIndex;
 
 /// Build the list of quick-fixes that apply at `request_range`.
-///
-/// Walks the cached diagnostics, dispatches each one whose code has a
-/// quick-fix, and filters by overlap with the request range so the user
-/// only sees actions relevant to the cursor/selection.
 pub fn code_actions(
     file: FileId,
     resolved: &ResolvedDocument,
@@ -38,8 +27,6 @@ pub fn code_actions(
 ) -> Vec<CodeActionOrCommand> {
     let mut out = Vec::new();
     for diag in diagnostics {
-        // Quick-fixes only fire on diagnostics anchored in the active
-        // file at a position the user is currently looking at.
         let Some(primary) = diag.primary.filter(|p| p.file == file) else {
             continue;
         };
@@ -58,13 +45,11 @@ pub fn code_actions(
     out
 }
 
-/// KUL-R03: a required field is missing on a person or marriage.
+/// KUL-R03: required field missing on a person or marriage.
 ///
-/// R03 covers three sub-cases (missing `name:`, missing `gender:`, missing
-/// marriage `start:`) all anchored on the same `id.span`. We dispatch on
-/// the diagnostic's `detail` tag — see `kul_core::diagnostic::detail` for
-/// the canonical values — so the code-action wiring stays sound when the
-/// validator's message text changes.
+/// Three sub-cases (missing `name:`, missing `gender:`, missing marriage
+/// `start:`) all anchored on the same `id.span`; we dispatch on `diag.detail`
+/// so wiring survives validator message changes.
 fn r03_required_fields(
     file: FileId,
     resolved: &ResolvedDocument,
@@ -80,8 +65,7 @@ fn r03_required_fields(
         .persons_in(file)
         .find(|p| p.id.span == primary.span)
     else {
-        // R03 on marriage (missing `start:`) — deliberately no quick fix;
-        // the user has to supply a date.
+        // R03 on marriage (missing `start:`) — no quick fix; user must supply a date.
         return out;
     };
     match diag.detail {
@@ -116,10 +100,8 @@ fn r03_required_fields(
 
 /// KUL-R05: `end:` and `end_reason:` must both be present or both absent.
 ///
-/// Two sub-cases (extra `end:` vs. extra `end_reason:`); we dispatch on
-/// `diag.detail`. Each diagnostic's primary span sits inside a single
-/// marriage; we locate it by containment (the spans aren't equal — R05
-/// anchors on the offending field, not the marriage's outer span).
+/// Locates the enclosing marriage by containment — R05 anchors on the
+/// offending field, not the marriage's outer span.
 fn r05_end_consistency(
     file: FileId,
     resolved: &ResolvedDocument,
@@ -167,8 +149,7 @@ fn r05_end_consistency(
     out
 }
 
-/// Sentinel used only for matching the EndReason discriminant in
-/// [`remove_marriage_field`]; the value isn't read.
+/// Sentinel for matching the EndReason discriminant; the value isn't read.
 fn default_end_reason() -> kul_core::ast::EndReasonValue {
     kul_core::ast::EndReasonValue {
         value: kul_core::ast::EndReason::Divorce,
@@ -237,9 +218,7 @@ fn remove_marriage_field(
         )
     })?;
     let span_with_leading_space = ByteSpan::new(
-        // Sweep up the single leading space that separated this field from
-        // its predecessor, so the removal doesn't leave a double space.
-        // Conservative: assume the parser placed at least one space.
+        // Sweep up the single leading space so removal doesn't leave a double space.
         field.span.start.saturating_sub(1),
         field.span.end,
     );
@@ -249,10 +228,6 @@ fn remove_marriage_field(
     };
     let mut changes = HashMap::new();
     changes.insert(uri.clone(), vec![edit]);
-    // Code actions only fire on diagnostics in the active file (per the
-    // overlap check in `code_actions`), so the LSP-side translation is
-    // guaranteed to succeed; bubble up an empty `diagnostics` array if
-    // the diagnostic happens to be unanchored.
     let lsp_diag = super::diagnostics::to_lsp_one(uri, source, line_index, file);
     let attached: Vec<tower_lsp::lsp_types::Diagnostic> = lsp_diag.into_iter().collect();
     Some(CodeAction {
@@ -286,10 +261,6 @@ fn text_insertion_action(
     };
     let mut changes = HashMap::new();
     changes.insert(uri.clone(), vec![edit]);
-    // Code actions only fire on diagnostics in the active file (per the
-    // overlap check in `code_actions`), so the LSP-side translation is
-    // guaranteed to succeed; bubble up an empty `diagnostics` array if
-    // the diagnostic happens to be unanchored.
     let lsp_diag = super::diagnostics::to_lsp_one(uri, source, line_index, file);
     let attached: Vec<tower_lsp::lsp_types::Diagnostic> = lsp_diag.into_iter().collect();
     CodeAction {
@@ -304,9 +275,8 @@ fn text_insertion_action(
     }
 }
 
-/// End of a person's header line (after the last header-level field, or
-/// after the id if no fields are present). Sub-statements (`birth`,
-/// `adoption`) are excluded — fields go before them.
+/// End of a person's header line — after the last header field, or after
+/// the id if no fields. Sub-statements (`birth`, `adoption`) come after.
 fn person_header_end(p: &PersonStmt) -> usize {
     p.fields.last().map(|f| f.span.end).unwrap_or(p.id.span.end)
 }
@@ -342,8 +312,6 @@ mod tests {
         }
     }
 
-    /// Run the LSP feature with a request range covering the whole
-    /// document, and return the `CodeAction`s (no `Command`s expected).
     fn actions_for(source: &str) -> Vec<CodeAction> {
         let doc = test_open_file(source);
         let v = doc.view();
@@ -364,8 +332,8 @@ mod tests {
         .collect()
     }
 
-    /// Apply every action's first text-edit to the source and return the
-    /// updated string. Useful for end-to-end "fix → revalidate" tests.
+    /// Apply every action's first text-edit to the source. Routes through
+    /// `LineIndex` so the test doesn't drift from real conversion behavior.
     fn apply(source: &str, action: &CodeAction) -> String {
         let edit = action
             .edit
@@ -374,9 +342,6 @@ mod tests {
             .and_then(|m| m.values().next())
             .and_then(|v| v.first())
             .expect("action has an edit");
-        // Route through LineIndex (the same UTF-16 ↔ byte-offset seam the
-        // production pipeline uses) so the test doesn't drift from real
-        // conversion behavior.
         let line_index = LineIndex::new(source);
         let start = line_index
             .byte_offset(edit.range.start)
@@ -437,7 +402,6 @@ mod tests {
 
     #[test]
     fn no_diagnostic_yields_no_actions() {
-        // Fully valid document — no quick fixes.
         let src = "person alice name:\"A\" gender:female\n\
                    person bob name:\"B\" gender:male\n\
                    marriage m alice bob start:1972\n";
@@ -446,7 +410,7 @@ mod tests {
 
     #[test]
     fn unrelated_diagnostic_codes_are_ignored() {
-        // KUL-R04 (self-marriage) doesn't have a registered fix.
+        // KUL-R04 (self-marriage) has no registered fix.
         let src = "person alice name:\"A\" gender:female\n\
                    marriage m alice alice start:1972\n";
         assert!(actions_for(src).is_empty());
@@ -461,7 +425,6 @@ mod tests {
             .find(|a| a.title == "Add `gender:male`")
             .expect("has gender:male action");
         let fixed = apply(src, male);
-        // Field is appended at end of the header line.
         assert_eq!(fixed, "person alice name:\"A\" gender:male\n");
     }
 
@@ -488,7 +451,6 @@ mod tests {
             .find(|a| a.title == "Add `end_reason:divorce`")
             .unwrap();
         let fixed = apply(src, action);
-        // After applying, R05 should no longer fire.
         let result = test_open_file(&fixed).check;
         assert!(
             !result
@@ -548,7 +510,6 @@ mod tests {
                    person bob\n"; // bob missing both name AND gender
         let doc = test_open_file(src);
         let v = doc.view();
-        // Request range covering only line 0 (alice, no diagnostics).
         let request_range = Range {
             start: v.line_index.position(0),
             end: v.line_index.position(idx(src, "\n") + 1),

@@ -1,27 +1,6 @@
-//! Snapshot + cross-surface tests for the WASM `renderSvg` bridge.
-//!
-//! Three contracts:
-//!
-//! - **Per-example snapshot** for `examples/02-three-generations/` locks
-//!   the envelope shape (an `ok: true` envelope carrying the canonical
-//!   SVG) for a representative example. Follow-up
-//!   issues extend the snapshotted set one example at a time.
-//! - **Cross-surface bit-identical** asserts that the pretty-printed
-//!   JSON of the WASM `renderSvg` envelope equals the pretty-printed
-//!   JSON of running the pipeline directly
-//!   (`kul_render::compute` → `kul_layout::layout` → `kul_svg::render`,
-//!   then constructing the same envelope variants) for every example,
-//!   plus a deliberately-broken source to exercise the failure arm.
-//!   Mirrors the cross-surface test in `export_graph.rs`.
-//! - **Failure round-trip** confirms that a deliberately-broken source
-//!   produces an `ok: false` envelope carrying the same
-//!   `ExportedDiagnostic` shape `exportGraph`'s failure envelope uses,
-//!   so consumers can share diagnostic rendering across the two
-//!   operations.
-//!
-//! See ADR-0011 (amended) — `renderSvg` exists so JS-ecosystem
-//! consumers can reach the full canonical-visual pipeline without
-//! shelling out to the LSP, with bit-identical JSON on both surfaces.
+//! Snapshot + cross-surface tests for the WASM `renderSvg` bridge:
+//! per-example snapshot, byte-identical JSON against the direct
+//! `compute → layout → render` pipeline, and a failure round-trip.
 
 use std::path::{Path, PathBuf};
 
@@ -72,11 +51,8 @@ fn render_svg_json(inputs: &[InputFile]) -> String {
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 
-/// Reconstruct the envelope by driving the deep modules
-/// (`kul_render::compute` → `kul_layout::layout` → `kul_svg::render`)
-/// directly and wrapping the result in the same shape `kul-wasm`
-/// returns. This is the cross-surface oracle: the wasm bridge must
-/// produce byte-for-byte identical JSON.
+/// Cross-surface oracle: reconstruct the envelope by driving the deep
+/// modules directly. The wasm bridge must produce byte-identical JSON.
 fn direct_pipeline_json(inputs: &[InputFile]) -> String {
     let check = kul_core::check_with_manifest(
         "kul.yml",
@@ -99,9 +75,6 @@ fn direct_pipeline_json(inputs: &[InputFile]) -> String {
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 
-/// v1 tracer per the PRD: `examples/02-three-generations/` is the only
-/// example whose SVG snapshot is committed today. Follow-up issues
-/// extend the snapshotted set one pattern-primitive at a time.
 #[test]
 fn example_02_three_generations() {
     let inputs = project_inputs(&examples_dir().join("02-three-generations"));
@@ -109,10 +82,6 @@ fn example_02_three_generations() {
     insta::assert_snapshot!(json);
 }
 
-/// Cross-surface bit-identical: the wasm bridge JSON must equal the
-/// JSON produced by driving the deep modules directly, for every
-/// example in the corpus. Catches drift between the two construction
-/// paths regardless of how the corpus grows.
 #[test]
 fn cross_surface_json_is_bit_identical_for_every_example() {
     for dir_entry in std::fs::read_dir(examples_dir()).unwrap().flatten() {
@@ -131,11 +100,8 @@ fn cross_surface_json_is_bit_identical_for_every_example() {
     }
 }
 
-/// The wasm-bridge `renderSvg` is implemented in terms of
-/// [`kul_wasm::render_svg_with`], which the snapshots above call
-/// directly. This smoke test drives the public wasm-ABI signature
-/// (`Vec<WasmInputFile>`) to confirm the `WasmInputFile` → `InputFile`
-/// conversion is wired up correctly and produces the same envelope.
+/// Drives the public wasm-ABI signature (`Vec<WasmInputFile>`) to
+/// confirm the `WasmInputFile` → `InputFile` conversion is wired up.
 #[test]
 fn wasm_abi_signature_round_trips_to_render_svg_with() {
     let path = examples_dir()
@@ -155,11 +121,6 @@ fn wasm_abi_signature_round_trips_to_render_svg_with() {
     assert_eq!(abi_json, native_json);
 }
 
-/// Failure case: a deliberately-broken source produces a
-/// `{ ok: false, diagnostics: [...] }` envelope. The diagnostic shape
-/// matches what `exportGraph`'s failure envelope produces (same
-/// `ExportedDiagnostic` type), and the JSON matches the direct
-/// pipeline reconstruction byte-for-byte.
 #[test]
 fn failure_envelope_for_broken_source_is_bit_identical() {
     let inputs = vec![InputFile::new("input.kul", "person alice gender:female\n")];

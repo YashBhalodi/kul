@@ -1,19 +1,9 @@
 //! Typed AST for Kul documents.
 //!
-//! The AST grows additively (see the additivity principle in `CONTEXT.md`):
-//! new statement or field variants land alongside the corresponding rule
-//! slice; existing variants are never reordered, renamed, or removed.
-//! References are stored as raw [`Ident`]s here; resolution happens in
-//! [`crate::semantic`].
-//!
-//! # File identity
-//!
-//! A [`KulFile`] is one parsed `.kul` source. A [`Document`] is the
-//! multi-file container the toolchain operates on: zero or more `KulFile`s
-//! plus the project manifest, each addressable by a [`crate::span::FileId`].
-//! AST nodes carry bare [`ByteSpan`]s because their owning [`KulFile`]
-//! provides file context implicitly; cross-cutting consumers (diagnostics,
-//! the resolved id index) carry [`crate::span::FileSpan`]s instead.
+//! AST nodes carry bare [`ByteSpan`]s; the owning [`KulFile`] supplies file
+//! context. Cross-cutting consumers (diagnostics, resolved id index) carry
+//! [`crate::span::FileSpan`]s instead. References are stored as raw
+//! [`Ident`]s here; resolution happens in [`crate::semantic`].
 
 use std::sync::Arc;
 
@@ -23,11 +13,8 @@ use crate::span::{ByteSpan, FileId};
 
 /// A parsed `.kul` source file.
 ///
-/// One file's worth of top-level statements plus its raw source text and
-/// canonical name. The `name` is the same opaque label the consumer passed
-/// in at the toolchain edge: a path-string for the CLI, a URI-string for
-/// the LSP, whatever the JS host chose for WASM. `kul-core` does not
-/// interpret it.
+/// `name` is the opaque label the consumer passed in at the toolchain edge
+/// (path / URI / JS host label). `kul-core` does not interpret it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KulFile {
     pub name: String,
@@ -36,10 +23,7 @@ pub struct KulFile {
 }
 
 impl KulFile {
-    /// Build a [`KulFile`] from already-parsed statements. Convenience
-    /// for callers (the pipeline in [`crate::check`], in-memory test
-    /// fixtures) that have lex/parsed a source and want a `KulFile`
-    /// without spelling out the three fields by name each time.
+    /// Build a [`KulFile`] from already-parsed statements.
     #[must_use]
     pub fn new(
         name: impl Into<String>,
@@ -54,11 +38,8 @@ impl KulFile {
     }
 }
 
-/// One input file at the toolchain edge — a name (path / URI / opaque
-/// label) plus the raw source bytes. Public input shape for
-/// [`crate::check`]; internally each `InputFile` becomes a [`KulFile`]
-/// after lex/parse and is stored at a fresh [`FileId`] in the resulting
-/// [`Document`].
+/// One input file at the toolchain edge — name plus raw source bytes.
+/// Public input shape for [`crate::check`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InputFile {
     pub name: String,
@@ -77,50 +58,34 @@ impl InputFile {
 
 /// One parsed Kul *project*: the manifest plus zero or more `.kul` files.
 ///
-/// The manifest always lives at [`FileId::MANIFEST`] (= `FileId(0)`); the
-/// `.kul` files follow at `FileId(1..)` in input order. AST nodes inside
-/// any [`KulFile`] keep bare [`ByteSpan`]s; project-wide consumers
-/// (diagnostics, the resolved id index, kinship queries) reach for
-/// [`crate::span::FileSpan`] instead.
-///
-/// At v1 the toolchain only ever constructs N=1 `kul_files`; the multi-
-/// file shape exists so subsequent issues (cross-`.kul`-file resolution,
-/// document merging) can build on file-aware spans without further
-/// breaking changes. Each `KulFile` is held behind an [`Arc`] so callers
-/// can keep cheap shared handles (the LSP document cache, downstream
-/// tooling) without copying source bytes.
+/// The manifest lives at [`FileId::MANIFEST`] (= `FileId(0)`); `.kul` files
+/// follow at `FileId(1..)` in input order. Each `KulFile` is held behind an
+/// [`Arc`] so callers can share cheap handles without copying source bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Document {
-    /// The manifest's name (typically the path to `kul.yml`). The manifest
-    /// is the project's identity even when its body failed to parse —
-    /// keeping the name on the [`Document`] lets diagnostics anchor at
-    /// `FileId::MANIFEST` independently of whether the YAML was usable.
+    /// The manifest's name (typically the path to `kul.yml`). Kept on the
+    /// [`Document`] so diagnostics can anchor at `FileId::MANIFEST` even
+    /// when the YAML body failed to parse.
     pub manifest_name: String,
-    /// The raw `kul.yml` source bytes the manifest validator pass walked.
-    /// Empty when the manifest was missing on disk; the [`KUL-M01`] code
-    /// (`crate::diagnostic::manifest_codes`) covers that case.
+    /// Raw `kul.yml` source bytes. Empty when the manifest was missing on
+    /// disk (KUL-M01 covers that case).
     pub manifest_source: String,
     /// Parsed `.kul` files in input order. `kul_files[i]` lives at
-    /// `FileId(i + 1)` — the `+1` accounts for the manifest occupying
-    /// `FileId::MANIFEST`.
+    /// `FileId(i + 1)`.
     pub kul_files: Vec<Arc<KulFile>>,
 }
 
 impl Document {
-    /// Build a [`Document`] without manifest source bytes. The common
-    /// shape for in-memory fixtures and test scaffolding that don't
-    /// exercise manifest-anchored diagnostic rendering. Production
-    /// callers that loaded `kul.yml` from disk should use
-    /// [`Document::with_manifest_source`] so manifest-side spans render
-    /// against the real bytes.
+    /// Build a [`Document`] without manifest source bytes. For in-memory
+    /// fixtures; production callers that loaded `kul.yml` should use
+    /// [`Document::with_manifest_source`] so manifest-anchored diagnostics
+    /// have bytes to render against.
     #[must_use]
     pub fn new(manifest_name: impl Into<String>, kul_files: Vec<Arc<KulFile>>) -> Self {
         Self::with_manifest_source(manifest_name, String::new(), kul_files)
     }
 
-    /// Build a [`Document`] with explicit `kul.yml` source bytes. Used
-    /// by the pipeline entry points so any diagnostic anchored at
-    /// [`FileId::MANIFEST`] has bytes to render against.
+    /// Build a [`Document`] with explicit `kul.yml` source bytes.
     #[must_use]
     pub fn with_manifest_source(
         manifest_name: impl Into<String>,
@@ -134,8 +99,7 @@ impl Document {
         }
     }
 
-    /// Resolve a [`FileId`] to the source bytes it indexes into. Returns
-    /// `None` if the id is out of range.
+    /// Resolve a [`FileId`] to its source bytes, or `None` if out of range.
     #[must_use]
     pub fn source_of(&self, file: FileId) -> Option<&str> {
         if file == FileId::MANIFEST {
@@ -144,8 +108,7 @@ impl Document {
         self.kul_file(file).map(|k| k.source.as_str())
     }
 
-    /// Resolve a [`FileId`] to the canonical name it indexes into. Same
-    /// out-of-range semantics as [`Document::source_of`].
+    /// Resolve a [`FileId`] to its canonical name, or `None` if out of range.
     #[must_use]
     pub fn name_of(&self, file: FileId) -> Option<&str> {
         if file == FileId::MANIFEST {
@@ -155,7 +118,7 @@ impl Document {
     }
 
     /// Resolve a [`FileId`] to a `.kul` [`KulFile`], or `None` if the id
-    /// is the manifest, out of range, or otherwise not a `.kul` file.
+    /// is the manifest or out of range.
     #[must_use]
     pub fn kul_file(&self, file: FileId) -> Option<&KulFile> {
         let idx = file.as_u32().checked_sub(1)? as usize;
@@ -170,9 +133,8 @@ impl Document {
             .map(|(i, k)| (FileId((i + 1) as u32), k.as_ref()))
     }
 
-    /// The [`FileId`]s of every `.kul` file, in input order. Excludes the
-    /// manifest. Useful for cross-file iteration in the resolver and the
-    /// validator.
+    /// The [`FileId`]s of every `.kul` file, in input order (excludes the
+    /// manifest).
     pub fn kul_file_ids(&self) -> impl Iterator<Item = FileId> + '_ {
         (0..self.kul_files.len()).map(|i| FileId((i + 1) as u32))
     }
@@ -209,19 +171,17 @@ pub struct PersonStmt {
     pub keyword_span: ByteSpan,
     pub id: Ident,
     pub fields: Vec<PersonField>,
-    /// At most one biological-birth sub-statement per spec section 5.1.
+    /// At most one biological-birth sub-statement (spec 5.1).
     pub birth: Option<BirthSub>,
     pub adoptions: Vec<AdoptionSub>,
-    /// Field-name keywords whose value the parser couldn't parse (e.g.
-    /// unquoted `name:Alice`). The malformed value is reported as a parse
-    /// diagnostic; recording the name here lets the validator skip the
-    /// "missing required field" check that would otherwise pile a second,
-    /// misleading error on top of the first.
+    /// Field-name keywords whose value failed to parse. Recorded so the
+    /// validator skips R03 ("missing required field") on top of the parse
+    /// error.
     pub malformed_fields: Vec<FieldName>,
 }
 
 impl PersonStmt {
-    /// First `name:` field as written, or `None` if absent (rule 3 fires).
+    /// First `name:` field, or `None` (R03 fires when absent).
     #[must_use]
     pub fn name(&self) -> Option<&StringValue> {
         self.fields.iter().find_map(|f| match &f.kind {
@@ -231,8 +191,7 @@ impl PersonStmt {
     }
 
     /// The person's `name:` value if present, otherwise their id. The
-    /// canonical short label for tooling (LSP hover, completion details,
-    /// document-symbol headers).
+    /// canonical short label for tooling.
     #[must_use]
     pub fn display_name(&self) -> &str {
         self.name()
@@ -267,7 +226,7 @@ impl PersonStmt {
         })
     }
 
-    /// First `died:` date, or `None` (absence means alive per spec section 4.2).
+    /// First `died:` date, or `None` (absence means alive, spec 4.2).
     #[must_use]
     pub fn died(&self) -> Option<&DateLit> {
         self.fields.iter().find_map(|f| match &f.kind {
@@ -276,7 +235,7 @@ impl PersonStmt {
         })
     }
 
-    /// First `gender:` field, or `None` (rule 3 fires when absent).
+    /// First `gender:` field, or `None` (R03 fires when absent).
     #[must_use]
     pub fn gender(&self) -> Option<&GenderValue> {
         self.fields.iter().find_map(|f| match &f.kind {
@@ -285,17 +244,14 @@ impl PersonStmt {
         })
     }
 
-    /// Iterator over the `FieldName` of every parsed field on this person,
-    /// in source order. Excludes `malformed_fields` (which the parser
-    /// records separately for R03's "writer attempted this field" check).
+    /// `FieldName` of every parsed field, in source order. Excludes
+    /// `malformed_fields`.
     pub fn declared_field_names(&self) -> impl Iterator<Item = FieldName> + '_ {
         self.fields.iter().map(|f| f.kind.field_name())
     }
 
     /// True if `name` was either parsed cleanly or attempted-but-malformed.
-    /// Used by R03 to avoid emitting "missing required field" when the
-    /// writer clearly typed the field but got the value wrong (e.g.
-    /// forgot quotes around a `name:` value).
+    /// Used by R03 so a parse-error field doesn't also trigger "missing".
     #[must_use]
     pub fn has_field(&self, name: FieldName) -> bool {
         if self.malformed_fields.contains(&name) {
@@ -333,7 +289,7 @@ pub struct AdoptionSub {
 }
 
 impl AdoptionSub {
-    /// First `start:` date, or `None` (rule 3 fires when absent).
+    /// First `start:` date, or `None` (R03 fires when absent).
     #[must_use]
     pub fn start(&self) -> Option<&DateLit> {
         self.fields.iter().find_map(|f| match &f.kind {
@@ -342,7 +298,7 @@ impl AdoptionSub {
         })
     }
 
-    /// First `end:` date, or `None` (an open-ended adoption per spec 5.2).
+    /// First `end:` date, or `None` (open-ended adoption, spec 5.2).
     #[must_use]
     pub fn end(&self) -> Option<&DateLit> {
         self.fields.iter().find_map(|f| match &f.kind {
@@ -351,8 +307,7 @@ impl AdoptionSub {
         })
     }
 
-    /// Iterator over the `FieldName` of every parsed field on this
-    /// adoption, in source order.
+    /// `FieldName` of every parsed field, in source order.
     pub fn declared_field_names(&self) -> impl Iterator<Item = FieldName> + '_ {
         self.fields.iter().map(|f| f.kind.field_name())
     }
@@ -469,7 +424,7 @@ pub struct MarriageStmt {
 }
 
 impl MarriageStmt {
-    /// First `start:` date, or `None` (rule 3 fires when absent).
+    /// First `start:` date, or `None` (R03 fires when absent).
     #[must_use]
     pub fn start(&self) -> Option<&DateLit> {
         self.fields.iter().find_map(|f| match &f.kind {
@@ -487,8 +442,8 @@ impl MarriageStmt {
         })
     }
 
-    /// First `end_reason:` field, or `None`. The validator's rule 5 requires
-    /// `end` and `end_reason` to be both present or both absent.
+    /// First `end_reason:` field, or `None`. R05 requires `end` and
+    /// `end_reason` to be both present or both absent.
     #[must_use]
     pub fn end_reason(&self) -> Option<&EndReasonValue> {
         self.fields.iter().find_map(|f| match &f.kind {
@@ -497,8 +452,7 @@ impl MarriageStmt {
         })
     }
 
-    /// Iterator over the `FieldName` of every parsed field on this
-    /// marriage, in source order.
+    /// `FieldName` of every parsed field, in source order.
     pub fn declared_field_names(&self) -> impl Iterator<Item = FieldName> + '_ {
         self.fields.iter().map(|f| f.kind.field_name())
     }
@@ -540,8 +494,8 @@ impl MarriageFieldKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EndReason {
     Divorce,
-    /// A value that is not in the v1 vocabulary; surfaced by the validator
-    /// as KUL-R05b. Stored verbatim so the diagnostic can quote it.
+    /// A value not in the v1 vocabulary; surfaced as KUL-R05b. Stored
+    /// verbatim so the diagnostic can quote it.
     Unknown(String),
 }
 

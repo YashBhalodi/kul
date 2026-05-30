@@ -1,10 +1,5 @@
-//! Integration test: spawn `kul-lsp`, complete the handshake, open a
-//! document, send a `kul/render` custom request, and verify the
-//! response envelope.
-//!
-//! Mirrors `tests/export.rs` so the cross-process behaviour
-//! (Content-Length framing, JSON-RPC, custom-method routing) is
-//! exercised end-to-end.
+//! Integration test for the `kul/render` custom request — end-to-end
+//! via Content-Length framing, JSON-RPC, custom-method routing.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -116,8 +111,6 @@ fn handshake(handle: &mut Handle) {
     );
     let init = handle.recv(Duration::from_secs(5)).expect("initialize");
     let init: Value = serde_json::from_str(&init).expect("valid json");
-    // The render capability advertises the SVG format under
-    // `experimental.kulRender` so clients can detect support.
     let experimental = &init["result"]["capabilities"]["experimental"];
     assert_eq!(experimental["kulRender"]["format"], "svg");
     write_message(
@@ -172,7 +165,6 @@ fn render_clean_document_returns_success_with_svg() {
 #[test]
 fn render_dirty_document_returns_failure_with_diagnostics() {
     let mut handle = Handle::spawn();
-    // Missing required `name:` triggers R03.
     let source = "person alice gender:female\n";
     let kul_url = common::fixture_url(
         "render_dirty_document_returns_failure_with_diagnostics",
@@ -201,10 +193,8 @@ fn render_dirty_document_returns_failure_with_diagnostics() {
 
 #[test]
 fn render_is_uri_invariant_for_a_multi_file_project() {
-    // One project = one render (ADR-0015): the LSP keys its cache per
-    // project, so every URI in the same project must produce the same
-    // SVG. Pin that here by opening all three files of a multi-file
-    // project and asserting the responses are byte-equal.
+    // One project = one render (ADR-0015): every URI in the project
+    // must produce byte-equal SVG.
     let mut handle = Handle::spawn();
     let files: &[(&str, &str)] = &[
         (
@@ -248,9 +238,6 @@ fn render_is_uri_invariant_for_a_multi_file_project() {
         })
         .collect();
 
-    // Byte-identical SVGs prove the render is keyed off the project,
-    // not the URI — opening `Kul: Show Preview` from any sibling file
-    // shows the same unified diagram.
     for (i, svg) in svgs.iter().enumerate().skip(1) {
         assert_eq!(
             svg, &svgs[0],
@@ -258,8 +245,6 @@ fn render_is_uri_invariant_for_a_multi_file_project() {
             urls[i], urls[0]
         );
     }
-    // Sanity-check the unified render really did pull in every file:
-    // each person from each of the three files should appear by name.
     let unified = &svgs[0];
     for name in ["Ramesh", "Sita", "Alice", "Bob", "Carol"] {
         assert!(
@@ -282,7 +267,6 @@ fn render_unknown_document_returns_invalid_params_error() {
     let response = send_render(&mut handle, 300, uri);
     let error = &response["error"];
     assert!(!error.is_null(), "expected error response, got {response}");
-    // -32602 is JSON-RPC's `Invalid Params`.
     assert_eq!(error["code"], -32602);
     assert!(
         error["message"].as_str().unwrap().contains("not open"),

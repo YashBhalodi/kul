@@ -1,30 +1,12 @@
-//! Cytoscape JSON projection of the canonical kinship-native graph.
+//! Cytoscape JSON projection of the kinship-native graph.
 //!
-//! A pure transformer: takes an [`ExportedGraph`] and produces a
-//! [`CytoscapeGraph`] that can be loaded directly into Cytoscape Desktop,
-//! Cytoscape.js, Sigma.js, vis-network, or any other tool that consumes
-//! the standard `{ nodes, edges }` shape with `data` records.
+//! Pure transformer. Marriages are promoted to first-class nodes (they
+//! carry `start`/`end`/`end_reason`); the graph is bipartite, every edge
+//! runs marriage → person. Ids are prefixed (`p:` / `m:`) so persons and
+//! marriages share one namespace without collision.
 //!
-//! ## Modeling
-//!
-//! Marriages are promoted to **first-class nodes** rather than being
-//! flattened into spouse-to-spouse edges. The reason: marriages carry their
-//! own source-level facts (`start`, `end`, `end_reason`) that need a node
-//! to sit on. The resulting graph is bipartite — every edge runs from a
-//! marriage node to a person node, never person-to-person.
-//!
-//! Ids are prefixed (`p:` for persons, `m:` for marriages) so the
-//! cytoscape side can hold both kinds of node in one flat namespace
-//! without collision (a person and a marriage with the same source id are
-//! both legal mid-edit; rule 01 reports the conflict but the export still
-//! runs through the transformer if errors are absent).
-//!
-//! Edges are tagged with a `type`:
-//! - `"spouse"` — marriage → person, one per spouse position.
-//! - `"biological_child"` — marriage → child, one per `birth` link.
-//! - `"adoptive_child"` — marriage → child, one per `adoption` link.
-//!   Adoptive edges carry the adoption's `start` (and `end` if present)
-//!   as `data` fields so consumers can render the timeline.
+//! Edge `type`s: `"spouse"`, `"biological_child"`, `"adoptive_child"`
+//! (adoptive edges carry `start`/`end`).
 
 use serde::Serialize;
 #[cfg(feature = "tsify")]
@@ -48,9 +30,8 @@ pub struct CytoscapeNode {
     pub data: NodeData,
 }
 
-/// One node's `data` payload. Untagged: the variant is chosen at
-/// serialization time by which fields are present, matching the Cytoscape
-/// convention of "the data object is whatever the consumer wants."
+/// Per-node `data` payload. Untagged: serialized variant is chosen by
+/// which fields are present.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(untagged, rename_all = "camelCase")]
@@ -107,27 +88,23 @@ pub struct CytoscapeEdge {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeData {
-    /// `m:<marriage-id>` (always; every edge originates at a marriage).
+    /// `m:<marriage-id>`. Every edge originates at a marriage.
     pub source: String,
-    /// `p:<person-id>` (always; every edge ends at a person).
+    /// `p:<person-id>`. Every edge ends at a person.
     pub target: String,
     /// `"spouse"`, `"biological_child"`, or `"adoptive_child"`.
     #[serde(rename = "type")]
     pub kind: &'static str,
-    /// `start:` of an adoption. Always absent on spouse and bio-child edges.
+    /// `start:` of an adoption. Absent on spouse/bio-child edges.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub start: Option<ExportedDate>,
-    /// `end:` of an adoption. Always absent on spouse and bio-child edges.
+    /// `end:` of an adoption. Absent on spouse/bio-child edges.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end: Option<ExportedDate>,
 }
 
 /// Project the kinship-native [`ExportedGraph`] into the Cytoscape shape.
-///
-/// Pure mapping; the cytoscape graph contains exactly the same data as the
-/// input (nothing is dropped, nothing is invented). Order: every person
-/// becomes a node first, then every marriage becomes a node and emits its
-/// two spouse edges, then every parenthood link becomes an edge.
+/// Pure mapping; nothing is dropped or invented.
 pub fn to_cytoscape(graph: &ExportedGraph) -> CytoscapeGraph {
     let mut nodes = Vec::with_capacity(graph.persons.len() + graph.marriages.len());
     let mut edges = Vec::with_capacity(graph.marriages.len() * 2 + graph.parenthood_links.len());

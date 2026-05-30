@@ -4,12 +4,9 @@ use kul_core::lexer::tokenize;
 use kul_core::parser::parse;
 use kul_core::span::FileId;
 
-/// A standalone container the parser snapshots stringify. Mirrors the
-/// shape of the pre-issue-70 `ast::Document` (a `statements` field) so
-/// the AST-only snapshots remain byte-identical across the file-identity
-/// refactor — that refactor moved `Document` to a multi-file shape, but
-/// the parser-level snapshots care only about the per-file
-/// statement-list view.
+/// Per-file statement-list view that the parser snapshots stringify;
+/// matches the legacy `ast::Document` shape so the snapshots stay stable
+/// independently of the multi-file `Document` refactor.
 #[derive(Debug)]
 #[allow(dead_code)]
 struct Document {
@@ -33,8 +30,6 @@ fn parse_minimal_person() {
 
 #[test]
 fn parse_kul_token_treated_as_normal_identifier() {
-    // Sanity: after the manifest refactor (issue 69), `kul` is no longer a
-    // version-decl keyword. Using it as a person id works like any other.
     insta::assert_snapshot!(render("person kul name:\"K\" gender:other\n"));
 }
 
@@ -111,9 +106,8 @@ fn parse_person_with_two_birth_diagnoses() {
     ));
 }
 
-/// Unquoted string-field value: the P07 message should drop the "string
-/// literal" jargon and tell the writer how to fix it (wrap in quotes, with an
-/// example).
+/// P07 must phrase the fix in plain English ("quoted string", with an example),
+/// not the jargon "string literal".
 #[test]
 fn unquoted_string_value_message_hints_at_quotes() {
     let tokens = tokenize("person alice name:Alice gender:female\n");

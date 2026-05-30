@@ -1,32 +1,26 @@
 //! Kul language core: lexer, parser, semantic analyzer, validator,
 //! diagnostics.
 //!
-//! This crate is the reusable language-implementation library that powers
-//! the `kul` CLI and the `kul-lsp` language server. Both consumers call
-//! [`check`] once per project (a manifest plus zero or more `.kul`
-//! inputs) and read everything else off the resulting [`CheckResult`].
-//! The [`ResolvedDocument`] inside is the kinship-query seam
-//! ([ADR-0001](../../docs/adr/0001-resolved-document-as-query-seam.md))
-//! and the file-identity types are the multi-file seam
-//! ([ADR-0014](../../docs/adr/0014-file-identity-and-per-file-namespaces.md)).
+//! Reusable library powering the `kul` CLI and the `kul-lsp` language
+//! server. Both call [`check`] once per project and read everything off
+//! the resulting [`CheckResult`]. The [`ResolvedDocument`] is the
+//! kinship-query seam (ADR-0001); file-identity is the multi-file seam
+//! (ADR-0014).
 //!
 //! # Pipeline
 //!
 //! ```text
 //! (manifest YAML, [InputFile, …])
-//!   → manifest::validate    → (Manifest, manifest diagnostics with `KUL-Mxx` codes)
+//!   → manifest::validate    → (Manifest, KUL-Mxx diagnostics)
 //!   → lexer::tokenize       → Vec<Token> per file
 //!   → parser::parse         → (statements, parse diagnostics) per file
-//!   → ast::Document         → multi-file container the rest of the
-//!                              pipeline operates on
+//!   → ast::Document         → multi-file container
 //!   → semantic::resolve     → (ResolvedDocument, R01 diagnostics)
 //!   → validator::validate   → R02..R13 diagnostics
 //! ```
 //!
-//! Each pass produces a strictly richer artifact; nothing earlier in the
-//! pipeline ever consults something later. See `docs/architecture.md` in
-//! the repository for the data-flow diagram and seam table, and
-//! `CONTEXT.md` for the canonical vocabulary used in this crate.
+//! Each pass strictly enriches; nothing earlier consults anything later.
+//! See `docs/architecture.md` and `CONTEXT.md`.
 
 pub mod ast;
 pub mod cycles;
@@ -54,26 +48,16 @@ use crate::span::{ByteSpan, FileId};
 /// The version of `kul-core` linked into the consumer.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Outcome of running the full
-/// `manifest-validate → lex → parse → resolve → validate` pipeline over a
-/// project (a manifest plus N input files).
-///
-/// Holds the [`ResolvedDocument`] (which itself owns an `Arc<Document>`)
-/// plus the merged diagnostic list. The resolved view is cached inside
-/// the result so callers can issue queries — hover, find-references,
-/// code-actions — without re-running `semantic::resolve`. This is the
-/// cache the LSP relies on: each `did_change` produces one
-/// `CheckResult`, and every subsequent LSP request reads through
-/// `result.resolved` directly.
+/// Outcome of the full pipeline. Holds the [`ResolvedDocument`] (cached
+/// for repeat kinship queries by the LSP) plus the merged diagnostic
+/// list.
 #[derive(Debug, Clone)]
 pub struct CheckResult {
     pub resolved: ResolvedDocument,
     pub diagnostics: Vec<Diagnostic>,
-    /// The project manifest the check resolved against. Sourced from the
-    /// caller's `kul.yml` (or [`Manifest::default`] if the manifest pass
-    /// could not produce one — in which case `diagnostics` carries the
-    /// `KUL-Mxx` codes that explain why). Surfaced in the export
-    /// envelope's `kul:` field.
+    /// Manifest from the caller's `kul.yml`, or [`Manifest::default`] if
+    /// the manifest pass couldn't produce one (look in `diagnostics` for
+    /// `KUL-Mxx`). Surfaced in the export envelope's `kul:` field.
     pub manifest: Manifest,
 }
 
@@ -84,47 +68,21 @@ impl CheckResult {
             .any(|d| matches!(d.severity, diagnostic::Severity::Error))
     }
 
-    /// The cached [`ResolvedDocument`] view for kinship queries. Stable
-    /// across calls; no recomputation. Equivalent to `&self.resolved` —
-    /// this method exists so call sites can read like a query
-    /// (`.resolved()`) rather than a field access if they prefer.
+    /// Cached [`ResolvedDocument`] for kinship queries.
     pub fn resolved(&self) -> &ResolvedDocument {
         &self.resolved
     }
 
-    /// The underlying parsed multi-file [`Document`]. Forwarded from the
-    /// resolved view so callers don't need to know about the indirection.
+    /// Underlying parsed multi-file [`Document`].
     pub fn document(&self) -> &Document {
         self.resolved.document()
     }
 }
 
-/// One-call entry point: run the manifest validator, lex/parse every
-/// input file, resolve, validate, and return the merged diagnostics
-/// together with the cached resolved view.
-///
-/// The `manifest_yaml` argument is the **raw bytes** the adapter loaded
-/// from `kul.yml` (empty `&str` if the file was missing on disk —
-/// callers in that case prepend a [`KUL-M01`](crate::diagnostic::manifest_codes)
-/// diagnostic to their own out-of-band channel, since `kul-core` cannot
-/// know about the would-be path). The function thread-throughs:
-///
-/// 1. parses the manifest YAML, collecting `KUL-Mxx` diagnostics;
-/// 2. lex/parses every `InputFile` into a [`KulFile`] (each at a fresh
-///    [`FileId`]);
-/// 3. assembles a multi-file [`Document`] (manifest at
-///    [`FileId::MANIFEST`]; `.kul` files at `FileId(1..)`);
-/// 4. runs the resolver and validator; and
-/// 5. returns the merged diagnostic list.
-///
-/// In-memory callers (the `format_source` helper, ad-hoc tests) that
-/// don't have a real `kul.yml` may pass an empty `manifest_yaml` and a
-/// [`Manifest::default`] in the resulting `CheckResult` — see
-/// [`check_with_manifest`] when the manifest is already built.
-///
-/// Only available when the `yaml` feature is enabled (the default; WASM
-/// builds opt out and use [`check_with_manifest`] instead, since the JS
-/// host hands the bridge a typed manifest, not raw YAML).
+/// One-call entry point: validate the manifest YAML, lex/parse every
+/// input, resolve, validate, return merged diagnostics + the cached
+/// resolved view. Only available with the `yaml` feature (WASM builds
+/// opt out and use [`check_with_manifest`]).
 #[must_use = "CheckResult carries the pipeline's diagnostics — inspect them to surface errors"]
 #[cfg(feature = "yaml")]
 pub fn check(
@@ -134,11 +92,8 @@ pub fn check(
 ) -> CheckResult {
     let (manifest_opt, mut diagnostics) = manifest::validate(manifest_yaml, FileId::MANIFEST);
     let manifest = manifest_opt.unwrap_or_default();
-    // The yaml-path gate: an empty `manifest_yaml` signals an
-    // in-memory caller (e.g. ad-hoc tests) that isn't asserting a Kul
-    // project, so we skip M06. A non-empty yaml means a real manifest
-    // was supplied; zero `.kul` inputs alongside it is structurally
-    // an empty project.
+    // Empty manifest_yaml = in-memory caller not asserting a project; skip
+    // M06. Non-empty yaml with zero inputs is structurally empty.
     if !manifest_yaml.is_empty() && inputs.is_empty() {
         diagnostics.push(empty_project_diagnostic(manifest_yaml.len().min(1)));
     }
@@ -151,19 +106,11 @@ pub fn check(
     )
 }
 
-/// Variant of [`check`] for callers that already have a typed
-/// [`Manifest`] in hand (the WASM bridge: the JS host hands a typed
-/// manifest object across the ABI). Skips the `KUL-Mxx` validator pass —
-/// the caller is responsible for routing structural manifest errors
-/// through whichever surface its protocol prefers (the WASM bridge
-/// raises a `tsify` exception for structurally-malformed manifests; an
-/// already-typed manifest can't fail those checks).
-///
-/// `manifest_yaml` may be empty — the bytes are used only to render
-/// any `.kul`-side diagnostic that anchors into `kul.yml`. A typed
-/// [`Manifest`] argument is itself the project-assertion, so M06 fires
-/// here whenever `inputs` is empty (regardless of whether the caller
-/// also supplied source bytes for rendering).
+/// Variant of [`check`] for callers with an already-typed [`Manifest`]
+/// (the WASM bridge). Skips the `KUL-Mxx` validator pass. M06 fires
+/// whenever `inputs` is empty since the typed manifest itself is the
+/// project-assertion. `manifest_yaml` is used only to render diagnostics
+/// that anchor into `kul.yml`.
 #[must_use = "CheckResult carries the pipeline's diagnostics — inspect them to surface errors"]
 pub fn check_with_manifest(
     manifest_name: impl Into<String>,
@@ -185,11 +132,7 @@ pub fn check_with_manifest(
 }
 
 /// Shared tail of [`check`] and [`check_with_manifest`]. Lex/parses
-/// every input into a [`Document`], resolves, validates, and assembles
-/// the [`CheckResult`]. The caller is responsible for sourcing the
-/// typed [`Manifest`] (and any manifest-pass / empty-project
-/// diagnostics) — once both have been derived, the rest of the
-/// pipeline is identical regardless of where the manifest came from.
+/// every input, resolves, validates, and assembles the [`CheckResult`].
 fn run_pipeline(
     manifest_name: String,
     manifest_yaml: &str,
@@ -211,11 +154,9 @@ fn run_pipeline(
     }
 }
 
-/// Build the [`KUL-M06`](crate::diagnostic::manifest_codes::M06_EMPTY_PROJECT)
-/// "project has a manifest but no `.kul` files" diagnostic. The span
-/// anchors at byte 0 of the manifest source; the caller passes the
-/// length the span should cover (1 byte when source bytes exist; 0
-/// when the caller's manifest is bytes-less, e.g. the WASM bridge).
+/// Build the KUL-M06 "manifest but no `.kul` files" diagnostic. Span
+/// anchors at byte 0 of the manifest source; `span_len` is 1 when bytes
+/// exist, 0 when bytes-less (WASM bridge).
 fn empty_project_diagnostic(span_len: usize) -> Diagnostic {
     Diagnostic::error(
         manifest_codes::M06_EMPTY_PROJECT,

@@ -1,32 +1,8 @@
-//! Snapshot tests for the WASM `check` bridge.
-//!
-//! Three contracts:
-//!
-//! - **Failure shapes** — three hand-crafted broken sources (duplicate id,
-//!   unresolved reference, missing required field) lock the diagnostic
-//!   wire shape that downstream JS consumers depend on. Mirrors
-//!   `kul-core::tests::export::failure_envelope_*` so any drift between
-//!   the CLI export envelope and the WASM `check` projection surfaces
-//!   immediately.
-//! - **Clean-corpus sweep** — every `examples/*/` directory must produce
-//!   an empty `diagnostics` array. Single-file examples pass a one-element
-//!   array; the multi-file example
-//!   (`07-multi-file-extended-family`) exercises the array-based
-//!   signature with every `.kul` file in the directory. Dropping a new
-//!   example forces an update here.
-//! - **Multi-file failure** — a cross-file `KUL-R02` (`marriage` references
-//!   an id declared in a different file) locks the file-aware diagnostic
-//!   shape: the `primary.file` field must carry the offending file's
-//!   name, not the file that declared the referenced id.
-//!
-//! Broken inputs live as inline strings; the `examples/*/<name>.kul`
-//! corpus stays documentation-grade.
+//! Snapshot tests for the WASM `check` bridge: failure-shape locks,
+//! clean-corpus sweep across `examples/*/`, and a cross-file unresolved
+//! reference confirming `primary.file` carries the offending file.
 //!
 //! Snapshots are pretty-printed JSON of the `CheckEnvelope`.
-//!
-//! See [ADR-0011](../../../docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md)
-//! for why `check` is its own entrypoint with an empty-array discriminator
-//! rather than a uniform `{ ok, ... }` envelope.
 
 use std::path::{Path, PathBuf};
 
@@ -104,10 +80,8 @@ fn failure_envelope_missing_required_field() {
     insta::assert_snapshot!(check_json(src));
 }
 
-/// A `marriage` declared in `b.kul` references a `person` declared in
-/// `a.kul` but typo'd as `ghost`. The diagnostic's `primary.file` must
-/// point at `b.kul` (where the bad reference lives), not `a.kul`. Locks
-/// the per-file anchoring that the array-based signature unlocks.
+/// `primary.file` must point at `b.kul` (where the bad reference lives),
+/// not `a.kul` (where the referenced id was declared).
 #[test]
 fn failure_envelope_unresolved_reference_across_files() {
     let files = vec![

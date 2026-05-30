@@ -1,11 +1,8 @@
-//! Basic completion for `textDocument/completion`.
+//! Completion for `textDocument/completion`.
 //!
-//! Token-stream-first classifier: the cursor often sits in whitespace or
-//! a partial token where there's no clean AST node, so we walk tokens up
-//! to the cursor and classify into one of a fixed set of contexts. The
-//! keyword/field/enum sets are static; the marriage-id and person-id
-//! sets come from the resolved document (every declared marriage and
-//! person, surfaced where a reference is expected).
+//! Token-stream-first classifier (ADR-0002): the cursor often sits in
+//! whitespace or a partial token where there's no clean AST node, so we
+//! walk tokens up to the cursor and classify into a fixed set of contexts.
 
 use kul_core::ast::{MarriageStmt, PersonStmt, Statement};
 use kul_core::date::DateLit;
@@ -15,8 +12,7 @@ use kul_core::semantic::ResolvedDocument;
 use kul_core::span::FileId;
 use tower_lsp::lsp_types::{CompletionItem, CompletionItemKind, InsertTextFormat};
 
-/// Build a completion item list for the cursor at `byte_offset`. Empty
-/// vec when the cursor lands somewhere we have nothing to offer.
+/// Build a completion item list for the cursor at `byte_offset`.
 pub fn complete(
     source: &str,
     file: FileId,
@@ -41,32 +37,28 @@ pub fn complete(
 
 #[derive(Debug, PartialEq, Eq)]
 enum Context {
-    /// Beginning of a top-level line.
     TopLevelStart,
-    /// Beginning of an indented continuation under a `person` statement.
     IndentedUnderPerson,
-    /// Inside the field list of a `person` statement.
-    PersonFieldList { existing: Vec<FieldName> },
-    /// Inside the field list of a `marriage` statement.
-    MarriageFieldList { existing: Vec<FieldName> },
-    /// Inside the field list of an `adoption` sub-statement.
-    AdoptionFieldList { existing: Vec<FieldName> },
-    /// Right after `gender:` (cursor on the value side).
+    PersonFieldList {
+        existing: Vec<FieldName>,
+    },
+    MarriageFieldList {
+        existing: Vec<FieldName>,
+    },
+    AdoptionFieldList {
+        existing: Vec<FieldName>,
+    },
     AfterGenderColon,
-    /// Right after `end_reason:`.
     AfterEndReasonColon,
-    /// Right after a quoted-string field's `:` (`name:`, `family:`, `given:`).
-    /// Surfaces a single snippet item that wraps the value in quotes.
+    /// After a quoted-string field's `:` (`name:`, `family:`, `given:`) —
+    /// surfaces a snippet that wraps the value in quotes.
     AfterStringFieldColon,
-    /// Inside a `birth` or `adoption` sub-statement at the marriage-ref
-    /// position. Suggest declared marriage ids.
     MarriageRefPosition,
-    /// Inside a `marriage` statement at a spouse position. Suggest declared
-    /// persons; exclude the named person if `exclude` is set (the user
-    /// already filled spouse_a, so spouse_b shouldn't repeat them).
-    SpousePosition { exclude: Option<String> },
-    /// No completion to offer (inside a string, on a date literal, in a
-    /// comment, etc.).
+    /// Spouse position in a `marriage`; `exclude` filters spouse_a so
+    /// spouse_b won't repeat them.
+    SpousePosition {
+        exclude: Option<String>,
+    },
     None,
 }
 
@@ -77,7 +69,6 @@ fn classify(
     resolved: &ResolvedDocument,
     cursor: usize,
 ) -> Context {
-    // Skip past EOF: nothing to complete past a finished document.
     if cursor > source.len() {
         return Context::None;
     }
@@ -85,17 +76,14 @@ fn classify(
         return Context::None;
     }
 
-    // Tokens whose end <= cursor are *before* the cursor.
     let preceding: Vec<&Token> = tokens
         .iter()
         .filter(|t| t.span.end <= cursor && !matches!(t.kind, TokenKind::Eof))
         .collect();
 
-    // 1. Detect "right after FieldKw + Colon ...". `gender:<CURSOR>`,
-    //    `gender: <CURSOR>` (whitespace ok after colon), and
-    //    `gender:f<CURSOR>` (cursor adjacent to a partial value) all count.
-    //    `gender:female <CURSOR>` (whitespace after a complete value)
-    //    does NOT — the field is closed.
+    // After `field:` — `gender:<CURSOR>`, `gender: <CURSOR>`, and
+    // `gender:f<CURSOR>` all count; `gender:female <CURSOR>` does not
+    // (whitespace after a complete value closes the field).
     if let Some(field) = field_value_context(&preceding, cursor) {
         match field {
             FieldName::Gender => return Context::AfterGenderColon,
@@ -108,31 +96,20 @@ fn classify(
         }
     }
 
-    // 2. Determine line state: is this line "fresh" (no significant tokens
-    //    before cursor on this line), and is it indented? What's the first
-    //    significant keyword on the line, if any?
     let line = current_line(&preceding);
-
-    // 3. Determine the enclosing top-level statement via the
-    //    `ResolvedDocument` query seam (ADR-0001).
     let enclosing = resolved.statement_at(file, cursor);
-
     let scan = positional_scan(&preceding, cursor);
 
-    // The line's leading keyword discriminates first — partially-typed
-    // lines (e.g. `marriage m <CURSOR>`) won't have parsed cleanly, so we
-    // can't always rely on `enclosing` reflecting the line being typed.
+    // Discriminate on the line's leading keyword first — partially-typed
+    // lines won't have parsed cleanly, so `enclosing` may not reflect them.
     match (line.is_fresh, line.is_indented, &line.first_kw) {
-        // Fresh, non-indented line at top level → top-level keywords.
         (true, false, _) => Context::TopLevelStart,
 
-        // Fresh, indented line under a person → birth/adoption keywords.
         (true, true, _) => match enclosing {
             Some(Statement::Person(_)) => Context::IndentedUnderPerson,
             _ => Context::None,
         },
 
-        // `birth` sub-statement: one positional (the marriage ref).
         (false, true, Some(LineKw::Birth)) => {
             if scan.filled == 0 && !scan.past_positionals {
                 Context::MarriageRefPosition
@@ -141,8 +118,6 @@ fn classify(
             }
         }
 
-        // `adoption` sub-statement: first positional is a marriage ref,
-        // then field list.
         (false, true, Some(LineKw::Adoption)) => match enclosing {
             Some(Statement::Person(p)) => {
                 if scan.filled == 0 && !scan.past_positionals {
@@ -156,8 +131,7 @@ fn classify(
             _ => Context::None,
         },
 
-        // `marriage` line: positions 0 (its own id), 1 (spouse_a), 2
-        // (spouse_b), then field list.
+        // `marriage` line: pos 0 (own id), 1 (spouse_a), 2 (spouse_b), then fields.
         (false, false, Some(LineKw::Marriage)) => {
             let existing = match enclosing {
                 Some(Statement::Marriage(m)) => m.declared_field_names().collect::<Vec<_>>(),
@@ -167,23 +141,17 @@ fn classify(
                 Context::MarriageFieldList { existing }
             } else {
                 match scan.filled {
-                    // Cursor is on the marriage's own id — user is naming
-                    // a new marriage; suggesting existing ids would point
-                    // them at collisions.
+                    // Marriage's own id — suggesting existing ids would surface collisions.
                     0 => Context::None,
                     1 => Context::SpousePosition { exclude: None },
                     2 => Context::SpousePosition {
                         exclude: scan.seen.get(1).cloned(),
                     },
-                    // Both spouses filled, no field tokens yet — between
-                    // spouse_b and the first field.
                     _ => Context::MarriageFieldList { existing },
                 }
             }
         }
 
-        // `person` top-level line: field list (the id is freely-named like
-        // a marriage's, so position 0 gets nothing).
         (false, false, Some(LineKw::Person)) => match enclosing {
             Some(Statement::Person(p)) => Context::PersonFieldList {
                 existing: p.declared_field_names().collect::<Vec<_>>(),
@@ -191,8 +159,7 @@ fn classify(
             _ => Context::None,
         },
 
-        // Continuation of a previous statement (no leading keyword on this
-        // line) — depends on what the enclosing statement is.
+        // Continuation line (no leading keyword) — depends on enclosing statement.
         (false, _, _) => match enclosing {
             Some(Statement::Person(p)) => Context::PersonFieldList {
                 existing: p.declared_field_names().collect::<Vec<_>>(),
@@ -205,17 +172,11 @@ fn classify(
     }
 }
 
-/// Scan the positional region of the cursor's line — i.e. the naked
-/// identifier slots after the leading keyword, before any `field:` token.
+/// Scan of the positional region — naked identifier slots after the leading
+/// keyword, before any `field:` token.
 struct PositionalScan {
-    /// Number of fully-filled positional slots before the cursor (each one
-    /// is a complete identifier with whitespace after it).
     filled: usize,
-    /// The naked-identifier texts seen, in order. `seen[0]` for `marriage`
-    /// is the marriage's own id; `seen[1]` is spouse_a.
     seen: Vec<String>,
-    /// True once we've seen a `field:` or `:` token on the line — past the
-    /// positional region.
     past_positionals: bool,
 }
 
@@ -227,7 +188,6 @@ fn positional_scan(preceding: &[&Token], cursor: usize) -> PositionalScan {
         .unwrap_or(0);
     let line_tokens = &preceding[line_start_idx..];
 
-    // Skip the leading indent + keyword(s).
     let mut iter = line_tokens.iter();
     while let Some(t) = iter.clone().next() {
         match t.kind {
@@ -254,17 +214,13 @@ fn positional_scan(preceding: &[&Token], cursor: usize) -> PositionalScan {
             }
             TokenKind::Ident(s) | TokenKind::Bare(s) => {
                 if t.span.end == cursor {
-                    // Cursor adjacent to a partial identifier — the user is
-                    // mid-typing this slot, so it's not yet "filled" for
-                    // counting purposes (they want suggestions for *this*
-                    // position, not the next one).
+                    // Cursor adjacent to a partial identifier — user is
+                    // mid-typing this slot, so don't count it as filled.
                 } else {
                     filled += 1;
                     seen.push(s.clone());
                 }
             }
-            // EnumKw lexed inside a positional slot is unusual but treat it
-            // as a filled slot so we don't miscount.
             TokenKind::EnumKw(_) | TokenKind::String(_) | TokenKind::Error(_)
                 if t.span.end != cursor =>
             {
@@ -281,17 +237,12 @@ fn positional_scan(preceding: &[&Token], cursor: usize) -> PositionalScan {
     }
 }
 
-/// What's on the cursor's line, before the cursor?
+/// What's on the cursor's line, before the cursor.
 struct LineInfo {
-    /// True iff every token on the line so far is `Indent` or whitespace
-    /// (i.e. nothing significant before the cursor on this line).
     is_fresh: bool,
-    /// True iff the line begins with an `Indent` token.
     is_indented: bool,
-    /// The first significant keyword on this line, if any.
     first_kw: Option<LineKw>,
-    /// The span of the first significant keyword token, used to look up
-    /// the matching parsed sub-statement.
+    /// Span of the first keyword token, used to find the parsed sub-statement.
     first_kw_span: Option<kul_core::span::ByteSpan>,
 }
 
@@ -348,8 +299,7 @@ fn current_line(preceding: &[&Token]) -> LineInfo {
 fn field_value_context(preceding: &[&Token], cursor: usize) -> Option<FieldName> {
     let last = preceding.last()?;
     match &last.kind {
-        // `field:<CURSOR>` or `field: <CURSOR>` — cursor anywhere right
-        // after the colon is fine, even with whitespace before it.
+        // `field:<CURSOR>` or `field: <CURSOR>`.
         TokenKind::Colon => {
             if preceding.len() >= 2
                 && let TokenKind::FieldKw(name) = &preceding[preceding.len() - 2].kind
@@ -358,8 +308,8 @@ fn field_value_context(preceding: &[&Token], cursor: usize) -> Option<FieldName>
             }
             None
         }
-        // `field:f<CURSOR>` — partial value, cursor adjacent. Walk back to
-        // the FieldKw + Colon. With a whitespace gap, the field is closed.
+        // `field:f<CURSOR>` — partial value, cursor adjacent. With a
+        // whitespace gap, the field is closed.
         TokenKind::Ident(_)
         | TokenKind::Bare(_)
         | TokenKind::String(_)
@@ -398,7 +348,6 @@ fn field_value_context(preceding: &[&Token], cursor: usize) -> Option<FieldName>
 }
 
 fn cursor_inside_string_or_comment(source: &str, cursor: usize) -> bool {
-    // Quick scan: are we inside an unclosed " or after # on the current line?
     let bytes = source.as_bytes();
     let line_start = bytes[..cursor.min(bytes.len())]
         .iter()
@@ -409,7 +358,6 @@ fn cursor_inside_string_or_comment(source: &str, cursor: usize) -> bool {
     let mut after_hash = false;
     for &b in &bytes[line_start..cursor.min(bytes.len())] {
         if after_hash {
-            // comment runs to EOL
             return true;
         }
         match b {
@@ -425,8 +373,6 @@ fn existing_adoption_fields_at_line(p: &PersonStmt, line: &LineInfo) -> Vec<Fiel
     let Some(kw_span) = line.first_kw_span else {
         return Vec::new();
     };
-    // Match the adoption whose keyword span starts at the same byte as
-    // the line's first keyword (the parser-built `keyword_span`).
     let Some(adopt) = p
         .adoptions
         .iter()
@@ -488,10 +434,8 @@ fn adoption_fields(existing: &[FieldName]) -> Vec<CompletionItem> {
     field_completions(StatementKind::Adoption, existing)
 }
 
-/// Build the completion list for one statement shape: every field valid
-/// for that shape (in canonical order) minus the ones already present on
-/// the line. String-typed fields use a snippet that auto-wraps the value
-/// in quotes; everything else is a plain field item.
+/// Every valid field for the shape, minus the ones already on the line.
+/// String fields use a snippet that auto-wraps the value in quotes.
 fn field_completions(kind: StatementKind, existing: &[FieldName]) -> Vec<CompletionItem> {
     field_meta::fields_for(kind)
         .iter()
@@ -510,9 +454,7 @@ fn field_completions(kind: StatementKind, existing: &[FieldName]) -> Vec<Complet
         .collect()
 }
 
-/// Field-name item whose insertion auto-wraps the value in quotes:
-/// accepting `name:` actually inserts `name:"$0"`. Cursor lands inside
-/// the quotes so the user can just type the name.
+/// Field-name item that inserts `name:"$0"` and lands the cursor between the quotes.
 fn field_with_quoted_snippet(label: &str, doc: &str) -> CompletionItem {
     CompletionItem {
         label: label.to_owned(),
@@ -543,8 +485,7 @@ fn end_reason_values() -> Vec<CompletionItem> {
     )]
 }
 
-/// A single preselected snippet that inserts `""` and lands the cursor
-/// between the quotes — the canonical fix for "I forgot to wrap the value".
+/// Preselected snippet that inserts `""` and lands the cursor between the quotes.
 fn quoted_value_snippet() -> Vec<CompletionItem> {
     vec![CompletionItem {
         label: "\"…\"".to_owned(),
@@ -557,13 +498,8 @@ fn quoted_value_snippet() -> Vec<CompletionItem> {
     }]
 }
 
-/// Every declared marriage in the project as a completion item — used
-/// after `birth` and `adoption`. Detail shows the spouses' display
-/// names and the date span so the user can disambiguate between
-/// marriages of the same person.
-///
-/// Project-wide per ADR-0015: ids declared in sibling files are valid
-/// targets for cross-file `birth` and `adoption` references.
+/// Every declared marriage in the project (ADR-0015), with spouse names
+/// and date span in the detail so the user can disambiguate.
 fn marriage_id_items(resolved: &ResolvedDocument) -> Vec<CompletionItem> {
     resolved
         .marriages()
@@ -576,13 +512,8 @@ fn marriage_id_items(resolved: &ResolvedDocument) -> Vec<CompletionItem> {
         .collect()
 }
 
-/// Every declared person in the project as a completion item — used in
-/// marriage spouse positions. `exclude` filters one id out (so
-/// spouse_b's list excludes the person already named as spouse_a,
-/// since you can't marry yourself).
-///
-/// Project-wide per ADR-0015: a marriage may reference a spouse
-/// declared in a sibling file.
+/// Every declared person in the project (ADR-0015), filtered by `exclude`
+/// so spouse_b's list excludes the person already named as spouse_a.
 fn person_id_items(resolved: &ResolvedDocument, exclude: Option<&str>) -> Vec<CompletionItem> {
     resolved
         .persons()
@@ -637,10 +568,6 @@ mod tests {
         (source, offset)
     }
 
-    /// Take a `<CURSOR>`-marked fixture and return the list of completion
-    /// items the LSP would surface for that cursor position. Centralises
-    /// the tokenize/parse/resolve scaffold every per-context test in this
-    /// file otherwise repeats.
     fn complete_for(src_with_marker: &str) -> Vec<CompletionItem> {
         let (source, offset) = cursor_fixture(src_with_marker);
         let doc = test_open_file(&source);
@@ -727,7 +654,6 @@ mod tests {
 
     #[test]
     fn after_gender_colon_partial_value() {
-        // User typed `f` after gender:; classifier still in AfterGenderColon.
         let src = "person a name:\"A\" gender:f<CURSOR>";
         let labels = run(src);
         assert!(labels.contains(&"female".to_owned()));
@@ -739,10 +665,6 @@ mod tests {
         assert_eq!(run(src), vec!["divorce".to_owned()]);
     }
 
-    /// Accepting `name:` from the field-name completion should drop in
-    /// `name:"<cursor>"` directly — the user types the name and the closing
-    /// quote is already there. Symmetric for `family:` and `given:`. Date
-    /// and gender items keep their plain `field:` insertion.
     #[test]
     fn person_field_completion_wraps_string_values_in_quotes() {
         use tower_lsp::lsp_types::InsertTextFormat;
@@ -774,11 +696,6 @@ mod tests {
         }
     }
 
-    /// After `name:`, suggest a single preselected snippet item that wraps
-    /// the value in quotes and lands the cursor between them. Same goes for
-    /// `family:` and `given:`. This catches the dominant typo (forgetting
-    /// quotes) the moment the user types `:` — they hit Tab and end up
-    /// inside a quoted value.
     #[test]
     fn after_string_field_colon_offers_quoted_value_snippet() {
         use tower_lsp::lsp_types::InsertTextFormat;
@@ -867,15 +784,14 @@ mod tests {
         let items = run_with_details(src);
         let labels: Vec<&str> = items.iter().map(|(l, _)| l.as_str()).collect();
         assert_eq!(labels, vec!["m1", "m2"]);
-        // Detail strings include both spouses' display names + date span.
         assert_eq!(items[0].1.as_deref(), Some("Alice + Bob, 1972–1990"));
         assert_eq!(items[1].1.as_deref(), Some("Alice + Bob, 2000–"));
     }
 
     #[test]
     fn after_birth_with_partial_id_still_offers_marriages() {
-        // Cursor adjacent to a partial ident — IDE still wants the full set
-        // and filters by prefix client-side.
+        // Cursor adjacent to partial ident — IDE wants the full set and
+        // filters by prefix client-side.
         let src = "person alice name:\"A\" gender:female\n\
                    person bob name:\"B\" gender:male\n\
                    marriage m_alice_bob alice bob start:1972\n\
@@ -896,7 +812,6 @@ mod tests {
 
     #[test]
     fn adoption_after_marriage_ref_still_offers_fields() {
-        // Once the marriage ref is filled, adoption fields take over.
         let src = "person alice name:\"A\" gender:female\n\
                    person bob name:\"B\" gender:male\n\
                    marriage m alice bob start:1972\n\
@@ -904,14 +819,11 @@ mod tests {
         let labels = run(src);
         assert!(labels.contains(&"start:".to_owned()));
         assert!(labels.contains(&"end:".to_owned()));
-        // Marriage ids should NOT appear here.
         assert!(!labels.contains(&"m".to_owned()));
     }
 
     #[test]
     fn after_birth_marriage_ref_offers_nothing() {
-        // `birth <ref>` is a single-positional sub-statement; nothing useful
-        // to offer once the ref is in place.
         let src = "person alice name:\"A\" gender:female\n\
                    person bob name:\"B\" gender:male\n\
                    marriage m alice bob start:1972\n\
@@ -945,8 +857,7 @@ mod tests {
 
     #[test]
     fn at_marriage_id_position_offers_nothing() {
-        // The user is naming a NEW marriage; existing marriage ids would be
-        // collisions, and persons/keywords are wrong here too.
+        // Naming a NEW marriage — existing ids would collide.
         let src = "marriage <CURSOR>";
         assert!(run(src).is_empty());
     }

@@ -1,19 +1,9 @@
-//! "What's at this byte offset?" query — the foundation that hover,
-//! go-to-definition, and completion all build on.
+//! "What's at this byte offset?" — the foundation for hover, goto-def,
+//! and completion. Lives on [`ResolvedDocument`] (ADR-0001) so reference
+//! variants carry the resolved target.
 //!
-//! Returning a typed enum (rather than the raw AST plus a "what kind" tag)
-//! lets each LSP feature pattern-match cleanly without re-walking the tree.
-//! The function lives on [`ResolvedDocument`] (per ADR-0001) so reference
-//! variants can carry the resolved target alongside the source ident.
-//!
-//! Resolution rule: smallest enclosing span wins. The walk descends into
-//! the most specific child whose span contains the offset; whitespace and
-//! comments inside a statement still yield `None`.
-//!
-//! `node_at` and `statement_at` keep their [`FileId`] parameter because
-//! byte offsets are inherently per-file. Reference targets resolve
-//! project-wide (per ADR-0015): a spouse spelled in one file's marriage
-//! can point at a person declared in a sibling file.
+//! Smallest enclosing span wins. Whitespace and comments yield `None`.
+//! Reference targets resolve project-wide (ADR-0015).
 
 use crate::ast::{
     AdoptionField, AdoptionSub, BirthSub, Ident, MarriageField, MarriageStmt, PersonField,
@@ -23,74 +13,43 @@ use crate::lexer::FieldName;
 use crate::semantic::{EntityKind, ResolvedDocument};
 use crate::span::{ByteSpan, FileId, FileSpan};
 
-/// A keyword token: one of the fixed words in Kul's grammar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeywordKind {
-    /// `person` (top-level statement).
     Person,
-    /// `marriage` (top-level statement).
     Marriage,
-    /// `birth` (sub-statement of `person`).
     Birth,
-    /// `adoption` (sub-statement of `person`).
     Adoption,
 }
 
-/// The AST element under a byte offset.
-///
-/// Variants carry references to the underlying AST nodes so callers don't
-/// have to re-walk; reference variants additionally carry the resolved
-/// target (or `None` if the reference is unresolved — rule 2 reports it).
+/// AST element under a byte offset. Reference variants carry the resolved
+/// target, or `None` for unresolved (R02).
 #[derive(Debug, Clone)]
 pub enum Node<'a> {
-    /// A keyword token (e.g. `person`, `birth`). The span identifies the
-    /// keyword's source range so callers can highlight the right token.
     Keyword(KeywordKind, ByteSpan),
-    /// The id token of a `person` declaration.
     PersonDeclId(&'a PersonStmt),
-    /// The id token of a `marriage` declaration.
     MarriageDeclId(&'a MarriageStmt),
-    /// A reference to a person (currently: spouse positions in a marriage).
-    ///
-    /// `target` carries the file the declaration lives in alongside the
-    /// AST node — under project-wide resolution (ADR-0015) that file may
-    /// be a sibling of the reference's file. `None` when the reference is
-    /// unresolved (R02 reports it).
+    /// Person reference (e.g. spouse position). `target` carries the
+    /// declaring file; may differ from the reference's file (ADR-0015).
     PersonRef {
         ident: &'a Ident,
         target: Option<(FileId, &'a PersonStmt)>,
     },
-    /// A reference to a marriage (in `birth` or `adoption` sub-statements).
-    /// `target` follows the same `(FileId, &Stmt)` shape as
-    /// [`Node::PersonRef`].
+    /// Marriage reference (in `birth`/`adoption`).
     MarriageRef {
         ident: &'a Ident,
         target: Option<(FileId, &'a MarriageStmt)>,
     },
-    /// The lhs (`name:`, `gender:`, …) of a person field.
     PersonFieldName(&'a PersonField),
-    /// The value side of a person field — anything in the field's span
-    /// that isn't part of the lhs name.
     PersonFieldValue(&'a PersonField),
-    /// The lhs (`start:`, `end:`, `end_reason:`) of a marriage field.
     MarriageFieldName(&'a MarriageField),
-    /// The value side of a marriage field.
     MarriageFieldValue(&'a MarriageField),
-    /// The lhs (`start:`, `end:`) of an adoption field.
     AdoptionFieldName(&'a AdoptionField),
-    /// The value side of an adoption field.
     AdoptionFieldValue(&'a AdoptionField),
 }
 
-/// The resolved entity — a person or a marriage — referred to from a
-/// [`Node`]. Sibling type to [`EntityNode`].
-///
-/// Each variant carries both the AST statement and the [`FileId`] of the
-/// `.kul` file that declares it. Under project-wide resolution
-/// (ADR-0015), the declaration's file may differ from the file the
-/// reference (or the cursor) sits in — feature modules that need the
-/// declaration's location read `file` directly instead of re-querying
-/// [`ResolvedDocument::entity`].
+/// Resolved entity (person or marriage) referred to from a [`Node`].
+/// Carries the declaring [`FileId`] alongside the AST node so consumers
+/// don't re-query [`ResolvedDocument::entity`].
 #[derive(Debug, Clone, Copy)]
 pub enum EntityTarget<'a> {
     Person {
@@ -104,7 +63,7 @@ pub enum EntityTarget<'a> {
 }
 
 impl<'a> EntityTarget<'a> {
-    /// The file the resolved declaration lives in.
+    /// File the declaration lives in.
     #[must_use]
     pub fn file(self) -> FileId {
         match self {
@@ -112,10 +71,7 @@ impl<'a> EntityTarget<'a> {
         }
     }
 
-    /// The declaration's id span, as a project-wide [`FileSpan`] anchored
-    /// at the file that owns the declaration (not the file the reference
-    /// sits in). This is the anchor goto-definition jumps to and rename
-    /// includes in its workspace edit.
+    /// The declaration id's [`FileSpan`] — the goto-definition anchor.
     #[must_use]
     pub fn decl_span(self) -> FileSpan {
         match self {
@@ -125,40 +81,25 @@ impl<'a> EntityTarget<'a> {
     }
 }
 
-/// The "entity reference at the cursor" summary: `Some` when the cursor is
-/// on a person/marriage id (decl or reference), `None` otherwise (keyword,
-/// field, version literal, …).
-///
-/// Returned by [`Node::entity_reference`]. The LSP features that key on
-/// "what entity is at the cursor?" (goto-definition, find-references,
-/// rename) all phrase themselves as a query for this summary.
+/// "Entity at the cursor" summary returned by [`Node::entity_reference`].
+/// `None` for keywords, fields, whitespace.
 #[derive(Debug, Clone, Copy)]
 pub struct EntityNode<'a> {
-    /// Kind of entity the cursor is on.
     pub kind: EntityKind,
-    /// The id text under the cursor — the decl id for a decl, or the
-    /// reference's spelling for a reference (which may not match any
-    /// declaration if unresolved).
+    /// The id text under the cursor; for unresolved references this may
+    /// not match any declaration.
     pub name: &'a str,
-    /// Source span of the id under the cursor as a project-wide
-    /// [`FileSpan`] (the span the LSP rename popover should highlight).
+    /// Cursor's id span (the rename popover highlight).
     pub ident_span: FileSpan,
-    /// `true` if the cursor is on the declaration site itself; `false` if
-    /// on a reference. A decl always has a target; an unresolved reference
-    /// has none.
+    /// True if the cursor is on a declaration; false if on a reference.
     pub is_decl: bool,
-    /// The resolved entity, if any. `None` only for unresolved references.
-    /// The target may live in a sibling file under project-wide
-    /// resolution (per ADR-0015).
+    /// Resolved entity; `None` only for unresolved references.
     pub target: Option<EntityTarget<'a>>,
 }
 
 impl<'a> EntityNode<'a> {
-    /// Span of the declaration id of the referenced entity, or `None` for
-    /// an unresolved reference. For a decl this is the span the cursor is
-    /// already on; for a resolved reference, the corresponding declaration
-    /// in the file that owns it (which may be a sibling of the active
-    /// URI's file under ADR-0015).
+    /// Declaration id [`FileSpan`], or `None` for unresolved references.
+    /// For a decl, the cursor's own span.
     #[must_use]
     pub fn decl_span(&self) -> Option<FileSpan> {
         if self.is_decl {
@@ -168,38 +109,25 @@ impl<'a> EntityNode<'a> {
     }
 }
 
-/// The "field at the cursor" summary: `Some` when the cursor is on a
-/// person/marriage/adoption field (the `name:` side or the value side),
-/// `None` for keywords, ids, and whitespace.
-///
-/// Returned by [`Node::field_node`]. Mirrors the [`EntityNode`] shape so
-/// LSP features that key on "what field is the user pointing at?"
-/// (hover, plus any future code-action or completion logic that's
-/// field-shape rather than statement-shape) can phrase themselves as a
-/// query for this summary instead of pattern-matching the six
+/// "Field at the cursor" summary returned by [`Node::field_node`].
+/// Mirrors [`EntityNode`] so callers don't pattern-match the six
 /// `*FieldName`/`*FieldValue` variants by hand.
 #[derive(Debug, Clone, Copy)]
 pub struct FieldNode {
-    /// Which field — `name`, `gender`, `start`, `end_reason`, …
     pub name: FieldName,
-    /// Span of the `<name>:` lhs token. Use as the highlight range when
-    /// the cursor is on the field name.
+    /// `<name>:` lhs span.
     pub name_span: ByteSpan,
-    /// Span of the value rhs. Use as the highlight range when the cursor
-    /// is on the value, or to slice the literal text out of source.
+    /// Value rhs span.
     pub value_span: ByteSpan,
-    /// `true` if the cursor sits on the field name (`name:`); `false` if
-    /// on the value side (`"Alice"`, `female`, `1980-03-15`).
+    /// True on the name side; false on the value side.
     pub is_name: bool,
 }
 
 impl ResolvedDocument {
     /// What's at `byte_offset` inside `file`?
     ///
-    /// Spans are half-open: a span `[s, e)` contains `offset` iff
-    /// `s <= offset < e`. Returns `None` for whitespace, comments,
-    /// out-of-range offsets, or out-of-range files. Smallest enclosing
-    /// span wins.
+    /// Half-open spans. Returns `None` for whitespace, comments, or
+    /// out-of-range positions. Smallest enclosing span wins.
     ///
     /// # Example
     ///
@@ -357,10 +285,8 @@ impl ResolvedDocument {
 }
 
 impl<'a> Node<'a> {
-    /// If the cursor sits on a person/marriage id (a declaration site or a
-    /// reference site), returns the [`EntityNode`] summary anchored at
-    /// `file`. Returns `None` for keywords, field names/values, the
-    /// version literal, and other non-id positions.
+    /// [`EntityNode`] summary if the cursor sits on a person/marriage id
+    /// (decl or reference); `None` otherwise.
     #[must_use]
     pub fn entity_reference(&self, file: FileId) -> Option<EntityNode<'a>> {
         match *self {
@@ -396,10 +322,8 @@ impl<'a> Node<'a> {
         }
     }
 
-    /// If the cursor sits on a field — any of the six
-    /// `Person`/`Marriage`/`Adoption` × `FieldName`/`FieldValue`
-    /// variants — return the field summary. Returns `None` for
-    /// keywords, id decls/refs, and whitespace.
+    /// [`FieldNode`] summary if the cursor sits on any field side; `None`
+    /// otherwise.
     #[must_use]
     pub fn field_node(&self) -> Option<FieldNode> {
         match *self {
@@ -479,7 +403,6 @@ mod tests {
         (resolved, file)
     }
 
-    /// Owned mirror of `Node` for assertion ergonomics.
     #[derive(Debug, PartialEq, Eq)]
     enum Probe {
         None,
@@ -711,7 +634,6 @@ mod tests {
                    person bob name:\"B\" gender:male\n\
                    marriage m alice bob start:2010 end:2020 end_reason:divorce\n\
                    person kid name:\"K\" gender:other\n  adoption m start:2005 end:2008\n";
-        // Person field name / value.
         assert_eq!(
             field_at(src, idx(src, "name:")),
             Some((FieldName::Name, true))
@@ -724,7 +646,6 @@ mod tests {
             field_at(src, idx(src, "gender:")),
             Some((FieldName::Gender, true)),
         );
-        // Marriage field name / value.
         assert_eq!(
             field_at(src, idx(src, "start:")),
             Some((FieldName::Start, true)),
@@ -737,7 +658,6 @@ mod tests {
             field_at(src, idx(src, "end_reason:")),
             Some((FieldName::EndReason, true)),
         );
-        // Adoption field name / value — find inside the adoption line.
         let adoption_line = idx(src, "adoption");
         let adopt_start = src[adoption_line..].find("start:").unwrap() + adoption_line;
         assert_eq!(field_at(src, adopt_start), Some((FieldName::Start, true)),);
@@ -746,9 +666,7 @@ mod tests {
     #[test]
     fn field_node_returns_none_for_keywords_ids_and_whitespace() {
         let src = "person alice name:\"A\" gender:female\n";
-        // `person` keyword.
         assert!(field_at(src, 0).is_none());
-        // id token.
         assert!(field_at(src, idx(src, "alice")).is_none());
     }
 }

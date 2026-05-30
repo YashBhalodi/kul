@@ -1,8 +1,5 @@
-//! SVG string templating from `PositionedShape`.
-//!
-//! Stateless. Walks the shape once and writes into a single `String`
-//! buffer. Uses semantic CSS classes only — no inline colours, no
-//! script.
+//! SVG string templating from `PositionedShape`. Stateless; semantic
+//! CSS classes only — no inline colours, no script.
 
 use std::fmt::Write;
 
@@ -11,52 +8,30 @@ use kul_render::GhostReason;
 
 /// Theme / emission configuration.
 ///
-/// Forward-compatibility seam (per [ADR-0016](../../docs/adr/0016-visualization-pipeline-crate-boundaries.md)):
-/// the output stays theme-agnostic by default, and opt-in fields tune
-/// emission without changing [`crate::render`]'s signature. The private
-/// trailing field keeps construction additive — build with
-/// `ThemeConfig { self_contained: true, ..Default::default() }`.
-// A private unit field — not `#[non_exhaustive]` — reserves room for
-// future additive fields. Cross-crate construction goes through
-// [`ThemeConfig::with_self_contained`] / [`ThemeConfig::with_legend`]
-// / [`ThemeConfig::default`] rather than a struct literal, so a new
-// field never breaks a caller.
+/// Forward-compatibility seam (ADR-0016): default stays theme-agnostic;
+/// opt-in fields tune emission without changing [`crate::render`]'s
+/// signature. The private trailing field forces construction through the
+/// `with_*` builders so a new field never breaks a caller.
 #[allow(clippy::manual_non_exhaustive)]
 #[derive(Debug, Clone, Default)]
 pub struct ThemeConfig {
     /// Bake a concrete neutral light theme into the SVG as an inline
-    /// `<style>` (the first child of the root `<svg>`), making the file
-    /// self-contained: it renders correctly opened in any browser,
-    /// dropped into an `<img>`, or embedded in a static page with no
-    /// external CSS. Default `false` keeps the output theme-agnostic
-    /// (no inline colours) per ADR-0016; only `kul export --format=svg`
-    /// opts in. The baked stylesheet reuses the `--kul-*` token
-    /// vocabulary (a subset of the VSCode preview's structural rules)
-    /// and excludes all surface chrome — pan/zoom, hover, selection, and
-    /// the ghost `↺` badge. Read directly; construct via
-    /// [`ThemeConfig::with_self_contained`].
+    /// `<style>` so the file renders correctly with no external CSS.
+    /// Default `false` keeps output theme-agnostic (no inline colours)
+    /// per ADR-0016; only `kul export --format=svg` opts in. Excludes
+    /// all surface chrome (pan/zoom, hover, selection, ghost `↺` badge).
     pub self_contained: bool,
-    /// Emit a legend (the canonical-pattern visual key) in a reserved
-    /// band at the bottom-left of the diagram. The legend is built from
-    /// the [`PositionedShape`] — rows appear only for categories the
-    /// diagram actually surfaces (ADR-0022). The legend's *colour*
-    /// resolves through the surrounding stylesheet (no hardcoded swatch
-    /// colours are emitted), so it is only meaningful when a matching
-    /// stylesheet is present — typically together with
-    /// [`self_contained`](ThemeConfig::self_contained), which bakes
-    /// the small `.kul-legend …` size-override block alongside the
-    /// structural rules. Default `false` keeps the always-emitted
-    /// (preview / wasm) SVG byte-unchanged and ships no English on
-    /// that path. Construct via [`ThemeConfig::with_legend`].
+    /// Emit a legend (canonical-pattern visual key) in a reserved band
+    /// at the bottom-left. Rows appear only for categories the diagram
+    /// actually surfaces (ADR-0022). Swatch colour resolves through the
+    /// surrounding stylesheet, so this is typically paired with
+    /// [`self_contained`](ThemeConfig::self_contained).
     pub legend: bool,
     _private: (),
 }
 
 impl ThemeConfig {
-    /// Build a config with [`self_contained`](ThemeConfig::self_contained)
-    /// set. The construction seam for consumers outside this crate (the
-    /// private field blocks a struct literal), keeping new fields purely
-    /// additive.
+    /// Build a config with [`self_contained`](ThemeConfig::self_contained) set.
     pub fn with_self_contained(self_contained: bool) -> Self {
         Self {
             self_contained,
@@ -64,10 +39,7 @@ impl ThemeConfig {
         }
     }
 
-    /// Chainable setter for [`legend`](ThemeConfig::legend). Composes
-    /// with [`with_self_contained`](ThemeConfig::with_self_contained) —
-    /// `ThemeConfig::with_self_contained(true).with_legend(true)` is
-    /// the CLI export's combined opt-in (ADR-0022).
+    /// Chainable setter for [`legend`](ThemeConfig::legend).
     pub fn with_legend(mut self, legend: bool) -> Self {
         self.legend = legend;
         self
@@ -76,10 +48,6 @@ impl ThemeConfig {
 
 pub(crate) fn render(positioned: &PositionedShape, config: &ThemeConfig) -> String {
     let mut out = String::with_capacity(2048);
-    // The legend (ADR-0022) is an emission concern, not a layout
-    // concern: the positioned shape is unchanged and the legend is
-    // appended into a reserved bottom-left band that grows the viewBox
-    // by exactly its own height + gap, never overlapping the diagram.
     let rows = if config.legend {
         legend_rows(positioned)
     } else {
@@ -88,14 +56,12 @@ pub(crate) fn render(positioned: &PositionedShape, config: &ThemeConfig) -> Stri
     let legend_extra_height = if rows.is_empty() {
         0.0
     } else {
-        // gap above + panel height (rows + 2× internal pad) + bottom inset.
         LEGEND_GAP
             + (rows.len() as f64) * LEGEND_ROW_HEIGHT
             + 2.0 * LEGEND_PANEL_PAD_Y
             + LEGEND_PANEL_INSET
     };
-    // The diagram is almost always wider than the legend; max() guards
-    // the degenerate two-card-no-edges case where the legend overflows.
+    // max() guards the degenerate case where the legend is wider than the diagram.
     let canvas_width = if rows.is_empty() {
         positioned.width
     } else {
@@ -103,9 +69,7 @@ pub(crate) fn render(positioned: &PositionedShape, config: &ThemeConfig) -> Stri
     };
     let canvas_height = positioned.height + legend_extra_height;
     write_open(&mut out, canvas_width, canvas_height);
-    // The inline stylesheet, when opted in, is the first child of the
-    // root `<svg>` so its `svg`-scoped tokens are in scope for every
-    // element below.
+    // Inline stylesheet must precede every element so its `svg`-scoped tokens are in scope.
     if config.self_contained {
         out.push_str(SELF_CONTAINED_STYLE);
     }
@@ -123,15 +87,9 @@ pub(crate) fn render(positioned: &PositionedShape, config: &ThemeConfig) -> Stri
 }
 
 /// Concrete neutral light theme baked into a self-contained SVG
-/// ([`ThemeConfig::self_contained`]). The token table fixes one default
-/// palette in hex; the application rules below are the *structural*
-/// subset of `editor/vscode/media/preview.css` — card fill/stroke, the
-/// per-gender tint, the ghost translucency, edge colours per link kind,
-/// and the ended-marriage fade. Everything chrome is excluded: pan/zoom
-/// controls, the error banner, `:hover`, selection sync, and the ghost
-/// `↺` badge (an exported ghost shows its dashed border + translucent
-/// fill and no badge, per ADR-0016). The structural dasharrays ship
-/// inline from the emitter and need no CSS.
+/// ([`ThemeConfig::self_contained`]). Structural subset of the VSCode
+/// preview stylesheet; excludes all chrome (pan/zoom, hover, selection,
+/// ghost `↺` badge) per ADR-0016. Structural dasharrays ship inline.
 const SELF_CONTAINED_STYLE: &str = r#"<style>
 svg {
   --kul-preview-bg: #ffffff;
@@ -194,8 +152,7 @@ fn write_open(out: &mut String, width: f64, height: f64) {
 }
 
 fn write_card(out: &mut String, card: &PositionedCard) {
-    // Entity class names the type only; every property is a `data-*`
-    // attribute (ADR-0016 class vocabulary, ADR-0021 plumb-through).
+    // Class names the type only; every property is a `data-*` attribute (ADR-0016, ADR-0021).
     let (kind, ghost_reason) = match card.kind {
         SlotKind::Canonical => ("canonical", None),
         SlotKind::Ghost { reason } => {
@@ -215,30 +172,23 @@ fn write_card(out: &mut String, card: &PositionedCard) {
     if let Some(reason) = ghost_reason {
         let _ = write!(out, r#" data-ghost-reason="{reason}""#);
     }
-    // Boolean properties use `data-is-<adjective>`; a person is alive
-    // iff no `died:` is recorded (death lives on the person).
     let _ = write!(
         out,
         r#" data-gender="{gender}" data-is-alive="{alive}""#,
         gender = card.gender,
         alive = card.died.is_none(),
     );
-    // Missing optional values omit the attribute entirely (no empty
-    // strings) — the canonical pattern's "absence, not placeholders".
     write_opt_attr(out, "data-born", card.born.as_deref());
     write_opt_attr(out, "data-died", card.died.as_deref());
     write_opt_attr(out, "data-family", card.family.as_deref());
     write_opt_attr(out, "data-given", card.given.as_deref());
     let _ = write!(out, r#" data-generation="{}">"#, card.generation);
-    // Ghost cards ship with stroke-dasharray inline (structural, per
-    // the uniform card — see ADR-0016 §"the structural/chrome line").
+    // Ghost dasharray ships inline (structural, ADR-0016).
     let dash = if matches!(card.kind, SlotKind::Ghost { .. }) {
         r#" stroke-dasharray="3 2""#
     } else {
         ""
     };
-    // Soft corner radius — pure visual polish, consumers can override
-    // via CSS (`rect { rx: 0 }`) for a sharper look.
     let _ = write!(
         out,
         r#"<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" ry="{r}"{dash}/>"#,
@@ -261,20 +211,13 @@ fn write_card(out: &mut String, card: &PositionedCard) {
 }
 
 fn write_edge(out: &mut String, edge: &PositionedEdge) {
-    // Entity class names the type only (`kul-edge`); the link kind and
-    // every other property are `data-*` attributes (ADR-0016 class
-    // vocabulary, ADR-0021 plumb-through). The marriage id is common to
-    // every edge kind.
+    // Class names the type only; link kind + properties are `data-*` (ADR-0016, ADR-0021).
     let _ = write!(
         out,
         r#"<path class="kul-edge" data-marriage-id="{mid}""#,
         mid = escape_xml(&edge.marriage_id),
     );
-    // Adoption edges ship with stroke-dasharray inline (structural, per
-    // edges encode link kind — see ADR-0016 §"the structural/chrome
-    // line"). Birth edges are solid; marriage edges (ADR-0020) are solid
-    // and thick, the weight set by the consuming stylesheet against
-    // `data-link-kind="marriage"`.
+    // Adoption dasharray ships inline (structural, ADR-0016). Marriage weight comes from CSS.
     let mut dash = "";
     match &edge.kind {
         EdgeKind::Birth { child_id, is_past } => {
@@ -325,82 +268,45 @@ fn write_edge(out: &mut String, edge: &PositionedEdge) {
     let _ = write!(out, r#" fill="none" d="{d}"{dash}/>"#);
 }
 
-/// Write ` name="value"` (XML-escaped) when `value` is `Some`; emit
-/// nothing when `None`. The canonical pattern's "absence, not
-/// placeholders": a missing optional property omits the attribute
-/// entirely rather than emitting an empty string.
+/// Write ` name="value"` (XML-escaped) when `value` is `Some`; emit nothing when `None`.
+/// "Absence, not placeholders" — a missing optional omits the attribute entirely.
 fn write_opt_attr(out: &mut String, name: &str, value: Option<&str>) {
     if let Some(value) = value {
         let _ = write!(out, r#" {name}="{}""#, escape_xml(value));
     }
 }
 
-/// Card-corner radius in pixels. Visual polish — surface stylesheets
-/// can override via CSS (`rect { rx: 0 }`).
 const CARD_CORNER_RADIUS: f64 = 8.0;
-
-/// Edge-corner radius in pixels. The polyline's 90° bends become
-/// quadratic-Bézier arcs of this radius; consumers wanting hard
-/// corners can target the `kul-edge` class and re-emit, but the
-/// default canonical visual is soft.
 const EDGE_CORNER_RADIUS: f64 = 10.0;
 
-// -- Legend (ADR-0022) -----------------------------------------------
-//
-// The legend is appended into a reserved bottom-left band when
-// `ThemeConfig::legend` is set. The band is a self-contained **panel**:
-// a rounded background rect with a subtle fill + thin border, drawn
-// behind the rows so it reads as one chrome block. Each row inside the
-// panel is a swatch + a label; the swatch is a miniature of the real
-// glyph carrying the production `kul-card` / `kul-edge` class + the
-// same `data-*` attributes, so the surrounding stylesheet themes it for
-// free. Only size / stroke-width / dash are tuned for swatch scale via
-// the small `.kul-legend …` block in `SELF_CONTAINED_STYLE`; **swatch
-// colours are never overridden** — the panel rect is its own structural
-// element and carries panel-specific tokens.
+// Legend (ADR-0022): bottom-left band, opt-in via `ThemeConfig::legend`.
+// Each row reuses the production `kul-card` / `kul-edge` class + `data-*`
+// attributes so the surrounding stylesheet themes swatches for free.
 
-/// Vertical gap between the diagram's bottom edge and the panel's top.
 const LEGEND_GAP: f64 = 16.0;
-/// Inset of the panel from the canvas's left and bottom edges, so the
-/// panel never sits flush against the viewBox boundary.
 const LEGEND_PANEL_INSET: f64 = 8.0;
-/// Internal horizontal padding inside the panel (between the rounded
-/// rect and the swatch column / label column).
 const LEGEND_PANEL_PAD_X: f64 = 14.0;
-/// Internal vertical padding inside the panel (between the rounded
-/// rect and the first / last row).
 const LEGEND_PANEL_PAD_Y: f64 = 10.0;
-/// Corner radius of the panel rect.
 const LEGEND_PANEL_RADIUS: f64 = 6.0;
-/// Height of one legend row — sized so the production 8.75px marriage
-/// stroke (clamped to 5px via `.kul-legend` override) still reads as a
-/// distinct thick line in the row, not the whole row.
+/// Sized so the 8.75px marriage stroke (clamped to 5px via `.kul-legend`
+/// override) reads as a distinct line, not as the whole row.
 const LEGEND_ROW_HEIGHT: f64 = 22.0;
-/// Horizontal swatch span (rect width, edge segment length).
 const LEGEND_SWATCH_WIDTH: f64 = 30.0;
-/// Vertical swatch span for the rect (card) swatches; edge swatches
-/// are single horizontal lines through the row's centre.
 const LEGEND_SWATCH_HEIGHT: f64 = 14.0;
-/// Gap between swatch and its label.
 const LEGEND_LABEL_GAP: f64 = 10.0;
-/// Conservative label-column budget — labels are short English words,
-/// not measured, so this only matters for the degenerate "diagram
-/// narrower than the legend" case where the viewBox max()es up to fit.
+/// Unmeasured label-column budget; only matters when the diagram is
+/// narrower than the legend and the viewBox max()es up.
 const LEGEND_LABEL_BUDGET: f64 = 120.0;
-/// Width of the panel rect (rounded background).
 const LEGEND_PANEL_WIDTH: f64 = LEGEND_PANEL_PAD_X
     + LEGEND_SWATCH_WIDTH
     + LEGEND_LABEL_GAP
     + LEGEND_LABEL_BUDGET
     + LEGEND_PANEL_PAD_X;
-/// Total horizontal footprint the legend occupies in the canvas
-/// (panel + outer left/right insets).
 const LEGEND_TOTAL_WIDTH: f64 = LEGEND_PANEL_INSET + LEGEND_PANEL_WIDTH + LEGEND_PANEL_INSET;
 
-/// The canonical legend categories, in their normative order
-/// (`docs/canonical-ui-pattern.md`). Each is dynamic: a row appears
-/// only when the diagram contains at least one element of that
-/// category — no adoption edges → no adoption row.
+/// Canonical legend categories in normative order. Each is dynamic — a
+/// row appears only when the diagram contains at least one element of
+/// that category.
 #[derive(Clone, Copy)]
 enum LegendRow {
     GenderMale,
@@ -414,9 +320,8 @@ enum LegendRow {
 }
 
 impl LegendRow {
-    /// The English label string for this row (hardcoded inside the
-    /// emitter; the opt-in `legend=true` path is the only consumer, so
-    /// no English ships on the always-emitted SVG — see ADR-0022).
+    /// English label. Hardcoded here so no English ships on the
+    /// always-emitted SVG (ADR-0022).
     fn label(self) -> &'static str {
         match self {
             LegendRow::GenderMale => "Male",
@@ -431,8 +336,6 @@ impl LegendRow {
     }
 }
 
-/// Walk the [`PositionedShape`] and emit the rows whose category is
-/// present, in canonical order.
 fn legend_rows(shape: &PositionedShape) -> Vec<LegendRow> {
     let mut rows = Vec::new();
     let has_gender = |g: &str| shape.cards.iter().any(|c| c.gender == g);
@@ -494,9 +397,7 @@ fn write_legend(out: &mut String, rows: &[LegendRow], panel_top: f64) {
     let swatch_x = panel_x + LEGEND_PANEL_PAD_X;
     let label_x = swatch_x + LEGEND_SWATCH_WIDTH + LEGEND_LABEL_GAP;
     out.push_str(r#"<g class="kul-legend">"#);
-    // Panel background — a rounded rect drawn first so the rows sit on
-    // top. The fill / stroke come from `--kul-legend-panel-*` tokens, so
-    // a future theme re-skins the panel without touching this emitter.
+    // Panel rect drawn first so rows sit on top; fill/stroke come from CSS tokens.
     let _ = write!(
         out,
         r#"<rect class="kul-legend-bg" x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" ry="{r}"/>"#,
@@ -531,9 +432,7 @@ fn write_legend_swatch(out: &mut String, row: LegendRow, x: f64, swatch_top: f64
                 LegendRow::GenderOther => "other",
                 _ => unreachable!(),
             };
-            // Carry data-kind="canonical" + data-gender so the production
-            // `.kul-card[data-gender="…"] rect` rule themes the stroke
-            // automatically — no hardcoded swatch colour.
+            // Carry production data-* so the CSS rule themes the stroke — no hardcoded swatch colour.
             let _ = write!(
                 out,
                 r#"<g class="kul-card" data-kind="canonical" data-gender="{gender}"><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="3" ry="3"/></g>"#,
@@ -544,9 +443,7 @@ fn write_legend_swatch(out: &mut String, row: LegendRow, x: f64, swatch_top: f64
             );
         }
         LegendRow::PastRecord => {
-            // Ghost card: `data-kind="ghost"` triggers the production
-            // faded-fill rule; the dashed border ships inline (structural,
-            // ADR-0016) exactly as on a real ghost card.
+            // Ghost card; dashed border ships inline (structural, ADR-0016) as on a real ghost.
             let _ = write!(
                 out,
                 r#"<g class="kul-card" data-kind="ghost"><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="3" ry="3" stroke-dasharray="3 2"/></g>"#,
@@ -566,7 +463,6 @@ fn write_legend_swatch(out: &mut String, row: LegendRow, x: f64, swatch_top: f64
             );
         }
         LegendRow::Adoption => {
-            // Adoption inline dasharray mirrors the production edge.
             let _ = write!(
                 out,
                 r#"<path class="kul-edge" data-link-kind="adoption" fill="none" d="M {x1} {y} L {x2} {y}" stroke-dasharray="6 4"/>"#,
@@ -596,13 +492,10 @@ fn write_legend_swatch(out: &mut String, row: LegendRow, x: f64, swatch_top: f64
     }
 }
 
-/// Convert an orthogonal polyline (each segment axis-aligned) into an
-/// SVG path string with each interior corner rounded by a
-/// quadratic-Bézier arc of approximately `radius` pixels.
-///
-/// Two-point polylines pass through as a straight line; a polyline
-/// whose adjacent segments are shorter than `2 * radius` shrinks the
-/// arc to fit. Returned string is the contents of the `d=` attribute.
+/// Convert an orthogonal polyline into an SVG path string, rounding
+/// each interior corner with a quadratic-Bézier arc of approximately
+/// `radius` pixels. Segments shorter than `2 * radius` shrink the arc
+/// to fit. Returns the `d=` attribute contents.
 fn polyline_to_rounded_path(points: &[(f64, f64)], radius: f64) -> String {
     if points.is_empty() {
         return String::new();
@@ -627,13 +520,10 @@ fn polyline_to_rounded_path(points: &[(f64, f64)], radius: f64) -> String {
         let dy_out = next.1 - here.1;
         let len_out = (dx_out * dx_out + dy_out * dy_out).sqrt();
         if len_in == 0.0 || len_out == 0.0 {
-            // Degenerate: emit a hard corner.
             let _ = write!(path, " L {} {}", fmt_num(here.0), fmt_num(here.1));
             continue;
         }
-        // Effective radius can't exceed half of either adjacent
-        // segment, so the arcs never overlap each other or shoot
-        // past the segment endpoints.
+        // Clamp so adjacent arcs never overlap or shoot past segment endpoints.
         let r = radius.min(len_in / 2.0).min(len_out / 2.0);
         let arrive_x = here.0 - dx_in / len_in * r;
         let arrive_y = here.1 - dy_in / len_in * r;
@@ -656,15 +546,11 @@ fn polyline_to_rounded_path(points: &[(f64, f64)], radius: f64) -> String {
 }
 
 /// Format a float without trailing zeros or trailing decimal points.
-/// Layout produces integer-multiples of pixel constants in v1; this
-/// keeps the snapshot tidy without forcing every coordinate through a
-/// full ryu round-trip.
+/// Rounds to 3 decimals so snapshots stay stable under f64 rounding drift.
 fn fmt_num(n: f64) -> String {
     if n.fract() == 0.0 && n.is_finite() {
         format!("{:.0}", n)
     } else {
-        // Round to 3 decimals so snapshots stay stable under
-        // f64-level rounding drift; trims trailing zeros below.
         let raw = format!("{:.3}", n);
         let trimmed = raw.trim_end_matches('0').trim_end_matches('.');
         trimmed.to_owned()

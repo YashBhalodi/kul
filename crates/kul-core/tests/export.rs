@@ -1,14 +1,8 @@
 //! Snapshot tests for the canonical JSON export.
 //!
-//! Sweeps every `examples/*/<name>.kul` to lock in the success-path schema
-//! and covers a small set of hand-crafted bad inputs for the failure
-//! envelope. The file-by-file tests double as the corpus contract: dropping
-//! a new `examples/*/<name>.kul` makes the sweep test demand a corresponding
-//! snapshot review, surfacing any unintentional schema drift.
-//!
-//! Each snapshot is the pretty-printed JSON envelope. Pretty-printing is
-//! the difference between a useful diff (one field per line) and a wall of
-//! text — the CLI does not pretty-print, but the snapshot suite does.
+//! Sweeps every `examples/*/<name>.kul` for the success envelope and
+//! covers a few hand-crafted bad inputs for the failure envelope.
+//! Snapshots are pretty-printed for diff-friendly review.
 
 mod common;
 
@@ -66,10 +60,7 @@ fn export_cytoscape(source: &str) -> String {
     )
 }
 
-/// Generate three snapshot tests per example file — default (kinship-
-/// native, positions off), positions on, and cytoscape format. Each
-/// example lives in its own subdirectory (`examples/<dir>/<stem>.kul`)
-/// so the macro takes both the directory and the file stem.
+/// Generate three snapshot tests per example: default, positions on, cytoscape.
 macro_rules! example_snapshot {
     ($default_name:ident, $positions_name:ident, $cytoscape_name:ident, $dir:literal, $stem:literal) => {
         #[test]
@@ -152,9 +143,6 @@ example_snapshot!(
     "family-across-a-century"
 );
 
-/// Multi-file example: every `.kul` file in the directory is part of the
-/// same project, so the export envelope holds the union of every file's
-/// persons, marriages, and parenthood links.
 fn export_multi_file(dir: &str, options: ExportOptions) -> String {
     let mut entries: Vec<PathBuf> = std::fs::read_dir(examples_dir().join(dir))
         .expect("read multi-file example directory")
@@ -241,8 +229,6 @@ marriage m alice bob start:1972
     }
 }
 
-/// Catch-all: if a new `examples/<dir>/<stem>.kul` lands without a matching
-/// test above, this fires so the contributor adds the snapshot.
 #[test]
 fn every_example_has_a_dedicated_snapshot_test() {
     let mut have: Vec<String> = enumerate_example_dirs();
@@ -265,10 +251,8 @@ fn every_example_has_a_dedicated_snapshot_test() {
     );
 }
 
-/// Enumerate the per-example subdirectories of `examples/`. Each must
-/// carry at least one `*.kul` file alongside its sibling `kul.yml`
-/// (single-file examples have exactly one; multi-file examples have
-/// several, per [ADR-0015](../../docs/adr/0015-global-project-namespace.md)).
+/// Enumerate per-example subdirectories of `examples/`. Each must carry at
+/// least one `*.kul` file (per ADR-0015).
 fn enumerate_example_dirs() -> Vec<String> {
     std::fs::read_dir(examples_dir())
         .unwrap()
@@ -320,31 +304,11 @@ fn failure_envelope_missing_required_field() {
 }
 
 /// Pin the declaration-order contract from `spec/16-export-schema.md` §15.2:
-/// `persons`, `marriages`, and `parenthoodLinks` MUST appear in declaration
-/// order across files (lexicographic by file name) and within each file
-/// (source position).
-///
-/// Fixture layout — `a_family.kul` lexicographically precedes
-/// `b_family.kul`, so even though the prompt-reading order of the
-/// `InputFile` vec is irrelevant (the loader sorts on disk; here we feed
-/// the slice already in lex order to mirror that), `a_family.kul`'s
-/// declarations MUST appear first in every collection. The fixture
-/// exercises:
-///
-/// - A person (`alice`) appearing as a spouse in two marriages — one
-///   declared in each file.
-/// - A child (`kid`) with a `birth` link and two `adoption`
-///   sub-statements, pinning the per-child sub-order (`birth` first, then
-///   `adoption`s in source order).
-/// - Interleaved person ids across files.
-///
-/// The snapshot is a projection (`(id, ordering-relevant-fields)`) so it
-/// locks down order without churning on date / span / envelope detail.
+/// declarations appear in source order across files (lexicographic by file
+/// name) and within each file. The snapshot projects only ordering-relevant
+/// fields so it does not churn on date / span / envelope detail.
 #[test]
 fn declaration_order_is_preserved_across_files_in_lexicographic_order() {
-    // a_family.kul: contains alice + her first marriage (to bob), and the
-    // adoptive child whose `birth` references that marriage. Alice also
-    // appears as a spouse in `m_alice_carol`, declared later in b_family.
     let a_family = "\
 person alice name:\"Alice\" gender:female born:1950
 person bob name:\"Bob\" gender:male born:1948
@@ -354,9 +318,6 @@ person kid name:\"Kid\" gender:other born:1980
   adoption m_dave_eve start:1990
 marriage m_alice_bob alice bob start:1972
 ";
-    // b_family.kul: continues with persons used by the adoptions, and
-    // declares alice's second marriage plus an unrelated marriage that
-    // hosts kid's second adoption.
     let b_family = "\
 person carol name:\"Carol\" gender:female born:1955
 person dave name:\"Dave\" gender:male born:1952
@@ -364,9 +325,7 @@ person eve name:\"Eve\" gender:female born:1958
 marriage m_alice_carol alice carol start:1985
 marriage m_dave_eve dave eve start:1980
 ";
-    // The loader sorts files lexicographically before handing them to
-    // `check`; we mirror that ordering here so the test inputs match what
-    // the on-disk path produces.
+    // Mirror the loader's lexicographic file ordering.
     let inputs = vec![
         InputFile::new("a_family.kul", a_family),
         InputFile::new("b_family.kul", b_family),
@@ -378,9 +337,7 @@ marriage m_dave_eve dave eve start:1980
     insta::assert_snapshot!(json);
 }
 
-/// A flat, ordering-only view of an export envelope. The snapshot in
-/// [`declaration_order_is_preserved_across_files_in_lexicographic_order`]
-/// asserts this projection so it doesn't drift on unrelated detail.
+/// Ordering-only projection of an export envelope.
 #[derive(serde::Serialize)]
 struct OrderingProjection {
     person_ids: Vec<String>,
@@ -448,8 +405,8 @@ fn one_thousand_statement_export_under_budget() {
     let _json = serde_json::to_string(&envelope).expect("serialize");
     let elapsed = start.elapsed();
     eprintln!("1000-statement export + serialize: {elapsed:?}");
-    // Real target is <30ms on a developer laptop; assert a 5x ceiling so
-    // CI runners and debug builds don't flake. A 2x regression still fires.
+    // Real target ~30ms; 5x ceiling absorbs CI/debug-build noise while
+    // still catching a 2x regression.
     assert!(
         elapsed < std::time::Duration::from_millis(150),
         "1000-statement export budget exceeded: {elapsed:?}"

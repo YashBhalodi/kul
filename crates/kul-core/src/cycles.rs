@@ -1,15 +1,8 @@
-//! Parent-graph cycle detection (rule 13).
+//! Parent-graph cycle detection (R13).
 //!
-//! Iterative DFS with white/gray/black coloring. Each back-edge
-//! corresponds to one detected cycle, so reporting once per back-edge
-//! gives "each cycle exactly once" without further bookkeeping. Runs in
-//! O(V+E) over the parent graph.
-//!
-//! All graph traversal goes through [`ResolvedDocument::parents_of`] —
-//! this module never enumerates `document.statements` itself.
-//!
-//! The parent graph is project-wide (per ADR-0015): a cycle that spans
-//! two files is detected just like a cycle inside one file.
+//! Iterative DFS with white/gray/black coloring; one report per back-edge.
+//! O(V+E) over the project-wide parent graph (ADR-0015). All traversal
+//! goes through [`ResolvedDocument::parents_of`].
 
 use std::collections::HashMap;
 
@@ -25,21 +18,16 @@ pub struct CycleLink {
 
 #[derive(Debug, Clone)]
 pub struct Cycle<'a> {
-    /// Persons on the cycle in traversal order. The first entry is the
-    /// "first detected" node; the closing back-edge runs from the last
-    /// member back to the first.
+    /// Persons on the cycle in traversal order; the closing back-edge runs
+    /// from the last member back to the first.
     pub members: Vec<&'a PersonStmt>,
-    /// Every parent-link forming this cycle, including the closing
-    /// back-edge — one per arrow on the path. Each link carries its
-    /// source span and the file containing that span (the child's
-    /// owning file, which may differ from the parent's under
-    /// project-wide resolution).
+    /// One link per arrow on the path, including the closing back-edge.
+    /// Each link's `file` is the child's owning file (may differ from the
+    /// parent's under project-wide resolution).
     pub link_spans: Vec<CycleLink>,
 }
 
 /// Find every parenthood cycle reachable from any person in the project.
-/// The parent graph spans every `.kul` file (per ADR-0015); a cycle that
-/// crosses files is detected the same way as a within-file cycle.
 pub fn find_cycles(resolved: &ResolvedDocument) -> Vec<Cycle<'_>> {
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum Color {

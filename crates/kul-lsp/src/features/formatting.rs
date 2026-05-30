@@ -2,16 +2,9 @@
 //!
 //! Wraps [`kul_core::format::format_source`] in a single LSP `TextEdit`
 //! that replaces the entire document. The formatter is idempotent and
-//! AST-preserving (per ADR 0004), so a whole-document replacement is the
-//! simplest correct shape — it sidesteps the diff-minimization machinery
-//! editors implement themselves when the response just describes the
-//! before-and-after.
-//!
-//! Refuses to format inputs with parse errors, returning an empty edit
-//! list so the editor falls back to whatever the user typed instead of
-//! silently mangling broken source. Validator-rule errors (KUL-Rxx) are
-//! ignored — they don't prevent the AST from being structurally
-//! formattable.
+//! AST-preserving (ADR-0004). Refuses inputs with parse errors so the
+//! editor falls back to user input instead of mangling broken source;
+//! validator-rule errors (KUL-Rxx) are still formattable.
 
 use kul_core::diagnostic::{Diagnostic, Severity};
 use kul_core::span::FileId;
@@ -19,12 +12,9 @@ use tower_lsp::lsp_types::{Position, Range, TextEdit};
 
 use crate::convert::LineIndex;
 
-/// Format the document if it parses cleanly. Returns `None` if the parse
-/// produced any error-severity lex/parse diagnostics anchored at
-/// `file`; in that case the editor receives an empty response and
-/// leaves the buffer alone. Diagnostics anchored at sibling files in
-/// the same project are ignored — formatting one file does not depend
-/// on its siblings parsing.
+/// Format the document if it parses cleanly. Returns `None` on parse
+/// errors so the editor leaves the buffer alone. Sibling-file diagnostics
+/// are ignored — formatting one file doesn't depend on its siblings parsing.
 pub fn formatting(
     source: &str,
     diagnostics: &[Diagnostic],
@@ -36,9 +26,8 @@ pub fn formatting(
     }
     let formatted = kul_core::format::format_source(source);
     if formatted == source {
-        // Already canonical — return an empty edit list rather than a no-op
-        // edit. Some clients re-render even when an edit is structurally a
-        // no-op; an empty list short-circuits that.
+        // Empty edit list (not a no-op edit) — some clients re-render on
+        // structural no-op edits.
         return Some(Vec::new());
     }
     let end = line_index.position(source.len());
@@ -106,20 +95,17 @@ mod tests {
 
     #[test]
     fn formats_through_validation_errors() {
-        // A `person` with no fields — fires R03 but the structure is sound.
+        // `person` with no fields — fires R03 but structurally sound.
         let source = "person alice\n";
         let doc = test_open_file(source);
-        // Sanity check: there's a validator error here.
         assert!(
             doc.check
                 .diagnostics
                 .iter()
                 .any(|d| d.code.starts_with("KUL-R"))
         );
-        // ...but the formatter still runs.
         let v = doc.view();
         let edits = formatting(source, &doc.check.diagnostics, v.line_index, v.file).unwrap();
-        // Already canonical (`person alice\n`).
         assert!(edits.is_empty());
     }
 }

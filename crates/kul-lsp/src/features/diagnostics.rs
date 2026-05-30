@@ -1,16 +1,8 @@
 //! Diagnostic translation: `kul_core::Diagnostic` → `lsp_types::Diagnostic`.
 //!
-//! Pure function called from `server::Backend` after every parse. The
-//! caller publishes the result via `Client::publish_diagnostics`.
-//!
-//! Per the file-identity refactor (issue #70), each LSP `Url` corresponds
-//! to one `kul_core::span::FileId`. We filter the diagnostic stream to
-//! the diagnostics anchored at that id (so a manifest diagnostic at
-//! `FileId::MANIFEST` doesn't leak into a `.kul` URI's squiggle list).
-//! Related-info entries that point at a sibling file (the common case
-//! under ADR-0015 — duplicate-id R01 and type-mismatch R02 both produce
-//! these) are translated with their own `Location.uri`, picked up from
-//! the [`ProjectEntry`].
+//! Filters by `FileId` so a manifest-anchored diagnostic doesn't leak onto a
+//! `.kul` URI. Related-info pointing at sibling files (common under ADR-0015
+//! for R01 duplicates and R02 type-mismatch) is anchored at the sibling URI.
 
 use kul_core::diagnostic::{Diagnostic as CoreDiagnostic, Severity as CoreSeverity};
 use kul_core::span::FileId;
@@ -21,24 +13,12 @@ use tower_lsp::lsp_types::{
 use crate::convert::LineIndex;
 use crate::state::ProjectEntry;
 
-/// Source name used in every published LSP diagnostic. Editors use this
-/// to group diagnostics from the same producer.
+/// Source name used in every published LSP diagnostic.
 pub const SOURCE: &str = "kul";
 
-/// Translate every diagnostic in `entry`'s [`CheckResult`] whose primary
-/// anchor lives in `file` into LSP diagnostics ready for
-/// `client.publish_diagnostics`.
-///
-/// Diagnostics whose primary anchor is in another file are skipped: LSP
-/// attaches squiggles to one URI at a time. Unanchored diagnostics
-/// (e.g. `KUL-M01`) are also skipped on a `.kul` URI — `KUL-M01` is the
-/// CLI's responsibility (the LSP detects missing manifests through its
-/// own channel; surfacing them as squiggles in the editor would be
-/// confusing for a file the editor is happy to open).
-///
-/// Cross-file related-info (R01 duplicates that span files; R02
-/// type-mismatch against a sibling-declared id) is translated with the
-/// `Url` of the related span's owning file, picked up via the entry.
+/// Translate every diagnostic whose primary anchor lives in `file` into
+/// LSP diagnostics. Diagnostics anchored elsewhere (other files, the
+/// manifest) are skipped — LSP attaches squiggles to one URI at a time.
 pub fn to_lsp(
     entry: &ProjectEntry,
     file: FileId,
@@ -56,12 +36,10 @@ pub fn to_lsp(
         .collect()
 }
 
-/// Translate a single same-file diagnostic for callers that don't have a
-/// full [`ProjectEntry`] in hand (the code-action provider, which attaches
-/// the originating diagnostic to a quick-fix). Cross-file related-info on
-/// such a diagnostic falls back to the diagnostic's own URI — quick-fix
-/// codes (R03/R05) never produce cross-file related-info, so this
-/// fallback is unreachable in practice.
+/// Translate a single same-file diagnostic for callers without a full
+/// [`ProjectEntry`] (the code-action provider). Cross-file related-info
+/// falls back to the diagnostic's own URI — quick-fix codes (R03/R05)
+/// never produce cross-file related-info, so the fallback is unreachable.
 pub(crate) fn to_lsp_one(
     uri: &Url,
     d: &CoreDiagnostic,
@@ -83,10 +61,7 @@ fn translate(
         .related
         .iter()
         .filter_map(|r| {
-            // Anchor each related span at the URI of its own file. When
-            // we have a `ProjectEntry`, that lookup is project-wide; the
-            // `to_lsp_one` caller falls back to the primary URI (it owns
-            // no cross-file map).
+            // Anchor each related span at the URI of its own file.
             let (uri, line_index) = if r.span.file == file {
                 (primary_uri.clone(), primary_line_index)
             } else {
@@ -173,13 +148,8 @@ mod tests {
             "missing kul",
             fspan(FileId::MANIFEST, ByteSpan::new(0, 1)),
         );
-        // Active URI corresponds to FileId(1) — the manifest-anchored
-        // diagnostic must be filtered out.
         let lsp = to_lsp(&entry, file_one(), std::slice::from_ref(&diag));
-        assert!(
-            lsp.is_empty(),
-            "manifest-anchored diagnostic must not surface on a .kul URI"
-        );
+        assert!(lsp.is_empty());
     }
 
     #[test]
@@ -216,20 +186,14 @@ mod tests {
         assert_eq!(related[0].location.range.start.line, 1);
     }
 
-    /// Cross-file related-info: an R01 duplicate whose "prior declaration"
-    /// span lives in a sibling file must surface as a
-    /// `DiagnosticRelatedInformation` with the sibling file's URI, not
-    /// the diagnostic's primary URI. Regression test for ADR-0015's
-    /// project-wide duplicate detection.
+    /// Cross-file related-info (ADR-0015): related span in a sibling file
+    /// surfaces with the sibling's URI.
     #[test]
     fn related_info_in_sibling_file_carries_sibling_uri() {
         let entry = test_project_entry(&[
             ("first.kul", "person alice name:\"A\" gender:female\n"),
             ("second.kul", "person alice name:\"A2\" gender:male\n"),
         ]);
-        // Splice in a synthetic R01 whose primary is in `second.kul`
-        // (FileId(2)) and whose related points back at `first.kul`
-        // (FileId(1)).
         let f1 = FileId::from_raw(1);
         let f2 = FileId::from_raw(2);
         let diag = CoreDiagnostic::error(
@@ -247,17 +211,7 @@ mod tests {
         let first_url = Url::parse("file:///first.kul").unwrap();
         let second_url = Url::parse("file:///second.kul").unwrap();
         assert_eq!(related.len(), 1);
-        assert_eq!(
-            related[0].location.uri, first_url,
-            "related-info must anchor at the sibling file's URI, not the primary's"
-        );
-        // Sanity: the primary itself surfaces at the second file's URI.
-        // (The function returns no URI directly; the caller in `server.rs`
-        // associates the result with the URI it queried for.)
-        assert_eq!(
-            entry.url_for(f2).cloned().unwrap(),
-            second_url,
-            "fixture sanity"
-        );
+        assert_eq!(related[0].location.uri, first_url);
+        assert_eq!(entry.url_for(f2).cloned().unwrap(), second_url);
     }
 }

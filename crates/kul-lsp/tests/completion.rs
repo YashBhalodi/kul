@@ -1,6 +1,4 @@
-//! Integration test: open a document and verify
-//! `textDocument/completion` returns the expected items at known cursor
-//! positions for several context categories.
+//! Integration test for `textDocument/completion`.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -165,7 +163,6 @@ fn person_field_list_filters_present() {
     let kul_url = common::fixture_url("person_field_list_filters_present", "c.kul", source);
     let uri = kul_url.as_str();
     open_doc(&mut handle, uri, source);
-    // line 0, column = end of `... gender:female ` = 32
     let labels = complete_at(&mut handle, uri, 11, 0, 32);
     assert!(!labels.contains(&"name:".to_owned()));
     assert!(!labels.contains(&"gender:".to_owned()));
@@ -180,7 +177,6 @@ fn after_gender_colon_returns_enum_values() {
     let kul_url = common::fixture_url("after_gender_colon_returns_enum_values", "c.kul", source);
     let uri = kul_url.as_str();
     open_doc(&mut handle, uri, source);
-    // line 0, column = end of `gender:` = 25
     let labels = complete_at(&mut handle, uri, 12, 0, 25);
     assert_eq!(
         labels,
@@ -195,7 +191,6 @@ fn after_end_reason_colon_returns_divorce() {
     let kul_url = common::fixture_url("after_end_reason_colon_returns_divorce", "c.kul", source);
     let uri = kul_url.as_str();
     open_doc(&mut handle, uri, source);
-    // line 0 column = full length = 46
     let labels = complete_at(&mut handle, uri, 13, 0, 46);
     assert_eq!(labels, vec!["divorce".to_owned()]);
 }
@@ -211,7 +206,6 @@ fn indented_under_person_returns_sub_keywords() {
     );
     let uri = kul_url.as_str();
     open_doc(&mut handle, uri, source);
-    // line 1 column 2 (after the indent)
     let labels = complete_at(&mut handle, uri, 14, 1, 2);
     assert!(labels.contains(&"birth".to_owned()));
     assert!(labels.contains(&"adoption".to_owned()));
@@ -227,7 +221,6 @@ fn after_birth_keyword_returns_marriage_ids() {
     let kul_url = common::fixture_url("after_birth_keyword_returns_marriage_ids", "c.kul", source);
     let uri = kul_url.as_str();
     open_doc(&mut handle, uri, source);
-    // line 4 column 8 = right after `birth ` (2 indent + 6 keyword)
     let labels = complete_at(&mut handle, uri, 15, 4, 8);
     assert_eq!(labels, vec!["m_alice_bob".to_owned()]);
 }
@@ -245,7 +238,6 @@ fn after_marriage_id_returns_persons_for_spouse_a() {
     );
     let uri = kul_url.as_str();
     open_doc(&mut handle, uri, source);
-    // line 2 column 11 = right after `marriage m `
     let labels = complete_at(&mut handle, uri, 16, 2, 11);
     assert!(labels.contains(&"alice".to_owned()));
     assert!(labels.contains(&"bob".to_owned()));
@@ -260,7 +252,6 @@ fn after_spouse_a_excludes_self_marriage() {
     let kul_url = common::fixture_url("after_spouse_a_excludes_self_marriage", "c.kul", source);
     let uri = kul_url.as_str();
     open_doc(&mut handle, uri, source);
-    // line 2 column 17 = right after `marriage m alice `
     let labels = complete_at(&mut handle, uri, 17, 2, 17);
     assert!(!labels.contains(&"alice".to_owned()));
     assert!(labels.contains(&"bob".to_owned()));

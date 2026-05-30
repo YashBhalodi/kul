@@ -1,10 +1,5 @@
-//! `kul validate` subcommand — project-wide.
-//!
-//! Validates every `.kul` file in the current Kul project (CWD must
-//! hold a sibling `kul.yml`). Reports every diagnostic — cross-file or
-//! not — in one run. Diagnostic rendering itself (miette + JSON) lives
-//! in [`crate::commands::diag`] so `format` and `export` can share the
-//! same surface.
+//! `kul validate` subcommand. Validates every `.kul` in the CWD project
+//! in one pass and reports every diagnostic, cross-file or not.
 
 use std::process::ExitCode;
 

@@ -1,6 +1,4 @@
-//! Integration test for `textDocument/prepareRename` and
-//! `textDocument/rename`. Spawns the server and verifies the workspace
-//! edit shape, plus the error-response paths.
+//! Integration test for `textDocument/prepareRename` and `rename`.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -177,11 +175,9 @@ fn prepare_rename_on_decl_returns_range() {
     let kul_url = common::fixture_url("prepare_rename_on_decl_returns_range", "rn.kul", FIXTURE);
     let uri = kul_url.as_str();
     open_fixture(&mut handle, uri);
-    // Line 0 col 7 = `alice` decl id.
     let resp = prepare_rename_at(&mut handle, uri, 10, 0, 7);
     let result = &resp["result"];
     assert!(!result.is_null());
-    // Range covering "alice".
     assert_eq!(result["start"]["character"].as_u64(), Some(7));
     assert_eq!(result["end"]["character"].as_u64(), Some(12));
 }
@@ -241,7 +237,6 @@ fn rename_to_collision_returns_error() {
     let kul_url = common::fixture_url("rename_to_collision_returns_error", "rn.kul", FIXTURE);
     let uri = kul_url.as_str();
     open_fixture(&mut handle, uri);
-    // alice → bob would collide with the existing person `bob`.
     let resp = rename_at(&mut handle, uri, 14, 0, 7, "bob");
     assert!(resp["result"].is_null());
     assert!(!resp["error"].is_null());

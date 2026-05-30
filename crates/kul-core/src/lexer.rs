@@ -1,12 +1,8 @@
-//! Lexer: turns source bytes into a stream of typed [`Token`]s.
+//! Lexer: source bytes → typed [`Token`] stream.
 //!
-//! The lexer is total — every byte sequence yields a token stream. Lex errors
-//! become [`TokenKind::Error`] tokens with a message; the parser surfaces
-//! them as diagnostics so the source-code error position is preserved.
-//!
-//! INDENT/DEDENT handling lands with sub-statement support (#9). For now the
-//! lexer simply emits a [`TokenKind::Indent`] when a line begins with leading
-//! whitespace; the parser ignores it.
+//! Total: every byte sequence yields tokens. Lex errors become
+//! [`TokenKind::Error`] tokens that the parser surfaces as diagnostics
+//! anchored on the token span.
 
 use crate::span::ByteSpan;
 
@@ -18,35 +14,27 @@ pub struct Token {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenKind {
-    /// `person`
     PersonKw,
-    /// `marriage`
     MarriageKw,
-    /// `birth`
     BirthKw,
-    /// `adoption`
     AdoptionKw,
-    /// A field-name keyword (`name`, `gender`, etc.). Followed by `:` and a value.
+    /// `name:`, `gender:`, etc. Followed by `:` and a value.
     FieldKw(FieldName),
-    /// An enumeration value keyword (`male`, `female`, `other`, `divorce`).
+    /// `male`, `female`, `other`, `divorce`.
     EnumKw(EnumKw),
-    /// An identifier — used for IDs and references.
+    /// Identifier (IDs and references).
     Ident(String),
-    /// A double-quoted string literal. Stored as the unescaped contents.
+    /// Double-quoted string, stored unescaped.
     String(String),
-    /// A bare value: a sequence of non-whitespace, non-`:`, non-`#`, non-`"`
-    /// characters. Used for dates, identifier-like values, etc.
+    /// Bareword (dates, identifier-like values, etc.): a run of bytes that
+    /// aren't whitespace, `:`, `#`, or `"`.
     Bare(String),
-    /// `:`
     Colon,
-    /// End of a logical line.
     Newline,
     /// Leading horizontal whitespace at the start of a line.
     Indent,
-    /// End of input.
     Eof,
-    /// A lex error — the [`String`] explains. The parser will surface this
-    /// as a diagnostic anchored to the token's span.
+    /// Lex error; the parser surfaces this as a span-anchored diagnostic.
     Error(String),
 }
 
@@ -197,7 +185,7 @@ impl<'a> Lexer<'a> {
 
     fn lex_string(&mut self) {
         let start = self.pos;
-        self.pos += 1; // opening quote
+        self.pos += 1;
         let mut value = String::new();
         loop {
             match self.peek_byte() {
@@ -272,8 +260,7 @@ impl<'a> Lexer<'a> {
             }
         }
         if self.pos == start {
-            // Defensive: should not happen because we only enter this branch
-            // when a non-special byte is present.
+            // Defensive: ensure progress on a non-special byte.
             self.pos += 1;
         }
         let text = &self.source[start..self.pos];
@@ -298,7 +285,7 @@ fn next_char_boundary(bytes: &[u8], pos: usize) -> usize {
     let len = if b < 0x80 {
         1
     } else if b < 0xC0 {
-        // Continuation byte mid-character — advance by 1 to make progress.
+        // Continuation byte mid-character; advance by 1 to make progress.
         1
     } else if b < 0xE0 {
         2
@@ -339,12 +326,9 @@ fn classify_word(text: &str) -> TokenKind {
     }
 }
 
-/// Match the Kul identifier production `[A-Za-z_][A-Za-z0-9_-]*`.
-///
-/// This is the lexer's authority on what counts as a bareword identifier
-/// token; consumers that need to validate a candidate id (the LSP rename
-/// feature, future code-actions) should call this rather than re-implement
-/// the rule.
+/// Match the Kul identifier production `[A-Za-z_][A-Za-z0-9_-]*`. The
+/// canonical check; consumers validating candidate ids should call this
+/// rather than re-implement the rule.
 pub fn is_identifier(text: &str) -> bool {
     let mut chars = text.chars();
     let Some(first) = chars.next() else {
@@ -356,12 +340,9 @@ pub fn is_identifier(text: &str) -> bool {
     chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
-/// True iff `text` would tokenize as a reserved keyword (statement, field,
-/// or enum) rather than as an identifier.
-///
-/// Derived from [`classify_word`] so the answer stays in sync with the
-/// lexer automatically — adding a new field-name keyword to `classify_word`
-/// extends the reserved set with no further edits.
+/// True iff `text` would tokenize as a reserved keyword (statement,
+/// field, or enum) rather than an identifier. Derived from
+/// [`classify_word`].
 pub fn is_reserved_word(text: &str) -> bool {
     !matches!(
         classify_word(text),

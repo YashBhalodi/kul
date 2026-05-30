@@ -195,26 +195,16 @@ enum Command {
     /// Validate every `.kul` file in the current Kul project.
     #[command(long_about = VALIDATE_LONG_ABOUT)]
     Validate {
-        /// Suppress the `ok` line on success.
-        ///
-        /// Diagnostics are still printed; only the success line is suppressed.
-        /// Useful for scripts that only care about the exit code.
+        /// Suppress the `ok` line on success. Diagnostics are still printed.
         #[arg(short, long)]
         quiet: bool,
 
-        /// Output format for diagnostics.
-        ///
-        /// `human` — Rust-compiler-style rendering with source snippets and
-        /// caret anchors (default).
-        /// `json`  — one JSON object per diagnostic, newline-delimited
-        /// (jsonl). See `kul help validate` for the schema.
+        /// Output format for diagnostics. `human` (default) renders with
+        /// source snippets; `json` emits one JSON object per diagnostic.
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
 
         /// Force colorless output even when stderr is a TTY.
-        ///
-        /// Color is auto-disabled when stderr is not a TTY (e.g. when piped
-        /// into a file). This flag forces it off unconditionally.
         #[arg(long)]
         no_color: bool,
     },
@@ -223,7 +213,7 @@ enum Command {
     #[command(long_about = FORMAT_LONG_ABOUT)]
     Format {
         /// Verify formatting without modifying files. Exits non-zero if any
-        /// input is not already in canonical form. Suitable for CI.
+        /// input is not in canonical form. Suitable for CI.
         #[arg(long)]
         check: bool,
     },
@@ -231,17 +221,14 @@ enum Command {
     /// Project the current Kul project to the canonical JSON envelope.
     #[command(long_about = EXPORT_LONG_ABOUT)]
     Export {
-        /// Output format. `json` (default) is the canonical
-        /// kinship-native envelope; `cytoscape` is the Cytoscape
-        /// node/edge JSON; `svg` is a self-contained SVG of the
-        /// canonical visual (`kul export --format=svg > tree.svg`).
+        /// Output format: `json` (canonical kinship envelope, default),
+        /// `cytoscape` (node/edge JSON), or `svg` (self-contained SVG).
         #[arg(long, value_enum, default_value_t = commands::export::CliExportFormat::Json)]
         format: commands::export::CliExportFormat,
 
         /// Include `span: [byte_start, byte_end]` on every exported
-        /// entity. Useful for editor-side tooling that wants to map a
-        /// click on a graph node back to its source declaration.
-        /// Default off — keeps the envelope compact.
+        /// entity, for editor-side tooling that maps graph nodes back
+        /// to source.
         #[arg(long)]
         with_positions: bool,
     },

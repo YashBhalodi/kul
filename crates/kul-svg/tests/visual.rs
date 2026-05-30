@@ -1,13 +1,6 @@
-//! Visual-vocabulary tests: pin the emitted-attribute seam decisions
-//! [ADR-0016](../../../docs/adr/0016-visualization-pipeline-crate-boundaries.md) and
-//! [ADR-0021](../../../docs/adr/0021-language-properties-plumb-to-svg.md)
-//! commit to. Entity classes (`kul-card`, `kul-edge`) name the type
-//! only; every property is a `data-*` attribute (booleans as
-//! `data-is-*`, enums as explicit strings, missing optionals omitted).
-//!
-//! These tests construct `PositionedShape` values by hand so the
-//! emitter is exercised independent of the kul-render / kul-layout
-//! pipeline.
+//! Visual-vocabulary tests pinning the emitted-attribute seam
+//! (ADR-0016, ADR-0021). Construct `PositionedShape` values by hand so
+//! the emitter is exercised independent of upstream crates.
 
 use kul_layout::{EdgeKind, PositionedCard, PositionedEdge, PositionedShape, SlotKind};
 use kul_render::GhostReason;
@@ -22,7 +15,6 @@ fn empty_shape() -> PositionedShape {
     }
 }
 
-/// A minimal canonical card; tests override the fields they exercise.
 fn canonical_card(person_id: &str, name: &str) -> PositionedCard {
     PositionedCard {
         person_id: person_id.to_owned(),
@@ -80,7 +72,6 @@ fn card_emits_person_property_attributes() {
     assert!(svg.contains(r#"data-family="Sharma""#), "{svg}");
     assert!(svg.contains(r#"data-given="Alice""#), "{svg}");
     assert!(svg.contains(r#"data-born="1950-04-12""#), "{svg}");
-    // Alive: no `died:` recorded.
     assert!(svg.contains(r#"data-is-alive="true""#), "{svg}");
     assert!(!svg.contains("data-died"), "no death recorded: {svg}");
 }
@@ -94,7 +85,6 @@ fn card_with_died_is_not_alive_and_omits_undeclared_optionals() {
     let svg = render(&shape, &ThemeConfig::default());
     assert!(svg.contains(r#"data-is-alive="false""#), "{svg}");
     assert!(svg.contains(r#"data-died="1998""#), "{svg}");
-    // Undeclared optionals omit the attribute entirely (no empty strings).
     assert!(!svg.contains("data-family"), "{svg}");
     assert!(!svg.contains("data-given"), "{svg}");
     assert!(!svg.contains("data-born"), "{svg}");
@@ -149,8 +139,7 @@ fn past_birth_ghost_card_emits_its_reason() {
 
 #[test]
 fn monogamy_marriage_edge_emits_marriage_link_kind_no_bar_rect() {
-    // The unified marriage connector (ADR-0020): a monogamy marriage
-    // renders as a thick `data-link-kind="marriage"` edge, not a bar rect.
+    // ADR-0020: monogamy renders as a thick marriage edge, not a bar rect.
     let mut shape = empty_shape();
     shape.edges.push(PositionedEdge {
         kind: EdgeKind::Marriage {
@@ -189,8 +178,6 @@ fn monogamy_marriage_edge_emits_marriage_link_kind_no_bar_rect() {
 
 #[test]
 fn ended_monogamy_marriage_edge_emits_end_and_reason() {
-    // Per current-intimacy placement: an ended (divorced) monogamy
-    // marriage carries `data-is-ended="true"` plus its end fields.
     let mut shape = empty_shape();
     shape.edges.push(PositionedEdge {
         kind: EdgeKind::Marriage {
@@ -234,9 +221,6 @@ fn birth_edge_emits_birth_link_kind_no_dasharray() {
 
 #[test]
 fn marriage_edge_shares_base_class_and_is_solid() {
-    // ADR-0020 marriage edge: solid, thick (weight set by the consuming
-    // stylesheet via `data-link-kind="marriage"`), shares the base
-    // `kul-edge` class with birth / adoption.
     let mut shape = empty_shape();
     shape.edges.push(PositionedEdge {
         kind: EdgeKind::Marriage {
@@ -295,9 +279,7 @@ fn adoption_edge_emits_adoption_link_kind_with_dasharray_and_start() {
 
 #[test]
 fn emitted_svg_has_no_inline_fill_or_stroke_color() {
-    // Theme-agnostic invariant: ADR-0016. Construct a shape with one
-    // of each primitive and confirm none of the emitted attributes
-    // assert a colour.
+    // Theme-agnostic invariant (ADR-0016): no colour-bearing attributes.
     let mut shape = empty_shape();
     shape.cards.push(canonical_card("a", "A"));
     let mut ghost = canonical_card("b", "B");
@@ -329,9 +311,7 @@ fn emitted_svg_has_no_inline_fill_or_stroke_color() {
         marriage_id: "m".to_owned(),
     });
     let svg = render(&shape, &ThemeConfig::default());
-    // `fill="none"` on edge polylines is structural (a polyline with
-    // no fill is the contract a stroked line wants). Everything else
-    // must not carry a colour-bearing attribute.
+    // `fill="none"` on edge polylines is structural, not theming.
     let stripped = svg.replace(r#"fill="none""#, "");
     assert!(
         !stripped.contains(" fill=\""),
@@ -349,10 +329,6 @@ fn emitted_svg_has_no_inline_fill_or_stroke_color() {
 
 #[test]
 fn self_contained_true_injects_inline_style_with_concrete_tokens() {
-    // The opt-in self-contained theme (CLI export, ADR-0016 amendment):
-    // an inline `<style>` carrying the `--kul-*` token vocabulary with
-    // concrete hex values, scoped on the `svg` selector and emitted as
-    // the root's first child so it precedes every element.
     let mut shape = empty_shape();
     let mut ghost = canonical_card("b", "B");
     ghost.kind = SlotKind::Ghost {
@@ -361,14 +337,12 @@ fn self_contained_true_injects_inline_style_with_concrete_tokens() {
     shape.cards.push(canonical_card("a", "A"));
     shape.cards.push(ghost);
     let svg = render(&shape, &ThemeConfig::with_self_contained(true));
-    // `<style>` is the root's first child (before any `<g`/`<path`).
     let style_at = svg.find("<style>").expect("expected an inline <style>");
     let first_g = svg.find("<g").unwrap_or(usize::MAX);
     assert!(
         style_at < first_g,
         "the <style> block must precede the first element: {svg}"
     );
-    // The token vocabulary is reused, with concrete colours baked in.
     assert!(svg.contains("--kul-card-stroke-male: #1565c0;"), "{svg}");
     assert!(svg.contains("--kul-edge-stroke: #2e7d32;"), "{svg}");
     assert!(
@@ -379,13 +353,12 @@ fn self_contained_true_injects_inline_style_with_concrete_tokens() {
         svg.contains(".kul-card[data-kind=\"ghost\"] rect"),
         "the ghost structural rule must be present: {svg}"
     );
-    // No surface chrome: the ghost `↺` badge is never emitted (ADR-0016).
+    // No surface chrome ships (ADR-0016).
     assert!(!svg.contains('↺'), "no ghost badge may appear: {svg}");
     assert!(
         !svg.contains("kul-ghost-badge"),
         "no ghost-badge styling may appear: {svg}"
     );
-    // Self-contained means no VSCode-specific variables.
     assert!(!svg.contains("var(--vscode-"), "{svg}");
 }
 
@@ -393,30 +366,23 @@ fn self_contained_true_injects_inline_style_with_concrete_tokens() {
 fn self_contained_false_omits_style_block() {
     let mut shape = empty_shape();
     shape.cards.push(canonical_card("a", "A"));
-    // Default config is theme-agnostic: byte-identical to today, no style.
     let default_svg = render(&shape, &ThemeConfig::default());
     assert!(
         !default_svg.contains("<style>"),
         "default output must carry no inline <style>: {default_svg}"
     );
     assert!(!default_svg.contains('↺'), "{default_svg}");
-    // Explicit `false` matches the default exactly.
     let explicit_false = render(&shape, &ThemeConfig::with_self_contained(false));
     assert_eq!(default_svg, explicit_false);
 }
 
-// -- Legend (#157, ADR-0022) -------------------------------------------
-//
-// The legend rides the opt-in `ThemeConfig.legend = true` path. Each
-// row is a swatch + a label; the swatch is a miniature of the real
-// glyph carrying the production class + `data-*` attribute, so the
-// surrounding stylesheet themes it through the same rules that paint
-// the diagram (no hardcoded swatch colour). Default and
-// `with_self_contained(true)` paths remain byte-unchanged.
+// Legend (ADR-0022): opt-in `ThemeConfig.legend = true`. Swatches reuse
+// production class + `data-*` so CSS paints them (no hardcoded swatch
+// colour). Default and `with_self_contained(true)` paths stay
+// byte-unchanged.
 
+/// Surfaces every canonical legend category, exercising all eight rows.
 fn full_vocab_shape() -> PositionedShape {
-    // A shape that surfaces every canonical legend category at least
-    // once, so a full-legend render exercises all eight rows.
     let mut shape = empty_shape();
     let mut male = canonical_card("a", "Alice");
     male.gender = "male";
@@ -481,10 +447,8 @@ fn full_vocab_shape() -> PositionedShape {
 fn legend_false_default_emits_no_legend() {
     let shape = full_vocab_shape();
     let svg = render(&shape, &ThemeConfig::default());
-    // The legend group element is the marker: the bare CSS rules in the
-    // baked stylesheet contain the `.kul-legend` selector but no element
-    // emits with the class — so `<g class="kul-legend"` is the right
-    // check (also covers the no-English requirement on the default path).
+    // The `.kul-legend` selector appears in baked CSS; the `<g>` element
+    // is the marker for an actually-emitted legend.
     assert!(
         !svg.contains(r#"<g class="kul-legend">"#),
         "default config must not emit a legend group: {svg}"
@@ -495,10 +459,7 @@ fn legend_false_default_emits_no_legend() {
 fn with_self_contained_true_alone_emits_no_legend() {
     let shape = full_vocab_shape();
     let svg = render(&shape, &ThemeConfig::with_self_contained(true));
-    // self_contained alone bakes `.kul-legend` *rules* (they are part of
-    // the canonical stylesheet so a `with_legend(true)` consumer's
-    // swatches paint correctly), but no `<g class="kul-legend">` element
-    // ships and no English does either.
+    // self_contained bakes `.kul-legend` *rules* but emits no group/English.
     assert!(
         !svg.contains(r#"<g class="kul-legend">"#),
         "self_contained without with_legend(true) must not emit a legend group: {svg}"
@@ -538,12 +499,10 @@ fn full_vocab_legend_emits_every_row_in_canonical_order() {
         &shape,
         &ThemeConfig::with_self_contained(true).with_legend(true),
     );
-    // The legend group is emitted as a kul-legend container.
     assert!(
         svg.contains(r#"<g class="kul-legend">"#),
         "expected the legend group: {svg}"
     );
-    // The eight normative labels are present, in canonical order.
     let labels = [
         ">Male<",
         ">Female<",
@@ -570,8 +529,7 @@ fn legend_swatches_reuse_production_classes_and_data_attrs() {
         &shape,
         &ThemeConfig::with_self_contained(true).with_legend(true),
     );
-    // Each swatch carries the production class + `data-*` seam — the
-    // colour contract (ADR-0022): the existing CSS rules paint them.
+    // Swatches must reuse production class + `data-*` so CSS paints them (ADR-0022).
     for needle in [
         r#"<g class="kul-card" data-kind="canonical" data-gender="male">"#,
         r#"<g class="kul-card" data-kind="canonical" data-gender="female">"#,
@@ -587,17 +545,13 @@ fn legend_swatches_reuse_production_classes_and_data_attrs() {
             "expected swatch with production seam `{needle}` in: {svg}"
         );
     }
-    // Structural dasharrays mirror production (ghost: 3 2; adoption: 6 4).
     assert!(svg.contains(r#"stroke-dasharray="3 2""#), "{svg}");
     assert!(svg.contains(r#"stroke-dasharray="6 4""#), "{svg}");
 }
 
 #[test]
 fn legend_swatch_overrides_only_size_in_baked_css() {
-    // The swatch-targeting `.kul-legend …` rules may tune only
-    // size / stroke-width / dash on the production glyphs — never colour.
-    // (The panel rect `.kul-legend-bg` is its own structural element and
-    // carries panel-specific tokens; that's separate from swatch overrides.)
+    // `.kul-legend …` swatch rules may tune size/stroke-width/dash but never colour.
     let shape = full_vocab_shape();
     let svg = render(
         &shape,
@@ -611,8 +565,6 @@ fn legend_swatch_overrides_only_size_in_baked_css() {
         svg.contains("--kul-legend-marriage-edge-stroke-width"),
         "marriage stroke override must consume a token: {svg}"
     );
-    // The marriage swatch rule must only set stroke-width — never `stroke:`
-    // or `fill:`.
     let marr_start = svg
         .find(".kul-legend .kul-edge[data-link-kind=\"marriage\"]")
         .expect("marriage rule");
@@ -622,8 +574,7 @@ fn legend_swatch_overrides_only_size_in_baked_css() {
         !marr_rule.contains("stroke:") && !marr_rule.contains("fill:"),
         "marriage swatch override must not override colour: {marr_rule}"
     );
-    // Every colour in `.kul-legend*` rules must be token-bound — no hex
-    // literals leak into the legend stylesheet block.
+    // No hex literals allowed in `.kul-legend*` rules — token-bound only.
     let legend_block_start = svg.find(".kul-legend").expect("legend rule");
     let legend_block_end = legend_block_start
         + svg[legend_block_start..]
@@ -638,9 +589,6 @@ fn legend_swatch_overrides_only_size_in_baked_css() {
 
 #[test]
 fn legend_emits_a_rounded_panel_background() {
-    // The panel rect ships first inside the `.kul-legend` group so rows
-    // sit on top of it; its rounded corners and colours come from the
-    // `--kul-legend-panel-*` tokens (no hardcoded hex on the element).
     let shape = full_vocab_shape();
     let svg = render(
         &shape,
@@ -648,12 +596,10 @@ fn legend_emits_a_rounded_panel_background() {
     );
     let group_start = svg.find(r#"<g class="kul-legend">"#).expect("legend group");
     let after_group = &svg[group_start + r#"<g class="kul-legend">"#.len()..];
-    // First child of the legend group is the panel rect.
     assert!(
         after_group.starts_with(r#"<rect class="kul-legend-bg""#),
         "panel rect must be the first child of the legend group: {after_group}"
     );
-    // Rounded corners (`rx`/`ry`) are present and non-zero.
     let panel_end =
         group_start + r#"<g class="kul-legend">"#.len() + after_group.find("/>").unwrap();
     let panel_rect = &svg[group_start..=panel_end];
@@ -661,8 +607,6 @@ fn legend_emits_a_rounded_panel_background() {
         panel_rect.contains("rx=\"6\""),
         "panel rect must carry the configured corner radius: {panel_rect}"
     );
-    // No hardcoded colour on the panel element itself — the baked
-    // stylesheet's `.kul-legend-bg` rule paints it via tokens.
     assert!(
         !panel_rect.contains(" fill=\""),
         "panel rect must not carry inline fill: {panel_rect}"
@@ -671,7 +615,6 @@ fn legend_emits_a_rounded_panel_background() {
         !panel_rect.contains(" stroke=\""),
         "panel rect must not carry inline stroke: {panel_rect}"
     );
-    // The baked stylesheet defines the panel's fill / stroke via tokens.
     assert!(
         svg.contains(".kul-legend-bg { fill: var(--kul-legend-panel-bg);"),
         "expected the .kul-legend-bg rule keyed on panel tokens: {svg}"
@@ -680,9 +623,6 @@ fn legend_emits_a_rounded_panel_background() {
 
 #[test]
 fn legend_dynamic_subset_omits_absent_rows() {
-    // A nuclear family with only male+female parents and a male child via
-    // a marriage with a birth edge. No ghost, no adoption, no other, no
-    // ended marriage — those rows must NOT appear.
     let mut shape = empty_shape();
     let mut dad = canonical_card("a", "Akira");
     dad.gender = "male";
@@ -738,8 +678,6 @@ fn legend_dynamic_subset_omits_absent_rows() {
 
 #[test]
 fn legend_only_ended_marriages_emits_just_ended_row() {
-    // If every marriage is ended, only the "Ended marriage" row appears
-    // (the "Marriage" un-ended category is empty for this diagram).
     let mut shape = empty_shape();
     shape.edges.push(PositionedEdge {
         kind: EdgeKind::Marriage {
@@ -769,22 +707,16 @@ fn legend_only_ended_marriages_emits_just_ended_row() {
 
 #[test]
 fn legend_grows_viewbox_height_without_touching_diagram_geometry() {
-    // The legend lives in a reserved bottom band; the diagram's cards
-    // and edges keep their original coordinates and the viewBox height
-    // grows by exactly the legend's footprint.
+    // Legend rides in a reserved bottom band; diagram geometry is untouched.
     let shape = full_vocab_shape();
     let without = render(&shape, &ThemeConfig::default());
     let with = render(
         &shape,
         &ThemeConfig::with_self_contained(true).with_legend(true),
     );
-    // The original card / edge geometry strings (without the closing
-    // `</svg>`) must appear unchanged in the legend-bearing output —
-    // the diagram is not relocated.
     let card_open = r#"<g class="kul-card" data-person-id="a""#;
     assert!(without.contains(card_open), "{without}");
     assert!(with.contains(card_open), "{with}");
-    // The viewBox height must be strictly larger with the legend.
     let height_re = |svg: &str| -> f64 {
         let mark = "viewBox=\"0 0 ";
         let start = svg.find(mark).unwrap() + mark.len();
@@ -804,13 +736,12 @@ fn legend_grows_viewbox_height_without_touching_diagram_geometry() {
 fn name_label_is_xml_escaped() {
     let mut shape = empty_shape();
     let mut card = canonical_card("a", r#"<Ann & "Co" 'Lt'>"#);
-    // Crafted to exercise every escape branch on a data-attribute too.
+    // Exercises every escape branch on both text and attribute values.
     card.family = Some(r#"O'<&>"Brien"#.to_owned());
     shape.cards.push(card);
     let svg = render(&shape, &ThemeConfig::default());
     assert!(svg.contains("&lt;Ann &amp; &quot;Co&quot; &apos;Lt&apos;&gt;"));
     assert!(!svg.contains("<Ann &"));
-    // Attribute values are escaped too.
     assert!(
         svg.contains(r#"data-family="O&apos;&lt;&amp;&gt;&quot;Brien""#),
         "{svg}"

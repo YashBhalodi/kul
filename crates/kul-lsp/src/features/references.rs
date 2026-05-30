@@ -1,27 +1,15 @@
 //! Find references for `textDocument/references`.
 //!
-//! Pure dispatch over [`kul_core::node_at::Node`]: a cursor on a person
-//! id (decl or ref) returns every spouse position that names them; a
-//! cursor on a marriage id returns every `birth`/`adoption` ref that
-//! points at that marriage. Per LSP `ReferenceContext.includeDeclaration`,
-//! the declaration site is included only when asked.
-//!
-//! With project-wide resolution (ADR-0015), `references_to` walks every
-//! file in the project. This module assembles a single `Vec<Location>`
-//! across all of them, anchoring each result at the URL its file maps
-//! to in the project entry.
+//! Project-wide (ADR-0015): walks every file in the project, anchoring
+//! each result at its file's URL.
 
 use tower_lsp::lsp_types::{Location, Position, Url};
 
 use crate::state::ProjectEntry;
 
-/// Resolve the cursor to the list of reference `Location`s, or `None` when
-/// the cursor isn't on something the user could find references for
-/// (keywords, fields, whitespace, EOF). Returns `Some(empty)` when the
-/// cursor *is* on a referenceable id but nothing else uses it.
-///
-/// Results span every file in the project: rename and find-references
-/// no longer stop at the active URI's boundary.
+/// Resolve the cursor to the list of reference `Location`s, or `None`
+/// for a non-referenceable cursor. `Some(empty)` when the id has no
+/// other uses.
 pub fn references(
     entry: &ProjectEntry,
     uri: &Url,
@@ -33,9 +21,6 @@ pub fn references(
 
     let mut spans = c.resolved.references_to(entity.name, entity.kind);
     if include_declaration && let Some(d) = entity.decl_span() {
-        // `decl_span()` is project-wide aware (ADR-0015): for a reference
-        // it returns the target's `FileSpan` anchored at the target's
-        // owning file, which may be a sibling of the active URI's file.
         spans.push(d);
     }
     spans.sort_by_key(|s| (s.file.as_u32(), s.span.start));
@@ -71,10 +56,9 @@ mod tests {
                    marriage m1 alice bob start:1972\n\
                    marriage m2 alice carol start:2000\n";
         let got = refs_at(src, idx(src, "alice"), false).unwrap();
-        // Two spouse positions in the two marriages.
         assert_eq!(got.len(), 2);
-        assert_eq!(got[0].0, 3); // line 3: "marriage m1 alice ..."
-        assert_eq!(got[1].0, 4); // line 4: "marriage m2 alice ..."
+        assert_eq!(got[0].0, 3);
+        assert_eq!(got[1].0, 4);
     }
 
     #[test]
@@ -84,9 +68,8 @@ mod tests {
                    marriage m alice bob start:1972\n";
         let with_decl = refs_at(src, idx(src, "alice"), true).unwrap();
         let without = refs_at(src, idx(src, "alice"), false).unwrap();
-        // `with_decl` has one extra location at the declaration site.
         assert_eq!(with_decl.len(), without.len() + 1);
-        assert_eq!(with_decl[0], (0, 7)); // alice's decl id span
+        assert_eq!(with_decl[0], (0, 7));
     }
 
     #[test]
@@ -118,8 +101,6 @@ mod tests {
 
     #[test]
     fn unresolved_person_ref_still_finds_uses() {
-        // No `ghost` declaration, but the user wants to find every place it's
-        // mentioned. Returns the spouse position(s) where the name appears.
         let src = "marriage m ghost b start:1972\nperson b name:\"B\" gender:male\n";
         let marriage_line = idx(src, "marriage ");
         let ghost = src[marriage_line..]
@@ -128,7 +109,7 @@ mod tests {
             .unwrap();
         let got = refs_at(src, ghost, false).unwrap();
         assert_eq!(got.len(), 1);
-        // include_declaration on an unresolved ref doesn't add anything.
+        // include_declaration adds nothing for an unresolved ref.
         let with = refs_at(src, ghost, true).unwrap();
         assert_eq!(with.len(), 1);
     }
@@ -176,14 +157,12 @@ mod tests {
                    marriage m1 alice bob start:1972\n\
                    marriage m2 bob alice start:2000\n";
         let got = refs_at(src, idx(src, "alice"), true).unwrap();
-        // Sorted: decl on line 0 first, then m1 on line 2, then m2 on line 3.
         for w in got.windows(2) {
             assert!(w[0] <= w[1], "not sorted: {:?}", got);
         }
     }
 
-    /// Cross-file find-references: a person declared in one file is
-    /// referenced in another; both files participate in the result.
+    /// Cross-file find-references (ADR-0015).
     #[test]
     fn finds_references_across_files() {
         let alice_src = "person alice name:\"Alice\" gender:female\n";
@@ -191,7 +170,6 @@ mod tests {
         let entry = test_project_entry(&[("alice.kul", alice_src), ("marriage.kul", marriage_src)]);
         let alice_url = Url::parse("file:///alice.kul").unwrap();
         let marriage_url = Url::parse("file:///marriage.kul").unwrap();
-        // Cursor on `alice` decl in alice.kul; expect one reference in marriage.kul.
         let locs = references(
             &entry,
             &alice_url,
@@ -203,12 +181,7 @@ mod tests {
         assert_eq!(locs[0].uri, marriage_url);
     }
 
-    /// Cross-file `includeDeclaration`: a cursor on a *reference* in one
-    /// file must include the declaration in the *sibling* file when the
-    /// client asks for it. Regression test for the seam carrying the
-    /// resolved target's `FileId` (ADR-0015): if the cursor seam ever
-    /// loses the target file, this would surface the decl at the active
-    /// URI's location instead of the declaring file's.
+    /// Cross-file `includeDeclaration`: cursor on a reference, decl in sibling.
     #[test]
     fn include_declaration_picks_up_sibling_file_decl() {
         let alice_src = "person alice name:\"Alice\" gender:female\n";
@@ -216,7 +189,6 @@ mod tests {
         let entry = test_project_entry(&[("alice.kul", alice_src), ("marriage.kul", marriage_src)]);
         let alice_url = Url::parse("file:///alice.kul").unwrap();
         let marriage_url = Url::parse("file:///marriage.kul").unwrap();
-        // Cursor on the `alice` reference inside marriage.kul.
         let alice_ref_offset = marriage_src.find(" alice ").unwrap() + 1;
         let locs = references(
             &entry,
@@ -225,7 +197,6 @@ mod tests {
             true,
         )
         .unwrap();
-        // One reference (in marriage.kul) + the declaration (in alice.kul).
         assert_eq!(locs.len(), 2);
         assert!(locs.iter().any(|l| l.uri == alice_url));
         assert!(locs.iter().any(|l| l.uri == marriage_url));

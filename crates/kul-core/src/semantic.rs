@@ -1,37 +1,11 @@
-//! Semantic analysis: turns a multi-file [`Document`] into a
-//! [`ResolvedDocument`].
+//! Semantic analysis: multi-file [`Document`] → [`ResolvedDocument`], the
+//! deep query module the validator and cycle-detector talk through.
 //!
-//! [`ResolvedDocument`] is the deep query module the validator and the
-//! cycle-detector talk to. It owns the [`Document`] (via `Arc<Document>`)
-//! and a project-wide id index, and exposes typed query methods (`persons`,
-//! `marriages`, `spouses_of`, `parents_of`, `person`, `marriage`); callers
-//! never touch the underlying maps. New questions about kinship belong
-//! here, not at every rule's call site.
-//!
-//! # Project-wide namespace (ADR-0015)
-//!
-//! A Kul project is a directory containing a `kul.yml` manifest plus one
-//! or more `.kul` files. Every person- or marriage-id declared in any
-//! file of the project is visible from every file — the file boundary is
-//! organizational, not semantic. Per-id queries (`person(id)`,
-//! `marriage(id)`, `entity(id)`) take only the bare id; the resolver
-//! returns the unique declaration regardless of which file owns it.
-//!
-//! Iteration queries (`persons`, `marriages`, `statements`) walk every
-//! file in source order; the `_in(file)` variants restrict to one file
-//! (the LSP uses these for per-document symbol listings and the like).
-//!
-//! `node_at(file, offset)` and `statement_at(file, offset)` keep their
-//! file parameter because byte offsets are inherently per-file.
-//!
-//! [ADR-0015](../../docs/adr/0015-global-project-namespace.md) records
-//! the supersession of ADR-0014's "Position B" (per-file namespaces) with
-//! this project-wide model.
-//!
-//! The `Arc<Document>` shape is what lets the LSP cache a single resolved
-//! view per project — the borrowed-lifetime alternative was self-
-//! referential and forced a re-resolve on every editor request. See
-//! [ADR-0007](../../docs/adr/0007-resolved-document-owns-document.md).
+//! Owns its [`Document`] via `Arc<Document>` (ADR-0007) and a
+//! project-wide id index. Per-id queries are project-wide per ADR-0015
+//! (the file boundary is organizational, not semantic). `_in(file)`
+//! variants restrict iteration to one file; byte-offset queries
+//! (`node_at`, `statement_at`) keep their file parameter.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -40,7 +14,7 @@ use crate::ast::{Document, Ident, MarriageStmt, PersonStmt, Statement};
 use crate::diagnostic::{Diagnostic, fspan};
 use crate::span::{ByteSpan, FileId, FileSpan};
 
-/// What kind of top-level entity an ID names.
+/// Kind of top-level entity an id names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EntityKind {
     Person,
@@ -57,20 +31,13 @@ impl EntityKind {
     }
 }
 
-/// One entry in the project-wide ID index, returned by
-/// [`ResolvedDocument::entity`].
-///
-/// Built on demand from the underlying statement when the caller asks; the
-/// `id` borrow is tied to `&self` of the resolved document. The
-/// declaration's `FileSpan` is exposed so consumers (the LSP feature
-/// modules, ID-rename tooling) can render the location without re-walking
-/// the AST to find it.
+/// Project-wide id index entry returned by [`ResolvedDocument::entity`].
+/// Built on demand; `id` borrow tied to `&self`.
 #[derive(Debug, Clone, Copy)]
 pub struct EntityRef<'a> {
     pub kind: EntityKind,
     pub id: &'a Ident,
-    /// File the declaration lives in. Combine with `id.span` to build a
-    /// [`FileSpan`] anchor for diagnostics or LSP responses.
+    /// File the declaration lives in.
     pub file: FileId,
 }
 
@@ -82,12 +49,8 @@ impl EntityRef<'_> {
     }
 }
 
-/// Stored entry in the resolved id index — `kind`, the owning file, and
-/// the position of the corresponding statement in that file's
-/// `statements`. Storing the (file, index) pair rather than a borrow is
-/// what lets `ResolvedDocument` own its `Document` instead of borrowing
-/// into it; query methods rebuild the borrowed [`EntityRef`] view on
-/// demand.
+/// Internal id index entry: `(kind, file, statement_idx)`. Stored
+/// non-borrowed so `ResolvedDocument` can own its [`Document`].
 #[derive(Debug, Clone, Copy)]
 struct ResolvedEntity {
     kind: EntityKind,
@@ -95,33 +58,23 @@ struct ResolvedEntity {
     statement_idx: usize,
 }
 
-/// A multi-file Kul project with semantic information attached.
-///
-/// Built by [`resolve`]; consumed by the validator and the cycle-detector.
-/// All cross-reference and kinship queries go through methods on this
-/// type — callers do not enumerate the underlying maps. Owns its
-/// [`Document`] via `Arc<Document>`, so it is cheap to clone (refcount
-/// bump) and can be cached alongside other artifacts (the LSP document
-/// cache holds one per project).
+/// Multi-file Kul project with semantic information attached. Owns its
+/// [`Document`] via `Arc<Document>` so cloning is a refcount bump.
 #[derive(Debug, Clone)]
 pub struct ResolvedDocument {
     document: Arc<Document>,
-    /// Flat project-wide entity index. Every id declared in any `.kul`
-    /// file of the project lives here once; R01 fires before insertion on
-    /// collision, so a successful insert means the id is uniquely owned.
+    /// Project-wide id index; R01 fires on collision so every entry is
+    /// uniquely owned.
     entities: HashMap<String, ResolvedEntity>,
 }
 
-/// One parent link: a directed edge `child → parent` with the source span
-/// where the link is documented (the child's `birth` or `adoption`
-/// marriage-ref) and the file containing that span.
+/// Directed edge `child → parent`. `link_span`/`link_file` point to the
+/// child's `birth`/`adoption` ref (in the child's file, which may
+/// differ from the parent's).
 #[derive(Debug, Clone)]
 pub struct ParentLink<'a> {
     pub parent: &'a PersonStmt,
     pub link_span: ByteSpan,
-    /// The file containing `link_span` — the child's owning file, which
-    /// may differ from the parent's owning file under project-wide
-    /// resolution.
     pub link_file: FileId,
     pub kind: ParentLinkKind,
 }
@@ -133,30 +86,20 @@ pub enum ParentLinkKind {
 }
 
 impl ResolvedDocument {
-    /// The underlying parsed multi-file [`Document`]. Useful for downstream
-    /// consumers that need access to source bytes or per-file names; rules
-    /// inside this crate go through the typed queries below instead.
+    /// The underlying parsed [`Document`].
     #[must_use]
     pub fn document(&self) -> &Document {
         &self.document
     }
 
-    /// A clone of the shared [`Arc<Document>`] backing this resolved view —
-    /// a refcount bump, no allocation. Useful for callers that want to hold
-    /// onto the document alongside the resolved view (the LSP document
-    /// cache, downstream tooling) without copying source bytes.
+    /// Clone the shared [`Arc<Document>`] (refcount bump, no allocation).
     #[must_use]
     pub fn document_arc(&self) -> Arc<Document> {
         Arc::clone(&self.document)
     }
 
-    /// Walk every top-level statement in every `.kul` file in source
-    /// order, file-by-file.
-    ///
-    /// Use this when a caller wants to dispatch on the typed `Statement`
-    /// enum across the whole project (the export builder, project-wide
-    /// validator rules). Use [`Self::statements_in`] for a single-file
-    /// iterator.
+    /// Every top-level statement in every `.kul` file, in source order,
+    /// file-by-file.
     pub fn statements(&self) -> impl Iterator<Item = &Statement> + '_ {
         self.document
             .kul_files
@@ -164,8 +107,8 @@ impl ResolvedDocument {
             .flat_map(|f| f.statements.iter())
     }
 
-    /// Walk every top-level statement in `file`, in source order.
-    /// Empty when `file` is the manifest or out of range.
+    /// Statements in `file`, in source order. Empty when `file` is the
+    /// manifest or out of range.
     pub fn statements_in(&self, file: FileId) -> impl Iterator<Item = &Statement> + '_ {
         self.document
             .kul_file(file)
@@ -173,7 +116,7 @@ impl ResolvedDocument {
             .flat_map(|f| f.statements.iter())
     }
 
-    /// Walk every `person` statement across the project in source order.
+    /// Every `person` in the project, in source order.
     pub fn persons(&self) -> impl Iterator<Item = &PersonStmt> + '_ {
         self.statements().filter_map(|s| match s {
             Statement::Person(p) => Some(p),
@@ -181,7 +124,7 @@ impl ResolvedDocument {
         })
     }
 
-    /// Walk every `person` statement in `file`, in source order.
+    /// Persons in `file`, in source order.
     pub fn persons_in(&self, file: FileId) -> impl Iterator<Item = &PersonStmt> + '_ {
         self.statements_in(file).filter_map(|s| match s {
             Statement::Person(p) => Some(p),
@@ -189,7 +132,7 @@ impl ResolvedDocument {
         })
     }
 
-    /// Walk every `marriage` statement across the project in source order.
+    /// Every `marriage` in the project, in source order.
     pub fn marriages(&self) -> impl Iterator<Item = &MarriageStmt> + '_ {
         self.statements().filter_map(|s| match s {
             Statement::Marriage(m) => Some(m),
@@ -197,7 +140,7 @@ impl ResolvedDocument {
         })
     }
 
-    /// Walk every `marriage` statement in `file`, in source order.
+    /// Marriages in `file`, in source order.
     pub fn marriages_in(&self, file: FileId) -> impl Iterator<Item = &MarriageStmt> + '_ {
         self.statements_in(file).filter_map(|s| match s {
             Statement::Marriage(m) => Some(m),
@@ -205,19 +148,14 @@ impl ResolvedDocument {
         })
     }
 
-    /// Look up a person by id anywhere in the project. Returns `None` if
-    /// no entity has this id, or if one does but it's a marriage. Lookups
-    /// are project-wide per ADR-0015.
+    /// Look up a person by id (project-wide). `None` if absent or the id
+    /// names a marriage.
     #[must_use]
     pub fn person(&self, id: &str) -> Option<&PersonStmt> {
         self.person_with_file(id).map(|(_, p)| p)
     }
 
-    /// Look up a person by id, project-wide, returning the declaration
-    /// together with the [`FileId`] that owns it. Same `None` rules as
-    /// [`Self::person`]. Used by the cursor seam ([`Node::PersonRef`]) so
-    /// downstream features (goto-definition, find-references, rename) can
-    /// see which file the target lives in without re-querying.
+    /// Like [`Self::person`] but also returns the declaring [`FileId`].
     #[must_use]
     pub fn person_with_file(&self, id: &str) -> Option<(FileId, &PersonStmt)> {
         let entity = self.entity_record(id)?;
@@ -233,15 +171,14 @@ impl ResolvedDocument {
         }
     }
 
-    /// Look up a marriage by id anywhere in the project. Same `None`
-    /// rules as [`Self::person`].
+    /// Look up a marriage by id (project-wide). Same `None` rules as
+    /// [`Self::person`].
     #[must_use]
     pub fn marriage(&self, id: &str) -> Option<&MarriageStmt> {
         self.marriage_with_file(id).map(|(_, m)| m)
     }
 
-    /// File-aware sibling of [`Self::marriage`] — same shape as
-    /// [`Self::person_with_file`].
+    /// Like [`Self::marriage`] but also returns the declaring [`FileId`].
     #[must_use]
     pub fn marriage_with_file(&self, id: &str) -> Option<(FileId, &MarriageStmt)> {
         let entity = self.entity_record(id)?;
@@ -257,8 +194,7 @@ impl ResolvedDocument {
         }
     }
 
-    /// Look up an entity (person or marriage) by id anywhere in the
-    /// project, regardless of kind. Used by reference-resolution checks.
+    /// Look up an entity by id regardless of kind.
     #[must_use]
     pub fn entity(&self, id: &str) -> Option<EntityRef<'_>> {
         let entity = self.entity_record(id)?;
@@ -278,17 +214,11 @@ impl ResolvedDocument {
         self.entities.get(id)
     }
 
-    /// The top-level statement the cursor is sitting in, or just past,
-    /// inside `file`.
-    ///
-    /// "Sitting in" meaning the latest statement whose `span.start` is
-    /// at-or-before `byte_offset`. This is **not** strict span-containment:
-    /// a cursor on a brand-new blank line below a `person` declaration is
-    /// past the `PersonStmt.span.end`, but this method still returns the
-    /// `Person` — callers that care about top-level vs. indented context
-    /// (the completion classifier) refine that with the current line's
-    /// indent. Returns `None` only when the cursor is before any
-    /// statement, or `file` is out of range.
+    /// The latest top-level statement whose `span.start` is at-or-before
+    /// `byte_offset` in `file`. Not strict span-containment — a cursor on
+    /// a blank line below a `person` still returns the `Person`. Callers
+    /// that need top-level-vs-indented context refine via the current
+    /// line's indent.
     #[must_use]
     pub fn statement_at(&self, file: FileId, byte_offset: usize) -> Option<&Statement> {
         let kf = self.document.kul_file(file)?;
@@ -307,12 +237,8 @@ impl ResolvedDocument {
         chosen
     }
 
-    /// The two declared spouses of a marriage, in declaration order, with
-    /// unresolved spouses skipped (rule 2 reports them).
-    ///
-    /// Returns at most two persons; an empty iterator if both spouses are
-    /// unresolved. Resolution is project-wide: a spouse declared in one
-    /// file is reachable from a marriage in another (per ADR-0015).
+    /// Declared spouses of a marriage, in declaration order. Unresolved
+    /// spouses are skipped (R02 reports them).
     pub fn spouses_of<'a>(
         &'a self,
         marriage: &'a MarriageStmt,
@@ -323,20 +249,10 @@ impl ResolvedDocument {
     }
 
     /// Every reference site for `id` anywhere in the project, in source
-    /// order across files.
-    ///
-    /// `kind` selects which positions count: spouse positions for a
-    /// person, `birth`/`adoption` marriage refs for a marriage. The
-    /// declaration site is **not** included — callers that want it (per
-    /// LSP's `includeDeclaration` flag) prepend it themselves.
-    ///
-    /// Resolution is project-wide per ADR-0015: refs in any file are
-    /// returned regardless of which file declares `id` (or even when `id`
-    /// is unresolved). Per-URI consumers (LSP find-references, rename)
-    /// filter the returned [`FileSpan`]s by file at the call site.
-    /// Unresolved references whose name happens to match `id` are still
-    /// returned, so rename and find-references both work on partly-broken
-    /// documents.
+    /// order. `kind` selects the positions (spouse positions for a person,
+    /// `birth`/`adoption` refs for a marriage). The declaration site is
+    /// NOT included. Unresolved references with a matching name are still
+    /// returned so rename/find-references work on partial documents.
     #[must_use]
     pub fn references_to(&self, id: &str, kind: EntityKind) -> Vec<FileSpan> {
         let mut out = Vec::new();
@@ -370,12 +286,9 @@ impl ResolvedDocument {
         out
     }
 
-    /// Biological + adoptive parents of a person, in source order, each
-    /// tagged with the link's source span (and the file containing it)
-    /// and the link kind. Unresolved references are skipped (rule 2
-    /// reports them). Parent lookups happen project-wide; the link's
-    /// file is the child's owning file, which may differ from the
-    /// parent's.
+    /// Biological + adoptive parents of `person`, in source order. Each
+    /// link's `link_file` is the child's file. Unresolved refs are
+    /// skipped (R02 reports them).
     #[must_use]
     pub fn parents_of<'a>(&'a self, person: &PersonStmt) -> Vec<ParentLink<'a>> {
         let mut out = Vec::new();
@@ -407,10 +320,8 @@ impl ResolvedDocument {
         out
     }
 
-    /// The file containing a person's declaration. Falls back to
-    /// [`FileId::MANIFEST`] if the person is somehow not in any file
-    /// (impossible under [`resolve`]'s invariants); the fallback exists
-    /// only to keep the type total.
+    /// File containing a person's declaration; falls back to
+    /// [`FileId::MANIFEST`] only to keep the type total.
     fn file_of_person(&self, person: &PersonStmt) -> FileId {
         self.entity_record(&person.id.name)
             .map(|e| e.file)
@@ -418,21 +329,10 @@ impl ResolvedDocument {
     }
 }
 
-/// Build the project-wide id index for `document` and return any
-/// diagnostics that surface during construction. Takes ownership via
-/// [`Arc<Document>`] — the returned [`ResolvedDocument`] holds a
-/// refcounted handle to the same allocation, so callers can keep their
-/// own clone for source-level work.
-///
-/// Currently emits **rule 01** (duplicate ids) inline as the entity table
-/// is populated — the duplicate check is a property of insertion order
-/// and belongs in the resolver. R01 fires whenever an id is declared
-/// twice anywhere in the project. The primary span is on the second
-/// declaration (in file-discovery order, then byte offset within a file);
-/// a related-span points to the first declaration. All other spec rules
-/// (including rule 02 — unresolved references) live in
-/// [`crate::validator`] and run as a separate pass over the
-/// [`ResolvedDocument`].
+/// Build the project-wide id index for `document`, emitting R01
+/// (duplicate ids) inline as the index is populated. The R01 primary is
+/// on the second declaration; a related-span points to the first. All
+/// other rules live in [`crate::validator`].
 #[must_use]
 pub fn resolve(document: Arc<Document>) -> (ResolvedDocument, Vec<Diagnostic>) {
     let mut entities: HashMap<String, ResolvedEntity> = HashMap::new();
@@ -584,9 +484,6 @@ mod tests {
 
     #[test]
     fn references_to_walks_every_file_in_the_project() {
-        // alice is declared in a.kul and referenced in both a.kul (m_self)
-        // and b.kul (m_cross). The project-wide walk returns FileSpans
-        // pointing at both files; ordering follows input order.
         let src_a = "person alice name:\"A\" gender:female\n\
                      person bob name:\"B\" gender:male\n\
                      marriage m_self alice bob start:1980\n";
@@ -708,9 +605,6 @@ mod tests {
 
     #[test]
     fn r01_fires_across_files_with_primary_on_second_decl() {
-        // Two `.kul` files each declaring `alice`. Under project-wide
-        // resolution (ADR-0015) R01 fires with the primary on the second
-        // declaration (file 2) and a related-span on the first (file 1).
         let src1 = "person alice name:\"A1\" gender:female\n";
         let src2 = "person alice name:\"A2\" gender:female\n";
         let kf1 = Arc::new(KulFile::new(
@@ -772,7 +666,6 @@ mod tests {
         assert!(resolved.person("alice").is_some());
         assert!(resolved.person("bob").is_some());
         assert!(resolved.marriage("m").is_some());
-        // Spouses of `m` (in file 2) resolve to persons in file 1.
         let spouses: Vec<_> = resolved
             .spouses_of(resolved.marriage("m").unwrap())
             .map(|p| p.id.name.clone())
