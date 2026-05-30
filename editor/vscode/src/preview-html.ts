@@ -78,6 +78,14 @@ const BOOTSTRAP = `
     // card/path. Registered on #root, which survives every innerHTML swap.
     if (root) {
         root.addEventListener('click', function (event) {
+            // Pull keyboard focus into the iframe so the window-level
+            // keydown handler (issue #180) receives arrows/+/-/0. Clicking a
+            // non-focusable SVG does NOT move focus off the text editor on
+            // its own, so the diagram surface (#root, tabindex="-1") is
+            // focused explicitly here. tabindex="-1" keeps it out of the Tab
+            // order, and programmatic focus does not trigger :focus-visible,
+            // so no focus ring is drawn.
+            root.focus();
             const person = event.target.closest('[data-person-id]');
             if (person) {
                 vscode.postMessage({
@@ -251,7 +259,7 @@ export function previewHtml(
 <title>Kul Preview</title>
 </head>
 <body data-theme="vscode">
-<div id="root"></div>
+<div id="root" tabindex="-1"></div>
 ${CONTROLS}
 <script nonce="${nonce}" src="${scriptHref}"></script>
 <script nonce="${nonce}">${BOOTSTRAP}</script>
