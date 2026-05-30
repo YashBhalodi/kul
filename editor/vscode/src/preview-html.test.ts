@@ -472,13 +472,15 @@ describe("previewHtml hover tooltip", () => {
         expect(html).toContain("onZoom: removeTooltip");
     });
 
-    it("scales the tooltip with the diagram so it reads as inline", () => {
+    it("scales the tooltip with the diagram, capped at the high end", () => {
         const html = build();
         // The tooltip is sized in diagram units: it reads svg-pan-zoom's live
         // realZoom and applies it as a CSS scale, so it grows/shrinks with the
-        // surrounding cards rather than staying a fixed screen overlay.
+        // surrounding cards rather than staying a fixed screen overlay — but
+        // clamped to MAX_TOOLTIP_SCALE so very high zoom doesn't balloon it.
         expect(html).toContain("panZoom.getSizes");
         expect(html).toContain("sizes.realZoom");
-        expect(html).toContain("'scale('");
+        expect(html).toContain("const MAX_TOOLTIP_SCALE =");
+        expect(html).toContain("'scale(' + tooltipScale()");
     });
 });

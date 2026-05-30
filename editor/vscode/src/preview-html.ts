@@ -304,6 +304,16 @@ const BOOTSTRAP = `
         }
         hoverTarget = null;
     }
+    // The factor the tooltip (and its anchor gap) scale by: the live diagram
+    // user-unit→pixel zoom, so it reads as part of the drawing — but capped so
+    // that at very high zoom it stops growing into a wall of text and settles
+    // at a reasonable size. It still shrinks freely below 1× when zoomed out.
+    const MAX_TOOLTIP_SCALE = 1.5;
+    function tooltipScale() {
+        const sizes = panZoom && panZoom.getSizes ? panZoom.getSizes() : null;
+        const z = sizes && sizes.realZoom > 0 ? sizes.realZoom : 1;
+        return z < MAX_TOOLTIP_SCALE ? z : MAX_TOOLTIP_SCALE;
+    }
     // Anchor below the element's left edge, then clamp into the viewport,
     // flipping above if the panel would overflow the bottom. Read after the
     // panel is in the DOM so getBoundingClientRect() reports its real size.
@@ -314,11 +324,9 @@ const BOOTSTRAP = `
         const anchor = target.getBoundingClientRect();
         const tip = tooltipEl.getBoundingClientRect();
         // The card-to-tooltip gap scales with the diagram (like the tooltip
-        // itself) so the offset stays proportional at any zoom; the viewport
-        // safety margin stays a fixed screen distance.
-        const sizes = panZoom && panZoom.getSizes ? panZoom.getSizes() : null;
-        const scale = sizes && sizes.realZoom > 0 ? sizes.realZoom : 1;
-        const GAP = 8 * scale;
+        // itself, same capped factor) so the offset stays proportional at any
+        // zoom; the viewport safety margin stays a fixed screen distance.
+        const GAP = 8 * tooltipScale();
         const MARGIN = 4;
         let left = anchor.left;
         let top = anchor.bottom + GAP;
@@ -363,12 +371,11 @@ const BOOTSTRAP = `
         // user-unit→pixel factor (realZoom — the same mapping F12's centring
         // uses). Zoom in, the tooltip grows with the cards; zoom out, it
         // shrinks with them (small enough to be unreadable at the far end, by
-        // design — the reader zooms into the area they care about). Anchored
-        // from the top-left corner so the scale grows down-right from there.
-        const sizes = panZoom && panZoom.getSizes ? panZoom.getSizes() : null;
-        const scale = sizes && sizes.realZoom > 0 ? sizes.realZoom : 1;
+        // design — the reader zooms into the area they care about), capped at
+        // the high end so it never balloons. Anchored from the top-left corner
+        // so the scale grows down-right from there.
         el.style.transformOrigin = 'top left';
-        el.style.transform = 'scale(' + scale + ')';
+        el.style.transform = 'scale(' + tooltipScale() + ')';
         // Typed header: an entity-kind kicker over the resolved identity line.
         const header = document.createElement('div');
         header.className = 'kul-tooltip-header';
