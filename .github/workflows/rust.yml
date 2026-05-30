@@ -59,6 +59,20 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - run: cargo nextest run --workspace --no-tests=pass
 
+  perf-release:
+    name: perf (release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@nextest
+      # The LSP server ships release-built, so the release wall-clock is the
+      # real per-edit cost a user feels. The `test` job already gates the
+      # debug ceiling via the workspace run; this enforces the tighter
+      # release ceiling on every PR (release compile scoped to kul-lsp + deps).
+      - run: cargo nextest run -p kul-lsp --release -E 'binary(perf)'
+
   wasm-build:
     name: wasm-build
     runs-on: ubuntu-latest
