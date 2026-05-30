@@ -282,9 +282,22 @@ const BOOTSTRAP = `
     // sync (#137):
     // distinct events on the same elements, and the panel is pointer-events:
     // none so it never intercepts a hover or click.
+    // Hover-intent delay: the tooltip is scheduled on enter and only shown
+    // after the pointer rests on an entity for HOVER_DELAY_MS, so a cursor
+    // merely passing over cards on its way elsewhere never flashes popups.
+    // Leaving the entity, switching entities, a pan/zoom, or a re-render
+    // before it fires cancels the pending reveal (all route through
+    // removeTooltip, which clears the timer). 350ms tracks VSCode's own
+    // editor-hover feel while still reading as deliberate.
+    const HOVER_DELAY_MS = 350;
     let hoverTarget = null;
+    let hoverTimer = null;
     let tooltipEl = null;
     function removeTooltip() {
+        if (hoverTimer !== null) {
+            clearTimeout(hoverTimer);
+            hoverTimer = null;
+        }
         if (tooltipEl) {
             tooltipEl.remove();
             tooltipEl = null;
@@ -406,7 +419,12 @@ const BOOTSTRAP = `
             removeTooltip();
             if (entity) {
                 hoverTarget = entity;
-                showTooltip(entity);
+                // Arm the reveal; it fires only if the pointer is still here
+                // after the delay (removeTooltip clears it otherwise).
+                hoverTimer = setTimeout(function () {
+                    hoverTimer = null;
+                    showTooltip(entity);
+                }, HOVER_DELAY_MS);
             }
         });
         root.addEventListener('mouseout', function (event) {

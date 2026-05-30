@@ -436,6 +436,16 @@ describe("previewHtml hover tooltip", () => {
         expect(html).toContain("closest('.kul-card, .kul-edge')");
     });
 
+    it("delays the reveal on a hover-intent timer, cancellable before it fires", () => {
+        const html = build();
+        // The tooltip is scheduled via setTimeout(HOVER_DELAY_MS) rather than
+        // shown immediately, and removeTooltip clears the pending timer so a
+        // quick pass-over / leave / pan / re-render never flashes a popup.
+        expect(html).toContain("const HOVER_DELAY_MS =");
+        expect(html).toContain("hoverTimer = setTimeout(");
+        expect(html).toContain("clearTimeout(hoverTimer)");
+    });
+
     it("resolves names off the card labels for the typed header", () => {
         const html = build();
         // The person/spouse/child names come from the rendered .kul-label-name
