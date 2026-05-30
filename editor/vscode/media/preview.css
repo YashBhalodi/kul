@@ -230,3 +230,21 @@ body {
 .kul-edge[data-is-ended="true"] {
     stroke-opacity: var(--kul-ended-edge-stroke-opacity);
 }
+
+/* Selection sync (#137): the card whose declaration/reference the editor
+ * cursor sits on takes the focus-border stroke colour, overriding the
+ * per-gender tint. Colour-based, unlike the width-only hover, so a card that
+ * is both hovered and selected reads as both. `.kul-card.kul-selected rect`
+ * (0,3,1) outranks the per-gender (0,2,1) and hover (0,2,1) rules. */
+.kul-card.kul-selected rect {
+    stroke: var(--kul-selected-stroke);
+    stroke-width: var(--kul-selected-card-stroke-width);
+}
+
+/* The selected marriage bar takes the same focus-border colour. Keyed on
+ * data-link-kind="marriage" so birth/adoption edges (which the highlight
+ * never targets) cannot match. The colour swap is distinct from the
+ * width-only marriage hover. */
+.kul-edge[data-link-kind="marriage"].kul-selected {
+    stroke: var(--kul-selected-stroke);
+}

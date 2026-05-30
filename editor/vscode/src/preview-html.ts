@@ -112,6 +112,54 @@ const BOOTSTRAP = `
         }
     }
 
+    // Selection sync (issue #137), the inverse of click-to-source: the
+    // extension posts { type: 'highlightEntity', id, kind } when the editor
+    // cursor lands on a person/marriage (id: null clears). Highlighting is
+    // stateless — every message first strips .kul-selected from all prior
+    // matches, then re-applies it to the one element the id+kind name. The
+    // selector keys persons on data-person-id and marriages on
+    // data-link-kind="marriage" + data-marriage-id, so birth/adoption edges
+    // (which also carry data-marriage-id) stay inert, mirroring the
+    // click-to-source predicate.
+    function clearHighlight() {
+        root.querySelectorAll('.kul-selected').forEach(function (el) {
+            el.classList.remove('kul-selected');
+        });
+    }
+
+    // Pan (translate only — never zoom; issue #137) so the matched element
+    // sits at the viewport centre. svg-pan-zoom folds the SVG's viewBox into
+    // getSizes().realZoom and the pan baseline, so a getBBox() point in user
+    // coords maps to a viewport pixel as pan + realZoom*point. The pan that
+    // lands the bbox centre on the viewport centre is therefore
+    // width/2 - centre*realZoom. Guards a missing/zero bbox (detached or
+    // unrendered element).
+    function panToElement(el) {
+        if (!panZoom || typeof el.getBBox !== 'function') { return; }
+        const bbox = el.getBBox();
+        if (!bbox || (bbox.width === 0 && bbox.height === 0)) { return; }
+        const sizes = panZoom.getSizes();
+        const realZoom = sizes.realZoom;
+        const cx = bbox.x + bbox.width / 2;
+        const cy = bbox.y + bbox.height / 2;
+        panZoom.pan({
+            x: sizes.width / 2 - cx * realZoom,
+            y: sizes.height / 2 - cy * realZoom,
+        });
+    }
+
+    function highlightEntity(id, kind) {
+        clearHighlight();
+        if (!id) { return; }
+        const selector = kind === 'marriage'
+            ? '[data-link-kind="marriage"][data-marriage-id="' + id + '"]'
+            : '[data-person-id="' + id + '"]';
+        const el = root.querySelector(selector);
+        if (!el) { return; }
+        el.classList.add('kul-selected');
+        panToElement(el);
+    }
+
     function showControls(visible) {
         if (controls) { controls.hidden = !visible; }
     }
@@ -244,6 +292,8 @@ const BOOTSTRAP = `
                 panZoom.pan(savedPan);
             }
             showControls(true);
+        } else if (msg.type === 'highlightEntity') {
+            highlightEntity(msg.id, msg.kind);
         } else if (msg.type === 'renderError') {
             teardown();
             showControls(false);

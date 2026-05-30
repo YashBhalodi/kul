@@ -138,3 +138,42 @@ describe("previewHtml click-to-source", () => {
         expect(build()).not.toContain('closest("[data-marriage-id]")');
     });
 });
+
+describe("previewHtml selection sync", () => {
+    it("handles the highlightEntity message", () => {
+        const html = build();
+        expect(html).toContain("msg.type === 'highlightEntity'");
+        expect(html).toContain("highlightEntity(msg.id, msg.kind)");
+    });
+
+    it("clears every prior .kul-selected before applying (stateless)", () => {
+        const html = build();
+        expect(html).toContain("querySelectorAll('.kul-selected')");
+        expect(html).toContain("classList.remove('kul-selected')");
+    });
+
+    it("treats a null id as clear-only", () => {
+        // highlightEntity returns after clearing when id is falsy, so a
+        // { id: null } message strips the highlight without re-applying.
+        expect(build()).toContain("if (!id) { return; }");
+    });
+
+    it("selects persons by data-person-id and marriages by link-kind + id", () => {
+        const html = build();
+        expect(html).toContain(
+            '[data-link-kind="marriage"][data-marriage-id="\' + id + \'"]',
+        );
+        expect(html).toContain('[data-person-id="\' + id + \'"]');
+        expect(html).toContain("classList.add('kul-selected')");
+    });
+
+    it("pans (translate only) to centre the matched element", () => {
+        const html = build();
+        // Centering reads the live viewport via getSizes()+getBBox() and
+        // calls panZoom.pan(...) — never zoom.
+        expect(html).toContain("panZoom.getSizes()");
+        expect(html).toContain("getBBox()");
+        expect(html).toContain("panZoom.pan(");
+        expect(html).toContain("panToElement(el)");
+    });
+});

@@ -40,6 +40,10 @@ body[data-theme="vscode"] {
     --kul-edge-stroke: var(--vscode-charts-green, var(--vscode-editor-foreground));
     --kul-adoption-edge-stroke: var(--vscode-charts-orange, var(--vscode-descriptionForeground, var(--vscode-editor-foreground)));
     --kul-marriage-edge-stroke: var(--vscode-charts-purple, var(--vscode-editor-foreground));
+    /* Selection sync (#137): the card/bar matching the editor cursor takes
+     * the theme's focus-border colour, so it reads distinct from the
+     * width-only hover and tracks light / dark / high-contrast themes. */
+    --kul-selected-stroke: var(--vscode-focusBorder, var(--vscode-editor-foreground));
 
     /* Dimensions / opacities / spacing */
     --kul-font-size: var(--vscode-editor-font-size);
@@ -56,6 +60,7 @@ body[data-theme="vscode"] {
     --kul-edge-stroke-width: 1.5;
     --kul-marriage-edge-stroke-width: 8.75;
     --kul-marriage-edge-hover-stroke-width: 10.5;
+    --kul-selected-card-stroke-width: 3;
     --kul-ended-edge-stroke-opacity: 0.6;
     --kul-hover-transition-duration: 0.1s;
 

@@ -14,9 +14,15 @@ let client: LanguageClient | undefined;
 let previewPanel: vscode.WebviewPanel | undefined;
 let previewDebounce: NodeJS.Timeout | undefined;
 let previewListener: vscode.Disposable | undefined;
+let selectionListener: vscode.Disposable | undefined;
+let selectionDebounce: NodeJS.Timeout | undefined;
 let previewUri: vscode.Uri | undefined;
 
 const PREVIEW_DEBOUNCE_MS = 300;
+// Selection sync (issue #137) reacts to cursor movement, which fires far
+// more often than edits — a tighter debounce than PREVIEW_DEBOUNCE_MS keeps
+// the highlight feeling live without flooding the server.
+const SELECTION_DEBOUNCE_MS = 50;
 
 export async function activate(
     context: vscode.ExtensionContext,
@@ -182,6 +188,11 @@ interface LocateResponse {
     location: LspLocation | null;
 }
 
+/** Entity returned by `kul/entityAt` — `null` when the cursor is off any entity. */
+interface EntityAtResponse {
+    entity: { id: string; kind: "person" | "marriage" } | null;
+}
+
 /**
  * Message posted by the webview when a person card or marriage bar is
  * clicked (issue #135). The id is a project-wide entity id; the uri is
@@ -229,6 +240,47 @@ async function revealSource(id: string): Promise<void> {
         location.range.end.character,
     );
     await vscode.window.showTextDocument(targetUri, { selection });
+}
+
+/**
+ * Selection sync (issue #137), the inverse of {@link revealSource}: resolve
+ * a source cursor position to its entity via `kul/entityAt` and tell the
+ * webview to highlight the matching card or marriage bar. Resolution is
+ * project-wide (ADR-0015), so `uri` is the file the cursor is in (which may
+ * be a sibling of `previewUri`). A cursor that is off any entity (keyword,
+ * field, whitespace, unresolved reference) resolves to `null`, posted as a
+ * clear. A request failure is a silent clear — debug log only.
+ */
+async function syncSelection(
+    uri: vscode.Uri,
+    position: vscode.Position,
+): Promise<void> {
+    if (!client || !previewPanel) {
+        return;
+    }
+    let response: EntityAtResponse;
+    try {
+        response = await client.sendRequest<EntityAtResponse>("kul/entityAt", {
+            uri: uri.toString(),
+            position: { line: position.line, character: position.character },
+        });
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        client.outputChannel.appendLine(
+            `kul/entityAt failed: ${message}`,
+        );
+        await previewPanel.webview.postMessage({
+            type: "highlightEntity",
+            id: null,
+        });
+        return;
+    }
+    const entity = response.entity;
+    await previewPanel.webview.postMessage({
+        type: "highlightEntity",
+        id: entity ? entity.id : null,
+        kind: entity ? entity.kind : undefined,
+    });
 }
 
 async function showPreview(
@@ -310,9 +362,15 @@ async function showPreview(
         previewPanel = undefined;
         previewListener?.dispose();
         previewListener = undefined;
+        selectionListener?.dispose();
+        selectionListener = undefined;
         if (previewDebounce) {
             clearTimeout(previewDebounce);
             previewDebounce = undefined;
+        }
+        if (selectionDebounce) {
+            clearTimeout(selectionDebounce);
+            selectionDebounce = undefined;
         }
     });
 
@@ -344,6 +402,34 @@ async function showPreview(
         }, PREVIEW_DEBOUNCE_MS);
     });
 
+    // Selection sync (issue #137): when the cursor moves in a project-dir
+    // `.kul` file, resolve its entity and highlight the matching card/bar.
+    // Reuses the same same-dir predicate as the re-render listener above;
+    // only the primary cursor (selections[0]) drives the highlight —
+    // secondary cursors are ignored (v1 scope).
+    selectionListener = vscode.window.onDidChangeTextEditorSelection((event) => {
+        if (!previewUri) {
+            return;
+        }
+        if (event.textEditor.document.languageId !== "kul") {
+            return;
+        }
+        const previewDir = path.dirname(previewUri.fsPath);
+        const eventDir = path.dirname(event.textEditor.document.uri.fsPath);
+        if (eventDir !== previewDir) {
+            return;
+        }
+        const editorUri = event.textEditor.document.uri;
+        const position = event.selections[0].active;
+        if (selectionDebounce) {
+            clearTimeout(selectionDebounce);
+        }
+        selectionDebounce = setTimeout(() => {
+            selectionDebounce = undefined;
+            void syncSelection(editorUri, position);
+        }, SELECTION_DEBOUNCE_MS);
+    });
+
     // Initial render.
     await refreshPreview(previewUri);
 }
@@ -371,6 +457,20 @@ async function refreshPreview(uri: vscode.Uri): Promise<void> {
             type: "render",
             svg: response.svg,
         });
+        // Re-assert the cursor's highlight: a live-edit re-render rebuilds
+        // the SVG and drops the prior `.kul-selected`, so re-resolve the
+        // active editor's cursor (issue #137) and post it after the swap.
+        const editor = vscode.window.activeTextEditor;
+        if (editor && editor.document.languageId === "kul") {
+            const editorDir = path.dirname(editor.document.uri.fsPath);
+            const previewDir = previewUri && path.dirname(previewUri.fsPath);
+            if (editorDir === previewDir) {
+                void syncSelection(
+                    editor.document.uri,
+                    editor.selection.active,
+                );
+            }
+        }
     } else {
         const count = response.diagnostics?.length ?? 0;
         await previewPanel.webview.postMessage({
@@ -383,9 +483,13 @@ async function refreshPreview(uri: vscode.Uri): Promise<void> {
 
 export async function deactivate(): Promise<void> {
     previewListener?.dispose();
+    selectionListener?.dispose();
     previewPanel?.dispose();
     if (previewDebounce) {
         clearTimeout(previewDebounce);
+    }
+    if (selectionDebounce) {
+        clearTimeout(selectionDebounce);
     }
     await client?.stop();
     client = undefined;
