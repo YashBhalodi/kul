@@ -230,3 +230,18 @@ body {
 .kul-edge[data-is-ended="true"] {
     stroke-opacity: var(--kul-ended-edge-stroke-opacity);
 }
+
+/* Selection sync (#137): the card/bar the editor cursor sits on is wrapped
+ * in a prominent outline ring rather than recolouring the shape, so the
+ * entity keeps its own gender tint / marriage colour and the selection still
+ * reads unmistakably. The ring colour is reserved for selection — a hue used
+ * nowhere else in the palette — and outline-offset floats it just outside the
+ * shape. `outline` is a separate box from `stroke`, so this never fights the
+ * per-gender or hover stroke rules (no specificity conflict). The marriage
+ * selector keys on data-link-kind="marriage" so birth/adoption edges (which
+ * the highlight never targets) cannot match. */
+.kul-card.kul-selected rect,
+.kul-edge[data-link-kind="marriage"].kul-selected {
+    outline: var(--kul-selected-outline-width) solid var(--kul-selected-outline-color);
+    outline-offset: var(--kul-selected-outline-offset);
+}

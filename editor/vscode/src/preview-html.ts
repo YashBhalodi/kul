@@ -105,11 +105,94 @@ const BOOTSTRAP = `
         });
     }
 
+    // Handle of the in-flight selection-centring animation (issue #137), so
+    // a new highlight or a teardown can cancel it before it fights the new
+    // target / a destroyed instance.
+    let panAnimRaf = null;
+    function cancelPanAnim() {
+        if (panAnimRaf !== null) {
+            cancelAnimationFrame(panAnimRaf);
+            panAnimRaf = null;
+        }
+    }
+
     function teardown() {
+        cancelPanAnim();
         if (panZoom) {
             panZoom.destroy();
             panZoom = null;
         }
+    }
+
+    // Selection sync (issue #137), the inverse of click-to-source: the
+    // extension posts { type: 'highlightEntity', id, kind } when the editor
+    // cursor lands on a person/marriage (id: null clears). Highlighting is
+    // stateless — every message first strips .kul-selected from all prior
+    // matches, then re-applies it to the one element the id+kind name. The
+    // selector keys persons on data-person-id and marriages on
+    // data-link-kind="marriage" + data-marriage-id, so birth/adoption edges
+    // (which also carry data-marriage-id) stay inert, mirroring the
+    // click-to-source predicate.
+    function clearHighlight() {
+        root.querySelectorAll('.kul-selected').forEach(function (el) {
+            el.classList.remove('kul-selected');
+        });
+    }
+
+    // Smoothly pan (translate only — never zoom; issue #137) so the matched
+    // element ends at the viewport centre. svg-pan-zoom folds the SVG's
+    // viewBox into getSizes().realZoom and the pan baseline, so a getBBox()
+    // point in user coords maps to a viewport pixel as pan + realZoom*point;
+    // the pan that lands the bbox centre on the viewport centre is therefore
+    // width/2 - centre*realZoom. Rather than snapping there (jarring as the
+    // cursor moves), a requestAnimationFrame loop eases the pan from its
+    // current value to the target over PAN_ANIM_MS — the same rAF-driven
+    // smoothness as the keyboard pan (issue #180). A new highlight cancels
+    // the in-flight tween (cancelPanAnim) and re-eases from wherever it got
+    // to, so rapid cursor moves chase the latest target without stacking.
+    // Guards a missing/zero bbox (detached or unrendered element).
+    const PAN_ANIM_MS = 500;
+    function panToElement(el) {
+        if (!panZoom || typeof el.getBBox !== 'function') { return; }
+        const bbox = el.getBBox();
+        if (!bbox || (bbox.width === 0 && bbox.height === 0)) { return; }
+        const sizes = panZoom.getSizes();
+        const realZoom = sizes.realZoom;
+        const cx = bbox.x + bbox.width / 2;
+        const cy = bbox.y + bbox.height / 2;
+        const targetX = sizes.width / 2 - cx * realZoom;
+        const targetY = sizes.height / 2 - cy * realZoom;
+        cancelPanAnim();
+        const start = panZoom.getPan();
+        const dx = targetX - start.x;
+        const dy = targetY - start.y;
+        // Already centred (sub-pixel): set exactly and skip the tween.
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+            panZoom.pan({ x: targetX, y: targetY });
+            return;
+        }
+        const startTime = performance.now();
+        function step(now) {
+            if (!panZoom) { panAnimRaf = null; return; }
+            const t = Math.min(1, (now - startTime) / PAN_ANIM_MS);
+            // ease-out cubic: fast departure, gentle arrival.
+            const eased = 1 - Math.pow(1 - t, 3);
+            panZoom.pan({ x: start.x + dx * eased, y: start.y + dy * eased });
+            panAnimRaf = t < 1 ? requestAnimationFrame(step) : null;
+        }
+        panAnimRaf = requestAnimationFrame(step);
+    }
+
+    function highlightEntity(id, kind) {
+        clearHighlight();
+        if (!id) { return; }
+        const selector = kind === 'marriage'
+            ? '[data-link-kind="marriage"][data-marriage-id="' + id + '"]'
+            : '[data-person-id="' + id + '"]';
+        const el = root.querySelector(selector);
+        if (!el) { return; }
+        el.classList.add('kul-selected');
+        panToElement(el);
     }
 
     function showControls(visible) {
@@ -218,6 +301,9 @@ const BOOTSTRAP = `
             let savedPan = null;
             let savedZoom = null;
             if (panZoom) {
+                // Stop any in-flight selection tween before the instance it
+                // drives is destroyed (issue #137).
+                cancelPanAnim();
                 savedPan = panZoom.getPan();
                 savedZoom = panZoom.getZoom();
                 panZoom.destroy();
@@ -244,6 +330,8 @@ const BOOTSTRAP = `
                 panZoom.pan(savedPan);
             }
             showControls(true);
+        } else if (msg.type === 'highlightEntity') {
+            highlightEntity(msg.id, msg.kind);
         } else if (msg.type === 'renderError') {
             teardown();
             showControls(false);

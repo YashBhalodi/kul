@@ -36,6 +36,7 @@ pub async fn run() {
         .custom_method("kul/export", server::Backend::export)
         .custom_method("kul/render", server::Backend::render)
         .custom_method("kul/locate", server::Backend::locate)
+        .custom_method("kul/entityAt", server::Backend::entity_at)
         .finish();
     Server::new(stdin, stdout, socket).serve(service).await;
 }

@@ -40,6 +40,13 @@ body[data-theme="vscode"] {
     --kul-edge-stroke: var(--vscode-charts-green, var(--vscode-editor-foreground));
     --kul-adoption-edge-stroke: var(--vscode-charts-orange, var(--vscode-descriptionForeground, var(--vscode-editor-foreground)));
     --kul-marriage-edge-stroke: var(--vscode-charts-purple, var(--vscode-editor-foreground));
+    /* Selection sync (#137): a prominent outline colour reserved for the
+     * cursor-selected entity. Deliberately a hue used nowhere else in the
+     * palette (not the per-gender blue/red/yellow, nor the green/orange/purple
+     * edges) so the selection reads unambiguously, and a fixed vivid magenta
+     * rather than a VSCode palette var so it stays equally bold across light,
+     * dark, and high-contrast themes. Swap this one token to retheme it. */
+    --kul-selected-outline-color: #ff2d95;
 
     /* Dimensions / opacities / spacing */
     --kul-font-size: var(--vscode-editor-font-size);
@@ -56,6 +63,8 @@ body[data-theme="vscode"] {
     --kul-edge-stroke-width: 1.5;
     --kul-marriage-edge-stroke-width: 8.75;
     --kul-marriage-edge-hover-stroke-width: 10.5;
+    --kul-selected-outline-width: 3px;
+    --kul-selected-outline-offset: 2px;
     --kul-ended-edge-stroke-opacity: 0.6;
     --kul-hover-transition-duration: 0.1s;
 

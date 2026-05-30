@@ -25,6 +25,7 @@ use tower_lsp::lsp_types::{
 };
 use tower_lsp::{Client, LanguageServer};
 
+use crate::features::entity_at::{EntityAtParams, EntityAtResponse, entity_at};
 use crate::features::export::{ExportParams, ExportRequestError, export_for};
 use crate::features::locate::{LocateParams, LocateResponse, locate};
 use crate::features::render::{RenderParams, RenderRequestError, RenderResponse, render_for};
@@ -109,6 +110,29 @@ impl Backend {
         let result = self
             .documents
             .with_project(&uri, |entry| locate(entry, &params))
+            .await;
+        match result {
+            None => Err(Error {
+                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
+                message: format!("document not open: {uri}").into(),
+                data: None,
+            }),
+            Some(response) => Ok(response),
+        }
+    }
+
+    /// Handler for the `kul/entityAt` custom request. Resolves a source
+    /// cursor position to the project-wide entity id (person or marriage)
+    /// under it, for cursor-to-card highlight sync in the preview panel
+    /// (the inverse of [`Self::locate`]). A position that is not on a
+    /// resolved entity id is not an error — the response carries
+    /// `entity: null`. Only a URI that is not in the project cache is a
+    /// request error (mirrors [`Self::render`] and [`Self::locate`]).
+    pub async fn entity_at(&self, params: EntityAtParams) -> Result<EntityAtResponse> {
+        let uri = params.uri.clone();
+        let result = self
+            .documents
+            .with_project(&uri, |entry| entity_at(entry, &params))
             .await;
         match result {
             None => Err(Error {
