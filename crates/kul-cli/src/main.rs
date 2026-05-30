@@ -118,7 +118,8 @@ EXIT CODES:
 ";
 
 const EXPORT_LONG_ABOUT: &str = "\
-Project the current Kul project to the canonical JSON envelope.
+Project the current Kul project to the canonical JSON envelope, an
+alternative graph JSON, or a self-contained SVG.
 
 The project is the directory containing `kul.yml` — the command is run
 from that directory and takes no positional argument. The export is
@@ -128,6 +129,22 @@ a non-zero exit code. Warnings do not block.
 
 One envelope is written for the whole project, carrying the union of
 every file's persons, marriages, and parenthood links.
+
+FORMATS (`--format`):
+
+  json       (default) the canonical kinship-native envelope —
+             `persons`, `marriages`, `parenthood_links`. Spec §16.
+  cytoscape  Cytoscape JSON (`nodes` + `edges`), loadable into
+             Cytoscape.js, Sigma.js, vis-network, etc.
+  svg        a self-contained SVG of the canonical visual — the same
+             render pipeline the VSCode preview uses, with a neutral
+             light theme baked in (inline `<style>`) so the file
+             renders standalone in any browser or `<img>`. Streams to
+             stdout: `kul export --format=svg > tree.svg`. On a project
+             with error-severity diagnostics, nothing is written to
+             stdout, the diagnostics render to stderr, and the exit
+             code is 1. `--with-positions` does not apply to svg and is
+             rejected as a usage error (exit 2).
 
 The success envelope shape is:
 
@@ -215,8 +232,9 @@ enum Command {
     #[command(long_about = EXPORT_LONG_ABOUT)]
     Export {
         /// Output format. `json` (default) is the canonical
-        /// kinship-native shape; alternative shapes land additively as
-        /// follow-up issues.
+        /// kinship-native envelope; `cytoscape` is the Cytoscape
+        /// node/edge JSON; `svg` is a self-contained SVG of the
+        /// canonical visual (`kul export --format=svg > tree.svg`).
         #[arg(long, value_enum, default_value_t = commands::export::CliExportFormat::Json)]
         format: commands::export::CliExportFormat,
 

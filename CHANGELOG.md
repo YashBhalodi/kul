@@ -4,6 +4,16 @@ All notable changes to KulLang are documented here. The format is based on [Keep
 
 The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi.kul`) ship in lockstep — one tag, one set of artifacts. Per-component notes live under each version.
 
+## [Unreleased]
+
+### `kul-cli`
+
+- **`kul export --format=svg`** — a third export format alongside `json` and `cytoscape`. Unlike the kinship-native envelope formats, `svg` runs the canonical-visual pipeline (the same `compute → layout → render` the VSCode preview and `kul/render` use) and streams a **self-contained** SVG to stdout (`kul export --format=svg > tree.svg`): the file carries an inline `<style>` baking a neutral light theme, so it renders correctly opened in any browser, dropped into an `<img>`, or embedded in a static page with no external CSS. Error-severity diagnostics block the render (nothing to stdout, diagnostics to stderr, exit 1); `--with-positions` does not apply to svg and is rejected as a usage error (exit 2) (#138).
+
+### `kul-svg`
+
+- **`ThemeConfig` gains a `self_contained` field** (default `false`). When `true`, `render` prepends an inline `<style>` (the first child of the root `<svg>`) carrying one neutral light theme — the `--kul-*` token vocabulary with concrete hex values plus the structural subset of the VSCode preview stylesheet (no pan/zoom, hover, selection, or ghost `↺` badge chrome). When `false`, output is byte-identical to before, so wasm `renderSvg` and the LSP `kul/render` are unchanged. Construct via `ThemeConfig::with_self_contained(true)`. Recorded as a 2026-05-30 amendment to [ADR-0016](./docs/adr/0016-visualization-pipeline-crate-boundaries.md): one neutral default theme behind the opt-in is the sanctioned self-contained-CSS seam — not a theme catalogue, not a theme parameter, not VSCode variables (#138).
+
 ## [0.3.3] — 2026-05-26
 
 VSCode preview interactivity. The canonical-visual preview panel is now a **pan/zoom surface** — drag to pan, wheel to zoom, on-screen controls to zoom in/out and reset — and it holds your viewport steady across the debounced re-renders that fire while you type, so the picture no longer jumps back to fit on every keystroke. The default theme also tints each person card's outline by gender. Under the hood the webview's content-security policy tightens from an `'unsafe-inline'` script allowance to a per-build nonce, and the preview stylesheet splits into a dedicated token file. No language, library, CLI, LSP, or WASM behaviour changes — every Rust crate and the WASM package is byte-identical to `v0.3.0` aside from the lockstep version bump.

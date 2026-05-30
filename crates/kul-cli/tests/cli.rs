@@ -472,6 +472,70 @@ fn export_format_cytoscape_emits_nodes_and_edges() {
 }
 
 #[test]
+fn export_format_svg_streams_self_contained_svg() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("02-three-generations"))
+        .args(["export", "--format", "svg"])
+        .output()
+        .expect("run kul export --format svg");
+    assert!(output.status.success(), "expected exit 0");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // Self-contained: a complete SVG carrying an inline <style>, with the
+    // baked `--kul-*` tokens and no VSCode-specific theme variables.
+    assert!(stdout.starts_with("<svg"), "expected an SVG document");
+    assert!(
+        stdout.contains("<style>"),
+        "expected an inline <style> block"
+    );
+    assert!(
+        !stdout.contains("var(--vscode-"),
+        "self-contained SVG must not reference VSCode theme variables",
+    );
+    // Pin the full geometry + baked theme.
+    insta::assert_snapshot!(stdout);
+}
+
+#[test]
+fn export_format_svg_with_positions_is_usage_error() {
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("02-three-generations"))
+        .args(["export", "--format", "svg", "--with-positions"])
+        .assert()
+        .failure()
+        .code(2)
+        .stdout(predicates::str::is_empty())
+        .stderr(contains("--with-positions"))
+        .stderr(contains("svg"));
+}
+
+#[test]
+fn export_format_svg_on_error_project_writes_nothing_to_stdout() {
+    let dir = project_dir("export-svg-error");
+    // Missing required `name:` triggers KUL-R03 — an error-severity
+    // diagnostic that blocks the render.
+    std::fs::write(dir.join("broken.kul"), "person alice gender:female\n").unwrap();
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args(["export", "--format", "svg"])
+        .output()
+        .expect("run kul export --format svg");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        output.stdout.is_empty(),
+        "a blocked render must write nothing to stdout; got {:?}",
+        String::from_utf8_lossy(&output.stdout),
+    );
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("KUL-R03"),
+        "expected the blocking diagnostic on stderr: {stderr}",
+    );
+}
+
+#[test]
 fn export_outside_project_root_errors() {
     let dir = tempdir("export-no-manifest");
     Command::cargo_bin("kul")

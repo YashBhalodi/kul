@@ -348,6 +348,64 @@ fn emitted_svg_has_no_inline_fill_or_stroke_color() {
 }
 
 #[test]
+fn self_contained_true_injects_inline_style_with_concrete_tokens() {
+    // The opt-in self-contained theme (CLI export, ADR-0016 amendment):
+    // an inline `<style>` carrying the `--kul-*` token vocabulary with
+    // concrete hex values, scoped on the `svg` selector and emitted as
+    // the root's first child so it precedes every element.
+    let mut shape = empty_shape();
+    let mut ghost = canonical_card("b", "B");
+    ghost.kind = SlotKind::Ghost {
+        reason: GhostReason::PastMarriage,
+    };
+    shape.cards.push(canonical_card("a", "A"));
+    shape.cards.push(ghost);
+    let svg = render(&shape, &ThemeConfig::with_self_contained(true));
+    // `<style>` is the root's first child (before any `<g`/`<path`).
+    let style_at = svg.find("<style>").expect("expected an inline <style>");
+    let first_g = svg.find("<g").unwrap_or(usize::MAX);
+    assert!(
+        style_at < first_g,
+        "the <style> block must precede the first element: {svg}"
+    );
+    // The token vocabulary is reused, with concrete colours baked in.
+    assert!(svg.contains("--kul-card-stroke-male: #1565c0;"), "{svg}");
+    assert!(svg.contains("--kul-edge-stroke: #2e7d32;"), "{svg}");
+    assert!(
+        svg.contains("--kul-marriage-edge-stroke-width: 8.75;"),
+        "the thick unified marriage connector width must be baked in: {svg}"
+    );
+    assert!(
+        svg.contains(".kul-card[data-kind=\"ghost\"] rect"),
+        "the ghost structural rule must be present: {svg}"
+    );
+    // No surface chrome: the ghost `↺` badge is never emitted (ADR-0016).
+    assert!(!svg.contains('↺'), "no ghost badge may appear: {svg}");
+    assert!(
+        !svg.contains("kul-ghost-badge"),
+        "no ghost-badge styling may appear: {svg}"
+    );
+    // Self-contained means no VSCode-specific variables.
+    assert!(!svg.contains("var(--vscode-"), "{svg}");
+}
+
+#[test]
+fn self_contained_false_omits_style_block() {
+    let mut shape = empty_shape();
+    shape.cards.push(canonical_card("a", "A"));
+    // Default config is theme-agnostic: byte-identical to today, no style.
+    let default_svg = render(&shape, &ThemeConfig::default());
+    assert!(
+        !default_svg.contains("<style>"),
+        "default output must carry no inline <style>: {default_svg}"
+    );
+    assert!(!default_svg.contains('↺'), "{default_svg}");
+    // Explicit `false` matches the default exactly.
+    let explicit_false = render(&shape, &ThemeConfig::with_self_contained(false));
+    assert_eq!(default_svg, explicit_false);
+}
+
+#[test]
 fn name_label_is_xml_escaped() {
     let mut shape = empty_shape();
     let mut card = canonical_card("a", r#"<Ann & "Co" 'Lt'>"#);
