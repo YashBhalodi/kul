@@ -141,8 +141,10 @@ body[data-theme="vscode"] {
     --kul-legend-label-gap: 8px;
     --kul-legend-swatch-width: 22px;
     --kul-legend-swatch-height: 12px;
-    /* Stacked just above the pan/zoom controls at the same left inset. */
-    --kul-legend-inset-bottom: calc(var(--kul-control-inset) + var(--kul-control-size) + 8px);
+    /* Stacked above the pan/zoom controls at the same left inset, with a
+     * clear visual gap between the two chrome panels (their borders +
+     * shadows otherwise read as one stacked stroke). */
+    --kul-legend-inset-bottom: calc(var(--kul-control-inset) + var(--kul-control-size) + 14px);
     --kul-legend-inset-left: var(--kul-control-inset);
     /* Swatch-scale override (ADR-0022): the production 8.75px marriage stroke
      * would dominate a 12px row, so it is clamped to a still-distinct thick
