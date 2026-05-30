@@ -78,6 +78,15 @@ const BOOTSTRAP = `
     // card/path. Registered on #root, which survives every innerHTML swap.
     if (root) {
         root.addEventListener('click', function (event) {
+            // Pull keyboard focus into the iframe so the window-level
+            // keydown handler (issue #180) receives arrows/+/-/0. Clicking a
+            // non-focusable SVG does NOT move focus off the text editor on
+            // its own, so the diagram surface (#root, tabindex="-1") is
+            // focused explicitly here. tabindex="-1" keeps it out of the Tab
+            // order; the inline outline:none on #root suppresses the focus
+            // ring the host would otherwise paint, honoring the
+            // no-focus-ring decision.
+            root.focus();
             const person = event.target.closest('[data-person-id]');
             if (person) {
                 vscode.postMessage({
@@ -145,6 +154,62 @@ const BOOTSTRAP = `
             else if (action === 'reset') { panZoom.reset(); }
         });
     }
+
+    // Keyboard pan/zoom for sighted keyboard users (issue #180), mirroring
+    // the mouse + on-screen-button controls. Fires whenever the preview
+    // iframe holds focus (clicking the diagram or tabbing to a control
+    // button). A modifier (ctrl/meta/alt) bails without preventDefault so
+    // VSCode shortcuts like Cmd+0 still pass through; the null guard mirrors
+    // the controls-click handler.
+    //
+    // Arrows scroll the viewport (panBy with scroll semantics — ArrowDown
+    // reveals content below). Rather than panning once per keydown — which
+    // rides the OS key-repeat and stutters (initial-repeat delay, then
+    // discrete jumps) — held arrows are tracked in a set and a
+    // requestAnimationFrame loop pans PAN_SPEED px/frame while any are down,
+    // giving smooth ~60fps motion. keyup clears the key; window blur clears
+    // all so a key can't stick when focus leaves mid-hold. +/=/-/0 stay
+    // discrete one-shots sharing the exact zoom/reset methods the buttons
+    // call. Repeat keydowns are harmless: re-adding a held key is a no-op and
+    // the rAF loop is already running.
+    const PAN_SPEED = 12;
+    const heldPan = new Set();
+    let panRaf = null;
+    function panFrame() {
+        if (!panZoom || heldPan.size === 0) { panRaf = null; return; }
+        let dx = 0;
+        let dy = 0;
+        if (heldPan.has('ArrowDown')) { dy -= PAN_SPEED; }
+        if (heldPan.has('ArrowUp')) { dy += PAN_SPEED; }
+        if (heldPan.has('ArrowRight')) { dx -= PAN_SPEED; }
+        if (heldPan.has('ArrowLeft')) { dx += PAN_SPEED; }
+        if (dx !== 0 || dy !== 0) { panZoom.panBy({ x: dx, y: dy }); }
+        panRaf = requestAnimationFrame(panFrame);
+    }
+    window.addEventListener('keydown', function (event) {
+        if (event.ctrlKey || event.metaKey || event.altKey) { return; }
+        if (!panZoom) { return; }
+        switch (event.key) {
+            case 'ArrowDown':
+            case 'ArrowUp':
+            case 'ArrowRight':
+            case 'ArrowLeft':
+                heldPan.add(event.key);
+                if (panRaf === null) { panRaf = requestAnimationFrame(panFrame); }
+                break;
+            case '+': case '=': panZoom.zoomIn(); break;
+            case '-': panZoom.zoomOut(); break;
+            case '0': panZoom.reset(); break;
+            default: return;
+        }
+        event.preventDefault();
+    });
+    window.addEventListener('keyup', function (event) {
+        heldPan.delete(event.key);
+    });
+    window.addEventListener('blur', function () {
+        heldPan.clear();
+    });
 
     window.addEventListener('message', function (event) {
         const msg = event.data;
@@ -226,7 +291,7 @@ export function previewHtml(
 <title>Kul Preview</title>
 </head>
 <body data-theme="vscode">
-<div id="root"></div>
+<div id="root" tabindex="-1" style="outline: none;"></div>
 ${CONTROLS}
 <script nonce="${nonce}" src="${scriptHref}"></script>
 <script nonce="${nonce}">${BOOTSTRAP}</script>
