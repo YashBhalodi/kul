@@ -146,6 +146,31 @@ const BOOTSTRAP = `
         });
     }
 
+    // Keyboard pan/zoom for sighted keyboard users (issue #180), mirroring
+    // the mouse + on-screen-button controls. Fires whenever the preview
+    // iframe holds focus (clicking the diagram or tabbing to a control
+    // button). Arrows scroll the viewport (panBy with scroll semantics —
+    // ArrowDown reveals content below), +/=/-/0 share the exact zoom/reset
+    // methods the buttons call. A modifier (ctrl/meta/alt) bails without
+    // preventDefault so VSCode shortcuts like Cmd+0 still pass through; the
+    // null guard mirrors the controls-click handler.
+    const PAN_STEP = 40;
+    window.addEventListener('keydown', function (event) {
+        if (event.ctrlKey || event.metaKey || event.altKey) { return; }
+        if (!panZoom) { return; }
+        switch (event.key) {
+            case 'ArrowDown': panZoom.panBy({ x: 0, y: -PAN_STEP }); break;
+            case 'ArrowUp': panZoom.panBy({ x: 0, y: PAN_STEP }); break;
+            case 'ArrowRight': panZoom.panBy({ x: -PAN_STEP, y: 0 }); break;
+            case 'ArrowLeft': panZoom.panBy({ x: PAN_STEP, y: 0 }); break;
+            case '+': case '=': panZoom.zoomIn(); break;
+            case '-': panZoom.zoomOut(); break;
+            case '0': panZoom.reset(); break;
+            default: return;
+        }
+        event.preventDefault();
+    });
+
     window.addEventListener('message', function (event) {
         const msg = event.data;
         if (!msg || typeof msg !== 'object') { return; }
