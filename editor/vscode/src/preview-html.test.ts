@@ -103,3 +103,38 @@ describe("previewHtml overlay controls", () => {
         expect(html).toContain("panZoom.reset()");
     });
 });
+
+describe("previewHtml click-to-source", () => {
+    it("acquires the VSCode API for posting messages", () => {
+        expect(build()).toContain("acquireVsCodeApi()");
+    });
+
+    it("attaches a click listener on #root", () => {
+        // #root survives every innerHTML swap, so the listener is wired
+        // there once rather than per-render on the SVG.
+        expect(build()).toContain("root.addEventListener('click'");
+    });
+
+    it("posts revealSource with the person id for a clicked card", () => {
+        const html = build();
+        expect(html).toContain("event.target.closest('[data-person-id]')");
+        expect(html).toContain("getAttribute('data-person-id')");
+        expect(html).toContain("type: 'revealSource'");
+    });
+
+    it("posts revealSource with the marriage id for a clicked marriage bar", () => {
+        const html = build();
+        expect(html).toContain(
+            "event.target.closest('[data-link-kind=\"marriage\"]')",
+        );
+        expect(html).toContain("getAttribute('data-marriage-id')");
+    });
+
+    it("ignores birth/adoption edges (keys on marriage, not bare data-marriage-id)", () => {
+        // Birth/adoption edges carry data-marriage-id too. The predicate
+        // must select on data-link-kind="marriage" so those stay inert —
+        // there must be no closest("[data-marriage-id]") selector.
+        expect(build()).not.toContain("closest('[data-marriage-id]')");
+        expect(build()).not.toContain('closest("[data-marriage-id]")');
+    });
+});

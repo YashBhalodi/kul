@@ -64,7 +64,37 @@ const BOOTSTRAP = `
 (function () {
     const root = document.getElementById('root');
     const controls = document.getElementById('kul-controls');
+    const vscode = acquireVsCodeApi();
     let panZoom = null;
+
+    // Click-to-source (issue #135): a click on a person card or a
+    // marriage bar posts { type: 'revealSource', id } so the extension
+    // can open the declaration via kul/locate. Persons resolve through
+    // data-person-id; marriage bars are data-link-kind="marriage" and
+    // carry the id in data-marriage-id. Birth/adoption edges also carry
+    // data-marriage-id but are NOT clickable — keying on
+    // data-link-kind="marriage" (not "has data-marriage-id") keeps them
+    // inert. closest(...) handles clicks landing on a child node of the
+    // card/path. Registered on #root, which survives every innerHTML swap.
+    if (root) {
+        root.addEventListener('click', function (event) {
+            const person = event.target.closest('[data-person-id]');
+            if (person) {
+                vscode.postMessage({
+                    type: 'revealSource',
+                    id: person.getAttribute('data-person-id'),
+                });
+                return;
+            }
+            const marriage = event.target.closest('[data-link-kind="marriage"]');
+            if (marriage) {
+                const id = marriage.getAttribute('data-marriage-id');
+                if (id) {
+                    vscode.postMessage({ type: 'revealSource', id: id });
+                }
+            }
+        });
+    }
 
     function teardown() {
         if (panZoom) {
