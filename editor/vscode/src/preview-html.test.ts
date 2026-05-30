@@ -119,6 +119,29 @@ describe("previewHtml overlay controls", () => {
         expect(html).toContain("panZoom.zoomOut()");
         expect(html).toContain("panZoom.reset()");
     });
+
+    it("adds a vertical divider between pan/zoom and the legend toggle", () => {
+        const html = build();
+        // A hairline span separates the two zones of the control cluster.
+        expect(html).toContain('class="kul-control-divider"');
+        // The divider sits between the three pan/zoom buttons and the
+        // legend toggle button — i.e. after data-action="zoom-out", before
+        // data-action="toggle-legend".
+        const zoomOutIdx = html.indexOf('data-action="zoom-out"');
+        const dividerIdx = html.indexOf('class="kul-control-divider"');
+        const toggleIdx = html.indexOf('data-action="toggle-legend"');
+        expect(zoomOutIdx).toBeLessThan(dividerIdx);
+        expect(dividerIdx).toBeLessThan(toggleIdx);
+    });
+
+    it("includes a legend-toggle (ⓘ) button that starts unpressed", () => {
+        const html = build();
+        expect(html).toContain('data-action="toggle-legend"');
+        // Default state is hidden, so the toggle starts unpressed.
+        expect(html).toMatch(
+            /data-action="toggle-legend"[^>]*aria-pressed="false"/,
+        );
+    });
 });
 
 describe("previewHtml click-to-source", () => {
@@ -689,9 +712,37 @@ describe("previewHtml chrome legend overlay", () => {
         expect(html).toMatch(/if \(!svg\) \{ showControls\(false\); hideLegend\(\)/);
     });
 
-    it("hides the legend when no category is present (empty diagram)", () => {
-        // The bootstrap collapses to hidden when the present-filter is
-        // empty — no dangling empty panel above the diagram.
-        expect(build()).toContain("if (present.length === 0)");
+    it("tracks whether the current diagram has any legend content", () => {
+        // Visibility is gated on two things: the user's toggle state AND
+        // whether there are any categories to show — a click on ⓘ with an
+        // empty diagram is a no-op rather than a vacant panel reveal.
+        expect(build()).toContain("legendHasContent");
+    });
+
+    it("starts hidden — the ⓘ toggle is the discovery affordance", () => {
+        // legendVisible defaults to `false` so the legend is opt-in chrome
+        // rather than always-on. The bootstrap reveals it only after the
+        // user clicks the legend toggle.
+        expect(build()).toContain("let legendVisible = false");
+    });
+
+    it("flips the toggle and re-applies visibility on a toggle-legend click", () => {
+        const html = build();
+        // The control-click handler routes "toggle-legend" to toggleLegend,
+        // which flips legendVisible and re-runs applyLegendVisibility.
+        expect(html).toContain("action === 'toggle-legend'");
+        expect(html).toContain("toggleLegend()");
+        expect(html).toContain("legendVisible = !legendVisible");
+        expect(html).toContain("applyLegendVisibility()");
+    });
+
+    it("reflects the open/closed state into the toggle button (aria-pressed + label)", () => {
+        const html = build();
+        // The button's aria-pressed mirrors the live state for screen
+        // readers, and the visible aria-label / title flip to "Hide legend"
+        // while the panel is open so the affordance stays accurate.
+        expect(html).toContain("setAttribute('aria-pressed', String(shouldShow))");
+        expect(html).toContain("'Hide legend'");
+        expect(html).toContain("'Show legend'");
     });
 });

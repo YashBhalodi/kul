@@ -29,21 +29,30 @@ export function getNonce(): string {
 const ICON_ZOOM_IN = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 const ICON_ZOOM_OUT = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 const ICON_RESET = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 6V3.5A.5.5 0 0 1 3.5 3H6M10 3h2.5a.5.5 0 0 1 .5.5V6M13 10v2.5a.5.5 0 0 1-.5.5H10M6 13H3.5a.5.5 0 0 1-.5-.5V10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+// Info "ⓘ" — toggles the chrome legend (#157).
+const ICON_INFO = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="4.75" r="0.85" fill="currentColor"/><path d="M8 7.25v4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 
 // The overlay control cluster. Lives as a sibling of #root (not inside it),
 // so the per-render `root.innerHTML = …` swap never wipes it; it is wired
 // once and acts on the current pan/zoom instance. Hidden until the first
 // successful render and re-hidden on error.
+//
+// The cluster is two zones separated by a vertical divider: the three
+// pan/zoom buttons on the left, and the legend-toggle (ⓘ) button on the
+// right. The toggle starts at `aria-pressed="false"` because the legend
+// itself is hidden by default (the user opts in via the icon).
 const CONTROLS = `<div id="kul-controls" class="kul-preview-controls" role="group" aria-label="Diagram view controls" hidden>
 <button type="button" class="kul-control-btn" data-action="zoom-in" title="Zoom in" aria-label="Zoom in">${ICON_ZOOM_IN}</button>
 <button type="button" class="kul-control-btn" data-action="reset" title="Reset view" aria-label="Reset view">${ICON_RESET}</button>
 <button type="button" class="kul-control-btn" data-action="zoom-out" title="Zoom out" aria-label="Zoom out">${ICON_ZOOM_OUT}</button>
+<span class="kul-control-divider" aria-hidden="true"></span>
+<button type="button" class="kul-control-btn" data-action="toggle-legend" title="Show legend" aria-label="Show legend" aria-pressed="false">${ICON_INFO}</button>
 </div>`;
 
 // The chrome legend overlay (issue #157, ADR-0022). A sibling of #root,
 // so the per-render `root.innerHTML = …` swap never wipes it; populated
-// from the rendered SVG DOM on each successful render and hidden on
-// error / no-svg. Mirrors the #kul-controls lifecycle.
+// from the rendered SVG DOM on each successful render. Hidden by default —
+// the user opts in via the ⓘ button in #kul-controls; re-hidden on error.
 const LEGEND = `<div id="kul-legend" class="kul-preview-legend" role="region" aria-label="Diagram legend" hidden></div>`;
 
 /**
@@ -716,44 +725,79 @@ const BOOTSTRAP = `
         });
     }
 
-    // Chrome legend (issue #157, ADR-0022). On each successful render, walk
-    // the rendered SVG DOM and surface a row for every canonical category
-    // actually present — same selectors the LEGEND_ROWS table declares.
-    // Hidden when no categories are present (degenerate empty diagram) and on
-    // error / no-svg. Innards are rebuilt every render so a category that
-    // disappears on the next edit drops out cleanly.
+    // Chrome legend (issue #157, ADR-0022). Two-step lifecycle:
+    //
+    // 1. renderLegend(svg) runs on every successful render — walks the
+    //    rendered SVG DOM, rebuilds the row list for the categories
+    //    actually present, and remembers whether there's anything to show.
+    //    It does NOT control visibility; that is legendVisible's job.
+    // 2. applyLegendVisibility() reconciles legend.hidden from the user's
+    //    toggle state (legendVisible, default false) and whether the
+    //    current diagram has any rows. A click on the ⓘ control flips
+    //    legendVisible and re-applies.
+    //
+    // Hidden by default so the legend is opt-in chrome — the ⓘ button in
+    // #kul-controls is the discovery affordance. hideLegend() clears the
+    // panel completely on error / no-svg (legendVisible stays as-is so
+    // the user's preference persists across the next render).
+    let legendVisible = false;
+    let legendHasContent = false;
     function renderLegend(svgRoot) {
         if (!legend) { return; }
         const present = LEGEND_ROWS.filter(function (row) {
             return svgRoot.querySelector(row.presenceSelector) !== null;
         });
-        if (present.length === 0) {
+        legendHasContent = present.length > 0;
+        if (!legendHasContent) {
             legend.innerHTML = '';
-            legend.hidden = true;
-            return;
+        } else {
+            legend.innerHTML = present.map(function (row) {
+                return '<div class="kul-legend-row" data-row="' + row.key + '">' +
+                    '<svg class="kul-legend-swatch" viewBox="0 0 30 18" aria-hidden="true">' +
+                    legendSwatchInnerSvg(row.key) +
+                    '</svg>' +
+                    '<span class="kul-legend-label">' + row.label + '</span>' +
+                    '</div>';
+            }).join('');
         }
-        legend.innerHTML = present.map(function (row) {
-            return '<div class="kul-legend-row" data-row="' + row.key + '">' +
-                '<svg class="kul-legend-swatch" viewBox="0 0 30 18" aria-hidden="true">' +
-                legendSwatchInnerSvg(row.key) +
-                '</svg>' +
-                '<span class="kul-legend-label">' + row.label + '</span>' +
-                '</div>';
-        }).join('');
-        legend.hidden = false;
+        applyLegendVisibility();
+    }
+    function applyLegendVisibility() {
+        if (!legend) { return; }
+        const shouldShow = legendVisible && legendHasContent;
+        legend.hidden = !shouldShow;
+        const toggle = document.querySelector('button[data-action="toggle-legend"]');
+        if (toggle) {
+            toggle.setAttribute('aria-pressed', String(shouldShow));
+            // Mirror the visible state into the label/title so screen readers
+            // and the native tooltip flip to "Hide legend" while it's open.
+            const labelText = shouldShow ? 'Hide legend' : 'Show legend';
+            toggle.setAttribute('aria-label', labelText);
+            toggle.setAttribute('title', labelText);
+        }
+    }
+    function toggleLegend() {
+        legendVisible = !legendVisible;
+        applyLegendVisibility();
     }
     function hideLegend() {
         if (legend) {
+            legendHasContent = false;
             legend.innerHTML = '';
             legend.hidden = true;
         }
+        applyLegendVisibility();
     }
 
     if (controls) {
         controls.addEventListener('click', function (event) {
             const btn = event.target.closest('button[data-action]');
-            if (!btn || !panZoom) { return; }
+            if (!btn) { return; }
             const action = btn.getAttribute('data-action');
+            // Legend toggle is independent of svg-pan-zoom — it works even
+            // before the first render (no-op if no content yet).
+            if (action === 'toggle-legend') { toggleLegend(); return; }
+            if (!panZoom) { return; }
             if (action === 'zoom-in') { panZoom.zoomIn(); }
             else if (action === 'zoom-out') { panZoom.zoomOut(); }
             else if (action === 'reset') { panZoom.reset(); }
