@@ -232,6 +232,120 @@ fn empty_document_yields_empty_shape() {
     insta::assert_snapshot!(render_pretty(&envelope));
 }
 
+/// Regression: #207 — pre-change, the absorb rule's union-find collapsed
+/// these two rootless host marriages into one component, dropping one of
+/// the qualifying root marriages and panicking downstream layout. The
+/// projection is exactly the minimal reproducer from the issue body,
+/// fabricated at the envelope layer. Post-change each host lineage is
+/// its own component, in source order, with `e` canonical at her
+/// joining slot in `m_x_e` and a `PastBirth` ghost at her bio bar `m_c_d`.
+#[test]
+fn multi_rootless_host_lineage_n2() {
+    let envelope = success(ExportedGraph {
+        persons: vec![
+            person("a", "A", "male"),
+            person("b", "B", "female"),
+            person("c", "C", "male"),
+            person("d", "D", "female"),
+            person("e", "E", "female"),
+            person("x", "X", "male"),
+            person("f", "F", "male"),
+        ],
+        marriages: vec![
+            marriage("m_a_b", "a", "b", 1900),
+            marriage("m_c_d", "c", "d", 1925),
+            marriage("m_x_e", "x", "e", 1950),
+        ],
+        parenthood_links: vec![bio("c", "m_a_b"), bio("e", "m_c_d"), bio("f", "m_x_e")],
+    });
+    let shape = transform(&envelope);
+    let success = shape.as_success().expect("success envelope");
+
+    assert_eq!(
+        success.components.len(),
+        2,
+        "two rootless host marriages must render as two independent components, got {}: {}",
+        success.components.len(),
+        serde_json::to_string_pretty(&shape).unwrap()
+    );
+
+    // Components ordered by source order: `m_a_b` lineage first, then `m_x_e`.
+    let roots: Vec<&str> = success
+        .components
+        .iter()
+        .map(|c| match &c.kind {
+            kul_render::ComponentKind::FamilyTree { root } => root.slot.person_id.as_str(),
+            kul_render::ComponentKind::OrphanPerson { card } => card.person_id.as_str(),
+        })
+        .collect();
+    assert_eq!(roots, vec!["a", "x"]);
+
+    // `e` is canonical at the joining slot of `m_x_e` and emits a
+    // `PastBirth` ghost child of `m_c_d` so the bio edge terminates locally.
+    let json = render_pretty(&envelope);
+    assert!(
+        json.contains("\"reason\": \"pastBirth\""),
+        "expected a PastBirth ghost in the render shape: {json}"
+    );
+
+    insta::assert_snapshot!(json);
+}
+
+/// Regression: #207 — extends the N=2 case with a third rootless host
+/// lineage (`m_p_f`) joined by descent through `f`. Three independent
+/// components must render in source order; pre-change this would have
+/// collapsed into a single component with two qualifying roots dropped.
+#[test]
+fn multi_rootless_host_lineage_n3() {
+    let envelope = success(ExportedGraph {
+        persons: vec![
+            person("a", "A", "male"),
+            person("b", "B", "female"),
+            person("c", "C", "male"),
+            person("d", "D", "female"),
+            person("e", "E", "female"),
+            person("x", "X", "male"),
+            person("f", "F", "male"),
+            person("p", "P", "female"),
+            person("g", "G", "other"),
+        ],
+        marriages: vec![
+            marriage("m_a_b", "a", "b", 1900),
+            marriage("m_c_d", "c", "d", 1925),
+            marriage("m_x_e", "x", "e", 1950),
+            marriage("m_p_f", "p", "f", 1975),
+        ],
+        parenthood_links: vec![
+            bio("c", "m_a_b"),
+            bio("e", "m_c_d"),
+            bio("f", "m_x_e"),
+            bio("g", "m_p_f"),
+        ],
+    });
+    let shape = transform(&envelope);
+    let success = shape.as_success().expect("success envelope");
+
+    assert_eq!(
+        success.components.len(),
+        3,
+        "three rootless host marriages must render as three independent components, got {}: {}",
+        success.components.len(),
+        serde_json::to_string_pretty(&shape).unwrap()
+    );
+
+    let roots: Vec<&str> = success
+        .components
+        .iter()
+        .map(|c| match &c.kind {
+            kul_render::ComponentKind::FamilyTree { root } => root.slot.person_id.as_str(),
+            kul_render::ComponentKind::OrphanPerson { card } => card.person_id.as_str(),
+        })
+        .collect();
+    assert_eq!(roots, vec!["a", "x", "p"]);
+
+    insta::assert_snapshot!(render_pretty(&envelope));
+}
+
 /// Failure envelopes pass through verbatim, carrying the same diagnostics.
 #[test]
 fn failure_envelope_passes_through_with_diagnostics() {

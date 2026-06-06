@@ -78,3 +78,108 @@ marriage m_kid ks kid start:2010
         );
     }
 }
+
+/// Regression: #207 — pre-change, the absorb rule's union-find merged
+/// these two rootless host marriages into one component and dropped
+/// one of the qualifying root marriages, panicking at the missing
+/// `bar_centers` entry. Post-change, they render as two independent
+/// components in source order. This is the exact minimal reproducer
+/// from the issue body.
+#[test]
+fn multi_rootless_host_lineage_n2() {
+    let source = r#"person a name:"A" gender:male
+person b name:"B" gender:female
+marriage m_a_b a b
+
+person c name:"C" gender:male
+  birth m_a_b
+person d name:"D" gender:female
+marriage m_c_d c d
+
+person e name:"E" gender:female
+  birth m_c_d
+
+person x name:"X" gender:male
+marriage m_x_e x e
+
+person f name:"F" gender:male
+  birth m_x_e
+"#;
+
+    let positioned = layout_from_source(source);
+
+    let marriage_ids: Vec<&str> = positioned
+        .edges
+        .iter()
+        .filter_map(|e| match &e.kind {
+            EdgeKind::Marriage { .. } => Some(e.marriage_id.as_str()),
+            _ => None,
+        })
+        .collect();
+    for expected in ["m_a_b", "m_c_d", "m_x_e"] {
+        assert!(
+            marriage_ids.contains(&expected),
+            "expected marriage edge for {expected}, got {marriage_ids:?}"
+        );
+    }
+    for edge in &positioned.edges {
+        assert!(
+            edge.points.len() >= 2,
+            "edge {edge:?} must have a routed polyline"
+        );
+    }
+}
+
+/// Regression: #207 — extends the N=2 case with a third rootless host
+/// lineage joined by descent. Three independent host-lineage components
+/// should position cleanly in source order with no panic.
+#[test]
+fn multi_rootless_host_lineage_n3() {
+    let source = r#"person a name:"A" gender:male
+person b name:"B" gender:female
+marriage m_a_b a b
+
+person c name:"C" gender:male
+  birth m_a_b
+person d name:"D" gender:female
+marriage m_c_d c d
+
+person e name:"E" gender:female
+  birth m_c_d
+
+person x name:"X" gender:male
+marriage m_x_e x e
+
+person f name:"F" gender:male
+  birth m_x_e
+
+person p name:"P" gender:female
+marriage m_p_f p f
+
+person g name:"G" gender:other
+  birth m_p_f
+"#;
+
+    let positioned = layout_from_source(source);
+
+    let marriage_ids: Vec<&str> = positioned
+        .edges
+        .iter()
+        .filter_map(|e| match &e.kind {
+            EdgeKind::Marriage { .. } => Some(e.marriage_id.as_str()),
+            _ => None,
+        })
+        .collect();
+    for expected in ["m_a_b", "m_c_d", "m_x_e", "m_p_f"] {
+        assert!(
+            marriage_ids.contains(&expected),
+            "expected marriage edge for {expected}, got {marriage_ids:?}"
+        );
+    }
+    for edge in &positioned.edges {
+        assert!(
+            edge.points.len() >= 2,
+            "edge {edge:?} must have a routed polyline"
+        );
+    }
+}
