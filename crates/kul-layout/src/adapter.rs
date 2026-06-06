@@ -812,9 +812,18 @@ fn route_edges(
 ) -> Vec<PositionedEdge> {
     let mut out = Vec::with_capacity(render_edges.len());
     for edge in render_edges {
-        let &(bar_cx, bar_by) = bar_centers
-            .get(&edge.marriage_id)
-            .expect("every render edge's marriage must have a positioned anchor");
+        // Anchor lookup may legitimately fail if the render layer dropped this
+        // edge's marriage; skip rather than panic so a render-layer regression
+        // does not kill the LSP host. The debug-assert preserves the test
+        // signal — snapshot tests still catch any real invariant violation.
+        debug_assert!(
+            bar_centers.contains_key(&edge.marriage_id),
+            "render edge for marriage {} has no positioned anchor",
+            edge.marriage_id
+        );
+        let Some(&(bar_cx, bar_by)) = bar_centers.get(&edge.marriage_id) else {
+            continue;
+        };
         // A past-intimacy child-ghost shadows the canonical card here;
         // resolving via the ghost map is exactly the `is_past` predicate.
         let ghost_hit = ghost_card_tops.get(&(edge.child_id.clone(), edge.marriage_id.clone()));
@@ -852,12 +861,61 @@ fn route_edges(
 
 #[cfg(test)]
 mod tests {
-    use super::fan_children_centers;
+    use super::{Edge, LayoutConfig, RenderEdgeKind, fan_children_centers, route_edges};
+    use std::collections::HashMap;
 
     // Defaults: card_width 160, sibling_gap 32 → clr = 96, leaf = 160.
     const GAP: f64 = 32.0;
     const CLR: f64 = 96.0;
     const LEAF: f64 = 160.0;
+
+    fn missing_anchor_edge() -> Edge {
+        Edge {
+            kind: RenderEdgeKind::Birth,
+            child_id: "child".into(),
+            marriage_id: "ghost_marriage".into(),
+            start: None,
+            end: None,
+        }
+    }
+
+    /// Release-build contract: a render edge whose marriage has no
+    /// positioned anchor is silently skipped instead of panicking, so
+    /// a render-layer regression cannot kill the LSP host.
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn route_edges_skips_edge_with_missing_anchor() {
+        let edges = vec![missing_anchor_edge()];
+        let bar_centers = HashMap::new();
+        let mut card_tops = HashMap::new();
+        card_tops.insert("child".into(), (0.0, 100.0));
+        let ghost_card_tops = HashMap::new();
+        let config = LayoutConfig::default();
+
+        let positioned = route_edges(&edges, &bar_centers, &card_tops, &ghost_card_tops, &config);
+
+        assert!(
+            positioned.is_empty(),
+            "edge with missing anchor must be skipped"
+        );
+    }
+
+    /// Debug-build contract: the `debug_assert!` companion still fires
+    /// under the test profile, so snapshot tests catch the invariant
+    /// violation that release builds tolerate.
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "no positioned anchor")]
+    fn route_edges_debug_asserts_on_missing_anchor() {
+        let edges = vec![missing_anchor_edge()];
+        let bar_centers = HashMap::new();
+        let mut card_tops = HashMap::new();
+        card_tops.insert("child".into(), (0.0, 100.0));
+        let ghost_card_tops = HashMap::new();
+        let config = LayoutConfig::default();
+
+        let _ = route_edges(&edges, &bar_centers, &card_tops, &ghost_card_tops, &config);
+    }
 
     /// N=2, one childless + one single-child. Natural half-spacing
     /// narrower than `clr`, so both centres push to `±clr`.
