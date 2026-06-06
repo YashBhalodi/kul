@@ -378,6 +378,21 @@ async function showPreview(
         }
     });
 
+    // VSCode destroys a webview's DOM/JS context when its tab moves to the
+    // background (another tab in the same group takes focus). On restore the
+    // HTML shell reloads but our bootstrap waits for a `render` message
+    // before populating #root and #kul-controls — so without a re-render the
+    // panel stays blank until the next save. Push a fresh render on every
+    // hidden→visible transition so the preview self-heals.
+    let wasVisible = true;
+    previewPanel.onDidChangeViewState((event) => {
+        const visible = event.webviewPanel.visible;
+        if (visible && !wasVisible && previewUri) {
+            void refreshPreview(previewUri);
+        }
+        wasVisible = visible;
+    });
+
     previewPanel.onDidDispose(() => {
         previewPanel = undefined;
         previewListener?.dispose();
