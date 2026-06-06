@@ -24,15 +24,6 @@ body {
     height: 100%;
 }
 
-.kul-error-banner {
-    padding: var(--kul-error-padding);
-    margin-bottom: var(--kul-error-margin);
-    background-color: var(--kul-error-bg);
-    color: var(--kul-error-fg);
-    border: var(--kul-error-border-width) solid var(--kul-error-border-color);
-    border-radius: var(--kul-error-radius);
-}
-
 #root svg {
     width: 100%;
     height: 100%;
@@ -124,6 +115,127 @@ body {
     background-color: var(--kul-control-divider-color);
     align-self: center;
     flex-shrink: 0;
+}
+
+/* Pan/zoom + legend sub-group. The wrapping div lets the pan/zoom controls
+ * hide as a unit on first-open-with-errors (no SVG yet), while the error
+ * button remains visible alongside (#203). */
+.kul-controls-group {
+    display: flex;
+    flex-direction: row;
+    gap: var(--kul-control-gap);
+}
+
+.kul-controls-group[hidden] {
+    display: none;
+}
+
+/* Error button (#203). Red icon + small count badge, themed via the dedicated
+ * --kul-error-* tokens. Position: relative so the badge can anchor to its
+ * top-right corner without leaving the button's flex slot. */
+.kul-error-button {
+    position: relative;
+    color: var(--kul-error-icon-color);
+}
+
+.kul-error-button[hidden] {
+    display: none;
+}
+
+.kul-error-count {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: var(--kul-error-count-size);
+    height: var(--kul-error-count-size);
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: calc(var(--kul-error-count-size) / 2);
+    background-color: var(--kul-error-count-bg);
+    color: var(--kul-error-count-fg);
+    font-size: var(--kul-error-count-font-size);
+    font-weight: 600;
+    line-height: var(--kul-error-count-size);
+    text-align: center;
+}
+
+/* Popover anchored above the control panel (same bottom-left family as the
+ * legend). Pointer-events on so rows are clickable. */
+.kul-error-popover {
+    position: fixed;
+    bottom: var(--kul-error-popover-inset-bottom);
+    left: var(--kul-error-popover-inset-left);
+    z-index: 11;
+    display: flex;
+    flex-direction: column;
+    gap: var(--kul-error-popover-row-gap);
+    max-width: var(--kul-error-popover-max-width);
+    max-height: var(--kul-error-popover-max-height);
+    overflow-y: auto;
+    padding: var(--kul-error-popover-padding);
+    background-color: var(--kul-error-popover-bg);
+    color: var(--kul-error-popover-fg);
+    border: 1px solid var(--kul-error-popover-border-color);
+    border-radius: var(--kul-error-popover-radius);
+    box-shadow: 0 2px 8px var(--kul-error-popover-shadow-color);
+    font-family: var(--kul-error-popover-font-family);
+    font-size: var(--kul-error-popover-font-size);
+}
+
+.kul-error-popover[hidden] {
+    display: none;
+}
+
+.kul-error-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    column-gap: var(--kul-error-row-col-gap);
+    align-items: baseline;
+    padding: var(--kul-error-row-padding);
+    border-radius: var(--kul-error-row-radius);
+    cursor: pointer;
+}
+
+.kul-error-row[aria-disabled="true"] {
+    cursor: default;
+}
+
+.kul-error-row:hover {
+    background-color: var(--kul-error-row-hover-bg);
+}
+
+.kul-error-row:focus-visible {
+    outline: 1px solid var(--kul-control-focus-ring);
+    outline-offset: -1px;
+}
+
+.kul-error-code {
+    color: var(--kul-error-code-fg);
+    font-family: var(--kul-font-family);
+    font-size: var(--kul-error-code-font-size);
+}
+
+.kul-error-message {
+    color: var(--kul-error-popover-fg);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.kul-error-location {
+    color: var(--kul-error-location-fg);
+    font-size: var(--kul-error-location-font-size);
+    white-space: nowrap;
+}
+
+/* Stale overlay on the last-good SVG. The whole #root subtree dims and
+ * desaturates so the author has a visual cue that the diagram is no longer
+ * current (#203). Click-through stays enabled — entities and edges remain
+ * clickable. */
+#root svg.kul-render-stale {
+    opacity: var(--kul-render-stale-opacity);
+    filter: var(--kul-render-stale-filter);
+    transition: opacity var(--kul-render-stale-transition-duration),
+        filter var(--kul-render-stale-transition-duration);
 }
 
 .kul-card rect {

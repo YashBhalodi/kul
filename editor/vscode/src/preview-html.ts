@@ -19,16 +19,29 @@ const ICON_ZOOM_IN = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="fal
 const ICON_ZOOM_OUT = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 const ICON_RESET = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 6V3.5A.5.5 0 0 1 3.5 3H6M10 3h2.5a.5.5 0 0 1 .5.5V6M13 10v2.5a.5.5 0 0 1-.5.5H10M6 13H3.5a.5.5 0 0 1-.5-.5V10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ICON_INFO = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="4.75" r="0.85" fill="currentColor"/><path d="M8 7.25v4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+// Triangle-with-exclamation: the conventional severity glyph, themed via the
+// dedicated `--kul-error-icon-color` token (#203).
+const ICON_ERROR = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 1.75 14.5 13.5h-13Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.25v3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.75" r="0.85" fill="currentColor"/></svg>`;
 
 // Sibling of #root (not a child) so the per-render `root.innerHTML = …` swap
-// never wipes it. Hidden until the first successful render.
+// never wipes it. The pan/zoom + legend group hides until the first successful
+// render; the error button hides until at least one error fires. The outer
+// panel itself is visible whenever either child group is visible.
 const CONTROLS = `<div id="kul-controls" class="kul-preview-controls" role="group" aria-label="Diagram view controls" hidden>
+<div id="kul-controls-group" class="kul-controls-group" hidden>
 <button type="button" class="kul-control-btn" data-action="zoom-in" title="Zoom in" aria-label="Zoom in">${ICON_ZOOM_IN}</button>
 <button type="button" class="kul-control-btn" data-action="reset" title="Reset view" aria-label="Reset view">${ICON_RESET}</button>
 <button type="button" class="kul-control-btn" data-action="zoom-out" title="Zoom out" aria-label="Zoom out">${ICON_ZOOM_OUT}</button>
 <span class="kul-control-divider" aria-hidden="true"></span>
 <button type="button" class="kul-control-btn" data-action="toggle-legend" title="Show legend" aria-label="Show legend" aria-pressed="false">${ICON_INFO}</button>
+</div>
+<button type="button" id="kul-error-button" class="kul-control-btn kul-error-button" data-action="toggle-errors" title="Show errors" aria-label="Show errors" aria-pressed="false" hidden>${ICON_ERROR}<span class="kul-error-count" aria-hidden="true">0</span></button>
 </div>`;
+
+// Sibling of #root and of the control panel: the click-to-source popover that
+// the error button opens. Visibility flips between the user's toggle and the
+// presence of error rows. Empty until the first renderError populates it (#203).
+const ERROR_POPOVER = `<div id="kul-error-popover" class="kul-error-popover" role="region" aria-label="Render errors" hidden></div>`;
 
 // ADR-0022: sibling of #root, populated from the rendered SVG on each render.
 const LEGEND = `<div id="kul-legend" class="kul-preview-legend" role="region" aria-label="Diagram legend" hidden></div>`;
@@ -274,9 +287,16 @@ const BOOTSTRAP = `
 (function () {
     const root = document.getElementById('root');
     const controls = document.getElementById('kul-controls');
+    const controlsGroup = document.getElementById('kul-controls-group');
+    const errorButton = document.getElementById('kul-error-button');
+    const errorPopover = document.getElementById('kul-error-popover');
     const legend = document.getElementById('kul-legend');
     const vscode = acquireVsCodeApi();
     let panZoom = null;
+    // Tracks whether at least one successful render has populated #root. We
+    // never re-hide the pan/zoom group once shown: a transient renderError
+    // keeps the last-good SVG mounted (#203), so the group stays useful.
+    let hasRender = false;
 
     // Embedded verbatim from the exported source so webview and Vitest run
     // identical code. Bound to a const because esbuild --minify renames the
@@ -521,8 +541,16 @@ const BOOTSTRAP = `
         panToElement(el);
     }
 
-    function showControls(visible) {
-        if (controls) { controls.hidden = !visible; }
+    // The outer panel hides only when both child groups are empty (no render
+    // yet AND no errors). Once a render lands, the pan/zoom group stays
+    // visible across subsequent transient errors so the user keeps the
+    // viewport (#203).
+    function reconcileControlsVisibility() {
+        if (controlsGroup) { controlsGroup.hidden = !hasRender; }
+        if (errorButton) { errorButton.hidden = errors.length === 0; }
+        if (controls) {
+            controls.hidden = !hasRender && errors.length === 0;
+        }
     }
 
     // ADR-0016: CSS cannot generate an SVG element, so the surface draws the
@@ -546,6 +574,87 @@ const BOOTSTRAP = `
             badge.textContent = '↺';
             card.appendChild(badge);
         });
+    }
+
+    // Error state (#203). Last-good SVG persists on renderError; the panel
+    // grows an error button + popover instead of wiping #root. errors is the
+    // current error-severity list; errorsVisible tracks the user's popover
+    // toggle, gated on errors.length > 0 by applyErrorsVisibility().
+    let errors = [];
+    let errorsVisible = false;
+    function renderErrorsPopover() {
+        if (!errorPopover) { return; }
+        if (errors.length === 0) {
+            errorPopover.innerHTML = '';
+            return;
+        }
+        // Inline-built rows: each carries its index so the click delegate can
+        // index back into the live errors array (range objects don't survive
+        // JSON-attribute round-trips cleanly).
+        const html = errors.map(function (err, i) {
+            const message = String(err.message == null ? '' : err.message);
+            const code = err.code ? String(err.code) : '';
+            const hasLocation = typeof err.uri === 'string' && err.range
+                && err.range.start && err.range.end;
+            const line = hasLocation ? (err.range.start.line + 1) : null;
+            const col = hasLocation ? (err.range.start.character + 1) : null;
+            const locText = hasLocation ? ('Line ' + line + ', col ' + col) : '';
+            const escMessage = message
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const escCode = code
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const escLoc = locText
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const role = hasLocation ? 'button' : 'group';
+            const tabindex = hasLocation ? '0' : '-1';
+            return '<div class="kul-error-row" role="' + role + '" tabindex="' + tabindex +
+                '" data-error-index="' + i + '"' +
+                (hasLocation ? '' : ' aria-disabled="true"') + '>' +
+                (escCode ? '<span class="kul-error-code">' + escCode + '</span>' : '') +
+                '<span class="kul-error-message">' + escMessage + '</span>' +
+                (escLoc ? '<span class="kul-error-location">' + escLoc + '</span>' : '') +
+                '</div>';
+        }).join('');
+        errorPopover.innerHTML = html;
+    }
+    function applyErrorsVisibility() {
+        const shouldShow = errorsVisible && errors.length > 0;
+        if (errorPopover) { errorPopover.hidden = !shouldShow; }
+        if (errorButton) {
+            errorButton.setAttribute('aria-pressed', String(shouldShow));
+            const labelText = shouldShow ? 'Hide errors' : 'Show errors';
+            errorButton.setAttribute('aria-label', labelText);
+            errorButton.setAttribute('title', labelText);
+        }
+    }
+    function setErrors(next) {
+        errors = Array.isArray(next) ? next.slice() : [];
+        // Update the count badge inside the error button. The badge node is a
+        // span the CONTROLS markup ships hidden until errors > 0; the outer
+        // button hides via reconcileControlsVisibility().
+        if (errorButton) {
+            const badge = errorButton.querySelector('.kul-error-count');
+            if (badge) { badge.textContent = String(errors.length); }
+        }
+        if (errors.length === 0) { errorsVisible = false; }
+        renderErrorsPopover();
+        reconcileControlsVisibility();
+        applyErrorsVisibility();
+    }
+    function toggleErrors() {
+        if (errors.length === 0) { return; }
+        errorsVisible = !errorsVisible;
+        applyErrorsVisibility();
+    }
+    // Mark / clear the stale-overlay on the persisted SVG. A subsequent good
+    // render swaps in a fresh SVG so the class never needs explicit clearing
+    // there — this helper exists only so a transient error can re-apply it
+    // if the SVG happens to be the same DOM node.
+    function setStaleSvg(isStale) {
+        const svg = root && root.querySelector ? root.querySelector('svg') : null;
+        if (!svg) { return; }
+        if (isStale) { svg.classList.add('kul-render-stale'); }
+        else { svg.classList.remove('kul-render-stale'); }
     }
 
     // Two-step lifecycle (ADR-0022): renderLegend(svg) rebuilds the row list
@@ -604,12 +713,33 @@ const BOOTSTRAP = `
             const btn = event.target.closest('button[data-action]');
             if (!btn) { return; }
             const action = btn.getAttribute('data-action');
-            // Toggle works before the first render; pan/zoom actions require it.
+            // Toggles work without a live render; pan/zoom actions require it.
             if (action === 'toggle-legend') { toggleLegend(); return; }
+            if (action === 'toggle-errors') { toggleErrors(); return; }
             if (!panZoom) { return; }
             if (action === 'zoom-in') { panZoom.zoomIn(); }
             else if (action === 'zoom-out') { panZoom.zoomOut(); }
             else if (action === 'reset') { panZoom.reset(); }
+        });
+    }
+
+    // Each row clicks through to its diagnostic's source range. Delegated on
+    // the popover so the rows themselves stay innerHTML-rebuildable (#203).
+    if (errorPopover) {
+        errorPopover.addEventListener('click', function (event) {
+            const row = event.target.closest('.kul-error-row[data-error-index]');
+            if (!row) { return; }
+            const i = parseInt(row.getAttribute('data-error-index'), 10);
+            const err = errors[i];
+            if (!err) { return; }
+            if (typeof err.uri === 'string' && err.range
+                && err.range.start && err.range.end) {
+                vscode.postMessage({
+                    type: 'revealSource',
+                    uri: err.uri,
+                    range: err.range,
+                });
+            }
         });
     }
 
@@ -674,7 +804,11 @@ const BOOTSTRAP = `
             }
             root.innerHTML = msg.svg;
             const svg = root.querySelector('svg');
-            if (!svg) { showControls(false); hideLegend(); return; }
+            // A successful render is its own cue that the prior error state is
+            // gone, so any pending errors clear here (#203). Recoverable: a
+            // follow-up renderError will repopulate them.
+            setErrors([]);
+            if (!svg) { hideLegend(); reconcileControlsVisibility(); return; }
             injectGhostBadges(svg);
             renderLegend(svg);
             panZoom = svgPanZoom(svg, {
@@ -696,19 +830,19 @@ const BOOTSTRAP = `
                 panZoom.zoom(savedZoom);
                 panZoom.pan(savedPan);
             }
-            showControls(true);
+            hasRender = true;
+            reconcileControlsVisibility();
         } else if (msg.type === 'highlightEntity') {
             highlightEntity(msg.id, msg.kind);
         } else if (msg.type === 'renderError') {
+            // Issue #203 contract: do NOT wipe #root. Keep the last-good SVG
+            // mounted (with its pan/zoom state and class), dim it via the
+            // kul-render-stale class, and surface the errors through the
+            // popover. First-open with errors → no SVG yet, panel stays
+            // empty; the error button alone signals the failure.
             removeTooltip();
-            teardown();
-            showControls(false);
-            hideLegend();
-            const banner = document.createElement('div');
-            banner.className = 'kul-error-banner';
-            banner.textContent = msg.message;
-            root.innerHTML = '';
-            root.appendChild(banner);
+            setStaleSvg(true);
+            setErrors(Array.isArray(msg.errors) ? msg.errors : []);
         }
     });
 }());
@@ -742,6 +876,7 @@ export function previewHtml(
 <body data-theme="vscode">
 <div id="root" tabindex="-1" style="outline: none;"></div>
 ${CONTROLS}
+${ERROR_POPOVER}
 ${LEGEND}
 <script nonce="${nonce}" src="${scriptHref}"></script>
 <script nonce="${nonce}">${BOOTSTRAP}</script>

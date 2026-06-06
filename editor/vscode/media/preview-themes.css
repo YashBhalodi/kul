@@ -10,9 +10,6 @@ body[data-theme="vscode"] {
     --kul-preview-bg: var(--vscode-editor-background);
     --kul-preview-fg: var(--vscode-editor-foreground);
     --kul-font-family: var(--vscode-editor-font-family);
-    --kul-error-bg: var(--vscode-inputValidation-errorBackground);
-    --kul-error-fg: var(--vscode-inputValidation-errorForeground, var(--vscode-editor-foreground));
-    --kul-error-border-color: var(--vscode-inputValidation-errorBorder);
     --kul-card-fill: var(--vscode-editor-background);
     --kul-card-stroke: var(--vscode-charts-blue, var(--vscode-editor-foreground));
     /* One token per gender even where hues coincide, so a future theme can vary each. */
@@ -49,10 +46,6 @@ body[data-theme="vscode"] {
     /* Dimensions / opacities / spacing */
     --kul-font-size: var(--vscode-editor-font-size);
     --kul-preview-padding: 16px;
-    --kul-error-padding: 12px 16px;
-    --kul-error-margin: 16px;
-    --kul-error-border-width: 1px;
-    --kul-error-radius: 3px;
     --kul-card-stroke-width: 1.5;
     --kul-card-hover-stroke-width: 2.5;
     --kul-ghost-fill-opacity: 0.5;
@@ -119,4 +112,42 @@ body[data-theme="vscode"] {
      * 5 → ~3px versus birth/adoption 1.5 → ~1px, mirroring the diagram's
      * thick-vs-thin contrast. */
     --kul-legend-marriage-stroke-width: 5;
+
+    /* Error button + popover (#203). Maps to VSCode's editor-error palette so
+     * the icon reads at the same severity as Problems-pane squiggles. The
+     * popover reuses the control panel's bg/border/shadow tokens to stay in
+     * the same chrome family as the legend. */
+    --kul-error-icon-color: var(--vscode-editorError-foreground, var(--vscode-charts-red, var(--vscode-editor-foreground)));
+    --kul-error-count-bg: var(--vscode-editorError-foreground, var(--vscode-charts-red, var(--vscode-editor-foreground)));
+    --kul-error-count-fg: var(--vscode-editor-background);
+    --kul-error-count-size: 14px;
+    --kul-error-count-font-size: 10px;
+    --kul-error-popover-bg: var(--kul-control-bg);
+    --kul-error-popover-fg: var(--vscode-editor-foreground);
+    --kul-error-popover-border-color: var(--kul-control-border-color);
+    --kul-error-popover-shadow-color: var(--kul-control-shadow-color);
+    --kul-error-popover-font-family: var(--vscode-font-family);
+    --kul-error-popover-font-size: 12px;
+    --kul-error-popover-radius: var(--kul-control-radius);
+    --kul-error-popover-padding: 6px;
+    --kul-error-popover-row-gap: 2px;
+    --kul-error-popover-max-width: 420px;
+    --kul-error-popover-max-height: 240px;
+    /* Stacked above the control panel (mirrors the legend's inset formula). */
+    --kul-error-popover-inset-bottom: calc(var(--kul-control-inset) + var(--kul-control-size) + 14px);
+    --kul-error-popover-inset-left: var(--kul-control-inset);
+    --kul-error-row-col-gap: 8px;
+    --kul-error-row-padding: 4px 6px;
+    --kul-error-row-radius: 4px;
+    --kul-error-row-hover-bg: var(--kul-control-hover-bg);
+    --kul-error-code-fg: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+    --kul-error-code-font-size: 11px;
+    --kul-error-location-fg: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+    --kul-error-location-font-size: 11px;
+
+    /* Stale overlay on the last-good SVG (#203). Dim + slight desaturation so
+     * the author has a visual cue mid-edit without losing readability. */
+    --kul-render-stale-opacity: 0.5;
+    --kul-render-stale-filter: grayscale(0.4);
+    --kul-render-stale-transition-duration: 0.15s;
 }

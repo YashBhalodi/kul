@@ -635,6 +635,137 @@ describe("legendSwatchInnerSvg", () => {
     });
 });
 
+describe("previewHtml renderError last-good persistence (#203)", () => {
+    it("does NOT wipe #root in the renderError branch", () => {
+        // The pre-#203 implementation called root.innerHTML = '' before
+        // appending a full-pane banner; the new behavior keeps the last-good
+        // SVG mounted. Guard against the regression by asserting that NO
+        // root.innerHTML wipe and NO kul-error-banner survive anywhere — the
+        // render-success branch's `root.innerHTML = msg.svg` is the only
+        // legitimate place innerHTML appears, and that's not a wipe.
+        const html = build();
+        expect(html).not.toContain("root.innerHTML = ''");
+        expect(html).not.toContain('root.innerHTML = ""');
+        expect(html).not.toContain("kul-error-banner");
+    });
+
+    it("applies kul-render-stale to the last-good SVG on renderError", () => {
+        const html = build();
+        expect(html).toContain("function setStaleSvg(");
+        expect(html).toContain("kul-render-stale");
+        expect(html).toMatch(/setStaleSvg\(true\)/);
+    });
+
+    it("clears the error state on a successful render", () => {
+        // The render handler calls setErrors([]) so a previously-stuck
+        // error button drops away the moment the document parses again.
+        const html = build();
+        expect(html).toContain("setErrors([])");
+    });
+});
+
+describe("previewHtml error button (#203)", () => {
+    it("renders the error button inside kul-controls, hidden by default", () => {
+        const html = build();
+        expect(html).toContain('id="kul-error-button"');
+        expect(html).toContain('data-action="toggle-errors"');
+        expect(html).toMatch(/id="kul-error-button"[^>]*hidden/);
+    });
+
+    it("ships an error-count badge slot inside the button", () => {
+        const html = build();
+        expect(html).toContain('class="kul-error-count"');
+    });
+
+    it("wraps the pan/zoom + legend controls in a sub-group", () => {
+        // Wrapping lets the pan/zoom group hide independently of the error
+        // button — first-open with errors shows only the error icon.
+        const html = build();
+        expect(html).toContain('id="kul-controls-group"');
+        const groupIdx = html.indexOf('id="kul-controls-group"');
+        const zoomInIdx = html.indexOf('data-action="zoom-in"');
+        const toggleIdx = html.indexOf('data-action="toggle-legend"');
+        const errorBtnIdx = html.indexOf('id="kul-error-button"');
+        expect(groupIdx).toBeLessThan(zoomInIdx);
+        expect(zoomInIdx).toBeLessThan(toggleIdx);
+        expect(toggleIdx).toBeLessThan(errorBtnIdx);
+    });
+
+    it("flips the popover via toggleErrors when the button is clicked", () => {
+        const html = build();
+        expect(html).toContain("action === 'toggle-errors'");
+        expect(html).toContain("toggleErrors()");
+        expect(html).toContain("errorsVisible = !errorsVisible");
+    });
+
+    it("reflects the toggle state into the button (aria-pressed + label)", () => {
+        const html = build();
+        expect(html).toContain("errorButton.setAttribute('aria-pressed'");
+        expect(html).toContain("'Hide errors'");
+        expect(html).toContain("'Show errors'");
+    });
+
+    it("reconciles panel visibility from render-state OR error presence", () => {
+        // Once at least one render lands or one error fires, the panel is
+        // visible — otherwise it stays hidden.
+        const html = build();
+        expect(html).toContain("function reconcileControlsVisibility()");
+        expect(html).toContain("!hasRender && errors.length === 0");
+    });
+});
+
+describe("previewHtml error popover (#203)", () => {
+    it("renders the popover container as a sibling of #root, hidden initially", () => {
+        const html = build();
+        expect(html).toContain('id="kul-error-popover"');
+        expect(html).toMatch(/id="kul-error-popover"[^>]*hidden/);
+    });
+
+    it("delegates row clicks on the popover (innerHTML-rebuildable rows)", () => {
+        const html = build();
+        expect(html).toContain("errorPopover.addEventListener('click'");
+        expect(html).toContain(".kul-error-row[data-error-index]");
+    });
+
+    it("posts revealSource with uri + range for a clicked error row", () => {
+        const html = build();
+        // The webview ships the row's bound diagnostic back to the extension
+        // verbatim — uri + LSP range, no entity id.
+        expect(html).toContain("type: 'revealSource'");
+        expect(html).toContain("uri: err.uri");
+        expect(html).toContain("range: err.range");
+    });
+
+    it("escapes message/code/location HTML to keep the popover XSS-safe", () => {
+        // Diagnostics arrive from the LSP; their message is author-controlled
+        // by way of the source file. innerHTML assembly must escape <, >, &.
+        const html = build();
+        expect(html).toContain(".replace(/&/g, '&amp;')");
+        expect(html).toContain(".replace(/</g, '&lt;')");
+        expect(html).toContain(".replace(/>/g, '&gt;')");
+    });
+
+    it("renders rows with one-based line / column for display", () => {
+        // LSP positions are zero-based; the popover surfaces them one-based
+        // to match the Problems pane's convention.
+        const html = build();
+        expect(html).toContain("err.range.start.line + 1");
+        expect(html).toContain("err.range.start.character + 1");
+    });
+
+    it("opens only when errors are present (toggleErrors is a no-op on empty)", () => {
+        const html = build();
+        expect(html).toContain("if (errors.length === 0) { return; }");
+    });
+
+    it("re-hides the popover whenever errors clears (next successful render)", () => {
+        // setErrors([]) drops errorsVisible back to false so a subsequent
+        // good render doesn't leave the popover stranded open.
+        const html = build();
+        expect(html).toMatch(/if \(errors\.length === 0\) \{ errorsVisible = false; \}/);
+    });
+});
+
 describe("previewHtml chrome legend overlay", () => {
     it("renders the legend container as a sibling of #root (survives innerHTML swaps)", () => {
         const html = build();
@@ -664,7 +795,7 @@ describe("previewHtml chrome legend overlay", () => {
     it("hides the legend on render error and on a missing <svg>", () => {
         const html = build();
         expect(html).toContain("hideLegend()");
-        expect(html).toMatch(/if \(!svg\) \{ showControls\(false\); hideLegend\(\)/);
+        expect(html).toMatch(/if \(!svg\) \{ hideLegend\(\); reconcileControlsVisibility/);
     });
 
     it("tracks whether the current diagram has any legend content", () => {
