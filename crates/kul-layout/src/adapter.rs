@@ -224,18 +224,8 @@ impl<'a> Builder<'a> {
 
         let child_floor = host_floor + 1.0;
         let mut children: Vec<usize> = Vec::new();
-        let mut nested_root_indices: Vec<usize> = Vec::new();
+        let nested_root_indices: Vec<usize> = Vec::new();
         for marriage in &card.hosted_marriages {
-            // Absorb rule (ADR-0018): nested birth-family sub-tree
-            // becomes an additional walker root packed to the right.
-            // Independent of the polygamy floor; reset to 0.
-            if let Some(nested) = &marriage.bar.joining_nested_birth_family {
-                let nested_expected = self.nodes.len();
-                self.roots.push(nested_expected);
-                let nested_actual = self.build_person(nested, 0.0);
-                debug_assert_eq!(nested_expected, nested_actual);
-                nested_root_indices.push(nested_actual);
-            }
             for child in &marriage.children {
                 let child_idx = self.build_person(child, child_floor);
                 if matches!(

@@ -342,17 +342,11 @@ fn build_components(index: &Index<'_>) -> Vec<Component> {
 
     let m_idx = |i: usize| n_persons + i;
 
+    // `bar_anchor` chains a hosted marriage to its host's canonical-family
+    // marriage, building the host-lineage tree one edge at a time.
     for (i, m) in index.graph.marriages.iter().enumerate() {
         if let Some(anchor) = index.bar_anchor(m)
             && let Some(&j) = index.marriages_by_id.get(anchor.as_str())
-        {
-            uf.union(m_idx(i), m_idx(j));
-        }
-        // Absorb rule: joining spouse's birth family belongs to the same
-        // component as the host. Cousin/sibling case is a no-op union.
-        if let Some(joining) = index.person(&m.spouses[1])
-            && let Some(family_id) = joining.canonical_family()
-            && let Some(&j) = index.marriages_by_id.get(family_id)
         {
             uf.union(m_idx(i), m_idx(j));
         }
@@ -443,27 +437,14 @@ fn build_one_component(index: &Index<'_>, members: &ComponentMembers) -> Compone
         };
     }
 
-    // Root = outermost canonical host of the outermost floating marriage:
-    // (a) no bar-anchor, (b) not nested inside any joining spouse's
-    // birth-family slot. Polygamy's multiple roots collapse via union-find;
-    // pick the earliest-declared (primary, per ADR-0017).
-    let nested_targets: HashSet<String> = members
-        .marriages
-        .iter()
-        .filter_map(|&i| {
-            index
-                .person(&index.graph.marriages[i].spouses[1])
-                .and_then(|p| p.canonical_family().map(|f| f.to_string()))
-        })
-        .collect();
+    // Each component is one host-lineage tree: pick its outermost floating
+    // marriage (no bar-anchor) as the root. Polygamy's multiple roots
+    // collapse via union-find; pick the earliest-declared.
     let root_marriage_idx = members
         .marriages
         .iter()
         .copied()
-        .filter(|&i| {
-            let m = &index.graph.marriages[i];
-            index.bar_anchor(m).is_none() && !nested_targets.contains(m.id.as_str())
-        })
+        .filter(|&i| index.bar_anchor(&index.graph.marriages[i]).is_none())
         .min_by_key(|&i| {
             index.graph.marriages[i]
                 .span
@@ -471,36 +452,10 @@ fn build_one_component(index: &Index<'_>, members: &ComponentMembers) -> Compone
                 .map(|s| s[0])
                 .unwrap_or(usize::MAX)
         })
-        .or_else(|| {
-            // Defensive: pick any floating-mini-comp if no clean root.
-            members
-                .marriages
-                .iter()
-                .copied()
-                .filter(|&i| index.bar_anchor(&index.graph.marriages[i]).is_none())
-                .min_by_key(|&i| {
-                    index.graph.marriages[i]
-                        .span
-                        .as_ref()
-                        .map(|s| s[0])
-                        .unwrap_or(usize::MAX)
-                })
-        })
         .expect("non-orphan component must contain at least one floating marriage");
 
-    // Precompute the main walk's reachable set so the absorb rule's
-    // recursion can terminate on cousin/sibling marriages (the birth
-    // family is already in this component) vs. nest cross-component.
-    let root_host_id = index.graph.marriages[root_marriage_idx].spouses[0].as_str();
-    let in_context = compute_main_walk_reachable(index, root_host_id, root_marriage_idx);
-
     let mut visited = HashSet::new();
-    let root = Box::new(build_person_root(
-        index,
-        root_marriage_idx,
-        &mut visited,
-        &in_context,
-    ));
+    let root = Box::new(build_person_root(index, root_marriage_idx, &mut visited));
 
     Component {
         id: String::new(),
@@ -517,7 +472,6 @@ fn build_person_root(
     index: &Index<'_>,
     root_marriage_idx: usize,
     visited: &mut HashSet<usize>,
-    in_context: &HashSet<usize>,
 ) -> PersonCard {
     let host_id = index.graph.marriages[root_marriage_idx].spouses[0].as_str();
     let host_facts = index
@@ -548,15 +502,10 @@ fn build_person_root(
 
     let hosted_marriages = if host_is_canonical_here {
         // Polygamy collapses onto one canonical card (ADR-0017).
-        build_hosted_marriages(index, host_facts, visited, in_context)
+        build_hosted_marriages(index, host_facts, visited)
     } else {
         // Ghost-rooted: only the past-ended root bar surfaces here.
-        vec![build_marriage_branch(
-            index,
-            root_marriage_idx,
-            visited,
-            in_context,
-        )]
+        vec![build_marriage_branch(index, root_marriage_idx, visited)]
     };
 
     PersonCard {
@@ -565,64 +514,10 @@ fn build_person_root(
     }
 }
 
-/// Marriages the main tree-walk will visit from the root. Used to
-/// terminate the absorb rule's recursion when a joining spouse's
-/// birth family is already in this rendering context (cousin/sibling).
-fn compute_main_walk_reachable(
-    index: &Index<'_>,
-    root_host_id: &str,
-    root_marriage_idx: usize,
-) -> HashSet<usize> {
-    let mut reachable: HashSet<usize> = HashSet::new();
-    let mut stack: Vec<usize> = Vec::new();
-
-    // Canonical-rooted: seed with host's hosted marriages. Ghost-rooted:
-    // host's canonical is elsewhere, so seed with the root marriage only.
-    if let Some(host_facts) = index.person(root_host_id)
-        && matches!(
-            index.canonical_location(host_facts),
-            CanonicalLocation::HostOfFloating(ref m) if m == &index.graph.marriages[root_marriage_idx].id,
-        )
-    {
-        for &h in &host_facts.hosted_marriages {
-            stack.push(h);
-        }
-    } else {
-        stack.push(root_marriage_idx);
-    }
-
-    while let Some(m_idx) = stack.pop() {
-        if !reachable.insert(m_idx) {
-            continue;
-        }
-        let marriage_id = index.graph.marriages[m_idx].id.as_str();
-        for facts in index.persons.iter() {
-            if facts.canonical_family() != Some(marriage_id) {
-                continue;
-            }
-            // Only canonical-here children contribute; one who moved on
-            // to host elsewhere surfaces their hosted marriages there.
-            if !matches!(
-                index.canonical_location(facts),
-                CanonicalLocation::ChildOf(ref id) if id == marriage_id
-            ) {
-                continue;
-            }
-            for &h in &facts.hosted_marriages {
-                stack.push(h);
-            }
-        }
-    }
-    reachable
-}
-
-/// Recursively build a `MarriageBranch`. `in_context` terminates the
-/// absorb rule's nesting on cousin/sibling marriages.
 fn build_marriage_branch(
     index: &Index<'_>,
     marriage_idx: usize,
     visited: &mut HashSet<usize>,
-    in_context: &HashSet<usize>,
 ) -> MarriageBranch {
     visited.insert(marriage_idx);
     let marriage = &index.graph.marriages[marriage_idx];
@@ -641,41 +536,17 @@ fn build_marriage_branch(
         end: marriage.end.clone(),
         end_reason: marriage.end_reason.clone(),
         ended: marriage.end.is_some(),
-        joining_nested_birth_family: build_nested_birth_family(
-            index, joining_id, visited, in_context,
-        ),
     };
 
-    let children = build_children(index, &marriage.id, visited, in_context);
+    let children = build_children(index, &marriage.id, visited);
 
     MarriageBranch { bar, children }
-}
-
-/// The absorb rule's nested birth-family sub-tree. `None` when the
-/// joining spouse has no birth family or it's already in this rendering
-/// context (cousin/sibling). Shaped like a top-level `FamilyTree`.
-fn build_nested_birth_family(
-    index: &Index<'_>,
-    joining_id: &str,
-    visited: &mut HashSet<usize>,
-    in_context: &HashSet<usize>,
-) -> Option<Box<PersonCard>> {
-    let facts = index.person(joining_id)?;
-    let family_id = facts.canonical_family()?;
-    let &family_idx = index.marriages_by_id.get(family_id)?;
-    if in_context.contains(&family_idx) || visited.contains(&family_idx) {
-        return None;
-    }
-    Some(Box::new(build_person_root(
-        index, family_idx, visited, in_context,
-    )))
 }
 
 fn build_children(
     index: &Index<'_>,
     marriage_id: &str,
     visited: &mut HashSet<usize>,
-    in_context: &HashSet<usize>,
 ) -> Vec<PersonCard> {
     let mut out = Vec::new();
     // Declaration order so canonical children and past ghosts interleave.
@@ -690,7 +561,7 @@ fn build_children(
         if canonical_here {
             out.push(PersonCard {
                 slot: canonical_card_slot(facts),
-                hosted_marriages: build_hosted_marriages(index, facts, visited, in_context),
+                hosted_marriages: build_hosted_marriages(index, facts, visited),
             });
             continue;
         }
@@ -725,7 +596,6 @@ fn build_hosted_marriages(
     index: &Index<'_>,
     host: &PersonFacts<'_>,
     visited: &mut HashSet<usize>,
-    in_context: &HashSet<usize>,
 ) -> Vec<MarriageBranch> {
     let mut out = Vec::new();
     for &m in &host.hosted_marriages {
@@ -737,7 +607,7 @@ fn build_hosted_marriages(
         if !host_anchors_bar_here(index, host, m) {
             continue;
         }
-        out.push(build_marriage_branch(index, m, visited, in_context));
+        out.push(build_marriage_branch(index, m, visited));
     }
     out
 }
