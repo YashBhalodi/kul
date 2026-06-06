@@ -1,7 +1,7 @@
 # ADR 0019 — The ghost model: one emission rule, three flavors, and the bio-anchor
 
 **Status:** Accepted
-**Date:** 2026-05-25
+**Date:** 2026-06-07
 **Deciders:** owner
 
 ## Context
@@ -51,7 +51,7 @@ Ghost emission is **structural data**, not layout policy: the ghost, its source-
 ## Consequences
 
 - **A past fact's edge is a short local drop, not a canvas-spanning line.** A joining spouse's biological birth edge terminates on a ghost in their birth family's children row — the same orthogonal bus-and-drop a within-tree birth edge uses — rather than reaching back from their canonical card at the host bar.
-- **The absorb rule's cousin case composes cleanly.** A cousin who joins a marriage and is thereby demoted from their bio family gains a past-bio ghost in that bio family's children row; the within-family cross-edge becomes a short local edge to the ghost, and the absorb rule's "apply uniformly at every scale" is unchanged at the principle level.
+- **The cousin marriage composes cleanly.** A cousin who joins a marriage and is thereby demoted from their bio family gains a past-bio ghost in that bio family's children row; the within-family connector becomes a short local edge to the ghost, and the host's lineage tree positions exactly as it would without the cross-family link.
 - **One rule scales to a future link kind.** The discriminator is semantic (derived from canonical placement), so a future spec extension introducing a new family-unit link would slot in as a fourth flavor without restructuring the rule.
 - **Three crates render the same fact in lockstep.** `kul-render` emits the ghost, `kul-layout` registers its local endpoint, `kul-svg` adds one match arm; no downstream consumer needs a code change beyond regenerating snapshots.
 
