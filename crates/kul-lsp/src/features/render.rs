@@ -2,12 +2,12 @@
 //! (render → layout → svg) so the preview panel can render the in-memory
 //! buffer without shelling out. Mirrors the `kul/export` envelope shape.
 
-use kul_core::export::ExportedDiagnostic;
+use kul_core::diagnostic::Severity;
 use kul_layout::{LayoutConfig, layout};
 use kul_render::{RenderShape, compute};
 use kul_svg::{ThemeConfig, render};
 use serde::{Deserialize, Serialize};
-use tower_lsp::lsp_types::Url;
+use tower_lsp::lsp_types::{Range, Url};
 
 use crate::state::ProjectEntry;
 
@@ -41,7 +41,24 @@ pub struct RenderSuccess {
 pub struct RenderFailure {
     /// Always `false`.
     pub ok: bool,
-    pub diagnostics: Vec<ExportedDiagnostic>,
+    pub diagnostics: Vec<RenderDiagnostic>,
+}
+
+/// Preview-tailored diagnostic. Carries an LSP `Range` (not raw byte
+/// offsets) so the webview can post it back unchanged in a `revealSource`
+/// message and the extension can reveal it via `vscode.window.showTextDocument`.
+/// `uri` and `range` are `None` for unanchored diagnostics (e.g. `KUL-M01`),
+/// which surface in the popover but cannot be clicked through.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderDiagnostic {
+    pub code: String,
+    pub severity: &'static str,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uri: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub range: Option<Range>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,9 +85,9 @@ pub fn render_for(
 ) -> Result<RenderResponse, RenderRequestError> {
     let shape = compute(&entry.check);
     match shape {
-        RenderShape::Failure(f) => Ok(RenderResponse::Failure(RenderFailure {
+        RenderShape::Failure(_) => Ok(RenderResponse::Failure(RenderFailure {
             ok: false,
-            diagnostics: f.diagnostics,
+            diagnostics: errors_for_preview(entry),
         })),
         RenderShape::Success(_) => {
             let positioned = layout(&shape, &LayoutConfig::default());
@@ -78,6 +95,33 @@ pub fn render_for(
             Ok(RenderResponse::Success(RenderSuccess { ok: true, svg }))
         }
     }
+}
+
+/// Project the entry's error-severity diagnostics into [`RenderDiagnostic`]s
+/// for the preview's error popover. Warnings stay in the Problems pane (#203).
+/// Anchored diagnostics carry their primary file's URI and LSP `Range` so the
+/// webview can post them back for click-to-source.
+fn errors_for_preview(entry: &ProjectEntry) -> Vec<RenderDiagnostic> {
+    entry
+        .check
+        .diagnostics
+        .iter()
+        .filter(|d| d.severity == Severity::Error)
+        .map(|d| {
+            let location = d.primary.and_then(|primary| entry.location_for(primary));
+            let (uri, range) = match location {
+                Some(loc) => (Some(loc.uri.to_string()), Some(loc.range)),
+                None => (None, None),
+            };
+            RenderDiagnostic {
+                code: d.code.to_owned(),
+                severity: "error",
+                message: d.message.clone(),
+                uri,
+                range,
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -125,11 +169,17 @@ mod tests {
         match response {
             RenderResponse::Failure(f) => {
                 assert!(!f.ok);
-                assert!(
-                    f.diagnostics.iter().any(|d| d.code == "KUL-R03"),
-                    "expected R03 in failure diagnostics: {:?}",
-                    f.diagnostics
-                );
+                let r03 = f
+                    .diagnostics
+                    .iter()
+                    .find(|d| d.code == "KUL-R03")
+                    .expect("R03 in failure diagnostics");
+                // Errors-only filter passed through.
+                assert_eq!(r03.severity, "error");
+                // Anchored error carries URI + LSP range so the webview can
+                // click through to the source location (#203).
+                assert!(r03.uri.is_some(), "expected anchored URI: {r03:?}");
+                assert!(r03.range.is_some(), "expected anchored range: {r03:?}");
             }
             RenderResponse::Success(_) => panic!("expected failure for dirty document"),
         }

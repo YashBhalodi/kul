@@ -165,20 +165,35 @@ function defaultExportFilename(
     return vscode.Uri.file(path.join(dir, `${stem}${suffix}`));
 }
 
-interface RenderResponse {
-    ok: boolean;
-    svg?: string;
-    diagnostics?: { code: string }[];
-}
-
 interface LspPosition {
     line: number;
     character: number;
 }
 
+interface LspRange {
+    start: LspPosition;
+    end: LspPosition;
+}
+
+interface RenderDiagnostic {
+    code: string;
+    severity: string;
+    message: string;
+    /** Present only for anchored diagnostics. */
+    uri?: string;
+    /** LSP range in the primary file; present only for anchored diagnostics. */
+    range?: LspRange;
+}
+
+interface RenderResponse {
+    ok: boolean;
+    svg?: string;
+    diagnostics?: RenderDiagnostic[];
+}
+
 interface LspLocation {
     uri: string;
-    range: { start: LspPosition; end: LspPosition };
+    range: LspRange;
 }
 
 interface LocateResponse {
@@ -191,7 +206,25 @@ interface EntityAtResponse {
 
 interface RevealSourceMessage {
     type: "revealSource";
-    id: string;
+    /** Entity id (kul-card / marriage bar click). */
+    id?: string;
+    /** Direct location (error popover click — #203). */
+    uri?: string;
+    range?: LspRange;
+}
+
+// Reveal an LSP URI + range directly. Used by the error popover (#203),
+// where the diagnostic already carries its own location and the entity-id
+// round-trip would be a no-op (errors have no entity to look up).
+async function revealLocation(uri: string, range: LspRange): Promise<void> {
+    const target = vscode.Uri.parse(uri);
+    const selection = new vscode.Range(
+        range.start.line,
+        range.start.character,
+        range.end.line,
+        range.end.character,
+    );
+    await vscode.window.showTextDocument(target, { selection });
 }
 
 // A null location (stale id, no live declaration) is a silent no-op.
@@ -330,9 +363,17 @@ async function showPreview(
             typeof message === "object" &&
             (message as { type?: unknown }).type === "revealSource"
         ) {
-            const { id } = message as RevealSourceMessage;
+            const { id, uri, range } = message as RevealSourceMessage;
             if (typeof id === "string" && id.length > 0) {
                 void revealSource(id);
+            } else if (
+                typeof uri === "string" &&
+                uri.length > 0 &&
+                range &&
+                range.start &&
+                range.end
+            ) {
+                void revealLocation(uri, range);
             }
         }
     });
@@ -416,10 +457,10 @@ async function refreshPreview(uri: vscode.Uri): Promise<void> {
         });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        // Transport failure — surface as a single synthetic error row.
         await previewPanel.webview.postMessage({
             type: "renderError",
-            message: `Kul render failed: ${message}`,
-            diagnosticCount: 0,
+            errors: [{ message: `Kul render failed: ${message}` }],
         });
         return;
     }
@@ -442,11 +483,20 @@ async function refreshPreview(uri: vscode.Uri): Promise<void> {
             }
         }
     } else {
-        const count = response.diagnostics?.length ?? 0;
+        // Forward error-severity rows only (#203). The Rust side already
+        // filters to severity === "error", but re-filter here so a future
+        // payload change can't accidentally surface warnings in this UI.
+        const errors = (response.diagnostics ?? [])
+            .filter((d) => d.severity === "error")
+            .map((d) => ({
+                message: d.message,
+                code: d.code,
+                uri: d.uri,
+                range: d.range,
+            }));
         await previewPanel.webview.postMessage({
             type: "renderError",
-            message: `Document has ${count} issue${count === 1 ? "" : "s"} — see the Problems panel.`,
-            diagnosticCount: count,
+            errors,
         });
     }
 }
