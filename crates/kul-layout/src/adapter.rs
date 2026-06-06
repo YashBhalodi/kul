@@ -606,10 +606,15 @@ impl<'a> Builder<'a> {
                             ],
                         });
 
-                        if !marriage.child_roots.is_empty() {
-                            bar_centers
-                                .insert(marriage.marriage_id.clone(), (children_center_abs, bus_y));
-                        }
+                        // Unconditionally — mirrors `PersonHost`'s
+                        // insert at the top of this match. A render edge
+                        // can target this marriage even when
+                        // `child_roots` is empty (e.g. an adoption-only
+                        // child whose canonical_location resolves
+                        // elsewhere), and `route_edges` requires the
+                        // anchor for every render edge.
+                        bar_centers
+                            .insert(marriage.marriage_id.clone(), (children_center_abs, bus_y));
                     }
                 }
                 NodeKind::PersonLeaf { card } => {
