@@ -79,10 +79,10 @@ fn render_pretty(envelope: &ExportEnvelope) -> String {
     serde_json::to_string_pretty(&shape).expect("serialize render shape")
 }
 
-/// Absorb rule: Bob's birth family nests at his joining slot in
-/// `m_alice_bob` (cross-component, so recursion does not terminate).
+/// Joining spouse's birth family renders as its own independent component
+/// in source order; cross-family kinship reads through shared name identity.
 #[test]
-fn p6_joining_spouse_birth_family_nests_at_connection_point() {
+fn p6_joining_spouse_birth_family_renders_as_independent_component() {
     let envelope = success(ExportedGraph {
         persons: vec![
             person("alice", "Alice", "female"),
