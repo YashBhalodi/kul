@@ -4,6 +4,18 @@ All notable changes to KulLang are documented here. The format is based on [Keep
 
 The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi.kul`) ship in lockstep — one tag, one set of artifacts. Per-component notes live under each version.
 
+## [0.4.1] — 2026-06-06
+
+Hotfix for the VSCode outline pane silently breaking while a user types a person's name. The Kul *language* version is unchanged at `0.1`; documents valid at 0.4.0 remain valid.
+
+### `kul-lsp`
+
+- **`textDocument/documentSymbol` no longer emits empty `name` fields.** LSP §`DocumentSymbol` requires `name` to be non-empty, and VSCode's language-client validates this client-side — so during the transient `name:""` state every keystroke produces while a user is typing a name, the entire outline response was rejected and the outline pane went silent. `person_symbol` now trims the `name:` literal and falls back to the person id when the value is empty or whitespace-only; `display_name_or` applies the same sanitisation per-spouse so marriage labels with empty-named spouses render as `a & b` rather than ` & `. The non-empty invariant is an LSP-wire invariant, so sanitisation lives at the LSP boundary — `kul-core`'s `display_name()` still surfaces whatever the user wrote for other consumers (export, render, CLI) (#199, #201).
+
+### `kul-core`, `kul-render`, `kul-layout`, `kul-svg`, `kul-loader`, `kul-cli`, `@kullang/wasm`
+
+- **Lockstep version bump** — no functional changes. Byte-identical to `v0.4.0` aside from the bump that keeps every artifact aligned under one tag, per the [`release.yml` `verify` gate](./.github/workflows/release.yml).
+
 ## [0.3.4] — 2026-05-30
 
 The "preview becomes navigable" release. The VSCode preview is no longer a passive picture — cards and marriage bars **click-through to source**, the editor cursor **highlights the matching card** in the preview, **hovering surfaces an entity's details** in a tooltip, and keyboard arrows pan / `+`/`-` zoom the viewport. The CLI gains a third export format, **`kul export --format=svg`**, that streams a self-contained canonical SVG to stdout — drop it into a browser, an `<img>`, or a static page with no external CSS. Both the CLI baked SVG and the preview chrome now carry a **legend** keying the diagram's visual vocabulary. A new release-build perf gate keeps the render pipeline honest on ~5,000-card documents. The Kul *language* version is unchanged at `0.1`; documents valid at 0.3.3 remain valid.

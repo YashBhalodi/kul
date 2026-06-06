@@ -2,6 +2,12 @@
 
 All notable changes to the **KulLang** VSCode extension are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.1] — 2026-06-06
+
+### Fixed
+
+- The outline pane no longer goes silent mid-edit. While typing a person's name, the buffer transiently contains `name:""`, and VSCode's language-client rejects any `DocumentSymbol` with an empty `name`. The language server now treats an empty or whitespace-only `name:` literal as "no usable name" and falls back to the person id (and per-spouse for marriage labels), so the outline keeps refreshing on every keystroke (#199).
+
 ## [0.3.4] — 2026-05-30
 
 ### Added
