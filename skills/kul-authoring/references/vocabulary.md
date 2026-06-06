@@ -7,7 +7,7 @@ Maps natural-language kinship terms to Kul. Most everyday terms are **derived** 
 | Concept    | Statement                                                                 |
 | ---------- | ------------------------------------------------------------------------- |
 | Person     | `person <id> name:"…" gender:… [born:…] [died:…] [family:…] [given:…]`    |
-| Marriage   | `marriage <id> <spouse_a> <spouse_b> start:… [end:… end_reason:divorce]`  |
+| Marriage   | `marriage <id> <spouse_a> <spouse_b> [start:…] [end:… end_reason:divorce]`  |
 | Birth      | `birth <marriage-id>` (sub-statement of `person`; biological link)        |
 | Adoption   | `adoption <marriage-id> start:… [end:…]` (sub-statement of `person`)      |
 
@@ -39,5 +39,5 @@ When prose names a derived relation ("Alice's uncle Ravi"), resolve it back to d
 ## Notes
 
 - `gender:` is required on every `person`. The enum is exactly `male | female | other`.
-- Dates take the granularity of the literal: `1985-03-15`, `1985-03`, `1985`, or `~1985` (circa, ±5y). Absence of a date field is valid (except `start:` on a `marriage`); there is no `unknown` literal.
+- Dates take the granularity of the literal: `1985-03-15`, `1985-03`, `1985`, or `~1985` (circa, ±5y). Every date field is optional — `start:` on a `marriage` may be omitted when the date is lost to record. There is no `unknown` literal.
 - Identifiers match `[A-Za-z_][A-Za-z0-9_-]*` and must avoid the 17 reserved keywords — see [spec §11 — reserved keywords](https://github.com/YashBhalodi/kul/blob/main/spec/11-reserved-keywords.md).

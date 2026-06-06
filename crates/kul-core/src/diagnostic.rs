@@ -114,8 +114,6 @@ pub mod detail {
     pub const R03_MISSING_NAME: &str = "r03-missing-name";
     /// R03: `person` is missing its required `gender:` field.
     pub const R03_MISSING_GENDER: &str = "r03-missing-gender";
-    /// R03: `marriage` is missing its required `start:` field.
-    pub const R03_MISSING_MARRIAGE_START: &str = "r03-missing-marriage-start";
     /// R05: `marriage` has `end:` but no `end_reason:`.
     pub const R05_END_WITHOUT_END_REASON: &str = "r05-end-without-end-reason";
     /// R05: `marriage` has `end_reason:` but no `end:`.

@@ -119,7 +119,8 @@ pub struct MarriageBar {
     pub host_id: String,
     pub joining_id: String,
     pub joining_slot: CardSlot,
-    pub start: ExportedDate,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start: Option<ExportedDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end: Option<ExportedDate>,
     #[serde(skip_serializing_if = "Option::is_none")]

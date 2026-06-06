@@ -169,7 +169,8 @@ pub struct ExportedMarriage {
     /// Two spouse ids, in declaration order. Both resolve to entries in
     /// `persons` (export refuses otherwise).
     pub spouses: [String; 2],
-    pub start: ExportedDate,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start: Option<ExportedDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end: Option<ExportedDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -324,7 +325,7 @@ fn build_graph(resolved: &ResolvedDocument, options: &ExportOptions) -> Exported
         .map(|m| ExportedMarriage {
             id: m.id.name.clone(),
             spouses: [m.spouse_a.name.clone(), m.spouse_b.name.clone()],
-            start: exported_date(m.start().expect("R03 ensures marriage.start is present")),
+            start: m.start().map(exported_date),
             end: m.end().map(exported_date),
             end_reason: m.end_reason().map(|er| end_reason_str(&er.value)),
             span: span_if(options, m.span),

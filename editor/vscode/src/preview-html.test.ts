@@ -360,6 +360,17 @@ describe("buildTooltip rows — scope and order", () => {
         ]);
     });
 
+    it("omits the Start row when a marriage has no data-start (#198)", () => {
+        const rows = rowsOf([
+            attr("data-marriage-id", "m1"),
+            attr("data-link-kind", "marriage"),
+            attr("data-host-id", "a"),
+            attr("data-joining-id", "b"),
+            attr("data-is-ended", "false"),
+        ]);
+        expect(rows).toEqual([]);
+    });
+
     it("surfaces an adoption edge's adoption start/end", () => {
         const rows = rowsOf([
             attr("data-marriage-id", "m1"),

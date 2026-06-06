@@ -156,8 +156,9 @@ fn check_marriage_ref(
     }
 }
 
-/// R03 — required fields. `person` needs `name` + `gender`; `marriage`
-/// needs `start` (spouses are positional and enforced by the grammar).
+/// R03 — required fields. `person` needs `name` + `gender`. Marriages
+/// have no required fields beyond the positional spouses enforced by the
+/// grammar; `start:` is optional (genealogical records may not know it).
 pub fn rule_03_required_fields(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for p in resolved.persons_in(file) {
@@ -185,21 +186,6 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument, file: FileId) -> Vec
                     fspan(file, p.id.span),
                 )
                 .with_detail(detail::R03_MISSING_GENDER),
-            );
-        }
-    }
-    for m in resolved.marriages_in(file) {
-        if m.start().is_none() {
-            out.push(
-                Diagnostic::error(
-                    "KUL-R03",
-                    format!(
-                        "marriage `{}` needs a `start:` date — add `start:YYYY` (or a fuller `YYYY-MM-DD`)",
-                        m.id.name
-                    ),
-                    fspan(file, m.id.span),
-                )
-                .with_detail(detail::R03_MISSING_MARRIAGE_START),
             );
         }
     }

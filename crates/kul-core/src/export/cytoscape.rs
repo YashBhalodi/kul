@@ -70,7 +70,8 @@ pub struct MarriageNodeData {
     /// Always `"marriage"`.
     #[serde(rename = "type")]
     pub kind: &'static str,
-    pub start: ExportedDate,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start: Option<ExportedDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end: Option<ExportedDate>,
     #[serde(skip_serializing_if = "Option::is_none")]

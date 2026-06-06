@@ -6,13 +6,13 @@ A conforming validator MUST report all of the following as errors. A document wi
 
 1. **Duplicate ID within the project** — no two top-level statements (across `person` and `marriage`) may share an ID anywhere in the project. A Kul project (see [Section 14](./14-project-manifest.md)) is one logical namespace: an ID declared in one `.kul` file collides with the same ID declared in any sibling `.kul` file. The diagnostic anchors at the second declaration in file-discovery order (ties broken by byte offset within a file); a related-span points to the first declaration.
 2. **Unresolved reference** — every `birth` marriage reference, `adoption` marriage reference, and marriage spouse reference must resolve to a declared ID in the project. Cross-file references resolve cleanly: an ID declared in any `.kul` file of the project is visible from every file.
-3. **Required field missing** — a `person` MUST have `name` and `gender`. A `marriage` MUST have both spouses and `start`. (The positional `id` is also required and is enforced by the grammar; this rule covers the named fields.)
+3. **Required field missing** — a `person` MUST have `name` and `gender`. A `marriage` has no required named fields — the positional `id` and two spouse references are enforced by the grammar; `start:` is optional because dates are sometimes lost to record.
 4. **Self-marriage** — a marriage's two spouse references MUST be distinct identifiers.
 5. **End consistency** — a marriage's `end` field and `end_reason` field MUST both be present or both absent.
 
 ## Temporal impossibilities
 
-For each comparison below, when a date has partial granularity it is treated as a range (e.g., `1925` denotes `1925-01-01..1925-12-31`), and the rule fires only if the comparison is violated for every date pair within the range. The `~` (circa) marker adds a tolerance of ±5 years to the date when the comparison is performed.
+For each comparison below, when a date has partial granularity it is treated as a range (e.g., `1925` denotes `1925-01-01..1925-12-31`), and the rule fires only if the comparison is violated for every date pair within the range. The `~` (circa) marker adds a tolerance of ±5 years to the date when the comparison is performed. A rule with a missing operand is silent (e.g. R09 / R10 do not fire when `marriage.start` is absent).
 
 6. **Died before born** — `person.died < person.born`.
 7. **Marriage end before start** — `marriage.end < marriage.start`.

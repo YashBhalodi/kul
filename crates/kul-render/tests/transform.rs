@@ -36,7 +36,7 @@ fn marriage(id: &str, a: &str, b: &str, start: u32) -> ExportedMarriage {
     ExportedMarriage {
         id: id.to_string(),
         spouses: [a.to_string(), b.to_string()],
-        start: year(start),
+        start: Some(year(start)),
         end: None,
         end_reason: None,
         span: None,
@@ -211,7 +211,7 @@ fn p8_joining_spouse_of_ended_marriage_becomes_orphan_component() {
         marriages: vec![ExportedMarriage {
             id: "m_alice_bob".to_string(),
             spouses: ["alice".to_string(), "bob".to_string()],
-            start: year(1972),
+            start: Some(year(1972)),
             end: Some(year(1990)),
             end_reason: Some("divorce".to_string()),
             span: None,

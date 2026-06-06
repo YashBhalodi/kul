@@ -110,8 +110,8 @@ const META: &[FieldMeta] = &[
     FieldMeta {
         name: FieldName::Start,
         value_kind: ValueKind::Date,
-        short_doc: "Start date — required on marriages",
-        hover_md: "**`start:`** — start date. On a marriage, the date the marriage began (required). On an adoption, the date the adoption took effect.\n\nUse `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`. Prefix with `~` for an approximate date.",
+        short_doc: "Start date — optional; include when known",
+        hover_md: "**`start:`** — start date. On a marriage, the date the marriage began. On an adoption, the date the adoption took effect.\n\nOptional on both — include when known, omit when the date is lost to record.\n\nUse `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`. Prefix with `~` for an approximate date.",
     },
     FieldMeta {
         name: FieldName::End,
