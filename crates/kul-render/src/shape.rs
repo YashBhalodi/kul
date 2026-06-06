@@ -1,9 +1,9 @@
 //! [`RenderShape`] — the canonical UI pattern's data form.
 //!
 //! Every layout-meaningful fact (generation index, canonical/ghost slot,
-//! component grouping, nested birth-family sub-trees) is a field, so a
-//! surface renderer walks the data rather than re-implementing the
-//! pattern. Schema-versioning contract in ADR-0017.
+//! component grouping) is a field, so a surface renderer walks the data
+//! rather than re-implementing the pattern. Schema-versioning contract
+//! in ADR-0017.
 
 use kul_core::export::{ExportedDate, ExportedDiagnostic};
 use serde::Serialize;
@@ -128,11 +128,6 @@ pub struct MarriageBar {
     /// Reified `end.is_some()` so consumers don't re-derive it. Death is
     /// on the person, not the marriage — `ended` is the canonical predicate.
     pub ended: bool,
-    /// Absorb rule's nested birth-family sub-tree for the joining spouse.
-    /// `None` when there's no birth family or it's already in this
-    /// component's rendering context (cousin/sibling).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub joining_nested_birth_family: Option<Box<PersonCard>>,
 }
 
 /// One canonical or ghost card slot — the uniform visual primitive of

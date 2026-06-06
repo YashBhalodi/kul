@@ -4,7 +4,7 @@ expression: json
 ---
 {
   "ok": true,
-  "schema": 2,
+  "schema": 3,
   "kul": "0.1",
   "components": [
     {
@@ -97,73 +97,7 @@ expression: json
                           "precision": "day",
                           "circa": false
                         },
-                        "ended": false,
-                        "joiningNestedBirthFamily": {
-                          "slot": {
-                            "personId": "aldo",
-                            "kind": {
-                              "kind": "canonical"
-                            },
-                            "generation": 0,
-                            "name": "Aldo Bianchi",
-                            "gender": "male",
-                            "born": {
-                              "value": "1942-08-03",
-                              "precision": "day",
-                              "circa": false
-                            }
-                          },
-                          "hostedMarriages": [
-                            {
-                              "bar": {
-                                "marriageId": "m_aldo_bianca",
-                                "generation": 0,
-                                "hostId": "aldo",
-                                "joiningId": "bianca",
-                                "joiningSlot": {
-                                  "personId": "bianca",
-                                  "kind": {
-                                    "kind": "canonical"
-                                  },
-                                  "generation": 0,
-                                  "name": "Bianca Bianchi",
-                                  "gender": "female",
-                                  "born": {
-                                    "value": "1945-12-21",
-                                    "precision": "day",
-                                    "circa": false
-                                  }
-                                },
-                                "start": {
-                                  "value": "1967-05-30",
-                                  "precision": "day",
-                                  "circa": false
-                                },
-                                "ended": false
-                              },
-                              "children": [
-                                {
-                                  "slot": {
-                                    "personId": "elena",
-                                    "kind": {
-                                      "kind": "ghost",
-                                      "reason": "pastBirth"
-                                    },
-                                    "generation": 1,
-                                    "name": "Elena Bianchi",
-                                    "gender": "female",
-                                    "born": {
-                                      "value": "1970-11-15",
-                                      "precision": "day",
-                                      "circa": false
-                                    }
-                                  },
-                                  "hostedMarriages": []
-                                }
-                              ]
-                            }
-                          ]
-                        }
+                        "ended": false
                       },
                       "children": [
                         {
@@ -282,6 +216,79 @@ expression: json
                       ]
                     }
                   ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "comp-2",
+      "sourceOrder": 2178,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "aldo",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Aldo Bianchi",
+            "gender": "male",
+            "born": {
+              "value": "1942-08-03",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_aldo_bianca",
+                "generation": 0,
+                "hostId": "aldo",
+                "joiningId": "bianca",
+                "joiningSlot": {
+                  "personId": "bianca",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Bianca Bianchi",
+                  "gender": "female",
+                  "born": {
+                    "value": "1945-12-21",
+                    "precision": "day",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1967-05-30",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "elena",
+                    "kind": {
+                      "kind": "ghost",
+                      "reason": "pastBirth"
+                    },
+                    "generation": 1,
+                    "name": "Elena Bianchi",
+                    "gender": "female",
+                    "born": {
+                      "value": "1970-11-15",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
                 }
               ]
             }

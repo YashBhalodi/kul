@@ -10,9 +10,9 @@ expression: svg
 <path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="birth" data-child-id="giulia" data-is-past="true" fill="none" d="M 581 216 L 581 316 L 581 316 L 581 344"/>
 <path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="marriage" data-host-id="giuseppe" data-joining-id="sofia" data-start="1965-06-12" data-is-ended="false" fill="none" d="M 375 56 L 405 56"/>
 <path class="kul-edge" data-marriage-id="m_marco_elena" data-link-kind="marriage" data-host-id="marco" data-joining-id="elena" data-start="1995-07-22" data-is-ended="false" fill="none" d="M 184 216 L 214 216"/>
-<path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="marriage" data-host-id="aldo" data-joining-id="bianca" data-start="1967-05-30" data-is-ended="false" fill="none" d="M 948 56 L 978 56"/>
 <path class="kul-edge" data-marriage-id="m_matteo_giulia" data-link-kind="marriage" data-host-id="matteo" data-joining-id="giulia" data-start="2020-09-12" data-is-ended="false" fill="none" d="M 184 376 L 214 376"/>
 <path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="marriage" data-host-id="lucia" data-joining-id="paolo" data-start="1996-10-05" data-is-ended="false" fill="none" d="M 566 216 L 596 216"/>
+<path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="marriage" data-host-id="aldo" data-joining-id="bianca" data-start="1967-05-30" data-is-ended="false" fill="none" d="M 948 56 L 978 56"/>
 <g class="kul-card" data-person-id="giuseppe" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1940-05-19" data-generation="0">
 <rect x="215" y="24" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Giuseppe Rossi</text>
@@ -28,18 +28,6 @@ expression: svg
 <g class="kul-card" data-person-id="elena" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1">
 <rect x="214" y="184" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="294" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text>
-</g>
-<g class="kul-card" data-person-id="aldo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1942-08-03" data-generation="0">
-<rect x="788" y="24" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="868" y="56" text-anchor="middle" dominant-baseline="central">Aldo Bianchi</text>
-</g>
-<g class="kul-card" data-person-id="bianca" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1945-12-21" data-generation="0">
-<rect x="978" y="24" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="1058" y="56" text-anchor="middle" dominant-baseline="central">Bianca Bianchi</text>
-</g>
-<g class="kul-card" data-person-id="elena" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1">
-<rect x="883" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
-<text class="kul-label-name" x="963" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text>
 </g>
 <g class="kul-card" data-person-id="matteo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1997-02-14" data-generation="2">
 <rect x="24" y="344" width="160" height="64" rx="8" ry="8"/>
@@ -60,5 +48,17 @@ expression: svg
 <g class="kul-card" data-person-id="giulia" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2">
 <rect x="501" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
 <text class="kul-label-name" x="581" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text>
+</g>
+<g class="kul-card" data-person-id="aldo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1942-08-03" data-generation="0">
+<rect x="788" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="868" y="56" text-anchor="middle" dominant-baseline="central">Aldo Bianchi</text>
+</g>
+<g class="kul-card" data-person-id="bianca" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1945-12-21" data-generation="0">
+<rect x="978" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="1058" y="56" text-anchor="middle" dominant-baseline="central">Bianca Bianchi</text>
+</g>
+<g class="kul-card" data-person-id="elena" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1">
+<rect x="883" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
+<text class="kul-label-name" x="963" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text>
 </g>
 </svg>

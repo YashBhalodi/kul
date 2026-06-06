@@ -182,66 +182,6 @@ cards:
   generation: 2
   gender: male
   born: 1931-10-05
-- person_id: nnamdi
-  kind: canonical
-  x: 2369.5
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Nnamdi Okafor
-  generation: 0
-  gender: male
-  born: ~1905
-- person_id: chiamaka
-  kind: canonical
-  x: 2559.5
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Chiamaka Okafor
-  generation: 1
-  gender: female
-  born: '1908'
-- person_id: obi
-  kind: canonical
-  x: 2751.5
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Obi Eze
-  generation: 0
-  gender: male
-  born: ~1880
-- person_id: ngozi
-  kind: canonical
-  x: 2941.5
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Ngozi Eze
-  generation: 0
-  gender: female
-  born: '1885'
-- person_id: chiamaka
-  kind: ghost:past_birth
-  x: 2846.5
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Chiamaka Okafor
-  generation: 1
-  gender: female
-  born: '1908'
-- person_id: chukwu
-  kind: ghost:past_birth
-  x: 2464.5
-  y: 344.0
-  width: 160.0
-  height: 64.0
-  name: Chukwu Okafor
-  generation: 2
-  gender: male
-  born: 1931-10-05
 - person_id: ada
   kind: canonical
   x: 1315.5
@@ -334,7 +274,7 @@ cards:
   born: 1980-10-25
 - person_id: simisola
   kind: canonical
-  x: 3133.5
+  x: 2369.5
   y: 24.0
   width: 160.0
   height: 64.0
@@ -344,7 +284,7 @@ cards:
   born: 1940-12-01
 - person_id: femi
   kind: canonical
-  x: 3323.5
+  x: 2559.5
   y: 24.0
   width: 160.0
   height: 64.0
@@ -354,7 +294,7 @@ cards:
   born: 1938-11-22
 - person_id: kunle
   kind: canonical
-  x: 3228.5
+  x: 2464.5
   y: 184.0
   width: 160.0
   height: 64.0
@@ -362,6 +302,66 @@ cards:
   generation: 1
   gender: male
   born: 1982-12-30
+- person_id: nnamdi
+  kind: canonical
+  x: 2751.5
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Nnamdi Okafor
+  generation: 0
+  gender: male
+  born: ~1905
+- person_id: chiamaka
+  kind: canonical
+  x: 2941.5
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Chiamaka Okafor
+  generation: 1
+  gender: female
+  born: '1908'
+- person_id: chukwu
+  kind: ghost:past_birth
+  x: 2846.5
+  y: 344.0
+  width: 160.0
+  height: 64.0
+  name: Chukwu Okafor
+  generation: 2
+  gender: male
+  born: 1931-10-05
+- person_id: obi
+  kind: canonical
+  x: 3133.5
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Obi Eze
+  generation: 0
+  gender: male
+  born: ~1880
+- person_id: ngozi
+  kind: canonical
+  x: 3323.5
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Ngozi Eze
+  generation: 0
+  gender: female
+  born: '1885'
+- person_id: chiamaka
+  kind: ghost:past_birth
+  x: 3228.5
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Chiamaka Okafor
+  generation: 1
+  gender: female
+  born: '1908'
 edges:
 - link_kind: birth
   marriage_id: m_oludare_folake
@@ -407,26 +407,26 @@ edges:
   child_id: chukwu
   is_past: true
   points:
-  - - 2544.5
+  - - 2926.5
     - 216.0
-  - - 2544.5
+  - - 2926.5
     - 316.0
-  - - 2544.5
+  - - 2926.5
     - 316.0
-  - - 2544.5
+  - - 2926.5
     - 344.0
 - link_kind: birth
   marriage_id: m_obi_ngozi
   child_id: chiamaka
   is_past: true
   points:
-  - - 2926.5
+  - - 3308.5
     - 56.0
-  - - 2926.5
+  - - 3308.5
     - 156.0
-  - - 2926.5
+  - - 3308.5
     - 156.0
-  - - 2926.5
+  - - 3308.5
     - 184.0
 - link_kind: birth
   marriage_id: m_babatunde_yetunde
@@ -524,13 +524,13 @@ edges:
   child_id: kunle
   is_past: false
   points:
-  - - 3308.5
+  - - 2544.5
     - 56.0
-  - - 3308.5
+  - - 2544.5
     - 156.0
-  - - 3308.5
+  - - 2544.5
     - 156.0
-  - - 3308.5
+  - - 2544.5
     - 184.0
 - link_kind: adoption
   marriage_id: m_tunde_halima
@@ -684,28 +684,6 @@ edges:
   - - 1554.0
     - 376.0
 - link_kind: marriage
-  marriage_id: m_nnamdi_chiamaka
-  host_id: nnamdi
-  joining_id: chiamaka
-  start: 1929-07-18
-  is_ended: false
-  points:
-  - - 2529.5
-    - 216.0
-  - - 2559.5
-    - 216.0
-- link_kind: marriage
-  marriage_id: m_obi_ngozi
-  host_id: obi
-  joining_id: ngozi
-  start: 1905-02-11
-  is_ended: false
-  points:
-  - - 2911.5
-    - 56.0
-  - - 2941.5
-    - 56.0
-- link_kind: marriage
   marriage_id: m_emeka_folasade
   host_id: emeka
   joining_id: folasade
@@ -753,6 +731,28 @@ edges:
   host_id: simisola
   joining_id: femi
   start: 1980-02-14
+  is_ended: false
+  points:
+  - - 2529.5
+    - 56.0
+  - - 2559.5
+    - 56.0
+- link_kind: marriage
+  marriage_id: m_nnamdi_chiamaka
+  host_id: nnamdi
+  joining_id: chiamaka
+  start: 1929-07-18
+  is_ended: false
+  points:
+  - - 2911.5
+    - 216.0
+  - - 2941.5
+    - 216.0
+- link_kind: marriage
+  marriage_id: m_obi_ngozi
+  host_id: obi
+  joining_id: ngozi
+  start: 1905-02-11
   is_ended: false
   points:
   - - 3293.5

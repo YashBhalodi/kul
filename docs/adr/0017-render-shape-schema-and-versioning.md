@@ -1,7 +1,7 @@
 # ADR 0017 — `RenderShape` schema and versioning
 
 **Status:** Accepted
-**Date:** 2026-05-25
+**Date:** 2026-06-07
 **Deciders:** owner
 
 ## Context
@@ -41,7 +41,7 @@ A `Component` is one of:
 
 A `PersonCard` carries `slot: CardSlot` plus `hosted_marriages: Vec<MarriageBranch>`. A monogamous host carries a `Vec` of length one; a polygamy hub carries N — a length-one `Vec` is not a special case, so there is exactly one structural primitive for "a person with hosted marriages" regardless of N.
 
-A `MarriageBranch` holds a `MarriageBar` plus a flat `Vec<PersonCard>` of children; each child `PersonCard` may itself host marriages (the absorb rule applied uniformly). A `MarriageBar` carries the bar metadata — `id`, `host_id`, `joining_id`, dates, end-reason, and an `ended` boolean reified from `end:` presence — plus the joining slot and an optional `joining_nested_birth_family: Box<PersonCard>` for the nested-birth-family case. The bar carries **no `host_slot`**: the host face of every bar is the parent `PersonCard.slot` in the tree, implicit by position rather than duplicated on the bar. (`host_id` stays, for consumers cross-referencing by id.)
+A `MarriageBranch` holds a `MarriageBar` plus a flat `Vec<PersonCard>` of children; each child `PersonCard` may itself host marriages, recursing through one host-lineage tree. A `MarriageBar` carries the bar metadata — `id`, `host_id`, `joining_id`, dates, end-reason, and an `ended` boolean reified from `end:` presence — plus the joining slot. The bar carries **no `host_slot`**: the host face of every bar is the parent `PersonCard.slot` in the tree, implicit by position rather than duplicated on the bar. (`host_id` stays, for consumers cross-referencing by id.) A joining spouse's bio family is rendered as its own component reached through past-bio child-ghost + name pairing ([ADR-0019](./0019-ghost-model-and-bio-anchor.md)), not inlined under the bar.
 
 The root `PersonCard.slot.kind` is normally `Canonical`. A past-ended floating bar — one whose host and joining spouse have both moved on, so the bar exists only to anchor a child's edge — roots its component at a **ghost** `PersonCard` whose `slot.kind = Ghost(PastMarriage)` and whose `hosted_marriages` carries the past-ended bar. Every `FamilyTree` is thus rooted at a `PersonCard`, canonical or ghost; the data permits the same person to appear as a canonical `PersonCard` in one component and a ghost `PersonCard` rooting another, mirroring `CardSlot`-level canonical/ghost duplication.
 
@@ -57,7 +57,7 @@ Which un-ended marriage anchors a person's canonical card is decided by **first-
 
 ### Versioning
 
-`RENDER_SCHEMA_VERSION` is a `pub const u32` exported from `kul-render`; the current value is `2`. Bumping follows [ADR-0010](./0010-export-schema-versioning.md)'s discipline transposed to the render shape:
+`RENDER_SCHEMA_VERSION` is a `pub const u32` exported from `kul-render`; the current value is `3`. Bumping follows [ADR-0010](./0010-export-schema-versioning.md)'s discipline transposed to the render shape:
 
 - **Bump** when a consumer might silently mis-represent data by ignoring a new construct — a new top-level layout primitive, or an existing field's semantics changing incompatibly.
 - **No bump** for forward-compatible additions: a new optional slot field, a new `GhostReason` value, a new component-kind variant a consumer can treat as opaque. The types use `#[serde(skip_serializing_if = "Option::is_none")]` on additions so older consumers keep parsing.
@@ -80,6 +80,6 @@ The `kul` language-version string passes through verbatim from the input envelop
 - **"Use a second root shape for past-ended floating bars (a `MarriageBranch` root, or a synthesized `GhostBarRoot` primitive)."** Two root shapes for one `ComponentKind` push the discriminator into consumer code instead of the data. The ghost-rooted `PersonCard` gives one uniform shape and reuses the `Ghost { reason: PastMarriage }` vocabulary that already exists.
 - **"Drop the `ended` boolean — let consumers compute it from `end`."** `ended` is a load-bearing placement predicate; reifying it keeps the mechanic readable and tested at the pattern boundary.
 - **"Replace the `Ghost { reason }` discriminator with a flat `Faded` boolean," or "generalise the reasons into `Past { intimacy }`."** The three reasons carry different downstream semantics (which edge anchors at the ghost; whether the bar is mute) and do not share a `Past`-shaped payload. Three flat variants stay pattern-matchable in one line; a nested form needs an extra match arm at every consumer for zero structural benefit; a flat boolean loses the distinction entirely.
-- **"Inline the joining spouse's birth family into `MarriageBar.joining_slot`."** Mixes "slot" (a card position) with "sub-tree" (an entire branch). Keeping the slot at one level and the optional nested sub-tree as a sibling field keeps the two concepts separable.
+- **"Inline a joining spouse's bio family into the `MarriageBar` (as a nested sub-tree, child `PersonCard`, or any other shape)."** A joining spouse's bio family is a distinct host-lineage tree and renders as its own component. Cross-family kinship reads through past-bio child-ghost + shared name identity ([ADR-0019](./0019-ghost-model-and-bio-anchor.md)); spatial inlining loses the symmetry and re-introduces the multi-rooted-component problem that motivated this shape.
 - **"Use semantic versioning (`schema: \"1.0.0\"` or `schema: 1.1`)."** Per [ADR-0010](./0010-export-schema-versioning.md), the schema integer is a discriminator at the consumer boundary, not a release identifier.
 - **"Add a Visitor trait over the component shape."** As with [ADR-0001](./0001-resolved-document-as-query-seam.md), `Component` is a two-variant enum; pattern matches stay clearer than a visitor at this scale.

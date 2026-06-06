@@ -4,7 +4,7 @@ expression: json
 ---
 {
   "ok": true,
-  "schema": 2,
+  "schema": 3,
   "kul": "0.1",
   "components": [
     {
@@ -406,139 +406,7 @@ expression: json
                           "precision": "day",
                           "circa": false
                         },
-                        "ended": false,
-                        "joiningNestedBirthFamily": {
-                          "slot": {
-                            "personId": "nnamdi",
-                            "kind": {
-                              "kind": "canonical"
-                            },
-                            "generation": 0,
-                            "name": "Nnamdi Okafor",
-                            "gender": "male",
-                            "born": {
-                              "value": "1905",
-                              "precision": "year",
-                              "circa": true
-                            }
-                          },
-                          "hostedMarriages": [
-                            {
-                              "bar": {
-                                "marriageId": "m_nnamdi_chiamaka",
-                                "generation": 1,
-                                "hostId": "nnamdi",
-                                "joiningId": "chiamaka",
-                                "joiningSlot": {
-                                  "personId": "chiamaka",
-                                  "kind": {
-                                    "kind": "canonical"
-                                  },
-                                  "generation": 1,
-                                  "name": "Chiamaka Okafor",
-                                  "gender": "female",
-                                  "born": {
-                                    "value": "1908",
-                                    "precision": "year",
-                                    "circa": false
-                                  }
-                                },
-                                "start": {
-                                  "value": "1929-07-18",
-                                  "precision": "day",
-                                  "circa": false
-                                },
-                                "ended": false,
-                                "joiningNestedBirthFamily": {
-                                  "slot": {
-                                    "personId": "obi",
-                                    "kind": {
-                                      "kind": "canonical"
-                                    },
-                                    "generation": 0,
-                                    "name": "Obi Eze",
-                                    "gender": "male",
-                                    "born": {
-                                      "value": "1880",
-                                      "precision": "year",
-                                      "circa": true
-                                    }
-                                  },
-                                  "hostedMarriages": [
-                                    {
-                                      "bar": {
-                                        "marriageId": "m_obi_ngozi",
-                                        "generation": 0,
-                                        "hostId": "obi",
-                                        "joiningId": "ngozi",
-                                        "joiningSlot": {
-                                          "personId": "ngozi",
-                                          "kind": {
-                                            "kind": "canonical"
-                                          },
-                                          "generation": 0,
-                                          "name": "Ngozi Eze",
-                                          "gender": "female",
-                                          "born": {
-                                            "value": "1885",
-                                            "precision": "year",
-                                            "circa": false
-                                          }
-                                        },
-                                        "start": {
-                                          "value": "1905-02-11",
-                                          "precision": "day",
-                                          "circa": false
-                                        },
-                                        "ended": false
-                                      },
-                                      "children": [
-                                        {
-                                          "slot": {
-                                            "personId": "chiamaka",
-                                            "kind": {
-                                              "kind": "ghost",
-                                              "reason": "pastBirth"
-                                            },
-                                            "generation": 1,
-                                            "name": "Chiamaka Okafor",
-                                            "gender": "female",
-                                            "born": {
-                                              "value": "1908",
-                                              "precision": "year",
-                                              "circa": false
-                                            }
-                                          },
-                                          "hostedMarriages": []
-                                        }
-                                      ]
-                                    }
-                                  ]
-                                }
-                              },
-                              "children": [
-                                {
-                                  "slot": {
-                                    "personId": "chukwu",
-                                    "kind": {
-                                      "kind": "ghost",
-                                      "reason": "pastBirth"
-                                    },
-                                    "generation": 2,
-                                    "name": "Chukwu Okafor",
-                                    "gender": "male",
-                                    "born": {
-                                      "value": "1931-10-05",
-                                      "precision": "day",
-                                      "circa": false
-                                    }
-                                  },
-                                  "hostedMarriages": []
-                                }
-                              ]
-                            }
-                          ]
-                        }
+                        "ended": false
                       },
                       "children": [
                         {
@@ -813,6 +681,152 @@ expression: json
                     "born": {
                       "value": "1982-12-30",
                       "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "comp-3",
+      "sourceOrder": 3916,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "nnamdi",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Nnamdi Okafor",
+            "gender": "male",
+            "born": {
+              "value": "1905",
+              "precision": "year",
+              "circa": true
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_nnamdi_chiamaka",
+                "generation": 1,
+                "hostId": "nnamdi",
+                "joiningId": "chiamaka",
+                "joiningSlot": {
+                  "personId": "chiamaka",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 1,
+                  "name": "Chiamaka Okafor",
+                  "gender": "female",
+                  "born": {
+                    "value": "1908",
+                    "precision": "year",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1929-07-18",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "chukwu",
+                    "kind": {
+                      "kind": "ghost",
+                      "reason": "pastBirth"
+                    },
+                    "generation": 2,
+                    "name": "Chukwu Okafor",
+                    "gender": "male",
+                    "born": {
+                      "value": "1931-10-05",
+                      "precision": "day",
+                      "circa": false
+                    }
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "comp-4",
+      "sourceOrder": 4094,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "obi",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "Obi Eze",
+            "gender": "male",
+            "born": {
+              "value": "1880",
+              "precision": "year",
+              "circa": true
+            }
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_obi_ngozi",
+                "generation": 0,
+                "hostId": "obi",
+                "joiningId": "ngozi",
+                "joiningSlot": {
+                  "personId": "ngozi",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "Ngozi Eze",
+                  "gender": "female",
+                  "born": {
+                    "value": "1885",
+                    "precision": "year",
+                    "circa": false
+                  }
+                },
+                "start": {
+                  "value": "1905-02-11",
+                  "precision": "day",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "chiamaka",
+                    "kind": {
+                      "kind": "ghost",
+                      "reason": "pastBirth"
+                    },
+                    "generation": 1,
+                    "name": "Chiamaka Okafor",
+                    "gender": "female",
+                    "born": {
+                      "value": "1908",
+                      "precision": "year",
                       "circa": false
                     }
                   },

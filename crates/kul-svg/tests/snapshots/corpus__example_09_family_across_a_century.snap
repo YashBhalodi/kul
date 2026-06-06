@@ -6,8 +6,8 @@ expression: svg
 <path class="kul-edge" data-marriage-id="m_oludare_folake" data-link-kind="birth" data-child-id="babatunde" data-is-past="false" fill="none" d="M 1371.75 56 L 1371.75 146 Q 1371.75 156 1361.75 156 L 688 156 Q 678 156 678 166 L 678 184"/>
 <path class="kul-edge" data-marriage-id="m_oludare_folake" data-link-kind="birth" data-child-id="adunni" data-is-past="false" fill="none" d="M 1371.75 56 L 1371.75 306 Q 1371.75 316 1381.75 316 L 1434 316 Q 1444 316 1444 326 L 1444 344"/>
 <path class="kul-edge" data-marriage-id="m_oludare_folake" data-link-kind="birth" data-child-id="kehinde" data-is-past="false" fill="none" d="M 1371.75 56 L 1371.75 146 Q 1371.75 156 1381.75 156 L 2055.5 156 Q 2065.5 156 2065.5 166 L 2065.5 184"/>
-<path class="kul-edge" data-marriage-id="m_nnamdi_chiamaka" data-link-kind="birth" data-child-id="chukwu" data-is-past="true" fill="none" d="M 2544.5 216 L 2544.5 316 L 2544.5 316 L 2544.5 344"/>
-<path class="kul-edge" data-marriage-id="m_obi_ngozi" data-link-kind="birth" data-child-id="chiamaka" data-is-past="true" fill="none" d="M 2926.5 56 L 2926.5 156 L 2926.5 156 L 2926.5 184"/>
+<path class="kul-edge" data-marriage-id="m_nnamdi_chiamaka" data-link-kind="birth" data-child-id="chukwu" data-is-past="true" fill="none" d="M 2926.5 216 L 2926.5 316 L 2926.5 316 L 2926.5 344"/>
+<path class="kul-edge" data-marriage-id="m_obi_ngozi" data-link-kind="birth" data-child-id="chiamaka" data-is-past="true" fill="none" d="M 3308.5 56 L 3308.5 156 L 3308.5 156 L 3308.5 184"/>
 <path class="kul-edge" data-marriage-id="m_babatunde_yetunde" data-link-kind="birth" data-child-id="tunde" data-is-past="false" fill="none" d="M 391 316 L 391 466 Q 391 476 381 476 L 115.5 476 Q 105.5 476 105.5 486 L 105.5 504"/>
 <path class="kul-edge" data-marriage-id="m_babatunde_yetunde" data-link-kind="birth" data-child-id="bisi" data-is-past="false" fill="none" d="M 391 316 L 391 466 Q 391 476 401 476 L 477.5 476 Q 487.5 476 487.5 486 L 487.5 504"/>
 <path class="kul-edge" data-marriage-id="m_babatunde_amaka" data-link-kind="birth" data-child-id="segun" data-is-past="false" fill="none" d="M 965 316 L 965 466 Q 965 476 955 476 L 880 476 Q 870 476 870 486 L 870 504"/>
@@ -15,7 +15,7 @@ expression: svg
 <path class="kul-edge" data-marriage-id="m_adunni_chukwu" data-link-kind="birth" data-child-id="emeka" data-is-past="false" fill="none" d="M 1539 376 L 1539 466 Q 1539 476 1549 476 L 1577.5 476 Q 1587.5 476 1587.5 486 L 1587.5 504"/>
 <path class="kul-edge" data-marriage-id="m_kehinde_simisola" data-link-kind="birth" data-child-id="dayo" data-is-past="false" fill="none" d="M 1969.5 316 L 1969.5 476 L 1969.5 476 L 1969.5 504"/>
 <path class="kul-edge" data-marriage-id="m_kehinde_titi" data-link-kind="birth" data-child-id="lola" data-is-past="false" fill="none" d="M 2161.5 316 L 2161.5 476 L 2161.5 476 L 2161.5 504"/>
-<path class="kul-edge" data-marriage-id="m_simisola_femi" data-link-kind="birth" data-child-id="kunle" data-is-past="false" fill="none" d="M 3308.5 56 L 3308.5 156 L 3308.5 156 L 3308.5 184"/>
+<path class="kul-edge" data-marriage-id="m_simisola_femi" data-link-kind="birth" data-child-id="kunle" data-is-past="false" fill="none" d="M 2544.5 56 L 2544.5 156 L 2544.5 156 L 2544.5 184"/>
 <path class="kul-edge" data-marriage-id="m_tunde_halima" data-link-kind="adoption" data-child-id="zainab" data-is-past="false" data-adoption-start="1988-06-04" fill="none" d="M 200.5 536 L 200.5 626 Q 200.5 636 190.5 636 L 114.5 636 Q 104.5 636 104.5 646 L 104.5 664" stroke-dasharray="6 4"/>
 <path class="kul-edge" data-marriage-id="m_tunde_halima" data-link-kind="birth" data-child-id="kemi" data-is-past="false" fill="none" d="M 200.5 536 L 200.5 626 Q 200.5 636 210.5 636 L 286.5 636 Q 296.5 636 296.5 646 L 296.5 664"/>
 <path class="kul-edge" data-marriage-id="m_bisi_tunji" data-link-kind="birth" data-child-id="tobi" data-is-past="false" fill="none" d="M 582.5 536 L 582.5 636 L 582.5 636 L 582.5 664"/>
@@ -28,12 +28,12 @@ expression: svg
 <path class="kul-edge" data-marriage-id="m_bisi_tunji" data-link-kind="marriage" data-host-id="bisi" data-joining-id="tunji" data-start="1985-11-19" data-is-ended="false" fill="none" d="M 567.5 536 L 597.5 536"/>
 <path class="kul-edge" data-marriage-id="m_segun_ronke" data-link-kind="marriage" data-host-id="segun" data-joining-id="ronke" data-start="1992-05-26" data-is-ended="false" fill="none" d="M 950 536 L 980 536"/>
 <path class="kul-edge" data-marriage-id="m_adunni_chukwu" data-link-kind="marriage" data-host-id="adunni" data-joining-id="chukwu" data-start="1958-03-20" data-is-ended="false" fill="none" d="M 1524 376 L 1554 376"/>
-<path class="kul-edge" data-marriage-id="m_nnamdi_chiamaka" data-link-kind="marriage" data-host-id="nnamdi" data-joining-id="chiamaka" data-start="1929-07-18" data-is-ended="false" fill="none" d="M 2529.5 216 L 2559.5 216"/>
-<path class="kul-edge" data-marriage-id="m_obi_ngozi" data-link-kind="marriage" data-host-id="obi" data-joining-id="ngozi" data-start="1905-02-11" data-is-ended="false" fill="none" d="M 2911.5 56 L 2941.5 56"/>
 <path class="kul-edge" data-marriage-id="m_emeka_folasade" data-link-kind="marriage" data-host-id="emeka" data-joining-id="folasade" data-start="1990-08-15" data-is-ended="false" fill="none" d="M 1667.5 536 L 1697.5 536"/>
 <path class="kul-edge" data-marriage-id="m_kehinde_simisola" data-link-kind="marriage" data-host-id="kehinde" data-joining-id="simisola" data-start="1962-01-15" data-is-ended="true" data-end="1975-08-09" data-end-reason="divorce" fill="none" d="M 2065.5 248 L 2065.5 306 Q 2065.5 316 2055.5 316 L 1883.5 316 Q 1873.5 316 1873.5 326 L 1873.5 344"/>
 <path class="kul-edge" data-marriage-id="m_kehinde_titi" data-link-kind="marriage" data-host-id="kehinde" data-joining-id="titi" data-start="1978-05-22" data-is-ended="false" fill="none" d="M 2065.5 248 L 2065.5 306 Q 2065.5 316 2075.5 316 L 2247.5 316 Q 2257.5 316 2257.5 326 L 2257.5 344"/>
-<path class="kul-edge" data-marriage-id="m_simisola_femi" data-link-kind="marriage" data-host-id="simisola" data-joining-id="femi" data-start="1980-02-14" data-is-ended="false" fill="none" d="M 3293.5 56 L 3323.5 56"/>
+<path class="kul-edge" data-marriage-id="m_simisola_femi" data-link-kind="marriage" data-host-id="simisola" data-joining-id="femi" data-start="1980-02-14" data-is-ended="false" fill="none" d="M 2529.5 56 L 2559.5 56"/>
+<path class="kul-edge" data-marriage-id="m_nnamdi_chiamaka" data-link-kind="marriage" data-host-id="nnamdi" data-joining-id="chiamaka" data-start="1929-07-18" data-is-ended="false" fill="none" d="M 2911.5 216 L 2941.5 216"/>
+<path class="kul-edge" data-marriage-id="m_obi_ngozi" data-link-kind="marriage" data-host-id="obi" data-joining-id="ngozi" data-start="1905-02-11" data-is-ended="false" fill="none" d="M 3293.5 56 L 3323.5 56"/>
 <g class="kul-card" data-person-id="oludare" data-kind="canonical" data-gender="male" data-is-alive="false" data-born="~1905" data-died="1980-07-04" data-family="Adeyemi" data-given="Oludare" data-generation="0">
 <rect x="1196.75" y="24" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="1276.75" y="56" text-anchor="middle" dominant-baseline="central">Oludare Adeyemi</text>
@@ -102,30 +102,6 @@ expression: svg
 <rect x="1554" y="344" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="1634" y="376" text-anchor="middle" dominant-baseline="central">Chukwu Okafor</text>
 </g>
-<g class="kul-card" data-person-id="nnamdi" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="~1905" data-generation="0">
-<rect x="2369.5" y="184" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="2449.5" y="216" text-anchor="middle" dominant-baseline="central">Nnamdi Okafor</text>
-</g>
-<g class="kul-card" data-person-id="chiamaka" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1908" data-generation="1">
-<rect x="2559.5" y="184" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="2639.5" y="216" text-anchor="middle" dominant-baseline="central">Chiamaka Okafor</text>
-</g>
-<g class="kul-card" data-person-id="obi" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="~1880" data-generation="0">
-<rect x="2751.5" y="24" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="2831.5" y="56" text-anchor="middle" dominant-baseline="central">Obi Eze</text>
-</g>
-<g class="kul-card" data-person-id="ngozi" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1885" data-generation="0">
-<rect x="2941.5" y="24" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="3021.5" y="56" text-anchor="middle" dominant-baseline="central">Ngozi Eze</text>
-</g>
-<g class="kul-card" data-person-id="chiamaka" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1908" data-generation="1">
-<rect x="2846.5" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
-<text class="kul-label-name" x="2926.5" y="216" text-anchor="middle" dominant-baseline="central">Chiamaka Okafor</text>
-</g>
-<g class="kul-card" data-person-id="chukwu" data-kind="ghost" data-ghost-reason="past-birth" data-gender="male" data-is-alive="true" data-born="1931-10-05" data-generation="2">
-<rect x="2464.5" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
-<text class="kul-label-name" x="2544.5" y="376" text-anchor="middle" dominant-baseline="central">Chukwu Okafor</text>
-</g>
 <g class="kul-card" data-person-id="ada" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1960-01-22" data-generation="3">
 <rect x="1315.5" y="504" width="160" height="64" rx="8" ry="8"/>
 <text class="kul-label-name" x="1395.5" y="536" text-anchor="middle" dominant-baseline="central">Ada Okafor</text>
@@ -163,15 +139,39 @@ expression: svg
 <text class="kul-label-name" x="2161.5" y="536" text-anchor="middle" dominant-baseline="central">Lola Adeyemi</text>
 </g>
 <g class="kul-card" data-person-id="simisola" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1940-12-01" data-generation="0">
-<rect x="3133.5" y="24" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="3213.5" y="56" text-anchor="middle" dominant-baseline="central">Simisola Bello</text>
+<rect x="2369.5" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="2449.5" y="56" text-anchor="middle" dominant-baseline="central">Simisola Bello</text>
 </g>
 <g class="kul-card" data-person-id="femi" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1938-11-22" data-generation="0">
-<rect x="3323.5" y="24" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="3403.5" y="56" text-anchor="middle" dominant-baseline="central">Femi Bello</text>
+<rect x="2559.5" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="2639.5" y="56" text-anchor="middle" dominant-baseline="central">Femi Bello</text>
 </g>
 <g class="kul-card" data-person-id="kunle" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1982-12-30" data-generation="1">
-<rect x="3228.5" y="184" width="160" height="64" rx="8" ry="8"/>
-<text class="kul-label-name" x="3308.5" y="216" text-anchor="middle" dominant-baseline="central">Kunle Bello</text>
+<rect x="2464.5" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="2544.5" y="216" text-anchor="middle" dominant-baseline="central">Kunle Bello</text>
+</g>
+<g class="kul-card" data-person-id="nnamdi" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="~1905" data-generation="0">
+<rect x="2751.5" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="2831.5" y="216" text-anchor="middle" dominant-baseline="central">Nnamdi Okafor</text>
+</g>
+<g class="kul-card" data-person-id="chiamaka" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1908" data-generation="1">
+<rect x="2941.5" y="184" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="3021.5" y="216" text-anchor="middle" dominant-baseline="central">Chiamaka Okafor</text>
+</g>
+<g class="kul-card" data-person-id="chukwu" data-kind="ghost" data-ghost-reason="past-birth" data-gender="male" data-is-alive="true" data-born="1931-10-05" data-generation="2">
+<rect x="2846.5" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
+<text class="kul-label-name" x="2926.5" y="376" text-anchor="middle" dominant-baseline="central">Chukwu Okafor</text>
+</g>
+<g class="kul-card" data-person-id="obi" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="~1880" data-generation="0">
+<rect x="3133.5" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="3213.5" y="56" text-anchor="middle" dominant-baseline="central">Obi Eze</text>
+</g>
+<g class="kul-card" data-person-id="ngozi" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1885" data-generation="0">
+<rect x="3323.5" y="24" width="160" height="64" rx="8" ry="8"/>
+<text class="kul-label-name" x="3403.5" y="56" text-anchor="middle" dominant-baseline="central">Ngozi Eze</text>
+</g>
+<g class="kul-card" data-person-id="chiamaka" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1908" data-generation="1">
+<rect x="3228.5" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/>
+<text class="kul-label-name" x="3308.5" y="216" text-anchor="middle" dominant-baseline="central">Chiamaka Okafor</text>
 </g>
 </svg>

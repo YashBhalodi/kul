@@ -41,22 +41,13 @@ pub(crate) fn lay_out(success: &SuccessRender, config: &LayoutConfig) -> Positio
 struct Node {
     kind: NodeKind,
     width: f64,
-    /// Surface layout row (0.0 = top). Computed bottom-up per ADR-0018:
-    ///
-    /// ```text
-    /// visual_row(cluster) = max(
-    ///     host_card.slot.generation,
-    ///     1.0 + max(visual_row(nested)) for nesting marriages,
-    ///     min(visual_row(child)) - 1.0,
-    /// )
-    /// ```
-    ///
-    /// The nesting clause pushes a host down to make room for a nested
-    /// sub-tree from the absorb rule; the descendant-pull clause aligns
-    /// kin-symmetric ancestors across an inter-family marriage. For a
-    /// polygamy hub the fan's children sit two rows below the hub, so
-    /// the descendant-pull clause reads `min(child.visual_row) - 2.0`.
-    visual_row: f64,
+    /// Canvas row (0.0 = top). A direct function of data-level
+    /// generation per ADR-0018: a card sits at `row_top(generation)`, a
+    /// monogamy marriage edge at `max(spouses.generation)`. A polygamy
+    /// hub's children carry a `+1` shift on top of their data-level
+    /// generation so the co-spouse row sits between them and the hub
+    /// (ADR-0020 — `children sit at hub.gen + 2`).
+    row: f64,
     /// A polygamy hub's children are the flattened per-marriage
     /// children forests; co-spouse cards are placed by
     /// [`Builder::finish`], not walker nodes.
@@ -143,13 +134,8 @@ impl<'a> Builder<'a> {
     fn add_component(&mut self, component: &Component) {
         match &component.kind {
             ComponentKind::FamilyTree { root } => {
-                // Pre-register the top root so nested birth-family
-                // sub-trees discovered during DFS pre-order pack to the
-                // right of the host tree (ADR-0018 sibling-root packing).
-                let expected = self.nodes.len();
-                self.roots.push(expected);
-                let actual = self.build_person_root(root);
-                debug_assert_eq!(expected, actual);
+                let root_idx = self.build_person_root(root);
+                self.roots.push(root_idx);
             }
             ComponentKind::OrphanPerson { card } => {
                 let orphan = self.push_orphan((**card).clone());
@@ -159,14 +145,14 @@ impl<'a> Builder<'a> {
     }
 
     fn push_orphan(&mut self, card: CardSlot) -> usize {
-        let visual_row = f64::from(card.generation);
+        let row = f64::from(card.generation);
         let width = self.config.card_width;
         self.nodes.push(Node {
             kind: NodeKind::Orphan {
                 card: Box::new(card),
             },
             width,
-            visual_row,
+            row,
             children: Vec::new(),
         });
         self.nodes.len() - 1
@@ -176,12 +162,15 @@ impl<'a> Builder<'a> {
         self.build_person(card, 0.0)
     }
 
-    /// Build a person subtree. `min_visual_row` floors the subtree's
-    /// root row — used by the polygamy fan (ADR-0020), which inserts
-    /// the co-spouse row between the hub and its children so descendants
-    /// sit one row below their data-level `slot.generation`.
-    fn build_person(&mut self, card: &PersonCard, min_visual_row: f64) -> usize {
-        let host_floor = f64::from(card.slot.generation).max(min_visual_row);
+    /// Build a person subtree. `row_shift` is added to every node's
+    /// data-level generation to produce its canvas row. It is `0.0` for
+    /// roots and monogamy descendants, and `1.0` for every node reached
+    /// through a polygamy fan — the fan inserts the co-spouse row
+    /// between the hub and its children, so children sit at
+    /// `hub.gen + 2` (ADR-0020). The shift propagates rigidly down a
+    /// subtree.
+    fn build_person(&mut self, card: &PersonCard, row_shift: f64) -> usize {
+        let host_row = f64::from(card.slot.generation) + row_shift;
         if card.hosted_marriages.is_empty() {
             let idx = self.nodes.len();
             self.nodes.push(Node {
@@ -189,17 +178,19 @@ impl<'a> Builder<'a> {
                     card: Box::new(card.clone()),
                 },
                 width: self.config.card_width,
-                visual_row: host_floor,
+                row: host_row,
                 children: Vec::new(),
             });
             return idx;
         }
 
         if card.hosted_marriages.len() >= 2 {
-            return self.build_polygamy_fan(card, host_floor);
+            return self.build_polygamy_fan(card, host_row);
         }
 
-        // Monogamy (N=1): card + bar + joining card on a single row.
+        // Monogamy (N=1): host card, marriage edge, and joining card on
+        // a single row at `max(spouses.generation)` (ADR-0018). Children
+        // sit at `bar.row + 1`.
         let hosted: Vec<HostedMarriage> = card
             .hosted_marriages
             .iter()
@@ -208,6 +199,10 @@ impl<'a> Builder<'a> {
                 joining_slot: m.bar.joining_slot.clone(),
             })
             .collect();
+        let bar_row = hosted
+            .iter()
+            .map(|h| f64::from(h.joining_slot.generation) + row_shift)
+            .fold(host_row, f64::max);
         let per_marriage_extension =
             self.config.bar_gap * 2.0 + self.config.bar_width + self.config.card_width;
         let width = self.config.card_width + per_marriage_extension * hosted.len() as f64;
@@ -218,26 +213,14 @@ impl<'a> Builder<'a> {
                 hosted,
             },
             width,
-            visual_row: host_floor,
+            row: bar_row,
             children: Vec::new(),
         });
 
-        let child_floor = host_floor + 1.0;
         let mut children: Vec<usize> = Vec::new();
-        let mut nested_root_indices: Vec<usize> = Vec::new();
         for marriage in &card.hosted_marriages {
-            // Absorb rule (ADR-0018): nested birth-family sub-tree
-            // becomes an additional walker root packed to the right.
-            // Independent of the polygamy floor; reset to 0.
-            if let Some(nested) = &marriage.bar.joining_nested_birth_family {
-                let nested_expected = self.nodes.len();
-                self.roots.push(nested_expected);
-                let nested_actual = self.build_person(nested, 0.0);
-                debug_assert_eq!(nested_expected, nested_actual);
-                nested_root_indices.push(nested_actual);
-            }
             for child in &marriage.children {
-                let child_idx = self.build_person(child, child_floor);
+                let child_idx = self.build_person(child, row_shift);
                 if matches!(
                     child.slot.kind,
                     RenderSlotKind::Ghost {
@@ -250,9 +233,7 @@ impl<'a> Builder<'a> {
                 children.push(child_idx);
             }
         }
-        let visual_row = fold_visual_row(host_floor, &self.nodes, &nested_root_indices, &children);
         self.nodes[idx].children = children;
-        self.nodes[idx].visual_row = visual_row;
         idx
     }
 
@@ -266,7 +247,7 @@ impl<'a> Builder<'a> {
     /// 2. `cospouse_cx_i = 2 * C_i - hub_cx`.
     /// 3. Translate marriage `i`'s forest so its block centre lands on
     ///    `C_i`.
-    fn build_polygamy_fan(&mut self, card: &PersonCard, host_floor: f64) -> usize {
+    fn build_polygamy_fan(&mut self, card: &PersonCard, host_row: f64) -> usize {
         let hub_idx = self.nodes.len();
         self.nodes.push(Node {
             kind: NodeKind::PolygamyHub {
@@ -275,13 +256,16 @@ impl<'a> Builder<'a> {
                 marriages: Vec::new(),
             },
             width: self.config.card_width,
-            visual_row: host_floor,
+            row: host_row,
             children: Vec::new(),
         });
 
         let cw = self.config.card_width;
         let gap = self.config.sibling_gap;
-        let children_floor = host_floor + 2.0;
+        // Fan children sit two canvas rows below the hub (the co-spouse
+        // row sits between, ADR-0020). Children's data-level generation
+        // is `hub.gen + 1`, so the row_shift is `+1` on top of that.
+        let fan_child_shift = 1.0;
 
         struct PendingMarriage {
             marriage_id: String,
@@ -296,11 +280,10 @@ impl<'a> Builder<'a> {
             children_width: f64,
         }
         let mut pending: Vec<PendingMarriage> = Vec::new();
-        let mut min_child_row: Option<f64> = None;
         for marriage in &card.hosted_marriages {
             let mut child_roots: Vec<usize> = Vec::new();
             for child in &marriage.children {
-                let child_idx = self.build_person(child, children_floor);
+                let child_idx = self.build_person(child, fan_child_shift);
                 if matches!(
                     child.slot.kind,
                     RenderSlotKind::Ghost {
@@ -310,8 +293,6 @@ impl<'a> Builder<'a> {
                     self.child_ghost_marriage
                         .insert(child_idx, marriage.bar.marriage_id.clone());
                 }
-                let row = self.nodes[child_idx].visual_row;
-                min_child_row = Some(min_child_row.map_or(row, |m: f64| m.min(row)));
                 child_roots.push(child_idx);
             }
             let children_width = self.measure_forest_width(&child_roots);
@@ -366,13 +347,6 @@ impl<'a> Builder<'a> {
         // packing keeps siblings clear of the widest wing.
         let reserved = 2.0 * (hub_cx - min_wing).max(max_wing - hub_cx);
 
-        // Fan children sit two rows below the hub (co-spouse row
-        // between), so the descendant-pull clause is `min - 2.0`.
-        let hub_visual_row = match min_child_row {
-            Some(c) => host_floor.max(c - 2.0),
-            None => host_floor,
-        };
-
         // Attach the forests as the hub's walker children so the
         // global walker reserves the hub's contour against siblings;
         // natural positions are overridden in `finish`.
@@ -383,7 +357,6 @@ impl<'a> Builder<'a> {
 
         let hub = &mut self.nodes[hub_idx];
         hub.width = reserved.max(self.config.card_width);
-        hub.visual_row = hub_visual_row;
         hub.children = forest_children;
         if let NodeKind::PolygamyHub {
             hub_cx: stored_cx,
@@ -467,8 +440,8 @@ impl<'a> Builder<'a> {
             if right > max_x {
                 max_x = right;
             }
-            if node.visual_row > max_gen {
-                max_gen = node.visual_row;
+            if node.row > max_gen {
+                max_gen = node.row;
             }
         }
         if !min_x.is_finite() {
@@ -499,7 +472,7 @@ impl<'a> Builder<'a> {
 
         for (i, node) in nodes.iter().enumerate() {
             let cluster_left = positions[i].x - node.width / 2.0 + offset_x;
-            let row_top = offset_y + node.visual_row * config.row_height;
+            let row_top = offset_y + node.row * config.row_height;
             match &node.kind {
                 NodeKind::PersonHost { card, hosted } => {
                     let host_x = cluster_left;
@@ -706,37 +679,6 @@ fn translate_forest(
     while let Some(v) = stack.pop() {
         positions[v].x += delta;
         stack.extend(nodes[v].children.iter().copied());
-    }
-}
-
-/// Bottom-up cascade for `visual_row` per ADR-0018:
-///
-/// ```text
-/// visual_row(cluster) = max(
-///     host_generation,
-///     1.0 + max(visual_row(nested)) for nesting marriages,
-///     min(visual_row(child)) - 1.0,
-/// )
-/// ```
-fn fold_visual_row(
-    host_generation: f64,
-    nodes: &[Node],
-    nested_root_indices: &[usize],
-    children: &[usize],
-) -> f64 {
-    let nested_max_row = nested_root_indices
-        .iter()
-        .map(|&i| nodes[i].visual_row)
-        .reduce(f64::max);
-    let child_min_row = children
-        .iter()
-        .map(|&i| nodes[i].visual_row)
-        .reduce(f64::min);
-    match (nested_max_row, child_min_row) {
-        (Some(n), Some(c)) => host_generation.max(n + 1.0).max(c - 1.0),
-        (Some(n), None) => host_generation.max(n + 1.0),
-        (None, Some(c)) => host_generation.max(c - 1.0),
-        (None, None) => host_generation,
     }
 }
 

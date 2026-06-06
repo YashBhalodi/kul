@@ -1,7 +1,7 @@
 # ADR 0016 — The visualization pipeline: four crates and the structural/chrome line
 
 **Status:** Accepted
-**Date:** 2026-05-25
+**Date:** 2026-06-07
 **Deciders:** owner
 
 ## Context
@@ -15,7 +15,7 @@ ExportEnvelope ──▶ RenderShape ──▶ PositionedShape ──▶ SVG str
 
 `kul-core` produces the first: the kinship-native [`ExportEnvelope`](../../crates/kul-core/src/export.rs) that mirrors the language's primitives one-to-one. Surface renderers (the VSCode preview panel today; a web app, a native preview, a CLI export tomorrow) consume the last. Between them sit three questions, each with a different rate of change:
 
-1. **What does the canonical UI pattern ([`docs/canonical-ui-pattern.md`](../canonical-ui-pattern.md)) look like *as data*?** — cards, ghosts, marriages, components, generations, recursive nesting. This co-evolves with the language and changes slowly.
+1. **What does the canonical UI pattern ([`docs/canonical-ui-pattern.md`](../canonical-ui-pattern.md)) look like *as data*?** — cards, ghosts, marriages, components, generations. This co-evolves with the language and changes slowly.
 2. **Where does that data sit on a 2D plane?** — the positioning algorithm plus the canonical-pattern adapter. This is layout policy and may grow alternative algorithms, density controls, or level-of-detail.
 3. **How is the positioned diagram emitted for a viewer?** — the final serialization to a format a browser or file viewer can display.
 
@@ -122,7 +122,7 @@ The "SVG scope and theming" anti-suggestion below is hereby narrowed: *baking th
 ### `PositionedShape` and external dependencies
 
 - **"Make `PositionedShape` `Serialize` and schema-version it."** No v1 consumer reads positioned data out of process. Reify the contract only when an out-of-process consumer appears — then the policy is the same as [ADR-0010](./0010-export-schema-versioning.md) / [ADR-0017](./0017-render-shape-schema-and-versioning.md) transposed once more.
-- **"Use an external layout library (dagre, elkjs, cytoscape, react-flow)."** None speak the canonical pattern's vocabulary — the absorb rule, ghost slots, recursive nesting, the polygamy fan. A custom Walker's port is small enough (~200 lines) to own; adding a dependency to avoid it is poor value.
+- **"Use an external layout library (dagre, elkjs, cytoscape, react-flow)."** None speak the canonical pattern's vocabulary — ghost slots, the shared global generation grid, the polygamy fan. A custom Walker's port is small enough (~200 lines) to own; adding a dependency to avoid it is poor value.
 
 ### SVG scope and theming
 

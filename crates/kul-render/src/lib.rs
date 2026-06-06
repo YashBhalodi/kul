@@ -2,11 +2,10 @@
 //!
 //! Projects the kinship-native [`ExportEnvelope`] into a [`RenderShape`]
 //! whose hierarchy and primitives (components, marriage branches, card
-//! slots, ghost cards, nested birth-family sub-trees) match the
-//! canonical UI pattern's data form one-to-one. Every pattern decision
-//! — canonical-vs-ghost, generation row, component order, absorb-rule
-//! termination — is precomputed so a surface renderer is a walker of
-//! the shape, not a re-implementer of the pattern.
+//! slots, ghost cards) match the canonical UI pattern's data form
+//! one-to-one. Every pattern decision — canonical-vs-ghost, generation
+//! row, component order — is precomputed so a surface renderer is a
+//! walker of the shape, not a re-implementer of the pattern.
 //!
 //! Reads only the kinship-native graph (never AST or
 //! [`kul_core::semantic::ResolvedDocument`]); see ADR-0016. Failure
@@ -31,7 +30,7 @@ pub use shape::{
 /// Schema version for [`RenderShape`]. Bumped only when a schema change
 /// would silently mis-represent data for older consumers (ADR-0010 / ADR-0017);
 /// new optional fields, ghost reasons, or component kinds do not bump.
-pub const RENDER_SCHEMA_VERSION: u32 = 2;
+pub const RENDER_SCHEMA_VERSION: u32 = 3;
 
 /// Export-then-project. Exports with `with_positions: true` so a surface
 /// renderer can map clicks back to source declarations.

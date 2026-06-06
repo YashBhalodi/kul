@@ -1,0 +1,182 @@
+---
+source: crates/kul-render/tests/transform.rs
+assertion_line: 291
+expression: json
+---
+{
+  "ok": true,
+  "schema": 3,
+  "kul": "0.1",
+  "components": [
+    {
+      "id": "comp-1",
+      "sourceOrder": 0,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "a",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "A",
+            "gender": "male"
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_a_b",
+                "generation": 0,
+                "hostId": "a",
+                "joiningId": "b",
+                "joiningSlot": {
+                  "personId": "b",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 0,
+                  "name": "B",
+                  "gender": "female"
+                },
+                "start": {
+                  "value": "1900",
+                  "precision": "year",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "c",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 1,
+                    "name": "C",
+                    "gender": "male"
+                  },
+                  "hostedMarriages": [
+                    {
+                      "bar": {
+                        "marriageId": "m_c_d",
+                        "generation": 1,
+                        "hostId": "c",
+                        "joiningId": "d",
+                        "joiningSlot": {
+                          "personId": "d",
+                          "kind": {
+                            "kind": "canonical"
+                          },
+                          "generation": 1,
+                          "name": "D",
+                          "gender": "female"
+                        },
+                        "start": {
+                          "value": "1925",
+                          "precision": "year",
+                          "circa": false
+                        },
+                        "ended": false
+                      },
+                      "children": [
+                        {
+                          "slot": {
+                            "personId": "e",
+                            "kind": {
+                              "kind": "ghost",
+                              "reason": "pastBirth"
+                            },
+                            "generation": 2,
+                            "name": "E",
+                            "gender": "female"
+                          },
+                          "hostedMarriages": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "comp-2",
+      "sourceOrder": 0,
+      "kind": {
+        "type": "familyTree",
+        "root": {
+          "slot": {
+            "personId": "x",
+            "kind": {
+              "kind": "canonical"
+            },
+            "generation": 0,
+            "name": "X",
+            "gender": "male"
+          },
+          "hostedMarriages": [
+            {
+              "bar": {
+                "marriageId": "m_x_e",
+                "generation": 2,
+                "hostId": "x",
+                "joiningId": "e",
+                "joiningSlot": {
+                  "personId": "e",
+                  "kind": {
+                    "kind": "canonical"
+                  },
+                  "generation": 2,
+                  "name": "E",
+                  "gender": "female"
+                },
+                "start": {
+                  "value": "1950",
+                  "precision": "year",
+                  "circa": false
+                },
+                "ended": false
+              },
+              "children": [
+                {
+                  "slot": {
+                    "personId": "f",
+                    "kind": {
+                      "kind": "canonical"
+                    },
+                    "generation": 3,
+                    "name": "F",
+                    "gender": "male"
+                  },
+                  "hostedMarriages": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "birth",
+      "childId": "c",
+      "marriageId": "m_a_b"
+    },
+    {
+      "kind": "birth",
+      "childId": "e",
+      "marriageId": "m_c_d"
+    },
+    {
+      "kind": "birth",
+      "childId": "f",
+      "marriageId": "m_x_e"
+    }
+  ]
+}
