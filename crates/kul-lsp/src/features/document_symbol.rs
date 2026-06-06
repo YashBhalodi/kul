@@ -28,9 +28,15 @@ pub fn document_symbols(
 }
 
 fn person_symbol(line_index: &LineIndex, p: &PersonStmt) -> DocumentSymbol {
+    // Sanitise empty / whitespace-only `name:""` to the person id. The LSP
+    // `DocumentSymbol.name` field has a non-empty invariant (LSP spec) that
+    // VSCode validates client-side, so we treat unusable names as "absent"
+    // at this wire boundary rather than pushing the policy into core.
     let name = p
         .name()
-        .map(|n| n.value.clone())
+        .map(|n| n.value.trim())
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
         .unwrap_or_else(|| p.id.name.clone());
     let mut children = Vec::new();
     if let Some(birth) = &p.birth {
@@ -148,7 +154,9 @@ fn adoption_detail(a: &AdoptionSub) -> Option<String> {
 fn display_name_or(_file: FileId, resolved: &ResolvedDocument, id: &str) -> String {
     resolved
         .person(id)
-        .map(|p| p.display_name().to_owned())
+        .map(|p| p.display_name())
+        .filter(|n| !n.trim().is_empty())
+        .map(str::to_owned)
         .unwrap_or_else(|| id.to_owned())
 }
 
@@ -187,6 +195,32 @@ mod tests {
         let src = "person alice gender:female\n";
         let syms = symbols_for(src);
         assert_eq!(names(&syms), vec!["alice"]);
+    }
+
+    #[test]
+    fn person_with_empty_name_literal_falls_back_to_id() {
+        let src = "person yash name:\"\" gender:male\n";
+        let syms = symbols_for(src);
+        assert_eq!(names(&syms), vec!["yash"]);
+    }
+
+    #[test]
+    fn person_with_whitespace_only_name_falls_back_to_id() {
+        let src = "person yash name:\"   \" gender:male\n";
+        let syms = symbols_for(src);
+        assert_eq!(names(&syms), vec!["yash"]);
+    }
+
+    #[test]
+    fn marriage_with_empty_spouse_names_falls_back_to_ids() {
+        let src = "person a name:\"\" gender:female\n\
+                   person b name:\"\" gender:male\n\
+                   marriage m a b start:2010\n";
+        let marriage = symbols_for(src)
+            .into_iter()
+            .find(|s| s.kind == SymbolKind::EVENT)
+            .unwrap();
+        assert_eq!(marriage.name, "a & b");
     }
 
     #[test]
