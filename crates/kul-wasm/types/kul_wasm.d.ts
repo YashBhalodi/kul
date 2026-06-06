@@ -181,7 +181,7 @@ export interface ExportedMarriage {
      * `persons` (export refuses otherwise).
      */
     spouses: [string, string];
-    start: ExportedDate;
+    start?: ExportedDate;
     end?: ExportedDate;
     endReason?: string;
     /**
@@ -258,7 +258,7 @@ export interface MarriageNodeData {
      * Always `\"marriage\"`.
      */
     type: string;
-    start: ExportedDate;
+    start?: ExportedDate;
     end?: ExportedDate;
     endReason?: string;
 }
