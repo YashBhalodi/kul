@@ -45,36 +45,6 @@ cards:
   generation: 1
   gender: female
   born: 1970-11-15
-- person_id: aldo
-  kind: canonical
-  x: 788.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Aldo Bianchi
-  generation: 0
-  gender: male
-  born: 1942-08-03
-- person_id: bianca
-  kind: canonical
-  x: 978.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Bianca Bianchi
-  generation: 0
-  gender: female
-  born: 1945-12-21
-- person_id: elena
-  kind: ghost:past_birth
-  x: 883.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Elena Bianchi
-  generation: 1
-  gender: female
-  born: 1970-11-15
 - person_id: matteo
   kind: canonical
   x: 24.0
@@ -125,6 +95,36 @@ cards:
   generation: 2
   gender: female
   born: 1998-06-26
+- person_id: aldo
+  kind: canonical
+  x: 788.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Aldo Bianchi
+  generation: 0
+  gender: male
+  born: 1942-08-03
+- person_id: bianca
+  kind: canonical
+  x: 978.0
+  y: 24.0
+  width: 160.0
+  height: 64.0
+  name: Bianca Bianchi
+  generation: 0
+  gender: female
+  born: 1945-12-21
+- person_id: elena
+  kind: ghost:past_birth
+  x: 883.0
+  y: 184.0
+  width: 160.0
+  height: 64.0
+  name: Elena Bianchi
+  generation: 1
+  gender: female
+  born: 1970-11-15
 edges:
 - link_kind: birth
   marriage_id: m_giuseppe_sofia
@@ -214,17 +214,6 @@ edges:
   - - 214.0
     - 216.0
 - link_kind: marriage
-  marriage_id: m_aldo_bianca
-  host_id: aldo
-  joining_id: bianca
-  start: 1967-05-30
-  is_ended: false
-  points:
-  - - 948.0
-    - 56.0
-  - - 978.0
-    - 56.0
-- link_kind: marriage
   marriage_id: m_matteo_giulia
   host_id: matteo
   joining_id: giulia
@@ -246,3 +235,14 @@ edges:
     - 216.0
   - - 596.0
     - 216.0
+- link_kind: marriage
+  marriage_id: m_aldo_bianca
+  host_id: aldo
+  joining_id: bianca
+  start: 1967-05-30
+  is_ended: false
+  points:
+  - - 948.0
+    - 56.0
+  - - 978.0
+    - 56.0

@@ -4,7 +4,7 @@ expression: render_pretty(&envelope)
 ---
 {
   "ok": true,
-  "schema": 2,
+  "schema": 3,
   "kul": "0.1",
   "components": [],
   "edges": []
