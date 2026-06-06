@@ -86,7 +86,8 @@ pub enum EdgeKind {
     Marriage {
         host_id: String,
         joining_id: String,
-        start: String,
+        /// `data-start`. `None` when the marriage has no recorded start date.
+        start: Option<String>,
         end: Option<String>,
         end_reason: Option<String>,
         /// `data-is-ended`. Always `false` for a polygamy marriage (R14).

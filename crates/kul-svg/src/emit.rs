@@ -254,12 +254,12 @@ fn write_edge(out: &mut String, edge: &PositionedEdge) {
         } => {
             let _ = write!(
                 out,
-                r#" data-link-kind="marriage" data-host-id="{host}" data-joining-id="{joining}" data-start="{start}" data-is-ended="{ended}""#,
+                r#" data-link-kind="marriage" data-host-id="{host}" data-joining-id="{joining}""#,
                 host = escape_xml(host_id),
                 joining = escape_xml(joining_id),
-                start = escape_xml(start),
-                ended = is_ended,
             );
+            write_opt_attr(out, "data-start", start.as_deref());
+            let _ = write!(out, r#" data-is-ended="{is_ended}""#);
             write_opt_attr(out, "data-end", end.as_deref());
             write_opt_attr(out, "data-end-reason", end_reason.as_deref());
         }

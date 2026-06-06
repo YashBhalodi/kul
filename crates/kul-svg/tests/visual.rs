@@ -145,7 +145,7 @@ fn monogamy_marriage_edge_emits_marriage_link_kind_no_bar_rect() {
         kind: EdgeKind::Marriage {
             host_id: "ramesh".to_owned(),
             joining_id: "sita".to_owned(),
-            start: "1970".to_owned(),
+            start: Some("1970".to_owned()),
             end: None,
             end_reason: None,
             is_ended: false,
@@ -183,7 +183,7 @@ fn ended_monogamy_marriage_edge_emits_end_and_reason() {
         kind: EdgeKind::Marriage {
             host_id: "alice".to_owned(),
             joining_id: "bob".to_owned(),
-            start: "1972".to_owned(),
+            start: Some("1972".to_owned()),
             end: Some("1990".to_owned()),
             end_reason: Some("divorce".to_owned()),
             is_ended: true,
@@ -226,7 +226,7 @@ fn marriage_edge_shares_base_class_and_is_solid() {
         kind: EdgeKind::Marriage {
             host_id: "devraj".to_owned(),
             joining_id: "alice".to_owned(),
-            start: "1992".to_owned(),
+            start: Some("1992".to_owned()),
             end: None,
             end_reason: None,
             is_ended: false,
@@ -292,7 +292,7 @@ fn emitted_svg_has_no_inline_fill_or_stroke_color() {
         kind: EdgeKind::Marriage {
             host_id: "a".to_owned(),
             joining_id: "b".to_owned(),
-            start: "1990".to_owned(),
+            start: Some("1990".to_owned()),
             end: Some("2000".to_owned()),
             end_reason: Some("divorce".to_owned()),
             is_ended: true,
@@ -420,7 +420,7 @@ fn full_vocab_shape() -> PositionedShape {
         kind: EdgeKind::Marriage {
             host_id: "a".to_owned(),
             joining_id: "b".to_owned(),
-            start: "1990".to_owned(),
+            start: Some("1990".to_owned()),
             end: None,
             end_reason: None,
             is_ended: false,
@@ -432,7 +432,7 @@ fn full_vocab_shape() -> PositionedShape {
         kind: EdgeKind::Marriage {
             host_id: "c".to_owned(),
             joining_id: "d".to_owned(),
-            start: "1975".to_owned(),
+            start: Some("1975".to_owned()),
             end: Some("1985".to_owned()),
             end_reason: Some("divorce".to_owned()),
             is_ended: true,
@@ -634,7 +634,7 @@ fn legend_dynamic_subset_omits_absent_rows() {
         kind: EdgeKind::Marriage {
             host_id: "a".to_owned(),
             joining_id: "b".to_owned(),
-            start: "1990".to_owned(),
+            start: Some("1990".to_owned()),
             end: None,
             end_reason: None,
             is_ended: false,
@@ -683,7 +683,7 @@ fn legend_only_ended_marriages_emits_just_ended_row() {
         kind: EdgeKind::Marriage {
             host_id: "a".to_owned(),
             joining_id: "b".to_owned(),
-            start: "1970".to_owned(),
+            start: Some("1970".to_owned()),
             end: Some("1980".to_owned()),
             end_reason: Some("divorce".to_owned()),
             is_ended: true,

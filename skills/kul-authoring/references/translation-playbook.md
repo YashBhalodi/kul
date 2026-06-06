@@ -99,6 +99,18 @@ person daughter  name:"Daughter"  gender:female                # birth year unkn
 
 Granularity tracks the prose. Daughter's `born` is omitted (no `unknown` literal). The 1923/1925 conflict is in a `#` comment.
 
+When the marriage date is genuinely lost (oral tradition, missing records), omit `start:` entirely rather than guessing:
+
+```
+marriage m_grandparents grandfather grandmother  # date lost to record
+```
+
+If a divorce or end is known but the start isn't, declare `end:` + `end_reason:` alone — a known end strongly implies a marriage event whose date is unrecorded:
+
+```
+marriage m_alice_bob alice bob  end:1990 end_reason:divorce
+```
+
 ## Example 5 — Cross-file split
 
 Mirrors [examples/08-multi-file-project](https://github.com/YashBhalodi/kul/tree/main/examples/08-multi-file-project).

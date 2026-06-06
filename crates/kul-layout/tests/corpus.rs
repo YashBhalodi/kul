@@ -257,7 +257,7 @@ impl From<&PositionedEdge> for EdgeDump {
                 dump.link_kind = "marriage".to_owned();
                 dump.host_id = Some(host_id.clone());
                 dump.joining_id = Some(joining_id.clone());
-                dump.start = Some(start.clone());
+                dump.start = start.clone();
                 dump.end = end.clone();
                 dump.end_reason = end_reason.clone();
                 dump.is_ended = Some(*is_ended);

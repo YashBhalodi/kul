@@ -129,11 +129,51 @@ fn rule_04_self_marriage() {
 }
 
 #[test]
-fn rule_03_marriage_missing_start() {
+fn marriage_without_start_is_clean() {
     let result = check(
         "person a name:\"A\" gender:female\nperson b name:\"B\" gender:male\nmarriage m a b\n",
     );
-    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn marriage_with_end_but_no_start_is_clean() {
+    let result = check(
+        "person a name:\"A\" gender:female\nperson b name:\"B\" gender:male\nmarriage m a b end:1990 end_reason:divorce\n",
+    );
+    assert!(
+        result.diagnostics.is_empty(),
+        "expected no diagnostics, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn rule_07_does_not_fire_when_start_is_absent() {
+    let result = check(
+        "person a name:\"A\" gender:female\nperson b name:\"B\" gender:male\nmarriage m a b end:1990 end_reason:divorce\n",
+    );
+    assert!(
+        !result.diagnostics.iter().any(|d| d.code == "KUL-R07"),
+        "R07 must not fire when marriage.start is absent: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn rule_09_does_not_fire_when_start_is_absent() {
+    let result = check(
+        "person a name:\"A\" gender:female born:1950\nperson b name:\"B\" gender:male born:1955\nmarriage m a b\n",
+    );
+    assert!(
+        !result.diagnostics.iter().any(|d| d.code == "KUL-R09"),
+        "R09 must not fire when marriage.start is absent: {:#?}",
+        result.diagnostics
+    );
 }
 
 #[test]

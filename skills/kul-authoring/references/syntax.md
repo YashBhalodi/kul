@@ -37,7 +37,7 @@ marriage m_alice_bob alice bob  start:1972-05-12  end:1990-08-01  end_reason:div
 
 | Field        | Required        | Type | Notes                                                                          |
 | ------------ | --------------- | ---- | ------------------------------------------------------------------------------ |
-| `start`      | **yes**         | date | Date marriage began.                                                           |
+| `start`      | no              | date | Date marriage began. Omit when the date is lost to record.                     |
 | `end`        | no              | date | Date marriage ended. Absence means ongoing or ended only by spousal death.     |
 | `end_reason` | iff `end` given | enum | Required iff `end` is present. v1 vocabulary: `divorce`.                       |
 

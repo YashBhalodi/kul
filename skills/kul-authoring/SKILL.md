@@ -17,7 +17,7 @@ Kul is a small declarative language for kinship — persons, marriages, biologic
 
 ```
 person <id> name:"…" gender:male|female|other  [family:…] [given:…] [born:…] [died:…]
-marriage <id> <spouse_a> <spouse_b>  start:…  [end:… end_reason:divorce]
+marriage <id> <spouse_a> <spouse_b>  [start:…]  [end:… end_reason:divorce]
   birth <marriage-id>          # indented under a person; bio child of the marriage's spouses
   adoption <marriage-id> start:…  [end:…]  # indented under a person; adopted into the marriage
 ```
@@ -46,6 +46,7 @@ Alice's parents are derived from the `birth m_ramesh_sita` link plus the spouses
 The language is designed so that **adding new information never requires rewriting existing declarations**. The shape of the grammar reflects this:
 
 - All `person` fields except `name` and `gender` are optional, and absence is valid — there is no `unknown` literal. Dates have four granularities (`1985-03-15`, `1985-03`, `1985`, `~1985`), so the literal can match exactly what the source says.
+- `marriage` has no required named fields beyond the two positional spouses. Include `start:` when the date is known; omit it (or leave only `end:` + `end_reason:`) when the date is lost to record — a known divorce strongly implies a marriage event whose date is unknown.
 - Children are reached through their own `birth` / `adoption` sub-statements pointing at the parents' marriage. There is no `child` field on a parent, no `parent` field on a child.
 - Spousal death does not auto-end a marriage; only an explicit `end:` + `end_reason:divorce` does. The v1 `end_reason` vocabulary is `divorce` only.
 

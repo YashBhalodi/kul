@@ -47,7 +47,7 @@ Fields:
 
 | Field        | Required    | Type | Notes                                                                                        |
 | ------------ | ----------- | ---- | -------------------------------------------------------------------------------------------- |
-| `start`      | yes         | date | Date the marriage began                                                                      |
+| `start`      | no          | date | Date the marriage began; omit when the date is lost to record                                |
 | `end`        | no          | date | Date the marriage ended (e.g. divorce); absence means ongoing or ended only by spousal death |
 | `end_reason` | conditional | enum | Required iff `end` is present; v1 vocabulary: `divorce`                                      |
 
