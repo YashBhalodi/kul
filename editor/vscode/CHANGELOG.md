@@ -2,6 +2,12 @@
 
 All notable changes to the **KulLang** VSCode extension are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+
+- The `marriage` snippet no longer pre-fills `start:`. After #200 made marriage `start:` optional in the spec and validator (R03 retired), the snippet pushed authors toward writing a field that's now optional. The body now expands to `marriage <id> <spouse1> <spouse2>`; authors who want a start date can type `start:` themselves, and the LSP's field completion still offers it after the third positional argument (#202).
+
 ## [0.4.1] — 2026-06-06
 
 ### Fixed
