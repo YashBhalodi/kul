@@ -15,9 +15,9 @@
   },
   "Marriage declaration": {
     "prefix": "marriage",
-    "description": "Declare a marriage with id, two spouses, and start date.",
+    "description": "Declare a marriage with id and two spouses.",
     "body": [
-      "marriage ${1:id} ${2:spouse1} ${3:spouse2} start:${4:YYYY-MM-DD}"
+      "marriage ${1:id} ${2:spouse1} ${3:spouse2}"
     ]
   },
   "Birth sub-statement": {
