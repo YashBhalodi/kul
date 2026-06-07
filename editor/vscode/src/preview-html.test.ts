@@ -766,6 +766,56 @@ describe("previewHtml error popover (#203)", () => {
     });
 });
 
+describe("previewHtml ghost badge jump-to-canonical", () => {
+    // The badge click logic lives inside injectGhostBadges (per-render
+    // listener on the <g class="kul-ghost-badge">). Slicing from the function
+    // header to its matching 4-space-indent close gives us the handler region
+    // for source-text assertions that need to scope to the badge code only.
+    function ghostBadgeRegion(html: string): string {
+        const start = html.indexOf("function injectGhostBadges(");
+        expect(start).toBeGreaterThanOrEqual(0);
+        const end = html.indexOf("\n    }\n", start);
+        expect(end).toBeGreaterThan(start);
+        return html.slice(start, end);
+    }
+
+    it("wraps the ↺ glyph in a <g class='kul-ghost-badge'> with an invisible hit-target rect and a native <title>", () => {
+        const region = ghostBadgeRegion(build());
+        expect(region).toContain("createElementNS(SVG_NS, 'g')");
+        expect(region).toContain("createElementNS(SVG_NS, 'rect')");
+        expect(region).toContain("createElementNS(SVG_NS, 'title')");
+        expect(region).toContain("'kul-ghost-badge'");
+        expect(region).toContain("'Jump to canonical card'");
+    });
+
+    it("resolves the canonical card via data-person-id + data-kind='canonical'", () => {
+        const region = ghostBadgeRegion(build());
+        expect(region).toContain(
+            '[data-person-id="\' + personId + \'"][data-kind="canonical"]',
+        );
+    });
+
+    it("stops propagation so the ghost card's revealSource handler doesn't also fire", () => {
+        const region = ghostBadgeRegion(build());
+        expect(region).toContain("event.stopPropagation()");
+    });
+
+    it("applies .kul-jump-target on pan-complete and cleans up via animationend", () => {
+        const region = ghostBadgeRegion(build());
+        expect(region).toContain("'kul-jump-target'");
+        expect(region).toContain("addEventListener('animationend'");
+        expect(region).toContain("removeEventListener('animationend'");
+    });
+
+    it("does not post revealSource from the badge handler (editor cursor untouched)", () => {
+        // Jumping is strictly viewport navigation. The badge code lives in
+        // injectGhostBadges; revealSource lives in the #root click delegate
+        // and the error-popover row delegate — neither belongs in here.
+        const region = ghostBadgeRegion(build());
+        expect(region).not.toContain("revealSource");
+    });
+});
+
 describe("previewHtml chrome legend overlay", () => {
     it("renders the legend container as a sibling of #root (survives innerHTML swaps)", () => {
         const html = build();
