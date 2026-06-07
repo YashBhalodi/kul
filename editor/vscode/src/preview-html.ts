@@ -555,7 +555,10 @@ const BOOTSTRAP = `
 
     // ADR-0016: CSS cannot generate an SVG element, so the surface draws the
     // ghost ↺ badge. createElementNS is required — document.createElement
-    // yields an inert HTML element that won't render inside <svg>.
+    // yields an inert HTML element that won't render inside <svg>. The badge
+    // is a <g> wrapping an invisible 24×24 hit-target rect, the visible glyph,
+    // and a native <title> tooltip; the group carries a click handler that
+    // pans the viewport to the person's canonical card and pulses it.
     function injectGhostBadges(svgRoot) {
         const SVG_NS = 'http://www.w3.org/2000/svg';
         const ghosts = svgRoot.querySelectorAll('.kul-card[data-kind="ghost"]');
@@ -566,12 +569,60 @@ const BOOTSTRAP = `
             const y = parseFloat(rect.getAttribute('y'));
             const w = parseFloat(rect.getAttribute('width'));
             if (!isFinite(x) || !isFinite(y) || !isFinite(w)) { return; }
-            const badge = document.createElementNS(SVG_NS, 'text');
+            const personId = card.getAttribute('data-person-id');
+            const badge = document.createElementNS(SVG_NS, 'g');
             badge.setAttribute('class', 'kul-ghost-badge');
-            badge.setAttribute('x', String(x + w - 12));
-            badge.setAttribute('y', String(y + 14));
-            badge.setAttribute('text-anchor', 'middle');
-            badge.textContent = '↺';
+            // Invisible hit-target enlarges the click surface beyond the
+            // glyph. pointer-events="all" is required: a transparent fill is
+            // otherwise not "painted" and so SVG hit-testing skips the rect.
+            // Sized to comfortably cover the 20px ↺ glyph with a few units of
+            // padding on each side.
+            const hit = document.createElementNS(SVG_NS, 'rect');
+            hit.setAttribute('x', String(x + w - 28));
+            hit.setAttribute('y', String(y + 4));
+            hit.setAttribute('width', '24');
+            hit.setAttribute('height', '24');
+            hit.setAttribute('fill', 'transparent');
+            hit.setAttribute('pointer-events', 'all');
+            badge.appendChild(hit);
+            // y is the text baseline; with a 20px glyph the cap-height pushes
+            // the top up ~16 units, so a baseline at y+20 keeps the glyph
+            // inside the card's rounded top edge.
+            const glyph = document.createElementNS(SVG_NS, 'text');
+            glyph.setAttribute('x', String(x + w - 16));
+            glyph.setAttribute('y', String(y + 20));
+            glyph.setAttribute('text-anchor', 'middle');
+            glyph.textContent = '↺';
+            badge.appendChild(glyph);
+            // Native SVG tooltip — names the action for sighted hover users and
+            // screen readers without inventing a new chrome surface.
+            const title = document.createElementNS(SVG_NS, 'title');
+            title.textContent = 'Jump to canonical card';
+            badge.appendChild(title);
+            // Per-render listener attached to the badge group. stopPropagation
+            // keeps the click from bubbling to #root's click-to-source handler —
+            // jumping is strictly viewport navigation, the editor cursor stays
+            // put. A missing canonical (transient invalid render) is a silent
+            // no-op, matching the click-to-source-on-null-locate precedent.
+            badge.addEventListener('click', function (event) {
+                event.stopPropagation();
+                if (!personId || !root) { return; }
+                const canonical = root.querySelector(
+                    '[data-person-id="' + personId + '"][data-kind="canonical"]'
+                );
+                if (!canonical) { return; }
+                panToElement(canonical);
+                // Apply the pulse class after the pan tween settles so the
+                // glow lands on the centred card, not on a sliding one.
+                setTimeout(function () {
+                    function onEnd() {
+                        canonical.classList.remove('kul-jump-target');
+                        canonical.removeEventListener('animationend', onEnd);
+                    }
+                    canonical.addEventListener('animationend', onEnd);
+                    canonical.classList.add('kul-jump-target');
+                }, PAN_ANIM_MS);
+            });
             card.appendChild(badge);
         });
     }
