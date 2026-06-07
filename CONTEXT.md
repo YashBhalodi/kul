@@ -10,6 +10,8 @@ The architecture vocabulary (**module**, **interface**, **seam**, **depth**, **a
 
 The project's design discipline is the **additivity principle**: adding new information to a Kul document must never require rewriting existing declarations. This shapes the AST (optional fields, stable IDs), the validator (rules tolerate omissions where the spec allows them), and the [version policy](./spec/13-versioning-policy.md) (new fields land additively).
 
+A Kul project is structurally a graph — Persons and Marriages as the two node kinds, three primitive edge kinds (`spouse-of`, `born-into`, `adopted-into`), every other kinship concept derived from those primitives. For the structural framing (what's standard, what deviates, what it means for graph-shaped features), see [`docs/kinship-graph-shape.md`](./docs/kinship-graph-shape.md). Read it before designing or grilling any query, layout, export, federation, or analytics feature.
+
 ## Kinship vocabulary (the language)
 
 These are the user-facing nouns. They appear in `.kul` source, in spec section names, in diagnostic messages, in hover popovers, and in test names. They are also the names of the AST node types in `crates/kul-core/src/ast.rs`.
