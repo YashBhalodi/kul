@@ -238,36 +238,40 @@ body {
         filter var(--kul-render-stale-transition-duration);
 }
 
-.kul-card rect {
+/* Direct-child combinator scopes these rules to the card's own shape, not to
+ * any <rect> webview chrome injects inside the card (e.g. the ghost-badge
+ * hit-target). kul-svg always emits <g class="kul-card"><rect/></g> as the
+ * direct child, so the contract is preserved. */
+.kul-card > rect {
     fill: var(--kul-card-fill);
     stroke: var(--kul-card-stroke);
     stroke-width: var(--kul-card-stroke-width);
     transition: stroke-width var(--kul-hover-transition-duration);
 }
 
-/* Width-only hover bump: `.kul-card:hover rect` (0,2,1) outranks the base
- * `.kul-card rect` (0,1,1), so the per-gender stroke colour and ghost
+/* Width-only hover bump: `.kul-card:hover > rect` (0,2,1) outranks the base
+ * `.kul-card > rect` (0,1,1), so the per-gender stroke colour and ghost
  * translucency stack without specificity conflict. */
-.kul-card:hover rect {
+.kul-card:hover > rect {
     stroke-width: var(--kul-card-hover-stroke-width);
 }
 
 /* Gender is a structural data-* seam (ADR-0016): card shape is gender-neutral,
  * preview opts in by tinting the stroke per gender. R03 makes gender
  * required, so every card matches one of these. */
-.kul-card[data-gender="male"] rect {
+.kul-card[data-gender="male"] > rect {
     stroke: var(--kul-card-stroke-male);
 }
 
-.kul-card[data-gender="female"] rect {
+.kul-card[data-gender="female"] > rect {
     stroke: var(--kul-card-stroke-female);
 }
 
-.kul-card[data-gender="other"] rect {
+.kul-card[data-gender="other"] > rect {
     stroke: var(--kul-card-stroke-other);
 }
 
-.kul-card[data-kind="ghost"] rect {
+.kul-card[data-kind="ghost"] > rect {
     fill: var(--kul-ghost-fill);
     stroke: var(--kul-ghost-stroke);
     fill-opacity: var(--kul-ghost-fill-opacity);
@@ -275,15 +279,15 @@ body {
 
 /* Two-attribute selector outranks both the per-gender rule and the ghost base,
  * so ghosts keep their dashed outline + translucent fill plus the gender tint. */
-.kul-card[data-kind="ghost"][data-gender="male"] rect {
+.kul-card[data-kind="ghost"][data-gender="male"] > rect {
     stroke: var(--kul-ghost-stroke-male);
 }
 
-.kul-card[data-kind="ghost"][data-gender="female"] rect {
+.kul-card[data-kind="ghost"][data-gender="female"] > rect {
     stroke: var(--kul-ghost-stroke-female);
 }
 
-.kul-card[data-kind="ghost"][data-gender="other"] rect {
+.kul-card[data-kind="ghost"][data-gender="other"] > rect {
     stroke: var(--kul-ghost-stroke-other);
 }
 
@@ -299,6 +303,36 @@ body {
 .kul-ghost-badge {
     fill: var(--kul-ghost-badge-fill);
     font-size: var(--kul-ghost-badge-font-size);
+    cursor: pointer;
+}
+
+.kul-ghost-badge:hover {
+    fill: var(--kul-ghost-badge-hover-fill);
+}
+
+/* Jump-to-canonical pulse: when the badge handler centres the canonical card,
+ * the `.kul-jump-target` class is applied for a single 1.5s ease-out border
+ * glow, then removed via an `animationend` listener (preview-html.ts). The
+ * underlying outline shorthand animates outline-color + outline-width while
+ * keeping outline-style:solid; this paints a ring on the rect without
+ * touching its fill/stroke. */
+.kul-card[data-kind="canonical"].kul-jump-target > rect {
+    animation: kul-jump-target-pulse 1.5s ease-out;
+}
+
+@keyframes kul-jump-target-pulse {
+    0% {
+        outline: 0 solid transparent;
+        outline-offset: 0;
+    }
+    30% {
+        outline: var(--kul-jump-target-glow-width) solid var(--kul-jump-target-glow-color);
+        outline-offset: var(--kul-jump-target-glow-offset);
+    }
+    100% {
+        outline: 0 solid transparent;
+        outline-offset: 0;
+    }
 }
 
 /* Birth/adoption dasharray ships inline from kul-svg (structural, ADR-0016);
@@ -334,7 +368,7 @@ body {
 /* Selection outline (not stroke), so the entity keeps its gender tint /
  * marriage colour without specificity conflict. The ring colour is reserved
  * for selection — a hue used nowhere else in the palette. */
-.kul-card.kul-selected rect,
+.kul-card.kul-selected > rect,
 .kul-edge[data-link-kind="marriage"].kul-selected {
     outline: var(--kul-selected-outline-width) solid var(--kul-selected-outline-color);
     outline-offset: var(--kul-selected-outline-offset);

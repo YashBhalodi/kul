@@ -24,6 +24,7 @@ body[data-theme="vscode"] {
     --kul-label-fill: var(--vscode-editor-foreground);
     --kul-ghost-label-fill: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
     --kul-ghost-badge-fill: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+    --kul-ghost-badge-hover-fill: var(--vscode-editor-foreground);
     --kul-edge-stroke: var(--vscode-charts-green, var(--vscode-editor-foreground));
     --kul-adoption-edge-stroke: var(--vscode-charts-orange, var(--vscode-descriptionForeground, var(--vscode-editor-foreground)));
     --kul-marriage-edge-stroke: var(--vscode-charts-purple, var(--vscode-editor-foreground));
@@ -50,7 +51,14 @@ body[data-theme="vscode"] {
     --kul-card-hover-stroke-width: 2.5;
     --kul-ghost-fill-opacity: 0.5;
     --kul-label-font-size: 13px;
-    --kul-ghost-badge-font-size: 12px;
+    --kul-ghost-badge-font-size: 20px;
+
+    /* Jump-to-canonical pulse. Maps to focusBorder so the glow reads as the
+     * same "this is where your attention should go" hue VSCode uses for focus
+     * rings; falls back to charts-blue for themes without focusBorder. */
+    --kul-jump-target-glow-color: var(--vscode-focusBorder, var(--vscode-charts-blue, var(--vscode-editor-foreground)));
+    --kul-jump-target-glow-width: 6px;
+    --kul-jump-target-glow-offset: 2px;
     --kul-edge-stroke-width: 1.5;
     --kul-marriage-edge-stroke-width: 8.75;
     --kul-marriage-edge-hover-stroke-width: 10.5;
