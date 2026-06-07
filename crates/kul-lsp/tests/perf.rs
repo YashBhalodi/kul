@@ -18,22 +18,21 @@ use tower_lsp::lsp_types::Url;
 /// Hand-build a `ProjectEntry` from already-checked inputs, bypassing
 /// `Documents` so the perf measurement excludes disk I/O and async.
 fn fixture_entry(check: kul_core::CheckResult, basenames: &[&str]) -> ProjectEntry {
-    let urls: Vec<Url> = basenames
+    let files: Vec<(Url, LineIndex)> = basenames
         .iter()
-        .map(|name| Url::parse(&format!("file:///{name}")).expect("valid url"))
+        .zip(check.document().kul_file_ids())
+        .map(|(name, f)| {
+            let url = Url::parse(&format!("file:///{name}")).expect("valid url");
+            let line_index = LineIndex::new(check.document().source_of(f).unwrap());
+            (url, line_index)
+        })
         .collect();
-    let line_indices: Vec<LineIndex> = check
-        .document()
-        .kul_file_ids()
-        .map(|f| LineIndex::new(check.document().source_of(f).unwrap()))
-        .collect();
-    ProjectEntry {
-        root: ProjectRoot::from_path(PathBuf::from("/perf")),
+    ProjectEntry::from_parts(
+        ProjectRoot::from_path(PathBuf::from("/perf")),
         check,
-        line_indices,
-        urls,
-        overlay: HashMap::new(),
-    }
+        files,
+        HashMap::new(),
+    )
 }
 
 #[test]
