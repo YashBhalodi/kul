@@ -71,17 +71,24 @@ impl WatchAction {
     }
 }
 
+/// Per-`.kul` file metadata kept in `FileId` order. The `i`-th entry
+/// corresponds to `FileId(i + 1)` (the `+1` skips `FileId::MANIFEST`).
+#[derive(Debug, Clone)]
+pub(crate) struct FileMeta {
+    pub(crate) url: Url,
+    pub(crate) line_index: LineIndex,
+}
+
 /// One cached project: [`CheckResult`] + per-file metadata + the overlay.
 ///
-/// `urls[i]` is the URL of the `.kul` file at `FileId(i + 1)`; `+1` skips
-/// the manifest at `FileId::MANIFEST`. `line_indices`, `urls`, and
+/// `files[i]` carries the URL and `LineIndex` of the `.kul` file at
+/// `FileId(i + 1)` (the `+1` skips `FileId::MANIFEST`); `files` and
 /// `check.document().kul_files` stay in lock-step.
 #[derive(Debug, Clone)]
 pub struct ProjectEntry {
     pub root: ProjectRoot,
     pub check: CheckResult,
-    pub line_indices: Vec<LineIndex>,
-    pub urls: Vec<Url>,
+    pub(crate) files: Vec<FileMeta>,
     /// `Some(_)` is an open editor buffer; `None` is a URI known to the
     /// project but read from disk.
     pub overlay: HashMap<Url, Option<Arc<str>>>,
@@ -94,20 +101,20 @@ impl ProjectEntry {
     }
 
     pub fn file_id_for(&self, uri: &Url) -> Option<FileId> {
-        self.urls
+        self.files
             .iter()
-            .position(|u| u == uri)
+            .position(|f| &f.url == uri)
             .map(|i| FileId::from_raw((i + 1) as u32))
     }
 
     pub fn url_for(&self, file: FileId) -> Option<&Url> {
         let i = file.as_u32().checked_sub(1)? as usize;
-        self.urls.get(i)
+        self.files.get(i).map(|f| &f.url)
     }
 
     pub fn line_index_for(&self, file: FileId) -> Option<&LineIndex> {
         let i = file.as_u32().checked_sub(1)? as usize;
-        self.line_indices.get(i)
+        self.files.get(i).map(|f| &f.line_index)
     }
 
     /// Map a project-wide [`FileSpan`] to an LSP [`Location`].
@@ -121,8 +128,8 @@ impl ProjectEntry {
     }
 
     /// Every URL in this project, in `FileId` order.
-    pub fn project_urls(&self) -> &[Url] {
-        &self.urls
+    pub fn project_urls(&self) -> impl ExactSizeIterator<Item = &Url> {
+        self.files.iter().map(|f| &f.url)
     }
 
     /// Per-URI [`View`] for cursor-less requests (document-symbol, semantic-tokens).
@@ -148,6 +155,28 @@ impl ProjectEntry {
             line_index,
             offset,
         })
+    }
+
+    /// Test-fixture constructor: assemble an entry from an already-built
+    /// [`CheckResult`] plus per-file `(Url, LineIndex)` pairs in `FileId`
+    /// order. Hidden from the public API; integration-test fixtures only.
+    #[doc(hidden)]
+    pub fn from_parts(
+        root: ProjectRoot,
+        check: CheckResult,
+        files: Vec<(Url, LineIndex)>,
+        overlay: HashMap<Url, Option<Arc<str>>>,
+    ) -> Self {
+        let files = files
+            .into_iter()
+            .map(|(url, line_index)| FileMeta { url, line_index })
+            .collect();
+        ProjectEntry {
+            root,
+            check,
+            files,
+            overlay,
+        }
     }
 
     /// Test-only: `View` for the project's first `.kul` file.
@@ -227,7 +256,7 @@ impl Documents {
         let mut overlay = overlay;
         overlay.insert(uri, Some(Arc::from(source)));
         let entry = build_entry(root.clone(), overlay);
-        let urls = entry.urls.clone();
+        let urls: Vec<Url> = entry.project_urls().cloned().collect();
         map.insert(root, entry);
         urls
     }
@@ -255,7 +284,7 @@ impl Documents {
             return (urls, true);
         }
         let new_entry = build_entry(root.clone(), overlay);
-        let urls = new_entry.urls.clone();
+        let urls: Vec<Url> = new_entry.project_urls().cloned().collect();
         map.insert(root, new_entry);
         (urls, false)
     }
@@ -386,7 +415,7 @@ fn apply_manifest_event(
     match kind {
         FileChangeType::DELETED => {
             // Directory ceases to be a project. Clear every URI it ever covered.
-            let mut cleared: Vec<Url> = entry.urls.clone();
+            let mut cleared: Vec<Url> = entry.project_urls().cloned().collect();
             for url in entry.overlay.keys() {
                 if !cleared.contains(url) {
                     cleared.push(url.clone());
@@ -429,14 +458,16 @@ fn build_entry(root: ProjectRoot, overlay: HashMap<Url, Option<Arc<str>>>) -> Pr
 
     disk_files.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
 
-    let urls: Vec<Url> = disk_files.iter().map(|(u, _)| u.clone()).collect();
+    let files: Vec<FileMeta> = disk_files
+        .iter()
+        .map(|(u, src)| FileMeta {
+            url: u.clone(),
+            line_index: LineIndex::new(Arc::clone(src)),
+        })
+        .collect();
     let inputs: Vec<InputFile> = disk_files
         .iter()
         .map(|(u, src)| InputFile::new(url_label(u), src.as_ref()))
-        .collect();
-    let line_indices: Vec<LineIndex> = disk_files
-        .iter()
-        .map(|(_, src)| LineIndex::new(Arc::clone(src)))
         .collect();
 
     let check = kul_core::check(manifest_label, &manifest_yaml, &inputs);
@@ -444,8 +475,7 @@ fn build_entry(root: ProjectRoot, overlay: HashMap<Url, Option<Arc<str>>>) -> Pr
     ProjectEntry {
         root,
         check,
-        line_indices,
-        urls,
+        files,
         overlay,
     }
 }
@@ -467,7 +497,8 @@ fn discover_disk(root: &Path) -> (String, String, Vec<(Url, Arc<str>)>) {
 }
 
 /// Build the [`InputFile::name`] label for diagnostic rendering. URL ↔
-/// `FileId` mapping is kept separately in [`ProjectEntry::urls`].
+/// `FileId` mapping is kept separately in [`ProjectEntry`]'s per-file
+/// metadata.
 fn url_label(url: &Url) -> String {
     if let Ok(p) = url.to_file_path()
         && let Some(name) = p.file_name().map(|n| n.to_string_lossy().into_owned())
@@ -483,26 +514,27 @@ fn url_label(url: &Url) -> String {
 pub(crate) fn test_project_entry(files: &[(&str, &str)]) -> ProjectEntry {
     use kul_core::manifest::Manifest;
     assert!(!files.is_empty(), "test project needs at least one file");
-    let urls: Vec<Url> = files
+    let file_metas: Vec<FileMeta> = files
         .iter()
-        .map(|(name, _)| Url::parse(&format!("file:///{name}")).expect("test url"))
+        .map(|(name, src)| FileMeta {
+            url: Url::parse(&format!("file:///{name}")).expect("test url"),
+            line_index: LineIndex::new(*src),
+        })
         .collect();
     let inputs: Vec<InputFile> = files
         .iter()
         .map(|(name, src)| InputFile::new(*name, *src))
         .collect();
     let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
-    let line_indices: Vec<LineIndex> = files.iter().map(|(_, src)| LineIndex::new(*src)).collect();
     let mut overlay: HashMap<Url, Option<Arc<str>>> = HashMap::new();
-    for (url, (_, src)) in urls.iter().zip(files.iter()) {
-        overlay.insert(url.clone(), Some(Arc::from(*src)));
+    for (meta, (_, src)) in file_metas.iter().zip(files.iter()) {
+        overlay.insert(meta.url.clone(), Some(Arc::from(*src)));
     }
     let root = ProjectRoot(PathBuf::from("/test"));
     ProjectEntry {
         root,
         check,
-        line_indices,
-        urls,
+        files: file_metas,
         overlay,
     }
 }

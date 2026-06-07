@@ -182,7 +182,7 @@ Project-keyed map from `ProjectRoot` (the URI's parent directory) to a [`Project
 
 ### ProjectEntry
 
-The cached value in the project cache (`crates/kul-lsp/src/state.rs`). Bundles the project's [`CheckResult`](#resolveddocument), the per-file [`LineIndex`](#lineindex) slice in `FileId(1..)` order, the matching URL slice (so features can map `FileId` ↔ `Url`), and the per-URI overlay map (editor-buffer source for open URIs, `None` for files only on disk). Cross-file features (goto-definition, find-references, rename, completion) read through this single entry; the URL slice is what turns a project-wide query result into a `Vec<Location>` keyed by the right URIs.
+The cached value in the project cache (`crates/kul-lsp/src/state.rs`). Bundles the project's [`CheckResult`](#resolveddocument), the per-file metadata (URL + [`LineIndex`](#lineindex)) in `FileId(1..)` order (so features can map `FileId` ↔ `Url` and translate spans to LSP ranges), and the per-URI overlay map (editor-buffer source for open URIs, `None` for files only on disk). Cross-file features (goto-definition, find-references, rename, completion) read through this single entry; the per-file URL is what turns a project-wide query result into a `Vec<Location>` keyed by the right URIs.
 
 ### View / Cursor
 
