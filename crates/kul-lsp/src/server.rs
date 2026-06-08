@@ -23,7 +23,8 @@ use tower_lsp::{Client, LanguageServer};
 use crate::features::entity_at::{EntityAtParams, EntityAtResponse, entity_at};
 use crate::features::export::{ExportParams, ExportRequestError, export_for};
 use crate::features::locate::{LocateParams, LocateResponse, locate};
-use crate::features::render::{RenderParams, RenderRequestError, RenderResponse, render_for};
+use crate::features::render::{RenderParams, RenderRequestError, render_for};
+use crate::features::svg_envelope::RenderResponse;
 use crate::features::{
     code_action, completion, definition, diagnostics, document_symbol, formatting, hover,
     references, rename, semantic_tokens,

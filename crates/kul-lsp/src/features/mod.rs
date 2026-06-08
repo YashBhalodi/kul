@@ -14,3 +14,4 @@ pub mod references;
 pub mod rename;
 pub mod render;
 pub mod semantic_tokens;
+pub mod svg_envelope;
