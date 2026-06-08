@@ -22,6 +22,7 @@ pub async fn run() {
     let (service, socket) = LspService::build(server::Backend::new)
         .custom_method("kul/export", server::Backend::export)
         .custom_method("kul/render", server::Backend::render)
+        .custom_method("kul/exportSvg", server::Backend::export_svg)
         .custom_method("kul/locate", server::Backend::locate)
         .custom_method("kul/entityAt", server::Backend::entity_at)
         .finish();

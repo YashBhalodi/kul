@@ -94,11 +94,8 @@ fn run_svg(with_positions: bool) -> ExitCode {
         }
         RenderShape::Success(_) => {
             let positioned = layout(&shape, &LayoutConfig::default());
-            // Self-contained + legend per ADR-0022.
-            let svg = render(
-                &positioned,
-                &ThemeConfig::with_self_contained(true).with_legend(true),
-            );
+            // Self-contained + legend per ADR-0022; shared with `kul/exportSvg`.
+            let svg = render(&positioned, &ThemeConfig::for_file_export());
             let stdout = io::stdout();
             let mut out = stdout.lock();
             if let Err(err) = writeln!(out, "{svg}") {

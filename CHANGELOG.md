@@ -4,6 +4,10 @@ All notable changes to KulLang are documented here. The format is based on [Keep
 
 The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi.kul`) ship in lockstep — one tag, one set of artifacts. Per-component notes live under each version.
 
+## [Unreleased]
+
+- **LSP: `kul/exportSvg` request and *Kul: Export SVG* VSCode command** — emits a self-contained SVG to a user-chosen file. Byte-identical to `kul export --format=svg` for the same project; both call sites share the new `ThemeConfig::for_file_export()` constructor so the file-export variant can never drift. The shared `RenderResponse` envelope moves to `features/svg_envelope.rs`; the server advertises `experimental.kulExportSvg = { "format": "svg" }` alongside `kulRender` so clients can feature-detect independently (#217).
+
 ## [0.4.1] — 2026-06-06
 
 Hotfix for the VSCode outline pane silently breaking while a user types a person's name. The Kul *language* version is unchanged at `0.1`; documents valid at 0.4.0 remain valid.

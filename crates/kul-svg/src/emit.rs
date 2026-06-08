@@ -44,6 +44,17 @@ impl ThemeConfig {
         self.legend = legend;
         self
     }
+
+    /// The "file-export" variant: self-contained + legend, fixed.
+    ///
+    /// Distinct from [`ThemeConfig::default`] — the preview variant
+    /// (theme-agnostic, no legend) per ADR-0016. This constructor is the
+    /// single source of truth for the file-export shape (ADR-0022) so the
+    /// CLI's `kul export --format=svg` and the LSP's `kul/exportSvg` can
+    /// never drift.
+    pub fn for_file_export() -> Self {
+        Self::with_self_contained(true).with_legend(true)
+    }
 }
 
 pub(crate) fn render(positioned: &PositionedShape, config: &ThemeConfig) -> String {
@@ -570,4 +581,21 @@ fn escape_xml(s: &str) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Drift catch: the file-export variant must stay self-contained + legend.
+    /// If either bit ever changes, this fires before the CLI/LSP snapshots do.
+    #[test]
+    fn for_file_export_is_self_contained_with_legend() {
+        let cfg = ThemeConfig::for_file_export();
+        assert!(cfg.self_contained, "for_file_export must be self-contained");
+        assert!(cfg.legend, "for_file_export must include the legend");
+        let explicit = ThemeConfig::with_self_contained(true).with_legend(true);
+        assert_eq!(cfg.self_contained, explicit.self_contained);
+        assert_eq!(cfg.legend, explicit.legend);
+    }
 }

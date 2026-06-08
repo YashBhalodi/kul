@@ -1,6 +1,9 @@
-//! `kul/render` custom LSP request — routes the canonical-visual pipeline
-//! (render → layout → svg) so the preview panel can render the in-memory
-//! buffer without shelling out. Mirrors the `kul/export` envelope shape.
+//! `kul/exportSvg` custom LSP request — routes the canonical-visual
+//! pipeline (render → layout → svg) with the *file-export* `ThemeConfig`
+//! so the VSCode "Kul: Export SVG" command can write a self-contained
+//! file without shelling out to the CLI. Same wire envelope as
+//! `kul/render`; the only behavioural difference is the baked theme +
+//! legend (ADR-0022) via [`ThemeConfig::for_file_export`].
 
 use kul_layout::{LayoutConfig, layout};
 use kul_render::{RenderShape, compute};
@@ -13,36 +16,38 @@ use crate::features::svg_envelope::{
 };
 use crate::state::ProjectEntry;
 
-/// Request parameters for `kul/render`.
+/// Request parameters for `kul/exportSvg`.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RenderParams {
-    /// The document to render. Must already be open.
+pub struct ExportSvgParams {
+    /// The document to export. Must already be open.
     pub uri: Url,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RenderRequestError {
+pub enum ExportSvgRequestError {
     DocumentNotOpen,
 }
 
-impl RenderRequestError {
+impl ExportSvgRequestError {
     pub fn message(&self) -> String {
         match self {
-            RenderRequestError::DocumentNotOpen => {
+            ExportSvgRequestError::DocumentNotOpen => {
                 "document is not open in the language server".to_owned()
             }
         }
     }
 }
 
-/// Turn a cached [`ProjectEntry`] plus parsed params into a render
-/// response. Project-wide (ADR-0015): every URI in the same project
-/// produces the same SVG.
-pub fn render_for(
+/// Turn a cached [`ProjectEntry`] plus parsed params into a file-export
+/// SVG response. Project-wide (ADR-0015): every URI in the same project
+/// produces the same SVG. The output is byte-identical to
+/// `kul export --format=svg` for the same project — both call sites
+/// route through [`ThemeConfig::for_file_export`].
+pub fn export_svg_for(
     entry: &ProjectEntry,
-    _params: &RenderParams,
-) -> Result<RenderResponse, RenderRequestError> {
+    _params: &ExportSvgParams,
+) -> Result<RenderResponse, ExportSvgRequestError> {
     let shape = compute(&entry.check);
     match shape {
         RenderShape::Failure(_) => Ok(RenderResponse::Failure(RenderFailure {
@@ -51,7 +56,7 @@ pub fn render_for(
         })),
         RenderShape::Success(_) => {
             let positioned = layout(&shape, &LayoutConfig::default());
-            let svg = render(&positioned, &ThemeConfig::default());
+            let svg = render(&positioned, &ThemeConfig::for_file_export());
             Ok(RenderResponse::Success(RenderSuccess { ok: true, svg }))
         }
     }
@@ -66,16 +71,16 @@ mod tests {
         Url::parse("file:///dummy.kul").unwrap()
     }
 
-    fn dummy_params() -> RenderParams {
-        RenderParams { uri: dummy_uri() }
+    fn dummy_params() -> ExportSvgParams {
+        ExportSvgParams { uri: dummy_uri() }
     }
 
     #[test]
-    fn render_clean_document_returns_success_with_svg() {
+    fn export_svg_clean_document_returns_self_contained_svg() {
         let doc = test_open_file(
             "person alice name:\"Alice\" gender:female\nperson bob name:\"Bob\" gender:male\nmarriage m alice bob start:1972\n",
         );
-        let response = render_for(&doc, &dummy_params()).expect("ok");
+        let response = export_svg_for(&doc, &dummy_params()).expect("ok");
         match response {
             RenderResponse::Success(s) => {
                 assert!(s.ok);
@@ -84,9 +89,11 @@ mod tests {
                     "expected an SVG document, got: {}",
                     &s.svg[..s.svg.len().min(80)]
                 );
+                // Self-contained marker — distinguishes this from the
+                // theme-agnostic preview output (ADR-0016 vs ADR-0022).
                 assert!(
-                    s.svg.contains("kul-card"),
-                    "expected the canonical card class in SVG"
+                    s.svg.contains("<style>"),
+                    "expected an inline <style> for file-export"
                 );
             }
             RenderResponse::Failure(f) => {
@@ -96,9 +103,9 @@ mod tests {
     }
 
     #[test]
-    fn render_dirty_document_returns_failure_with_diagnostics() {
+    fn export_svg_dirty_document_returns_failure_with_diagnostics() {
         let doc = test_open_file("person alice gender:female\n");
-        let response = render_for(&doc, &dummy_params()).expect("ok");
+        let response = export_svg_for(&doc, &dummy_params()).expect("ok");
         match response {
             RenderResponse::Failure(f) => {
                 assert!(!f.ok);
@@ -107,10 +114,7 @@ mod tests {
                     .iter()
                     .find(|d| d.code == "KUL-R03")
                     .expect("R03 in failure diagnostics");
-                // Errors-only filter passed through.
                 assert_eq!(r03.severity, "error");
-                // Anchored error carries URI + LSP range so the webview can
-                // click through to the source location (#203).
                 assert!(r03.uri.is_some(), "expected anchored URI: {r03:?}");
                 assert!(r03.range.is_some(), "expected anchored range: {r03:?}");
             }
