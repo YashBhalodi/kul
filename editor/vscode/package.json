@@ -30,17 +30,18 @@
   "main": "./out/extension.js",
   "scripts": {
     "typecheck": "tsc -p . --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
+    "build:preview": "npm --workspace @kullang/preview run build && node scripts/copy-preview-assets.mjs",
     "bundle": "esbuild src/extension.ts --bundle --platform=node --target=node18 --external:vscode --outfile=out/extension.js --minify",
-    "build": "npm run typecheck && npm run bundle",
+    "build": "npm run typecheck && npm run build:preview && npm run bundle",
     "watch": "esbuild src/extension.ts --bundle --platform=node --target=node18 --external:vscode --outfile=out/extension.js --sourcemap --watch",
     "vscode:prepublish": "npm run build",
     "fetch-server": "node scripts/fetch-server-binaries.mjs",
-    "package": "vsce package",
-    "package:bundled": "npm run fetch-server && vsce package",
-    "publish": "vsce publish",
-    "publish:bundled": "npm run fetch-server && vsce publish"
+    "package": "npm run build:preview && vsce package --no-dependencies",
+    "package:bundled": "npm run fetch-server && npm run build:preview && vsce package --no-dependencies",
+    "publish": "vsce publish --no-dependencies",
+    "publish:bundled": "npm run fetch-server && vsce publish --no-dependencies"
   },
   "contributes": {
     "languages": [
@@ -151,6 +152,7 @@
     }
   },
   "dependencies": {
+    "@kullang/preview": "*",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {

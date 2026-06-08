@@ -1,0 +1,41 @@
+{
+    "name": "@kullang/preview",
+    "version": "0.4.1",
+    "private": true,
+    "description": "Kul preview chrome — host-agnostic webview UI (mount, adapter, theme tokens) consumed by the VSCode extension and future surfaces.",
+    "type": "module",
+    "sideEffects": false,
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./preview.css": "./dist/preview.css",
+        "./preview-themes.css": "./dist/preview-themes.css",
+        "./preview-webview.js": "./dist/preview-webview.js"
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "typecheck": "tsc -p . --noEmit",
+        "build:js": "node esbuild.config.mjs",
+        "build:dts": "tsc -p tsconfig.build.json",
+        "build:css": "node scripts/copy-css.mjs",
+        "build": "npm run typecheck && npm run build:js && npm run build:dts && npm run build:css",
+        "test": "vitest run",
+        "test:watch": "vitest"
+    },
+    "dependencies": {
+        "svg-pan-zoom": "^3.6.2"
+    },
+    "devDependencies": {
+        "@types/node": "^25.9.0",
+        "esbuild": "^0.28.0",
+        "jsdom": "^25.0.0",
+        "typescript": "^6.0.3",
+        "vitest": "^4.1.8"
+    }
+}
