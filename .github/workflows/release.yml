@@ -44,11 +44,20 @@ jobs:
           fi
           ws_version=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
           ext_version=$(python3 -c "import json; print(json.load(open('editor/vscode/package.json'))['version'])")
+          # @kullang/preview is private (no npm publish today), but its version
+          # tracks the Cargo workspace in lockstep — so a release fails fast
+          # if it drifts. See docs/release.md § Cutting a release.
+          preview_version=$(python3 -c "import json; print(json.load(open('packages/preview/package.json'))['version'])")
           echo "workspace: $ws_version"
           echo "extension: $ext_version"
+          echo "preview:   $preview_version"
           echo "tag:       ${tag_version:-<workflow_dispatch>}"
           if [[ "$ws_version" != "$ext_version" ]]; then
             echo "::error::workspace Cargo.toml version $ws_version != extension package.json version $ext_version"
+            exit 1
+          fi
+          if [[ "$ws_version" != "$preview_version" ]]; then
+            echo "::error::workspace Cargo.toml version $ws_version != packages/preview/package.json version $preview_version"
             exit 1
           fi
           if [[ -n "$tag_version" && "$tag_version" != "$ws_version" ]]; then
@@ -352,13 +361,22 @@ jobs:
       - name: Ensure server binary is executable (belt-and-suspenders)
         if: matrix.target != 'win32-x64'
         run: chmod +x editor/vscode/server/${{ matrix.target }}/kul-lsp
-      - name: Install extension dependencies
-        working-directory: editor/vscode
+      # Install at the workspace root so npm resolves @kullang/preview's
+      # `workspace:*` link; running `npm ci` inside editor/vscode/ fails with
+      # EUNSUPPORTEDPROTOCOL because the workspace context is missing.
+      - name: Install workspace dependencies
         run: npm ci
+      # Build the preview package and stage its dist/ artefacts into
+      # editor/vscode/media/preview/ before packaging. The extension's
+      # `build:preview` script is the single source of truth for this step.
+      - name: Build @kullang/preview and stage assets
+        working-directory: editor/vscode
+        run: npm run build:preview
       - name: Package .vsix (--target ${{ matrix.target }})
         working-directory: editor/vscode
         run: |
           npx --yes @vscode/vsce package \
+            --no-dependencies \
             --target ${{ matrix.target }} \
             -o "kul-${{ needs.verify.outputs.version }}-${{ matrix.target }}.vsix"
       - uses: actions/upload-artifact@v7
@@ -395,4 +413,4 @@ jobs:
         working-directory: editor/vscode
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: npx --yes @vscode/vsce publish --packagePath "kul-${{ needs.verify.outputs.version }}-${{ matrix.target }}.vsix" --pat "$VSCE_PAT"
+        run: npx --yes @vscode/vsce publish --no-dependencies --packagePath "kul-${{ needs.verify.outputs.version }}-${{ matrix.target }}.vsix" --pat "$VSCE_PAT"

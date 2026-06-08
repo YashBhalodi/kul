@@ -3,16 +3,26 @@ name: VSCode Extension
 # Per-PR sanity check on the extension manifest, grammar, and TypeScript
 # build. The actual marketplace publish lives in `release.yml` and runs
 # on `v*` tag push as part of the unified release pipeline.
+#
+# The extension is one workspace member; the webview chrome lives in
+# `@kullang/preview` (`packages/preview/`). Changes in either trigger the
+# job, and the install is workspace-root so npm understands `workspace:*`.
 
 on:
   push:
     branches: [main]
     paths:
       - 'editor/vscode/**'
+      - 'packages/preview/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/vscode-extension.yml'
   pull_request:
     paths:
       - 'editor/vscode/**'
+      - 'packages/preview/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/vscode-extension.yml'
 
 jobs:
@@ -26,19 +36,29 @@ jobs:
           node-version: '20'
       - name: Install vsce
         run: npm install -g @vscode/vsce
-      - name: Install extension dev dependencies
-        working-directory: editor/vscode
+      # Install at the workspace root so npm resolves @kullang/preview's
+      # `workspace:*` link; running `npm ci` inside editor/vscode/ fails
+      # with EUNSUPPORTEDPROTOCOL because the workspace context is missing.
+      - name: Install workspace dependencies
         run: npm ci
-      - name: Run unit tests (Vitest)
+      - name: Run preview package tests (Vitest + jsdom)
+        working-directory: packages/preview
+        run: npm test
+      - name: Run extension unit tests (Vitest)
         working-directory: editor/vscode
         run: npm test
       - name: Validate JSON files parse
         run: |
           set -e
-          for f in $(find editor/vscode -type f -name '*.json' -not -path '*/node_modules/*'); do
+          for f in $(find editor/vscode -type f -name '*.json' -not -path '*/node_modules/*' -not -path '*/media/preview/*'); do
             echo "validating $f"
             python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
           done
+      # `npm run package` builds @kullang/preview, copies dist/ into
+      # editor/vscode/media/preview/, and runs `vsce package --no-dependencies`
+      # (the workspace: protocol is not a real npm registry resolution, so the
+      # vsce dependency walker would reject it — the bundled out/extension.js
+      # already inlines every runtime symbol the extension needs).
       - name: Validate manifest with vsce package
         working-directory: editor/vscode
-        run: vsce package --no-yarn --out /tmp/kul-test.vsix
+        run: npm run package -- --out /tmp/kul-test.vsix
