@@ -81,6 +81,9 @@ export async function activate(
         vscode.commands.registerCommand("kul.export.cytoscape", () =>
             runExport("cytoscape"),
         ),
+        vscode.commands.registerCommand("kul.export.svg", () =>
+            runExportSvg(),
+        ),
         vscode.commands.registerCommand("kul.preview.show", () =>
             showPreview(context),
         ),
@@ -163,6 +166,78 @@ function defaultExportFilename(
     const stem = path.basename(source.fsPath, path.extname(source.fsPath));
     const suffix = format === "cytoscape" ? ".cytoscape.json" : ".json";
     return vscode.Uri.file(path.join(dir, `${stem}${suffix}`));
+}
+
+// Default SVG filename: `<project-dir-basename>.svg` in the project
+// directory (the directory containing the active `.kul` file, per
+// ADR-0015 — rendered output is project-wide). Falls back to `tree.svg`
+// if the basename is empty (e.g. an unsaved file at the filesystem root).
+function defaultSvgExportFilename(source: vscode.Uri): vscode.Uri {
+    const dir = path.dirname(source.fsPath);
+    const projectName = path.basename(dir);
+    const stem = projectName.length > 0 ? projectName : "tree";
+    return vscode.Uri.file(path.join(dir, `${stem}.svg`));
+}
+
+async function runExportSvg(): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.languageId !== "kul") {
+        await vscode.window.showWarningMessage(
+            "Kul export only works on .kul files.",
+        );
+        return;
+    }
+    if (!client) {
+        await vscode.window.showWarningMessage(
+            "Kul LSP is not running — open a `.kul` file to start the server.",
+        );
+        return;
+    }
+
+    let response: RenderResponse;
+    try {
+        response = await client.sendRequest<RenderResponse>("kul/exportSvg", {
+            uri: editor.document.uri.toString(),
+        });
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        await vscode.window.showErrorMessage(
+            `Kul export failed: ${message}`,
+        );
+        return;
+    }
+
+    if (!response.ok || !response.svg) {
+        const count = response.diagnostics?.length ?? 0;
+        await vscode.window.showWarningMessage(
+            `Kul export failed: ${count} issue${count === 1 ? "" : "s"} — fix the errors in the Problems panel and try again.`,
+        );
+        return;
+    }
+
+    const defaultName = defaultSvgExportFilename(editor.document.uri);
+    const target = await vscode.window.showSaveDialog({
+        defaultUri: defaultName,
+        filters: { SVG: ["svg"] },
+        saveLabel: "Export",
+    });
+    if (!target) {
+        return;
+    }
+    try {
+        await vscode.workspace.fs.writeFile(
+            target,
+            Buffer.from(response.svg, "utf8"),
+        );
+        await vscode.window.showInformationMessage(
+            `Kul: exported ${path.basename(target.fsPath)}`,
+        );
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        await vscode.window.showErrorMessage(
+            `Kul: could not write export file: ${message}`,
+        );
+    }
 }
 
 interface LspPosition {

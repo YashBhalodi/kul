@@ -92,6 +92,11 @@
         "category": "Kul"
       },
       {
+        "command": "kul.export.svg",
+        "title": "Export SVG",
+        "category": "Kul"
+      },
+      {
         "command": "kul.preview.show",
         "title": "Show Preview",
         "category": "Kul"
@@ -105,6 +110,10 @@
         },
         {
           "command": "kul.export.cytoscape",
+          "when": "editorLangId == kul"
+        },
+        {
+          "command": "kul.export.svg",
           "when": "editorLangId == kul"
         },
         {
