@@ -152,7 +152,7 @@
     }
   },
   "dependencies": {
-    "@kullang/preview": "workspace:*",
+    "@kullang/preview": "*",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
