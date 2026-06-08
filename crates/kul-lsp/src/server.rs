@@ -22,6 +22,7 @@ use tower_lsp::{Client, LanguageServer};
 
 use crate::features::entity_at::{EntityAtParams, EntityAtResponse, entity_at};
 use crate::features::export::{ExportParams, ExportRequestError, export_for};
+use crate::features::export_svg::{ExportSvgParams, ExportSvgRequestError, export_svg_for};
 use crate::features::locate::{LocateParams, LocateResponse, locate};
 use crate::features::render::{RenderParams, RenderRequestError, render_for};
 use crate::features::svg_envelope::RenderResponse;
@@ -79,6 +80,30 @@ impl Backend {
             None => Err(Error {
                 code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
                 message: RenderRequestError::DocumentNotOpen.message().into(),
+                data: None,
+            }),
+            Some(Err(e)) => Err(Error {
+                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
+                message: e.message().into(),
+                data: None,
+            }),
+            Some(Ok(response)) => Ok(response),
+        }
+    }
+
+    /// Handler for `kul/exportSvg`. Runs render → layout → svg with the
+    /// file-export variant (self-contained + legend); same envelope as
+    /// [`Self::render`].
+    pub async fn export_svg(&self, params: ExportSvgParams) -> Result<RenderResponse> {
+        let uri = params.uri.clone();
+        let result = self
+            .documents
+            .with_project(&uri, |entry| export_svg_for(entry, &params))
+            .await;
+        match result {
+            None => Err(Error {
+                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
+                message: ExportSvgRequestError::DocumentNotOpen.message().into(),
                 data: None,
             }),
             Some(Err(e)) => Err(Error {
@@ -205,6 +230,10 @@ impl LanguageServer for Backend {
                     },
                     "kulRender": {
                         // Theme-agnostic SVG with semantic CSS classes (ADR-0016).
+                        "format": "svg",
+                    },
+                    "kulExportSvg": {
+                        // Self-contained SVG with inline <style> + legend (ADR-0022).
                         "format": "svg",
                     },
                 })),

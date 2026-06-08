@@ -7,6 +7,7 @@ pub mod diagnostics;
 pub mod document_symbol;
 pub mod entity_at;
 pub mod export;
+pub mod export_svg;
 pub mod formatting;
 pub mod hover;
 pub mod locate;
