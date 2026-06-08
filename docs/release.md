@@ -30,20 +30,21 @@ verify ──┬──► build-cli      (4 targets) ─────────
 
 ## Cutting a release
 
-Three files must agree on the version before tagging:
+Four files must agree on the version before tagging:
 
 - `Cargo.toml` → `[workspace.package].version`
 - `editor/vscode/package.json` → `version`
+- `packages/preview/package.json` → `version` (private workspace package; no publish step today, but lockstep keeps the seam clean for the day a second consumer lands)
 - The git tag → `v<version>` (no prefix, no suffix beyond patch)
 
-The `verify` job in the release workflow rejects any drift, so you can't accidentally ship a misaligned release.
+The `verify` job in the release workflow rejects any drift between the first two and the tag; the preview package's lockstep is enforced by convention until it gains a publish step.
 
 ### Procedure
 
 ```sh
 # 1. Bump versions to match.
 #    For v0.1.0 the workspace and extension are already at 0.1.0 — skip ahead.
-$EDITOR Cargo.toml editor/vscode/package.json
+$EDITOR Cargo.toml editor/vscode/package.json packages/preview/package.json
 
 # 2. Commit and push the bump.
 git commit -am "Bump version to 0.x.0"

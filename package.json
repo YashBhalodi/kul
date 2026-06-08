@@ -1,0 +1,8 @@
+{
+    "name": "kul-workspace",
+    "private": true,
+    "workspaces": [
+        "packages/*",
+        "editor/vscode"
+    ]
+}

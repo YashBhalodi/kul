@@ -8,7 +8,11 @@ import {
     ServerOptions,
 } from "vscode-languageclient/node";
 
-import { getNonce, previewHtml } from "./preview-html";
+import {
+    getNonce,
+    previewHtml,
+    type WireRevealRequestMessage,
+} from "@kullang/preview";
 
 let client: LanguageClient | undefined;
 let previewPanel: vscode.WebviewPanel | undefined;
@@ -279,15 +283,6 @@ interface EntityAtResponse {
     entity: { id: string; kind: "person" | "marriage" } | null;
 }
 
-interface RevealSourceMessage {
-    type: "revealSource";
-    /** Entity id (kul-card / marriage bar click). */
-    id?: string;
-    /** Direct location (error popover click — #203). */
-    uri?: string;
-    range?: LspRange;
-}
-
 // Reveal an LSP URI + range directly. Used by the error popover (#203),
 // where the diagnostic already carries its own location and the entity-id
 // round-trip would be a no-op (errors have no entity to look up).
@@ -410,46 +405,53 @@ async function showPreview(
     );
 
     const themeUri = previewPanel.webview.asWebviewUri(
-        vscode.Uri.joinPath(context.extensionUri, "media", "preview-themes.css"),
+        vscode.Uri.joinPath(
+            context.extensionUri,
+            "media",
+            "preview",
+            "preview-themes.css",
+        ),
     );
     const cssUri = previewPanel.webview.asWebviewUri(
-        vscode.Uri.joinPath(context.extensionUri, "media", "preview.css"),
+        vscode.Uri.joinPath(
+            context.extensionUri,
+            "media",
+            "preview",
+            "preview.css",
+        ),
     );
     const scriptUri = previewPanel.webview.asWebviewUri(
         vscode.Uri.joinPath(
             context.extensionUri,
             "media",
-            "vendor",
-            "dist",
-            "svg-pan-zoom.min.js",
+            "preview",
+            "preview-webview.js",
         ),
     );
-    previewPanel.webview.html = previewHtml(
-        themeUri.toString(),
-        cssUri.toString(),
-        scriptUri.toString(),
-        previewPanel.webview.cspSource,
-        getNonce(),
-    );
+    previewPanel.webview.html = previewHtml({
+        themeStylesheetUri: themeUri.toString(),
+        applicationStylesheetUri: cssUri.toString(),
+        scriptUri: scriptUri.toString(),
+        cspSource: previewPanel.webview.cspSource,
+        nonce: getNonce(),
+    });
 
     previewPanel.webview.onDidReceiveMessage((message: unknown) => {
         if (
-            message &&
-            typeof message === "object" &&
-            (message as { type?: unknown }).type === "revealSource"
+            !message ||
+            typeof message !== "object" ||
+            (message as { type?: unknown }).type !== "revealRequest"
         ) {
-            const { id, uri, range } = message as RevealSourceMessage;
-            if (typeof id === "string" && id.length > 0) {
-                void revealSource(id);
-            } else if (
-                typeof uri === "string" &&
-                uri.length > 0 &&
-                range &&
-                range.start &&
-                range.end
-            ) {
-                void revealLocation(uri, range);
-            }
+            return;
+        }
+        const target = (message as WireRevealRequestMessage).target;
+        if (!target) {
+            return;
+        }
+        if (target.kind === "entity") {
+            void revealSource(target.id);
+        } else if (target.kind === "location") {
+            void revealLocation(target.uri, target.range);
         }
     });
 

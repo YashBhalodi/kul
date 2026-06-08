@@ -1,0 +1,67 @@
+// Pure HTML shell — no DOM access, runs under Node for the extension's
+// webview.html assignment. The bundled `preview-webview.js` then mounts the
+// chrome inside `#kul-preview-mount` via `mountPreview`.
+
+// 32-char nonce stamped on every `<script>` so the CSP can drop
+// `'unsafe-inline'`. Standard VSCode webview pattern.
+export function getNonce(): string {
+    let text = "";
+    const chars =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    for (let i = 0; i < 32; i++) {
+        text += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return text;
+}
+
+/** Element id `mountPreview` looks for when called by the VSCode entry. */
+export const MOUNT_POINT_ID = "kul-preview-mount";
+
+export interface PreviewHtmlOptions {
+    /** Webview-resource URI for the theme tokens stylesheet. */
+    themeStylesheetUri: string;
+    /** Webview-resource URI for the application stylesheet. */
+    applicationStylesheetUri: string;
+    /** Webview-resource URI for the bundled webview entry script. */
+    scriptUri: string;
+    /** VSCode `webview.cspSource` (or equivalent host CSP origin). */
+    cspSource: string;
+    /** 32-char nonce — generate with {@link getNonce}. */
+    nonce: string;
+    /** `data-theme` value on `<body>`. Defaults to `vscode`. */
+    themeName?: string;
+}
+
+/**
+ * VSCode-style full-doc HTML shell. The two stylesheets are the ADR-0016 token
+ * split: `themeStylesheetUri` carries the per-theme `--kul-*` tokens,
+ * `applicationStylesheetUri` the application rules that consume them.
+ */
+export function previewHtml(opts: PreviewHtmlOptions): string {
+    const {
+        themeStylesheetUri,
+        applicationStylesheetUri,
+        scriptUri,
+        cspSource,
+        nonce,
+        themeName = "vscode",
+    } = opts;
+    // script-src is nonce-gated (browsers ignore 'unsafe-inline' once a nonce
+    // is present). style-src keeps 'unsafe-inline' for the injected SVG's
+    // structural inline styles (ADR-0016).
+    const csp = `default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${cspSource};`;
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<link rel="stylesheet" href="${themeStylesheetUri}">
+<link rel="stylesheet" href="${applicationStylesheetUri}">
+<title>Kul Preview</title>
+</head>
+<body data-theme="${themeName}">
+<div id="${MOUNT_POINT_ID}"></div>
+<script nonce="${nonce}" src="${scriptUri}"></script>
+</body>
+</html>`;
+}
