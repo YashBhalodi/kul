@@ -6,7 +6,52 @@ The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi
 
 ## [Unreleased]
 
-- **LSP: `kul/exportSvg` request and *Kul: Export SVG* VSCode command** — emits a self-contained SVG to a user-chosen file. Byte-identical to `kul export --format=svg` for the same project; both call sites share the new `ThemeConfig::for_file_export()` constructor so the file-export variant can never drift. The shared `RenderResponse` envelope moves to `features/svg_envelope.rs`; the server advertises `experimental.kulExportSvg = { "format": "svg" }` alongside `kulRender` so clients can feature-detect independently (#217).
+## [0.4.2] — 2026-06-09
+
+The "preview hardening + canonical render" release. A render-shape fix retires the absorb rule so every host-lineage tree renders as its own component on a shared global generation grid (`RENDER_SCHEMA_VERSION` 2 → 3); two layout panics that took down the language server are downgraded to graceful skips; the LSP grows a `kul/exportSvg` request backing a new *Kul: Export SVG* command; the preview survives transient errors without flickering and grows a clickable ghost `↺` badge that pans to the canonical card. The Kul *language* version is unchanged at `0.1`; documents valid at 0.4.1 remain valid.
+
+### `kul-render`
+
+- **Absorb rule deleted; every host-lineage tree renders as its own component.** Cross-family kinship now reads through a past-bio child-ghost in the joining spouse's family of origin plus shared name identity — an application of "past intimacies emit ghosts" rather than a separate rule. `build_components` drops the union-find that folded a joining spouse's canonical family into the host marriage; the multi-candidate root filter, `nested_targets` set, `compute_main_walk_reachable`, `in_context` plumbing, and `build_nested_birth_family` are all gone. `MarriageBar::joining_nested_birth_family` is removed and **`RENDER_SCHEMA_VERSION` bumps 2 → 3**. The canonical UI pattern's "absorb rule" / "nested birth family" / "visual-row cascade" vocabulary is retired; ADR-0016, ADR-0017, ADR-0018, ADR-0019, ADR-0020, `docs/canonical-ui-pattern.md`, and `CONTEXT.md` rewritten to the post-change steady state (#207, #212).
+
+### `kul-layout`
+
+- **Walker simplified: card row is a direct function of generation.** With the absorb rule and nested birth families gone, the bottom-up `visual_row` cascade had nothing to do. `Node.visual_row` renames to `Node.row` and is computed inline (`card.slot.generation + row_shift`, with `row_shift` propagating rigidly through fan-children so polygamy keeps its `+1` co-spouse offset). Drops `fold_visual_row`, `nested_root_indices`, the `min_visual_row` / `min_child_row` accumulators, and the expected-vs-actual `add_component` dance (#207).
+- **`bar_centers` insert always fires for polygamy-hub marriages.** The PolygamyHub branch gated `bar_centers.insert(...)` on `!marriage.child_roots.is_empty()`, but `route_edges` requires every render edge's marriage to have a positioned anchor — when a polygamy marriage carried a render edge (e.g. adoption) but `build_children` emitted no card (the only adoptive child's `canonical_location` resolved elsewhere), the LSP panicked at `adapter.rs:870`. Mirror PersonHost's unconditional insert (#208, #210).
+- **`route_edges` degrades gracefully when a render edge's marriage has no anchor.** Swaps `.expect(...)` for `debug_assert!` + silent `continue`. Debug/test builds still surface the invariant violation; release builds (and therefore `kul-lsp`) skip the unpositionable edge instead of panicking, so a future render-layer regression can no longer kill the language server (#209, #213).
+
+### `kul-lsp`
+
+- **New `kul/exportSvg` custom request.** Takes `{ uri }`, runs the canonical-visual pipeline with the new `ThemeConfig::for_file_export()` (self-contained + legend, per ADR-0022), and returns the shared `RenderResponse` envelope so a client's existing failure handler reuses one code path. The server stays filesystem-free — the client owns the write. Advertised via `experimental.kulExportSvg = { "format": "svg" }` alongside `kulRender` so clients can feature-detect this independently. Integration tests drive the real binary across clean / dirty / unknown-URI paths (#217, #218).
+- **`ProjectEntry` parallel slices collapsed into a single `Vec<FileMeta>`.** The FileId-ordered invariant now lives in the type rather than in a doc comment; the consolidated field is narrowed to `pub(crate)` behind the existing accessors. A hidden `from_parts` constructor keeps `tests/perf.rs`'s hand-built fixtures working (#215).
+
+### `kul-svg`
+
+- **New `ThemeConfig::for_file_export()` constructor.** Bundles the self-contained-plus-legend chain so the CLI's `kul export --format=svg` and the LSP's `kul/exportSvg` share one source of truth and cannot drift. `run_svg` switches to it; a unit test asserts the equivalence (#217).
+
+### `kul-vscode-extension`
+
+- **New `Kul: Export SVG` palette command.** Mirrors the existing `kul.export.json` / `kul.export.cytoscape` flow: sends `kul/exportSvg` for the active `.kul` file, shows a save dialog defaulting to `<project-dir-basename>.svg` in the project directory (fallback `tree.svg` for an empty basename), and writes the SVG bytes via `vscode.workspace.fs.writeFile`. On failure, surfaces the same counted warning toast pointing at the Problems panel — no save dialog, no file (#217).
+- **Preview no longer flickers between diagram and error banner during live edits.** A partial / invalid intermediate state used to wipe the rendered SVG and replace it with a full-pane banner, yanking away the diagram the author was reasoning about. The last successful render now stays mounted (with its pan/zoom state preserved) and dims via a `kul-render-stale` overlay so the staleness is visible. Render-blocking errors surface through a new red triangle icon in the bottom-left control panel — a count badge shows the active error count, clicking expands a popover listing each diagnostic, and clicking a row jumps the editor to the diagnostic's source range. Warnings stay in the Problems pane; the popover is errors-only. Wire change: the `kul/render` failure envelope's diagnostics now carry LSP ranges + their primary file URI, and the Rust side filters to severity = error before projecting (#203, #205).
+- **Ghost `↺` badge becomes a clickable jump-to-canonical action.** The badge upgrades from a bare `<text>` to `<g class="kul-ghost-badge">` wrapping a 24×24 transparent hit-target rect, the 20 px `↺` glyph, and a `<title>Jump to canonical card</title>` for the native tooltip + a11y. Clicking pans the viewport to the person's canonical card (resolved via `[data-person-id][data-kind="canonical"]`) with a brief border-glow pulse on arrival (`.kul-jump-target`, 1.5 s ease-out outline animation themed off `--vscode-focusBorder`). Strictly viewport navigation — the editor cursor is not moved. The badge's click handler calls `stopPropagation` so the existing click-to-source delegate on `#root` never fires (#211, #214).
+- **Preview re-renders on hidden → visible transition.** VSCode destroys a webview's DOM and JS context when its tab moves to the background; on restore, the HTML shell reloads but our bootstrap only populates `#root` after a `render` postMessage — so the panel used to stay blank until the next save. Now we subscribe to `onDidChangeViewState` and re-render whenever the panel flips from hidden to visible. Lower-overhead than `retainContextWhenHidden` and reuses the existing render path (#206).
+- **`marriage` snippet drops `start:`.** After #200 made marriage `start:` optional (R03 retired), the snippet was still pre-filling it. The body now expands to `marriage <id> <spouse1> <spouse2>`; the LSP's field completion still offers `start:` after the third positional argument. The `adoption` snippet is left alone — adoption `start:` is still required by R05 (#202, #204).
+
+### `@kullang/preview` (new workspace package)
+
+- **Preview chrome extracted from `editor/vscode/` into a new `@kullang/preview` npm workspace package** at `packages/preview/`. The package owns the webview HTML shell, bootstrap, tooltip, legend, pan/zoom controls, error popover, ghost-badge injection, selection-sync highlighting, application CSS, and the `--kul-*` theme tokens. The VSCode extension becomes a thin host that imports `previewHtml` and consumes the package's `HostAdapter` / `PreviewHandle` seams; a future webapp will implement its own `HostAdapter` against the same interface. ADR-0016's structural / chrome line is unchanged — what moves is *where the chrome implementation lives*: one workspace package shared across surfaces, not duplicated per host. The wire shape collapses the old `revealSource` (with either `id` or `uri+range` at the top level) into a unified `revealRequest` carrying a discriminated `RevealTarget`. Per-file ESM library output (`esbuild bundle: false`) + `sideEffects: false` lets the extension's bundler tree-shake `mountPreview` and drop `svg-pan-zoom` from the Node bundle; a single IIFE webview bundle inlines `svg-pan-zoom` for the browser side. The package is private (no npm publish today) but its version tracks the Cargo workspace in lockstep, enforced by `release.yml`'s `verify` job. User-visible preview behaviour is unchanged (#220, #221).
+
+### Docs
+
+- **`docs/kinship-graph-shape.md`** — descriptive framing of a Kul project as a specialised graph: two node kinds (`Person`, `Marriage`), three primitive edges (`spouse-of`, `born-into`, `adopted-into`), partial-DAG guarantee, derived-relation discipline. Documents where Kul resembles standard graphs and where it deviates, so future grilling sessions on graph-shaped features (query layer, layout, export, federation, analytics) start from shared structural vocabulary instead of re-deriving it each time. Linked from `CONTEXT.md` right after the additivity-principle paragraph.
+
+### Tooling
+
+- **`vitest` bumped 4.1.7 → 4.1.8** in the `vscode-extension` group (#197).
+
+### `kul-core`, `kul-loader`, `kul-cli`, `@kullang/wasm`
+
+- **Lockstep version bump** — no functional changes. Byte-identical to `v0.4.1` aside from the bump that keeps every artifact aligned under one tag, per the [`release.yml` `verify` gate](./.github/workflows/release.yml).
 
 ## [0.4.1] — 2026-06-06
 

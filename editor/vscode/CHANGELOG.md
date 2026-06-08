@@ -4,10 +4,23 @@ All notable changes to the **KulLang** VSCode extension are documented here. The
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-06-09
+
+### Added
+
+- **New command `Kul: Export SVG`** (`kul.export.svg`) — emits a self-contained SVG to a user-chosen file. Defaults the save dialog to `<project-dir-basename>.svg` in the project directory; bytes are byte-identical to `kul export --format=svg`. On failure, surfaces a counted warning toast pointing at the Problems panel — no save dialog, no file (#217).
+- **Ghost `↺` badge becomes a clickable jump-to-canonical action.** Clicking a ghost card's `↺` badge pans the preview viewport to the person's canonical card with a brief border-glow pulse on arrival. Strictly viewport navigation; the editor cursor is not moved. The badge gains a native `Jump to canonical card` tooltip and a 24×24 hit target (#211).
+
 ### Changed
 
-- The `marriage` snippet no longer pre-fills `start:`. After #200 made marriage `start:` optional in the spec and validator (R03 retired), the snippet pushed authors toward writing a field that's now optional. The body now expands to `marriage <id> <spouse1> <spouse2>`; authors who want a start date can type `start:` themselves, and the LSP's field completion still offers it after the third positional argument (#202).
 - **Preview no longer flickers between diagram and error banner during live edits.** A partial / invalid intermediate state used to wipe the rendered SVG and replace it with a full-pane banner, yanking away the diagram the author was reasoning about. The last successful render now stays mounted (with its pan/zoom state preserved) and dims via a `kul-render-stale` overlay so the staleness is visible. Errors surface through a new red triangle icon in the bottom-left control panel — a count badge shows the active error count, clicking expands a popover listing each diagnostic, and clicking a row jumps the editor to the diagnostic's source range. Warnings continue to live in the Problems pane; the popover is errors-only (#203).
+- The `marriage` snippet no longer pre-fills `start:`. After #200 made marriage `start:` optional in the spec and validator (R03 retired), the snippet pushed authors toward writing a field that's now optional. The body now expands to `marriage <id> <spouse1> <spouse2>`; authors who want a start date can type `start:` themselves, and the LSP's field completion still offers it after the third positional argument (#202).
+- **Preview chrome moved into a shared `@kullang/preview` workspace package.** The webview HTML shell, bootstrap, tooltip, legend, pan/zoom controls, error popover, and theme tokens now live in `packages/preview/` so a future webapp can reuse the same chrome against its own `HostAdapter`. User-visible preview behaviour is unchanged (#220).
+
+### Fixed
+
+- **Preview re-renders when its tab regains focus.** VSCode destroys a webview's DOM and JS context when its tab moves to the background; on restore, the panel used to stay blank until the next save. The extension now subscribes to `onDidChangeViewState` and re-renders on every hidden → visible transition (#206).
+- **Language server no longer crashes on a render edge whose marriage has no positioned anchor.** Two layout invariants that previously panicked the LSP — a polygamy hub with a render edge but no card-emitting children, and a render edge whose marriage anchor went missing in a future regression — now degrade to a silent skip in release builds (debug builds still surface the violation) (#208, #209).
 
 ## [0.4.1] — 2026-06-06
 

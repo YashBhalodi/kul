@@ -1,6 +1,6 @@
 {
     "name": "@kullang/preview",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "private": true,
     "description": "Kul preview chrome — host-agnostic webview UI (mount, adapter, theme tokens) consumed by the VSCode extension and future surfaces.",
     "type": "module",
