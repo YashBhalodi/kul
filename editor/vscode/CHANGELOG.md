@@ -4,6 +4,12 @@ All notable changes to the **KulLang** VSCode extension are documented here. The
 
 ## [Unreleased]
 
+## [0.4.3] — 2026-06-12
+
+### Fixed
+
+- **Preview pane fills its full height again.** A regression from the #221 preview-chrome extraction letterboxed the diagram into a short strip at the top of the pane: a new wrapper element broke the percentage-height chain, so the SVG collapsed to content height instead of filling the viewport. The height chain is restored, and the diagram once again uses the whole pane (#223).
+
 ## [0.4.2] — 2026-06-09
 
 ### Added

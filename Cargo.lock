@@ -632,7 +632,7 @@ dependencies = [
 
 [[package]]
 name = "kul-cli"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -652,7 +652,7 @@ dependencies = [
 
 [[package]]
 name = "kul-core"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "insta",
  "miette",
@@ -666,7 +666,7 @@ dependencies = [
 
 [[package]]
 name = "kul-layout"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "insta",
  "kul-core",
@@ -677,7 +677,7 @@ dependencies = [
 
 [[package]]
 name = "kul-loader"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "insta",
  "kul-core",
@@ -686,7 +686,7 @@ dependencies = [
 
 [[package]]
 name = "kul-lsp"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "insta",
  "kul-core",
@@ -704,7 +704,7 @@ dependencies = [
 
 [[package]]
 name = "kul-render"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "insta",
  "kul-core",
@@ -714,7 +714,7 @@ dependencies = [
 
 [[package]]
 name = "kul-svg"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "insta",
  "kul-core",
@@ -724,7 +724,7 @@ dependencies = [
 
 [[package]]
 name = "kul-wasm"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "console_error_panic_hook",
  "insta",

@@ -6,6 +6,18 @@ The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi
 
 ## [Unreleased]
 
+## [0.4.3] — 2026-06-12
+
+A one-fix preview release. The #221 chrome-extraction refactor regressed the preview pane's full-height layout; this release restores it. No other component changed behaviour. The Kul *language* version is unchanged at `0.1`; documents valid at 0.4.2 remain valid.
+
+### `@kullang/preview`
+
+- **Preview pane fills its full height again.** The #221 chrome extraction inserted a `#kul-preview-mount` wrapper between `<body>` and `#root`. The wrapper had no height rule, so `#root`'s `height: 100%` resolved against an indefinite-height parent and collapsed to content height — letterboxing the diagram into a short top strip. Giving `#kul-preview-mount` `height: 100%` carries the definite-height chain `body → #kul-preview-mount → #root → svg` through the new wrapper (#223).
+
+### `kul-core`, `kul-loader`, `kul-render`, `kul-layout`, `kul-svg`, `kul-cli`, `kul-lsp`, `@kullang/wasm`
+
+- **Lockstep version bump** — no functional changes. Byte-identical to `v0.4.2` aside from the bump that keeps every artifact aligned under one tag, per the [`release.yml` `verify` gate](./.github/workflows/release.yml).
+
 ## [0.4.2] — 2026-06-09
 
 The "preview hardening + canonical render" release. A render-shape fix retires the absorb rule so every host-lineage tree renders as its own component on a shared global generation grid (`RENDER_SCHEMA_VERSION` 2 → 3); two layout panics that took down the language server are downgraded to graceful skips; the LSP grows a `kul/exportSvg` request backing a new *Kul: Export SVG* command; the preview survives transient errors without flickering and grows a clickable ghost `↺` badge that pans to the canonical card. The Kul *language* version is unchanged at `0.1`; documents valid at 0.4.1 remain valid.
