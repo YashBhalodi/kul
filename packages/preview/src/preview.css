@@ -19,6 +19,15 @@ body {
     font-size: var(--kul-font-size);
 }
 
+/* Host-provided mount point (id from html.ts MOUNT_POINT_ID). It sits between
+ * <body> and #root, so it must carry height:100% or the percentage-height chain
+ * breaks here and the SVG collapses to content height instead of filling the
+ * pane. */
+#kul-preview-mount {
+    width: 100%;
+    height: 100%;
+}
+
 #root {
     width: 100%;
     height: 100%;
