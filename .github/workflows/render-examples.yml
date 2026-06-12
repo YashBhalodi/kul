@@ -1,0 +1,51 @@
+name: Render examples
+
+# Keep a committed `tree.svg` fresh next to every example's `.kul` source.
+# `kul export --format=svg` is byte-for-byte deterministic and
+# host-font-independent, so we regenerate on every PR and commit any diff back
+# to the branch — a stale or missing `tree.svg` is structurally impossible and
+# costs the contributor nothing. Mirrors the regenerate-in-CI shape of the
+# `wasm-build` job in `rust.yml`, but deliberately auto-commits rather than
+# drift-gating: the goal is zero contributor overhead, not a failing check.
+#
+# The SVG output is a function of both the render pipeline and the example
+# source, so the paths filter covers both.
+
+on:
+  pull_request:
+    paths:
+      - "crates/**"
+      - "examples/**"
+      - "scripts/render-examples.sh"
+      - "justfile"
+      - ".github/workflows/render-examples.yml"
+
+# Cancel a superseded run on the same branch so two pushes can't race to
+# auto-commit divergent SVGs.
+concurrency:
+  group: render-examples-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  render-examples:
+    name: render-examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: extractions/setup-just@v3
+      - name: Render example SVGs
+        run: just render-examples
+      - name: Commit refreshed tree.svg
+        # The default GITHUB_TOKEN does not re-trigger workflows on its own
+        # pushes, so this auto-commit cannot loop.
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(examples): regenerate tree.svg [skip ci]"
+          file_pattern: "examples/**/tree.svg"

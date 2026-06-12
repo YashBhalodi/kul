@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1356 470" width="1356" height="470"><style>
+svg {
+  --kul-preview-bg: #ffffff;
+  --kul-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --kul-card-fill: #ffffff;
+  --kul-card-stroke: #455a64;
+  --kul-card-stroke-male: #1565c0;
+  --kul-card-stroke-female: #c2185b;
+  --kul-card-stroke-other: #f9a825;
+  --kul-ghost-fill: #eceff1;
+  --kul-ghost-stroke: #90a4ae;
+  --kul-ghost-stroke-male: #1565c0;
+  --kul-ghost-stroke-female: #c2185b;
+  --kul-ghost-stroke-other: #f9a825;
+  --kul-label-fill: #1a1a1a;
+  --kul-ghost-label-fill: #607d8b;
+  --kul-edge-stroke: #2e7d32;
+  --kul-adoption-edge-stroke: #ef6c00;
+  --kul-marriage-edge-stroke: #6a1b9a;
+  --kul-card-stroke-width: 1.5;
+  --kul-edge-stroke-width: 1.5;
+  --kul-marriage-edge-stroke-width: 8.75;
+  --kul-ghost-fill-opacity: 0.5;
+  --kul-ended-edge-stroke-opacity: 0.6;
+  --kul-label-font-size: 13px;
+  --kul-legend-label-font-size: 12px;
+  --kul-legend-marriage-edge-stroke-width: 5;
+  --kul-legend-panel-bg: #f7f9fa;
+  --kul-legend-panel-border: #cfd8dc;
+  --kul-legend-panel-border-width: 1;
+  background-color: var(--kul-preview-bg);
+  font-family: var(--kul-font-family);
+}
+.kul-card rect { fill: var(--kul-card-fill); stroke: var(--kul-card-stroke); stroke-width: var(--kul-card-stroke-width); }
+.kul-card[data-gender="male"] rect { stroke: var(--kul-card-stroke-male); }
+.kul-card[data-gender="female"] rect { stroke: var(--kul-card-stroke-female); }
+.kul-card[data-gender="other"] rect { stroke: var(--kul-card-stroke-other); }
+.kul-card[data-kind="ghost"] rect { fill: var(--kul-ghost-fill); stroke: var(--kul-ghost-stroke); fill-opacity: var(--kul-ghost-fill-opacity); }
+.kul-card[data-kind="ghost"][data-gender="male"] rect { stroke: var(--kul-ghost-stroke-male); }
+.kul-card[data-kind="ghost"][data-gender="female"] rect { stroke: var(--kul-ghost-stroke-female); }
+.kul-card[data-kind="ghost"][data-gender="other"] rect { stroke: var(--kul-ghost-stroke-other); }
+.kul-label-name { fill: var(--kul-label-fill); font-size: var(--kul-label-font-size); }
+.kul-card[data-kind="ghost"] .kul-label-name { fill: var(--kul-ghost-label-fill); }
+.kul-edge { stroke: var(--kul-edge-stroke); stroke-width: var(--kul-edge-stroke-width); }
+.kul-edge[data-link-kind="adoption"] { stroke: var(--kul-adoption-edge-stroke); }
+.kul-edge[data-link-kind="marriage"] { stroke: var(--kul-marriage-edge-stroke); stroke-width: var(--kul-marriage-edge-stroke-width); }
+.kul-edge[data-is-ended="true"] { stroke-opacity: var(--kul-ended-edge-stroke-opacity); }
+.kul-legend-bg { fill: var(--kul-legend-panel-bg); stroke: var(--kul-legend-panel-border); stroke-width: var(--kul-legend-panel-border-width); }
+.kul-legend-label { fill: var(--kul-label-fill); font-size: var(--kul-legend-label-font-size); }
+.kul-legend .kul-edge[data-link-kind="marriage"] { stroke-width: var(--kul-legend-marriage-edge-stroke-width); }
+</style><path class="kul-edge" data-marriage-id="m_carlos_rosa" data-link-kind="birth" data-child-id="mateo" data-is-past="false" fill="none" d="M 296 56 L 296 146 Q 296 156 286 156 L 114 156 Q 104 156 104 166 L 104 184"/><path class="kul-edge" data-marriage-id="m_carlos_rosa" data-link-kind="adoption" data-child-id="bayani" data-is-past="false" data-adoption-start="2007-06-01" fill="none" d="M 296 56 L 296 156 L 296 156 L 296 184" stroke-dasharray="6 4"/><path class="kul-edge" data-marriage-id="m_eduardo_luz" data-link-kind="birth" data-child-id="dalisay" data-is-past="true" fill="none" d="M 775 56 L 775 156 L 775 156 L 775 184"/><path class="kul-edge" data-marriage-id="m_tomas_elena" data-link-kind="adoption" data-child-id="dalisay" data-is-past="true" data-adoption-start="1994-04-20" data-adoption-end="1999-02-10" fill="none" d="M 1157 56 L 1157 156 L 1157 156 L 1157 184" stroke-dasharray="6 4"/><path class="kul-edge" data-marriage-id="m_carlos_rosa" data-link-kind="adoption" data-child-id="dalisay" data-is-past="false" data-adoption-start="2002-11-30" fill="none" d="M 296 56 L 296 146 Q 296 156 306 156 L 478 156 Q 488 156 488 166 L 488 184" stroke-dasharray="6 4"/><path class="kul-edge" data-marriage-id="m_carlos_rosa" data-link-kind="marriage" data-host-id="carlos" data-joining-id="rosa" data-start="2000-01-15" data-is-ended="false" fill="none" d="M 281 56 L 311 56"/><path class="kul-edge" data-marriage-id="m_eduardo_luz" data-link-kind="marriage" data-host-id="eduardo" data-joining-id="luz" data-start="1988-07-09" data-is-ended="false" fill="none" d="M 760 56 L 790 56"/><path class="kul-edge" data-marriage-id="m_tomas_elena" data-link-kind="marriage" data-host-id="tomas" data-joining-id="elena" data-start="1985-03-01" data-is-ended="false" fill="none" d="M 1142 56 L 1172 56"/><g class="kul-card" data-person-id="carlos" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1973-02-18" data-generation="0"><rect x="121" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="201" y="56" text-anchor="middle" dominant-baseline="central">Carlos Mendoza</text></g><g class="kul-card" data-person-id="rosa" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1975-09-24" data-generation="0"><rect x="311" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="391" y="56" text-anchor="middle" dominant-baseline="central">Rosa Mendoza</text></g><g class="kul-card" data-person-id="mateo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="2003-05-10" data-generation="1"><rect x="24" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Mateo Mendoza</text></g><g class="kul-card" data-person-id="bayani" data-kind="canonical" data-gender="other" data-is-alive="true" data-born="~1995" data-generation="1"><rect x="216" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="296" y="216" text-anchor="middle" dominant-baseline="central">Bayani Mendoza</text></g><g class="kul-card" data-person-id="dalisay" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1990-08-03" data-generation="1"><rect x="408" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="488" y="216" text-anchor="middle" dominant-baseline="central">Dalisay Mendoza</text></g><g class="kul-card" data-person-id="eduardo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1962-03-11" data-generation="0"><rect x="600" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="680" y="56" text-anchor="middle" dominant-baseline="central">Eduardo Reyes</text></g><g class="kul-card" data-person-id="luz" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1965-12-02" data-generation="0"><rect x="790" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="870" y="56" text-anchor="middle" dominant-baseline="central">Luz Reyes</text></g><g class="kul-card" data-person-id="dalisay" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1990-08-03" data-generation="1"><rect x="695" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="775" y="216" text-anchor="middle" dominant-baseline="central">Dalisay Mendoza</text></g><g class="kul-card" data-person-id="tomas" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1958-06-25" data-generation="0"><rect x="982" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="1062" y="56" text-anchor="middle" dominant-baseline="central">Tomas Garcia</text></g><g class="kul-card" data-person-id="elena" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1960-10-14" data-generation="0"><rect x="1172" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="1252" y="56" text-anchor="middle" dominant-baseline="central">Elena Garcia</text></g><g class="kul-card" data-person-id="dalisay" data-kind="ghost" data-ghost-reason="past-adoption" data-gender="female" data-is-alive="true" data-born="1990-08-03" data-generation="1"><rect x="1077" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="1157" y="216" text-anchor="middle" dominant-baseline="central">Dalisay Mendoza</text></g><g class="kul-legend"><rect class="kul-legend-bg" x="8" y="288" width="188" height="174" rx="6" ry="6"/><g class="kul-card" data-kind="canonical" data-gender="male"><rect x="22" y="302" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="309" dominant-baseline="central">Male</text><g class="kul-card" data-kind="canonical" data-gender="female"><rect x="22" y="324" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="331" dominant-baseline="central">Female</text><g class="kul-card" data-kind="canonical" data-gender="other"><rect x="22" y="346" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="353" dominant-baseline="central">Other</text><g class="kul-card" data-kind="ghost"><rect x="22" y="368" width="30" height="14" rx="3" ry="3" stroke-dasharray="3 2"/></g><text class="kul-legend-label" x="62" y="375" dominant-baseline="central">Past record</text><path class="kul-edge" data-link-kind="birth" fill="none" d="M 22 397 L 52 397"/><text class="kul-legend-label" x="62" y="397" dominant-baseline="central">Birth</text><path class="kul-edge" data-link-kind="adoption" fill="none" d="M 22 419 L 52 419" stroke-dasharray="6 4"/><text class="kul-legend-label" x="62" y="419" dominant-baseline="central">Adoption</text><path class="kul-edge" data-link-kind="marriage" fill="none" d="M 22 441 L 52 441"/><text class="kul-legend-label" x="62" y="441" dominant-baseline="central">Marriage</text></g></svg>
