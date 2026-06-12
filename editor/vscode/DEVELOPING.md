@@ -1,6 +1,6 @@
 # Developing the KulLang VSCode extension
 
-Local-development guide for the extension at `editor/vscode/`. Consumer-facing documentation lives in [`README.md`](./README.md); release-pipeline details live in [`docs/release.md`](../../docs/release.md).
+Local-development guide for the extension at `editor/vscode/`. Consumer-facing documentation lives in [`README.md`](./README.md); release-pipeline details live in the `/release` command ([`.claude/commands/release.md`](../../.claude/commands/release.md)), the sole source of truth for the release runbook.
 
 ## Install for development
 

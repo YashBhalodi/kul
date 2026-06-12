@@ -46,7 +46,7 @@ jobs:
           ext_version=$(python3 -c "import json; print(json.load(open('editor/vscode/package.json'))['version'])")
           # @kullang/preview is private (no npm publish today), but its version
           # tracks the Cargo workspace in lockstep — so a release fails fast
-          # if it drifts. See docs/release.md § Cutting a release.
+          # if it drifts. See the /release command (.claude/commands/release.md).
           preview_version=$(python3 -c "import json; print(json.load(open('packages/preview/package.json'))['version'])")
           echo "workspace: $ws_version"
           echo "extension: $ext_version"
@@ -285,7 +285,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [ -z "${NPM_TOKEN:-}" ]; then
-            echo "::error::NPM_TOKEN secret is unset; cannot publish @kullang/wasm. See docs/release.md § One-time npm setup."
+            echo "::error::NPM_TOKEN secret is unset; cannot publish @kullang/wasm. See the /release command (.claude/commands/release.md) § One-time setup."
             exit 1
           fi
       - name: Publish to npm
@@ -390,7 +390,7 @@ jobs:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
           if [ -z "${OVSX_PAT:-}" ]; then
-            echo "::error::OVSX_PAT secret is unset; cannot publish to Open VSX. See docs/release.md § One-time setup."
+            echo "::error::OVSX_PAT secret is unset; cannot publish to Open VSX. See the /release command (.claude/commands/release.md) § One-time setup."
             exit 1
           fi
       - name: Pre-flight VSCE_PAT check
@@ -399,7 +399,7 @@ jobs:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
           if [ -z "${VSCE_PAT:-}" ]; then
-            echo "::error::VSCE_PAT secret is unset; cannot publish to VS Code Marketplace. See docs/release.md § One-time setup."
+            echo "::error::VSCE_PAT secret is unset; cannot publish to VS Code Marketplace. See the /release command (.claude/commands/release.md) § One-time setup."
             exit 1
           fi
       - name: Publish to Open VSX

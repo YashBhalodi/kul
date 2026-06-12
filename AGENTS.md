@@ -18,7 +18,6 @@ docs/
   vision.md    — language scope and design intent
   architecture.md — implementation map: pipeline, seams, "where to add X" recipes
   testing.md   — test conventions: snapshots, corpus, perf budgets
-  release.md   — operational handbook for cutting a release
   adr/         — Architectural Decision Records
   prd/         — Product Requirements Documents (transient — deleted after the epic ships; see [`prd/README.md`](./docs/prd/README.md))
   agents/      — agent-tooling docs (issue tracker, triage labels, domain-docs convention)
@@ -43,7 +42,7 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 | Understand a major design decision  | [`docs/adr/`](./docs/adr/)                                                                                                         |
 | Understand product scope of an epic | [`docs/prd/`](./docs/prd/)                                                                                                         |
 | Add a test or perf budget           | [`docs/testing.md`](./docs/testing.md)                                                                                             |
-| Cut a release                       | [`docs/release.md`](./docs/release.md)                                                                                             |
+| Cut a release                       | the `/release` command ([`.claude/commands/release.md`](./.claude/commands/release.md)) — sole source of truth for the release runbook |
 | Triage / file an issue              | [`docs/agents/issue-tracker.md`](./docs/agents/issue-tracker.md), [`docs/agents/triage-labels.md`](./docs/agents/triage-labels.md) |
 | Help an AI agent author Kul         | [`skills/kul-authoring/`](./skills/kul-authoring/SKILL.md)                                                                          |
 
