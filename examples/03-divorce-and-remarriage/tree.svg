@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1162 448" width="1162" height="448"><style>
+svg {
+  --kul-preview-bg: #ffffff;
+  --kul-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --kul-card-fill: #ffffff;
+  --kul-card-stroke: #455a64;
+  --kul-card-stroke-male: #1565c0;
+  --kul-card-stroke-female: #c2185b;
+  --kul-card-stroke-other: #f9a825;
+  --kul-ghost-fill: #eceff1;
+  --kul-ghost-stroke: #90a4ae;
+  --kul-ghost-stroke-male: #1565c0;
+  --kul-ghost-stroke-female: #c2185b;
+  --kul-ghost-stroke-other: #f9a825;
+  --kul-label-fill: #1a1a1a;
+  --kul-ghost-label-fill: #607d8b;
+  --kul-edge-stroke: #2e7d32;
+  --kul-adoption-edge-stroke: #ef6c00;
+  --kul-marriage-edge-stroke: #6a1b9a;
+  --kul-card-stroke-width: 1.5;
+  --kul-edge-stroke-width: 1.5;
+  --kul-marriage-edge-stroke-width: 8.75;
+  --kul-ghost-fill-opacity: 0.5;
+  --kul-ended-edge-stroke-opacity: 0.6;
+  --kul-label-font-size: 13px;
+  --kul-legend-label-font-size: 12px;
+  --kul-legend-marriage-edge-stroke-width: 5;
+  --kul-legend-panel-bg: #f7f9fa;
+  --kul-legend-panel-border: #cfd8dc;
+  --kul-legend-panel-border-width: 1;
+  background-color: var(--kul-preview-bg);
+  font-family: var(--kul-font-family);
+}
+.kul-card rect { fill: var(--kul-card-fill); stroke: var(--kul-card-stroke); stroke-width: var(--kul-card-stroke-width); }
+.kul-card[data-gender="male"] rect { stroke: var(--kul-card-stroke-male); }
+.kul-card[data-gender="female"] rect { stroke: var(--kul-card-stroke-female); }
+.kul-card[data-gender="other"] rect { stroke: var(--kul-card-stroke-other); }
+.kul-card[data-kind="ghost"] rect { fill: var(--kul-ghost-fill); stroke: var(--kul-ghost-stroke); fill-opacity: var(--kul-ghost-fill-opacity); }
+.kul-card[data-kind="ghost"][data-gender="male"] rect { stroke: var(--kul-ghost-stroke-male); }
+.kul-card[data-kind="ghost"][data-gender="female"] rect { stroke: var(--kul-ghost-stroke-female); }
+.kul-card[data-kind="ghost"][data-gender="other"] rect { stroke: var(--kul-ghost-stroke-other); }
+.kul-label-name { fill: var(--kul-label-fill); font-size: var(--kul-label-font-size); }
+.kul-card[data-kind="ghost"] .kul-label-name { fill: var(--kul-ghost-label-fill); }
+.kul-edge { stroke: var(--kul-edge-stroke); stroke-width: var(--kul-edge-stroke-width); }
+.kul-edge[data-link-kind="adoption"] { stroke: var(--kul-adoption-edge-stroke); }
+.kul-edge[data-link-kind="marriage"] { stroke: var(--kul-marriage-edge-stroke); stroke-width: var(--kul-marriage-edge-stroke-width); }
+.kul-edge[data-is-ended="true"] { stroke-opacity: var(--kul-ended-edge-stroke-opacity); }
+.kul-legend-bg { fill: var(--kul-legend-panel-bg); stroke: var(--kul-legend-panel-border); stroke-width: var(--kul-legend-panel-border-width); }
+.kul-legend-label { fill: var(--kul-label-fill); font-size: var(--kul-legend-label-font-size); }
+.kul-legend .kul-edge[data-link-kind="marriage"] { stroke-width: var(--kul-legend-marriage-edge-stroke-width); }
+</style><path class="kul-edge" data-marriage-id="m_erik_astrid" data-link-kind="birth" data-child-id="linnea" data-is-past="false" fill="none" d="M 199 56 L 199 156 L 199 156 L 199 184"/><path class="kul-edge" data-marriage-id="m_erik_maja" data-link-kind="birth" data-child-id="oskar" data-is-past="false" fill="none" d="M 581 56 L 581 156 L 581 156 L 581 184"/><path class="kul-edge" data-marriage-id="m_astrid_johan" data-link-kind="birth" data-child-id="frida" data-is-past="false" fill="none" d="M 963 56 L 963 156 L 963 156 L 963 184"/><path class="kul-edge" data-marriage-id="m_erik_astrid" data-link-kind="marriage" data-host-id="erik" data-joining-id="astrid" data-start="1995-06-17" data-is-ended="true" data-end="2003-06-15" data-end-reason="divorce" fill="none" d="M 184 56 L 214 56"/><path class="kul-edge" data-marriage-id="m_erik_maja" data-link-kind="marriage" data-host-id="erik" data-joining-id="maja" data-start="2006-08-26" data-is-ended="false" fill="none" d="M 566 56 L 596 56"/><path class="kul-edge" data-marriage-id="m_astrid_johan" data-link-kind="marriage" data-host-id="astrid" data-joining-id="johan" data-start="2007-04-12" data-is-ended="false" fill="none" d="M 948 56 L 978 56"/><g class="kul-card" data-person-id="erik" data-kind="ghost" data-ghost-reason="past-marriage" data-gender="male" data-is-alive="true" data-born="1970-01-22" data-generation="0"><rect x="24" y="24" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="104" y="56" text-anchor="middle" dominant-baseline="central">Erik Lindqvist</text></g><g class="kul-card" data-person-id="astrid" data-kind="ghost" data-ghost-reason="past-marriage" data-gender="female" data-is-alive="true" data-born="1972-10-08" data-generation="0"><rect x="214" y="24" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="294" y="56" text-anchor="middle" dominant-baseline="central">Astrid Lindqvist</text></g><g class="kul-card" data-person-id="linnea" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1998-03-29" data-generation="1"><rect x="119" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="199" y="216" text-anchor="middle" dominant-baseline="central">Linnea Lindqvist</text></g><g class="kul-card" data-person-id="erik" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1970-01-22" data-generation="0"><rect x="406" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="486" y="56" text-anchor="middle" dominant-baseline="central">Erik Lindqvist</text></g><g class="kul-card" data-person-id="maja" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1975-05-14" data-generation="0"><rect x="596" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="676" y="56" text-anchor="middle" dominant-baseline="central">Maja Holm</text></g><g class="kul-card" data-person-id="oskar" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="2008-12-01" data-generation="1"><rect x="501" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="581" y="216" text-anchor="middle" dominant-baseline="central">Oskar Lindqvist</text></g><g class="kul-card" data-person-id="astrid" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1972-10-08" data-generation="0"><rect x="788" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="868" y="56" text-anchor="middle" dominant-baseline="central">Astrid Lindqvist</text></g><g class="kul-card" data-person-id="johan" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1971-07-30" data-generation="0"><rect x="978" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="1058" y="56" text-anchor="middle" dominant-baseline="central">Johan Berg</text></g><g class="kul-card" data-person-id="frida" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="2010-09-05" data-generation="1"><rect x="883" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="963" y="216" text-anchor="middle" dominant-baseline="central">Frida Berg</text></g><g class="kul-legend"><rect class="kul-legend-bg" x="8" y="288" width="188" height="152" rx="6" ry="6"/><g class="kul-card" data-kind="canonical" data-gender="male"><rect x="22" y="302" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="309" dominant-baseline="central">Male</text><g class="kul-card" data-kind="canonical" data-gender="female"><rect x="22" y="324" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="331" dominant-baseline="central">Female</text><g class="kul-card" data-kind="ghost"><rect x="22" y="346" width="30" height="14" rx="3" ry="3" stroke-dasharray="3 2"/></g><text class="kul-legend-label" x="62" y="353" dominant-baseline="central">Past record</text><path class="kul-edge" data-link-kind="birth" fill="none" d="M 22 375 L 52 375"/><text class="kul-legend-label" x="62" y="375" dominant-baseline="central">Birth</text><path class="kul-edge" data-link-kind="marriage" fill="none" d="M 22 397 L 52 397"/><text class="kul-legend-label" x="62" y="397" dominant-baseline="central">Marriage</text><path class="kul-edge" data-link-kind="marriage" data-is-ended="true" fill="none" d="M 22 419 L 52 419"/><text class="kul-legend-label" x="62" y="419" dominant-baseline="central">Ended marriage</text></g></svg>

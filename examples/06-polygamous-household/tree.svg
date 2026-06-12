@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 724" width="1360" height="724"><style>
+svg {
+  --kul-preview-bg: #ffffff;
+  --kul-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --kul-card-fill: #ffffff;
+  --kul-card-stroke: #455a64;
+  --kul-card-stroke-male: #1565c0;
+  --kul-card-stroke-female: #c2185b;
+  --kul-card-stroke-other: #f9a825;
+  --kul-ghost-fill: #eceff1;
+  --kul-ghost-stroke: #90a4ae;
+  --kul-ghost-stroke-male: #1565c0;
+  --kul-ghost-stroke-female: #c2185b;
+  --kul-ghost-stroke-other: #f9a825;
+  --kul-label-fill: #1a1a1a;
+  --kul-ghost-label-fill: #607d8b;
+  --kul-edge-stroke: #2e7d32;
+  --kul-adoption-edge-stroke: #ef6c00;
+  --kul-marriage-edge-stroke: #6a1b9a;
+  --kul-card-stroke-width: 1.5;
+  --kul-edge-stroke-width: 1.5;
+  --kul-marriage-edge-stroke-width: 8.75;
+  --kul-ghost-fill-opacity: 0.5;
+  --kul-ended-edge-stroke-opacity: 0.6;
+  --kul-label-font-size: 13px;
+  --kul-legend-label-font-size: 12px;
+  --kul-legend-marriage-edge-stroke-width: 5;
+  --kul-legend-panel-bg: #f7f9fa;
+  --kul-legend-panel-border: #cfd8dc;
+  --kul-legend-panel-border-width: 1;
+  background-color: var(--kul-preview-bg);
+  font-family: var(--kul-font-family);
+}
+.kul-card rect { fill: var(--kul-card-fill); stroke: var(--kul-card-stroke); stroke-width: var(--kul-card-stroke-width); }
+.kul-card[data-gender="male"] rect { stroke: var(--kul-card-stroke-male); }
+.kul-card[data-gender="female"] rect { stroke: var(--kul-card-stroke-female); }
+.kul-card[data-gender="other"] rect { stroke: var(--kul-card-stroke-other); }
+.kul-card[data-kind="ghost"] rect { fill: var(--kul-ghost-fill); stroke: var(--kul-ghost-stroke); fill-opacity: var(--kul-ghost-fill-opacity); }
+.kul-card[data-kind="ghost"][data-gender="male"] rect { stroke: var(--kul-ghost-stroke-male); }
+.kul-card[data-kind="ghost"][data-gender="female"] rect { stroke: var(--kul-ghost-stroke-female); }
+.kul-card[data-kind="ghost"][data-gender="other"] rect { stroke: var(--kul-ghost-stroke-other); }
+.kul-label-name { fill: var(--kul-label-fill); font-size: var(--kul-label-font-size); }
+.kul-card[data-kind="ghost"] .kul-label-name { fill: var(--kul-ghost-label-fill); }
+.kul-edge { stroke: var(--kul-edge-stroke); stroke-width: var(--kul-edge-stroke-width); }
+.kul-edge[data-link-kind="adoption"] { stroke: var(--kul-adoption-edge-stroke); }
+.kul-edge[data-link-kind="marriage"] { stroke: var(--kul-marriage-edge-stroke); stroke-width: var(--kul-marriage-edge-stroke-width); }
+.kul-edge[data-is-ended="true"] { stroke-opacity: var(--kul-ended-edge-stroke-opacity); }
+.kul-legend-bg { fill: var(--kul-legend-panel-bg); stroke: var(--kul-legend-panel-border); stroke-width: var(--kul-legend-panel-border-width); }
+.kul-legend-label { fill: var(--kul-label-fill); font-size: var(--kul-legend-label-font-size); }
+.kul-legend .kul-edge[data-link-kind="marriage"] { stroke-width: var(--kul-legend-marriage-edge-stroke-width); }
+</style><path class="kul-edge" data-marriage-id="m_omar_fatima" data-link-kind="birth" data-child-id="khalid" data-is-past="false" fill="none" d="M 680 56 L 680 156 L 680 156 L 680 184"/><path class="kul-edge" data-marriage-id="m_khalid_aisha" data-link-kind="birth" data-child-id="yusuf" data-is-past="false" fill="none" d="M 392 316 L 392 476 L 392 476 L 392 504"/><path class="kul-edge" data-marriage-id="m_khalid_layla" data-link-kind="birth" data-child-id="zahra" data-is-past="false" fill="none" d="M 584 316 L 584 476 L 584 476 L 584 504"/><path class="kul-edge" data-marriage-id="m_khalid_mariam" data-link-kind="birth" data-child-id="hassan" data-is-past="false" fill="none" d="M 968 316 L 968 466 Q 968 476 958 476 L 882 476 Q 872 476 872 486 L 872 504"/><path class="kul-edge" data-marriage-id="m_khalid_mariam" data-link-kind="birth" data-child-id="noor" data-is-past="false" fill="none" d="M 968 316 L 968 466 Q 968 476 978 476 L 1054 476 Q 1064 476 1064 486 L 1064 504"/><path class="kul-edge" data-marriage-id="m_omar_fatima" data-link-kind="marriage" data-host-id="omar" data-joining-id="fatima" data-start="1945-08-17" data-is-ended="false" fill="none" d="M 665 56 L 695 56"/><path class="kul-edge" data-marriage-id="m_khalid_aisha" data-link-kind="marriage" data-host-id="khalid" data-joining-id="aisha" data-start="1975-05-04" data-is-ended="false" fill="none" d="M 680 248 L 680 306 Q 680 316 670 316 L 114 316 Q 104 316 104 326 L 104 344"/><path class="kul-edge" data-marriage-id="m_khalid_layla" data-link-kind="marriage" data-host-id="khalid" data-joining-id="layla" data-start="1980-09-16" data-is-ended="false" fill="none" d="M 680 248 L 680 306 Q 680 316 670 316 L 498 316 Q 488 316 488 326 L 488 344"/><path class="kul-edge" data-marriage-id="m_khalid_mariam" data-link-kind="marriage" data-host-id="khalid" data-joining-id="mariam" data-start="1985-12-28" data-is-ended="false" fill="none" d="M 680 248 L 680 306 Q 680 316 690 316 L 1246 316 Q 1256 316 1256 326 L 1256 344"/><g class="kul-card" data-person-id="omar" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="~1925" data-generation="0"><rect x="505" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="585" y="56" text-anchor="middle" dominant-baseline="central">Omar Al-Rashid</text></g><g class="kul-card" data-person-id="fatima" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1928-04-02" data-generation="0"><rect x="695" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="775" y="56" text-anchor="middle" dominant-baseline="central">Fatima Al-Rashid</text></g><g class="kul-card" data-person-id="khalid" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1950-03-29" data-generation="1"><rect x="600" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="680" y="216" text-anchor="middle" dominant-baseline="central">Khalid Al-Rashid</text></g><g class="kul-card" data-person-id="aisha" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1955-07-11" data-generation="1"><rect x="24" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="376" text-anchor="middle" dominant-baseline="central">Aisha Al-Rashid</text></g><g class="kul-card" data-person-id="layla" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1958-02-23" data-generation="1"><rect x="408" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="488" y="376" text-anchor="middle" dominant-baseline="central">Layla Al-Rashid</text></g><g class="kul-card" data-person-id="mariam" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1962-10-19" data-generation="1"><rect x="1176" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="1256" y="376" text-anchor="middle" dominant-baseline="central">Mariam Al-Rashid</text></g><g class="kul-card" data-person-id="yusuf" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1977-06-13" data-generation="2"><rect x="312" y="504" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="392" y="536" text-anchor="middle" dominant-baseline="central">Yusuf Al-Rashid</text></g><g class="kul-card" data-person-id="zahra" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1982-01-08" data-generation="2"><rect x="504" y="504" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="584" y="536" text-anchor="middle" dominant-baseline="central">Zahra Al-Rashid</text></g><g class="kul-card" data-person-id="hassan" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1987-03-21" data-generation="2"><rect x="792" y="504" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="872" y="536" text-anchor="middle" dominant-baseline="central">Hassan Al-Rashid</text></g><g class="kul-card" data-person-id="noor" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1990-11-07" data-generation="2"><rect x="984" y="504" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="1064" y="536" text-anchor="middle" dominant-baseline="central">Noor Al-Rashid</text></g><g class="kul-legend"><rect class="kul-legend-bg" x="8" y="608" width="188" height="108" rx="6" ry="6"/><g class="kul-card" data-kind="canonical" data-gender="male"><rect x="22" y="622" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="629" dominant-baseline="central">Male</text><g class="kul-card" data-kind="canonical" data-gender="female"><rect x="22" y="644" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="651" dominant-baseline="central">Female</text><path class="kul-edge" data-link-kind="birth" fill="none" d="M 22 673 L 52 673"/><text class="kul-legend-label" x="62" y="673" dominant-baseline="central">Birth</text><path class="kul-edge" data-link-kind="marriage" fill="none" d="M 22 695 L 52 695"/><text class="kul-legend-label" x="62" y="695" dominant-baseline="central">Marriage</text></g></svg>

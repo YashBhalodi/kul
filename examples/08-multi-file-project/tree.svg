@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 564" width="780" height="564"><style>
+svg {
+  --kul-preview-bg: #ffffff;
+  --kul-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --kul-card-fill: #ffffff;
+  --kul-card-stroke: #455a64;
+  --kul-card-stroke-male: #1565c0;
+  --kul-card-stroke-female: #c2185b;
+  --kul-card-stroke-other: #f9a825;
+  --kul-ghost-fill: #eceff1;
+  --kul-ghost-stroke: #90a4ae;
+  --kul-ghost-stroke-male: #1565c0;
+  --kul-ghost-stroke-female: #c2185b;
+  --kul-ghost-stroke-other: #f9a825;
+  --kul-label-fill: #1a1a1a;
+  --kul-ghost-label-fill: #607d8b;
+  --kul-edge-stroke: #2e7d32;
+  --kul-adoption-edge-stroke: #ef6c00;
+  --kul-marriage-edge-stroke: #6a1b9a;
+  --kul-card-stroke-width: 1.5;
+  --kul-edge-stroke-width: 1.5;
+  --kul-marriage-edge-stroke-width: 8.75;
+  --kul-ghost-fill-opacity: 0.5;
+  --kul-ended-edge-stroke-opacity: 0.6;
+  --kul-label-font-size: 13px;
+  --kul-legend-label-font-size: 12px;
+  --kul-legend-marriage-edge-stroke-width: 5;
+  --kul-legend-panel-bg: #f7f9fa;
+  --kul-legend-panel-border: #cfd8dc;
+  --kul-legend-panel-border-width: 1;
+  background-color: var(--kul-preview-bg);
+  font-family: var(--kul-font-family);
+}
+.kul-card rect { fill: var(--kul-card-fill); stroke: var(--kul-card-stroke); stroke-width: var(--kul-card-stroke-width); }
+.kul-card[data-gender="male"] rect { stroke: var(--kul-card-stroke-male); }
+.kul-card[data-gender="female"] rect { stroke: var(--kul-card-stroke-female); }
+.kul-card[data-gender="other"] rect { stroke: var(--kul-card-stroke-other); }
+.kul-card[data-kind="ghost"] rect { fill: var(--kul-ghost-fill); stroke: var(--kul-ghost-stroke); fill-opacity: var(--kul-ghost-fill-opacity); }
+.kul-card[data-kind="ghost"][data-gender="male"] rect { stroke: var(--kul-ghost-stroke-male); }
+.kul-card[data-kind="ghost"][data-gender="female"] rect { stroke: var(--kul-ghost-stroke-female); }
+.kul-card[data-kind="ghost"][data-gender="other"] rect { stroke: var(--kul-ghost-stroke-other); }
+.kul-label-name { fill: var(--kul-label-fill); font-size: var(--kul-label-font-size); }
+.kul-card[data-kind="ghost"] .kul-label-name { fill: var(--kul-ghost-label-fill); }
+.kul-edge { stroke: var(--kul-edge-stroke); stroke-width: var(--kul-edge-stroke-width); }
+.kul-edge[data-link-kind="adoption"] { stroke: var(--kul-adoption-edge-stroke); }
+.kul-edge[data-link-kind="marriage"] { stroke: var(--kul-marriage-edge-stroke); stroke-width: var(--kul-marriage-edge-stroke-width); }
+.kul-edge[data-is-ended="true"] { stroke-opacity: var(--kul-ended-edge-stroke-opacity); }
+.kul-legend-bg { fill: var(--kul-legend-panel-bg); stroke: var(--kul-legend-panel-border); stroke-width: var(--kul-legend-panel-border-width); }
+.kul-legend-label { fill: var(--kul-label-fill); font-size: var(--kul-legend-label-font-size); }
+.kul-legend .kul-edge[data-link-kind="marriage"] { stroke-width: var(--kul-legend-marriage-edge-stroke-width); }
+</style><path class="kul-edge" data-marriage-id="m_diego_carmen" data-link-kind="birth" data-child-id="sofia" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 380 156 L 114 156 Q 104 156 104 166 L 104 184"/><path class="kul-edge" data-marriage-id="m_diego_carmen" data-link-kind="birth" data-child-id="javier" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 400 156 L 476 156 Q 486 156 486 166 L 486 184"/><path class="kul-edge" data-marriage-id="m_sofia_ricardo" data-link-kind="birth" data-child-id="mateo" data-is-past="false" fill="none" d="M 199 216 L 199 316 L 199 316 L 199 344"/><path class="kul-edge" data-marriage-id="m_javier_pilar" data-link-kind="birth" data-child-id="lucia" data-is-past="false" fill="none" d="M 581 216 L 581 316 L 581 316 L 581 344"/><path class="kul-edge" data-marriage-id="m_diego_carmen" data-link-kind="marriage" data-host-id="diego" data-joining-id="carmen" data-start="1960-02-14" data-is-ended="false" fill="none" d="M 375 56 L 405 56"/><path class="kul-edge" data-marriage-id="m_sofia_ricardo" data-link-kind="marriage" data-host-id="sofia" data-joining-id="ricardo" data-start="1985-06-15" data-is-ended="false" fill="none" d="M 184 216 L 214 216"/><path class="kul-edge" data-marriage-id="m_javier_pilar" data-link-kind="marriage" data-host-id="javier" data-joining-id="pilar" data-start="1990-04-27" data-is-ended="false" fill="none" d="M 566 216 L 596 216"/><g class="kul-card" data-person-id="diego" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="~1935" data-generation="0"><rect x="215" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Diego Fernández</text></g><g class="kul-card" data-person-id="carmen" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1938-07-19" data-generation="0"><rect x="405" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="485" y="56" text-anchor="middle" dominant-baseline="central">Carmen Fernández</text></g><g class="kul-card" data-person-id="sofia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1962-05-08" data-generation="1"><rect x="24" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Sofía Fernández</text></g><g class="kul-card" data-person-id="ricardo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1960-01-30" data-generation="1"><rect x="214" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="294" y="216" text-anchor="middle" dominant-baseline="central">Ricardo Moreno</text></g><g class="kul-card" data-person-id="mateo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1987-08-04" data-generation="2"><rect x="119" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="199" y="376" text-anchor="middle" dominant-baseline="central">Mateo Moreno</text></g><g class="kul-card" data-person-id="javier" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1965-09-23" data-generation="1"><rect x="406" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="486" y="216" text-anchor="middle" dominant-baseline="central">Javier Fernández</text></g><g class="kul-card" data-person-id="pilar" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1968-11-12" data-generation="1"><rect x="596" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="676" y="216" text-anchor="middle" dominant-baseline="central">Pilar Navarro</text></g><g class="kul-card" data-person-id="lucia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1992-03-18" data-generation="2"><rect x="501" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="581" y="376" text-anchor="middle" dominant-baseline="central">Lucía Fernández</text></g><g class="kul-legend"><rect class="kul-legend-bg" x="8" y="448" width="188" height="108" rx="6" ry="6"/><g class="kul-card" data-kind="canonical" data-gender="male"><rect x="22" y="462" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="469" dominant-baseline="central">Male</text><g class="kul-card" data-kind="canonical" data-gender="female"><rect x="22" y="484" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="491" dominant-baseline="central">Female</text><path class="kul-edge" data-link-kind="birth" fill="none" d="M 22 513 L 52 513"/><text class="kul-legend-label" x="62" y="513" dominant-baseline="central">Birth</text><path class="kul-edge" data-link-kind="marriage" fill="none" d="M 22 535 L 52 535"/><text class="kul-legend-label" x="62" y="535" dominant-baseline="central">Marriage</text></g></svg>

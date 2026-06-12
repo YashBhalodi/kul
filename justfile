@@ -25,6 +25,13 @@ lint:
 run *ARGS:
     cargo run -p kul-cli -- {{ARGS}}
 
+# Render a committed `tree.svg` next to every example project's `.kul`
+# source, using this checkout's CLI. Output is byte-for-byte deterministic
+# and host-independent, so CI auto-regenerates and commits any diff (see
+# `.github/workflows/render-examples.yml`). Idempotent on a clean tree.
+render-examples:
+    scripts/render-examples.sh
+
 # Build the WebAssembly artifact for `@kul/wasm`. Requires `wasm-pack`.
 # Patches the generated `package.json` so its `name` is `@kul/wasm`
 # (wasm-pack derives the npm name from the Cargo crate name, which is
