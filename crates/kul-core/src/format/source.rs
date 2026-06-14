@@ -303,27 +303,46 @@ fn scan_comments(source: &str) -> Vec<Comment> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::format::format_source;
 
     #[test]
-    fn scan_comments_basic() {
-        let src = "person alice  # inline\n# whole\nperson bob\n";
-        let cs = scan_comments(src);
-        assert_eq!(cs.len(), 2);
-        assert_eq!(cs[0].line, 0);
-        assert!(cs[0].is_inline);
-        assert_eq!(&src[cs[0].hash_start..cs[0].end], "# inline");
-        assert_eq!(cs[1].line, 1);
-        assert!(!cs[1].is_inline);
-        assert_eq!(&src[cs[1].hash_start..cs[1].end], "# whole");
+    fn format_source_preserves_inline_and_whole_line_comments() {
+        let src = "person alice name:\"Alice\" gender:female  # inline\n\
+                   # whole\n\
+                   person bob name:\"Bob\" gender:male\n";
+        let out = format_source(src);
+
+        // Inline comment stays on alice's line.
+        let alice_line = out
+            .lines()
+            .find(|l| l.starts_with("person alice"))
+            .expect("alice line present");
+        assert!(
+            alice_line.contains("# inline"),
+            "inline comment should ride alice's line, got:\n{out}"
+        );
+
+        // Whole-line comment stays on its own line.
+        assert!(
+            out.lines().any(|l| l.trim() == "# whole"),
+            "whole-line comment should stay standalone, got:\n{out}"
+        );
     }
 
     #[test]
-    fn scan_comments_ignores_hash_in_string() {
-        let src = "person alice name:\"# not a comment\"  # but this is\n";
-        let cs = scan_comments(src);
-        assert_eq!(cs.len(), 1);
-        assert_eq!(&src[cs[0].hash_start..cs[0].end], "# but this is");
-        assert!(cs[0].is_inline);
+    fn format_source_does_not_treat_hash_in_string_as_comment() {
+        let src = "person alice name:\"# not a comment\" gender:female  # but this is\n";
+        let out = format_source(src);
+
+        // The `#` inside the quoted value survives untouched.
+        assert!(
+            out.contains("name:\"# not a comment\""),
+            "hash inside string value must not be treated as a comment, got:\n{out}"
+        );
+        // The genuine trailing comment is preserved.
+        assert!(
+            out.contains("# but this is"),
+            "trailing comment should be preserved, got:\n{out}"
+        );
     }
 }
