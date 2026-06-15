@@ -39,13 +39,13 @@ jobs:
           ref: ${{ github.head_ref }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
       - name: Render example SVGs
         run: just render-examples
       - name: Commit refreshed tree.svg
         # The default GITHUB_TOKEN does not re-trigger workflows on its own
         # pushes, so this auto-commit cannot loop.
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "chore(examples): regenerate tree.svg [skip ci]"
           file_pattern: "examples/**/tree.svg"
