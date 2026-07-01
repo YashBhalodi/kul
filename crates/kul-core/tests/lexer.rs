@@ -41,6 +41,24 @@ fn lex_unterminated_string() {
     insta::assert_snapshot!(render_tokens(source));
 }
 
+// A forgotten closing quote must not swallow the next statement. The string
+// scan stops before a line that begins at column 0 with a top-level keyword,
+// so `person bob` on the following line lexes as its own statement rather than
+// as string body running to EOF (ADR-0023).
+#[test]
+fn lex_unterminated_string_recovers_at_next_statement() {
+    let source = "person alice name:\"Alice\nperson bob name:\"Bob\" gender:male\n";
+    insta::assert_snapshot!(render_tokens(source));
+}
+
+// A spec-legal multi-line string whose continuation lines don't start with a
+// top-level keyword at column 0 still lexes as one String token (spec §3.3).
+#[test]
+fn lex_multiline_string_is_one_token() {
+    let source = "person alice name:\"Alice\nthe great\" gender:female\n";
+    insta::assert_snapshot!(render_tokens(source));
+}
+
 #[test]
 fn lex_string_escapes() {
     let source = "person alice name:\"He said \\\"hi\\\"\" gender:other\n";

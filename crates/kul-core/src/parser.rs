@@ -19,13 +19,14 @@ pub fn parse(tokens: &[Token], file: FileId) -> (Vec<Statement>, Vec<Diagnostic>
     Parser::new(tokens, file).run()
 }
 
-/// Outcome of parsing one person field.
-enum PersonFieldOutcome {
-    Field(PersonField),
-    /// Field-name matched, value parse failed; recovery is at the next
-    /// field boundary. Recorded so R03's "missing field" check is silenced.
+/// Outcome of parsing one field on a person, marriage, or adoption.
+enum FieldOutcome<T> {
+    Field(T),
+    /// Field-name matched, value parse failed; recovery stopped at the next
+    /// field boundary, so scanning continues. The name is recorded so R03's
+    /// "missing field" check is silenced for the affected field.
     Malformed(FieldName),
-    /// Statement-level unrecoverable (e.g. missing colon).
+    /// Statement-level unrecoverable (e.g. missing colon); stop scanning.
     Fatal,
 }
 
@@ -134,14 +135,14 @@ impl<'a> Parser<'a> {
             match self.peek_kind() {
                 TokenKind::Newline | TokenKind::Eof => break,
                 TokenKind::FieldKw(_) => match self.parse_person_field() {
-                    PersonFieldOutcome::Field(field) => {
+                    FieldOutcome::Field(field) => {
                         span = span.merge(field.span);
                         fields.push(field);
                     }
-                    PersonFieldOutcome::Malformed(name) => {
+                    FieldOutcome::Malformed(name) => {
                         malformed_fields.push(name);
                     }
-                    PersonFieldOutcome::Fatal => break,
+                    FieldOutcome::Fatal => break,
                 },
                 _ => {
                     let span = self.peek().span;
@@ -263,14 +264,14 @@ impl<'a> Parser<'a> {
         loop {
             match self.peek_kind() {
                 TokenKind::Newline | TokenKind::Eof => break,
-                TokenKind::FieldKw(_) => {
-                    if let Some(f) = self.parse_adoption_field() {
+                TokenKind::FieldKw(_) => match self.parse_adoption_field() {
+                    FieldOutcome::Field(f) => {
                         span = span.merge(f.span);
                         fields.push(f);
-                    } else {
-                        break;
                     }
-                }
+                    FieldOutcome::Malformed(_) => {}
+                    FieldOutcome::Fatal => break,
+                },
                 _ => {
                     let span = self.peek().span;
                     let description = describe_token(&self.peek().kind);
@@ -293,7 +294,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_adoption_field(&mut self) -> Option<AdoptionField> {
+    fn parse_adoption_field(&mut self) -> FieldOutcome<AdoptionField> {
         let name_tok = self.advance().clone();
         let TokenKind::FieldKw(field_name) = name_tok.kind else {
             unreachable!("parse_adoption_field called with non-field token");
@@ -313,14 +314,20 @@ impl<'a> Parser<'a> {
                 self.fspan(colon_tok.span),
             ));
             self.recover_to_newline();
-            return None;
+            return FieldOutcome::Fatal;
         }
         self.advance();
         span = span.merge(colon_tok.span);
 
         let kind = match field_name {
-            FieldName::Start => AdoptionFieldKind::Start(self.parse_date_value(field_name)?),
-            FieldName::End => AdoptionFieldKind::End(self.parse_date_value(field_name)?),
+            FieldName::Start => match self.parse_date_value(field_name) {
+                Some(d) => AdoptionFieldKind::Start(d),
+                None => return FieldOutcome::Malformed(field_name),
+            },
+            FieldName::End => match self.parse_date_value(field_name) {
+                Some(d) => AdoptionFieldKind::End(d),
+                None => return FieldOutcome::Malformed(field_name),
+            },
             _ => {
                 self.diagnostics.push(Diagnostic::error(
                     "KUL-P14",
@@ -331,7 +338,7 @@ impl<'a> Parser<'a> {
                     self.fspan(name_span),
                 ));
                 self.recover_to_newline();
-                return None;
+                return FieldOutcome::Fatal;
             }
         };
 
@@ -340,7 +347,7 @@ impl<'a> Parser<'a> {
         };
         span = span.merge(value_span);
 
-        Some(AdoptionField {
+        FieldOutcome::Field(AdoptionField {
             span,
             name_span,
             kind,
@@ -363,14 +370,14 @@ impl<'a> Parser<'a> {
         loop {
             match self.peek_kind() {
                 TokenKind::Newline | TokenKind::Eof => break,
-                TokenKind::FieldKw(_) => {
-                    if let Some(field) = self.parse_marriage_field() {
+                TokenKind::FieldKw(_) => match self.parse_marriage_field() {
+                    FieldOutcome::Field(field) => {
                         span = span.merge(field.span);
                         fields.push(field);
-                    } else {
-                        break;
                     }
-                }
+                    FieldOutcome::Malformed(_) => {}
+                    FieldOutcome::Fatal => break,
+                },
                 _ => {
                     let span = self.peek().span;
                     let description = describe_token(&self.peek().kind);
@@ -423,7 +430,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_marriage_field(&mut self) -> Option<MarriageField> {
+    fn parse_marriage_field(&mut self) -> FieldOutcome<MarriageField> {
         let name_tok = self.advance().clone();
         let TokenKind::FieldKw(field_name) = name_tok.kind else {
             unreachable!("parse_marriage_field called with non-field token");
@@ -443,15 +450,24 @@ impl<'a> Parser<'a> {
                 self.fspan(colon_tok.span),
             ));
             self.recover_to_newline();
-            return None;
+            return FieldOutcome::Fatal;
         }
         self.advance();
         span = span.merge(colon_tok.span);
 
         let kind = match field_name {
-            FieldName::Start => MarriageFieldKind::Start(self.parse_date_value(field_name)?),
-            FieldName::End => MarriageFieldKind::End(self.parse_date_value(field_name)?),
-            FieldName::EndReason => MarriageFieldKind::EndReason(self.parse_end_reason_value()?),
+            FieldName::Start => match self.parse_date_value(field_name) {
+                Some(d) => MarriageFieldKind::Start(d),
+                None => return FieldOutcome::Malformed(field_name),
+            },
+            FieldName::End => match self.parse_date_value(field_name) {
+                Some(d) => MarriageFieldKind::End(d),
+                None => return FieldOutcome::Malformed(field_name),
+            },
+            FieldName::EndReason => match self.parse_end_reason_value() {
+                Some(v) => MarriageFieldKind::EndReason(v),
+                None => return FieldOutcome::Fatal,
+            },
             FieldName::Name
             | FieldName::Family
             | FieldName::Given
@@ -467,7 +483,7 @@ impl<'a> Parser<'a> {
                     self.fspan(name_span),
                 ));
                 self.recover_to_newline();
-                return None;
+                return FieldOutcome::Fatal;
             }
         };
 
@@ -477,7 +493,7 @@ impl<'a> Parser<'a> {
         };
         span = span.merge(value_span);
 
-        Some(MarriageField {
+        FieldOutcome::Field(MarriageField {
             span,
             name_span,
             kind,
@@ -505,6 +521,9 @@ impl<'a> Parser<'a> {
                     format!("invalid date for `{}:`: {}", field.as_str(), err.message()),
                     self.fspan(span),
                 ));
+                // Stop at the next field keyword so the remaining well-formed
+                // fields on the line still parse — mirrors `parse_string_value`.
+                self.recover_to_field_boundary();
                 None
             }
         }
@@ -530,7 +549,7 @@ impl<'a> Parser<'a> {
         )
     }
 
-    fn parse_person_field(&mut self) -> PersonFieldOutcome {
+    fn parse_person_field(&mut self) -> FieldOutcome<PersonField> {
         let name_tok = self.advance().clone();
         let TokenKind::FieldKw(field_name) = name_tok.kind else {
             unreachable!("parse_person_field called with non-field token");
@@ -550,7 +569,7 @@ impl<'a> Parser<'a> {
                 self.fspan(colon_tok.span),
             ));
             self.recover_to_newline();
-            return PersonFieldOutcome::Fatal;
+            return FieldOutcome::Fatal;
         }
         self.advance();
         span = span.merge(colon_tok.span);
@@ -558,27 +577,27 @@ impl<'a> Parser<'a> {
         let kind = match field_name {
             FieldName::Name => match self.parse_string_value(field_name) {
                 Some(s) => PersonFieldKind::Name(s),
-                None => return PersonFieldOutcome::Malformed(field_name),
+                None => return FieldOutcome::Malformed(field_name),
             },
             FieldName::Family => match self.parse_string_value(field_name) {
                 Some(s) => PersonFieldKind::Family(s),
-                None => return PersonFieldOutcome::Malformed(field_name),
+                None => return FieldOutcome::Malformed(field_name),
             },
             FieldName::Given => match self.parse_string_value(field_name) {
                 Some(s) => PersonFieldKind::Given(s),
-                None => return PersonFieldOutcome::Malformed(field_name),
+                None => return FieldOutcome::Malformed(field_name),
             },
             FieldName::Born => match self.parse_date_value(field_name) {
                 Some(d) => PersonFieldKind::Born(d),
-                None => return PersonFieldOutcome::Fatal,
+                None => return FieldOutcome::Malformed(field_name),
             },
             FieldName::Died => match self.parse_date_value(field_name) {
                 Some(d) => PersonFieldKind::Died(d),
-                None => return PersonFieldOutcome::Fatal,
+                None => return FieldOutcome::Malformed(field_name),
             },
             FieldName::Gender => match self.parse_gender_value() {
-                Some(k) => k,
-                None => return PersonFieldOutcome::Fatal,
+                Some(g) => PersonFieldKind::Gender(g),
+                None => return FieldOutcome::Malformed(field_name),
             },
             FieldName::Start | FieldName::End | FieldName::EndReason => {
                 self.diagnostics.push(Diagnostic::error(
@@ -590,7 +609,7 @@ impl<'a> Parser<'a> {
                     self.fspan(name_span),
                 ));
                 self.recover_to_newline();
-                return PersonFieldOutcome::Fatal;
+                return FieldOutcome::Fatal;
             }
         };
 
@@ -603,7 +622,7 @@ impl<'a> Parser<'a> {
         };
         span = span.merge(value_span);
 
-        PersonFieldOutcome::Field(PersonField {
+        FieldOutcome::Field(PersonField {
             span,
             name_span,
             kind,
@@ -634,24 +653,34 @@ impl<'a> Parser<'a> {
         None
     }
 
-    fn parse_gender_value(&mut self) -> Option<PersonFieldKind> {
-        let value = self.expect_value(
-            "KUL-P08",
-            || "expected one of `male`, `female`, `other` for `gender:`".into(),
-            |tok| {
-                let g = match &tok.kind {
-                    TokenKind::EnumKw(EnumKw::Male) => Gender::Male,
-                    TokenKind::EnumKw(EnumKw::Female) => Gender::Female,
-                    TokenKind::EnumKw(EnumKw::Other) => Gender::Other,
-                    _ => return None,
-                };
-                Some(GenderValue {
-                    value: g,
-                    span: tok.span,
-                })
-            },
-        )?;
-        Some(PersonFieldKind::Gender(value))
+    fn parse_gender_value(&mut self) -> Option<GenderValue> {
+        let tok = self.peek().clone();
+        let value = match &tok.kind {
+            TokenKind::EnumKw(EnumKw::Male) => Gender::Male,
+            TokenKind::EnumKw(EnumKw::Female) => Gender::Female,
+            TokenKind::EnumKw(EnumKw::Other) => Gender::Other,
+            _ => {
+                self.diagnostics.push(Diagnostic::error(
+                    "KUL-P08",
+                    format!(
+                        "expected one of `male`, `female`, `other` for `gender:`, found {}",
+                        describe_token(&tok.kind)
+                    ),
+                    self.fspan(tok.span),
+                ));
+                // Stop at the next field keyword so remaining well-formed
+                // fields on the line still parse — mirrors `parse_string_value`
+                // so a malformed `gender:` is recorded as `Malformed`, not
+                // `Fatal` (which would let R03 also report gender as missing).
+                self.recover_to_field_boundary();
+                return None;
+            }
+        };
+        self.advance();
+        Some(GenderValue {
+            value,
+            span: tok.span,
+        })
     }
 
     /// Peek the next token via `accept`; on match, advance. On miss, push

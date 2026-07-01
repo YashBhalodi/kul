@@ -568,6 +568,17 @@ fn fmt_num(n: f64) -> String {
     }
 }
 
+/// Escape a string for embedding as XML text/attribute content.
+///
+/// Beyond the five XML metacharacters, string-literal fields (person
+/// name/family/given) are stored verbatim by the lexer and may contain C0
+/// control characters that the XML 1.0 `Char` production forbids and that
+/// cannot be represented even as numeric references. Any such code point would
+/// corrupt every SVG surface, so disallowed controls are replaced with the
+/// Unicode replacement character (U+FFFD) rather than dropped — keeping a
+/// visible marker that something was sanitised while guaranteeing well-formed
+/// output regardless of upstream field contents. Tab, newline, and carriage
+/// return are permitted by XML and preserved.
 fn escape_xml(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for ch in s.chars() {
@@ -577,6 +588,8 @@ fn escape_xml(s: &str) -> String {
             '>' => out.push_str("&gt;"),
             '"' => out.push_str("&quot;"),
             '\'' => out.push_str("&apos;"),
+            '\t' | '\n' | '\r' => out.push(ch),
+            c if (c as u32) < 0x20 => out.push('\u{FFFD}'),
             _ => out.push(ch),
         }
     }
@@ -597,5 +610,22 @@ mod tests {
         let explicit = ThemeConfig::with_self_contained(true).with_legend(true);
         assert_eq!(cfg.self_contained, explicit.self_contained);
         assert_eq!(cfg.legend, explicit.legend);
+    }
+
+    #[test]
+    fn escape_xml_neutralises_c0_controls_but_keeps_whitespace() {
+        // A NUL smuggled into a name must never survive into the output.
+        let escaped = escape_xml("Ann\u{0}e");
+        assert!(!escaped.contains('\u{0}'), "NUL must not appear literally");
+        assert_eq!(escaped, "Ann\u{FFFD}e");
+
+        // The full disallowed C0 set collapses to replacement characters.
+        for cp in (0x00u32..=0x08).chain([0x0B, 0x0C]).chain(0x0E..=0x1F) {
+            let ch = char::from_u32(cp).unwrap();
+            assert_eq!(escape_xml(&ch.to_string()), "\u{FFFD}", "cp {cp:#04x}");
+        }
+
+        // Tab, newline, and carriage return are XML-legal and preserved.
+        assert_eq!(escape_xml("a\tb\nc\rd"), "a\tb\nc\rd");
     }
 }

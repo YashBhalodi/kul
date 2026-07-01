@@ -41,6 +41,28 @@ describe("getNonce", () => {
     it("returns a fresh value each call", () => {
         expect(getNonce()).not.toBe(getNonce());
     });
+
+    it("draws from the CSPRNG so a batch is collision-free", () => {
+        // A weak per-character PRNG (e.g. Math.random) collides far sooner
+        // than a 190-bit CSPRNG token; 1000 draws must all be distinct.
+        const seen = new Set<string>();
+        for (let i = 0; i < 1000; i++) {
+            seen.add(getNonce());
+        }
+        expect(seen.size).toBe(1000);
+    });
+
+    it("spends the full alphabet across many draws (not a stuck byte source)", () => {
+        const alphabet =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        const used = new Set<string>();
+        for (let i = 0; i < 200; i++) {
+            for (const ch of getNonce()) {
+                used.add(ch);
+            }
+        }
+        expect(used.size).toBe(alphabet.length);
+    });
 });
 
 describe("previewHtml CSP", () => {

@@ -4,12 +4,24 @@
 
 // 32-char nonce stamped on every `<script>` so the CSP can drop
 // `'unsafe-inline'`. Standard VSCode webview pattern.
+//
+// A CSP nonce is only as strong as its unpredictability: a nonce a page author
+// can guess is worth no more than `'unsafe-inline'`. So the bytes come from the
+// Web Crypto CSPRNG (`crypto.getRandomValues`), never `Math.random()` (a
+// non-cryptographic PRNG). `globalThis.crypto` is a global — available both in
+// the Node extension host that assigns `webview.html` (Node 18+) and in any
+// browser embedding — so this stays free of a `node:crypto` import that would
+// couple the neutral library build to Node. The modulo maps each byte onto the
+// 62-char alphabet with negligible bias (256 mod 62), which does not
+// meaningfully reduce the ~190 bits of entropy across 32 characters.
 export function getNonce(): string {
-    let text = "";
     const chars =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    for (let i = 0; i < 32; i++) {
-        text += chars.charAt(Math.floor(Math.random() * chars.length));
+    const bytes = new Uint8Array(32);
+    globalThis.crypto.getRandomValues(bytes);
+    let text = "";
+    for (let i = 0; i < bytes.length; i++) {
+        text += chars.charAt(bytes[i] % chars.length);
     }
     return text;
 }

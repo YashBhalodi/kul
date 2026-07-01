@@ -440,8 +440,19 @@ impl<'a> Builder<'a> {
             if right > max_x {
                 max_x = right;
             }
-            if node.row > max_gen {
-                max_gen = node.row;
+            // A polygamy hub's co-spouse cards sit one row below the hub
+            // but are not walker nodes, so the hub's own `row`
+            // understates the fan's vertical extent. When every marriage
+            // is childless there is no child forest below to raise
+            // `max_gen`, so the co-spouse row would fall outside the
+            // canvas and clip (issue #249). A hub with children is
+            // unaffected: its forest nodes already sit at `hub.row + 2`.
+            let node_bottom_row = match &node.kind {
+                NodeKind::PolygamyHub { .. } => node.row + 1.0,
+                _ => node.row,
+            };
+            if node_bottom_row > max_gen {
+                max_gen = node_bottom_row;
             }
         }
         if !min_x.is_finite() {

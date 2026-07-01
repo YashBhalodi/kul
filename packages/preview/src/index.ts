@@ -5,6 +5,8 @@ export { mountPreview } from "./mount.js";
 
 export { createVscodeAdapter, installVscodeInboundBridge } from "./adapter-vscode.js";
 
+export { isEntityKind, isRevealTarget } from "./wire-guards.js";
+
 export type {
     EntityRef,
     ErrorRow,

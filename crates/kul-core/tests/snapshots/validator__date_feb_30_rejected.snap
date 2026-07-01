@@ -1,8 +1,5 @@
 ---
 source: crates/kul-core/tests/validator.rs
-assertion_line: 213
 expression: render_diagnostics(&result.diagnostics)
 ---
 KUL-P16 [27..37]: invalid date for `born:`: day `30` is out of range for 1925-02 (1..28)
-KUL-P01 [38..44]: expected `person` or `marriage` (top-level statement), found `gender`
-KUL-R03 [7..10]: person `bad` needs a `gender:` field — use `gender:male`, `gender:female`, or `gender:other`

@@ -129,6 +129,29 @@ fn rule_04_self_marriage() {
 }
 
 #[test]
+fn rule_09_self_marriage_emits_single_diagnostic() {
+    // A self-marriage names one person twice; the temporal rules must not
+    // double-report. Alongside the R04 self-marriage error, R09 fires
+    // exactly once, not once per spouse position.
+    let src = "\
+person alice name:\"Alice\" gender:female born:2000-01-01
+marriage m alice alice start:1990-01-01
+";
+    let result = check(src);
+    assert_eq!(
+        result
+            .diagnostics
+            .iter()
+            .filter(|d| d.code == "KUL-R09")
+            .count(),
+        1,
+        "R09 must fire once for a self-marriage, not once per spouse: {:#?}",
+        result.diagnostics
+    );
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
 fn marriage_without_start_is_clean() {
     let result = check(
         "person a name:\"A\" gender:female\nperson b name:\"B\" gender:male\nmarriage m a b\n",
@@ -343,6 +366,29 @@ fn rule_05b_unknown_end_reason() {
 }
 
 #[test]
+fn rule_15_duplicate_field() {
+    // person (repeated `name`), marriage (repeated `start`/`end`), and
+    // adoption (repeated `start`) all surface KUL-R15 anchored at the
+    // duplicate, with a related-span at the first occurrence.
+    let src = read_corpus("invalid/rule-15-duplicate-field.kul");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_15_single_fields_are_clean() {
+    // Each field set at most once: rule does not fire.
+    let result = check(
+        "person alice name:\"Alice\" family:\"S\" gender:female born:1950\nperson bob name:\"Bob\" gender:male\nmarriage m alice bob start:1990 end:2000 end_reason:divorce\n",
+    );
+    assert!(
+        !result.diagnostics.iter().any(|d| d.code == "KUL-R15"),
+        "expected no KUL-R15, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn rule_13_self_parent() {
     let src = read_corpus("invalid/rule-13-self-parent.kul");
     let result = check(&src);
@@ -381,6 +427,33 @@ fn rule_14_pure_join_concurrent() {
 fn rule_14_mutually_polygamous() {
     let src = read_corpus("invalid/rule-14-mutually-polygamous.kul");
     let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_14_self_marriage_on_hub_is_not_flagged() {
+    // Alice is a genuine polygamy hub: she joins (spouse_b) two un-ended
+    // marriages, so R14 fires on both. An extra un-ended self-marriage
+    // `m_self alice alice` is already reported by R04 and must NOT collect
+    // a spurious R14 on top of it, even though alice's un-ended count ≥ 2.
+    let src = "\
+person alice name:\"Alice\" gender:female
+person bob   name:\"Bob\"   gender:male
+person carl  name:\"Carl\"  gender:male
+
+marriage m_bob_alice  bob  alice start:1990-01-01
+marriage m_carl_alice carl alice start:1992-02-14
+marriage m_self       alice alice start:1995-03-03
+";
+    let result = check(src);
+    assert!(
+        !result
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "KUL-R14" && d.message.contains("m_self")),
+        "R14 must not fire on the self-marriage: {:#?}",
+        result.diagnostics
+    );
     insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
 }
 
@@ -510,6 +583,69 @@ fn malformed_multi_token_string_value_recovers_at_next_field() {
         "expected only KUL-P07; got: {:#?}",
         result.diagnostics
     );
+}
+
+/// A malformed `gender:` value must behave like the sibling string
+/// fields: recorded as malformed so R03 ("missing gender") does not also
+/// fire. Exactly one diagnostic — the invalid-gender KUL-P08 — surfaces
+/// (issue #241).
+#[test]
+fn malformed_gender_value_suppresses_cascading_missing_field_r03() {
+    let result = check("person alice name:\"Alice\" gender:bogus\n");
+    let codes: Vec<&str> = result.diagnostics.iter().map(|d| d.code).collect();
+    assert_eq!(
+        codes,
+        vec!["KUL-P08"],
+        "expected only KUL-P08; got: {:#?}",
+        result.diagnostics
+    );
+}
+
+/// A malformed `gender:` mid-statement must resynchronise to the next
+/// field boundary so a following field still parses.
+#[test]
+fn malformed_gender_value_recovers_at_next_field() {
+    let result = check("person alice gender:bogus name:\"Alice\"\n");
+    let codes: Vec<&str> = result.diagnostics.iter().map(|d| d.code).collect();
+    assert_eq!(
+        codes,
+        vec!["KUL-P08"],
+        "expected only KUL-P08; got: {:#?}",
+        result.diagnostics
+    );
+}
+
+/// A malformed date value must recover like a malformed string value: the
+/// parser resynchronises to the next field boundary so the remaining
+/// well-formed fields on the statement still parse, and no cascading
+/// `KUL-P01`/`KUL-R03` diagnostic is emitted. One case per date-bearing
+/// field (person `born`/`died`, marriage `start`/`end`, adoption
+/// `start`/`end`); each must surface exactly the one date diagnostic.
+#[test]
+fn malformed_date_value_suppresses_cascading_diagnostics() {
+    let people = "person p1 name:\"A\" gender:male\nperson p2 name:\"B\" gender:female\n";
+    let cases = [
+        "person p1 born:bogus name:\"Alice\" gender:male\n".to_string(),
+        "person p1 died:bogus name:\"Alice\" gender:male\n".to_string(),
+        format!("{people}marriage m1 p1 p2 start:bogus end:2000 end_reason:divorce\n"),
+        format!("{people}marriage m1 p1 p2 start:2000 end:bogus\n"),
+        format!(
+            "{people}marriage m1 p1 p2\nperson c1 name:\"C\" gender:male\n  adoption m1 start:bogus end:2001\n"
+        ),
+        format!(
+            "{people}marriage m1 p1 p2\nperson c1 name:\"C\" gender:male\n  adoption m1 start:2000 end:bogus\n"
+        ),
+    ];
+    for src in cases {
+        let result = check(&src);
+        let codes: Vec<&str> = result.diagnostics.iter().map(|d| d.code).collect();
+        assert_eq!(
+            codes,
+            vec!["KUL-P15"],
+            "expected only the date diagnostic KUL-P15 for source:\n{src}\ngot: {:#?}",
+            result.diagnostics
+        );
+    }
 }
 
 #[test]

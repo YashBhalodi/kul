@@ -303,7 +303,7 @@ impl Documents {
 
     /// Apply one `workspace/didChangeWatchedFiles` event. Rules:
     /// - `.kul` events only act on already-cached projects (discovery stays lazy);
-    ///   `Changed` is ignored for overlaid URIs (editor buffer wins).
+    ///   `Changed`/`Deleted` are ignored for overlaid URIs (editor buffer wins).
     /// - `kul.yml` `Created`/`Changed` reload; `Deleted` evicts the project.
     /// - Other URI shapes are ignored.
     pub async fn process_watcher_event(&self, uri: &Url, kind: FileChangeType) -> WatchAction {
@@ -387,6 +387,13 @@ fn apply_kul_event(
             }
         }
         FileChangeType::DELETED => {
+            // Overlay wins: an open editor buffer outlives its on-disk
+            // file (atomic-save and `git checkout`/`stash`/`rebase` both
+            // delete-then-recreate under an open buffer). Keep serving the
+            // buffer; only closed (`None`) URIs are dropped from the project.
+            if matches!(entry.overlay.get(uri), Some(Some(_))) {
+                return WatchAction::Ignored { reason: "overlaid" };
+            }
             // Drop from overlay so build_entry doesn't resurrect it.
             let mut overlay = entry.overlay.clone();
             overlay.remove(uri);
@@ -673,5 +680,28 @@ mod tests {
             .process_watcher_event(&uri, FileChangeType::CHANGED)
             .await;
         assert_eq!(action, WatchAction::Ignored { reason: "overlaid" });
+    }
+
+    #[tokio::test]
+    async fn watcher_delete_on_overlaid_file_is_ignored() {
+        // An on-disk delete of a file that is open with an editor buffer
+        // must not evict the buffer from the project (issue #245): the
+        // overlay is authoritative, exactly as for CHANGED.
+        let docs = Documents::default();
+        let uri = temp_file_url("kul-test-overlay-delete/foo.kul");
+        docs.open(
+            uri.clone(),
+            "person a name:\"A\" gender:female\n".to_owned(),
+        )
+        .await;
+        let action = docs
+            .process_watcher_event(&uri, FileChangeType::DELETED)
+            .await;
+        assert_eq!(action, WatchAction::Ignored { reason: "overlaid" });
+        // The buffer is still served: the project still owns the URI.
+        let still_present = docs
+            .with_project(&uri, |entry| entry.file_id_for(&uri).is_some())
+            .await;
+        assert_eq!(still_present, Some(true));
     }
 }

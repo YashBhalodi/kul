@@ -328,6 +328,50 @@ fn deleted_event_drops_kul_file_and_empty_publishes_uri() {
 }
 
 #[test]
+fn deleted_event_keeps_open_buffer_and_its_dependents() {
+    // Issue #245: an on-disk DELETE of a file that is open with an editor
+    // buffer must not evict it. Atomic-save editors and git checkout/stash
+    // delete-then-recreate under an open buffer; the buffer stays
+    // authoritative and its cross-file dependents keep resolving.
+    let (dir, urls) = common::fixture_project(
+        "watched_deleted_open_buffer_survives",
+        &[("smiths.kul", SMITHS), ("joneses.kul", JONESES_WITH_XREF)],
+    );
+    let smiths_uri = urls[0].as_str().to_owned();
+    let joneses_uri = urls[1].as_str().to_owned();
+
+    let mut handle = Handle::spawn();
+    handshake(&mut handle);
+    // smiths.kul is the open buffer; it declares m_alice_bob, which the
+    // disk-only joneses.kul references cross-file.
+    did_open(&mut handle, &smiths_uri, SMITHS);
+    let _ = handle.collect_publishes(Instant::now() + Duration::from_millis(400));
+
+    // Delete smiths.kul on disk while its buffer is open, then recreate it
+    // on disk with a *broken* body — mimicking an atomic save that lands
+    // corrupt content the editor buffer has already superseded.
+    std::fs::remove_file(dir.join("smiths.kul")).expect("remove smiths.kul");
+    did_change_watched_file(&mut handle, &smiths_uri, 3);
+    let garbage = "person eve name:\"Eve\" gender:female\n  birth m_does_not_exist\n";
+    write_file(dir.join("smiths.kul"), garbage);
+    did_change_watched_file(&mut handle, &smiths_uri, 1);
+
+    let publishes = handle.collect_publishes(Instant::now() + Duration::from_millis(800));
+    let smiths_codes = codes_in(&publishes, &smiths_uri);
+    let joneses_codes = codes_in(&publishes, &joneses_uri);
+    // Buffer wins over the corrupt disk body: smiths stays clean.
+    assert!(
+        smiths_codes.iter().all(|c| c != "KUL-R02"),
+        "open buffer must survive the delete and win over corrupt disk; got: {smiths_codes:?}",
+    );
+    // The cross-file dependent still resolves m_alice_bob from the buffer.
+    assert!(
+        joneses_codes.iter().all(|c| c != "KUL-R02"),
+        "joneses.kul must keep resolving m_alice_bob from the surviving buffer; got: {joneses_codes:?}",
+    );
+}
+
+#[test]
 fn deleted_event_for_kul_yml_evicts_project_and_clears_all_uris() {
     let (dir, urls) = common::fixture_project(
         "watched_deleted_kul_yml",

@@ -106,6 +106,31 @@ fn parse_person_with_two_birth_diagnoses() {
     ));
 }
 
+/// A forgotten closing quote on Alice's name must report an unterminated-string
+/// diagnostic near the typo without swallowing the following `person bob`
+/// statement (ADR-0023). Both persons parse; the second is diagnosed
+/// independently (here: cleanly).
+#[test]
+fn unterminated_string_does_not_swallow_next_statement() {
+    let source = "person alice name:\"Alice\nperson bob name:\"Bob\" gender:male\n";
+    let tokens = tokenize(source);
+    let (statements, diags) = parse(&tokens, FileId::MANIFEST);
+    assert_eq!(
+        statements.len(),
+        2,
+        "both persons must parse; the unterminated string must not consume `person bob`. got: {statements:#?}"
+    );
+    let unterminated: Vec<_> = diags
+        .iter()
+        .filter(|d| d.code == "KUL-L01" && d.message.contains("unterminated string"))
+        .collect();
+    assert_eq!(
+        unterminated.len(),
+        1,
+        "expected exactly one unterminated-string diagnostic, got: {diags:#?}"
+    );
+}
+
 /// P07 must phrase the fix in plain English ("quoted string", with an example),
 /// not the jargon "string literal".
 #[test]

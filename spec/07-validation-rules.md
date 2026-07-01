@@ -30,6 +30,10 @@ For each comparison below, when a date has partial granularity it is treated as 
 
 14. **Polygamy hub must host all un-ended marriages** — for each person `p`, let `un_ended_count` be the number of marriages where `p` is a spouse and the marriage has no `end:` field. If `un_ended_count ≥ 2`, `p` MUST be the [host](./04-top-level-statements.md#42-marriage-statement) (first-listed spouse) in every one of those un-ended marriages. The diagnostic anchors at the offending marriage's `<id>` token; one diagnostic per offending marriage. See [ADR-0020](../docs/adr/0020-polygamy-hub-and-fan.md).
 
+## Fields
+
+15. **Duplicate field** — a `person`, `marriage`, or `adoption` statement MUST NOT set the same field more than once. Fields are unordered and each may appear at most once per statement; because accessors take the first occurrence, a repeated field silently discards every later value, so the second and subsequent occurrences are errors. The diagnostic anchors at the duplicate occurrence's field name; a related-span points to the first occurrence. (A field whose value failed to parse is reported by the parser and does not additionally count toward this rule.)
+
 ## Manifest
 
 The following codes are reported by the project-manifest validator pass against `kul.yml` (see [Section 14](./14-project-manifest.md)). They flow through the same diagnostic infrastructure as the `KUL-Rxx` rules above.
