@@ -512,6 +512,39 @@ fn malformed_multi_token_string_value_recovers_at_next_field() {
     );
 }
 
+/// A malformed date value must recover like a malformed string value: the
+/// parser resynchronises to the next field boundary so the remaining
+/// well-formed fields on the statement still parse, and no cascading
+/// `KUL-P01`/`KUL-R03` diagnostic is emitted. One case per date-bearing
+/// field (person `born`/`died`, marriage `start`/`end`, adoption
+/// `start`/`end`); each must surface exactly the one date diagnostic.
+#[test]
+fn malformed_date_value_suppresses_cascading_diagnostics() {
+    let people = "person p1 name:\"A\" gender:male\nperson p2 name:\"B\" gender:female\n";
+    let cases = [
+        "person p1 born:bogus name:\"Alice\" gender:male\n".to_string(),
+        "person p1 died:bogus name:\"Alice\" gender:male\n".to_string(),
+        format!("{people}marriage m1 p1 p2 start:bogus end:2000 end_reason:divorce\n"),
+        format!("{people}marriage m1 p1 p2 start:2000 end:bogus\n"),
+        format!(
+            "{people}marriage m1 p1 p2\nperson c1 name:\"C\" gender:male\n  adoption m1 start:bogus end:2001\n"
+        ),
+        format!(
+            "{people}marriage m1 p1 p2\nperson c1 name:\"C\" gender:male\n  adoption m1 start:2000 end:bogus\n"
+        ),
+    ];
+    for src in cases {
+        let result = check(&src);
+        let codes: Vec<&str> = result.diagnostics.iter().map(|d| d.code).collect();
+        assert_eq!(
+            codes,
+            vec!["KUL-P15"],
+            "expected only the date diagnostic KUL-P15 for source:\n{src}\ngot: {:#?}",
+            result.diagnostics
+        );
+    }
+}
+
 #[test]
 fn rules_9_through_12_clean_on_full_example() {
     let src = std::fs::read_to_string(format!(
