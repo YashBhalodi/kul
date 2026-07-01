@@ -596,8 +596,8 @@ impl<'a> Parser<'a> {
                 None => return FieldOutcome::Malformed(field_name),
             },
             FieldName::Gender => match self.parse_gender_value() {
-                Some(k) => k,
-                None => return FieldOutcome::Fatal,
+                Some(g) => PersonFieldKind::Gender(g),
+                None => return FieldOutcome::Malformed(field_name),
             },
             FieldName::Start | FieldName::End | FieldName::EndReason => {
                 self.diagnostics.push(Diagnostic::error(
@@ -653,24 +653,34 @@ impl<'a> Parser<'a> {
         None
     }
 
-    fn parse_gender_value(&mut self) -> Option<PersonFieldKind> {
-        let value = self.expect_value(
-            "KUL-P08",
-            || "expected one of `male`, `female`, `other` for `gender:`".into(),
-            |tok| {
-                let g = match &tok.kind {
-                    TokenKind::EnumKw(EnumKw::Male) => Gender::Male,
-                    TokenKind::EnumKw(EnumKw::Female) => Gender::Female,
-                    TokenKind::EnumKw(EnumKw::Other) => Gender::Other,
-                    _ => return None,
-                };
-                Some(GenderValue {
-                    value: g,
-                    span: tok.span,
-                })
-            },
-        )?;
-        Some(PersonFieldKind::Gender(value))
+    fn parse_gender_value(&mut self) -> Option<GenderValue> {
+        let tok = self.peek().clone();
+        let value = match &tok.kind {
+            TokenKind::EnumKw(EnumKw::Male) => Gender::Male,
+            TokenKind::EnumKw(EnumKw::Female) => Gender::Female,
+            TokenKind::EnumKw(EnumKw::Other) => Gender::Other,
+            _ => {
+                self.diagnostics.push(Diagnostic::error(
+                    "KUL-P08",
+                    format!(
+                        "expected one of `male`, `female`, `other` for `gender:`, found {}",
+                        describe_token(&tok.kind)
+                    ),
+                    self.fspan(tok.span),
+                ));
+                // Stop at the next field keyword so remaining well-formed
+                // fields on the line still parse — mirrors `parse_string_value`
+                // so a malformed `gender:` is recorded as `Malformed`, not
+                // `Fatal` (which would let R03 also report gender as missing).
+                self.recover_to_field_boundary();
+                return None;
+            }
+        };
+        self.advance();
+        Some(GenderValue {
+            value,
+            span: tok.span,
+        })
     }
 
     /// Peek the next token via `accept`; on match, advance. On miss, push

@@ -343,6 +343,29 @@ fn rule_05b_unknown_end_reason() {
 }
 
 #[test]
+fn rule_15_duplicate_field() {
+    // person (repeated `name`), marriage (repeated `start`/`end`), and
+    // adoption (repeated `start`) all surface KUL-R15 anchored at the
+    // duplicate, with a related-span at the first occurrence.
+    let src = read_corpus("invalid/rule-15-duplicate-field.kul");
+    let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_15_single_fields_are_clean() {
+    // Each field set at most once: rule does not fire.
+    let result = check(
+        "person alice name:\"Alice\" family:\"S\" gender:female born:1950\nperson bob name:\"Bob\" gender:male\nmarriage m alice bob start:1990 end:2000 end_reason:divorce\n",
+    );
+    assert!(
+        !result.diagnostics.iter().any(|d| d.code == "KUL-R15"),
+        "expected no KUL-R15, got: {:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn rule_13_self_parent() {
     let src = read_corpus("invalid/rule-13-self-parent.kul");
     let result = check(&src);
@@ -508,6 +531,36 @@ fn malformed_multi_token_string_value_recovers_at_next_field() {
         codes,
         vec!["KUL-P07"],
         "expected only KUL-P07; got: {:#?}",
+        result.diagnostics
+    );
+}
+
+/// A malformed `gender:` value must behave like the sibling string
+/// fields: recorded as malformed so R03 ("missing gender") does not also
+/// fire. Exactly one diagnostic — the invalid-gender KUL-P08 — surfaces
+/// (issue #241).
+#[test]
+fn malformed_gender_value_suppresses_cascading_missing_field_r03() {
+    let result = check("person alice name:\"Alice\" gender:bogus\n");
+    let codes: Vec<&str> = result.diagnostics.iter().map(|d| d.code).collect();
+    assert_eq!(
+        codes,
+        vec!["KUL-P08"],
+        "expected only KUL-P08; got: {:#?}",
+        result.diagnostics
+    );
+}
+
+/// A malformed `gender:` mid-statement must resynchronise to the next
+/// field boundary so a following field still parses.
+#[test]
+fn malformed_gender_value_recovers_at_next_field() {
+    let result = check("person alice gender:bogus name:\"Alice\"\n");
+    let codes: Vec<&str> = result.diagnostics.iter().map(|d| d.code).collect();
+    assert_eq!(
+        codes,
+        vec!["KUL-P08"],
+        "expected only KUL-P08; got: {:#?}",
         result.diagnostics
     );
 }

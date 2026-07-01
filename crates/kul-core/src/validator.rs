@@ -12,7 +12,7 @@ use crate::date::{DateLit, before_strict};
 use crate::diagnostic::{Diagnostic, detail, fspan};
 use crate::lexer::FieldName;
 use crate::semantic::{EntityKind, EntityRef, ResolvedDocument};
-use crate::span::FileId;
+use crate::span::{ByteSpan, FileId};
 
 pub fn validate(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -30,6 +30,7 @@ pub fn validate(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
         diagnostics.extend(rule_10_spouse_died_before_marriage(resolved, file));
         diagnostics.extend(rule_11_bio_child_born_before_parent(resolved, file));
         diagnostics.extend(rule_12_adoption_before_adopter_born(resolved, file));
+        diagnostics.extend(rule_15_duplicate_field(resolved, file));
     }
     // R13/R14 walk project-wide so cross-file cycles and hubs are
     // reported as single violations (ADR-0015, ADR-0020).
@@ -567,6 +568,75 @@ fn polygamy_hub_diagnostic(
         other = m.spouse_a.name,
     );
     Diagnostic::error("KUL-R14", message, fspan(file, m.id.span))
+}
+
+/// R15 — a field may appear at most once per `person`, `marriage`, or
+/// `adoption` statement. Accessors take the first occurrence, so a
+/// repeated field silently discards later values; each repeat is an
+/// error. Anchors at the duplicate occurrence's field name; a
+/// related-span points to the first occurrence.
+pub fn rule_15_duplicate_field(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    for stmt in resolved.statements_in(file) {
+        match stmt {
+            Statement::Person(p) => {
+                duplicate_fields(
+                    file,
+                    p.fields.iter().map(|f| (f.kind.field_name(), f.name_span)),
+                    &mut out,
+                );
+                for adoption in &p.adoptions {
+                    duplicate_fields(
+                        file,
+                        adoption
+                            .fields
+                            .iter()
+                            .map(|f| (f.kind.field_name(), f.name_span)),
+                        &mut out,
+                    );
+                }
+            }
+            Statement::Marriage(m) => {
+                duplicate_fields(
+                    file,
+                    m.fields.iter().map(|f| (f.kind.field_name(), f.name_span)),
+                    &mut out,
+                );
+            }
+        }
+    }
+    out
+}
+
+/// Emit KUL-R15 for every field name that appears more than once in
+/// `fields` (in source order, name span first). At most nine distinct
+/// field names exist, so the linear `seen` scan is cheap.
+fn duplicate_fields(
+    file: FileId,
+    fields: impl Iterator<Item = (FieldName, ByteSpan)>,
+    out: &mut Vec<Diagnostic>,
+) {
+    let mut seen: Vec<(FieldName, ByteSpan)> = Vec::new();
+    for (name, name_span) in fields {
+        if let Some((_, first_span)) = seen.iter().find(|(n, _)| *n == name) {
+            out.push(
+                Diagnostic::error(
+                    "KUL-R15",
+                    format!(
+                        "field `{}` is set more than once — a field may appear at most once per statement; remove the duplicate",
+                        name.as_str()
+                    ),
+                    fspan(file, name_span),
+                )
+                .with_related(
+                    fspan(file, *first_span),
+                    format!("`{}` first set here", name.as_str()),
+                ),
+            );
+        } else {
+            seen.push((name, name_span));
+        }
+    }
 }
 
 /// R13 — no person may appear as their own ancestor in the parent graph

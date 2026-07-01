@@ -1,0 +1,14 @@
+---
+source: crates/kul-core/tests/validator.rs
+expression: render_diagnostics(&result.diagnostics)
+---
+KUL-R15 [26..30]: field `name` is set more than once — a field may appear at most once per statement; remove the duplicate
+  related [13..17]: `name` first set here
+KUL-R15 [87..93]: field `gender` is set more than once — a field may appear at most once per statement; remove the duplicate
+  related [75..81]: `gender` first set here
+KUL-R15 [131..136]: field `start` is set more than once — a field may appear at most once per statement; remove the duplicate
+  related [120..125]: `start` first set here
+KUL-R15 [151..154]: field `end` is set more than once — a field may appear at most once per statement; remove the duplicate
+  related [142..145]: `end` first set here
+KUL-R15 [238..243]: field `start` is set more than once — a field may appear at most once per statement; remove the duplicate
+  related [227..232]: `start` first set here

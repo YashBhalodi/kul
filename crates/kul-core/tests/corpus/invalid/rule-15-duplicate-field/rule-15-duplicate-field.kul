@@ -1,0 +1,5 @@
+person alice name:"Alice" name:"Alice" gender:female
+person bob name:"Bob" gender:male gender:male
+marriage m alice bob start:1990 start:1990 end:2000 end:2000 end_reason:divorce
+person kid name:"Kid" gender:other
+  adoption m start:1995 start:1995

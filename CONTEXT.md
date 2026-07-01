@@ -36,7 +36,7 @@ A sub-statement under a person: `adoption <marriage_id> start:…`. Declares thi
 
 ### Field
 
-Any `key:value` pair on a Person, Marriage, Birth, or Adoption. Fields are optional unless the spec marks them required (see [`spec/04-validation-rules.md`](./spec/07-validation-rules.md)). They are unordered. Repeating a field in the same declaration is an error (KUL-R05).
+Any `key:value` pair on a Person, Marriage, Birth, or Adoption. Fields are optional unless the spec marks them required (see [`spec/04-validation-rules.md`](./spec/07-validation-rules.md)). They are unordered. Repeating a field in the same declaration is an error (KUL-R15).
 
 ### Date literal
 
@@ -64,7 +64,7 @@ The inverse of parent. There is no `child` declaration in the language — child
 
 ### Validator rule
 
-One of the fourteen spec-defined checks (KUL-R01 through KUL-R14). See [`spec/04-validation-rules.md`](./spec/07-validation-rules.md). In code, each rule lives as a function in `crates/kul-core/src/validator.rs` named `rule_NN_<short_name>`; tests follow the same pattern.
+One of the fifteen spec-defined checks (KUL-R01 through KUL-R15). See [`spec/04-validation-rules.md`](./spec/07-validation-rules.md). In code, each rule lives as a function in `crates/kul-core/src/validator.rs` named `rule_NN_<short_name>`; tests follow the same pattern.
 
 ### Diagnostic
 
