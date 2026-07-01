@@ -530,14 +530,12 @@ pub fn rule_14_polygamy_hub_must_host(resolved: &ResolvedDocument) -> Vec<Diagno
         if m.end().is_some() {
             continue;
         }
-        // Skip marriages whose spouses don't both resolve / are equal —
-        // R02 / R04 already report those; folding them into the count
-        // would cascade those rules into a misleading R14.
+        // Skip marriages whose spouses don't both resolve — R02 reports
+        // those. A self-marriage (R04) collapses to a single spouse in
+        // `spouses_of`, so it also fails this len check; folding either
+        // into the count would cascade those rules into a misleading R14.
         let spouses: Vec<&PersonStmt> = resolved.spouses_of(m).collect();
         if spouses.len() != 2 {
-            continue;
-        }
-        if spouses[0].id.name == spouses[1].id.name {
             continue;
         }
         for spouse in spouses {
@@ -548,6 +546,12 @@ pub fn rule_14_polygamy_hub_must_host(resolved: &ResolvedDocument) -> Vec<Diagno
     for file in resolved.document().kul_file_ids() {
         for m in resolved.marriages_in(file) {
             if m.end().is_some() {
+                continue;
+            }
+            // Mirror the counting pass's self-marriage skip: a self-marriage
+            // (R04) never counts toward a hub, so it must not collect an R14
+            // of its own when the shared id is independently a hub.
+            if m.spouse_a.name == m.spouse_b.name {
                 continue;
             }
             // Only the joining spouse (spouse_b) can violate R14 — host

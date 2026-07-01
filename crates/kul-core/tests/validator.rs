@@ -129,6 +129,29 @@ fn rule_04_self_marriage() {
 }
 
 #[test]
+fn rule_09_self_marriage_emits_single_diagnostic() {
+    // A self-marriage names one person twice; the temporal rules must not
+    // double-report. Alongside the R04 self-marriage error, R09 fires
+    // exactly once, not once per spouse position.
+    let src = "\
+person alice name:\"Alice\" gender:female born:2000-01-01
+marriage m alice alice start:1990-01-01
+";
+    let result = check(src);
+    assert_eq!(
+        result
+            .diagnostics
+            .iter()
+            .filter(|d| d.code == "KUL-R09")
+            .count(),
+        1,
+        "R09 must fire once for a self-marriage, not once per spouse: {:#?}",
+        result.diagnostics
+    );
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
 fn marriage_without_start_is_clean() {
     let result = check(
         "person a name:\"A\" gender:female\nperson b name:\"B\" gender:male\nmarriage m a b\n",
@@ -404,6 +427,33 @@ fn rule_14_pure_join_concurrent() {
 fn rule_14_mutually_polygamous() {
     let src = read_corpus("invalid/rule-14-mutually-polygamous.kul");
     let result = check(&src);
+    insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
+}
+
+#[test]
+fn rule_14_self_marriage_on_hub_is_not_flagged() {
+    // Alice is a genuine polygamy hub: she joins (spouse_b) two un-ended
+    // marriages, so R14 fires on both. An extra un-ended self-marriage
+    // `m_self alice alice` is already reported by R04 and must NOT collect
+    // a spurious R14 on top of it, even though alice's un-ended count ≥ 2.
+    let src = "\
+person alice name:\"Alice\" gender:female
+person bob   name:\"Bob\"   gender:male
+person carl  name:\"Carl\"  gender:male
+
+marriage m_bob_alice  bob  alice start:1990-01-01
+marriage m_carl_alice carl alice start:1992-02-14
+marriage m_self       alice alice start:1995-03-03
+";
+    let result = check(src);
+    assert!(
+        !result
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "KUL-R14" && d.message.contains("m_self")),
+        "R14 must not fire on the self-marriage: {:#?}",
+        result.diagnostics
+    );
     insta::assert_snapshot!(render_diagnostics(&result.diagnostics));
 }
 

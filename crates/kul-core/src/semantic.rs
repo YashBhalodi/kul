@@ -238,13 +238,19 @@ impl ResolvedDocument {
     }
 
     /// Declared spouses of a marriage, in declaration order. Unresolved
-    /// spouses are skipped (R02 reports them).
+    /// spouses are skipped (R02 reports them). A self-marriage (R04) names
+    /// one person as both spouses; the duplicate is collapsed so
+    /// spouse-driven rules (R09–R12, the R14 counting pass) see that person
+    /// once rather than emitting a diagnostic per position.
     pub fn spouses_of<'a>(
         &'a self,
         marriage: &'a MarriageStmt,
     ) -> impl Iterator<Item = &'a PersonStmt> + 'a {
-        [&marriage.spouse_a, &marriage.spouse_b]
+        let second =
+            (marriage.spouse_b.name != marriage.spouse_a.name).then_some(&marriage.spouse_b);
+        [Some(&marriage.spouse_a), second]
             .into_iter()
+            .flatten()
             .filter_map(move |ident| self.person(&ident.name))
     }
 
@@ -671,6 +677,19 @@ mod tests {
             .map(|p| p.id.name.clone())
             .collect();
         assert_eq!(spouses, vec!["alice".to_string(), "bob".to_string()]);
+    }
+
+    #[test]
+    fn spouses_of_collapses_self_marriage() {
+        let (resolved, _) = resolve_source(
+            "person alice name:\"A\" gender:female\n\
+             marriage m alice alice start:2000\n",
+        );
+        let spouses: Vec<_> = resolved
+            .spouses_of(resolved.marriage("m").unwrap())
+            .map(|p| p.id.name.clone())
+            .collect();
+        assert_eq!(spouses, vec!["alice".to_string()]);
     }
 
     #[test]
