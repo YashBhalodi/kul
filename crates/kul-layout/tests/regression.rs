@@ -130,6 +130,57 @@ person f name:"F" gender:male
     }
 }
 
+/// Regression: #249 — a childless polygamy hub (every marriage has no
+/// children) places its co-spouse cards one row below the hub, but those
+/// cards are not walker nodes and, with no child forest below to raise
+/// `max_gen`, the canvas height was computed as if the hub were the last
+/// row. The co-spouse cards then extended past the SVG `viewBox` and
+/// rendered clipped. Every placed card's bottom edge must fit within the
+/// canvas height.
+#[test]
+fn childless_polygamy_hub_cospouse_cards_fit_within_canvas() {
+    let source = r#"person dad name:"Dad" gender:male
+person mom1 name:"Mom1" gender:female
+person mom2 name:"Mom2" gender:female
+
+marriage m_dad_mom1 dad mom1 start:1970
+marriage m_dad_mom2 dad mom2 start:1980
+"#;
+
+    let positioned = layout_from_source(source);
+
+    // The two co-spouse cards (mom1, mom2) sit a full row below the hub.
+    // Every card bottom must fall within the canvas height, or it clips
+    // in the SVG viewBox.
+    for card in &positioned.cards {
+        assert!(
+            card.y + card.height <= positioned.height,
+            "card {} bottom {} exceeds canvas height {}",
+            card.person_id,
+            card.y + card.height,
+            positioned.height
+        );
+    }
+    // Sanity: the co-spouse cards really are the bottom-most row, so the
+    // assertion above is exercising the fix rather than passing vacuously.
+    let hub_bottom = positioned
+        .cards
+        .iter()
+        .find(|c| c.person_id == "dad")
+        .map(|c| c.y + c.height)
+        .expect("hub card present");
+    let cospouse_bottom = positioned
+        .cards
+        .iter()
+        .filter(|c| c.person_id == "mom1" || c.person_id == "mom2")
+        .map(|c| c.y + c.height)
+        .fold(f64::NEG_INFINITY, f64::max);
+    assert!(
+        cospouse_bottom > hub_bottom,
+        "co-spouse cards ({cospouse_bottom}) must sit below the hub ({hub_bottom})"
+    );
+}
+
 /// Regression: #207 — extends the N=2 case with a third rootless host
 /// lineage joined by descent. Three independent host-lineage components
 /// should position cleanly in source order with no panic.
