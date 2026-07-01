@@ -10,8 +10,8 @@ import {
 
 import {
     getNonce,
+    isRevealTarget,
     previewHtml,
-    type WireRevealRequestMessage,
 } from "@kullang/preview";
 
 let client: LanguageClient | undefined;
@@ -437,6 +437,11 @@ async function showPreview(
     });
 
     previewPanel.webview.onDidReceiveMessage((message: unknown) => {
+        // Trust boundary: `message` originates in the webview's JS context.
+        // Guard the payload shape fully before dispatching into async reveal
+        // code, and attach a `.catch` so a malformed target (or a reveal that
+        // rejects mid-flight) degrades to a logged no-op instead of an
+        // unhandled promise rejection in the extension host.
         if (
             !message ||
             typeof message !== "object" ||
@@ -444,15 +449,23 @@ async function showPreview(
         ) {
             return;
         }
-        const target = (message as WireRevealRequestMessage).target;
-        if (!target) {
+        const target = (message as { target?: unknown }).target;
+        if (!isRevealTarget(target)) {
+            client?.outputChannel.appendLine(
+                "kul preview: ignored malformed revealRequest payload",
+            );
             return;
         }
-        if (target.kind === "entity") {
-            void revealSource(target.id);
-        } else if (target.kind === "location") {
-            void revealLocation(target.uri, target.range);
-        }
+        const reveal =
+            target.kind === "entity"
+                ? revealSource(target.id)
+                : revealLocation(target.uri, target.range);
+        reveal.catch((err) => {
+            const detail = err instanceof Error ? err.message : String(err);
+            client?.outputChannel.appendLine(
+                `kul preview: reveal failed: ${detail}`,
+            );
+        });
     });
 
     // VSCode destroys a webview's DOM/JS context when its tab moves to the
