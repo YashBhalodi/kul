@@ -1,0 +1,14 @@
+---
+source: crates/kul-core/tests/lexer.rs
+expression: render_tokens(source)
+---
+  0..6   PersonKw
+  7..12  Ident("alice")
+ 13..17  FieldKw(Name)
+ 17..18  Colon
+ 18..35  String("Alice\nthe great")
+ 36..42  FieldKw(Gender)
+ 42..43  Colon
+ 43..49  EnumKw(Female)
+ 49..50  Newline
+ 50..50  Eof

@@ -1,0 +1,20 @@
+---
+source: crates/kul-core/tests/lexer.rs
+expression: render_tokens(source)
+---
+  0..6   PersonKw
+  7..12  Ident("alice")
+ 13..17  FieldKw(Name)
+ 17..18  Colon
+ 18..24  Error("unterminated string literal: missing closing `\"`")
+ 24..25  Newline
+ 25..31  PersonKw
+ 32..35  Ident("bob")
+ 36..40  FieldKw(Name)
+ 40..41  Colon
+ 41..46  String("Bob")
+ 47..53  FieldKw(Gender)
+ 53..54  Colon
+ 54..58  EnumKw(Male)
+ 58..59  Newline
+ 59..59  Eof

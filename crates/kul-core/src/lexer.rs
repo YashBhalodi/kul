@@ -239,6 +239,33 @@ impl<'a> Lexer<'a> {
                         }
                     }
                 }
+                Some(b'\n') | Some(b'\r') => {
+                    // Embedded newlines are legal inside string literals
+                    // (spec §3.3), so we normally consume them as body. But a
+                    // forgotten closing quote would otherwise swallow every
+                    // subsequent line — including well-formed statements — as
+                    // string body and emit one Error token to EOF. As a
+                    // recovery heuristic, if the next line begins at column 0
+                    // with a top-level keyword, treat the string as
+                    // unterminated ending before that line so a stray missing
+                    // quote can't cascade past the next real statement. See
+                    // ADR-0023.
+                    let next_line = self.line_terminator_end(self.pos);
+                    if starts_top_level_keyword(&self.bytes[next_line..]) {
+                        self.push(
+                            TokenKind::Error(
+                                "unterminated string literal: missing closing `\"`".into(),
+                            ),
+                            start,
+                            self.pos,
+                        );
+                        return;
+                    }
+                    let ch_start = self.pos;
+                    let ch_end = next_char_boundary(self.bytes, ch_start);
+                    value.push_str(&self.source[ch_start..ch_end]);
+                    self.pos = ch_end;
+                }
                 Some(_) => {
                     let ch_start = self.pos;
                     let ch_end = next_char_boundary(self.bytes, ch_start);
@@ -246,6 +273,17 @@ impl<'a> Lexer<'a> {
                     self.pos = ch_end;
                 }
             }
+        }
+    }
+
+    /// Byte offset of the line that follows the terminator at `pos`, where
+    /// `self.bytes[pos]` is `\r` or `\n`. Consumes a `\r\n` pair as one
+    /// terminator.
+    fn line_terminator_end(&self, pos: usize) -> usize {
+        if self.bytes[pos] == b'\r' && self.bytes.get(pos + 1) == Some(&b'\n') {
+            pos + 2
+        } else {
+            pos + 1
         }
     }
 
@@ -324,6 +362,26 @@ fn classify_word(text: &str) -> TokenKind {
             }
         }
     }
+}
+
+/// True iff `bytes` begins, at column 0 with no leading whitespace, with a
+/// top-level statement keyword (`person` / `marriage`). Used by
+/// [`Lexer::lex_string`]'s unterminated-string recovery (ADR-0023). The
+/// leading-word extraction mirrors [`Lexer::lex_word_or_bare`] and defers to
+/// [`classify_word`] so the reserved top-level set stays single-sourced: only
+/// the two `Statement` keywords the parser dispatches on trigger recovery.
+fn starts_top_level_keyword(bytes: &[u8]) -> bool {
+    let end = bytes
+        .iter()
+        .position(|&b| matches!(b, b' ' | b'\t' | b'\r' | b'\n' | b'#' | b':' | b'"'))
+        .unwrap_or(bytes.len());
+    let Ok(word) = std::str::from_utf8(&bytes[..end]) else {
+        return false;
+    };
+    matches!(
+        classify_word(word),
+        TokenKind::PersonKw | TokenKind::MarriageKw
+    )
 }
 
 /// Match the Kul identifier production `[A-Za-z_][A-Za-z0-9_-]*`. The
