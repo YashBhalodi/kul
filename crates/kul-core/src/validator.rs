@@ -276,6 +276,7 @@ pub fn rule_06_died_before_born(resolved: &ResolvedDocument, file: FileId) -> Ve
         .filter_map(|p| {
             temporal_violation(
                 file,
+                file,
                 "KUL-R06",
                 p.died(),
                 p.born(),
@@ -297,6 +298,7 @@ pub fn rule_07_marriage_end_before_start(
         .filter_map(|m| {
             temporal_violation(
                 file,
+                file,
                 "KUL-R07",
                 m.end(),
                 m.start(),
@@ -317,6 +319,7 @@ pub fn rule_08_adoption_end_before_start(
     for p in resolved.persons_in(file) {
         for adoption in &p.adoptions {
             if let Some(d) = temporal_violation(
+                file,
                 file,
                 "KUL-R08",
                 adoption.end(),
@@ -345,8 +348,10 @@ pub fn rule_09_marriage_before_spouse_born(
     let mut out = Vec::new();
     for m in resolved.marriages_in(file) {
         for spouse in resolved.spouses_of(m) {
+            let spouse_file = declaring_file(resolved, &spouse.id.name, file);
             if let Some(d) = temporal_violation(
                 file,
+                spouse_file,
                 "KUL-R09",
                 m.start(),
                 spouse.born(),
@@ -374,8 +379,10 @@ pub fn rule_10_spouse_died_before_marriage(
     let mut out = Vec::new();
     for m in resolved.marriages_in(file) {
         for spouse in resolved.spouses_of(m) {
+            let spouse_file = declaring_file(resolved, &spouse.id.name, file);
             if let Some(d) = temporal_violation(
                 file,
+                spouse_file,
                 "KUL-R10",
                 spouse.died(),
                 m.start(),
@@ -407,8 +414,10 @@ pub fn rule_11_bio_child_born_before_parent(
             continue;
         };
         for parent in resolved.spouses_of(marriage) {
+            let parent_file = declaring_file(resolved, &parent.id.name, file);
             if let Some(d) = temporal_violation(
                 file,
+                parent_file,
                 "KUL-R11",
                 child.born(),
                 parent.born(),
@@ -440,8 +449,10 @@ pub fn rule_12_adoption_before_adopter_born(
                 continue;
             };
             for parent in resolved.spouses_of(marriage) {
+                let parent_file = declaring_file(resolved, &parent.id.name, file);
                 if let Some(d) = temporal_violation(
                     file,
+                    parent_file,
                     "KUL-R12",
                     adoption.start(),
                     parent.born(),
@@ -468,8 +479,21 @@ enum Anchor {
     Later,
 }
 
+/// Declaring [`FileId`] of the entity named `id`, project-wide (ADR-0015).
+/// Falls back to `default` when the id doesn't resolve — the temporal
+/// rules only pass ids that already resolved through `spouses_of`, so the
+/// fallback is unreachable in practice and merely keeps the type total.
+fn declaring_file(resolved: &ResolvedDocument, id: &str, default: FileId) -> FileId {
+    resolved.entity(id).map(|e| e.file).unwrap_or(default)
+}
+
+// Eight args: the primary/related file pair plus the date pair, anchor,
+// and two message closures are all intrinsic to a temporal diagnostic;
+// bundling them would only move the noise into a single-use struct.
+#[allow(clippy::too_many_arguments)]
 fn temporal_violation(
     file: FileId,
+    related_file: FileId,
     code: &'static str,
     earlier: Option<&DateLit>,
     later: Option<&DateLit>,
@@ -482,13 +506,17 @@ fn temporal_violation(
     if !before_strict(earlier, later) {
         return None;
     }
+    // The primary date always belongs to the iterating entity (`file`);
+    // the related date belongs to the compared entity, which under
+    // project-wide resolution (ADR-0015) may be declared in a sibling
+    // file (`related_file`). Same-file rules pass `file` for both.
     let (primary, related) = match anchor {
         Anchor::Earlier => (earlier, later),
         Anchor::Later => (later, earlier),
     };
     Some(
         Diagnostic::error(code, message(), fspan(file, primary.span))
-            .with_related(fspan(file, related.span), related_label()),
+            .with_related(fspan(related_file, related.span), related_label()),
     )
 }
 

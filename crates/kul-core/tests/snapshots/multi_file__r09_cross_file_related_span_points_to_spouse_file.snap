@@ -1,0 +1,6 @@
+---
+source: crates/kul-core/tests/multi_file.rs
+expression: "render_diagnostics(&result, &inputs)"
+---
+KUL-R09 b.kul [37..41]: marriage `m_alice_bob` started before spouse `alice` was born
+  related a.kul [45..49]: `alice` born here

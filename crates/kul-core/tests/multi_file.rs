@@ -199,6 +199,46 @@ fn empty_project_fires_kul_m06() {
 }
 
 #[test]
+fn r09_cross_file_related_span_points_to_spouse_file() {
+    // b.kul declares a marriage (start:1940) whose spouse `alice` is
+    // declared in a.kul (born:1950). R09 fires: the primary anchors on the
+    // marriage's `start` in b.kul, but the related "born here" span belongs
+    // to alice's declaration in a.kul — not the iterating (marriage) file.
+    let (inputs, result) = check_project("cross-file-temporal");
+    let r09: Vec<&Diagnostic> = result
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "KUL-R09")
+        .collect();
+    assert_eq!(r09.len(), 1, "expected exactly one R09 across files");
+    let d = r09[0];
+
+    let resolved = result.resolved();
+    let marriage_file = resolved
+        .entity("m_alice_bob")
+        .expect("marriage resolves")
+        .file;
+    let spouse_file = resolved.entity("alice").expect("alice resolves").file;
+    assert_ne!(
+        marriage_file, spouse_file,
+        "fixture must place the marriage and the spouse in different files"
+    );
+
+    let primary = d.primary.expect("R09 must anchor");
+    assert_eq!(
+        primary.file, marriage_file,
+        "primary anchors in the marriage's file"
+    );
+    let related = d.related.first().expect("R09 carries a related-span");
+    assert_eq!(
+        related.span.file, spouse_file,
+        "related span must resolve to the spouse's declaring file, not the iterating file"
+    );
+
+    insta::assert_snapshot!(render_diagnostics(&result, &inputs));
+}
+
+#[test]
 fn r13_parenthood_cycle_spans_two_files() {
     // a.kul and b.kul each declare a marriage whose only child is adopted
     // or born into the other file's marriage — a's parent ancestry runs
