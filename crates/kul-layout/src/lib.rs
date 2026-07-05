@@ -17,7 +17,7 @@
 //! convention to remember.
 
 pub mod adapter;
-pub mod walker;
+pub(crate) mod walker;
 
 mod metrics;
 mod shape;
