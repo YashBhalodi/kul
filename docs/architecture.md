@@ -58,8 +58,11 @@ The shape is deliberately linear. Each pass produces a strictly richer artifact;
 kul-core   ── library (no_std-friendly intent, but uses std for now)
               the entire pipeline lives here. Public surface is the
               CheckResult API plus the AST types, ResolvedDocument
-              query methods, the formatter, and the export module
-              (kinship-native + cytoscape projections).
+              query methods, the formatter, the export module
+              (kinship-native + cytoscape projections), and the query
+              module (the kinship-query seam: id → detail lookups today,
+              kin-set queries and relationship resolution later — layered
+              over ResolvedDocument, never over the export; ADR-0024).
 
 kul-loader ── library
               Shared filesystem entry point: given a project-root path,
@@ -75,14 +78,17 @@ kul-loader ── library
               on kul-lsp).
 
 kul-cli    ── thin binary `kul`
-              Four CWD-rooted subcommands: `validate` (renders
+              Five CWD-rooted subcommands: `validate` (renders
               diagnostics with miette), `format` (canonicalize per
               ADR-0004), `export` (project to JSON via
-              kul_core::export), and `lsp` (delegates to kul_lsp::run).
-              `validate`, `format`, and `export` take no positional
-              file argument — each loads the project from CWD via
-              `kul-loader`. Owns argument parsing and human/JSON
-              output formatting.
+              kul_core::export), `query` (id → detail lookups via
+              kul_core::query; `query person|marriage <id>`), and `lsp`
+              (delegates to kul_lsp::run). `validate`, `format`,
+              `export`, and `query` take no positional project argument —
+              each loads the project from CWD via `kul-loader`. Owns
+              argument parsing and human/JSON output formatting; the
+              `query --format json` path emits the same QueryEnvelope
+              bytes the WASM surface returns (ADR-0024).
 
 kul-lsp    ── library + binary `kul-lsp`
               tower-lsp Backend implementation. Owns the project-keyed
@@ -121,11 +127,13 @@ kul-svg    ── library
               tools. Depends on kul-layout and kul-render.
 
 kul-wasm   ── library (cdylib + rlib), published as `@kullang/wasm`
-              wasm-bindgen adapter over kul-core. Three exposed
-              functions — `check`, `exportGraph`, `format` — each a
-              two-or-three-line wrapper around the matching kul-core
-              deep module, plus version-metadata getters. Surface
-              shape is settled in ADR-0011; TypeScript types are
+              wasm-bindgen adapter over kul-core. Operation-specific
+              exposed functions — `check`, `exportGraph`, `format`,
+              `renderSvg`, and the query lookups `queryPerson` /
+              `queryMarriage` — each a thin wrapper around the matching
+              kul-core deep module, plus version-metadata getters.
+              Surface shape is settled in ADR-0011 (fourth shape, the
+              query envelope, added by ADR-0024); TypeScript types are
               derived via Tsify, committed, and diffed in CI per
               ADR-0012. Single ESM `--target bundler` build for
               modern bundlers (Vite, Webpack, Next.js, etc.).
@@ -192,12 +200,13 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 | `Node::entity_reference`              | `crates/kul-core/src/node_at.rs`             | "What entity (person / marriage) is the cursor pointing at?" Returns an `EntityNode` summary (id, kind, decl span, target). Used by goto-definition, find-references, rename. |
 | `Diagnostic` + `Severity` + code + `detail` | `crates/kul-core/src/diagnostic.rs`    | The error currency. Carries spans, codes (KUL-Rxx), related info, and (per ADR-0006) an optional sub-case tag. |
 | `field_meta::FieldMeta`               | `crates/kul-core/src/field_meta.rs`          | Per-field taxonomy: value shape, completion description, hover Markdown. Hover, completion, and semantic-tokens consume it (ADR-0005). |
-| `export::export`                      | `crates/kul-core/src/export.rs`              | Canonical JSON projection of a `CheckResult` into an `ExportEnvelope`. Strict on errors; format-dispatched (kinship-native or cytoscape). The deep module the CLI's `kul export` and the LSP's `kul/export` both call. Schema documented in [`spec/16-export-schema.md`](../spec/16-export-schema.md); shape, posture, and versioning settled in ADRs 0008–0010. |
+| `export::export`                      | `crates/kul-core/src/export.rs`              | Canonical JSON projection of a `CheckResult` into an `ExportEnvelope`. Strict on errors; format-dispatched (kinship-native or cytoscape). The deep module the CLI's `kul export` and the LSP's `kul/export` both call. Schema documented in [`spec/16-export-schema.md`](../spec/16-export-schema.md); shape, posture, and versioning settled in ADRs 0008–0010. Its `build_one_person` / `build_one_marriage` builders single-source the person/marriage serialized shapes shared with the `query` lookups. |
+| `query::{person, marriage}` + `QueryEnvelope` | `crates/kul-core/src/query.rs`       | The kinship-query seam: id → detail lookups (`person(id)` / `marriage(id)`) returning the same export shapes, `None` when absent (absence is the answer). `QueryEnvelope<T>` (gated on passing checks, strict per ADR-0009) single-sources the contract serialization the CLI `kul query` and the WASM `queryPerson` / `queryMarriage` both emit. Layered over `ResolvedDocument`, never over the export; kin-set queries and relationship resolution land here later (ADR-0024, PRD 0005). |
 | `kul_layout::layout`                  | `crates/kul-layout/src/lib.rs`               | `(RenderShape, LayoutConfig) -> PositionedShape`. Positioning pass for the canonical UI pattern. Wraps Walker's algorithm with the marriage-edge / ghost-slot / generation-row adapter. `PositionedShape` is an internal Rust seam — not Serialize, not schema-versioned (ADR-0016). |
 | `kul_svg::render`                     | `crates/kul-svg/src/lib.rs`                  | `(PositionedShape, ThemeConfig) -> String`. Theme-agnostic SVG emitter. Uses semantic CSS classes; consuming surfaces own theming via stylesheet (ADR-0016). |
 | `LineIndex`                           | `crates/kul-lsp/src/convert.rs`              | Byte ↔ LSP-position. Handles UTF-16 code units and CRLF. Holds source as `Arc<str>` so `state::Document` shares the same heap buffer.|
 | `state::Documents`                    | `crates/kul-lsp/src/state.rs`                | The LSP project cache. Thread-safe; the only path to a `ProjectEntry` from inside an LSP request handler. Keyed by `ProjectRoot` (one entry per project, not per URI), so multiple open URIs in one project share a single `CheckResult`. Each `ProjectEntry` carries the project-wide `LineIndex` slice and the matching `Url` slice in `FileId(1..)` order — cross-file features resolve through these.          |
-| `kul_wasm::{check, export_graph, format_source}` | `crates/kul-wasm/src/lib.rs`     | The WASM/JS surface. Three deep-module entrypoints exposed via `wasm-bindgen` with three operation-specific return shapes (per [ADR-0011](./adr/0011-wasm-surface-three-shapes-no-wrappers.md)). No convenience layer; consumers compose helpers at the call site. |
+| `kul_wasm::{check, export_graph, format_source, render_svg, query_person, query_marriage}` | `crates/kul-wasm/src/lib.rs`     | The WASM/JS surface. Deep-module entrypoints exposed via `wasm-bindgen` with operation-specific return shapes (per [ADR-0011](./adr/0011-wasm-surface-three-shapes-no-wrappers.md); the query envelope is the fourth shape, ADR-0024). No convenience layer; consumers compose helpers at the call site. |
 
 If you find yourself reaching around one of these (e.g. iterating `document.statements` from a feature module), stop and consider extending the seam instead.
 
@@ -290,6 +299,8 @@ When a new entrypoint genuinely belongs:
 5. Extend `crates/kul-wasm/tests/typescript/usage.ts` to exercise the new surface from a real consumer perspective. CI runs `tsc --noEmit` on it.
 6. Run `just wasm` to regenerate `crates/kul-wasm/types/kul_wasm.d.ts`. Commit the diff. CI's `wasm-build` job (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)) fails the merge if the committed snapshot drifts from the regenerated output.
 7. Extend the Node smoke test (`crates/kul-wasm/tests/node/smoke.mjs`) if the new function would meaningfully break end-to-end without protocol-level coverage.
+
+An `Option<T>` field normally projects to `T | undefined` and, over the WASM boundary, serializes to an *absent* key (tsify's default serializer omits `None`). When the contract requires an explicit JSON `null` in that slot — as the query lookups do, where `null` is the load-bearing "no such entity" answer, distinct from absent — add `#[tsify(missing_as_null)]` to the *outermost* type whose `into_js` is invoked (the one wasm-bindgen returns), so the whole serialized tree uses `serialize_missing_as_null`. Fields that opt out with `#[serde(skip_serializing_if = "Option::is_none")]` stay absent regardless. This keeps the WASM bytes identical to the CLI's `serde_json` output, which always writes `null` for a non-skipped `None`. See ADR-0024 and `QueryEnvelope`.
 
 ### A new public type or function
 
