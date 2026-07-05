@@ -171,74 +171,75 @@ fn eval_kin<'a>(
     let adjacency = Adjacency::build(resolved);
 
     let mut members = Vec::new();
-    let mut visited = vec![ego.id.name.as_str()];
-    let mut backbone: Vec<PathHop> = Vec::new();
-    walk(
-        &adjacency,
-        ego,
-        role,
-        generations,
-        pattern.edge_nature,
-        &mut visited,
-        &mut backbone,
-        &mut |alter, path| {
-            members.push(KinMember {
-                person: alter,
-                descriptor: RelationshipDescriptor::derive(ego, alter, path),
-            });
-        },
-    );
+    // Scoped so the Walk's borrow of `members` (via `emit`) and `adjacency`
+    // ends before we sort and return.
+    {
+        let mut walk = Walk {
+            adjacency: &adjacency,
+            role,
+            generations,
+            edge_filter: pattern.edge_nature,
+            emit: |alter, path| {
+                members.push(KinMember {
+                    person: alter,
+                    descriptor: RelationshipDescriptor::derive(ego, alter, path),
+                });
+            },
+        };
+        walk.descend(ego, &mut vec![ego.id.name.as_str()], &mut Vec::new());
+    }
 
     sort_members(&mut members);
     members
 }
 
-/// Depth-first simple-path walk. `visited` holds the ids on the current
-/// path (anchor included) — the unconditional cycle guard; `backbone` is the
-/// hop sequence built so far. `emit` fires once per distinct qualifying
-/// path.
-#[allow(clippy::too_many_arguments)]
-fn walk<'a>(
-    adjacency: &Adjacency<'a>,
-    node: &'a PersonStmt,
+/// A single depth-first simple-path traversal. Bundles the immutable
+/// per-query configuration (adjacency, direction, generation bounds, edge
+/// filter) and the emit sink so the recursion threads only the mutable path
+/// state (`visited`, `backbone`).
+struct Walk<'a, 'adj, F> {
+    adjacency: &'adj Adjacency<'a>,
     role: LinealRole,
     generations: IntRange,
     edge_filter: Option<EdgeNature>,
-    visited: &mut Vec<&'a str>,
-    backbone: &mut Vec<PathHop>,
-    emit: &mut impl FnMut(&'a PersonStmt, Vec<PathHop>),
-) {
-    for edge in adjacency.neighbours(node.id.name.as_str(), role) {
-        let next_id = edge.person.id.name.as_str();
-        // Simple-path rule: never revisit a person already on this path.
-        // This is the cycle guard — traversal terminates on every input.
-        if visited.contains(&next_id) {
-            continue;
-        }
-        backbone.push(make_hop(role, edge));
-        visited.push(next_id);
+    emit: F,
+}
 
-        let depth = backbone.len() as u32;
-        if generations.contains(depth) && edge_matches(edge_filter, backbone) {
-            emit(edge.person, backbone.clone());
-        }
-        // Descend further only while the range's upper bound allows it; an
-        // unbounded range recurses until the simple-path guard stops it.
-        if generations.max.is_none_or(|max| depth < max) {
-            walk(
-                adjacency,
-                edge.person,
-                role,
-                generations,
-                edge_filter,
-                visited,
-                backbone,
-                emit,
-            );
-        }
+impl<'a, 'adj, F: FnMut(&'a PersonStmt, Vec<PathHop>)> Walk<'a, 'adj, F> {
+    /// Visit every neighbour of `node` in the traversal direction. `visited`
+    /// holds the ids on the current path (anchor included) — the
+    /// unconditional cycle guard; `backbone` is the hop sequence built so
+    /// far. `emit` fires once per distinct qualifying path.
+    fn descend(
+        &mut self,
+        node: &'a PersonStmt,
+        visited: &mut Vec<&'a str>,
+        backbone: &mut Vec<PathHop>,
+    ) {
+        for edge in self.adjacency.neighbours(node.id.name.as_str(), self.role) {
+            let next_id = edge.person.id.name.as_str();
+            // Simple-path rule: never revisit a person already on this path.
+            // This is the cycle guard — traversal terminates on every input.
+            if visited.contains(&next_id) {
+                continue;
+            }
+            backbone.push(make_hop(self.role, edge));
+            visited.push(next_id);
 
-        visited.pop();
-        backbone.pop();
+            let depth = backbone.len() as u32;
+            if self.generations.contains(depth) && edge_matches(self.edge_filter, backbone) {
+                (self.emit)(edge.person, backbone.clone());
+            }
+            // Descend further only while the range's upper bound allows it;
+            // an unbounded range recurses until the simple-path guard stops
+            // it.
+            if self.generations.max.is_none_or(|max| depth < max) {
+                self.descend(edge.person, visited, backbone);
+            }
+
+            visited.pop();
+            backbone.pop();
+        }
     }
 }
 
