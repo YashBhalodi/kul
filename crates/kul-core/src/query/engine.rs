@@ -402,12 +402,7 @@ pub fn resolve<'a>(
 /// first. Every descriptor shares the same alter (`y`), so — unlike
 /// [`sort_members`] — there is no alter-id key.
 fn sort_relationships(relationships: &mut [RelationshipDescriptor]) {
-    relationships.sort_by(|a, b| {
-        a.path
-            .len()
-            .cmp(&b.path.len())
-            .then_with(|| backbone_key(&a.path).cmp(&backbone_key(&b.path)))
-    });
+    relationships.sort_by_cached_key(|r| (r.path.len(), backbone_key(&r.path)));
 }
 
 /// Whether `x` and `y` lie in the same connected component of the **full
@@ -1162,12 +1157,12 @@ impl<'a, 'adj, G: Fn(u32, u32) -> bool, F: FnMut(&'a PersonStmt, Vec<PathHop>)>
 /// (alter person id, codepoint ascending) → (path hop count ascending) →
 /// (serialized backbone, codepoint ascending).
 fn sort_members(members: &mut [KinMember<'_>]) {
-    members.sort_by(|a, b| {
-        a.descriptor
-            .alter_id
-            .cmp(&b.descriptor.alter_id)
-            .then_with(|| a.descriptor.path.len().cmp(&b.descriptor.path.len()))
-            .then_with(|| backbone_key(&a.descriptor.path).cmp(&backbone_key(&b.descriptor.path)))
+    members.sort_by_cached_key(|m| {
+        (
+            m.descriptor.alter_id.clone(),
+            m.descriptor.path.len(),
+            backbone_key(&m.descriptor.path),
+        )
     });
 }
 
