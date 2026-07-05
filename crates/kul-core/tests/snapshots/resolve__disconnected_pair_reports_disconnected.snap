@@ -1,0 +1,12 @@
+---
+source: crates/kul-core/tests/resolve.rs
+assertion_line: 96
+expression: "envelope_json(&check, \"minjun\", \"lucas\", &default())"
+---
+{
+  "ok": true,
+  "result": {
+    "relationships": [],
+    "emptyReason": "disconnected"
+  }
+}

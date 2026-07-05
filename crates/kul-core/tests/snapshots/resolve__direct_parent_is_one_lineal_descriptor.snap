@@ -1,0 +1,37 @@
+---
+source: crates/kul-core/tests/resolve.rs
+assertion_line: 88
+expression: "envelope_json(&check, \"akiko\", \"hiroshi\", &default())"
+---
+{
+  "ok": true,
+  "result": {
+    "relationships": [
+      {
+        "egoId": "akiko",
+        "alterId": "hiroshi",
+        "egoGender": "female",
+        "alterGender": "male",
+        "classification": {
+          "kind": "lineal",
+          "role": "ancestor",
+          "generations": 1
+        },
+        "edgeNature": "blood",
+        "affinity": "blood",
+        "sharing": "notApplicable",
+        "side": "notApplicable",
+        "seniority": "elder",
+        "apexSeniority": "notApplicable",
+        "path": [
+          {
+            "step": "up",
+            "to": "hiroshi",
+            "gender": "male",
+            "edge": "bio"
+          }
+        ]
+      }
+    ]
+  }
+}
