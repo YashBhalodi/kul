@@ -19,7 +19,8 @@ use kul_core::ast::InputFile;
 use kul_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic};
 use kul_core::manifest::Manifest;
 use kul_core::query::{
-    MarriageLookupResult, PersonLookupResult, QueryEnvelope, marriage_lookup, person_lookup,
+    MarriageLookupResult, PersonLookupResult, Query, QueryEnvelope, QueryResult, kin_query,
+    marriage_lookup, person_lookup,
 };
 use kul_layout::{LayoutConfig, layout};
 use kul_render::{RenderShape, compute};
@@ -239,4 +240,35 @@ pub fn query_marriage_with(
 ) -> QueryEnvelope<MarriageLookupResult> {
     let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
     marriage_lookup(&result, id)
+}
+
+/// Kin-set queries on the fourth WASM shape: evaluate a declarative
+/// [`Query`] value and return the matching members (person id + descriptor,
+/// **no person payload** — consumers hydrate via [`query_person`]) in the
+/// pinned deterministic order. Same load-and-check gate as the lookups; a
+/// failing project or an unknown anchor yields the envelope's error arm with
+/// a diagnostic, never a throw.
+#[wasm_bindgen(
+    js_name = "queryKin",
+    unchecked_return_type = "QueryEnvelope<QueryResult>"
+)]
+pub fn query_kin(
+    files: Vec<WasmInputFile>,
+    manifest: Manifest,
+    query: Query,
+) -> QueryEnvelope<QueryResult> {
+    console_error_panic_hook::set_once();
+    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
+    query_kin_with(&inputs, &manifest, &query)
+}
+
+/// Native-callable variant of [`query_kin`]; lets non-wasm tests call in
+/// without round-tripping through `JsValue`.
+pub fn query_kin_with(
+    inputs: &[InputFile],
+    manifest: &Manifest,
+    query: &Query,
+) -> QueryEnvelope<QueryResult> {
+    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+    kin_query(&result, query)
 }

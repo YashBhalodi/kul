@@ -22,7 +22,10 @@ use serde::Serialize;
 
 use kul_core::CheckResult;
 use kul_core::export::{ExportedDate, ExportedMarriage, ExportedPerson};
-use kul_core::query::{QueryEnvelope, marriage_lookup, person_lookup};
+use kul_core::query::{
+    Classification, EdgeNature, LinealRole, Member, Query, QueryEnvelope, QueryResult, Seniority,
+    Side, kin_query, marriage_lookup, person_lookup,
+};
 
 use crate::OutputFormat;
 use crate::commands::diag;
@@ -179,4 +182,156 @@ fn render_marriage_human(m: &ExportedMarriage) -> String {
         line("reason:", reason);
     }
     out
+}
+
+// ---- Kin-set queries (`kul query kin <anchor> <relation>`) ----
+
+/// Options for a `kul query kin` run: the anchor + the desugared [`Query`]
+/// value (built by the arg parser, so the CLI has no query semantics of its
+/// own) + the output format.
+pub struct KinOptions {
+    pub anchor: String,
+    pub query: Query,
+    pub format: OutputFormat,
+}
+
+pub fn run_kin(opts: KinOptions) -> ExitCode {
+    let (_project, check) = match load_and_check() {
+        Ok(x) => x,
+        Err(code) => return code,
+    };
+    // One evaluation path: the same envelope the WASM `queryKin` surface
+    // returns, so `--format json` bytes are byte-identical.
+    let envelope = kin_query(&check, &opts.query);
+    match opts.format {
+        OutputFormat::Json => finish_kin_json(&envelope, &opts.anchor),
+        OutputFormat::Human => finish_kin_human(&envelope, &opts, &check),
+    }
+}
+
+fn finish_kin_json(envelope: &QueryEnvelope<QueryResult>, anchor: &str) -> ExitCode {
+    // The envelope IS the contract answer for every outcome — always stdout.
+    let json = serde_json::to_string(envelope).expect("serialize kin envelope");
+    let stdout = io::stdout();
+    let mut out = stdout.lock();
+    if let Err(err) = writeln!(out, "{json}") {
+        eprintln!("kul: failed to write query envelope: {err}");
+        return ExitCode::from(1);
+    }
+    match envelope {
+        // Error arm: failing project or unknown anchor. A diagnostic naming
+        // the anchor already rode the envelope; echo it to stderr too.
+        QueryEnvelope::Error(_) => {
+            not_found_anchor(anchor);
+            ExitCode::from(1)
+        }
+        // An empty set is a complete answer (exit 0).
+        QueryEnvelope::Ok(_) => ExitCode::SUCCESS,
+    }
+}
+
+fn finish_kin_human(
+    envelope: &QueryEnvelope<QueryResult>,
+    opts: &KinOptions,
+    check: &CheckResult,
+) -> ExitCode {
+    match envelope {
+        QueryEnvelope::Error(_) => {
+            if check.has_errors() {
+                // Load-and-check gate: render the project's diagnostics.
+                diag::render_human(check, false);
+            } else {
+                // A clean project with an error arm can only be a bad anchor.
+                not_found_anchor(&opts.anchor);
+            }
+            ExitCode::from(1)
+        }
+        QueryEnvelope::Ok(ok) => {
+            let QueryResult::Members { members } = &ok.result;
+            // Empty set → print nothing, exit 0.
+            for member in members {
+                print!("{}", render_member_human(member, check));
+            }
+            ExitCode::SUCCESS
+        }
+    }
+}
+
+/// The bad-anchor diagnostic to stderr (mirrors the lookup not-found line).
+fn not_found_anchor(anchor: &str) {
+    eprintln!("kul: no person with id `{anchor}`");
+}
+
+/// One member as a terminology-neutral block: id + display name, then the
+/// descriptor's structured facts. **Never a kinship word** — rendering
+/// "grandmother" is the future terminology layer's job, not the CLI's.
+fn render_member_human(member: &Member, check: &CheckResult) -> String {
+    let name = check
+        .resolved()
+        .person(&member.person_id)
+        .map(|p| p.display_name().to_string())
+        .unwrap_or_else(|| member.person_id.clone());
+    format!(
+        "{}  {}\n  {}\n",
+        member.person_id,
+        name,
+        descriptor_facts(&member.descriptor)
+    )
+}
+
+/// The descriptor's structured facts as a middot-separated line, e.g.
+/// `lineal ancestor · 2 generations · blood · maternal · elder`. Every token
+/// is a descriptor field value, not a kinship term.
+fn descriptor_facts(d: &kul_core::query::RelationshipDescriptor) -> String {
+    let classification = match &d.classification {
+        Classification::SelfRel => "self".to_string(),
+        Classification::Lineal { role, generations } => {
+            let role = match role {
+                LinealRole::Ancestor => "ancestor",
+                LinealRole::Descendant => "descendant",
+            };
+            let unit = if *generations == 1 {
+                "generation"
+            } else {
+                "generations"
+            };
+            format!("lineal {role} · {generations} {unit}")
+        }
+        Classification::Collateral {
+            up,
+            down,
+            cousin_degree,
+            removed,
+        } => format!(
+            "collateral up {up} down {down} · cousin degree {cousin_degree} · removed {removed}"
+        ),
+    };
+    let edge = match d.edge_nature {
+        EdgeNature::Blood => "blood",
+        EdgeNature::Adoptive => "adoptive",
+    };
+    format!(
+        "{classification} · {edge} · side {} · {}",
+        side_word(d.side),
+        seniority_word(d.seniority),
+    )
+}
+
+fn side_word(side: Side) -> &'static str {
+    match side {
+        Side::Maternal => "maternal",
+        Side::Paternal => "paternal",
+        Side::Other => "other",
+        Side::Both => "both",
+        Side::NotApplicable => "n/a",
+    }
+}
+
+fn seniority_word(seniority: Seniority) -> &'static str {
+    match seniority {
+        Seniority::Elder => "elder",
+        Seniority::Younger => "younger",
+        Seniority::Unknown => "unknown",
+        Seniority::NotApplicable => "n/a",
+    }
 }

@@ -6,6 +6,35 @@ export type MarriageLookupResult = ExportedMarriage | null;
 
 
 /**
+ * A birth-order comparison under the strict-interval rule. `elder` /
+ * `younger` only when *every* interpretation of one date strictly precedes
+ * the other; `unknown` when dates are missing or intervals overlap;
+ * `notApplicable` is reserved for `self`.
+ */
+export type Seniority = "elder" | "younger" | "unknown" | "notApplicable";
+
+/**
+ * A declarative descriptor pattern: which relationships to a person count
+ * as matches. The named sugar (`parents_of`, `ancestors_of`, …) each
+ * desugar to one of these.
+ */
+export interface KinPattern {
+    classification: PatternClassification;
+    /**
+     * Optional filter on the path\'s edge nature; omitted (`None`) matches
+     * both blood and adoptive. Affinity / sharing / side filters arrive in
+     * later slices.
+     */
+    edgeNature?: EdgeNature;
+}
+
+/**
+ * A marriage hop\'s status. Wire form: `\"ongoing\" | \"ended\"`. Not produced
+ * this slice (no `across` hops yet).
+ */
+export type MarriageStatus = "ongoing" | "ended";
+
+/**
  * Adapter-facing result of a query operation. Mirrors the existing
  * check/export/render surface: an untagged union discriminated by an `ok`
  * boolean — the ok arm carries the query `result`, the error arm carries
@@ -17,6 +46,28 @@ export type MarriageLookupResult = ExportedMarriage | null;
  * queries, relationship resolution) reuse the same envelope.
  */
 export type QueryEnvelope<T> = QueryOk<T> | QueryError;
+
+/**
+ * An inclusive integer range; an absent `max` means unbounded. Used for a
+ * lineal pattern\'s generation bounds.
+ */
+export interface IntRange {
+    min: number;
+    max?: number;
+}
+
+/**
+ * Direction of a [`Classification::Lineal`] relationship.
+ */
+export type LinealRole = "ancestor" | "descendant";
+
+/**
+ * Endpoint / linking-relative gender. Wire form: `\"male\" | \"female\" |
+ * \"other\"`. Mirrors [`ast::Gender`] but lives here so the descriptor\'s
+ * serialized surface is self-contained (the AST enum is not part of any
+ * wire contract).
+ */
+export type Gender = "male" | "female" | "other";
 
 /**
  * Error arm of a [`QueryEnvelope`]. `ok` is always `false`;
@@ -51,6 +102,14 @@ export interface RenderFailure {
  * consumer knows which shape from the `--format` they requested.
  */
 export type GraphPayload = ExportedGraph | CytoscapeGraph;
+
+/**
+ * How the alter is classified relative to the ego. Internally tagged on
+ * `kind`. This slice emits only [`Classification::Lineal`]; `self` and
+ * `collateral` derive mechanically from the same hop counts (see
+ * [`RelationshipDescriptor::derive`]) so later slices need no rework.
+ */
+export type Classification = { kind: "self" } | { kind: "lineal"; role: LinealRole; generations: number } | { kind: "collateral"; up: number; down: number; cousinDegree: number; removed: number };
 
 /**
  * JS-side return type of [`check`]. Empty `diagnostics` means clean;
@@ -94,6 +153,26 @@ export interface WasmInputFile {
 }
 
 /**
+ * One hop of the lossless path backbone. Internally tagged on `step`.
+ * Vertical hops (`up` / `down`) carry the person landed on, that person\'s
+ * gender, and the edge kind. The `across` variant (a marriage hop) is part
+ * of the pinned type but not produced this slice.
+ */
+export type PathHop = { step: "up"; to: string; gender: Gender; edge: HopEdge } | { step: "down"; to: string; gender: Gender; edge: HopEdge } | { step: "across"; to: string; gender: Gender; marriage: string; status: MarriageStatus; endReason?: string };
+
+/**
+ * One member of a `members` result on the wire: the person id plus the
+ * [`RelationshipDescriptor`] recording how it was reached. Carries **no
+ * person payload** — consumers hydrate via the `person(id)` lookup. The
+ * Rust-native evaluator returns a borrowed [`KinMember`](super::KinMember)
+ * instead; this is its serialized projection.
+ */
+export interface Member {
+    personId: string;
+    descriptor: RelationshipDescriptor;
+}
+
+/**
  * Output format for [`export`]. Lowercase wire form shared by CLI flags
  * and JS consumers.
  */
@@ -121,6 +200,14 @@ export interface ExportedDate {
 }
 
 /**
+ * Sibling-junction parent-set sharing. An apex-junction comparison, so
+ * `notApplicable` for every lineal / self path (there is no sibling
+ * junction). This slice produces only lineal paths ⇒ always
+ * `notApplicable`.
+ */
+export type Sharing = "full" | "half" | "notApplicable";
+
+/**
  * Success arm of [`RenderEnvelope`].
  */
 export interface RenderSuccess {
@@ -143,6 +230,18 @@ export interface CytoscapeGraph {
 }
 
 /**
+ * The classification a [`KinPattern`] selects for. This slice ships only
+ * the lineal arm; `collateral`, `collateralByDegree`, and `any` arrive in
+ * later slices as additional internally-tagged variants.
+ */
+export type PatternClassification = { kind: "lineal"; role: LinealRole; generations: IntRange };
+
+/**
+ * The edge tag on a vertical [`PathHop`]. Wire form: `\"bio\" | \"adoptive\"`.
+ */
+export type HopEdge = "bio" | "adoptive";
+
+/**
  * The export envelope: success (graph) or failure (diagnostics).
  * Untagged with a shared `ok` boolean for consumer discrimination.
  */
@@ -155,6 +254,43 @@ export interface ExportedGraph {
     persons: ExportedPerson[];
     marriages: ExportedMarriage[];
     parenthoodLinks: ExportedParenthoodLink[];
+}
+
+/**
+ * The result of evaluating a [`Query`]. A tagged union so later
+ * projections (`count`, the `allPersons` `personIds` shape) slot in without
+ * reshaping. This slice produces only the `members` variant.
+ */
+export type QueryResult = { kind: "members"; members: Member[] };
+
+/**
+ * The single contract artifact: a declarative, serializable query. Every
+ * surface builds this and hands it to [`evaluate`](super::evaluate).
+ */
+export interface Query {
+    source: QuerySource;
+    projection: Projection;
+}
+
+/**
+ * The terminology-neutral record of how the alter relates to the ego, plus
+ * the lossless [`PathHop`] backbone. One descriptor per distinct
+ * relationship path — descriptor identity *is* path identity, and the
+ * engine never collapses same-classification descriptors (ADR-0026).
+ */
+export interface RelationshipDescriptor {
+    egoId: string;
+    alterId: string;
+    egoGender: Gender;
+    alterGender: Gender;
+    classification: Classification;
+    edgeNature: EdgeNature;
+    affinity: Affinity;
+    sharing: Sharing;
+    side: Side;
+    seniority: Seniority;
+    apexSeniority: Seniority;
+    path: PathHop[];
 }
 
 /**
@@ -180,6 +316,40 @@ export interface Manifest {
      */
     kul: string;
 }
+
+/**
+ * What the query produces. This slice ships only `members`; `count` (and
+ * the `personIds` shape of the `allPersons` source) arrive later.
+ */
+export type Projection = "members";
+
+/**
+ * Where a query draws its candidate persons from. This slice ships only
+ * `kinOf`; `{ kind: \"allPersons\" }` arrives with the filtering slice.
+ */
+export type QuerySource = { kind: "kinOf"; anchor: string; pattern: KinPattern };
+
+/**
+ * Whether the parent-child edges on the path are all blood or include at
+ * least one adoption. `adoptive` iff *any* hop is an adoption edge; the
+ * per-hop truth stays lossless in the [`PathHop`] backbone.
+ */
+export type EdgeNature = "blood" | "adoptive";
+
+/**
+ * Whether the relationship runs through marriage hops. Strictly about
+ * `across` hops: none ⇒ `blood`. This slice produces only blood segments
+ * (no `across` hops exist yet), so `affinity` is always `blood`; `step`
+ * and `inLaw` arrive with the affinal-hop slice.
+ */
+export type Affinity = "blood" | "step" | "inLaw";
+
+/**
+ * Which side of the family the relationship routes through. Derived from
+ * the path\'s *initial ascent*, never guessed. `both` (couple-apex
+ * collateral paths) arrives with the next slice.
+ */
+export type Side = "maternal" | "paternal" | "other" | "both" | "notApplicable";
 
 export interface CytoscapeEdge {
     data: EdgeData;
@@ -360,6 +530,16 @@ export function check(files: WasmInputFile[], manifest: Manifest): CheckEnvelope
 export function exportGraph(files: WasmInputFile[], manifest: Manifest, options?: ExportOptions | null): ExportEnvelope;
 
 export function format(source: string): string;
+
+/**
+ * Kin-set queries on the fourth WASM shape: evaluate a declarative
+ * [`Query`] value and return the matching members (person id + descriptor,
+ * **no person payload** — consumers hydrate via [`query_person`]) in the
+ * pinned deterministic order. Same load-and-check gate as the lookups; a
+ * failing project or an unknown anchor yields the envelope's error arm with
+ * a diagnostic, never a throw.
+ */
+export function queryKin(files: WasmInputFile[], manifest: Manifest, query: Query): QueryEnvelope<QueryResult>;
 
 /**
  * Marriage-lookup counterpart to [`query_person`]. Same load-and-check

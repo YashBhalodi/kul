@@ -664,6 +664,122 @@ fn query_json_matches_core_envelope_bytes() {
     assert_eq!(cli_json.trim(), core_json);
 }
 
+// ---- Kin-set queries (`kul query kin`) ----
+
+#[test]
+fn query_kin_human_snapshot() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("02-three-generations"))
+        .args(["query", "kin", "chidi", "ancestors"])
+        .output()
+        .expect("run kul query kin");
+    assert!(output.status.success(), "expected exit 0");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    insta::assert_snapshot!(stdout);
+}
+
+/// Human output stays terminology-neutral — structured descriptor facts,
+/// never a kinship word.
+#[test]
+fn query_kin_human_has_no_kinship_words() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("02-three-generations"))
+        .args(["query", "kin", "chidi", "ancestors"])
+        .output()
+        .expect("run kul query kin");
+    let stdout = String::from_utf8(output.stdout).unwrap().to_lowercase();
+    for word in [
+        "grandmother",
+        "grandfather",
+        "grandparent",
+        "mother",
+        "father",
+        "parent ",
+        "ancestor of",
+    ] {
+        assert!(
+            !stdout.contains(word),
+            "human output leaked a kinship word `{word}`: {stdout}"
+        );
+    }
+}
+
+#[test]
+fn query_kin_json_snapshot() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("01-nuclear-family"))
+        .args(["query", "kin", "akiko", "parents", "--format", "json"])
+        .output()
+        .expect("run kul query kin --format json");
+    assert!(output.status.success(), "expected exit 0");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid json");
+    assert_eq!(env["ok"], true);
+    assert_eq!(env["result"]["members"][0]["personId"], "hiroshi");
+    insta::assert_snapshot!(stdout);
+}
+
+/// An empty set is a complete answer: exit 0, nothing on stdout.
+#[test]
+fn query_kin_empty_set_exits_zero() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("01-nuclear-family"))
+        .args(["query", "kin", "hiroshi", "ancestors"])
+        .output()
+        .expect("run kul query kin");
+    assert!(output.status.success(), "empty set exits 0");
+    assert!(output.stdout.is_empty(), "empty set prints nothing");
+}
+
+/// Unknown anchor → diagnostic naming the id + nonzero, never an empty set.
+#[test]
+fn query_kin_unknown_anchor_nonzero() {
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("01-nuclear-family"))
+        .args(["query", "kin", "nobody", "parents"])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("no person with id `nobody`"));
+}
+
+/// The CLI `--format json` kin bytes equal the core `kin_query` envelope the
+/// WASM surface also returns (the contract-snapshot harness).
+#[test]
+fn query_kin_json_matches_core_envelope_bytes() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("01-nuclear-family"))
+        .args(["query", "kin", "akiko", "parents", "--format", "json"])
+        .output()
+        .expect("run kul query kin --format json");
+    let cli_json = String::from_utf8(output.stdout).unwrap();
+
+    let source = std::fs::read_to_string(
+        examples_dir()
+            .join("01-nuclear-family")
+            .join("nuclear-family.kul"),
+    )
+    .unwrap();
+    let inputs = vec![kul_core::ast::InputFile::new("nuclear-family.kul", source)];
+    let check = kul_core::check_with_manifest(
+        "kul.yml",
+        "",
+        &kul_core::manifest::Manifest::default(),
+        &inputs,
+    );
+    let query =
+        kul_core::query::Query::kin_ancestors("akiko", kul_core::query::IntRange::exactly(1), None);
+    let core_json = serde_json::to_string(&kul_core::query::kin_query(&check, &query)).unwrap();
+
+    assert_eq!(cli_json.trim(), core_json);
+}
+
 #[test]
 fn query_missing_id_is_usage_error() {
     Command::cargo_bin("kul")

@@ -15,12 +15,15 @@ import {
     renderSvg,
     queryPerson,
     queryMarriage,
+    queryKin,
     type ExportedGraph,
     type CytoscapeGraph,
     type ExportedPerson,
     type ExportedMarriage,
     type Manifest,
     type WasmInputFile,
+    type Query,
+    type RelationshipDescriptor,
 } from '../../pkg/kul_wasm.js';
 
 // `format` accepts a string and returns a string unconditionally
@@ -226,6 +229,50 @@ queryPerson('person alice name:"A" gender:female\n', manifest, 'alice');
 // @ts-expect-error queryMarriage requires an id argument
 queryMarriage(singleFile, manifest);
 
+// `queryKin` is the kin-set variant of the fourth shape: it takes a
+// declarative `Query` value (not an id string) and returns a
+// `QueryEnvelope<QueryResult>`. Members carry a person id plus the full
+// terminology-neutral `RelationshipDescriptor` — no person payload; the
+// consumer hydrates via `queryPerson`. Construct the Query inline; the
+// classification is an internally-tagged discriminated union.
+const kinQuery: Query = {
+    source: {
+        kind: 'kinOf',
+        anchor: 'alice',
+        pattern: {
+            classification: { kind: 'lineal', role: 'ancestor', generations: { min: 1 } },
+        },
+    },
+    projection: 'members',
+};
+let firstKinId = '';
+let kinErrorCode = '';
+const kinEnvelope = queryKin(multiFile, manifest, kinQuery);
+if ('result' in kinEnvelope) {
+    // `QueryResult` is tagged on `kind`; this slice produces `members`.
+    if (kinEnvelope.result.kind === 'members') {
+        for (const member of kinEnvelope.result.members) {
+            const id: string = member.personId;
+            const descriptor: RelationshipDescriptor = member.descriptor;
+            // The classification is a discriminated union to `switch` on.
+            if (descriptor.classification.kind === 'lineal') {
+                const generations: number = descriptor.classification.generations;
+                void generations;
+            }
+            // `side` / `seniority` are explicit enums, never null/absent.
+            const side: string = descriptor.side;
+            void side;
+            firstKinId = id;
+        }
+    }
+} else {
+    kinErrorCode = kinEnvelope.diagnostics[0]?.code ?? '';
+}
+
+// Type system must reject an id string where a Query value is expected.
+// @ts-expect-error queryKin requires a Query value, not an id string
+queryKin(multiFile, manifest, 'alice');
+
 // Suppress "unused binding" diagnostics in --noUnusedLocals mode.
 export const _exports = {
     formatted,
@@ -247,4 +294,6 @@ export const _exports = {
     lookedUpPersonName,
     personLookupErrorCode,
     lookedUpMarriageId,
+    firstKinId,
+    kinErrorCode,
 };
