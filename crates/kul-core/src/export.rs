@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
 use crate::CheckResult;
-use crate::ast::{Document, EndReason, Gender, PersonStmt};
+use crate::ast::{Document, EndReason, Gender, MarriageStmt, PersonStmt};
 use crate::date::DateLit;
 use crate::diagnostic::{Diagnostic, Severity};
 use crate::semantic::ResolvedDocument;
@@ -318,18 +318,11 @@ impl<'a> SourceMapCache<'a> {
 fn build_graph(resolved: &ResolvedDocument, options: &ExportOptions) -> ExportedGraph {
     let persons = resolved
         .persons()
-        .map(|p| exported_person(p, options))
+        .map(|p| build_one_person(p, options))
         .collect();
     let marriages = resolved
         .marriages()
-        .map(|m| ExportedMarriage {
-            id: m.id.name.clone(),
-            spouses: [m.spouse_a.name.clone(), m.spouse_b.name.clone()],
-            start: m.start().map(exported_date),
-            end: m.end().map(exported_date),
-            end_reason: m.end_reason().map(|er| end_reason_str(&er.value)),
-            span: span_if(options, m.span),
-        })
+        .map(|m| build_one_marriage(m, options))
         .collect();
     let parenthood_links = build_parenthood_links(resolved, options);
     ExportedGraph {
@@ -373,7 +366,11 @@ fn build_parenthood_links(
     out
 }
 
-fn exported_person(p: &PersonStmt, options: &ExportOptions) -> ExportedPerson {
+/// Build one [`ExportedPerson`] from a resolved [`PersonStmt`]. The single
+/// source of a person's serialized shape: the graph export loop and the
+/// `query` module's `person(id)` lookup both call this, so the two can
+/// never drift (per the query-engine ADR).
+pub(crate) fn build_one_person(p: &PersonStmt, options: &ExportOptions) -> ExportedPerson {
     ExportedPerson {
         id: p.id.name.clone(),
         name: p
@@ -391,6 +388,21 @@ fn exported_person(p: &PersonStmt, options: &ExportOptions) -> ExportedPerson {
         born: p.born().map(exported_date),
         died: p.died().map(exported_date),
         span: span_if(options, p.span),
+    }
+}
+
+/// Build one [`ExportedMarriage`] from a resolved [`MarriageStmt`]. The
+/// single source of a marriage's serialized shape: the graph export loop
+/// and the `query` module's `marriage(id)` lookup both call this (per the
+/// query-engine ADR).
+pub(crate) fn build_one_marriage(m: &MarriageStmt, options: &ExportOptions) -> ExportedMarriage {
+    ExportedMarriage {
+        id: m.id.name.clone(),
+        spouses: [m.spouse_a.name.clone(), m.spouse_b.name.clone()],
+        start: m.start().map(exported_date),
+        end: m.end().map(exported_date),
+        end_reason: m.end_reason().map(|er| end_reason_str(&er.value)),
+        span: span_if(options, m.span),
     }
 }
 

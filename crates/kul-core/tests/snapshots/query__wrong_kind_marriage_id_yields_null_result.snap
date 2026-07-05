@@ -1,0 +1,8 @@
+---
+source: crates/kul-core/tests/query.rs
+expression: "marriage_json(&check, \"hiroshi\")"
+---
+{
+  "ok": true,
+  "result": null
+}

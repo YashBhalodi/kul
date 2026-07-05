@@ -1,0 +1,17 @@
+---
+source: crates/kul-core/tests/query.rs
+expression: "person_json(&check, \"hiroshi\")"
+---
+{
+  "ok": true,
+  "result": {
+    "id": "hiroshi",
+    "name": "Hiroshi Tanaka",
+    "gender": "male",
+    "born": {
+      "value": "1978-02-11",
+      "precision": "day",
+      "circa": false
+    }
+  }
+}

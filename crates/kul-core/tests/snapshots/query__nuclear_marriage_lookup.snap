@@ -1,0 +1,19 @@
+---
+source: crates/kul-core/tests/query.rs
+expression: "marriage_json(&check, \"m_hiroshi_yuki\")"
+---
+{
+  "ok": true,
+  "result": {
+    "id": "m_hiroshi_yuki",
+    "spouses": [
+      "hiroshi",
+      "yuki"
+    ],
+    "start": {
+      "value": "2005-09-20",
+      "precision": "day",
+      "circa": false
+    }
+  }
+}

@@ -1,0 +1,17 @@
+---
+source: crates/kul-core/tests/query.rs
+expression: "person_json(&check, \"khalid\")"
+---
+{
+  "ok": true,
+  "result": {
+    "id": "khalid",
+    "name": "Khalid Al-Rashid",
+    "gender": "male",
+    "born": {
+      "value": "1950-03-29",
+      "precision": "day",
+      "circa": false
+    }
+  }
+}

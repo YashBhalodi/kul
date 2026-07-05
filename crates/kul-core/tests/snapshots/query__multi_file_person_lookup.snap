@@ -1,0 +1,17 @@
+---
+source: crates/kul-core/tests/query.rs
+expression: "person_json(&check, \"diego\")"
+---
+{
+  "ok": true,
+  "result": {
+    "id": "diego",
+    "name": "Diego Fernández",
+    "gender": "male",
+    "born": {
+      "value": "1935",
+      "precision": "year",
+      "circa": true
+    }
+  }
+}

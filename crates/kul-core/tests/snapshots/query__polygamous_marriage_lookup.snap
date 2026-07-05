@@ -1,0 +1,19 @@
+---
+source: crates/kul-core/tests/query.rs
+expression: "marriage_json(&check, \"m_khalid_aisha\")"
+---
+{
+  "ok": true,
+  "result": {
+    "id": "m_khalid_aisha",
+    "spouses": [
+      "khalid",
+      "aisha"
+    ],
+    "start": {
+      "value": "1975-05-04",
+      "precision": "day",
+      "circa": false
+    }
+  }
+}
