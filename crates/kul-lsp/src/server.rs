@@ -32,6 +32,16 @@ use crate::features::{
 };
 use crate::state::{Documents, ProjectEntry, WatchAction};
 
+/// Build an `InvalidParams` jsonrpc error carrying `message`. Every custom
+/// request's "document not open" / bad-input rejection funnels through here.
+fn invalid_params(message: impl Into<std::borrow::Cow<'static, str>>) -> Error {
+    Error {
+        code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
+        message: message.into(),
+        data: None,
+    }
+}
+
 /// The Kul language server.
 pub struct Backend {
     client: Client,
@@ -55,16 +65,10 @@ impl Backend {
             .with_project(&uri, |entry| export_for(entry, &params))
             .await;
         match result {
-            None => Err(Error {
-                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
-                message: ExportRequestError::DocumentNotOpen.message().into(),
-                data: None,
-            }),
-            Some(Err(e)) => Err(Error {
-                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
-                message: e.message().into(),
-                data: None,
-            }),
+            None => Err(invalid_params(
+                ExportRequestError::DocumentNotOpen.message(),
+            )),
+            Some(Err(e)) => Err(invalid_params(e.message())),
             Some(Ok(envelope)) => Ok(envelope),
         }
     }
@@ -77,16 +81,8 @@ impl Backend {
             .with_project(&uri, |entry| render_for(entry, &params))
             .await;
         match result {
-            None => Err(Error {
-                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
-                message: SvgRequestError::DocumentNotOpen.message().into(),
-                data: None,
-            }),
-            Some(Err(e)) => Err(Error {
-                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
-                message: e.message().into(),
-                data: None,
-            }),
+            None => Err(invalid_params(SvgRequestError::DocumentNotOpen.message())),
+            Some(Err(e)) => Err(invalid_params(e.message())),
             Some(Ok(response)) => Ok(response),
         }
     }
@@ -101,16 +97,8 @@ impl Backend {
             .with_project(&uri, |entry| export_svg_for(entry, &params))
             .await;
         match result {
-            None => Err(Error {
-                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
-                message: SvgRequestError::DocumentNotOpen.message().into(),
-                data: None,
-            }),
-            Some(Err(e)) => Err(Error {
-                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
-                message: e.message().into(),
-                data: None,
-            }),
+            None => Err(invalid_params(SvgRequestError::DocumentNotOpen.message())),
+            Some(Err(e)) => Err(invalid_params(e.message())),
             Some(Ok(response)) => Ok(response),
         }
     }
@@ -123,11 +111,7 @@ impl Backend {
             .with_project(&uri, |entry| locate(entry, &params))
             .await;
         match result {
-            None => Err(Error {
-                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
-                message: format!("document not open: {uri}").into(),
-                data: None,
-            }),
+            None => Err(invalid_params(format!("document not open: {uri}"))),
             Some(response) => Ok(response),
         }
     }
@@ -140,11 +124,7 @@ impl Backend {
             .with_project(&uri, |entry| entity_at(entry, &params))
             .await;
         match result {
-            None => Err(Error {
-                code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
-                message: format!("document not open: {uri}").into(),
-                data: None,
-            }),
+            None => Err(invalid_params(format!("document not open: {uri}"))),
             Some(response) => Ok(response),
         }
     }
