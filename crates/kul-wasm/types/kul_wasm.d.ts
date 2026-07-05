@@ -66,6 +66,25 @@ export interface KinPattern {
 export type MarriageStatus = "ongoing" | "ended";
 
 /**
+ * A person field a predicate or sort key names. `born` / `died` are date
+ * fields (three-valued interval predicates); the rest are string fields
+ * (exact, case-sensitive). `id` is always present; every other field may be
+ * absent.
+ */
+export type PersonField = "id" | "name" | "family" | "given" | "gender" | "born" | "died";
+
+/**
+ * A single-key sort. Dates order by (lower bound, upper bound); strings, ids,
+ * and gender by codepoint; **missing values sort last regardless of
+ * direction**; ties always broken by person id ascending — fully
+ * deterministic, so snapshots stay stable (ADR-0025).
+ */
+export interface SortSpec {
+    field: PersonField;
+    direction?: SortDirection;
+}
+
+/**
  * Adapter-facing result of a query operation. Mirrors the existing
  * check/export/render surface: an untagged union discriminated by an `ok`
  * boolean — the ok arm carries the query `result`, the error arm carries
@@ -184,6 +203,20 @@ export interface WasmInputFile {
 }
 
 /**
+ * One attribute predicate on a person\'s own field. **Internally tagged on
+ * `op`** so TypeScript consumers get a discriminated union to `switch` on.
+ *
+ * Only ever tests the person\'s *own* fields — never combines fields (no age
+ * arithmetic, no \"alive in 1985\"), never reaches across entities (no
+ * \"spouse\'s family\"). Compound questions decompose in *consumer* code.
+ *
+ * Set **non**-membership (`∉`) is not a variant: it is a conjunction of
+ * `Neq` predicates (`x ∉ {A,B}` ≡ `x≠A ∧ x≠B`), which `where`\'s AND-only
+ * composition expresses directly.
+ */
+export type Predicate = { op: "eq"; field: PersonField; value: string } | { op: "neq"; field: PersonField; value: string } | { op: "lt"; field: PersonField; value: string } | { op: "lte"; field: PersonField; value: string } | { op: "gt"; field: PersonField; value: string } | { op: "gte"; field: PersonField; value: string } | { op: "in"; field: PersonField; values: string[] } | { op: "present"; field: PersonField } | { op: "absent"; field: PersonField };
+
+/**
  * One hop of the lossless path backbone. Internally tagged on `step`.
  * Vertical hops (`up` / `down`) carry the person landed on, that person\'s
  * gender, and the edge kind. The `across` variant (a marriage hop) carries
@@ -261,11 +294,28 @@ export interface CytoscapeGraph {
 }
 
 /**
+ * The certainty mode a filter runs under (PRD 0005).
+ *
+ * `certain` (the default) keeps only rows a predicate conjunction evaluates
+ * **True** for — the engine never asserts what the data doesn\'t support.
+ * `includeUncertain` also keeps **Unknown** rows — for gap-finding
+ * researchers hunting fuzzy records.
+ */
+export type FilterMode = "certain" | "includeUncertain";
+
+/**
  * The classification a [`KinPattern`] selects for, internally tagged on
  * `kind`. `any` (an unclassified match) arrives with a later slice as a
  * further additive variant.
  */
 export type PatternClassification = { kind: "lineal"; role: LinealRole; generations: IntRange } | { kind: "collateral"; up: IntRange; down: IntRange } | { kind: "collateralByDegree"; degree: IntRange; removed: IntRange } | { kind: "any"; maxUp: number; maxDown: number };
+
+/**
+ * The direction a [`SortSpec`] orders by. `asc` is the default; **missing
+ * values sort last regardless of direction**, and ties are always broken by
+ * person id ascending.
+ */
+export type SortDirection = "asc" | "desc";
 
 /**
  * The edge tag on a vertical [`PathHop`]. Wire form: `\"bio\" | \"adoptive\"`.
@@ -329,18 +379,40 @@ export interface ResolveResult {
 }
 
 /**
- * The result of evaluating a [`Query`]. A tagged union so later
- * projections (`count`, the `allPersons` `personIds` shape) slot in without
- * reshaping. This slice produces only the `members` variant.
+ * The result of evaluating a [`Query`]. A tagged union: the produced variant
+ * is fixed by (source, projection) — `kinOf` + `members` → [`QueryResult::Members`];
+ * `allPersons` + `members` → [`QueryResult::PersonIds`]; either source +
+ * `count` → [`QueryResult::Count`].
  */
-export type QueryResult = { kind: "members"; members: Member[] };
+export type QueryResult = { kind: "members"; members: Member[] } | { kind: "personIds"; personIds: string[] } | { kind: "count"; count: number };
 
 /**
  * The single contract artifact: a declarative, serializable query. Every
- * surface builds this and hands it to [`evaluate`](super::evaluate).
+ * surface builds this and hands it to [`run_query`](super::run_query) (the
+ * one evaluation path).
+ *
+ * `where` / `sort` / `mode` are all-additive attribute-filter extensions
+ * (ADR-0025). `where` is **conjunction-only** — the predicates AND together;
+ * there is no OR (that is two queries and a set union in consumer code).
+ * `mode` defaults to [`FilterMode::Certain`]; `sort` and `where` default to
+ * \"none\", so the wire shape of a plain kin query is unchanged.
  */
 export interface Query {
     source: QuerySource;
+    /**
+     * Attribute predicates on each candidate\'s own fields, AND-ed together
+     * (the field is named `where` on the wire). Empty = no filter.
+     */
+    where?: Predicate[];
+    /**
+     * Optional single-key sort. Absent = source\'s default order
+     * (`allPersons`: declaration order; `kinOf`: the pinned member order).
+     */
+    sort?: SortSpec;
+    /**
+     * Certainty mode for three-valued predicates. Defaults to `certain`.
+     */
+    mode?: FilterMode;
     projection: Projection;
 }
 
@@ -390,16 +462,15 @@ export interface Manifest {
 }
 
 /**
- * What the query produces. This slice ships only `members`; `count` (and
- * the `personIds` shape of the `allPersons` source) arrive later.
+ * What the query produces: the matching set (`members` for `kinOf`, the
+ * `personIds` shape for `allPersons`) or its `count`.
  */
-export type Projection = "members";
+export type Projection = "members" | "count";
 
 /**
- * Where a query draws its candidate persons from. This slice ships only
- * `kinOf`; `{ kind: \"allPersons\" }` arrives with the filtering slice.
+ * Where a query draws its candidate persons from.
  */
-export type QuerySource = { kind: "kinOf"; anchor: string; pattern: KinPattern };
+export type QuerySource = { kind: "allPersons" } | { kind: "kinOf"; anchor: string; pattern: KinPattern };
 
 /**
  * Whether the parent-child edges on the path are all blood or include at
@@ -661,3 +732,15 @@ export function queryPerson(files: WasmInputFile[], manifest: Manifest, id: stri
 export function queryResolve(files: WasmInputFile[], manifest: Manifest, x_id: string, y_id: string, config?: ResolveConfig | null): QueryEnvelope<ResolveResult>;
 
 export function renderSvg(files: WasmInputFile[], manifest: Manifest): RenderEnvelope;
+
+/**
+ * The general query surface on the fourth WASM shape: evaluate any
+ * declarative [`Query`] — an `allPersons` or `kinOf` source, an optional
+ * `where` filter, `sort`, certainty `mode`, and a `members`/`count`
+ * projection — and return the [`QueryResult`] (`members`, `personIds`, or
+ * `count`). The single evaluation path underlying [`query_kin`]; use this for
+ * attribute-filter and count queries. Same load-and-check gate; a failing
+ * project, unknown anchor, or malformed predicate yields the envelope's error
+ * arm with a diagnostic, never a throw.
+ */
+export function runQuery(files: WasmInputFile[], manifest: Manifest, query: Query): QueryEnvelope<QueryResult>;

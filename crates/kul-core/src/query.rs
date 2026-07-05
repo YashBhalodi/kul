@@ -42,6 +42,7 @@ use crate::semantic::ResolvedDocument;
 
 mod descriptor;
 mod engine;
+mod filter;
 mod junction;
 mod pattern;
 mod resolve;
@@ -51,7 +52,8 @@ pub use descriptor::{
     Affinity, Classification, EdgeNature, Gender, HopEdge, LinealRole, MarriageStatus, PathHop,
     RelationshipDescriptor, Seniority, Sharing, Side,
 };
-pub use engine::{KinMember, QueryEvalError, evaluate, resolve};
+pub use engine::{KinMember, QueryEvalError, evaluate, resolve, run_query};
+pub use filter::{FilterMode, PersonField, Predicate, SortDirection, SortSpec};
 pub use pattern::{
     IntRange, KinPattern, Member, PatternClassification, Projection, Query, QueryResult,
     QuerySource,
@@ -200,25 +202,29 @@ pub fn marriage_lookup(check: &CheckResult, id: &str) -> QueryEnvelope<MarriageL
 ///   diagnostic naming the id ([`QueryEvalError::to_diagnostic`]);
 /// - otherwise → the ok arm carries the `members` result in the pinned order.
 #[must_use]
-pub fn kin_query(check: &CheckResult, query: &Query) -> QueryEnvelope<QueryResult> {
+pub fn query_envelope(check: &CheckResult, query: &Query) -> QueryEnvelope<QueryResult> {
     if check.has_errors() {
         return QueryEnvelope::Error(QueryError {
             ok: false,
             diagnostics: export_diagnostics(check),
         });
     }
-    match evaluate(check.resolved(), query) {
-        Ok(members) => QueryEnvelope::Ok(QueryOk {
-            ok: true,
-            result: QueryResult::Members {
-                members: members.iter().map(KinMember::to_member).collect(),
-            },
-        }),
+    match run_query(check.resolved(), query) {
+        Ok(result) => QueryEnvelope::Ok(QueryOk { ok: true, result }),
         Err(err) => QueryEnvelope::Error(QueryError {
             ok: false,
             diagnostics: vec![err.to_diagnostic()],
         }),
     }
+}
+
+/// Evaluate a kin-set [`Query`] and wrap the answer in a [`QueryEnvelope`].
+/// A thin alias for [`query_envelope`] retained for the `queryKin` WASM
+/// surface and the CLI `kul query kin` path — every source (kin-set,
+/// attribute filter, count) shares the one [`run_query`] path underneath.
+#[must_use]
+pub fn kin_query(check: &CheckResult, query: &Query) -> QueryEnvelope<QueryResult> {
+    query_envelope(check, query)
 }
 
 /// Resolve **all** the ways two persons are related and wrap the answer in a

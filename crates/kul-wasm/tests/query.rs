@@ -15,7 +15,7 @@ use kul_core::query::{
 };
 use kul_wasm::{
     WasmInputFile, query_kin, query_kin_with, query_marriage_with, query_person, query_person_with,
-    query_resolve, query_resolve_with,
+    query_resolve, query_resolve_with, run_query, run_query_with,
 };
 
 fn workspace_root() -> PathBuf {
@@ -148,6 +148,79 @@ fn kin_query_abi_returns_members() {
     assert_eq!(members[0]["personId"], "akiko");
     assert!(members[0]["descriptor"].is_object());
     assert!(members[0].get("name").is_none(), "no person payload");
+}
+
+/// The general `runQuery` surface is wired to the same core path as the CLI
+/// `--format json` (bit-identical), for the new `allPersons` + attribute-filter
+/// shape.
+#[test]
+fn run_query_json_matches_core() {
+    use kul_core::query::{PersonField, Predicate, Query};
+
+    let inputs = nuclear_inputs();
+    let manifest = Manifest::default();
+    let query = Query::all_persons().filtered(Predicate::Present {
+        field: PersonField::Born,
+    });
+    let via_wasm = run_query_with(&inputs, &manifest, &query);
+    let check = kul_core::check_with_manifest("kul.yml", "", &manifest, &inputs);
+    let via_core = kul_core::query::query_envelope(&check, &query);
+    assert_eq!(
+        serde_json::to_string_pretty(&via_wasm).unwrap(),
+        serde_json::to_string_pretty(&via_core).unwrap(),
+    );
+}
+
+/// The `runQuery` ABI round-trips the extended Query and yields the
+/// `personIds` shape for an `allPersons` source (ids only, no payload).
+#[test]
+fn run_query_abi_returns_person_ids() {
+    use kul_core::query::Query;
+
+    let inputs = nuclear_inputs();
+    let files = vec![WasmInputFile {
+        name: "nuclear-family.kul".into(),
+        source: inputs[0].source.clone(),
+    }];
+    let envelope = run_query(files, Manifest::default(), Query::all_persons());
+    let json = serde_json::to_value(&envelope).unwrap();
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["result"]["kind"], "personIds");
+    let ids = json["result"]["personIds"].as_array().unwrap();
+    assert!(ids.iter().any(|id| id == "hiroshi"), "ids only: {json}");
+}
+
+/// A `count` projection round-trips as the count-variant envelope.
+#[test]
+fn run_query_abi_returns_count() {
+    use kul_core::query::Query;
+
+    let inputs = nuclear_inputs();
+    let files = vec![WasmInputFile {
+        name: "nuclear-family.kul".into(),
+        source: inputs[0].source.clone(),
+    }];
+    let envelope = run_query(files, Manifest::default(), Query::all_persons().counting());
+    let json = serde_json::to_value(&envelope).unwrap();
+    assert_eq!(json["result"]["kind"], "count");
+    assert!(json["result"]["count"].as_u64().unwrap() >= 2);
+}
+
+/// A malformed predicate surfaces as the envelope's error arm — a diagnostic,
+/// never a thrown exception.
+#[test]
+fn run_query_malformed_predicate_yields_error_arm() {
+    use kul_core::query::{PersonField, Predicate, Query};
+
+    let inputs = nuclear_inputs();
+    let query = Query::all_persons().filtered(Predicate::Gt {
+        field: PersonField::Born,
+        value: "not-a-date".to_string(),
+    });
+    let envelope = run_query_with(&inputs, &Manifest::default(), &query);
+    let json = serde_json::to_value(&envelope).unwrap();
+    assert_eq!(json["ok"], false);
+    assert_eq!(json["diagnostics"][0]["code"], "KUL-Q02");
 }
 
 /// A collateral Query value (the new pattern variant) round-trips through the

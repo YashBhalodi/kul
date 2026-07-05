@@ -1,0 +1,11 @@
+---
+source: crates/kul-core/tests/filter.rs
+expression: "person_ids(&cohort(), &born(DateOp::Gt, \"1949\"))"
+---
+[
+  "delta",
+  "bravo",
+  "alpha",
+  "echo",
+  "foxtrot"
+]

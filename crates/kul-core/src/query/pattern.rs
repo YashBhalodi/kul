@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
 use super::descriptor::{Affinity, EdgeNature, LinealRole, RelationshipDescriptor, Sharing, Side};
+use super::filter::{FilterMode, Predicate, SortSpec};
 
 /// An inclusive integer range; an absent `max` means unbounded. Used for a
 /// lineal pattern's generation bounds.
@@ -128,32 +129,59 @@ pub struct KinPattern {
     pub affinal_hops: Option<IntRange>,
 }
 
-/// Where a query draws its candidate persons from. This slice ships only
-/// `kinOf`; `{ kind: "allPersons" }` arrives with the filtering slice.
+/// Where a query draws its candidate persons from.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum QuerySource {
+    /// Every person in the project, in document declaration order (before any
+    /// `sort`). The attribute-filter source: projects the `personIds` shape
+    /// (ids only — hydrate via the `person(id)` lookup), never `members` (a
+    /// bare person carries no relationship descriptor).
+    AllPersons,
     /// Every person whose relationship to `anchor` matches `pattern`.
     KinOf { anchor: String, pattern: KinPattern },
 }
 
-/// What the query produces. This slice ships only `members`; `count` (and
-/// the `personIds` shape of the `allPersons` source) arrive later.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// What the query produces: the matching set (`members` for `kinOf`, the
+/// `personIds` shape for `allPersons`) or its `count`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum Projection {
+    /// The matching set itself — `members` (id + descriptor) for a `kinOf`
+    /// source, `personIds` (ids only) for an `allPersons` source.
+    #[default]
     Members,
+    /// Just the size of the final filtered set. Composes with both sources.
+    Count,
 }
 
 /// The single contract artifact: a declarative, serializable query. Every
-/// surface builds this and hands it to [`evaluate`](super::evaluate).
+/// surface builds this and hands it to [`run_query`](super::run_query) (the
+/// one evaluation path).
+///
+/// `where` / `sort` / `mode` are all-additive attribute-filter extensions
+/// (ADR-0025). `where` is **conjunction-only** — the predicates AND together;
+/// there is no OR (that is two queries and a set union in consumer code).
+/// `mode` defaults to [`FilterMode::Certain`]; `sort` and `where` default to
+/// "none", so the wire shape of a plain kin query is unchanged.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify), tsify(from_wasm_abi, into_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct Query {
     pub source: QuerySource,
+    /// Attribute predicates on each candidate's own fields, AND-ed together
+    /// (the field is named `where` on the wire). Empty = no filter.
+    #[serde(rename = "where", default, skip_serializing_if = "Vec::is_empty")]
+    pub predicates: Vec<Predicate>,
+    /// Optional single-key sort. Absent = source's default order
+    /// (`allPersons`: declaration order; `kinOf`: the pinned member order).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sort: Option<SortSpec>,
+    /// Certainty mode for three-valued predicates. Defaults to `certain`.
+    #[serde(default, skip_serializing_if = "FilterMode::is_certain")]
+    pub mode: FilterMode,
     pub projection: Projection,
 }
 
@@ -235,8 +263,9 @@ impl Query {
     /// `sharing` filter — no second evaluation path.
     #[must_use]
     pub fn with_sharing(mut self, sharing: Sharing) -> Self {
-        let QuerySource::KinOf { pattern, .. } = &mut self.source;
-        pattern.sharing = Some(sharing);
+        if let QuerySource::KinOf { pattern, .. } = &mut self.source {
+            pattern.sharing = Some(sharing);
+        }
         self
     }
 
@@ -244,8 +273,9 @@ impl Query {
     /// `side`. Side counterpart to [`Query::with_sharing`].
     #[must_use]
     pub fn with_side(mut self, side: Side) -> Self {
-        let QuerySource::KinOf { pattern, .. } = &mut self.source;
-        pattern.side = Some(side);
+        if let QuerySource::KinOf { pattern, .. } = &mut self.source {
+            pattern.side = Some(side);
+        }
         self
     }
 
@@ -254,8 +284,9 @@ impl Query {
     /// filter lets the engine cross up to the ceiling of 2 marriages.
     #[must_use]
     pub fn with_affinity(mut self, affinity: Affinity) -> Self {
-        let QuerySource::KinOf { pattern, .. } = &mut self.source;
-        pattern.affinity = Some(affinity);
+        if let QuerySource::KinOf { pattern, .. } = &mut self.source {
+            pattern.affinity = Some(affinity);
+        }
         self
     }
 
@@ -264,8 +295,9 @@ impl Query {
     /// (still capped at the fixed ceiling of 2).
     #[must_use]
     pub fn with_affinal_hops(mut self, hops: IntRange) -> Self {
-        let QuerySource::KinOf { pattern, .. } = &mut self.source;
-        pattern.affinal_hops = Some(hops);
+        if let QuerySource::KinOf { pattern, .. } = &mut self.source {
+            pattern.affinal_hops = Some(hops);
+        }
         self
     }
 
@@ -353,8 +385,57 @@ impl Query {
                     affinal_hops: None,
                 },
             },
+            predicates: Vec::new(),
+            sort: None,
+            mode: FilterMode::Certain,
             projection: Projection::Members,
         }
+    }
+
+    /// An `allPersons` query: every person in the project, projecting the
+    /// `personIds` shape. The base for pure attribute-filter queries — attach
+    /// `where` / `sort` / `mode` / a `count` projection with the builders
+    /// below (each desugars onto this one Query value; no second path).
+    #[must_use]
+    pub fn all_persons() -> Self {
+        Query {
+            source: QuerySource::AllPersons,
+            predicates: Vec::new(),
+            sort: None,
+            mode: FilterMode::Certain,
+            projection: Projection::Members,
+        }
+    }
+
+    /// Append one attribute predicate to the `where` conjunction. Predicates
+    /// AND together (there is no OR — that is two queries and a set union).
+    #[must_use]
+    pub fn filtered(mut self, predicate: Predicate) -> Self {
+        self.predicates.push(predicate);
+        self
+    }
+
+    /// Set the single-key sort, replacing the source's default order.
+    #[must_use]
+    pub fn sorted(mut self, sort: SortSpec) -> Self {
+        self.sort = Some(sort);
+        self
+    }
+
+    /// Switch the projection to `count` — the query returns the size of the
+    /// final filtered set instead of the set itself.
+    #[must_use]
+    pub fn counting(mut self) -> Self {
+        self.projection = Projection::Count;
+        self
+    }
+
+    /// Switch to `includeUncertain` mode — keep rows a predicate conjunction
+    /// evaluates `Unknown` (not just `True`) for, for gap-finding queries.
+    #[must_use]
+    pub fn including_uncertain(mut self) -> Self {
+        self.mode = FilterMode::IncludeUncertain;
+        self
     }
 }
 
@@ -371,14 +452,24 @@ pub struct Member {
     pub descriptor: RelationshipDescriptor,
 }
 
-/// The result of evaluating a [`Query`]. A tagged union so later
-/// projections (`count`, the `allPersons` `personIds` shape) slot in without
-/// reshaping. This slice produces only the `members` variant.
+/// The result of evaluating a [`Query`]. A tagged union: the produced variant
+/// is fixed by (source, projection) — `kinOf` + `members` → [`QueryResult::Members`];
+/// `allPersons` + `members` → [`QueryResult::PersonIds`]; either source +
+/// `count` → [`QueryResult::Count`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify), tsify(into_wasm_abi))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum QueryResult {
-    /// The set of matching persons, each with its descriptor, in the pinned
-    /// deterministic order (ADR-0026).
+    /// A `kinOf` set: matching persons, each with its descriptor, in the
+    /// pinned member order (ADR-0026) or the `sort` order when one is given.
+    /// Filtered members retain their descriptors.
     Members { members: Vec<Member> },
+    /// An `allPersons` set: matching person **ids only**, in declaration
+    /// order (or the `sort` order). Hydrate via the `person(id)` lookup — a
+    /// bare person carries no relationship descriptor.
+    #[serde(rename_all = "camelCase")]
+    PersonIds { person_ids: Vec<String> },
+    /// The size of the final filtered set (after certainty-mode handling).
+    /// Produced by the `count` projection over either source.
+    Count { count: usize },
 }

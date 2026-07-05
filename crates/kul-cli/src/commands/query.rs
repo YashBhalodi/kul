@@ -21,12 +21,13 @@ use std::process::ExitCode;
 use serde::Serialize;
 
 use kul_core::CheckResult;
+use kul_core::ast::PersonStmt;
 use kul_core::export::{ExportedDate, ExportedMarriage, ExportedPerson};
 use kul_core::query::{
     Affinity, Classification, EdgeNature, EmptyReason, HopEdge, LinealRole, MarriageStatus, Member,
-    PathHop, Query, QueryEnvelope, QueryResult, RelationshipDescriptor, ResolveConfig,
-    ResolveResult, Seniority, Sharing, Side, kin_query, marriage_lookup, person_lookup,
-    resolve_relationship,
+    PathHop, PersonField, Predicate, Query, QueryEnvelope, QueryResult, RelationshipDescriptor,
+    ResolveConfig, ResolveResult, Seniority, Sharing, Side, SortDirection, SortSpec, kin_query,
+    marriage_lookup, person_lookup, query_envelope, resolve_relationship,
 };
 
 use crate::OutputFormat;
@@ -206,28 +207,12 @@ pub fn run_kin(opts: KinOptions) -> ExitCode {
     // returns, so `--format json` bytes are byte-identical.
     let envelope = kin_query(&check, &opts.query);
     match opts.format {
-        OutputFormat::Json => finish_kin_json(&envelope),
+        // The json envelope is the contract answer for every outcome (empty
+        // set, bad anchor, failing project) — always stdout, carrying the
+        // diagnostic on the error arms. Shared with the persons path so the
+        // `--format json` bytes are byte-identical across surfaces.
+        OutputFormat::Json => finish_query_json(&envelope),
         OutputFormat::Human => finish_kin_human(&envelope, &opts, &check),
-    }
-}
-
-fn finish_kin_json(envelope: &QueryEnvelope<QueryResult>) -> ExitCode {
-    // The envelope IS the contract answer for every outcome (empty set, bad
-    // anchor, failing project) — always stdout, and it already carries the
-    // diagnostic for the error arms. No stderr echo, so a failing-project
-    // envelope is never mislabelled as a bad anchor.
-    // Infallible: the envelope is built from owned, well-formed data.
-    let json = serde_json::to_string(envelope).expect("serialize kin envelope");
-    let stdout = io::stdout();
-    let mut out = stdout.lock();
-    if let Err(err) = writeln!(out, "{json}") {
-        eprintln!("kul: failed to write query envelope: {err}");
-        return ExitCode::from(1);
-    }
-    match envelope {
-        QueryEnvelope::Error(_) => ExitCode::from(1),
-        // An empty set is a complete answer (exit 0).
-        QueryEnvelope::Ok(_) => ExitCode::SUCCESS,
     }
 }
 
@@ -248,10 +233,22 @@ fn finish_kin_human(
             ExitCode::from(1)
         }
         QueryEnvelope::Ok(ok) => {
-            let QueryResult::Members { members } = &ok.result;
-            // Empty set → print nothing, exit 0.
-            for member in members {
-                print!("{}", render_member_human(member, check));
+            match &ok.result {
+                // Empty set → print nothing, exit 0.
+                QueryResult::Members { members } => {
+                    for member in members {
+                        print!("{}", render_member_human(member, check));
+                    }
+                }
+                // A `--count` kin query: just the integer.
+                QueryResult::Count { count } => println!("{count}"),
+                // `kinOf` never projects `personIds` (that is the `allPersons`
+                // shape), but stay total rather than panic.
+                QueryResult::PersonIds { person_ids } => {
+                    for id in person_ids {
+                        println!("{id}");
+                    }
+                }
             }
             ExitCode::SUCCESS
         }
@@ -400,6 +397,297 @@ fn seniority_word(seniority: Seniority) -> &'static str {
         Seniority::Unknown => "unknown",
         Seniority::NotApplicable => "n/a",
     }
+}
+
+// ---- Attribute-filter queries (`kul query persons`) ----
+
+/// Options for a `kul query persons` run: the desugared [`Query`] value (an
+/// `allPersons` source plus the parsed filter flags) + the output format.
+pub struct PersonsOptions {
+    pub query: Query,
+    pub format: OutputFormat,
+}
+
+pub fn run_persons(opts: PersonsOptions) -> ExitCode {
+    let (_project, check) = match load_and_check() {
+        Ok(x) => x,
+        Err(code) => return code,
+    };
+    // One evaluation path: the same envelope the WASM `runQuery` surface
+    // returns, so `--format json` bytes are byte-identical.
+    let envelope = query_envelope(&check, &opts.query);
+    match opts.format {
+        OutputFormat::Json => finish_query_json(&envelope),
+        OutputFormat::Human => finish_persons_human(&envelope, &opts, &check),
+    }
+}
+
+/// Serialize a query envelope to stdout (the contract answer for every
+/// outcome). Error arm → exit 1; ok arm (including an empty set) → exit 0.
+/// Shared by the kin and persons json paths.
+fn finish_query_json(envelope: &QueryEnvelope<QueryResult>) -> ExitCode {
+    let json = serde_json::to_string(envelope).expect("serialize query envelope");
+    let stdout = io::stdout();
+    let mut out = stdout.lock();
+    if let Err(err) = writeln!(out, "{json}") {
+        eprintln!("kul: failed to write query envelope: {err}");
+        return ExitCode::from(1);
+    }
+    match envelope {
+        QueryEnvelope::Error(_) => ExitCode::from(1),
+        QueryEnvelope::Ok(_) => ExitCode::SUCCESS,
+    }
+}
+
+fn finish_persons_human(
+    envelope: &QueryEnvelope<QueryResult>,
+    opts: &PersonsOptions,
+    check: &CheckResult,
+) -> ExitCode {
+    match envelope {
+        QueryEnvelope::Error(err) => {
+            if check.has_errors() {
+                // Load-and-check gate: render the project's diagnostics.
+                diag::render_human(check, false);
+            } else {
+                // A clean project with an error arm can only be a malformed
+                // predicate; the synthesized diagnostic already says which.
+                for d in &err.diagnostics {
+                    eprintln!("kul: {}", d.message);
+                }
+            }
+            ExitCode::from(1)
+        }
+        QueryEnvelope::Ok(ok) => {
+            match &ok.result {
+                // A `--count` query: just the integer.
+                QueryResult::Count { count } => println!("{count}"),
+                // The `allPersons` set: one line per person (id, display name,
+                // and the sort field's value when sorting). Empty → nothing.
+                QueryResult::PersonIds { person_ids } => {
+                    let sort_field = opts.query.sort.map(|s| s.field);
+                    for id in person_ids {
+                        print!("{}", render_person_line(id, sort_field, check));
+                    }
+                }
+                // `allPersons` never projects `members` (no descriptor), but
+                // stay total rather than panic.
+                QueryResult::Members { members } => {
+                    for member in members {
+                        print!("{}", render_member_human(member, check));
+                    }
+                }
+            }
+            ExitCode::SUCCESS
+        }
+    }
+}
+
+/// One `persons` line: `id  display-name`, plus `  field:value` for the sort
+/// field when sorting (a missing sort value renders `—`). Terminology-neutral.
+fn render_person_line(id: &str, sort_field: Option<PersonField>, check: &CheckResult) -> String {
+    let person = check.resolved().person(id);
+    let name = person
+        .map(|p| p.display_name().to_string())
+        .unwrap_or_else(|| id.to_string());
+    let mut line = format!("{id}  {name}");
+    // The sort field's value (skip `id` — it already leads the line).
+    if let Some(field) = sort_field.filter(|f| *f != PersonField::Id) {
+        let value = person
+            .and_then(|p| field_value(p, field))
+            .unwrap_or_else(|| "—".to_string());
+        line.push_str(&format!("  {}:{value}", field.as_str()));
+    }
+    line.push('\n');
+    line
+}
+
+/// The person's value for a field, as a display string (`None` when absent).
+/// Dates render canonically (`~1925`, `1950-06`); gender to its token.
+fn field_value(person: &PersonStmt, field: PersonField) -> Option<String> {
+    match field {
+        PersonField::Id => Some(person.id.name.clone()),
+        PersonField::Name => person.name().map(|v| v.value.clone()),
+        PersonField::Family => person.family().map(|v| v.value.clone()),
+        PersonField::Given => person.given().map(|v| v.value.clone()),
+        PersonField::Gender => person.gender().map(|g| {
+            use kul_core::ast::Gender;
+            match g.value {
+                Gender::Male => "male",
+                Gender::Female => "female",
+                Gender::Other => "other",
+            }
+            .to_string()
+        }),
+        PersonField::Born => person.born().map(|d| d.format_canonical()),
+        PersonField::Died => person.died().map(|d| d.format_canonical()),
+    }
+}
+
+/// Parse one `--where` expression into predicates (a single comparison, or —
+/// for a `!=` set membership — a conjunction of `Neq` predicates). The CLI
+/// owns the *grammar*; the core owns the *semantics* (date parsing, three-
+/// valued evaluation), so an invalid date literal or an ordering op on a
+/// non-date field surfaces later as a core diagnostic, not here.
+///
+/// # Errors
+///
+/// A message when the expression names an unknown field, uses an unknown
+/// operator, has an empty value, or mixes `|` with an ordering operator.
+pub fn parse_where(expr: &str) -> Result<Vec<Predicate>, String> {
+    let expr = expr.trim();
+    if let Some(field) = paren_form(expr, "present") {
+        return Ok(vec![Predicate::Present {
+            field: parse_field(field)?,
+        }]);
+    }
+    if let Some(field) = paren_form(expr, "absent") {
+        return Ok(vec![Predicate::Absent {
+            field: parse_field(field)?,
+        }]);
+    }
+
+    // The field is a run of ASCII letters; the first non-letter starts the op.
+    let boundary = expr
+        .find(|c: char| !c.is_ascii_alphabetic())
+        .ok_or_else(|| {
+            format!(
+                "cannot parse filter `{expr}`: expected an operator \
+             (=, !=, <, <=, >, >=) or present(FIELD) / absent(FIELD)"
+            )
+        })?;
+    let (field_str, rest) = expr.split_at(boundary);
+    let field = parse_field(field_str)?;
+
+    // Two-character operators before their one-character prefixes.
+    let (kind, value) = if let Some(v) = rest.strip_prefix("!=") {
+        (OpKind::Neq, v)
+    } else if let Some(v) = rest.strip_prefix("<=") {
+        (OpKind::Lte, v)
+    } else if let Some(v) = rest.strip_prefix(">=") {
+        (OpKind::Gte, v)
+    } else if let Some(v) = rest.strip_prefix('<') {
+        (OpKind::Lt, v)
+    } else if let Some(v) = rest.strip_prefix('>') {
+        (OpKind::Gt, v)
+    } else if let Some(v) = rest.strip_prefix('=') {
+        (OpKind::Eq, v)
+    } else {
+        return Err(format!(
+            "cannot parse filter `{expr}`: unknown operator (use =, !=, <, <=, >, >=)"
+        ));
+    };
+    if value.is_empty() {
+        return Err(format!("filter `{expr}` has an empty value"));
+    }
+
+    let has_pipe = value.contains('|');
+    match kind {
+        OpKind::Eq if has_pipe => Ok(vec![Predicate::In {
+            field,
+            values: split_members(value, expr)?,
+        }]),
+        OpKind::Neq if has_pipe => Ok(split_members(value, expr)?
+            .into_iter()
+            .map(|value| Predicate::Neq { field, value })
+            .collect()),
+        _ if has_pipe => Err(format!(
+            "filter `{expr}`: `|` set membership is only valid with `=` (∈) or `!=` (∉)"
+        )),
+        OpKind::Eq => Ok(vec![Predicate::Eq {
+            field,
+            value: value.to_string(),
+        }]),
+        OpKind::Neq => Ok(vec![Predicate::Neq {
+            field,
+            value: value.to_string(),
+        }]),
+        OpKind::Lt => Ok(vec![Predicate::Lt {
+            field,
+            value: value.to_string(),
+        }]),
+        OpKind::Lte => Ok(vec![Predicate::Lte {
+            field,
+            value: value.to_string(),
+        }]),
+        OpKind::Gt => Ok(vec![Predicate::Gt {
+            field,
+            value: value.to_string(),
+        }]),
+        OpKind::Gte => Ok(vec![Predicate::Gte {
+            field,
+            value: value.to_string(),
+        }]),
+    }
+}
+
+/// The comparison operators the `--where` grammar recognizes.
+enum OpKind {
+    Eq,
+    Neq,
+    Lt,
+    Lte,
+    Gt,
+    Gte,
+}
+
+/// Split a pipe-separated set into non-empty members, erroring on an empty
+/// segment (`family=A|`).
+fn split_members(value: &str, expr: &str) -> Result<Vec<String>, String> {
+    let members: Vec<String> = value.split('|').map(str::to_string).collect();
+    if members.iter().any(|m| m.is_empty()) {
+        return Err(format!("filter `{expr}` has an empty value in its `|` set"));
+    }
+    Ok(members)
+}
+
+/// Match a `name(inner)` presence form, returning the trimmed inner text.
+fn paren_form<'a>(expr: &'a str, name: &str) -> Option<&'a str> {
+    expr.strip_prefix(name)
+        .and_then(|r| r.strip_prefix('('))
+        .and_then(|r| r.strip_suffix(')'))
+        .map(str::trim)
+}
+
+/// Parse a `--sort` spec: `FIELD[:asc|:desc]` (asc default).
+///
+/// # Errors
+///
+/// A message when the field is unknown or the direction is not `asc`/`desc`.
+pub fn parse_sort(spec: &str) -> Result<SortSpec, String> {
+    let (field_str, direction) = match spec.split_once(':') {
+        Some((field, "asc")) => (field, SortDirection::Asc),
+        Some((field, "desc")) => (field, SortDirection::Desc),
+        Some((_, other)) => {
+            return Err(format!(
+                "cannot parse sort `{spec}`: direction must be `asc` or `desc`, got `{other}`"
+            ));
+        }
+        None => (spec, SortDirection::Asc),
+    };
+    Ok(SortSpec {
+        field: parse_field(field_str)?,
+        direction,
+    })
+}
+
+/// Parse a person field name from the `--where` / `--sort` grammar.
+fn parse_field(name: &str) -> Result<PersonField, String> {
+    Ok(match name {
+        "id" => PersonField::Id,
+        "name" => PersonField::Name,
+        "family" => PersonField::Family,
+        "given" => PersonField::Given,
+        "gender" => PersonField::Gender,
+        "born" => PersonField::Born,
+        "died" => PersonField::Died,
+        other => {
+            return Err(format!(
+                "unknown field `{other}` \
+                 (expected id, name, family, given, gender, born, or died)"
+            ));
+        }
+    })
 }
 
 // ---- Relationship resolution (`kul query rel <x> <y>`) ----

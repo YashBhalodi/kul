@@ -1,0 +1,99 @@
+---
+source: crates/kul-core/tests/filter.rs
+expression: "serde_json::to_string_pretty(&run_query(check.resolved(),\n&query).expect(\"evaluates\")).expect(\"serialize\")"
+---
+{
+  "kind": "members",
+  "members": [
+    {
+      "personId": "mum",
+      "descriptor": {
+        "egoId": "gramps",
+        "alterId": "mum",
+        "egoGender": "male",
+        "alterGender": "female",
+        "classification": {
+          "kind": "lineal",
+          "role": "descendant",
+          "generations": 1
+        },
+        "edgeNature": "blood",
+        "affinity": "blood",
+        "sharing": "notApplicable",
+        "side": "notApplicable",
+        "seniority": "younger",
+        "apexSeniority": "notApplicable",
+        "path": [
+          {
+            "step": "down",
+            "to": "mum",
+            "gender": "female",
+            "edge": "bio"
+          }
+        ]
+      }
+    },
+    {
+      "personId": "uncle",
+      "descriptor": {
+        "egoId": "gramps",
+        "alterId": "uncle",
+        "egoGender": "male",
+        "alterGender": "male",
+        "classification": {
+          "kind": "lineal",
+          "role": "descendant",
+          "generations": 1
+        },
+        "edgeNature": "blood",
+        "affinity": "blood",
+        "sharing": "notApplicable",
+        "side": "notApplicable",
+        "seniority": "younger",
+        "apexSeniority": "notApplicable",
+        "path": [
+          {
+            "step": "down",
+            "to": "uncle",
+            "gender": "male",
+            "edge": "bio"
+          }
+        ]
+      }
+    },
+    {
+      "personId": "kid_a",
+      "descriptor": {
+        "egoId": "gramps",
+        "alterId": "kid_a",
+        "egoGender": "male",
+        "alterGender": "female",
+        "classification": {
+          "kind": "lineal",
+          "role": "descendant",
+          "generations": 2
+        },
+        "edgeNature": "blood",
+        "affinity": "blood",
+        "sharing": "notApplicable",
+        "side": "notApplicable",
+        "seniority": "younger",
+        "apexSeniority": "notApplicable",
+        "path": [
+          {
+            "step": "down",
+            "to": "mum",
+            "gender": "female",
+            "edge": "bio"
+          },
+          {
+            "step": "down",
+            "to": "kid_a",
+            "gender": "female",
+            "edge": "bio"
+          }
+        ]
+      }
+    }
+  ]
+}

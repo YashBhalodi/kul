@@ -212,6 +212,28 @@ seniority). Marriage hops render with the marriage id, status, and end
 reason. Human output never prints a kinship word — rendering terms is a
 future layer's job. An empty set is a complete answer and exits 0.
 
+Attribute filtering, sort, and count:
+
+  kul query persons [FILTERS]    filter/sort/count persons by their own fields
+
+The same FILTERS also compose onto `kul query kin`:
+
+  --where EXPR   repeatable predicate (repeats AND together — no OR). Grammar:
+                 field=value, field!=value, field<value, field<=value,
+                 field>value, field>=value; pipe sets (family=Sharma|Patel ∈,
+                 family!=Sharma|Patel ∉); present(FIELD) / absent(FIELD).
+                 Fields: id, name, family, given, gender, born, died. Ordering
+                 (< …) is date-only; string matching is exact and case-sensitive
+                 (no substring, no regex). Date predicates are three-valued
+                 against the recorded interval (partial = the whole period,
+                 circa = ±5 years).
+  --sort FIELD[:asc|:desc]   asc default; missing values sort last; id tiebreak.
+  --count        print just the size of the final set (integer / count envelope).
+  --include-uncertain   keep rows a predicate can't decide (fuzzy/partial dates,
+                 missing fields) — for gap-finding. Default keeps certain matches.
+
+  kul query persons --where born>1950 --where absent(died) --sort born
+
 FORMATS (`--format`):
 
   human  (default) the entity's recorded fields in a readable,
@@ -305,6 +327,37 @@ enum Command {
     Lsp,
 }
 
+/// The shared attribute-filter flags (`--where` / `--sort` / `--count` /
+/// `--include-uncertain`) that ride on `kul query persons` and `kul query
+/// kin`. This is arg parsing over the one Query value, not a query DSL: each
+/// flag maps 1:1 onto a field of the contract.
+#[derive(clap::Args, Debug, Default)]
+struct FilterArgs {
+    /// Filter predicate, repeatable (repeats AND together — there is no OR).
+    /// Grammar: `field=value`, `field!=value`, `field<value`, `field<=value`,
+    /// `field>value`, `field>=value`; pipe-separated set membership
+    /// (`family=Sharma|Patel` ∈, `family!=Sharma|Patel` ∉); and presence
+    /// `present(died)` / `absent(died)`. Ordering (`<` …) is date-only.
+    #[arg(long = "where", value_name = "EXPR")]
+    where_clauses: Vec<String>,
+
+    /// Sort key: `FIELD[:asc|:desc]` (asc default). Dates order by interval
+    /// bounds, strings by codepoint; missing values sort last; ties break by
+    /// id.
+    #[arg(long, value_name = "FIELD[:asc|:desc]")]
+    sort: Option<String>,
+
+    /// Print just the size of the final filtered set (a single integer in
+    /// human format; the count-variant envelope under `--format json`).
+    #[arg(long)]
+    count: bool,
+
+    /// Keep rows a predicate evaluates *unknown* for (fuzzy/partial dates,
+    /// missing fields) — for gap-finding. Default keeps only certain matches.
+    #[arg(long)]
+    include_uncertain: bool,
+}
+
 /// One id → detail lookup. Each verb takes the id to look up plus the
 /// shared `--format human|json` flag.
 #[derive(Subcommand, Debug)]
@@ -356,8 +409,27 @@ enum QueryVerb {
         #[arg(long, default_value_t = 0)]
         removed: u32,
 
+        /// Attribute filter / sort / count flags, composed onto the traversal.
+        #[command(flatten)]
+        filter: FilterArgs,
+
         /// Output format: `human` (default, terminology-neutral facts) or
         /// `json` (the query envelope, byte-identical to the WASM surface).
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+    },
+
+    /// Filter, sort, and count persons by their own fields (born after a year,
+    /// no recorded death, family = …). No anchor, no traversal — the pure
+    /// attribute-filter query. Returns person ids (hydrate with `query
+    /// person <id>`), or a count with `--count`.
+    Persons {
+        /// Attribute filter / sort / count flags.
+        #[command(flatten)]
+        filter: FilterArgs,
+
+        /// Output format: `human` (default, one line per person) or `json`
+        /// (the query envelope, byte-identical to the WASM surface).
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
@@ -455,8 +527,10 @@ fn run_query(verb: QueryVerb) -> ExitCode {
             depth,
             degree,
             removed,
+            filter,
             format,
-        } => return run_query_kin(anchor, relation, depth, degree, removed, format),
+        } => return run_query_kin(anchor, relation, depth, degree, removed, filter, format),
+        QueryVerb::Persons { filter, format } => return run_query_persons(filter, format),
         QueryVerb::Rel {
             x,
             y,
@@ -481,12 +555,14 @@ fn run_query(verb: QueryVerb) -> ExitCode {
 /// sugar; there are no CLI-only query semantics.
 ///
 /// [`Query`]: kul_core::query::Query
+#[allow(clippy::too_many_arguments)] // one CLI invocation's parsed args; splitting hurts clarity.
 fn run_query_kin(
     anchor: String,
     relation: KinRelation,
     depth: Option<u32>,
     degree: Option<u32>,
     removed: u32,
+    filter: FilterArgs,
     format: OutputFormat,
 ) -> ExitCode {
     use kul_core::query::{IntRange, Query};
@@ -525,11 +601,67 @@ fn run_query_kin(
         KinRelation::StepSiblings => Query::kin_step_siblings(&anchor),
         KinRelation::StepChildren => Query::kin_step_children(&anchor),
     };
+    let query = match apply_filters(query, &filter) {
+        Ok(query) => query,
+        Err(code) => return code,
+    };
     commands::query::run_kin(commands::query::KinOptions {
         anchor,
         query,
         format,
     })
+}
+
+/// Run a pure attribute-filter `kul query persons` invocation: the
+/// `allPersons` source plus the shared filter flags, desugared to the one
+/// Query value.
+fn run_query_persons(filter: FilterArgs, format: OutputFormat) -> ExitCode {
+    let query = match apply_filters(kul_core::query::Query::all_persons(), &filter) {
+        Ok(query) => query,
+        Err(code) => return code,
+    };
+    commands::query::run_persons(commands::query::PersonsOptions { query, format })
+}
+
+/// Attach the shared filter flags to a base [`Query`], parsing the `--where`
+/// grammar and `--sort` spec (the CLI owns the *grammar*, the core owns the
+/// *semantics*). A parse error prints a diagnostic to stderr and yields a
+/// nonzero exit code.
+///
+/// [`Query`]: kul_core::query::Query
+fn apply_filters(
+    mut query: kul_core::query::Query,
+    filter: &FilterArgs,
+) -> Result<kul_core::query::Query, ExitCode> {
+    for expr in &filter.where_clauses {
+        match commands::query::parse_where(expr) {
+            Ok(predicates) => {
+                for predicate in predicates {
+                    query = query.filtered(predicate);
+                }
+            }
+            Err(message) => {
+                eprintln!("kul: {message}");
+                return Err(ExitCode::from(2));
+            }
+        }
+    }
+    if let Some(spec) = &filter.sort {
+        match commands::query::parse_sort(spec) {
+            Ok(sort) => query = query.sorted(sort),
+            Err(message) => {
+                eprintln!("kul: {message}");
+                return Err(ExitCode::from(2));
+            }
+        }
+    }
+    if filter.include_uncertain {
+        query = query.including_uncertain();
+    }
+    if filter.count {
+        query = query.counting();
+    }
+    Ok(query)
 }
 
 fn run_lsp() -> ExitCode {

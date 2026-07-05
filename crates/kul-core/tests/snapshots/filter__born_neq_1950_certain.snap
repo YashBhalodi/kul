@@ -1,0 +1,8 @@
+---
+source: crates/kul-core/tests/filter.rs
+expression: "person_ids(&cohort(), &born(DateOp::Neq, \"1950\"))"
+---
+[
+  "echo",
+  "foxtrot"
+]

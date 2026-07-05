@@ -1,0 +1,5 @@
+---
+source: crates/kul-core/tests/filter.rs
+expression: "person_ids(&cohort(), &born(DateOp::Lte, \"1950\"))"
+---
+[]

@@ -1,0 +1,13 @@
+---
+source: crates/kul-core/tests/filter.rs
+expression: "sorted_ids(&cohort(), PersonField::Born, SortDirection::Asc)"
+---
+[
+  "charlie",
+  "bravo",
+  "alpha",
+  "delta",
+  "echo",
+  "foxtrot",
+  "golf"
+]

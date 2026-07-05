@@ -1,0 +1,11 @@
+---
+source: crates/kul-core/tests/filter.rs
+expression: "person_ids(&cohort(), &born(DateOp::Eq, \"1950\").including_uncertain())"
+---
+[
+  "delta",
+  "bravo",
+  "alpha",
+  "charlie",
+  "golf"
+]
