@@ -18,6 +18,8 @@ import {
     check,
     exportGraph,
     format,
+    queryPerson,
+    queryMarriage,
 } from '../../pkg/kul_wasm.js';
 
 const fixture = new URL('../../../../examples/02-three-generations/three-generations.kul', import.meta.url);
@@ -131,8 +133,38 @@ if (typeof persons[0].name !== 'string' || persons[0].name.length === 0) {
     process.exit(1);
 }
 
+// `queryPerson` / `queryMarriage` — the fourth surface shape. Drive the
+// real WASM glue for the id → detail lookups: a known id lands in the ok
+// arm with the entity payload, an unknown id lands in the ok arm with a
+// `null` result, and a failing project lands in the error arm.
+const firstPersonId = persons[0].id;
+const personLookup = queryPerson(singleFile, manifest, firstPersonId);
+if (personLookup?.ok !== true || personLookup.result?.id !== firstPersonId) {
+    console.error(`queryPerson on known id did not return the person: ${JSON.stringify(personLookup)}`);
+    process.exit(1);
+}
+const missingLookup = queryPerson(singleFile, manifest, 'no_such_id');
+if (missingLookup?.ok !== true || missingLookup.result !== null) {
+    console.error(`queryPerson on unknown id should be ok with null result: ${JSON.stringify(missingLookup)}`);
+    process.exit(1);
+}
+const firstMarriageId = exportEnvelope.graph?.marriages?.[0]?.id;
+if (typeof firstMarriageId === 'string') {
+    const marriageLookup = queryMarriage(singleFile, manifest, firstMarriageId);
+    if (marriageLookup?.ok !== true || marriageLookup.result?.id !== firstMarriageId) {
+        console.error(`queryMarriage on known id did not return the marriage: ${JSON.stringify(marriageLookup)}`);
+        process.exit(1);
+    }
+}
+const brokenLookup = queryPerson([{ name: 'input.kul', source: 'person alice gender:female\n' }], manifest, 'alice');
+if (brokenLookup?.ok !== false || !Array.isArray(brokenLookup.diagnostics) || brokenLookup.diagnostics.length < 1) {
+    console.error(`queryPerson on failing project should be the error arm: ${JSON.stringify(brokenLookup)}`);
+    process.exit(1);
+}
+
 console.log(`smoke OK — kul-core ${coreVersion}, language ${langVersion}, schema ${schemaVersion}`);
 console.log(`format produced ${formatted.length} bytes for 02-three-generations/three-generations.kul`);
 console.log(`check clean → 0 diagnostics; check broken → ${brokenResult.diagnostics.length} diagnostic(s), first ${diag.code}`);
 console.log(`exportGraph clean → ${persons.length} person(s), first "${persons[0].name}"`);
 console.log(`multi-file check → 0 diagnostics across ${multiFiles.length} files; exportGraph → ${multiPersons.length} person(s)`);
+console.log(`queryPerson "${firstPersonId}" → found; queryPerson "no_such_id" → null; failing project → error arm`);

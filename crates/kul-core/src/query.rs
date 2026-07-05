@@ -79,7 +79,17 @@ pub type MarriageLookupResult = Option<ExportedMarriage>;
 /// ADR-0009). Generic over the payload `T` so later slices (kin-set
 /// queries, relationship resolution) reuse the same envelope.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify), tsify(into_wasm_abi))]
+// `missing_as_null` makes a `None` lookup `result` serialize as an explicit
+// JSON `null` across the WASM boundary, matching the CLI's serde_json output
+// and the committed TS type (`result` is a required `T | null`, never
+// absent). Fields that opt out via `skip_serializing_if` (the export shape's
+// optionals) stay absent as before — the flag only affects `None` values
+// that reach the serializer.
+#[cfg_attr(
+    feature = "tsify",
+    derive(Tsify),
+    tsify(into_wasm_abi, missing_as_null)
+)]
 #[serde(untagged)]
 pub enum QueryEnvelope<T> {
     /// The project passed its checks; `result` carries the query answer.
