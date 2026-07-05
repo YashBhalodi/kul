@@ -257,7 +257,7 @@ fn large_document_render_under_budget() {
     let shape_edges = success.edges.len();
 
     let t = std::time::Instant::now();
-    let positioned = layout(&shape, &LayoutConfig::default());
+    let positioned = layout(success, &LayoutConfig::default());
     let layout_time = t.elapsed();
     let cards = positioned.cards.len();
     let edges = positioned.edges.len();

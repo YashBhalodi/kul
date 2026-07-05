@@ -48,7 +48,10 @@ fn check_example(dir: &Path) -> CheckResult {
 fn render_example(dir: &str) -> String {
     let check = check_example(&examples_dir().join(dir));
     let shape = compute(&check);
-    let positioned = layout(&shape, &LayoutConfig::default());
+    let success = shape
+        .as_success()
+        .expect("example must produce a success render shape");
+    let positioned = layout(success, &LayoutConfig::default());
     pretty(&render(&positioned, &ThemeConfig::default()))
 }
 

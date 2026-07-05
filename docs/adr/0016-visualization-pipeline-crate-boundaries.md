@@ -39,7 +39,7 @@ Both surfaces are public so tests are independent: `compute` runs against the `e
 Owns the positioning algorithm (a Reingold–Tilford–Walker port) and the canonical-pattern adapter that wraps it ([ADR-0018](./0018-canonical-layout-algorithm.md)). One public function:
 
 ```rust
-pub fn layout(shape: &RenderShape, config: &LayoutConfig) -> PositionedShape;
+pub fn layout(success: &SuccessRender, config: &LayoutConfig) -> PositionedShape;
 ```
 
 `PositionedShape` is an **internal Rust seam**, not a wire shape: not `Serialize`, not schema-versioned, not part of any cross-process contract. The crate exposes the type publicly so `kul-svg` and future Rust consumers can read it, but the versioned wire contracts are pinned at `RenderShape` (input) and the SVG string (output). A third versioned shape between them has no external consumer; pinning one would cost a migration policy for no benefit.
@@ -119,6 +119,10 @@ Two consequences worth naming:
 - **Path references in the prior amendments move.** The stylesheets named `editor/vscode/media/preview*.css` (2026-05-26 token-layer) now live at `packages/preview/src/preview*.css`; the structural-subset reference in the 2026-05-30 self-contained amendment points at the same package path. Token names, the vscode-default-theme block, and the chrome-vs-structural carving are unchanged.
 
 The chrome package itself remains private (`"private": true`); its version moves in lockstep with the Cargo workspace. The publish step is deferred until a second consumer (webapp / landing page) appears.
+
+## Amendment (2026-07-05) — layout is total over the success render shape
+
+`layout` now accepts `&SuccessRender` — the success projection of the pinned `RenderShape` input — rather than the whole enum. It is therefore a **total function**: the "failure render shapes are not positionable" invariant is enforced by the type system, not by a runtime `expect()` panic on the failure arm. `SuccessRender` remains part of the pinned `RenderShape` wire contract ([ADR-0017](./0017-render-shape-schema-and-versioning.md)); the input boundary is unchanged, only narrowed to its positionable arm. Callers still receive a `RenderShape` from `compute` and match its arms — only the success arm reaches `layout`, and the projection to `SuccessRender` happens at the call site (`RenderShape::Success(s) => layout(&s, …)`) instead of inside a partial `layout` guarded by a runtime convention.
 
 ## Anti-suggestions (do not re-propose)
 

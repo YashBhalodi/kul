@@ -11,8 +11,10 @@
 //!
 //! [`PositionedShape`] is an internal seam, not a wire shape: not
 //! `Serialize`, not schema-versioned (ADR-0016). Failure render shapes
-//! are not positionable; callers must pattern-match on `as_success()`
-//! first.
+//! are not positionable; [`layout`] takes `&SuccessRender`, so the type
+//! enforces this — callers still match `RenderShape` to extract the
+//! success arm, but the invariant is a compile-time guarantee, not a
+//! convention to remember.
 
 pub mod adapter;
 pub mod walker;
@@ -23,16 +25,9 @@ mod shape;
 pub use metrics::LayoutConfig;
 pub use shape::{EdgeKind, PositionedCard, PositionedEdge, PositionedShape, SlotKind};
 
-use kul_render::RenderShape;
+use kul_render::SuccessRender;
 
-/// Run the positioning pipeline against a success [`RenderShape`].
-///
-/// # Panics
-///
-/// Panics if `shape` is the failure arm.
-pub fn layout(shape: &RenderShape, config: &LayoutConfig) -> PositionedShape {
-    let success = shape
-        .as_success()
-        .expect("kul_layout::layout requires a success RenderShape");
+/// Run the positioning pipeline against a success render shape.
+pub fn layout(success: &SuccessRender, config: &LayoutConfig) -> PositionedShape {
     adapter::lay_out(success, config)
 }
