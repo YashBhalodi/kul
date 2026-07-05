@@ -60,9 +60,11 @@ kul-core   ── library (no_std-friendly intent, but uses std for now)
               CheckResult API plus the AST types, ResolvedDocument
               query methods, the formatter, the export module
               (kinship-native + cytoscape projections), and the query
-              module (the kinship-query seam: id → detail lookups today,
-              kin-set queries and relationship resolution later — layered
-              over ResolvedDocument, never over the export; ADR-0024).
+              module (the kinship-query seam: id → detail lookups and
+              lineal kin-set queries today, collateral kin and
+              relationship resolution later — one evaluation path over a
+              declarative Query value, layered over ResolvedDocument,
+              never over the export; ADR-0024/0025/0026).
 
 kul-loader ── library
               Shared filesystem entry point: given a project-root path,
@@ -81,8 +83,10 @@ kul-cli    ── thin binary `kul`
               Five CWD-rooted subcommands: `validate` (renders
               diagnostics with miette), `format` (canonicalize per
               ADR-0004), `export` (project to JSON via
-              kul_core::export), `query` (id → detail lookups via
-              kul_core::query; `query person|marriage <id>`), and `lsp`
+              kul_core::export), `query` (id → detail lookups and lineal
+              kin-set queries via kul_core::query; `query person|marriage
+              <id>`, `query kin <id> parents|children|ancestors|descendants`),
+              and `lsp`
               (delegates to kul_lsp::run). `validate`, `format`,
               `export`, and `query` take no positional project argument —
               each loads the project from CWD via `kul-loader`. Owns
@@ -129,9 +133,10 @@ kul-svg    ── library
 kul-wasm   ── library (cdylib + rlib), published as `@kullang/wasm`
               wasm-bindgen adapter over kul-core. Operation-specific
               exposed functions — `check`, `exportGraph`, `format`,
-              `renderSvg`, and the query lookups `queryPerson` /
-              `queryMarriage` — each a thin wrapper around the matching
-              kul-core deep module, plus version-metadata getters.
+              `renderSvg`, the query lookups `queryPerson` /
+              `queryMarriage`, and the kin-set query `queryKin` — each a
+              thin wrapper around the matching kul-core deep module, plus
+              version-metadata getters.
               Surface shape is settled in ADR-0011 (fourth shape, the
               query envelope, added by ADR-0024); TypeScript types are
               derived via Tsify, committed, and diffed in CI per
@@ -201,12 +206,12 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 | `Diagnostic` + `Severity` + code + `detail` | `crates/kul-core/src/diagnostic.rs`    | The error currency. Carries spans, codes (KUL-Rxx), related info, and (per ADR-0006) an optional sub-case tag. |
 | `field_meta::FieldMeta`               | `crates/kul-core/src/field_meta.rs`          | Per-field taxonomy: value shape, completion description, hover Markdown. Hover, completion, and semantic-tokens consume it (ADR-0005). |
 | `export::export`                      | `crates/kul-core/src/export.rs`              | Canonical JSON projection of a `CheckResult` into an `ExportEnvelope`. Strict on errors; format-dispatched (kinship-native or cytoscape). The deep module the CLI's `kul export` and the LSP's `kul/export` both call. Schema documented in [`spec/16-export-schema.md`](../spec/16-export-schema.md); shape, posture, and versioning settled in ADRs 0008–0010. Its `build_one_person` / `build_one_marriage` builders single-source the person/marriage serialized shapes shared with the `query` lookups. |
-| `query::{person, marriage}` + `QueryEnvelope` | `crates/kul-core/src/query.rs`       | The kinship-query seam: id → detail lookups (`person(id)` / `marriage(id)`) returning the same export shapes, `None` when absent (absence is the answer). `QueryEnvelope<T>` (gated on passing checks, strict per ADR-0009) single-sources the contract serialization the CLI `kul query` and the WASM `queryPerson` / `queryMarriage` both emit. Layered over `ResolvedDocument`, never over the export; kin-set queries and relationship resolution land here later (ADR-0024, PRD 0005). |
+| `query::{person, marriage, evaluate, kin_query}` + `QueryEnvelope` | `crates/kul-core/src/query.rs` (+ `query/`) | The kinship-query seam. Id → detail lookups (`person(id)` / `marriage(id)`) return the same export shapes, `None` when absent (absence is the answer). `evaluate(resolved, &Query)` is the single evaluation path for kin-set queries over the declarative `Query` value; named sugar (`parents_of`, `ancestors_of(depth)`, …) desugars to it, and `kin_query` wraps it in the envelope (ADR-0025). Results carry the terminology-neutral `RelationshipDescriptor` (ADR-0026). `QueryEnvelope<T>` (gated on passing checks, strict per ADR-0009) single-sources the contract serialization the CLI `kul query` and the WASM query surface both emit. Layered over `ResolvedDocument`, never over the export; collateral kin, relationship resolution, and attribute filtering land here later (ADR-0024, PRD 0005). |
 | `kul_layout::layout`                  | `crates/kul-layout/src/lib.rs`               | `(RenderShape, LayoutConfig) -> PositionedShape`. Positioning pass for the canonical UI pattern. Wraps Walker's algorithm with the marriage-edge / ghost-slot / generation-row adapter. `PositionedShape` is an internal Rust seam — not Serialize, not schema-versioned (ADR-0016). |
 | `kul_svg::render`                     | `crates/kul-svg/src/lib.rs`                  | `(PositionedShape, ThemeConfig) -> String`. Theme-agnostic SVG emitter. Uses semantic CSS classes; consuming surfaces own theming via stylesheet (ADR-0016). |
 | `LineIndex`                           | `crates/kul-lsp/src/convert.rs`              | Byte ↔ LSP-position. Handles UTF-16 code units and CRLF. Holds source as `Arc<str>` so `state::Document` shares the same heap buffer.|
 | `state::Documents`                    | `crates/kul-lsp/src/state.rs`                | The LSP project cache. Thread-safe; the only path to a `ProjectEntry` from inside an LSP request handler. Keyed by `ProjectRoot` (one entry per project, not per URI), so multiple open URIs in one project share a single `CheckResult`. Each `ProjectEntry` carries the project-wide `LineIndex` slice and the matching `Url` slice in `FileId(1..)` order — cross-file features resolve through these.          |
-| `kul_wasm::{check, export_graph, format_source, render_svg, query_person, query_marriage}` | `crates/kul-wasm/src/lib.rs`     | The WASM/JS surface. Deep-module entrypoints exposed via `wasm-bindgen` with operation-specific return shapes (per [ADR-0011](./adr/0011-wasm-surface-three-shapes-no-wrappers.md); the query envelope is the fourth shape, ADR-0024). No convenience layer; consumers compose helpers at the call site. |
+| `kul_wasm::{check, export_graph, format_source, render_svg, query_person, query_marriage, query_kin}` | `crates/kul-wasm/src/lib.rs`     | The WASM/JS surface. Deep-module entrypoints exposed via `wasm-bindgen` with operation-specific return shapes (per [ADR-0011](./adr/0011-wasm-surface-three-shapes-no-wrappers.md); the query envelope is the fourth shape, ADR-0024). `queryKin` takes a declarative `Query` value and returns `QueryEnvelope<QueryResult>`; members carry person id + descriptor, no person payload (consumers hydrate via `queryPerson`). No convenience layer; consumers compose helpers at the call site. |
 
 If you find yourself reaching around one of these (e.g. iterating `document.statements` from a feature module), stop and consider extending the seam instead.
 
@@ -273,6 +278,16 @@ Per ADR-0006 a single rule can carry multiple sub-cases on the same primary span
 1. Add a variant to `Command` in `crates/kul-cli/src/main.rs`.
 2. Add the implementation under `crates/kul-cli/src/commands/`.
 3. Add an end-to-end test in `crates/kul-cli/tests/` using `assert_cmd`.
+
+### A new kinship-query capability (kin-set variant, projection, or filter)
+
+The query engine lives under `crates/kul-core/src/query/` and has exactly one evaluation path (ADR-0025). Extend it additively:
+
+1. Add the new shape to the **`Query` value** (`query/pattern.rs`) — a new `QuerySource` / `PatternClassification` variant, a new `Projection`, or a filter field. Enums, not reshapes.
+2. Teach the **evaluator** (`query/engine.rs`) to handle the new variant, and derive any new descriptor dimension in `query/descriptor.rs`. The descriptor's serialization is a committed contract (ADR-0026) — new dimensions were pinned at their `notApplicable` defaults up front, so populate them rather than adding fields.
+3. Add **named sugar** in `query/sugar.rs` *defined as* its Query-value expansion — never a second evaluation path.
+4. The adapters are thin wiring: a WASM entry over the new `Query`/result types (`crates/kul-wasm/src/lib.rs`) and a CLI verb (`crates/kul-cli/src/commands/query.rs`). Both go through the one core path, so the CLI `--format json` bytes stay the WASM bytes.
+5. Prove correctness **once** at the core seam with `insta` snapshots (`crates/kul-core/tests/kin.rs`) plus targeted fixtures. Adapters get wiring/serialization tests only. Regenerate the committed `.d.ts` with `just wasm` and exercise the new types in `crates/kul-wasm/tests/typescript/usage.ts`.
 
 ### A new exported field
 
