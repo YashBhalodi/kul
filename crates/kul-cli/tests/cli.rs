@@ -502,6 +502,193 @@ fn export_outside_project_root_errors() {
 }
 
 #[test]
+fn query_person_human_snapshot() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("01-nuclear-family"))
+        .args(["query", "person", "hiroshi"])
+        .output()
+        .expect("run kul query person");
+    assert!(output.status.success(), "expected exit 0");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    insta::assert_snapshot!(stdout);
+}
+
+#[test]
+fn query_person_json_snapshot() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("01-nuclear-family"))
+        .args(["query", "person", "hiroshi", "--format", "json"])
+        .output()
+        .expect("run kul query person --format json");
+    assert!(output.status.success(), "expected exit 0");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // Valid, and the ok envelope carrying the person.
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid json");
+    assert_eq!(env["ok"], true);
+    assert_eq!(env["result"]["id"], "hiroshi");
+    insta::assert_snapshot!(stdout);
+}
+
+#[test]
+fn query_marriage_human_renders_recorded_fields() {
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("01-nuclear-family"))
+        .args(["query", "marriage", "m_hiroshi_yuki"])
+        .assert()
+        .success()
+        .stdout(contains("marriage m_hiroshi_yuki"))
+        .stdout(contains("hiroshi, yuki"));
+}
+
+/// Not-found is honest, not a crash: nonzero exit and a stderr diagnostic
+/// naming the id.
+#[test]
+fn query_unknown_id_exits_nonzero_with_stderr_diagnostic() {
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("01-nuclear-family"))
+        .args(["query", "person", "nobody"])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("no person with id `nobody`"));
+}
+
+/// Under `--format json` a not-found still emits the ok envelope with a
+/// `null` result on stdout (the contract answer) alongside the stderr
+/// diagnostic and nonzero exit.
+#[test]
+fn query_unknown_id_json_emits_null_result_on_stdout() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("01-nuclear-family"))
+        .args(["query", "person", "nobody", "--format", "json"])
+        .output()
+        .expect("run kul query person --format json");
+    assert_eq!(output.status.code(), Some(1));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid json");
+    assert_eq!(env["ok"], true);
+    assert!(env["result"].is_null(), "expected null result: {stdout}");
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("no person with id `nobody`"), "{stderr}");
+}
+
+/// Wrong-kind id (a marriage id asked for as a person) is not-found too.
+#[test]
+fn query_wrong_kind_id_is_not_found() {
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("01-nuclear-family"))
+        .args(["query", "person", "m_hiroshi_yuki"])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("no person with id `m_hiroshi_yuki`"));
+}
+
+/// Load-and-check gate (human): a project that fails its checks blocks the
+/// query — diagnostics to stderr, nonzero exit.
+#[test]
+fn query_failing_project_gate_human() {
+    let dir = project_dir("query-failing-human");
+    std::fs::write(dir.join("alice.kul"), "person alice gender:female\n").unwrap();
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args(["query", "person", "alice"])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("KUL-R03"));
+}
+
+/// Load-and-check gate (json): the envelope's error arm is written to
+/// stdout with a nonzero exit — never a partial answer.
+#[test]
+fn query_failing_project_gate_json() {
+    let dir = project_dir("query-failing-json");
+    std::fs::write(dir.join("alice.kul"), "person alice gender:female\n").unwrap();
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args(["query", "person", "alice", "--format", "json"])
+        .output()
+        .expect("run kul query person --format json");
+    assert_eq!(output.status.code(), Some(1));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid json");
+    assert_eq!(env["ok"], false);
+    assert!(
+        env["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["code"] == "KUL-R03"),
+        "expected KUL-R03 in error arm: {stdout}"
+    );
+}
+
+/// The CLI `--format json` path is the epic's contract-snapshot harness:
+/// its bytes must equal the core `query` envelope serialization the WASM
+/// surface also returns (both serialize `kul_core::query::person_lookup`).
+#[test]
+fn query_json_matches_core_envelope_bytes() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("01-nuclear-family"))
+        .args(["query", "person", "hiroshi", "--format", "json"])
+        .output()
+        .expect("run kul query person --format json");
+    let cli_json = String::from_utf8(output.stdout).unwrap();
+
+    let source = std::fs::read_to_string(
+        examples_dir()
+            .join("01-nuclear-family")
+            .join("nuclear-family.kul"),
+    )
+    .unwrap();
+    let inputs = vec![kul_core::ast::InputFile::new("nuclear-family.kul", source)];
+    let check = kul_core::check_with_manifest(
+        "kul.yml",
+        "",
+        &kul_core::manifest::Manifest::default(),
+        &inputs,
+    );
+    let envelope = kul_core::query::person_lookup(&check, "hiroshi");
+    let core_json = serde_json::to_string(&envelope).unwrap();
+
+    assert_eq!(cli_json.trim(), core_json);
+}
+
+#[test]
+fn query_missing_id_is_usage_error() {
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("01-nuclear-family"))
+        .args(["query", "person"])
+        .assert()
+        .failure()
+        .code(2);
+}
+
+#[test]
+fn query_outside_project_root_errors() {
+    let dir = tempdir("query-no-manifest");
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args(["query", "person", "alice"])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("not a Kul project root"));
+}
+
+#[test]
 fn version_flag_prints_both_versions() {
     Command::cargo_bin("kul")
         .unwrap()
