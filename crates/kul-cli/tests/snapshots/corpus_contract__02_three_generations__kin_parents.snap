@@ -1,0 +1,5 @@
+---
+source: crates/kul-cli/tests/corpus_contract.rs
+expression: out
+---
+{"ok":true,"result":{"kind":"members","members":[{"personId":"emeka","descriptor":{"egoId":"chidi","alterId":"emeka","egoGender":"male","alterGender":"male","classification":{"kind":"lineal","role":"ancestor","generations":1},"edgeNature":"blood","affinity":"blood","sharing":"notApplicable","side":"notApplicable","seniority":"elder","apexSeniority":"notApplicable","path":[{"step":"up","to":"emeka","gender":"male","edge":"bio"}]}},{"personId":"ngozi","descriptor":{"egoId":"chidi","alterId":"ngozi","egoGender":"male","alterGender":"female","classification":{"kind":"lineal","role":"ancestor","generations":1},"edgeNature":"blood","affinity":"blood","sharing":"notApplicable","side":"notApplicable","seniority":"elder","apexSeniority":"notApplicable","path":[{"step":"up","to":"ngozi","gender":"female","edge":"bio"}]}}]}}

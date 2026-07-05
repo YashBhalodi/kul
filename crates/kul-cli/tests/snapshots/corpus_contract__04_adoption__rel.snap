@@ -1,0 +1,5 @@
+---
+source: crates/kul-cli/tests/corpus_contract.rs
+expression: out
+---
+{"ok":true,"result":{"relationships":[{"egoId":"dalisay","alterId":"carlos","egoGender":"female","alterGender":"male","classification":{"kind":"lineal","role":"ancestor","generations":1},"edgeNature":"adoptive","affinity":"blood","sharing":"notApplicable","side":"notApplicable","seniority":"elder","apexSeniority":"notApplicable","path":[{"step":"up","to":"carlos","gender":"male","edge":"adoptive"}]}]}}
