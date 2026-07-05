@@ -23,7 +23,10 @@ fn layout_from_source(source: &str) -> kul_layout::PositionedShape {
         check.diagnostics
     );
     let shape = compute(&check);
-    layout(&shape, &LayoutConfig::default())
+    let success = shape
+        .as_success()
+        .expect("regression source must produce a success render shape");
+    layout(success, &LayoutConfig::default())
 }
 
 /// Reproducer for #208: a polygamy hub whose only child of one marriage

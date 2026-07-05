@@ -92,8 +92,8 @@ fn run_svg(with_positions: bool) -> ExitCode {
             diag::render_human(&check, false);
             ExitCode::from(1)
         }
-        RenderShape::Success(_) => {
-            let positioned = layout(&shape, &LayoutConfig::default());
+        RenderShape::Success(s) => {
+            let positioned = layout(&s, &LayoutConfig::default());
             // Self-contained + legend per ADR-0022; shared with `kul/exportSvg`.
             let svg = render(&positioned, &ThemeConfig::for_file_export());
             let stdout = io::stdout();

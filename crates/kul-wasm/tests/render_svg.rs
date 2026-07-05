@@ -66,8 +66,8 @@ fn direct_pipeline_json(inputs: &[InputFile]) -> String {
             ok: false,
             diagnostics: f.diagnostics,
         }),
-        RenderShape::Success(_) => {
-            let positioned = layout(&shape, &LayoutConfig::default());
+        RenderShape::Success(s) => {
+            let positioned = layout(&s, &LayoutConfig::default());
             let svg = render(&positioned, &ThemeConfig::default());
             RenderEnvelope::Success(RenderSuccess { ok: true, svg })
         }

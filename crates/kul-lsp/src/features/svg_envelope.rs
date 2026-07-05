@@ -42,8 +42,8 @@ pub fn render_svg_for(entry: &ProjectEntry, theme: &ThemeConfig) -> RenderRespon
             ok: false,
             diagnostics: errors_for_preview(entry),
         }),
-        RenderShape::Success(_) => {
-            let positioned = layout(&shape, &LayoutConfig::default());
+        RenderShape::Success(s) => {
+            let positioned = layout(&s, &LayoutConfig::default());
             let svg = render(&positioned, theme);
             RenderResponse::Success(RenderSuccess { ok: true, svg })
         }

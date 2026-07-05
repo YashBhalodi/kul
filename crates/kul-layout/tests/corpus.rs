@@ -53,7 +53,10 @@ fn check_example(dir: &Path) -> CheckResult {
 fn layout_example(dir: &str) -> String {
     let check = check_example(&examples_dir().join(dir));
     let shape = compute(&check);
-    let positioned = layout(&shape, &LayoutConfig::default());
+    let success = shape
+        .as_success()
+        .expect("example must produce a success render shape");
+    let positioned = layout(success, &LayoutConfig::default());
     let dump: PositionedDump = (&positioned).into();
     serde_yaml::to_string(&dump).expect("serialize positioned shape")
 }
