@@ -1,0 +1,5 @@
+---
+source: crates/kul-cli/tests/corpus_contract.rs
+expression: out
+---
+{"ok":true,"result":{"kind":"personIds","personIds":["obi","ngozi","nnamdi","chiamaka","chukwu","adunni","yetunde","kehinde","femi","amaka","simisola","titi","tunde","tunji","ada","bisi","halima","emeka","segun","folasade","dayo","ronke","lola","kunle","zainab","tobi","kemi","ife","dele"]}}

@@ -1,0 +1,5 @@
+---
+source: crates/kul-cli/tests/corpus_contract.rs
+expression: out
+---
+{"ok":true,"result":{"kind":"members","members":[{"personId":"amara","descriptor":{"egoId":"chidi","alterId":"amara","egoGender":"male","alterGender":"female","classification":{"kind":"collateral","up":1,"down":1,"cousinDegree":0,"removed":0},"edgeNature":"blood","affinity":"blood","sharing":"full","side":"both","seniority":"younger","apexSeniority":"younger","path":[{"step":"up","to":"emeka","gender":"male","edge":"bio"},{"step":"down","to":"amara","gender":"female","edge":"bio"}]}}]}}

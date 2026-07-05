@@ -1,0 +1,5 @@
+---
+source: crates/kul-cli/tests/corpus_contract.rs
+expression: out
+---
+{"ok":true,"result":{"relationships":[{"egoId":"linnea","alterId":"oskar","egoGender":"female","alterGender":"male","classification":{"kind":"collateral","up":1,"down":1,"cousinDegree":0,"removed":0},"edgeNature":"blood","affinity":"blood","sharing":"half","side":"paternal","seniority":"younger","apexSeniority":"younger","path":[{"step":"up","to":"erik","gender":"male","edge":"bio"},{"step":"down","to":"oskar","gender":"male","edge":"bio"}]},{"egoId":"linnea","alterId":"oskar","egoGender":"female","alterGender":"male","classification":{"kind":"collateral","up":1,"down":1,"cousinDegree":0,"removed":0},"edgeNature":"blood","affinity":"inLaw","sharing":"notApplicable","side":"maternal","seniority":"younger","apexSeniority":"notApplicable","path":[{"step":"up","to":"astrid","gender":"female","edge":"bio"},{"step":"across","to":"erik","gender":"male","marriage":"m_erik_astrid","status":"ended","endReason":"divorce"},{"step":"across","to":"maja","gender":"female","marriage":"m_erik_maja","status":"ongoing"},{"step":"down","to":"oskar","gender":"male","edge":"bio"}]}]}}

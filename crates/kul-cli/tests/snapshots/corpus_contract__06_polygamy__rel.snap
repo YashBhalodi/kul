@@ -1,0 +1,5 @@
+---
+source: crates/kul-cli/tests/corpus_contract.rs
+expression: out
+---
+{"ok":true,"result":{"relationships":[{"egoId":"aisha","alterId":"layla","egoGender":"female","alterGender":"female","classification":{"kind":"self"},"edgeNature":"blood","affinity":"inLaw","sharing":"notApplicable","side":"notApplicable","seniority":"younger","apexSeniority":"notApplicable","path":[{"step":"across","to":"khalid","gender":"male","marriage":"m_khalid_aisha","status":"ongoing"},{"step":"across","to":"layla","gender":"female","marriage":"m_khalid_layla","status":"ongoing"}]}]}}

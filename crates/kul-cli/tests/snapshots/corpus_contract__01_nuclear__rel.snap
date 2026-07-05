@@ -1,0 +1,5 @@
+---
+source: crates/kul-cli/tests/corpus_contract.rs
+expression: out
+---
+{"ok":true,"result":{"relationships":[{"egoId":"akiko","alterId":"kenji","egoGender":"female","alterGender":"male","classification":{"kind":"collateral","up":1,"down":1,"cousinDegree":0,"removed":0},"edgeNature":"blood","affinity":"blood","sharing":"full","side":"both","seniority":"younger","apexSeniority":"younger","path":[{"step":"up","to":"hiroshi","gender":"male","edge":"bio"},{"step":"down","to":"kenji","gender":"male","edge":"bio"}]}]}}

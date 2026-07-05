@@ -1,0 +1,5 @@
+---
+source: crates/kul-cli/tests/corpus_contract.rs
+expression: out
+---
+{"ok":true,"result":{"kind":"personIds","personIds":["bruno","helena","jinho","soojin","nadia","tiago","carla","beatriz","minjun","lucas"]}}
