@@ -400,61 +400,9 @@ impl<'a> Builder<'a> {
             .collect();
         let mut positions = walker::run(&walker_input, &roots, config.sibling_gap);
 
-        // Polygamy fan reposition (ADR-0020): override each hub's
-        // forest positions so each marriage's block centre lands on its
-        // prescribed `children_center`. The hub's reserved width already
-        // cleared siblings of the widest wing.
-        for (hub_idx, node) in nodes.iter().enumerate() {
-            let NodeKind::PolygamyHub {
-                hub_cx, marriages, ..
-            } = &node.kind
-            else {
-                continue;
-            };
-            let hub_x = positions[hub_idx].x;
-            for marriage in marriages {
-                if marriage.child_roots.is_empty() {
-                    continue;
-                }
-                let (min_x, max_x) = forest_extent(&nodes, &marriage.child_roots, &positions);
-                let block_center = (min_x + max_x) / 2.0;
-                let target = hub_x + (marriage.children_center - hub_cx);
-                let delta = target - block_center;
-                if delta != 0.0 {
-                    translate_forest(&nodes, &marriage.child_roots, &mut positions, delta);
-                }
-            }
-        }
+        reposition_polygamy_fans(&nodes, &mut positions);
 
-        // Co-spouse cards aren't walker nodes — their wing extent is
-        // already covered by the hub's reserved width.
-        let mut min_x = f64::INFINITY;
-        let mut max_x = f64::NEG_INFINITY;
-        let mut max_gen: f64 = 0.0;
-        for (i, node) in nodes.iter().enumerate() {
-            let left = positions[i].x - node.width / 2.0;
-            let right = positions[i].x + node.width / 2.0;
-            if left < min_x {
-                min_x = left;
-            }
-            if right > max_x {
-                max_x = right;
-            }
-            // A polygamy hub's co-spouse cards sit one row below the hub
-            // but are not walker nodes, so the hub's own `row`
-            // understates the fan's vertical extent. When every marriage
-            // is childless there is no child forest below to raise
-            // `max_gen`, so the co-spouse row would fall outside the
-            // canvas and clip (issue #249). A hub with children is
-            // unaffected: its forest nodes already sit at `hub.row + 2`.
-            let node_bottom_row = match &node.kind {
-                NodeKind::PolygamyHub { .. } => node.row + 1.0,
-                _ => node.row,
-            };
-            if node_bottom_row > max_gen {
-                max_gen = node_bottom_row;
-            }
-        }
+        let (min_x, max_x, max_gen) = shape_extent(&nodes, &positions);
         if !min_x.is_finite() {
             return PositionedShape {
                 width: config.padding * 2.0,
@@ -467,71 +415,13 @@ impl<'a> Builder<'a> {
         let offset_x = config.padding - min_x;
         let offset_y = config.padding;
 
-        let mut cards: Vec<PositionedCard> = Vec::new();
-        // Per-marriage child-attach anchor (gap midpoint for monogamy,
-        // marriage-edge midpoint just below the hub for polygamy).
-        let mut bar_centers: std::collections::HashMap<String, (f64, f64)> =
-            std::collections::HashMap::new();
-        let mut card_tops: std::collections::HashMap<String, (f64, f64)> =
-            std::collections::HashMap::new();
-        // Past-intimacy child-ghost positions, consulted ahead of
-        // `card_tops` so the parent-child edge from a past intimacy
-        // terminates on the local ghost.
-        let mut ghost_card_tops: std::collections::HashMap<(String, String), (f64, f64)> =
-            std::collections::HashMap::new();
-        let mut marriage_edges: Vec<PositionedEdge> = Vec::new();
-
+        let mut emit = Emit::default();
         for (i, node) in nodes.iter().enumerate() {
             let cluster_left = positions[i].x - node.width / 2.0 + offset_x;
             let row_top = offset_y + node.row * config.row_height;
             match &node.kind {
                 NodeKind::PersonHost { card, hosted } => {
-                    let host_x = cluster_left;
-                    push_card(
-                        &mut cards,
-                        &mut card_tops,
-                        host_x,
-                        row_top,
-                        &card.slot,
-                        config,
-                    );
-                    // Cursor: `[host][bar_gap][gap][bar_gap][joining]…`.
-                    let mut cursor = host_x + config.card_width;
-                    let mid_y = row_top + config.card_height / 2.0;
-                    for entry in hosted {
-                        let bar_x = cursor + config.bar_gap;
-                        let left_card_right_edge = bar_x - config.bar_gap;
-                        let right_card_left_edge = bar_x + config.bar_width + config.bar_gap;
-                        bar_centers.insert(
-                            entry.bar.marriage_id.clone(),
-                            (bar_x + config.bar_width / 2.0, mid_y),
-                        );
-                        marriage_edges.push(PositionedEdge {
-                            kind: EdgeKind::Marriage {
-                                host_id: entry.bar.host_id.clone(),
-                                joining_id: entry.bar.joining_id.clone(),
-                                start: entry.bar.start.as_ref().map(fmt_date),
-                                end: entry.bar.end.as_ref().map(fmt_date),
-                                end_reason: entry.bar.end_reason.clone(),
-                                is_ended: entry.bar.ended,
-                            },
-                            marriage_id: entry.bar.marriage_id.clone(),
-                            points: vec![
-                                (left_card_right_edge, mid_y),
-                                (right_card_left_edge, mid_y),
-                            ],
-                        });
-                        let joining_x = bar_x + config.bar_width + config.bar_gap;
-                        push_card(
-                            &mut cards,
-                            &mut card_tops,
-                            joining_x,
-                            row_top,
-                            &entry.joining_slot,
-                            config,
-                        );
-                        cursor = joining_x + config.card_width;
-                    }
+                    emit_person_host(&mut emit, config, cluster_left, row_top, card, hosted);
                 }
                 NodeKind::PolygamyHub {
                     card,
@@ -542,104 +432,42 @@ impl<'a> Builder<'a> {
                     // extent, so `positions[i].x` is the hub centre
                     // (not the card's left edge).
                     let hub_center_abs = positions[i].x + offset_x;
-                    let hub_left = hub_center_abs - config.card_width / 2.0;
-                    push_card(
-                        &mut cards,
-                        &mut card_tops,
-                        hub_left,
-                        row_top,
-                        &card.slot,
+                    emit_polygamy_hub(
+                        &mut emit,
                         config,
+                        hub_center_abs,
+                        row_top,
+                        card,
+                        *hub_cx,
+                        marriages,
                     );
-                    let hub_bottom_y = row_top + config.card_height;
-                    let cospouse_row_top = row_top + config.row_height;
-                    // Marriage-edge bus runs just below the hub; its
-                    // midpoint `(children_center, bus_y)` is where each
-                    // marriage's child birth edges originate.
-                    let bus_y = cospouse_row_top - config.bus_drop;
-                    for marriage in marriages {
-                        let cospouse_cx = hub_center_abs + (marriage.cospouse_cx - hub_cx);
-                        let children_center_abs =
-                            hub_center_abs + (marriage.children_center - hub_cx);
-                        let cospouse_left = cospouse_cx - config.card_width / 2.0;
-                        push_card(
-                            &mut cards,
-                            &mut card_tops,
-                            cospouse_left,
-                            cospouse_row_top,
-                            &marriage.joining_slot,
-                            config,
-                        );
-
-                        // hub-bottom → bus → co-spouse top-centre.
-                        marriage_edges.push(PositionedEdge {
-                            kind: EdgeKind::Marriage {
-                                host_id: marriage.host_id.clone(),
-                                joining_id: marriage.joining_id.clone(),
-                                start: marriage.start.clone(),
-                                end: marriage.end.clone(),
-                                end_reason: marriage.end_reason.clone(),
-                                is_ended: marriage.is_ended,
-                            },
-                            marriage_id: marriage.marriage_id.clone(),
-                            points: vec![
-                                (hub_center_abs, hub_bottom_y),
-                                (hub_center_abs, bus_y),
-                                (cospouse_cx, bus_y),
-                                (cospouse_cx, cospouse_row_top),
-                            ],
-                        });
-
-                        // Unconditionally — mirrors `PersonHost`'s
-                        // insert at the top of this match. A render edge
-                        // can target this marriage even when
-                        // `child_roots` is empty (e.g. an adoption-only
-                        // child whose canonical_location resolves
-                        // elsewhere), and `route_edges` requires the
-                        // anchor for every render edge.
-                        bar_centers
-                            .insert(marriage.marriage_id.clone(), (children_center_abs, bus_y));
-                    }
                 }
                 NodeKind::PersonLeaf { card } => {
-                    push_card(
-                        &mut cards,
-                        &mut card_tops,
-                        cluster_left,
-                        row_top,
-                        &card.slot,
+                    emit_person_leaf(
+                        &mut emit,
                         config,
-                    );
-                    if let Some(marriage_id) = child_ghost_marriage.get(&i) {
-                        ghost_card_tops.insert(
-                            (card.slot.person_id.clone(), marriage_id.clone()),
-                            (cluster_left + config.card_width / 2.0, row_top),
-                        );
-                    }
-                }
-                NodeKind::Orphan { card, .. } => {
-                    push_card(
-                        &mut cards,
-                        &mut card_tops,
                         cluster_left,
                         row_top,
                         card,
-                        config,
+                        child_ghost_marriage.get(&i),
                     );
+                }
+                NodeKind::Orphan { card, .. } => {
+                    emit_orphan(&mut emit, config, cluster_left, row_top, card);
                 }
             }
         }
 
         let mut edges = route_edges(
             render_edges,
-            &bar_centers,
-            &card_tops,
-            &ghost_card_tops,
+            &emit.bar_centers,
+            &emit.card_tops,
+            &emit.ghost_card_tops,
             config,
         );
 
         // Append marriage edges after birth/adoption edges.
-        edges.append(&mut marriage_edges);
+        edges.append(&mut emit.marriage_edges);
 
         let canvas_width = max_x - min_x + config.padding * 2.0;
         let canvas_height = (max_gen + 1.0) * config.row_height
@@ -649,10 +477,263 @@ impl<'a> Builder<'a> {
         PositionedShape {
             width: canvas_width,
             height: canvas_height,
-            cards,
+            cards: emit.cards,
             edges,
         }
     }
+}
+
+/// Per-node emission state accumulated over the layout tree, then
+/// consumed by [`route_edges`] to plot birth/adoption edges. Each
+/// `emit_*` helper feeds a documented subset of these maps; bundling the
+/// accumulators makes those per-`NodeKind` contracts reviewable in one
+/// place — the implicit-invariant gap behind #208.
+#[derive(Default)]
+struct Emit {
+    cards: Vec<PositionedCard>,
+    /// Per-marriage child-attach anchor (gap midpoint for monogamy,
+    /// marriage-edge midpoint just below the hub for polygamy).
+    bar_centers: std::collections::HashMap<String, (f64, f64)>,
+    card_tops: std::collections::HashMap<String, (f64, f64)>,
+    /// Past-intimacy child-ghost positions, consulted ahead of
+    /// `card_tops` so the parent-child edge from a past intimacy
+    /// terminates on the local ghost.
+    ghost_card_tops: std::collections::HashMap<(String, String), (f64, f64)>,
+    marriage_edges: Vec<PositionedEdge>,
+}
+
+/// Emit a monogamy host cluster: the host card, then for each hosted
+/// marriage a `bar_centers` anchor, a marriage edge, and the joining
+/// card. Feeds `cards`, `card_tops`, `bar_centers`, and `marriage_edges`.
+fn emit_person_host(
+    emit: &mut Emit,
+    config: &LayoutConfig,
+    cluster_left: f64,
+    row_top: f64,
+    card: &PersonCard,
+    hosted: &[HostedMarriage],
+) {
+    let host_x = cluster_left;
+    push_card(
+        &mut emit.cards,
+        &mut emit.card_tops,
+        host_x,
+        row_top,
+        &card.slot,
+        config,
+    );
+    // Cursor: `[host][bar_gap][gap][bar_gap][joining]…`.
+    let mut cursor = host_x + config.card_width;
+    let mid_y = row_top + config.card_height / 2.0;
+    for entry in hosted {
+        let bar_x = cursor + config.bar_gap;
+        let left_card_right_edge = bar_x - config.bar_gap;
+        let right_card_left_edge = bar_x + config.bar_width + config.bar_gap;
+        emit.bar_centers.insert(
+            entry.bar.marriage_id.clone(),
+            (bar_x + config.bar_width / 2.0, mid_y),
+        );
+        emit.marriage_edges.push(PositionedEdge {
+            kind: EdgeKind::Marriage {
+                host_id: entry.bar.host_id.clone(),
+                joining_id: entry.bar.joining_id.clone(),
+                start: entry.bar.start.as_ref().map(fmt_date),
+                end: entry.bar.end.as_ref().map(fmt_date),
+                end_reason: entry.bar.end_reason.clone(),
+                is_ended: entry.bar.ended,
+            },
+            marriage_id: entry.bar.marriage_id.clone(),
+            points: vec![(left_card_right_edge, mid_y), (right_card_left_edge, mid_y)],
+        });
+        let joining_x = bar_x + config.bar_width + config.bar_gap;
+        push_card(
+            &mut emit.cards,
+            &mut emit.card_tops,
+            joining_x,
+            row_top,
+            &entry.joining_slot,
+            config,
+        );
+        cursor = joining_x + config.card_width;
+    }
+}
+
+/// Emit a polygamy fan: the hub card, then per marriage a co-spouse
+/// card, a marriage edge, and — unconditionally, see #208 — a
+/// `bar_centers` anchor. Feeds `cards`, `card_tops`, `marriage_edges`,
+/// and `bar_centers`.
+fn emit_polygamy_hub(
+    emit: &mut Emit,
+    config: &LayoutConfig,
+    hub_center_abs: f64,
+    row_top: f64,
+    card: &PersonCard,
+    hub_cx: f64,
+    marriages: &[FanMarriage],
+) {
+    let hub_left = hub_center_abs - config.card_width / 2.0;
+    push_card(
+        &mut emit.cards,
+        &mut emit.card_tops,
+        hub_left,
+        row_top,
+        &card.slot,
+        config,
+    );
+    let hub_bottom_y = row_top + config.card_height;
+    let cospouse_row_top = row_top + config.row_height;
+    // Marriage-edge bus runs just below the hub; its midpoint
+    // `(children_center, bus_y)` is where each marriage's child birth
+    // edges originate.
+    let bus_y = cospouse_row_top - config.bus_drop;
+    for marriage in marriages {
+        let cospouse_cx = hub_center_abs + (marriage.cospouse_cx - hub_cx);
+        let children_center_abs = hub_center_abs + (marriage.children_center - hub_cx);
+        let cospouse_left = cospouse_cx - config.card_width / 2.0;
+        push_card(
+            &mut emit.cards,
+            &mut emit.card_tops,
+            cospouse_left,
+            cospouse_row_top,
+            &marriage.joining_slot,
+            config,
+        );
+
+        // hub-bottom → bus → co-spouse top-centre.
+        emit.marriage_edges.push(PositionedEdge {
+            kind: EdgeKind::Marriage {
+                host_id: marriage.host_id.clone(),
+                joining_id: marriage.joining_id.clone(),
+                start: marriage.start.clone(),
+                end: marriage.end.clone(),
+                end_reason: marriage.end_reason.clone(),
+                is_ended: marriage.is_ended,
+            },
+            marriage_id: marriage.marriage_id.clone(),
+            points: vec![
+                (hub_center_abs, hub_bottom_y),
+                (hub_center_abs, bus_y),
+                (cospouse_cx, bus_y),
+                (cospouse_cx, cospouse_row_top),
+            ],
+        });
+
+        // Unconditionally — mirrors `emit_person_host`'s `bar_centers`
+        // insert. A render edge can target this marriage even when
+        // `child_roots` is empty (e.g. an adoption-only child whose
+        // canonical_location resolves elsewhere), and `route_edges`
+        // requires the anchor for every render edge.
+        emit.bar_centers
+            .insert(marriage.marriage_id.clone(), (children_center_abs, bus_y));
+    }
+}
+
+/// Emit a plain person card, recording a `ghost_card_tops` anchor when
+/// this node is a past-intimacy child-ghost. Feeds `cards`, `card_tops`,
+/// and — conditionally — `ghost_card_tops`.
+fn emit_person_leaf(
+    emit: &mut Emit,
+    config: &LayoutConfig,
+    cluster_left: f64,
+    row_top: f64,
+    card: &PersonCard,
+    child_ghost: Option<&String>,
+) {
+    push_card(
+        &mut emit.cards,
+        &mut emit.card_tops,
+        cluster_left,
+        row_top,
+        &card.slot,
+        config,
+    );
+    if let Some(marriage_id) = child_ghost {
+        emit.ghost_card_tops.insert(
+            (card.slot.person_id.clone(), marriage_id.clone()),
+            (cluster_left + config.card_width / 2.0, row_top),
+        );
+    }
+}
+
+/// Emit an orphan card (no marriages, no kin edges). Feeds `cards` and
+/// `card_tops`.
+fn emit_orphan(
+    emit: &mut Emit,
+    config: &LayoutConfig,
+    cluster_left: f64,
+    row_top: f64,
+    card: &CardSlot,
+) {
+    push_card(
+        &mut emit.cards,
+        &mut emit.card_tops,
+        cluster_left,
+        row_top,
+        card,
+        config,
+    );
+}
+
+/// Polygamy fan reposition (ADR-0020): override each hub's forest
+/// positions so each marriage's block centre lands on its prescribed
+/// `children_center`. The hub's reserved width already cleared siblings
+/// of the widest wing.
+fn reposition_polygamy_fans(nodes: &[Node], positions: &mut [walker::LaidOut]) {
+    for (hub_idx, node) in nodes.iter().enumerate() {
+        let NodeKind::PolygamyHub {
+            hub_cx, marriages, ..
+        } = &node.kind
+        else {
+            continue;
+        };
+        let hub_x = positions[hub_idx].x;
+        for marriage in marriages {
+            if marriage.child_roots.is_empty() {
+                continue;
+            }
+            let (min_x, max_x) = forest_extent(nodes, &marriage.child_roots, positions);
+            let block_center = (min_x + max_x) / 2.0;
+            let target = hub_x + (marriage.children_center - hub_cx);
+            let delta = target - block_center;
+            if delta != 0.0 {
+                translate_forest(nodes, &marriage.child_roots, positions, delta);
+            }
+        }
+    }
+}
+
+/// Canvas extent `(min_x, max_x, max_gen)` over all positioned nodes.
+/// Co-spouse cards aren't walker nodes — their wing extent is already
+/// covered by the hub's reserved width.
+fn shape_extent(nodes: &[Node], positions: &[walker::LaidOut]) -> (f64, f64, f64) {
+    let mut min_x = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_gen: f64 = 0.0;
+    for (i, node) in nodes.iter().enumerate() {
+        let left = positions[i].x - node.width / 2.0;
+        let right = positions[i].x + node.width / 2.0;
+        if left < min_x {
+            min_x = left;
+        }
+        if right > max_x {
+            max_x = right;
+        }
+        // A polygamy hub's co-spouse cards sit one row below the hub
+        // but are not walker nodes, so the hub's own `row`
+        // understates the fan's vertical extent. When every marriage
+        // is childless there is no child forest below to raise
+        // `max_gen`, so the co-spouse row would fall outside the
+        // canvas and clip (issue #249). A hub with children is
+        // unaffected: its forest nodes already sit at `hub.row + 2`.
+        let node_bottom_row = match &node.kind {
+            NodeKind::PolygamyHub { .. } => node.row + 1.0,
+            _ => node.row,
+        };
+        if node_bottom_row > max_gen {
+            max_gen = node_bottom_row;
+        }
+    }
+    (min_x, max_x, max_gen)
 }
 
 fn walker_input(nodes: &[Node]) -> Vec<InputNode> {
