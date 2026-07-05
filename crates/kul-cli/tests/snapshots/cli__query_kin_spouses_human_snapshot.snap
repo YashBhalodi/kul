@@ -1,0 +1,10 @@
+---
+source: crates/kul-cli/tests/cli.rs
+expression: stdout
+---
+astrid  Astrid Lindqvist
+  self · blood · inLaw · side n/a · younger
+  across m_erik_astrid · ended · divorce
+maja  Maja Holm
+  self · blood · inLaw · side n/a · younger
+  across m_erik_maja · ongoing

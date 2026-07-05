@@ -1,0 +1,67 @@
+---
+source: crates/kul-core/tests/kin.rs
+expression: "envelope_json(&check, &Query::kin_spouses(\"erik\"))"
+---
+{
+  "ok": true,
+  "result": {
+    "kind": "members",
+    "members": [
+      {
+        "personId": "astrid",
+        "descriptor": {
+          "egoId": "erik",
+          "alterId": "astrid",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "self"
+          },
+          "edgeNature": "blood",
+          "affinity": "inLaw",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "younger",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "across",
+              "to": "astrid",
+              "gender": "female",
+              "marriage": "m_erik_astrid",
+              "status": "ended",
+              "endReason": "divorce"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "maja",
+        "descriptor": {
+          "egoId": "erik",
+          "alterId": "maja",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "self"
+          },
+          "edgeNature": "blood",
+          "affinity": "inLaw",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "younger",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "across",
+              "to": "maja",
+              "gender": "female",
+              "marriage": "m_erik_maja",
+              "status": "ongoing"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

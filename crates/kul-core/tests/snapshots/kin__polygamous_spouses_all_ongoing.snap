@@ -1,0 +1,93 @@
+---
+source: crates/kul-core/tests/kin.rs
+expression: "envelope_json(&check, &Query::kin_spouses(\"khalid\"))"
+---
+{
+  "ok": true,
+  "result": {
+    "kind": "members",
+    "members": [
+      {
+        "personId": "aisha",
+        "descriptor": {
+          "egoId": "khalid",
+          "alterId": "aisha",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "self"
+          },
+          "edgeNature": "blood",
+          "affinity": "inLaw",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "younger",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "across",
+              "to": "aisha",
+              "gender": "female",
+              "marriage": "m_khalid_aisha",
+              "status": "ongoing"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "layla",
+        "descriptor": {
+          "egoId": "khalid",
+          "alterId": "layla",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "self"
+          },
+          "edgeNature": "blood",
+          "affinity": "inLaw",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "younger",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "across",
+              "to": "layla",
+              "gender": "female",
+              "marriage": "m_khalid_layla",
+              "status": "ongoing"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "mariam",
+        "descriptor": {
+          "egoId": "khalid",
+          "alterId": "mariam",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "self"
+          },
+          "edgeNature": "blood",
+          "affinity": "inLaw",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "younger",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "across",
+              "to": "mariam",
+              "gender": "female",
+              "marriage": "m_khalid_mariam",
+              "status": "ongoing"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

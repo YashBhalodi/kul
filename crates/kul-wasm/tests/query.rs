@@ -171,6 +171,31 @@ fn kin_query_collateral_round_trips() {
     );
 }
 
+/// An affinal Query value (the `spouses` sugar → `any` classification +
+/// `affinalHops` filter) round-trips through the wasm-ABI signature and yields
+/// the `across` marriage hop — the extended pattern surface crosses the
+/// boundary with no new entry point.
+#[test]
+fn kin_query_affinal_round_trips() {
+    let inputs = nuclear_inputs();
+    let files = vec![WasmInputFile {
+        name: "nuclear-family.kul".into(),
+        source: inputs[0].source.clone(),
+    }];
+    // hiroshi's spouse is yuki, reached by a single `across` marriage hop.
+    let query = Query::kin_spouses("hiroshi");
+    let envelope = query_kin(files, Manifest::default(), query);
+    let json = serde_json::to_value(&envelope).unwrap();
+    assert_eq!(json["ok"], true);
+    let members = json["result"]["members"].as_array().unwrap();
+    assert_eq!(members.len(), 1);
+    assert_eq!(members[0]["personId"], "yuki");
+    assert_eq!(members[0]["descriptor"]["affinity"], "inLaw");
+    let hop = &members[0]["descriptor"]["path"][0];
+    assert_eq!(hop["step"], "across");
+    assert_eq!(hop["status"], "ongoing");
+}
+
 /// A bad anchor on a clean project is the error arm with a diagnostic naming
 /// the id — never an empty ok set.
 #[test]
