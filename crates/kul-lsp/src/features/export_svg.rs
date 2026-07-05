@@ -5,15 +5,11 @@
 //! `kul/render`; the only behavioural difference is the baked theme +
 //! legend (ADR-0022) via [`ThemeConfig::for_file_export`].
 
-use kul_layout::{LayoutConfig, layout};
-use kul_render::{RenderShape, compute};
-use kul_svg::{ThemeConfig, render};
+use kul_svg::ThemeConfig;
 use serde::Deserialize;
 use tower_lsp::lsp_types::Url;
 
-use crate::features::svg_envelope::{
-    RenderFailure, RenderResponse, RenderSuccess, errors_for_preview,
-};
+use crate::features::svg_envelope::{RenderResponse, SvgRequestError, render_svg_for};
 use crate::state::ProjectEntry;
 
 /// Request parameters for `kul/exportSvg`.
@@ -24,42 +20,17 @@ pub struct ExportSvgParams {
     pub uri: Url,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ExportSvgRequestError {
-    DocumentNotOpen,
-}
-
-impl ExportSvgRequestError {
-    pub fn message(&self) -> String {
-        match self {
-            ExportSvgRequestError::DocumentNotOpen => {
-                "document is not open in the language server".to_owned()
-            }
-        }
-    }
-}
-
 /// Turn a cached [`ProjectEntry`] plus parsed params into a file-export
-/// SVG response. Project-wide (ADR-0015): every URI in the same project
-/// produces the same SVG. The output is byte-identical to
+/// SVG response. Thin delegator over [`render_svg_for`] with the
+/// file-export theme; project-wide (ADR-0015): every URI in the same
+/// project produces the same SVG. The output is byte-identical to
 /// `kul export --format=svg` for the same project — both call sites
 /// route through [`ThemeConfig::for_file_export`].
 pub fn export_svg_for(
     entry: &ProjectEntry,
     _params: &ExportSvgParams,
-) -> Result<RenderResponse, ExportSvgRequestError> {
-    let shape = compute(&entry.check);
-    match shape {
-        RenderShape::Failure(_) => Ok(RenderResponse::Failure(RenderFailure {
-            ok: false,
-            diagnostics: errors_for_preview(entry),
-        })),
-        RenderShape::Success(_) => {
-            let positioned = layout(&shape, &LayoutConfig::default());
-            let svg = render(&positioned, &ThemeConfig::for_file_export());
-            Ok(RenderResponse::Success(RenderSuccess { ok: true, svg }))
-        }
-    }
+) -> Result<RenderResponse, SvgRequestError> {
+    Ok(render_svg_for(entry, &ThemeConfig::for_file_export()))
 }
 
 #[cfg(test)]

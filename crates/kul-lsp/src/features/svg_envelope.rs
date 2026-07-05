@@ -4,10 +4,51 @@
 //! the extension's failure handler is one code path.
 
 use kul_core::diagnostic::Severity;
+use kul_layout::{LayoutConfig, layout};
+use kul_render::{RenderShape, compute};
+use kul_svg::{ThemeConfig, render};
 use serde::Serialize;
 use tower_lsp::lsp_types::Range;
 
 use crate::state::ProjectEntry;
+
+/// Shared error for the SVG-producing requests (`kul/render`,
+/// `kul/exportSvg`). Both handlers surface the identical
+/// `DocumentNotOpen` case when the cached project entry is absent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SvgRequestError {
+    DocumentNotOpen,
+}
+
+impl SvgRequestError {
+    pub fn message(&self) -> String {
+        match self {
+            SvgRequestError::DocumentNotOpen => {
+                "document is not open in the language server".to_owned()
+            }
+        }
+    }
+}
+
+/// Run the canonical-visual pipeline (render → layout → svg) for a cached
+/// [`ProjectEntry`], projecting into the shared [`RenderResponse`] envelope.
+/// Project-wide (ADR-0015): every URI in the same project produces the same
+/// SVG. The pipeline is parameterized only by `theme` — the sole behavioural
+/// difference between `kul/render` and `kul/exportSvg`.
+pub fn render_svg_for(entry: &ProjectEntry, theme: &ThemeConfig) -> RenderResponse {
+    let shape = compute(&entry.check);
+    match shape {
+        RenderShape::Failure(_) => RenderResponse::Failure(RenderFailure {
+            ok: false,
+            diagnostics: errors_for_preview(entry),
+        }),
+        RenderShape::Success(_) => {
+            let positioned = layout(&shape, &LayoutConfig::default());
+            let svg = render(&positioned, theme);
+            RenderResponse::Success(RenderSuccess { ok: true, svg })
+        }
+    }
+}
 
 /// `kul/render` / `kul/exportSvg` response envelope, discriminated by
 /// `ok` (matches [`kul_core::export::ExportEnvelope`]).

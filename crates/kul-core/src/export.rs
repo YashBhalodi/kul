@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
 use crate::CheckResult;
-use crate::ast::{Document, EndReason, Gender, MarriageStmt, PersonStmt};
+use crate::ast::{Document, MarriageStmt, PersonStmt};
 use crate::date::DateLit;
 use crate::diagnostic::{Diagnostic, Severity};
 use crate::semantic::ResolvedDocument;
@@ -380,11 +380,11 @@ pub(crate) fn build_one_person(p: &PersonStmt, options: &ExportOptions) -> Expor
             .clone(),
         family: p.family().map(|s| s.value.clone()),
         given: p.given().map(|s| s.value.clone()),
-        gender: gender_str(
-            p.gender()
-                .expect("R03 ensures person.gender is present")
-                .value,
-        ),
+        gender: p
+            .gender()
+            .expect("R03 ensures person.gender is present")
+            .value
+            .as_token(),
         born: p.born().map(exported_date),
         died: p.died().map(exported_date),
         span: span_if(options, p.span),
@@ -401,7 +401,7 @@ pub(crate) fn build_one_marriage(m: &MarriageStmt, options: &ExportOptions) -> E
         spouses: [m.spouse_a.name.clone(), m.spouse_b.name.clone()],
         start: m.start().map(exported_date),
         end: m.end().map(exported_date),
-        end_reason: m.end_reason().map(|er| end_reason_str(&er.value)),
+        end_reason: m.end_reason().map(|er| er.value.as_str().to_string()),
         span: span_if(options, m.span),
     }
 }
@@ -420,21 +420,6 @@ fn exported_date(d: &DateLit) -> ExportedDate {
         value,
         precision,
         circa: d.circa,
-    }
-}
-
-fn gender_str(g: Gender) -> &'static str {
-    match g {
-        Gender::Male => "male",
-        Gender::Female => "female",
-        Gender::Other => "other",
-    }
-}
-
-fn end_reason_str(er: &EndReason) -> String {
-    match er {
-        EndReason::Divorce => "divorce".to_string(),
-        EndReason::Unknown(s) => s.clone(),
     }
 }
 

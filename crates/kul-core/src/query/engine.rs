@@ -24,7 +24,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::ast::{EndReason, PersonStmt};
+use crate::ast::PersonStmt;
 use crate::export::ExportedDiagnostic;
 use crate::semantic::{ParentLinkKind, ResolvedDocument};
 
@@ -63,6 +63,17 @@ impl KinMember<'_> {
         super::Member {
             person_id: self.person.id.name.clone(),
             descriptor: self.descriptor.clone(),
+        }
+    }
+
+    /// Project to the serialized [`Member`](super::Member) shape by **moving**
+    /// the descriptor out — the allocation-free counterpart to
+    /// [`to_member`](Self::to_member), used when the member is owned.
+    #[must_use]
+    pub fn into_member(self) -> super::Member {
+        super::Member {
+            person_id: self.person.id.name.clone(),
+            descriptor: self.descriptor,
         }
     }
 }
@@ -237,8 +248,9 @@ fn project(
             },
             QuerySource::KinOf { .. } => QueryResult::Members {
                 members: candidates
-                    .iter()
-                    .filter_map(|c| c.member.as_ref().map(KinMember::to_member))
+                    .into_iter()
+                    .filter_map(|c| c.member)
+                    .map(KinMember::into_member)
                     .collect(),
             },
         },
@@ -497,10 +509,9 @@ impl<'a> Adjacency<'a> {
             } else {
                 MarriageStatus::Ongoing
             };
-            let end_reason = marriage.end_reason().map(|er| match &er.value {
-                EndReason::Divorce => "divorce".to_string(),
-                EndReason::Unknown(s) => s.clone(),
-            });
+            let end_reason = marriage
+                .end_reason()
+                .map(|er| er.value.as_str().to_string());
             let a = resolved.person(&marriage.spouse_a.name);
             let b = resolved.person(&marriage.spouse_b.name);
             // Both spouses must resolve, and a self-marriage (R04) crosses to
