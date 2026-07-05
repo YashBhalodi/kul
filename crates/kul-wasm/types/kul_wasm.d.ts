@@ -172,8 +172,9 @@ export interface CheckEnvelope {
 /**
  * JS-side return type of [`render_svg`]. Untagged success/failure
  * discriminated by `ok`, bit-identical to
- * `kul_lsp::features::render::RenderResponse`. Rule-of-three: a shared
- * crate emerges only when a third independent consumer materializes.
+ * `kul_lsp::features::render::RenderResponse`. The pipeline composition
+ * itself is shared through `kul_visual::render_from_check` (ADR-0031); this
+ * surface owns only the JS envelope shape around it.
  */
 export type RenderEnvelope = RenderSuccess | RenderFailure;
 

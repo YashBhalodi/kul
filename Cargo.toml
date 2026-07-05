@@ -6,6 +6,7 @@ members = [
     "crates/kul-render",
     "crates/kul-layout",
     "crates/kul-svg",
+    "crates/kul-visual",
     "crates/kul-cli",
     "crates/kul-lsp",
     "crates/kul-wasm",
@@ -32,6 +33,7 @@ kul-loader = { path = "crates/kul-loader", version = "0.4.3" }
 kul-render = { path = "crates/kul-render", version = "0.4.3" }
 kul-layout = { path = "crates/kul-layout", version = "0.4.3" }
 kul-svg = { path = "crates/kul-svg", version = "0.4.3" }
+kul-visual = { path = "crates/kul-visual", version = "0.4.3" }
 kul-lsp = { path = "crates/kul-lsp", version = "0.4.3" }
 miette = "7"
 thiserror = "2"

@@ -2,7 +2,7 @@
 //! (render → layout → svg) so the preview panel can render the in-memory
 //! buffer without shelling out. Mirrors the `kul/export` envelope shape.
 
-use kul_svg::ThemeConfig;
+use kul_visual::ThemeConfig;
 use serde::Deserialize;
 use tower_lsp::lsp_types::Url;
 

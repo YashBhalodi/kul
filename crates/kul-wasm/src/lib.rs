@@ -22,9 +22,7 @@ use kul_core::query::{
     MarriageLookupResult, PersonLookupResult, Query, QueryEnvelope, QueryResult, ResolveConfig,
     ResolveResult, kin_query, marriage_lookup, person_lookup, query_envelope, resolve_relationship,
 };
-use kul_layout::{LayoutConfig, layout};
-use kul_render::{RenderShape, compute};
-use kul_svg::{ThemeConfig, render};
+use kul_visual::{ThemeConfig, render_from_check};
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
@@ -113,8 +111,9 @@ pub fn export_with(
 
 /// JS-side return type of [`render_svg`]. Untagged success/failure
 /// discriminated by `ok`, bit-identical to
-/// `kul_lsp::features::render::RenderResponse`. Rule-of-three: a shared
-/// crate emerges only when a third independent consumer materializes.
+/// `kul_lsp::features::render::RenderResponse`. The pipeline composition
+/// itself is shared through `kul_visual::render_from_check` (ADR-0031); this
+/// surface owns only the JS envelope shape around it.
 #[derive(Debug, Clone, Serialize, Tsify)]
 #[tsify(into_wasm_abi)]
 #[serde(untagged)]
@@ -155,21 +154,19 @@ pub fn render_svg(files: Vec<WasmInputFile>, manifest: Manifest) -> RenderEnvelo
 /// Native-callable variant of [`render_svg`]; lets non-wasm tests call
 /// in without round-tripping through `JsValue`.
 ///
-/// Runs [`compute`] → [`layout`] → [`render`] with default configs; no
-/// options surfaced in v1 (ADR-0011).
+/// Routes the canonical-visual pipeline through the shared
+/// [`render_from_check`] facade with the theme-agnostic preview theme; no
+/// options surfaced in v1 (ADR-0011). This surface owns only its theme
+/// choice, its failure projection (raw `ExportedDiagnostic`s), and its
+/// output sink (the JS `RenderEnvelope`).
 pub fn render_svg_with(inputs: &[InputFile], manifest: &Manifest) -> RenderEnvelope {
     let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
-    let shape = compute(&result);
-    match shape {
-        RenderShape::Failure(f) => RenderEnvelope::Failure(RenderFailure {
+    match render_from_check(&result, &ThemeConfig::default()) {
+        Ok(svg) => RenderEnvelope::Success(RenderSuccess { ok: true, svg }),
+        Err(diagnostics) => RenderEnvelope::Failure(RenderFailure {
             ok: false,
-            diagnostics: f.diagnostics,
+            diagnostics,
         }),
-        RenderShape::Success(s) => {
-            let positioned = layout(&s, &LayoutConfig::default());
-            let svg = render(&positioned, &ThemeConfig::default());
-            RenderEnvelope::Success(RenderSuccess { ok: true, svg })
-        }
     }
 }
 

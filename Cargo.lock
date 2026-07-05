@@ -638,11 +638,9 @@ dependencies = [
  "clap",
  "insta",
  "kul-core",
- "kul-layout",
  "kul-loader",
  "kul-lsp",
- "kul-render",
- "kul-svg",
+ "kul-visual",
  "miette",
  "predicates",
  "serde",
@@ -694,6 +692,7 @@ dependencies = [
  "kul-loader",
  "kul-render",
  "kul-svg",
+ "kul-visual",
  "serde",
  "serde_json",
  "tokio",
@@ -723,6 +722,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "kul-visual"
+version = "0.4.3"
+dependencies = [
+ "insta",
+ "kul-core",
+ "kul-layout",
+ "kul-render",
+ "kul-svg",
+]
+
+[[package]]
 name = "kul-wasm"
 version = "0.4.3"
 dependencies = [
@@ -732,6 +742,7 @@ dependencies = [
  "kul-layout",
  "kul-render",
  "kul-svg",
+ "kul-visual",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
