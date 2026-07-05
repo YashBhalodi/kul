@@ -65,6 +65,17 @@ impl KinMember<'_> {
             descriptor: self.descriptor.clone(),
         }
     }
+
+    /// Project to the serialized [`Member`](super::Member) shape by **moving**
+    /// the descriptor out — the allocation-free counterpart to
+    /// [`to_member`](Self::to_member), used when the member is owned.
+    #[must_use]
+    pub fn into_member(self) -> super::Member {
+        super::Member {
+            person_id: self.person.id.name.clone(),
+            descriptor: self.descriptor,
+        }
+    }
 }
 
 /// A caller error from [`evaluate`]. Distinct from a project that fails its
@@ -237,8 +248,9 @@ fn project(
             },
             QuerySource::KinOf { .. } => QueryResult::Members {
                 members: candidates
-                    .iter()
-                    .filter_map(|c| c.member.as_ref().map(KinMember::to_member))
+                    .into_iter()
+                    .filter_map(|c| c.member)
+                    .map(KinMember::into_member)
                     .collect(),
             },
         },
