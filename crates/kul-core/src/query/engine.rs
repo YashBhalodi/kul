@@ -34,6 +34,7 @@ use super::descriptor::{
 };
 use super::junction::junction_of;
 use super::pattern::{IntRange, KinPattern, PatternClassification, Query, QuerySource};
+use super::resolve::{EmptyReason, ResolveConfig, ResolveResult};
 
 /// The engine's fixed ceiling on marriage (`across`) hops per path. No culture
 /// lexicalizes three affinal hops, so this is fixed semantics, not a knob
@@ -116,6 +117,199 @@ pub fn evaluate<'a>(
             Ok(eval_kin(resolved, ego, pattern))
         }
     }
+}
+
+/// Resolve **all** the ways two persons `x` and `y` are related (issue #259) —
+/// the two-anchor question, a separate call from the kin-set [`evaluate`], not
+/// a pipeline stage. Returns a [`ResolveResult`]: one [`RelationshipDescriptor`]
+/// per distinct relationship path (path identity, exactly as in the kin-set
+/// queries — resolution and kin-sets share one traversal engine and one
+/// descriptor derivation), plus — only when the list is empty — an honest
+/// [`EmptyReason`].
+///
+/// Semantics (ADR-0028):
+/// - **Enumeration** covers every simple path under the full grammar (blood
+///   `up* down*` segments joined by ≤2 marriage hops), where every blood
+///   segment's up-count and down-count are ≤ `config.max_apex_generations`.
+///   Couple-apex backbones are canonicalized and de-duplicated, and a step
+///   path shadowed by a real edge is suppressed — identical to the kin-set
+///   Phase 2.
+/// - **The 2-affinal-hop ceiling is fixed** ([`AFFINAL_CEILING`]); only the
+///   generation budget is a knob.
+/// - **Pure lineal ties are detected unbounded**, regardless of the cap: a
+///   single-segment `up+` or `down+` ancestor/descendant tie is always found
+///   (a `noneWithinBounds` must never hide a recorded direct-line tie).
+/// - **`x == y`** yields a single `self` descriptor (empty path).
+/// - The result is sorted by (path hop count) → (serialized backbone).
+///
+/// # Errors
+///
+/// Returns [`QueryEvalError::UnknownPerson`] when either `x` or `y` names no
+/// person (an unknown id, or an id that names a marriage) — a typed caller
+/// error, never an empty result. `x` is checked first.
+pub fn resolve<'a>(
+    resolved: &'a ResolvedDocument,
+    x: &str,
+    y: &str,
+    config: &ResolveConfig,
+) -> Result<ResolveResult, QueryEvalError> {
+    let ego = resolved
+        .person(x)
+        .ok_or_else(|| QueryEvalError::UnknownPerson { id: x.to_string() })?;
+    let alter = resolved
+        .person(y)
+        .ok_or_else(|| QueryEvalError::UnknownPerson { id: y.to_string() })?;
+
+    // `x == y`: a single reflexive `self` descriptor (empty path). Derived
+    // through the same `derive` as every other descriptor, so `self` never
+    // forks the vocabulary.
+    if ego.id.name == alter.id.name {
+        let descriptor = RelationshipDescriptor::derive(resolved, ego, alter, Vec::new());
+        return Ok(ResolveResult {
+            relationships: vec![descriptor],
+            empty_reason: None,
+        });
+    }
+
+    let adjacency = Adjacency::build(resolved);
+    let target = alter.id.name.as_str();
+
+    // Phase 1: enumerate every raw path from `x` to `y`.
+    let mut raw: Vec<Vec<PathHop>> = Vec::new();
+    // (a) The capped general enumeration — blood segments plus up to two
+    // affinal hops, each segment bounded by the generation budget. Reuses the
+    // shared `AffinalWalk` with an accept-all emit gate and an alter-identity
+    // filter in `emit` (the kin-set queries filter on a classification gate
+    // instead).
+    {
+        let mut walk = AffinalWalk {
+            adjacency: &adjacency,
+            up_max: None,
+            down_max: None,
+            segment_cap: Some(config.max_apex_generations),
+            across_max: AFFINAL_CEILING,
+            emit_gate: |_u, _d| true,
+            emit: |node: &'a PersonStmt, path: Vec<PathHop>| {
+                if node.id.name == target {
+                    raw.push(path);
+                }
+            },
+        };
+        walk.walk(
+            ego,
+            &mut vec![ego.id.name.as_str()],
+            &mut Vec::new(),
+            0,
+            0,
+            0,
+            0,
+            0,
+            false,
+        );
+    }
+    // (b) Unbounded pure-lineal detection, regardless of the cap: a direct
+    // ancestor (`up+`) or descendant (`down+`) tie, over both edge kinds. The
+    // simple-path guard terminates the walk; ties within the cap duplicate the
+    // (a) paths and are collapsed by the backbone de-duplication below.
+    for role in [LinealRole::Ancestor, LinealRole::Descendant] {
+        let mut walk = LinealWalk {
+            adjacency: &adjacency,
+            role,
+            generations: IntRange::from_one(None),
+            emit: |node: &'a PersonStmt, path: Vec<PathHop>| {
+                if node.id.name == target {
+                    raw.push(path);
+                }
+            },
+        };
+        walk.descend(ego, &mut vec![ego.id.name.as_str()], &mut Vec::new());
+    }
+
+    // Phase 2: canonicalize couple-apex backbones, de-duplicate identical
+    // facts, derive a descriptor per surviving path, and suppress step paths
+    // shadowed by a real edge — identical to the kin-set Phase 2.
+    let mut relationships: Vec<RelationshipDescriptor> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    for path in raw {
+        let path = canonicalize_apex(resolved, ego, path);
+        if !seen.insert(backbone_key(&path)) {
+            continue;
+        }
+        let descriptor = RelationshipDescriptor::derive(resolved, ego, alter, path);
+        if step_subsumed(resolved, ego, alter, &descriptor) {
+            continue;
+        }
+        relationships.push(descriptor);
+    }
+    sort_relationships(&mut relationships);
+
+    // Honest emptiness: a bare empty list would let apps render "not related"
+    // when the truth is "not related as far as we looked".
+    let empty_reason = relationships.is_empty().then(|| {
+        if connected(&adjacency, ego.id.name.as_str(), target) {
+            EmptyReason::NoneWithinBounds
+        } else {
+            EmptyReason::Disconnected
+        }
+    });
+
+    Ok(ResolveResult {
+        relationships,
+        empty_reason,
+    })
+}
+
+/// The pinned resolution order (snapshots depend on it): by (path hop count
+/// ascending) → (serialized backbone, codepoint ascending). Shortest tie
+/// first. Every descriptor shares the same alter (`y`), so — unlike
+/// [`sort_members`] — there is no alter-id key.
+fn sort_relationships(relationships: &mut [RelationshipDescriptor]) {
+    relationships.sort_by(|a, b| {
+        a.path
+            .len()
+            .cmp(&b.path.len())
+            .then_with(|| backbone_key(&a.path).cmp(&backbone_key(&b.path)))
+    });
+}
+
+/// Whether `x` and `y` lie in the same connected component of the **full
+/// relation graph** — undirected reachability over every parent-child edge
+/// (both kinds) plus every spouse edge. Drives the [`EmptyReason`]: an empty
+/// result from disconnected persons is `disconnected` (no budget can help),
+/// anything else is `noneWithinBounds`.
+fn connected(adjacency: &Adjacency<'_>, x: &str, y: &str) -> bool {
+    let mut seen: HashSet<&str> = HashSet::new();
+    seen.insert(x);
+    let mut stack = vec![x];
+    while let Some(node) = stack.pop() {
+        if node == y {
+            return true;
+        }
+        let ups = adjacency
+            .up
+            .get(node)
+            .into_iter()
+            .flatten()
+            .map(|e| e.person.id.name.as_str());
+        let downs = adjacency
+            .down
+            .get(node)
+            .into_iter()
+            .flatten()
+            .map(|e| e.person.id.name.as_str());
+        let acrosses = adjacency
+            .across
+            .get(node)
+            .into_iter()
+            .flatten()
+            .map(|e| e.person.id.name.as_str());
+        for neighbour in ups.chain(downs).chain(acrosses) {
+            if seen.insert(neighbour) {
+                stack.push(neighbour);
+            }
+        }
+    }
+    false
 }
 
 /// A directed parent-child edge in the per-invocation adjacency: the person
@@ -253,14 +447,19 @@ fn eval_kin<'a>(
             adjacency: &adjacency,
             up_max,
             down_max,
+            // Kin-set queries bound the *total* ascent / descent (above); the
+            // per-segment cap is a resolution-only budget.
+            segment_cap: None,
             across_max: across_budget,
-            classification: &pattern.classification,
+            emit_gate: |u, d| ud_matches(&pattern.classification, u, d),
             emit: |alter, path| raw.push((alter, path)),
         };
         walk.walk(
             ego,
             &mut vec![ego.id.name.as_str()],
             &mut Vec::new(),
+            0,
+            0,
             0,
             0,
             0,
@@ -652,46 +851,64 @@ fn make_across_hop(edge: &SpouseEdge<'_>) -> PathHop {
     }
 }
 
-/// The general affinal simple-path traversal (issue #258): 1–3 blood segments
-/// (each an `up* down*` run) joined by up to [`across_max`](AffinalWalk::
-/// across_max) marriage hops. The recursion carries the running `(u, d)`
-/// vertical counts, the spent `across` count, and a `descending` flag that
-/// enforces the per-segment `up*` before `down*` ordering; a marriage hop
-/// opens a fresh segment (clears `descending`). Every node whose running
-/// `(u, d)` satisfies the classification is emitted; the marriage-hop-count
-/// and affinity filters are applied in Phase 2. `up_max` / `down_max` bound the
-/// *total* ascent / descent across all segments; the simple-path guard
+/// Whether the running `(u, d)` vertical counts satisfy a kin-set
+/// classification — the emit gate the kin-set traversal hands
+/// [`AffinalWalk`]. The marriage-hop-count and affinity filters are Phase 2
+/// concerns; two-anchor resolution passes a permissive gate instead (it filters
+/// on the alter's identity, not on a classification).
+fn ud_matches(classification: &PatternClassification, u: u32, d: u32) -> bool {
+    match classification {
+        PatternClassification::Lineal { role, generations } => match role {
+            LinealRole::Ancestor => d == 0 && generations.contains(u),
+            LinealRole::Descendant => u == 0 && generations.contains(d),
+        },
+        PatternClassification::Collateral { up, down } => up.contains(u) && down.contains(d),
+        PatternClassification::CollateralByDegree { degree, removed } => {
+            degree.contains(u.min(d).saturating_sub(1)) && removed.contains(u.abs_diff(d))
+        }
+        PatternClassification::Any { max_up, max_down } => u <= *max_up && d <= *max_down,
+    }
+}
+
+/// The general affinal simple-path traversal (issue #258), shared by the
+/// kin-set queries and two-anchor resolution (issue #259) — one engine, no
+/// forked logic. Composes 1–3 blood segments (each an `up* down*` run) joined
+/// by up to [`across_max`](AffinalWalk::across_max) marriage hops. The
+/// recursion carries the running total `(u, d)` vertical counts, the *current
+/// segment's* `(seg_u, seg_d)` counts (reset on every marriage hop), the spent
+/// `across` count, and a `descending` flag that enforces the per-segment `up*`
+/// before `down*` ordering; a marriage hop opens a fresh segment (clears
+/// `descending`, resets the segment counts).
+///
+/// Two independent bounds, so both callers reuse the same walk:
+/// - `up_max` / `down_max` bound the **total** ascent / descent across all
+///   segments — the kin-set generation bounds (resolution leaves them `None`);
+/// - `segment_cap` bounds **each blood segment's** ascent and descent — the
+///   resolution nearest-common-ancestor budget (kin-set leaves it `None`).
+///
+/// Every node whose running `(u, d)` passes `emit_gate` is emitted; the gate is
+/// the kin-set classification for a kin query, or an accept-all gate (with an
+/// alter-identity filter in `emit`) for resolution. The simple-path guard
 /// (`visited`) terminates the walk on every input.
-struct AffinalWalk<'a, 'adj, F> {
+struct AffinalWalk<'a, 'adj, G, F> {
     adjacency: &'adj Adjacency<'a>,
     up_max: Option<u32>,
     down_max: Option<u32>,
+    segment_cap: Option<u32>,
     across_max: u32,
-    classification: &'adj PatternClassification,
+    emit_gate: G,
     emit: F,
 }
 
-impl<'a, 'adj, F: FnMut(&'a PersonStmt, Vec<PathHop>)> AffinalWalk<'a, 'adj, F> {
-    /// Whether the running `(u, d)` vertical counts satisfy the classification
-    /// (the marriage-hop and affinity filters are Phase 2 concerns).
-    fn ud_matches(&self, u: u32, d: u32) -> bool {
-        match self.classification {
-            PatternClassification::Lineal { role, generations } => match role {
-                LinealRole::Ancestor => d == 0 && generations.contains(u),
-                LinealRole::Descendant => u == 0 && generations.contains(d),
-            },
-            PatternClassification::Collateral { up, down } => up.contains(u) && down.contains(d),
-            PatternClassification::CollateralByDegree { degree, removed } => {
-                degree.contains(u.min(d).saturating_sub(1)) && removed.contains(u.abs_diff(d))
-            }
-            PatternClassification::Any { max_up, max_down } => u <= *max_up && d <= *max_down,
-        }
-    }
-
+impl<'a, 'adj, G: Fn(u32, u32) -> bool, F: FnMut(&'a PersonStmt, Vec<PathHop>)>
+    AffinalWalk<'a, 'adj, G, F>
+{
     /// Walk from `node`. `visited` is the cycle guard (ids on the current
     /// path, ego included); `backbone` the hops so far; `u` / `d` the total
-    /// ascent / descent; `across` the marriage hops spent; `descending` marks
-    /// that the current segment has begun descending (so no further `up`).
+    /// ascent / descent; `seg_u` / `seg_d` the current segment's ascent /
+    /// descent (reset on a marriage hop); `across` the marriage hops spent;
+    /// `descending` marks that the current segment has begun descending (so no
+    /// further `up`).
     #[allow(clippy::too_many_arguments)] // one recursion state; splitting hurts clarity.
     fn walk(
         &mut self,
@@ -700,11 +917,17 @@ impl<'a, 'adj, F: FnMut(&'a PersonStmt, Vec<PathHop>)> AffinalWalk<'a, 'adj, F> 
         backbone: &mut Vec<PathHop>,
         u: u32,
         d: u32,
+        seg_u: u32,
+        seg_d: u32,
         across: u32,
         descending: bool,
     ) {
-        // Ascend — only while the current segment has not turned to descent.
-        if !descending && self.up_max.is_none_or(|max| u < max) {
+        // Ascend — only while the current segment has not turned to descent,
+        // and within both the total and the per-segment bounds.
+        if !descending
+            && self.up_max.is_none_or(|max| u < max)
+            && self.segment_cap.is_none_or(|cap| seg_u < cap)
+        {
             for edge in self
                 .adjacency
                 .neighbours(node.id.name.as_str(), LinealRole::Ancestor)
@@ -716,13 +939,16 @@ impl<'a, 'adj, F: FnMut(&'a PersonStmt, Vec<PathHop>)> AffinalWalk<'a, 'adj, F> 
                     make_hop(LinealRole::Ancestor, edge),
                     u + 1,
                     d,
+                    seg_u + 1,
+                    seg_d,
                     across,
                     false,
                 );
             }
         }
         // Descend — begins (or continues) the segment's descent.
-        if self.down_max.is_none_or(|max| d < max) {
+        if self.down_max.is_none_or(|max| d < max) && self.segment_cap.is_none_or(|cap| seg_d < cap)
+        {
             for edge in self
                 .adjacency
                 .neighbours(node.id.name.as_str(), LinealRole::Descendant)
@@ -734,12 +960,15 @@ impl<'a, 'adj, F: FnMut(&'a PersonStmt, Vec<PathHop>)> AffinalWalk<'a, 'adj, F> 
                     make_hop(LinealRole::Descendant, edge),
                     u,
                     d + 1,
+                    seg_u,
+                    seg_d + 1,
                     across,
                     true,
                 );
             }
         }
-        // Cross a marriage — opens a fresh segment (ascent allowed again).
+        // Cross a marriage — opens a fresh segment (ascent allowed again, the
+        // per-segment counts reset).
         if across < self.across_max {
             for edge in self.adjacency.spouses(node.id.name.as_str()) {
                 self.step(
@@ -749,6 +978,8 @@ impl<'a, 'adj, F: FnMut(&'a PersonStmt, Vec<PathHop>)> AffinalWalk<'a, 'adj, F> 
                     make_across_hop(edge),
                     u,
                     d,
+                    0,
+                    0,
                     across + 1,
                     false,
                 );
@@ -757,7 +988,7 @@ impl<'a, 'adj, F: FnMut(&'a PersonStmt, Vec<PathHop>)> AffinalWalk<'a, 'adj, F> 
     }
 
     /// Take one hop to `next` (guarded by the simple-path rule), emit if the
-    /// landing `(u, d)` matches, then recurse and backtrack.
+    /// landing `(u, d)` passes `emit_gate`, then recurse and backtrack.
     #[allow(clippy::too_many_arguments)] // shared push/emit/recurse/pop step.
     fn step(
         &mut self,
@@ -767,6 +998,8 @@ impl<'a, 'adj, F: FnMut(&'a PersonStmt, Vec<PathHop>)> AffinalWalk<'a, 'adj, F> 
         hop: PathHop,
         u: u32,
         d: u32,
+        seg_u: u32,
+        seg_d: u32,
         across: u32,
         descending: bool,
     ) {
@@ -777,10 +1010,12 @@ impl<'a, 'adj, F: FnMut(&'a PersonStmt, Vec<PathHop>)> AffinalWalk<'a, 'adj, F> 
         }
         backbone.push(hop);
         visited.push(next_id);
-        if self.ud_matches(u, d) {
+        if (self.emit_gate)(u, d) {
             (self.emit)(next, backbone.clone());
         }
-        self.walk(next, visited, backbone, u, d, across, descending);
+        self.walk(
+            next, visited, backbone, u, d, seg_u, seg_d, across, descending,
+        );
         visited.pop();
         backbone.pop();
     }

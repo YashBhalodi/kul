@@ -303,7 +303,19 @@ impl RelationshipDescriptor {
         let edge_nature = derive_edge_nature(&path);
         let affinity = derive_affinity(&path);
         let side = derive_side(&path, junction.as_ref());
-        let seniority = seniority_of(alter, ego);
+        // The reflexive `self` (an empty path — `x` resolved against itself)
+        // has no birth-order comparison to make: `seniority` is
+        // `notApplicable`. A `self`-*classification* with a non-empty path (a
+        // spouse / co-spouse, reached by `across` hops) still carries a real
+        // seniority — the spouse's birth order versus ego — so the guard is on
+        // the empty path, not on the classification. No kin-set query ever
+        // emits an empty path (the anchor excludes itself), so this only fires
+        // for two-anchor resolution's `x == y` case.
+        let seniority = if path.is_empty() {
+            Seniority::NotApplicable
+        } else {
+            seniority_of(alter, ego)
+        };
         // At a sibling junction, `sharing` and `apexSeniority` are defined;
         // otherwise (lineal / self) both are `notApplicable`.
         let (sharing, apex_seniority) = match &junction {
