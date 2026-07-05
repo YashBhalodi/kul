@@ -126,7 +126,10 @@ Conventions:
 
 ## Performance budgets
 
-Perf budgets are tests, not benchmarks. They live at [`crates/kul-lsp/tests/perf.rs`](../crates/kul-lsp/tests/perf.rs) — one file collecting every gate, easy to find, runs as part of `cargo nextest`. The canonical example is `one_thousand_statement_check_and_translate_under_budget`: builds a 1000-person document, runs the full `kul_core::check` + `to_lsp` pipeline, asserts the elapsed time is under a ceiling.
+Perf budgets are tests, not benchmarks. Each crate keeps its gates in one `tests/perf.rs`, easy to find, running as part of `cargo nextest`:
+
+- [`crates/kul-lsp/tests/perf.rs`](../crates/kul-lsp/tests/perf.rs) — the language/render pipeline. The canonical example is `one_thousand_statement_check_and_translate_under_budget`: builds a 1000-person document, runs the full `kul_core::check` + `to_lsp` pipeline, asserts the elapsed time is under a ceiling.
+- [`crates/kul-core/tests/perf.rs`](../crates/kul-core/tests/perf.rs) — the **kinship query engine** ([ADR-0029](./adr/0029-query-engine-performance-posture.md)). `ten_thousand_person_query_operations_under_budget` builds a deterministic ~10k-person synthetic corpus and times the seven representative query operations, guarding the `< ~50 ms/query` interactive target under the engine's no-index / no-cache constraint.
 
 The "tests, not benches" choice is deliberate:
 
