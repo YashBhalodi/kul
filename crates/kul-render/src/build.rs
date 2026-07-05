@@ -4,8 +4,8 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use kul_core::export::{
-    ExportedDate, ExportedGraph, ExportedMarriage, ExportedParenthoodLink, ExportedPerson,
-    ParenthoodLinkKind,
+    ExportedDate, ExportedDiagnostic, ExportedGraph, ExportedMarriage, ExportedParenthoodLink,
+    ExportedPerson, ParenthoodLinkKind,
 };
 
 use crate::shape::{
@@ -13,13 +13,56 @@ use crate::shape::{
     PersonCard, SlotKind,
 };
 
+/// Maximum lineage depth (generation count along the deepest host-lineage
+/// path) the recursive layout builders will descend. Lineage depth is
+/// attacker-controlled via the `.kul` source and drives recursion once per
+/// generation in every downstream pass — this builder's
+/// `build_marriage_branch`/`build_children` chain, the layout adapter's
+/// `build_person`, and the Walker's `first_walk`/`second_walk`. Above this
+/// bound the projection refuses with a [`KUL_V01`] failure shape instead of
+/// risking a stack-overflow abort reachable from untrusted input. Chosen
+/// well above any real genealogy (recorded human lineages run to ~100
+/// generations) yet far below the "thousands" depth at which the smallest
+/// surface stacks (WASM, LSP workers) overflow. See ADR-0032.
+pub(crate) const MAX_LINEAGE_DEPTH: u32 = 512;
+
+/// Diagnostic code for a lineage past [`MAX_LINEAGE_DEPTH`] (ADR-0032).
+const KUL_V01: &str = "KUL-V01";
+
 /// Entry point for [`crate::transform`]. Returns `(components, edges)` in
-/// source order by each component's first-relevant-declaration position.
-pub(crate) fn build(graph: &ExportedGraph) -> (Vec<Component>, Vec<Edge>) {
+/// source order by each component's first-relevant-declaration position, or
+/// a [`KUL_V01`] diagnostic when the deepest lineage exceeds
+/// [`MAX_LINEAGE_DEPTH`] — the depth cap is enforced here, before any
+/// recursive build descends the tree.
+pub(crate) fn build(
+    graph: &ExportedGraph,
+) -> Result<(Vec<Component>, Vec<Edge>), Box<ExportedDiagnostic>> {
     let index = Index::new(graph);
+    if let Some(depth) = index.lineage_depth_over_cap() {
+        return Err(Box::new(lineage_too_deep_diagnostic(depth)));
+    }
     let edges = build_edges(graph);
     let components = build_components(&index);
-    (components, edges)
+    Ok((components, edges))
+}
+
+/// The deepest lineage depth (generation count) when it exceeds
+/// [`MAX_LINEAGE_DEPTH`], else `None`. Generations are precomputed
+/// iteratively in [`Index::new`], so this is a cheap max over a flat slice —
+/// the recursion cap is decided before any recursive build.
+fn lineage_too_deep_diagnostic(depth: u32) -> ExportedDiagnostic {
+    ExportedDiagnostic {
+        code: KUL_V01.to_string(),
+        severity: "error",
+        message: format!(
+            "lineage is {depth} generations deep, exceeding the visualization limit of \
+             {MAX_LINEAGE_DEPTH}; the family tree is too deep to lay out"
+        ),
+        // Whole-document property, not a single declaration — unanchored,
+        // like KUL-M01.
+        primary: None,
+        related: Vec::new(),
+    }
 }
 
 /// Mirrors export's parenthood links one-to-one in declaration order so
@@ -213,6 +256,16 @@ impl<'a> Index<'a> {
         for (i, facts) in self.persons.iter_mut().enumerate() {
             facts.generation = known[i].unwrap_or(0);
         }
+    }
+
+    /// The deepest lineage depth (generation count) when it exceeds
+    /// [`MAX_LINEAGE_DEPTH`], else `None`. Generations are precomputed
+    /// iteratively in [`Index::new`], so this is a cheap max over a flat
+    /// slice — the recursion cap is decided before any recursive build.
+    fn lineage_depth_over_cap(&self) -> Option<u32> {
+        let max_generation = self.persons.iter().map(|f| f.generation).max()?;
+        let depth = max_generation + 1;
+        (depth > MAX_LINEAGE_DEPTH).then_some(depth)
     }
 
     fn person(&self, id: &str) -> Option<&PersonFacts<'a>> {

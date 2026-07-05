@@ -65,6 +65,30 @@ fn adoption(child: &str, marriage_id: &str, start_y: u32) -> ExportedParenthoodL
     }
 }
 
+/// A single unbroken lineage `generations` deep: a root couple, then one
+/// child + spouse per generation, each child biologically born of the
+/// previous generation's marriage. The deepest person sits at generation
+/// `generations - 1`, so the projection sees a lineage depth of
+/// `generations`.
+fn deep_lineage(generations: u32) -> ExportedGraph {
+    let mut persons = vec![person("p0a", "P0A", "male"), person("p0b", "P0B", "female")];
+    let mut marriages = vec![marriage("m0", "p0a", "p0b", 1000)];
+    let mut parenthood_links = Vec::new();
+    for i in 1..generations {
+        let host = format!("c{i}");
+        let spouse = format!("s{i}");
+        persons.push(person(&host, &host, "male"));
+        persons.push(person(&spouse, &spouse, "female"));
+        parenthood_links.push(bio(&host, &format!("m{}", i - 1)));
+        marriages.push(marriage(&format!("m{i}"), &host, &spouse, 1000 + i));
+    }
+    ExportedGraph {
+        persons,
+        marriages,
+        parenthood_links,
+    }
+}
+
 fn success(graph: ExportedGraph) -> ExportEnvelope {
     ExportEnvelope::Success(SuccessEnvelope {
         ok: true,
@@ -344,6 +368,40 @@ fn multi_rootless_host_lineage_n3() {
     assert_eq!(roots, vec!["a", "x", "p"]);
 
     insta::assert_snapshot!(render_pretty(&envelope));
+}
+
+/// Regression: #251 — a pathologically deep single lineage is reachable
+/// from untrusted `.kul` input. Each generation drives one level of
+/// recursion in the render builder, the layout adapter, and the Walker
+/// walks, so a thousands-deep chain would abort the process on stack
+/// overflow. The projection caps lineage depth and downgrades an
+/// over-limit document to a `KUL-V01` failure shape (ADR-0032) — reaching
+/// the assertion at all proves the cap fired before any recursion.
+#[test]
+fn deep_lineage_downgrades_to_failure_without_overflow() {
+    let envelope = success(deep_lineage(5_000));
+    let shape = transform(&envelope);
+    let failure = shape
+        .as_failure()
+        .expect("a lineage past the depth cap must downgrade to a failure shape");
+    assert!(
+        failure.diagnostics.iter().any(|d| d.code == "KUL-V01"),
+        "expected a KUL-V01 depth diagnostic, got {:?}",
+        failure.diagnostics
+    );
+}
+
+/// Companion to the cap test: a comfortably in-budget lineage (hundreds
+/// deep) still lays out through the recursive builder unchanged, so the
+/// cap rejects only pathological input rather than any realistic tree.
+#[test]
+fn in_budget_deep_lineage_still_projects_to_success() {
+    let envelope = success(deep_lineage(256));
+    let shape = transform(&envelope);
+    assert!(
+        shape.as_success().is_some(),
+        "an in-budget lineage must still project to a success shape"
+    );
 }
 
 /// Failure envelopes pass through verbatim, carrying the same diagnostics.
