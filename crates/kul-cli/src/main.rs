@@ -178,6 +178,47 @@ EXIT CODES:
   2  CLI usage error
 ";
 
+const QUERY_LONG_ABOUT: &str = "\
+Ask kinship questions of the current Kul project.
+
+The project is the directory containing `kul.yml` — the command is run
+from that directory and takes no positional project argument. Like
+`kul export`, `kul query` is **strict**: it runs only against a project
+that passes its checks. A project with error-severity diagnostics blocks
+the query — the diagnostics render to stderr (or, under `--format json`,
+as the envelope's error arm) and the exit code is non-zero.
+
+This first slice carries the two id → detail lookups:
+
+  kul query person <id>     look up a person by id
+  kul query marriage <id>   look up a marriage by id
+
+FORMATS (`--format`):
+
+  human  (default) the entity's recorded fields in a readable,
+         terminology-neutral layout.
+  json   the query envelope — byte-identical to what the `@kullang/wasm`
+         query surface returns. The ok arm carries `result` (the entity,
+         or `null` when the id names none); the error arm carries
+         `diagnostics`.
+
+NOT FOUND:
+  An id that names no such entity is a complete, honest answer, not a
+  crash: under `--format json` the ok envelope with a `null` result is
+  written to stdout, and a diagnostic naming the id is written to stderr.
+  Either way the exit code is non-zero.
+
+EXAMPLES:
+  kul query person hiroshi
+  kul query marriage m_hiroshi_yuki --format json | jq .
+
+EXIT CODES:
+  0  the entity was found
+  1  the entity was not found, or the project could not be loaded or
+     failed its checks
+  2  CLI usage error (e.g. a missing id argument)
+";
+
 const LSP_LONG_ABOUT: &str = "\
 Run the Kul language server over stdio.
 
@@ -233,9 +274,43 @@ enum Command {
         with_positions: bool,
     },
 
+    /// Ask kinship questions of the current Kul project.
+    #[command(long_about = QUERY_LONG_ABOUT)]
+    Query {
+        #[command(subcommand)]
+        verb: QueryVerb,
+    },
+
     /// Run the language server over stdio.
     #[command(long_about = LSP_LONG_ABOUT)]
     Lsp,
+}
+
+/// One id → detail lookup. Each verb takes the id to look up plus the
+/// shared `--format human|json` flag.
+#[derive(Subcommand, Debug)]
+enum QueryVerb {
+    /// Look up a person by id.
+    Person {
+        /// The person id to look up.
+        id: String,
+
+        /// Output format: `human` (default, readable fields) or `json`
+        /// (the query envelope, byte-identical to the WASM surface).
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+    },
+
+    /// Look up a marriage by id.
+    Marriage {
+        /// The marriage id to look up.
+        id: String,
+
+        /// Output format: `human` (default, readable fields) or `json`
+        /// (the query envelope, byte-identical to the WASM surface).
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+    },
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum, PartialEq, Eq)]
@@ -264,8 +339,25 @@ fn main() -> ExitCode {
             format,
             with_positions,
         }),
+        Command::Query { verb } => run_query(verb),
         Command::Lsp => run_lsp(),
     }
+}
+
+fn run_query(verb: QueryVerb) -> ExitCode {
+    let options = match verb {
+        QueryVerb::Person { id, format } => commands::query::Options {
+            verb: commands::query::Verb::Person,
+            id,
+            format,
+        },
+        QueryVerb::Marriage { id, format } => commands::query::Options {
+            verb: commands::query::Verb::Marriage,
+            id,
+            format,
+        },
+    };
+    commands::query::run(options)
 }
 
 fn run_lsp() -> ExitCode {

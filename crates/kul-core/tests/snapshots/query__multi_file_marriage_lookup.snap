@@ -1,0 +1,19 @@
+---
+source: crates/kul-core/tests/query.rs
+expression: "marriage_json(&check, \"m_diego_carmen\")"
+---
+{
+  "ok": true,
+  "result": {
+    "id": "m_diego_carmen",
+    "spouses": [
+      "diego",
+      "carmen"
+    ],
+    "start": {
+      "value": "1960-02-14",
+      "precision": "day",
+      "circa": false
+    }
+  }
+}

@@ -1,0 +1,8 @@
+---
+source: crates/kul-cli/tests/cli.rs
+expression: stdout
+---
+person hiroshi
+  name:    Hiroshi Tanaka
+  gender:  male
+  born:    1978-02-11

@@ -13,8 +13,12 @@ import {
     exportGraph,
     format,
     renderSvg,
+    queryPerson,
+    queryMarriage,
     type ExportedGraph,
     type CytoscapeGraph,
+    type ExportedPerson,
+    type ExportedMarriage,
     type Manifest,
     type WasmInputFile,
 } from '../../pkg/kul_wasm.js';
@@ -172,6 +176,56 @@ if ('diagnostics' in renderedBroken) {
 // @ts-expect-error renderSvg requires an array of input files
 renderSvg('person alice name:"A" gender:female\n', manifest);
 
+// `queryPerson` / `queryMarriage` are the fourth WASM shape (ADR-0011):
+// the kinship query surface. Same input shape as `check` / `exportGraph`
+// (files + manifest) plus the id being looked up. The result is a
+// `QueryEnvelope<T>` — an `ok`-discriminated union mirroring the other
+// envelopes. The ok arm's `result` is the entity in the export shape, or
+// `null` when no entity has that id; the error arm carries the same
+// `ExportedDiagnostic` list a failing project produces.
+// Discriminate the envelope arms by structural narrowing — the wire-level
+// `ok` is a `boolean` rather than a literal type, so `'result' in env` is
+// the right tool (mirrors the `exportGraph` / `renderSvg` pattern above).
+let lookedUpPersonName = '';
+let personLookupErrorCode = '';
+const personEnvelope = queryPerson(singleFile, manifest, 'alice');
+if ('result' in personEnvelope) {
+    // `result` is `ExportedPerson | null` — null means no such person.
+    const person: ExportedPerson | null = personEnvelope.result;
+    if (person !== null) {
+        lookedUpPersonName = person.name;
+    }
+} else {
+    personLookupErrorCode = personEnvelope.diagnostics[0]?.code ?? '';
+}
+
+let lookedUpMarriageId = '';
+const marriageEnvelope = queryMarriage(multiFile, manifest, 'm');
+if ('result' in marriageEnvelope) {
+    const marriage: ExportedMarriage | null = marriageEnvelope.result;
+    if (marriage !== null) {
+        lookedUpMarriageId = marriage.id;
+    }
+}
+
+// Failure-arm exercise: a project that fails its checks yields the error
+// arm, never a partial answer.
+const brokenLookup = queryPerson(
+    [{ name: 'input.kul', source: 'person alice gender:female\n' }],
+    manifest,
+    'alice',
+);
+if ('diagnostics' in brokenLookup) {
+    personLookupErrorCode = brokenLookup.diagnostics[0]?.code ?? personLookupErrorCode;
+}
+
+// Type system must reject a bare string where an array is expected, and
+// must require the id argument.
+// @ts-expect-error queryPerson requires an array of input files
+queryPerson('person alice name:"A" gender:female\n', manifest, 'alice');
+// @ts-expect-error queryMarriage requires an id argument
+queryMarriage(singleFile, manifest);
+
 // Suppress "unused binding" diagnostics in --noUnusedLocals mode.
 export const _exports = {
     formatted,
@@ -190,4 +244,7 @@ export const _exports = {
     cytoscapeNodeCount,
     renderedSvg,
     renderFailureCode,
+    lookedUpPersonName,
+    personLookupErrorCode,
+    lookedUpMarriageId,
 };

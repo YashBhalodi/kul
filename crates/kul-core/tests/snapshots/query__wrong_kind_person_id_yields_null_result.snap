@@ -1,0 +1,8 @@
+---
+source: crates/kul-core/tests/query.rs
+expression: "person_json(&check, \"m_hiroshi_yuki\")"
+---
+{
+  "ok": true,
+  "result": null
+}
