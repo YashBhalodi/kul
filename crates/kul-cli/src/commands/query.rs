@@ -204,13 +204,16 @@ pub fn run_kin(opts: KinOptions) -> ExitCode {
     // returns, so `--format json` bytes are byte-identical.
     let envelope = kin_query(&check, &opts.query);
     match opts.format {
-        OutputFormat::Json => finish_kin_json(&envelope, &opts.anchor),
+        OutputFormat::Json => finish_kin_json(&envelope),
         OutputFormat::Human => finish_kin_human(&envelope, &opts, &check),
     }
 }
 
-fn finish_kin_json(envelope: &QueryEnvelope<QueryResult>, anchor: &str) -> ExitCode {
-    // The envelope IS the contract answer for every outcome — always stdout.
+fn finish_kin_json(envelope: &QueryEnvelope<QueryResult>) -> ExitCode {
+    // The envelope IS the contract answer for every outcome (empty set, bad
+    // anchor, failing project) — always stdout, and it already carries the
+    // diagnostic for the error arms. No stderr echo, so a failing-project
+    // envelope is never mislabelled as a bad anchor.
     let json = serde_json::to_string(envelope).expect("serialize kin envelope");
     let stdout = io::stdout();
     let mut out = stdout.lock();
@@ -219,12 +222,7 @@ fn finish_kin_json(envelope: &QueryEnvelope<QueryResult>, anchor: &str) -> ExitC
         return ExitCode::from(1);
     }
     match envelope {
-        // Error arm: failing project or unknown anchor. A diagnostic naming
-        // the anchor already rode the envelope; echo it to stderr too.
-        QueryEnvelope::Error(_) => {
-            not_found_anchor(anchor);
-            ExitCode::from(1)
-        }
+        QueryEnvelope::Error(_) => ExitCode::from(1),
         // An empty set is a complete answer (exit 0).
         QueryEnvelope::Ok(_) => ExitCode::SUCCESS,
     }
