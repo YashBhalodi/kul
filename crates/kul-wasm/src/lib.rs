@@ -18,6 +18,9 @@
 use kul_core::ast::InputFile;
 use kul_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic};
 use kul_core::manifest::Manifest;
+use kul_core::query::{
+    MarriageLookupResult, PersonLookupResult, QueryEnvelope, marriage_lookup, person_lookup,
+};
 use kul_layout::{LayoutConfig, layout};
 use kul_render::{RenderShape, compute};
 use kul_svg::{ThemeConfig, render};
@@ -167,4 +170,73 @@ pub fn render_svg_with(inputs: &[InputFile], manifest: &Manifest) -> RenderEnvel
             RenderEnvelope::Success(RenderSuccess { ok: true, svg })
         }
     }
+}
+
+/// Named payload aliases for the query envelopes. `Option<Exported*>`
+/// serializes to `Exported* | null` (json-compatible serializer, per the
+/// export surface); tsify erases the transparent Rust type alias, so we
+/// declare the TS names here and pin them onto the function signatures via
+/// `unchecked_return_type`. This keeps the surface reading exactly like the
+/// pinned sketch in issue #255 / PRD 0005.
+#[wasm_bindgen(typescript_custom_section)]
+const QUERY_LOOKUP_TYPES: &'static str = r#"
+export type PersonLookupResult = ExportedPerson | null;
+export type MarriageLookupResult = ExportedMarriage | null;
+"#;
+
+/// The fourth WASM shape (ADR-0011): the kinship query surface. Looks up a
+/// person by id, gated on the project passing its checks (strict-on-errors,
+/// ADR-0009). Never throws — a failing project yields the envelope's error
+/// arm; a clean project yields the ok arm carrying the person in the export
+/// shape, or `null` when no person has that id.
+#[wasm_bindgen(
+    js_name = "queryPerson",
+    unchecked_return_type = "QueryEnvelope<PersonLookupResult>"
+)]
+pub fn query_person(
+    files: Vec<WasmInputFile>,
+    manifest: Manifest,
+    id: String,
+) -> QueryEnvelope<PersonLookupResult> {
+    console_error_panic_hook::set_once();
+    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
+    query_person_with(&inputs, &manifest, &id)
+}
+
+/// Native-callable variant of [`query_person`]; lets non-wasm tests call in
+/// without round-tripping through `JsValue`.
+pub fn query_person_with(
+    inputs: &[InputFile],
+    manifest: &Manifest,
+    id: &str,
+) -> QueryEnvelope<PersonLookupResult> {
+    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+    person_lookup(&result, id)
+}
+
+/// Marriage-lookup counterpart to [`query_person`]. Same load-and-check
+/// gate and never-throwing envelope; the ok arm carries the marriage in the
+/// export shape, or `null` when no marriage has that id.
+#[wasm_bindgen(
+    js_name = "queryMarriage",
+    unchecked_return_type = "QueryEnvelope<MarriageLookupResult>"
+)]
+pub fn query_marriage(
+    files: Vec<WasmInputFile>,
+    manifest: Manifest,
+    id: String,
+) -> QueryEnvelope<MarriageLookupResult> {
+    console_error_panic_hook::set_once();
+    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
+    query_marriage_with(&inputs, &manifest, &id)
+}
+
+/// Native-callable variant of [`query_marriage`].
+pub fn query_marriage_with(
+    inputs: &[InputFile],
+    manifest: &Manifest,
+    id: &str,
+) -> QueryEnvelope<MarriageLookupResult> {
+    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+    marriage_lookup(&result, id)
 }

@@ -1,5 +1,39 @@
 /* tslint:disable */
 /* eslint-disable */
+
+export type PersonLookupResult = ExportedPerson | null;
+export type MarriageLookupResult = ExportedMarriage | null;
+
+
+/**
+ * Adapter-facing result of a query operation. Mirrors the existing
+ * check/export/render surface: an untagged union discriminated by an `ok`
+ * boolean — the ok arm carries the query `result`, the error arm carries
+ * the structured `diagnostics` of a project that failed its checks.
+ *
+ * The engine never throws / never panics: a failing project yields the
+ * [`QueryEnvelope::Error`] arm, not a partial answer (strict-on-errors,
+ * ADR-0009). Generic over the payload `T` so later slices (kin-set
+ * queries, relationship resolution) reuse the same envelope.
+ */
+export type QueryEnvelope<T> = QueryOk<T> | QueryError;
+
+/**
+ * Error arm of a [`QueryEnvelope`]. `ok` is always `false`;
+ * `diagnostics` carries every diagnostic the failing project produced —
+ * the same [`ExportedDiagnostic`] shape the check/export surfaces use.
+ */
+export interface QueryError {
+    /**
+     * Always `false`. Consumer-facing discriminator.
+     */
+    ok: boolean;
+    /**
+     * Every diagnostic the validator produced (errors, warnings, notes).
+     */
+    diagnostics: ExportedDiagnostic[];
+}
+
 /**
  * Failure arm of [`RenderEnvelope`]. Same diagnostic shape as
  * [`export_graph`]\'s failure path.
@@ -33,6 +67,21 @@ export interface CheckEnvelope {
  * crate emerges only when a third independent consumer materializes.
  */
 export type RenderEnvelope = RenderSuccess | RenderFailure;
+
+/**
+ * Ok arm of a [`QueryEnvelope`]. `ok` is always `true` (consumer-facing
+ * discriminator); `result` is the query payload.
+ */
+export interface QueryOk<T> {
+    /**
+     * Always `true`. Consumer-facing discriminator.
+     */
+    ok: boolean;
+    /**
+     * The query answer (for a lookup: the entity, or `null`).
+     */
+    result: T;
+}
 
 /**
  * One `.kul` input file as the JS host hands it to the bridge. Mirrors
@@ -311,5 +360,21 @@ export function check(files: WasmInputFile[], manifest: Manifest): CheckEnvelope
 export function exportGraph(files: WasmInputFile[], manifest: Manifest, options?: ExportOptions | null): ExportEnvelope;
 
 export function format(source: string): string;
+
+/**
+ * Marriage-lookup counterpart to [`query_person`]. Same load-and-check
+ * gate and never-throwing envelope; the ok arm carries the marriage in the
+ * export shape, or `null` when no marriage has that id.
+ */
+export function queryMarriage(files: WasmInputFile[], manifest: Manifest, id: string): QueryEnvelope<MarriageLookupResult>;
+
+/**
+ * The fourth WASM shape (ADR-0011): the kinship query surface. Looks up a
+ * person by id, gated on the project passing its checks (strict-on-errors,
+ * ADR-0009). Never throws — a failing project yields the envelope's error
+ * arm; a clean project yields the ok arm carrying the person in the export
+ * shape, or `null` when no person has that id.
+ */
+export function queryPerson(files: WasmInputFile[], manifest: Manifest, id: string): QueryEnvelope<PersonLookupResult>;
 
 export function renderSvg(files: WasmInputFile[], manifest: Manifest): RenderEnvelope;
