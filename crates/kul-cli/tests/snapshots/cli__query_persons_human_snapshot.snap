@@ -1,0 +1,6 @@
+---
+source: crates/kul-cli/tests/cli.rs
+expression: "String::from_utf8(output.stdout).unwrap()"
+---
+echo  Echo  born:1961-07-30
+foxtrot  Foxtrot  born:1972

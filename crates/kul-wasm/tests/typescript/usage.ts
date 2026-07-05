@@ -16,6 +16,7 @@ import {
     queryPerson,
     queryMarriage,
     queryKin,
+    runQuery,
     queryResolve,
     type ExportedGraph,
     type CytoscapeGraph,
@@ -309,6 +310,72 @@ if ('result' in cousinsEnvelope && cousinsEnvelope.result.kind === 'members') {
 // @ts-expect-error queryKin requires a Query value, not an id string
 queryKin(multiFile, manifest, 'alice');
 
+// `runQuery` is the general query surface: any `Query` — the new
+// `allPersons` source plus the attribute-filter extensions (`where`
+// predicate conjunction, `sort`, certainty `mode`) and the `count`
+// projection. The `where` predicate is a discriminated union on `op`; a
+// `members` projection over `allPersons` yields the `personIds` result
+// shape, and `count` yields the `count` shape.
+const personsQuery: Query = {
+    source: { kind: 'allPersons' },
+    where: [
+        { op: 'gt', field: 'born', value: '1950' },
+        { op: 'absent', field: 'died' },
+        { op: 'in', field: 'family', values: ['Rao', 'Sen'] },
+    ],
+    sort: { field: 'born', direction: 'desc' },
+    mode: 'includeUncertain',
+    projection: 'members',
+};
+let firstPersonId = '';
+let personsErrorCode = '';
+const personsEnvelope = runQuery(multiFile, manifest, personsQuery);
+if ('result' in personsEnvelope) {
+    // `allPersons` + `members` produces the ids-only `personIds` shape.
+    if (personsEnvelope.result.kind === 'personIds') {
+        for (const id of personsEnvelope.result.personIds) {
+            firstPersonId = id;
+        }
+    }
+} else {
+    personsErrorCode = personsEnvelope.diagnostics[0]?.code ?? '';
+}
+
+// The `count` projection collapses either source to a single integer.
+const countQuery: Query = {
+    source: { kind: 'allPersons' },
+    projection: 'count',
+};
+let personCount = 0;
+const countEnvelope = runQuery(singleFile, manifest, countQuery);
+if ('result' in countEnvelope && countEnvelope.result.kind === 'count') {
+    personCount = countEnvelope.result.count;
+}
+
+// The same filter flags compose onto a `kinOf` source, keeping `members`.
+const filteredKinQuery: Query = {
+    source: {
+        kind: 'kinOf',
+        anchor: 'alice',
+        pattern: { classification: { kind: 'lineal', role: 'descendant', generations: { min: 1 } } },
+    },
+    where: [{ op: 'eq', field: 'family', value: 'Rao' }],
+    sort: { field: 'born' },
+    projection: 'members',
+};
+const filteredKinEnvelope = runQuery(multiFile, manifest, filteredKinQuery);
+if ('result' in filteredKinEnvelope && filteredKinEnvelope.result.kind === 'members') {
+    void filteredKinEnvelope.result.members.length;
+}
+
+// Type system must reject an unknown predicate operator.
+runQuery(multiFile, manifest, {
+    source: { kind: 'allPersons' },
+    // @ts-expect-error "contains" is not a valid predicate op
+    where: [{ op: 'contains', field: 'name', value: 'x' }],
+    projection: 'members',
+});
+
 // `queryResolve` is the two-anchor variant of the fourth shape: two ids plus
 // an optional config, returning `QueryEnvelope<ResolveResult>`. An omitted
 // config uses the default generation budget. The result is a descriptor list
@@ -359,6 +426,9 @@ export const _exports = {
     lookedUpMarriageId,
     firstKinId,
     kinErrorCode,
+    firstPersonId,
+    personsErrorCode,
+    personCount,
     firstRelationshipKind,
     resolveEmptyReason,
     resolveErrorCode,

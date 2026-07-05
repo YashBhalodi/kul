@@ -1,0 +1,5 @@
+---
+source: crates/kul-cli/tests/cli.rs
+expression: stdout
+---
+{"ok":true,"result":{"kind":"personIds","personIds":["charlie","bravo","alpha","echo","foxtrot","golf"]}}

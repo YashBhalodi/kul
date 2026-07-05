@@ -1,0 +1,10 @@
+---
+source: crates/kul-core/tests/filter.rs
+expression: "person_ids(&cohort(), &query)"
+---
+[
+  "delta",
+  "alpha",
+  "echo",
+  "golf"
+]

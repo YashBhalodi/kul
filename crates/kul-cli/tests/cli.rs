@@ -1073,3 +1073,208 @@ fn version_flag_prints_both_versions() {
         .success()
         .stdout(contains("kul-core"));
 }
+
+// ---- Attribute-filter queries (`kul query persons`, issue #260) ----
+
+/// A cohort project for the attribute-filter CLI tests: exact / partial /
+/// circa / missing dates, family + gender variety, one person with no death.
+const FILTER_COHORT: &str = "\
+person delta   name:\"Delta\"   gender:female  family:\"Rao\"    born:1950-04-12  died:2001-03-01
+person bravo   name:\"Bravo\"   gender:male    family:\"Rao\"    born:1950
+person alpha   name:\"Alpha\"   gender:other   family:\"Sen\"    born:1950-04
+person charlie name:\"Charlie\" gender:male    family:\"Sen\"    born:~1950
+person echo    name:\"Echo\"    gender:female  family:\"Rao\"    born:1961-07-30
+person foxtrot name:\"Foxtrot\" gender:male                     born:1972
+person golf    name:\"Golf\"    gender:female  family:\"Sen\"
+";
+
+/// A cohort project rooted in a temp dir with its `kul.yml`.
+fn cohort_project(name: &str) -> PathBuf {
+    let dir = project_dir(name);
+    std::fs::write(dir.join("cohort.kul"), FILTER_COHORT).unwrap();
+    dir
+}
+
+#[test]
+fn query_persons_human_snapshot() {
+    let dir = cohort_project("persons-human");
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args(["query", "persons", "--where", "born>1950", "--sort", "born"])
+        .output()
+        .expect("run kul query persons");
+    assert!(output.status.success(), "exit 0");
+    insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap());
+}
+
+#[test]
+fn query_persons_json_contract_snapshot() {
+    let dir = cohort_project("persons-json");
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args([
+            "query",
+            "persons",
+            "--where",
+            "absent(died)",
+            "--sort",
+            "born",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("run kul query persons --format json");
+    assert!(output.status.success(), "exit 0");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid json");
+    assert_eq!(env["ok"], true);
+    assert_eq!(env["result"]["kind"], "personIds");
+    insta::assert_snapshot!(stdout);
+}
+
+#[test]
+fn query_persons_count_prints_integer() {
+    let dir = cohort_project("persons-count");
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args(["query", "persons", "--where", "born>1950", "--count"])
+        .assert()
+        .success()
+        .stdout("2\n");
+}
+
+#[test]
+fn query_persons_count_json_emits_count_envelope() {
+    let dir = cohort_project("persons-count-json");
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args(["query", "persons", "--count", "--format", "json"])
+        .output()
+        .expect("run kul query persons --count --format json");
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid json");
+    assert_eq!(env["result"]["kind"], "count");
+    assert_eq!(env["result"]["count"], 7);
+}
+
+#[test]
+fn query_persons_empty_set_exits_zero() {
+    let dir = cohort_project("persons-empty");
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args(["query", "persons", "--where", "family=Nobody"])
+        .assert()
+        .success()
+        .stdout("");
+}
+
+#[test]
+fn query_persons_include_uncertain_widens_the_set() {
+    // `born=1950` in certain mode excludes charlie (~1950 overlaps but is not
+    // contained); --include-uncertain lets it (and the missing-date golf) in.
+    let dir = cohort_project("persons-uncertain");
+    let certain = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args(["query", "persons", "--where", "born=1950", "--count"])
+        .output()
+        .unwrap();
+    let uncertain = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args([
+            "query",
+            "persons",
+            "--where",
+            "born=1950",
+            "--include-uncertain",
+            "--count",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(String::from_utf8(certain.stdout).unwrap(), "3\n");
+    assert_eq!(String::from_utf8(uncertain.stdout).unwrap(), "5\n");
+}
+
+#[test]
+fn query_persons_unknown_field_errors() {
+    let dir = cohort_project("persons-bad-field");
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args(["query", "persons", "--where", "surname=Rao"])
+        .assert()
+        .failure()
+        .stderr(contains("unknown field `surname`"));
+}
+
+#[test]
+fn query_persons_malformed_date_errors() {
+    let dir = cohort_project("persons-bad-date");
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args(["query", "persons", "--where", "born>nope"])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("invalid date literal"));
+}
+
+#[test]
+fn query_persons_ordering_on_string_field_errors() {
+    let dir = cohort_project("persons-bad-op");
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args(["query", "persons", "--where", "name<Zed"])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("date field"));
+}
+
+#[test]
+fn query_kin_composition_json_snapshot() {
+    // Attribute filter composed onto a traversal: descendants sorted by born,
+    // members keep their descriptors (still the `members` shape).
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("02-three-generations"))
+        .args([
+            "query",
+            "kin",
+            "chinua",
+            "descendants",
+            "--sort",
+            "born",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("run kul query kin --sort --format json");
+    assert!(output.status.success(), "exit 0");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid json");
+    assert_eq!(env["result"]["kind"], "members");
+    insta::assert_snapshot!(stdout);
+}
+
+#[test]
+fn query_kin_count_prints_integer() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("02-three-generations"))
+        .args(["query", "kin", "chinua", "descendants", "--count"])
+        .output()
+        .expect("run kul query kin --count");
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert_eq!(stdout.trim(), "3", "chinua has 3 descendants");
+}
