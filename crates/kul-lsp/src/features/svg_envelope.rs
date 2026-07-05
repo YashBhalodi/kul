@@ -10,24 +10,6 @@ use tower_lsp::lsp_types::Range;
 
 use crate::state::ProjectEntry;
 
-/// Shared error for the SVG-producing requests (`kul/render`,
-/// `kul/exportSvg`). Both handlers surface the identical
-/// `DocumentNotOpen` case when the cached project entry is absent.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SvgRequestError {
-    DocumentNotOpen,
-}
-
-impl SvgRequestError {
-    pub fn message(&self) -> String {
-        match self {
-            SvgRequestError::DocumentNotOpen => {
-                "document is not open in the language server".to_owned()
-            }
-        }
-    }
-}
-
 /// Route the canonical-visual pipeline through the shared
 /// [`render_from_check`] facade for a cached [`ProjectEntry`], projecting
 /// into the shared [`RenderResponse`] envelope. Project-wide (ADR-0015):

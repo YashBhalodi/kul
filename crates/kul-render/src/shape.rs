@@ -154,7 +154,7 @@ pub struct CardSlot {
 
 /// Whether a [`CardSlot`] is the person's canonical card (exactly one
 /// per person) or a ghost anchoring a past structural fact.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SlotKind {
     /// Exactly one per declared person.

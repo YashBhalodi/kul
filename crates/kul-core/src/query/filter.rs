@@ -497,16 +497,16 @@ fn person_present(person: &PersonStmt, field: PersonField) -> bool {
 /// fixed — so the derived `Ord` (which would order `Str < Date`) is never
 /// exercised across variants.
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
-enum SortKey {
-    Str(String),
+enum SortKey<'a> {
+    Str(&'a str),
     Date(CalendarDay, CalendarDay),
 }
 
-fn sort_key(person: &PersonStmt, field: PersonField) -> Option<SortKey> {
+fn sort_key(person: &PersonStmt, field: PersonField) -> Option<SortKey<'_>> {
     if field.is_date() {
         person_date(person, field).map(|d| SortKey::Date(d.lower_bound(), d.upper_bound()))
     } else {
-        person_string(person, field).map(|s| SortKey::Str(s.to_owned()))
+        person_string(person, field).map(SortKey::Str)
     }
 }
 
