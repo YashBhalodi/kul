@@ -406,6 +406,19 @@ pub enum Gender {
     Other,
 }
 
+impl Gender {
+    /// The canonical wire token shared by the export, the formatter, and the
+    /// query filter — the single source of the "male"/"female"/"other" mapping.
+    #[must_use]
+    pub fn as_token(self) -> &'static str {
+        match self {
+            Gender::Male => "male",
+            Gender::Female => "female",
+            Gender::Other => "other",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GenderValue {
     pub value: Gender,
@@ -497,6 +510,19 @@ pub enum EndReason {
     /// A value not in the v1 vocabulary; surfaced as KUL-R05b. Stored
     /// verbatim so the diagnostic can quote it.
     Unknown(String),
+}
+
+impl EndReason {
+    /// The canonical wire string shared by the export, the formatter, and the
+    /// query engine: `"divorce"` for `Divorce`, or the verbatim `Unknown`
+    /// payload (re-emitted so KUL-R05b's anchor stays meaningful).
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        match self {
+            EndReason::Divorce => "divorce",
+            EndReason::Unknown(s) => s,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

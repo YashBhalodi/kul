@@ -24,7 +24,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::ast::{EndReason, PersonStmt};
+use crate::ast::PersonStmt;
 use crate::export::ExportedDiagnostic;
 use crate::semantic::{ParentLinkKind, ResolvedDocument};
 
@@ -497,10 +497,9 @@ impl<'a> Adjacency<'a> {
             } else {
                 MarriageStatus::Ongoing
             };
-            let end_reason = marriage.end_reason().map(|er| match &er.value {
-                EndReason::Divorce => "divorce".to_string(),
-                EndReason::Unknown(s) => s.clone(),
-            });
+            let end_reason = marriage
+                .end_reason()
+                .map(|er| er.value.as_str().to_string());
             let a = resolved.person(&marriage.spouse_a.name);
             let b = resolved.person(&marriage.spouse_b.name);
             // Both spouses must resolve, and a self-marriage (R04) crosses to

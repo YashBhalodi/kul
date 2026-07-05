@@ -9,8 +9,8 @@
 use std::sync::LazyLock;
 
 use crate::ast::{
-    AdoptionFieldKind, AdoptionSub, BirthSub, EndReason, Gender, MarriageFieldKind, MarriageStmt,
-    PersonFieldKind, PersonStmt,
+    AdoptionFieldKind, AdoptionSub, BirthSub, MarriageFieldKind, MarriageStmt, PersonFieldKind,
+    PersonStmt,
 };
 use crate::field_meta::{self, StatementKind};
 use crate::lexer::FieldName;
@@ -155,7 +155,7 @@ pub(super) fn build_person_cells(p: &PersonStmt, inline_comment: Option<&str>) -
         PersonFieldKind::Gender(g) => Some(g),
         _ => None,
     }) {
-        cells.push(field_cell(kind, FieldName::Gender, gender_str(g.value)));
+        cells.push(field_cell(kind, FieldName::Gender, g.value.as_token()));
     }
     if let Some(s) = p.fields.iter().find_map(|f| match &f.kind {
         PersonFieldKind::Family(s) => Some(s),
@@ -225,11 +225,7 @@ pub(super) fn build_marriage_cells(m: &MarriageStmt, inline_comment: Option<&str
         MarriageFieldKind::EndReason(v) => Some(v),
         _ => None,
     }) {
-        cells.push(field_cell(
-            kind,
-            FieldName::EndReason,
-            &end_reason_str(&er.value),
-        ));
+        cells.push(field_cell(kind, FieldName::EndReason, er.value.as_str()));
     }
     if let Some(text) = inline_comment {
         cells.push(Cell {
@@ -347,25 +343,10 @@ fn quote_string(value: &str) -> String {
     s
 }
 
-fn gender_str(g: Gender) -> &'static str {
-    match g {
-        Gender::Male => "male",
-        Gender::Female => "female",
-        Gender::Other => "other",
-    }
-}
-
-fn end_reason_str(e: &EndReason) -> String {
-    match e {
-        EndReason::Divorce => "divorce".to_string(),
-        // Re-emit verbatim so KUL-R05b's anchor stays meaningful.
-        EndReason::Unknown(s) => s.clone(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::{EndReason, Gender};
 
     fn s(value: &str) -> String {
         value.to_owned()
@@ -381,14 +362,14 @@ mod tests {
 
     #[test]
     fn gender_str_round_trip() {
-        assert_eq!(gender_str(Gender::Male), "male");
-        assert_eq!(gender_str(Gender::Female), "female");
-        assert_eq!(gender_str(Gender::Other), "other");
+        assert_eq!(Gender::Male.as_token(), "male");
+        assert_eq!(Gender::Female.as_token(), "female");
+        assert_eq!(Gender::Other.as_token(), "other");
     }
 
     #[test]
     fn end_reason_divorce() {
-        assert_eq!(end_reason_str(&EndReason::Divorce), "divorce");
-        assert_eq!(end_reason_str(&EndReason::Unknown(s("oops"))), "oops");
+        assert_eq!(EndReason::Divorce.as_str(), "divorce");
+        assert_eq!(EndReason::Unknown(s("oops")).as_str(), "oops");
     }
 }

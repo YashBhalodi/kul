@@ -70,7 +70,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
-use crate::ast::{Gender, PersonStmt};
+use crate::ast::PersonStmt;
 use crate::date::{CalendarDay, DateLit, parse_date};
 use crate::span::ByteSpan;
 
@@ -464,7 +464,7 @@ fn person_string(person: &PersonStmt, field: PersonField) -> Option<String> {
         PersonField::Name => person.name().map(|v| v.value.clone()),
         PersonField::Family => person.family().map(|v| v.value.clone()),
         PersonField::Given => person.given().map(|v| v.value.clone()),
-        PersonField::Gender => person.gender().map(|g| gender_token(g.value).to_string()),
+        PersonField::Gender => person.gender().map(|g| g.value.as_token().to_string()),
         PersonField::Born | PersonField::Died => None,
     }
 }
@@ -489,14 +489,6 @@ fn person_present(person: &PersonStmt, field: PersonField) -> bool {
         PersonField::Gender => person.gender().is_some(),
         PersonField::Born => person.born().is_some(),
         PersonField::Died => person.died().is_some(),
-    }
-}
-
-fn gender_token(g: Gender) -> &'static str {
-    match g {
-        Gender::Male => "male",
-        Gender::Female => "female",
-        Gender::Other => "other",
     }
 }
 
