@@ -32,8 +32,11 @@ use super::descriptor::{
     Affinity, Classification, HopEdge, LinealRole, MarriageStatus, PathHop, RelationshipDescriptor,
     gender_of,
 };
+use super::filter::{self, SortSpec};
 use super::junction::junction_of;
-use super::pattern::{IntRange, KinPattern, PatternClassification, Query, QuerySource};
+use super::pattern::{
+    IntRange, KinPattern, PatternClassification, Projection, Query, QueryResult, QuerySource,
+};
 use super::resolve::{EmptyReason, ResolveConfig, ResolveResult};
 
 /// The engine's fixed ceiling on marriage (`across`) hops per path. No culture
@@ -74,6 +77,11 @@ pub enum QueryEvalError {
     /// The anchor id names no person.
     #[error("no person with id `{id}`")]
     UnknownPerson { id: String },
+    /// A `where` predicate is malformed: an invalid date literal, an ordering
+    /// comparison (`<`/`<=`/`>`/`>=`) on a non-date field, or `in` set
+    /// membership on a date field. A bug in the *query*, not the data.
+    #[error("{message}")]
+    BadPredicate { message: String },
 }
 
 impl QueryEvalError {
@@ -85,8 +93,12 @@ impl QueryEvalError {
     /// [`QueryEnvelope`]: super::QueryEnvelope
     #[must_use]
     pub fn to_diagnostic(&self) -> ExportedDiagnostic {
+        let code = match self {
+            QueryEvalError::UnknownPerson { .. } => "KUL-Q01",
+            QueryEvalError::BadPredicate { .. } => "KUL-Q02",
+        };
         ExportedDiagnostic {
-            code: "KUL-Q01".to_string(),
+            code: code.to_string(),
             severity: "error",
             message: self.to_string(),
             primary: None,
@@ -95,11 +107,15 @@ impl QueryEvalError {
     }
 }
 
-/// Evaluate a [`Query`] over a checked project's [`ResolvedDocument`],
-/// returning the matching kin-set members in the pinned deterministic order.
+/// Evaluate the **kin-set members** of a [`Query`] over a checked project's
+/// [`ResolvedDocument`], returning the borrowed members in the pinned member
+/// order. The Rust-native kin-set path (matching the `parents_of` idiom); the
+/// named sugar in [`sugar`](super::super::query) routes through here.
 ///
-/// This is the single evaluation path. An unknown anchor is a typed
-/// [`QueryEvalError`], not an empty result.
+/// This applies no attribute filter, sort, or projection — those layer on top
+/// in [`run_query`], the serialized single-evaluation path. An `allPersons`
+/// source has no relationship descriptor to borrow, so it yields **no** kin
+/// members here (use [`run_query`] for its `personIds` shape).
 ///
 /// # Errors
 ///
@@ -110,12 +126,122 @@ pub fn evaluate<'a>(
     query: &Query,
 ) -> Result<Vec<KinMember<'a>>, QueryEvalError> {
     match &query.source {
+        // A bare person carries no relationship descriptor; the `allPersons`
+        // set is served as ids through `run_query`, not as kin members.
+        QuerySource::AllPersons => Ok(Vec::new()),
         QuerySource::KinOf { anchor, pattern } => {
             let ego = resolved
                 .person(anchor)
                 .ok_or_else(|| QueryEvalError::UnknownPerson { id: anchor.clone() })?;
             Ok(eval_kin(resolved, ego, pattern))
         }
+    }
+}
+
+/// Evaluate a full [`Query`] — source, `where` filter, `sort`, certainty
+/// `mode`, and projection — to a serialized [`QueryResult`]. **The one
+/// evaluation path** (ADR-0025): every surface (Rust sugar, WASM, CLI) builds
+/// the [`Query`] value and hands it here.
+///
+/// Pipeline: gather candidates from the source (`allPersons` in declaration
+/// order; `kinOf` in the pinned member order), retain those passing the
+/// three-valued predicate conjunction under `mode`, apply `sort` when given
+/// (replacing the source's default order), then project:
+/// - `count` → [`QueryResult::Count`] over either source;
+/// - `members` + `kinOf` → [`QueryResult::Members`] (descriptors retained);
+/// - `members` + `allPersons` → [`QueryResult::PersonIds`] (ids only).
+///
+/// # Errors
+///
+/// - [`QueryEvalError::UnknownPerson`] when a `kinOf` anchor names no person.
+/// - [`QueryEvalError::BadPredicate`] when a `where` predicate is malformed
+///   (invalid date literal, ordering op on a non-date field, `in` on a date
+///   field).
+pub fn run_query(
+    resolved: &ResolvedDocument,
+    query: &Query,
+) -> Result<QueryResult, QueryEvalError> {
+    // Compile (and validate) the predicates once, before any traversal, so a
+    // malformed predicate errors even against an empty project.
+    let compiled = filter::compile_predicates(&query.predicates)
+        .map_err(|message| QueryEvalError::BadPredicate { message })?;
+
+    // Gather candidates in the source's default order. `member` is `Some` only
+    // for `kinOf` (it carries the descriptor the `members` projection needs).
+    let mut candidates: Vec<Candidate<'_>> = match &query.source {
+        QuerySource::AllPersons => resolved
+            .persons()
+            .map(|person| Candidate {
+                person,
+                member: None,
+            })
+            .collect(),
+        QuerySource::KinOf { anchor, pattern } => {
+            let ego = resolved
+                .person(anchor)
+                .ok_or_else(|| QueryEvalError::UnknownPerson { id: anchor.clone() })?;
+            eval_kin(resolved, ego, pattern)
+                .into_iter()
+                .map(|member| Candidate {
+                    person: member.person,
+                    member: Some(member),
+                })
+                .collect()
+        }
+    };
+
+    // Attribute filter — three-valued conjunction under the certainty mode.
+    candidates.retain(|c| filter::passes(c.person, &compiled, query.mode));
+
+    // Deterministic sort, replacing the default order when a key is given.
+    if let Some(spec) = &query.sort {
+        sort_candidates(&mut candidates, spec);
+    }
+
+    Ok(project(&query.source, query.projection, candidates))
+}
+
+/// A row flowing through [`run_query`]: the person (for filter + sort) plus,
+/// for a `kinOf` source, the borrowed [`KinMember`] whose descriptor the
+/// `members` projection serializes.
+struct Candidate<'a> {
+    person: &'a PersonStmt,
+    member: Option<KinMember<'a>>,
+}
+
+/// Sort candidates by their person's field under `spec` — the deterministic
+/// attribute order (missing-last, id tiebreak; ADR-0025), replacing the
+/// source's default order.
+fn sort_candidates(candidates: &mut [Candidate<'_>], spec: &SortSpec) {
+    candidates.sort_by(|a, b| filter::sort_compare(a.person, b.person, spec));
+}
+
+/// Shape the filtered, ordered candidates into the projected result. `count`
+/// collapses either source to a size; `members` splits on the source —
+/// descriptors for `kinOf`, bare ids for `allPersons`.
+fn project(
+    source: &QuerySource,
+    projection: Projection,
+    candidates: Vec<Candidate<'_>>,
+) -> QueryResult {
+    match projection {
+        Projection::Count => QueryResult::Count {
+            count: candidates.len(),
+        },
+        Projection::Members => match source {
+            QuerySource::AllPersons => QueryResult::PersonIds {
+                person_ids: candidates
+                    .iter()
+                    .map(|c| c.person.id.name.clone())
+                    .collect(),
+            },
+            QuerySource::KinOf { .. } => QueryResult::Members {
+                members: candidates
+                    .iter()
+                    .filter_map(|c| c.member.as_ref().map(KinMember::to_member))
+                    .collect(),
+            },
+        },
     }
 }
 
