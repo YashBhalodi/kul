@@ -7,8 +7,6 @@
 //! re-deriving (ADR-0021). Dates arrive pre-formatted in source
 //! `~YYYY[-MM[-DD]]` form.
 
-use kul_render::GhostReason;
-
 /// Top-level positioned shape. Coordinates are top-left origin; `width`
 /// and `height` describe the outer bounding box (including padding).
 #[derive(Debug, Clone)]
@@ -42,13 +40,7 @@ pub struct PositionedCard {
     pub died: Option<String>,
 }
 
-/// Canonical vs ghost. Mirrors [`kul_render::SlotKind`] but lives here
-/// so downstream surface emitters don't have to pull in `kul_render`.
-#[derive(Debug, Clone, Copy)]
-pub enum SlotKind {
-    Canonical,
-    Ghost { reason: GhostReason },
-}
+pub use kul_render::SlotKind;
 
 /// One positioned parent-child or marriage edge with computed
 /// polyline geometry. The polyline points are absolute pixel

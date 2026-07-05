@@ -22,7 +22,7 @@
 use kul_core::export::ExportedDate;
 use kul_render::{
     CardSlot, Component, ComponentKind, Edge, EdgeKind as RenderEdgeKind, GhostReason, MarriageBar,
-    PersonCard, SlotKind as RenderSlotKind, SuccessRender,
+    PersonCard, SuccessRender,
 };
 
 use crate::metrics::LayoutConfig;
@@ -223,7 +223,7 @@ impl<'a> Builder<'a> {
                 let child_idx = self.build_person(child, row_shift);
                 if matches!(
                     child.slot.kind,
-                    RenderSlotKind::Ghost {
+                    SlotKind::Ghost {
                         reason: GhostReason::PastAdoption | GhostReason::PastBirth,
                     },
                 ) {
@@ -286,7 +286,7 @@ impl<'a> Builder<'a> {
                 let child_idx = self.build_person(child, fan_child_shift);
                 if matches!(
                     child.slot.kind,
-                    RenderSlotKind::Ghost {
+                    SlotKind::Ghost {
                         reason: GhostReason::PastAdoption | GhostReason::PastBirth,
                     },
                 ) {
@@ -859,10 +859,7 @@ fn push_card(
     slot: &CardSlot,
     config: &LayoutConfig,
 ) {
-    let kind = match slot.kind {
-        RenderSlotKind::Canonical => SlotKind::Canonical,
-        RenderSlotKind::Ghost { reason } => SlotKind::Ghost { reason },
-    };
+    let kind = slot.kind;
     if matches!(kind, SlotKind::Canonical) {
         // Past-intimacy child-ghosts get their own (person_id,
         // marriage_id) index via `ghost_card_tops`; spouse-ghosts are
