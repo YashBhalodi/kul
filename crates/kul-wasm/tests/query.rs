@@ -10,8 +10,10 @@ use std::path::{Path, PathBuf};
 
 use kul_core::ast::InputFile;
 use kul_core::manifest::Manifest;
-use kul_core::query::{marriage_lookup, person_lookup};
-use kul_wasm::{WasmInputFile, query_marriage_with, query_person, query_person_with};
+use kul_core::query::{IntRange, Query, kin_query, marriage_lookup, person_lookup};
+use kul_wasm::{
+    WasmInputFile, query_kin, query_kin_with, query_marriage_with, query_person, query_person_with,
+};
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -100,5 +102,66 @@ fn failing_project_yields_error_arm() {
             .iter()
             .any(|d| d["code"] == "KUL-R03"),
         "expected KUL-R03 in error arm: {json}"
+    );
+}
+
+// ---- Kin-set queries (fourth shape, kin variant) ----
+
+/// The bridge's kin query is byte-identical to the core `kin_query` it wraps
+/// (the CLI relies on the same equality for `--format json`). Kinship
+/// correctness itself is proven at the core seam, not re-tested here.
+#[test]
+fn kin_query_json_matches_core() {
+    let inputs = nuclear_inputs();
+    let manifest = Manifest::default();
+    let query = Query::kin_ancestors("akiko", IntRange::exactly(1), None);
+    let via_wasm = query_kin_with(&inputs, &manifest, &query);
+    let check = kul_core::check_with_manifest("kul.yml", "", &manifest, &inputs);
+    let via_core = kin_query(&check, &query);
+    assert_eq!(
+        serde_json::to_string_pretty(&via_wasm).unwrap(),
+        serde_json::to_string_pretty(&via_core).unwrap(),
+    );
+}
+
+/// Drives the public wasm-ABI signature (`Vec<WasmInputFile>` + `Query`
+/// value) to confirm the Query round-trips and the members carry person id +
+/// descriptor, no person payload.
+#[test]
+fn kin_query_abi_returns_members() {
+    let inputs = nuclear_inputs();
+    let files = vec![WasmInputFile {
+        name: "nuclear-family.kul".into(),
+        source: inputs[0].source.clone(),
+    }];
+    let query = Query::kin_descendants("hiroshi", IntRange::exactly(1), None);
+    let envelope = query_kin(files, Manifest::default(), query);
+    let json = serde_json::to_value(&envelope).unwrap();
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["result"]["kind"], "members");
+    let members = json["result"]["members"].as_array().unwrap();
+    assert_eq!(members.len(), 2);
+    // Member shape: person id + descriptor, never a person payload.
+    assert_eq!(members[0]["personId"], "akiko");
+    assert!(members[0]["descriptor"].is_object());
+    assert!(members[0].get("name").is_none(), "no person payload");
+}
+
+/// A bad anchor on a clean project is the error arm with a diagnostic naming
+/// the id — never an empty ok set.
+#[test]
+fn kin_query_unknown_anchor_yields_error_arm() {
+    let inputs = nuclear_inputs();
+    let query = Query::kin_ancestors("nobody", IntRange::exactly(1), None);
+    let envelope = query_kin_with(&inputs, &Manifest::default(), &query);
+    let json = serde_json::to_value(&envelope).unwrap();
+    assert_eq!(json["ok"], false);
+    assert!(
+        json["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["message"].as_str().unwrap().contains("nobody")),
+        "expected a diagnostic naming the bad anchor: {json}"
     );
 }

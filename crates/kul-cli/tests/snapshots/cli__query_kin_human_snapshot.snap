@@ -1,0 +1,12 @@
+---
+source: crates/kul-cli/tests/cli.rs
+expression: stdout
+---
+adaeze  Adaeze Okeke
+  lineal ancestor · 2 generations · blood · side paternal · elder
+chinua  Chinua Okeke
+  lineal ancestor · 2 generations · blood · side paternal · elder
+emeka  Emeka Okeke
+  lineal ancestor · 1 generation · blood · side n/a · elder
+ngozi  Ngozi Okeke
+  lineal ancestor · 1 generation · blood · side n/a · elder

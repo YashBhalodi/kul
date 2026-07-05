@@ -188,10 +188,19 @@ that passes its checks. A project with error-severity diagnostics blocks
 the query — the diagnostics render to stderr (or, under `--format json`,
 as the envelope's error arm) and the exit code is non-zero.
 
-This first slice carries the two id → detail lookups:
+Detail lookups and lineal kin-set queries:
 
-  kul query person <id>     look up a person by id
-  kul query marriage <id>   look up a marriage by id
+  kul query person <id>          look up a person by id
+  kul query marriage <id>        look up a marriage by id
+  kul query kin <id> parents     the person's parents (all, edge-tagged)
+  kul query kin <id> children    the person's children
+  kul query kin <id> ancestors [--depth N]    ancestors (unbounded if no depth)
+  kul query kin <id> descendants [--depth N]  descendants
+
+Kin output is a set, each member carrying its terminology-neutral
+relationship descriptor (classification, edge nature, side, seniority).
+Human output never prints a kinship word — rendering terms is a future
+layer's job. An empty set is a complete answer and exits 0.
 
 FORMATS (`--format`):
 
@@ -311,6 +320,38 @@ enum QueryVerb {
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
+
+    /// Return the set of a person's lineal kin (parents, children,
+    /// ancestors, descendants).
+    Kin {
+        /// The anchor person id.
+        anchor: String,
+
+        /// Which lineal relation to return.
+        relation: KinRelation,
+
+        /// Generation cap for `ancestors` / `descendants` (omit for
+        /// unbounded). Ignored for `parents` / `children` (always one
+        /// generation).
+        #[arg(long)]
+        depth: Option<u32>,
+
+        /// Output format: `human` (default, terminology-neutral facts) or
+        /// `json` (the query envelope, byte-identical to the WASM surface).
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+    },
+}
+
+/// The lineal relation a `kul query kin` invocation asks for. Each maps 1:1
+/// onto a [`Query`](kul_core::query::Query) value's named sugar — the CLI
+/// carries no query semantics of its own.
+#[derive(Copy, Clone, Debug, ValueEnum, PartialEq, Eq)]
+enum KinRelation {
+    Parents,
+    Children,
+    Ancestors,
+    Descendants,
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum, PartialEq, Eq)]
@@ -356,8 +397,42 @@ fn run_query(verb: QueryVerb) -> ExitCode {
             id,
             format,
         },
+        QueryVerb::Kin {
+            anchor,
+            relation,
+            depth,
+            format,
+        } => return run_query_kin(anchor, relation, depth, format),
     };
     commands::query::run(options)
+}
+
+/// Desugar a `kul query kin` invocation into the one [`Query`] value and run
+/// it. The arg parser is the only place the relation names map to Query
+/// sugar; there are no CLI-only query semantics.
+///
+/// [`Query`]: kul_core::query::Query
+fn run_query_kin(
+    anchor: String,
+    relation: KinRelation,
+    depth: Option<u32>,
+    format: OutputFormat,
+) -> ExitCode {
+    use kul_core::query::{IntRange, Query};
+
+    let query = match relation {
+        KinRelation::Parents => Query::kin_ancestors(&anchor, IntRange::exactly(1), None),
+        KinRelation::Children => Query::kin_descendants(&anchor, IntRange::exactly(1), None),
+        KinRelation::Ancestors => Query::kin_ancestors(&anchor, IntRange::from_one(depth), None),
+        KinRelation::Descendants => {
+            Query::kin_descendants(&anchor, IntRange::from_one(depth), None)
+        }
+    };
+    commands::query::run_kin(commands::query::KinOptions {
+        anchor,
+        query,
+        format,
+    })
 }
 
 fn run_lsp() -> ExitCode {

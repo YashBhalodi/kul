@@ -1,0 +1,15 @@
+---
+source: crates/kul-core/tests/kin.rs
+expression: "envelope_json(&check,\n&Query::kin_ancestors(\"nobody\", IntRange::exactly(1), None))"
+---
+{
+  "ok": false,
+  "diagnostics": [
+    {
+      "code": "KUL-Q01",
+      "severity": "error",
+      "message": "no person with id `nobody`",
+      "related": []
+    }
+  ]
+}

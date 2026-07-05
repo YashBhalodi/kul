@@ -110,6 +110,42 @@ An id → detail lookup on the [query seam](#query-seam): `query::person(id)` re
 
 The adapter-facing result of a query operation: `QueryEnvelope<T>` in `crates/kul-core/src/query.rs`. An untagged union discriminated by an `ok` boolean — mirroring the [`ExportEnvelope`](#exportenvelope) / render-envelope pattern rather than introducing a new tag — whose ok arm carries the query `result` and whose error arm carries the `diagnostics` of a project that failed its checks. Gated on passing checks (strict-on-errors per [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md)): a failing project yields the error arm, never a partial answer. Single-sourced in `kul-core` so the CLI `kul query --format json` output stays byte-identical to what the WASM `queryPerson` / `queryMarriage` surface returns. It is the fourth WASM shape (extends [ADR-0011](./docs/adr/0011-wasm-surface-three-shapes-no-wrappers.md)); its TypeScript types ship under the committed-tsify discipline of [ADR-0012](./docs/adr/0012-tsify-derived-types-committed-and-diffed.md). Generic over `T` so later slices reuse it.
 
+### Query value
+
+The declarative, serializable request the query engine evaluates: a `source` (this slice: `kinOf(anchor, pattern)`) plus a `projection` (this slice: `members`). Defined at `crates/kul-core/src/query/pattern.rs`. It is **the single contract with one evaluation path** ([ADR-0025](./docs/adr/0025-kinship-query-engine-contract-and-traversal.md)): every surface — Rust [named sugar](#kin-set-query), WASM `queryKin`, CLI `kul query kin` — constructs a Query value and hands it to the one `query::evaluate` entry point. There is no second engine and no query DSL. Enum variants are additive: `allPersons` sources, `collateral` patterns, `count` projections, and attribute filters extend the value in later slices without reshaping it.
+
+### Kin-set query
+
+A query from one anchor person + a [descriptor pattern](#descriptor-pattern) to the *set* of related persons, each carrying its [relationship descriptor](#relationship-descriptor). The relation vocabulary is the descriptor's own classification. Named **sugar** — `parents_of`, `children_of`, `ancestors_of(depth?)`, `descendants_of(depth?)` in `crates/kul-core/src/query/sugar.rs` — is documented convenience, each *defined as* its [Query value](#query-value) expansion (e.g. `parents_of(x) ≡ kinOf(x, lineal ancestor, generations {1,1})`). Raw up/down/across step composition stays internal — exposing it would recreate the "compute the derivation yourself" trap (self-exclusion, cycle guarding, and subsumption are engine-owned). Results are set-shaped: no wrapper, and an empty set ("no kin matched") is a complete answer.
+
+### Descriptor pattern
+
+The declarative selector inside a kin-set query's `kinOf` source: a classification with numeric parameters and ranges (this slice: `lineal { role, generations: IntRange }`), plus optional filters (this slice: `edgeNature`). Anything [relationship resolution](#relationship-descriptor) can *name*, a pattern can *ask for* — one shared vocabulary. `KinPattern` in `crates/kul-core/src/query/pattern.rs`.
+
+### Relationship descriptor
+
+The terminology-neutral, **maximally discriminating** record of how one person (the alter) relates to another (the ego): endpoint ids and genders, `classification`, `edgeNature`, `affinity`, `sharing`, `side`, two seniorities, and the lossless [path backbone](#path-backbone). `RelationshipDescriptor` in `crates/kul-core/src/query/descriptor.rs`. It carries *every* distinction any future culture pack could key on, because that layer (descriptor → "sister-in-law" | "bhabhi" | …) is pure data over the descriptor and can only discriminate on what the descriptor contains ([ADR-0026](./docs/adr/0026-relationship-descriptor-and-path-identity.md)). The engine never emits a kinship word — it emits the descriptor, and the app renders the term. Serialization is pinned: camelCase, internally-tagged unions, and `unknown` / `notApplicable` as **explicit enum values, never null or absent**.
+
+### Path identity
+
+**Descriptor identity is path identity.** A kin-set result contains one descriptor per *distinct relationship path*, with no engine-side collapsing of same-classification descriptors and no "primary relationship" ranking. A person reachable two ways (e.g. as both a bio and an adoptive ancestor) yields two members with distinct [path backbones](#path-backbone) ([ADR-0026](./docs/adr/0026-relationship-descriptor-and-path-identity.md)). Consumers who want "just first cousins" collapse on the normalized fields themselves. Member order is deterministic (snapshots depend on it): by alter id, then hop count, then serialized backbone.
+
+### Path backbone
+
+The ordered hop sequence from ego to alter carried on every [relationship descriptor](#relationship-descriptor) — **lossless ground truth**, so a distinction nobody anticipated is still recoverable without an engine change. Each `PathHop` (in `crates/kul-core/src/query/descriptor.rs`) is `up` / `down` (carrying the person id landed on, that person's gender, and the `bio` / `adoptive` edge tag) or `across` (a marriage hop: marriage id + status + optional end reason). This slice produces only `up+` / `down+` backbones (one blood segment, zero marriage hops). Hops carry **ids, never entity payloads** — consumers hydrate via the [detail lookups](#detail-lookup).
+
+### Edge nature
+
+A descriptor dimension: `blood | adoptive`, strictly about the parent-child edges on the path — `adoptive` iff *any* hop is an adoption edge, else `blood`. Distinct from `affinity` (`blood | step | inLaw`, about marriage hops); the two were split because a single flat consanguinity enum could not express half-adoptive or full-adoptive siblings. Per-hop truth stays lossless in the [path backbone](#path-backbone).
+
+### Side
+
+A descriptor dimension: `maternal | paternal | other | both | notApplicable`, **derived from the path's routing, never guessed**. `notApplicable` when the path never ascends from ego (descendants, direct parents); otherwise the gender of the first parent-person on the initial ascent — female → maternal, male → paternal, `other` → other (the grammar permits `gender:other`, so side is *derived*, never assumed binary). Side is about routing; endpoint gender is its own field. `both` (couple-apex collateral paths) arrives in a later slice.
+
+### Seniority
+
+Two descriptor dimensions, both riding the toolchain's single strict-interval date comparison (`before_strict` — one notion of "date A is before date B", shared with the validator's temporal rules): `seniority` (endpoint — the alter's birth order vs the ego) and `apexSeniority` (the sibling junction, `notApplicable` on a lineal path). Each is `elder | younger | unknown | notApplicable`. `elder` / `younger` only when *every* interpretation of one birth date strictly precedes the other; missing dates, overlapping partial/circa intervals, and same-day twins are `unknown`; `notApplicable` is reserved for self. The engine never invents a seniority.
+
 ### Render shape
 
 The top-level value `kul_render::compute` and `kul_render::transform` emit — the canonical UI pattern's data form for a checked Kul project. Where [`ExportEnvelope`](#exportenvelope) is shaped to mirror what the source *says* (kinship-native), the render shape is shaped to mirror what the canonical UI pattern *draws*: components, marriage branches, card slots, ghosts. Either a success payload (`components`, `edges`, plus the `schema` / `kul` discriminators) or a failure payload (the same diagnostic list the input envelope carried). Defined at `crates/kul-render/src/shape.rs`; the principles it realizes live in [`docs/canonical-ui-pattern.md`](./docs/canonical-ui-pattern.md); crate-boundary rationale in [ADR-0016](./docs/adr/0016-visualization-pipeline-crate-boundaries.md); schema-versioning policy in [ADR-0017](./docs/adr/0017-render-shape-schema-and-versioning.md). Surface renderers (VSCode preview panel, web visualizer, …) consume it.

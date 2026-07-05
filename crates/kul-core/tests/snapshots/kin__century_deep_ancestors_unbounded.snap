@@ -1,0 +1,216 @@
+---
+source: crates/kul-core/tests/kin.rs
+expression: "envelope_json(&check,\n&Query::kin_ancestors(\"tobi\", IntRange::from_one(None), None))"
+---
+{
+  "ok": true,
+  "result": {
+    "kind": "members",
+    "members": [
+      {
+        "personId": "babatunde",
+        "descriptor": {
+          "egoId": "tobi",
+          "alterId": "babatunde",
+          "egoGender": "male",
+          "alterGender": "male",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 2
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "maternal",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "bisi",
+              "gender": "female",
+              "edge": "bio"
+            },
+            {
+              "step": "up",
+              "to": "babatunde",
+              "gender": "male",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "bisi",
+        "descriptor": {
+          "egoId": "tobi",
+          "alterId": "bisi",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 1
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "bisi",
+              "gender": "female",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "folake",
+        "descriptor": {
+          "egoId": "tobi",
+          "alterId": "folake",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 3
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "maternal",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "bisi",
+              "gender": "female",
+              "edge": "bio"
+            },
+            {
+              "step": "up",
+              "to": "babatunde",
+              "gender": "male",
+              "edge": "bio"
+            },
+            {
+              "step": "up",
+              "to": "folake",
+              "gender": "female",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "oludare",
+        "descriptor": {
+          "egoId": "tobi",
+          "alterId": "oludare",
+          "egoGender": "male",
+          "alterGender": "male",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 3
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "maternal",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "bisi",
+              "gender": "female",
+              "edge": "bio"
+            },
+            {
+              "step": "up",
+              "to": "babatunde",
+              "gender": "male",
+              "edge": "bio"
+            },
+            {
+              "step": "up",
+              "to": "oludare",
+              "gender": "male",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "tunji",
+        "descriptor": {
+          "egoId": "tobi",
+          "alterId": "tunji",
+          "egoGender": "male",
+          "alterGender": "male",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 1
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "tunji",
+              "gender": "male",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "yetunde",
+        "descriptor": {
+          "egoId": "tobi",
+          "alterId": "yetunde",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 2
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "maternal",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "bisi",
+              "gender": "female",
+              "edge": "bio"
+            },
+            {
+              "step": "up",
+              "to": "yetunde",
+              "gender": "female",
+              "edge": "bio"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

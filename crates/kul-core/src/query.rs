@@ -40,6 +40,22 @@ use crate::export::{
 };
 use crate::semantic::ResolvedDocument;
 
+mod descriptor;
+mod engine;
+mod pattern;
+mod sugar;
+
+pub use descriptor::{
+    Affinity, Classification, EdgeNature, Gender, HopEdge, LinealRole, MarriageStatus, PathHop,
+    RelationshipDescriptor, Seniority, Sharing, Side,
+};
+pub use engine::{KinMember, QueryEvalError, evaluate};
+pub use pattern::{
+    IntRange, KinPattern, Member, PatternClassification, Projection, Query, QueryResult,
+    QuerySource,
+};
+pub use sugar::{ancestors_of, children_of, descendants_of, parents_of};
+
 /// Look up a person by id. Returns the person in the export shape, or
 /// `None` when no person has that id (an unknown id, or an id that names a
 /// marriage, is simply not a person). Reads only `ResolvedDocument`'s id
@@ -164,6 +180,38 @@ pub fn marriage_lookup(check: &CheckResult, id: &str) -> QueryEnvelope<MarriageL
         ok: true,
         result: marriage(check.resolved(), id),
     })
+}
+
+/// Evaluate a kin-set [`Query`] and wrap the answer in a [`QueryEnvelope`],
+/// gated on the project passing its checks (strict-on-errors, ADR-0009).
+/// The single source of the kin-query contract serialization shared by the
+/// WASM `queryKin` surface and the CLI `kul query kin --format json` path.
+///
+/// Three outcomes, all non-throwing:
+/// - project failed its checks → the error arm carries the check diagnostics;
+/// - anchor names no person → the error arm carries a single synthesized
+///   diagnostic naming the id ([`QueryEvalError::to_diagnostic`]);
+/// - otherwise → the ok arm carries the `members` result in the pinned order.
+#[must_use]
+pub fn kin_query(check: &CheckResult, query: &Query) -> QueryEnvelope<QueryResult> {
+    if check.has_errors() {
+        return QueryEnvelope::Error(QueryError {
+            ok: false,
+            diagnostics: export_diagnostics(check),
+        });
+    }
+    match evaluate(check.resolved(), query) {
+        Ok(members) => QueryEnvelope::Ok(QueryOk {
+            ok: true,
+            result: QueryResult::Members {
+                members: members.iter().map(KinMember::to_member).collect(),
+            },
+        }),
+        Err(err) => QueryEnvelope::Error(QueryError {
+            ok: false,
+            diagnostics: vec![err.to_diagnostic()],
+        }),
+    }
 }
 
 #[cfg(test)]
