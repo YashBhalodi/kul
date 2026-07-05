@@ -2,15 +2,11 @@
 //! (render → layout → svg) so the preview panel can render the in-memory
 //! buffer without shelling out. Mirrors the `kul/export` envelope shape.
 
-use kul_layout::{LayoutConfig, layout};
-use kul_render::{RenderShape, compute};
-use kul_svg::{ThemeConfig, render};
+use kul_svg::ThemeConfig;
 use serde::Deserialize;
 use tower_lsp::lsp_types::Url;
 
-use crate::features::svg_envelope::{
-    RenderFailure, RenderResponse, RenderSuccess, errors_for_preview,
-};
+use crate::features::svg_envelope::{RenderResponse, SvgRequestError, render_svg_for};
 use crate::state::ProjectEntry;
 
 /// Request parameters for `kul/render`.
@@ -21,40 +17,15 @@ pub struct RenderParams {
     pub uri: Url,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RenderRequestError {
-    DocumentNotOpen,
-}
-
-impl RenderRequestError {
-    pub fn message(&self) -> String {
-        match self {
-            RenderRequestError::DocumentNotOpen => {
-                "document is not open in the language server".to_owned()
-            }
-        }
-    }
-}
-
 /// Turn a cached [`ProjectEntry`] plus parsed params into a render
-/// response. Project-wide (ADR-0015): every URI in the same project
+/// response. Thin delegator over [`render_svg_for`] with the preview
+/// theme; project-wide (ADR-0015): every URI in the same project
 /// produces the same SVG.
 pub fn render_for(
     entry: &ProjectEntry,
     _params: &RenderParams,
-) -> Result<RenderResponse, RenderRequestError> {
-    let shape = compute(&entry.check);
-    match shape {
-        RenderShape::Failure(_) => Ok(RenderResponse::Failure(RenderFailure {
-            ok: false,
-            diagnostics: errors_for_preview(entry),
-        })),
-        RenderShape::Success(_) => {
-            let positioned = layout(&shape, &LayoutConfig::default());
-            let svg = render(&positioned, &ThemeConfig::default());
-            Ok(RenderResponse::Success(RenderSuccess { ok: true, svg }))
-        }
-    }
+) -> Result<RenderResponse, SvgRequestError> {
+    Ok(render_svg_for(entry, &ThemeConfig::default()))
 }
 
 #[cfg(test)]

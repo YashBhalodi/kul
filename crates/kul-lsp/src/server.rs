@@ -22,10 +22,10 @@ use tower_lsp::{Client, LanguageServer};
 
 use crate::features::entity_at::{EntityAtParams, EntityAtResponse, entity_at};
 use crate::features::export::{ExportParams, ExportRequestError, export_for};
-use crate::features::export_svg::{ExportSvgParams, ExportSvgRequestError, export_svg_for};
+use crate::features::export_svg::{ExportSvgParams, export_svg_for};
 use crate::features::locate::{LocateParams, LocateResponse, locate};
-use crate::features::render::{RenderParams, RenderRequestError, render_for};
-use crate::features::svg_envelope::RenderResponse;
+use crate::features::render::{RenderParams, render_for};
+use crate::features::svg_envelope::{RenderResponse, SvgRequestError};
 use crate::features::{
     code_action, completion, definition, diagnostics, document_symbol, formatting, hover,
     references, rename, semantic_tokens,
@@ -79,7 +79,7 @@ impl Backend {
         match result {
             None => Err(Error {
                 code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
-                message: RenderRequestError::DocumentNotOpen.message().into(),
+                message: SvgRequestError::DocumentNotOpen.message().into(),
                 data: None,
             }),
             Some(Err(e)) => Err(Error {
@@ -103,7 +103,7 @@ impl Backend {
         match result {
             None => Err(Error {
                 code: tower_lsp::jsonrpc::ErrorCode::InvalidParams,
-                message: ExportSvgRequestError::DocumentNotOpen.message().into(),
+                message: SvgRequestError::DocumentNotOpen.message().into(),
                 data: None,
             }),
             Some(Err(e)) => Err(Error {
