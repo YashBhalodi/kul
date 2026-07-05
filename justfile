@@ -3,7 +3,13 @@
 default: check
 
 # Format-check + clippy + tests. Local-green should imply CI-green.
-check: fmt-check lint test
+check: fmt-check lint test check-ts
+
+# Run the TypeScript workspace gates (Vitest in packages/preview and
+# editor/vscode) — the same suites .github/workflows/vscode-extension.yml
+# runs per PR. Requires Node 22 and a prior `npm ci` at the repo root.
+check-ts:
+    npm test --workspaces --if-present
 
 # Run the full test suite via cargo-nextest.
 test:
@@ -39,13 +45,13 @@ install:
 render-examples:
     scripts/render-examples.sh
 
-# Build the WebAssembly artifact for `@kul/wasm`. Requires `wasm-pack`.
-# Patches the generated `package.json` so its `name` is `@kul/wasm`
+# Build the WebAssembly artifact for `@kullang/wasm`. Requires `wasm-pack`.
+# Patches the generated `package.json` so its `name` is `@kullang/wasm`
 # (wasm-pack derives the npm name from the Cargo crate name, which is
 # `kul-wasm`), then refreshes the committed `.d.ts` snapshot.
 wasm:
     wasm-pack build crates/kul-wasm --target bundler --out-dir pkg --out-name kul_wasm
-    node -e 'const fs=require("fs"),p="crates/kul-wasm/pkg/package.json";const j=JSON.parse(fs.readFileSync(p));j.name="@kul/wasm";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")'
+    node -e 'const fs=require("fs"),p="crates/kul-wasm/pkg/package.json";const j=JSON.parse(fs.readFileSync(p));j.name="@kullang/wasm";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")'
     cp crates/kul-wasm/pkg/kul_wasm.d.ts crates/kul-wasm/types/kul_wasm.d.ts
 
 # Reinstall the VSCode extension end-to-end: build the LSP, package the

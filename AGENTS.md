@@ -53,6 +53,8 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 - Rust toolchain (stable, edition 2024). Install via [`rustup`](https://rustup.rs/).
 - [`just`](https://just.systems/) — task runner. `cargo install just --locked` or `brew install just`.
 - [`cargo-nextest`](https://nexte.st/) — test runner. `cargo install cargo-nextest --locked`.
+- [Node 22](https://nodejs.org/) with `npm ci` run once at the repo root — `just check`'s TypeScript gate and the VSCode extension build need it. The pinned version lives in `.nvmrc`.
+- [`wasm-pack`](https://rustwasm.github.io/wasm-pack/installer/) — only for `just wasm`. `cargo install wasm-pack --locked` or the installer script.
 
 ### One command for green
 
@@ -60,7 +62,7 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 just check
 ```
 
-Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo nextest run --workspace`. Local-green should imply CI-green; the same commands run in `.github/workflows/rust.yml`.
+Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo nextest run --workspace`, and then the TypeScript workspace tests (`npm test --workspaces --if-present`, i.e. Vitest in `packages/preview` and `editor/vscode`). Local-green should imply CI-green; the Rust gates run in `.github/workflows/rust.yml` and the same TypeScript suites run in `.github/workflows/vscode-extension.yml`.
 
 Other recipes:
 
