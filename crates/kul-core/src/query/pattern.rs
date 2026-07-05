@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
-use super::descriptor::{EdgeNature, LinealRole, RelationshipDescriptor, Sharing, Side};
+use super::descriptor::{Affinity, EdgeNature, LinealRole, RelationshipDescriptor, Sharing, Side};
 
 /// An inclusive integer range; an absent `max` means unbounded. Used for a
 /// lineal pattern's generation bounds.
@@ -77,6 +77,16 @@ pub enum PatternClassification {
     /// aunts/uncles **and** nieces/nephews. `cousins_of(degree, removed)`
     /// desugars here.
     CollateralByDegree { degree: IntRange, removed: IntRange },
+    /// Any relationship shape whose total vertical displacement fits within
+    /// `maxUp` ascent hops and `maxDown` descent hops — the unclassified
+    /// match. Unlike the other variants it does not pin a specific
+    /// classification; it exists so an affinity-scoped query (`in_laws_of`,
+    /// `spouses_of`) can select every path within a bound regardless of
+    /// whether it lands lineal, collateral, or self. Always paired with an
+    /// `affinity` and/or `affinalHops` filter — on its own it would match
+    /// every blood relative within the bound too.
+    #[serde(rename_all = "camelCase")]
+    Any { max_up: u32, max_down: u32 },
 }
 
 /// A declarative descriptor pattern: which relationships to a person count
@@ -101,6 +111,21 @@ pub struct KinPattern {
     /// `Some(Side::Maternal)` a single family branch, and so on.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub side: Option<Side>,
+    /// Optional filter on the derived [`Affinity`]; omitted (`None`) matches
+    /// every affinity. `Some(Affinity::Step)` / `Some(Affinity::InLaw)` select
+    /// affinal relations (and, since a blood path is always `blood`, exclude
+    /// blood ones). Also the switch that lets the engine spend affinal hops:
+    /// with no `affinal_hops` bound set, a `step` / `inLaw` affinity filter
+    /// raises the marriage-hop budget to the fixed ceiling of 2.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub affinity: Option<Affinity>,
+    /// Optional filter on the number of marriage (`across`) hops on the path.
+    /// Omitted (`None`) leaves the count unconstrained (0 when no affinity
+    /// filter opens the budget, up to the ceiling of 2 otherwise). The engine
+    /// caps traversal at 2 affinal hops regardless of this bound — the ceiling
+    /// is fixed semantics, not a knob (ADR-0027).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub affinal_hops: Option<IntRange>,
 }
 
 /// Where a query draws its candidate persons from. This slice ships only
@@ -224,6 +249,90 @@ impl Query {
         self
     }
 
+    /// Narrow a `kinOf` query to only members whose derived affinity equals
+    /// `affinity`. Also opens the affinal-hop budget: a `step` / `inLaw`
+    /// filter lets the engine cross up to the ceiling of 2 marriages.
+    #[must_use]
+    pub fn with_affinity(mut self, affinity: Affinity) -> Self {
+        let QuerySource::KinOf { pattern, .. } = &mut self.source;
+        pattern.affinity = Some(affinity);
+        self
+    }
+
+    /// Narrow a `kinOf` query to only members whose marriage-hop count falls
+    /// in `hops`. Opens the affinal-hop budget to that range's upper bound
+    /// (still capped at the fixed ceiling of 2).
+    #[must_use]
+    pub fn with_affinal_hops(mut self, hops: IntRange) -> Self {
+        let QuerySource::KinOf { pattern, .. } = &mut self.source;
+        pattern.affinal_hops = Some(hops);
+        self
+    }
+
+    /// A spouse kin query: every spouse of `anchor` across every marriage,
+    /// past or current (each `across` hop is tagged with the marriage's
+    /// status). `spouses_of` desugars here. Zero vertical displacement plus
+    /// exactly one marriage hop — a `self`-classification, `inLaw` member.
+    #[must_use]
+    pub fn kin_spouses(anchor: impl Into<String>) -> Self {
+        Query::kin(
+            anchor,
+            PatternClassification::Any {
+                max_up: 0,
+                max_down: 0,
+            },
+            None,
+        )
+        .with_affinal_hops(IntRange::exactly(1))
+    }
+
+    /// An in-law kin query: every relation reached through at least one
+    /// non-ancestor marriage hop, within 2 ascent and 2 descent hops.
+    /// `in_laws_of` desugars here.
+    #[must_use]
+    pub fn kin_in_laws(anchor: impl Into<String>) -> Self {
+        Query::kin(
+            anchor,
+            PatternClassification::Any {
+                max_up: 2,
+                max_down: 2,
+            },
+            None,
+        )
+        .with_affinity(Affinity::InLaw)
+    }
+
+    /// A step-parent kin query: the spouse of a parent via a marriage `anchor`
+    /// has no birth/adoption link to. `step_parents_of` desugars here.
+    #[must_use]
+    pub fn kin_step_parents(anchor: impl Into<String>) -> Self {
+        Query::lineal(anchor, LinealRole::Ancestor, IntRange::exactly(1), None)
+            .with_affinity(Affinity::Step)
+    }
+
+    /// A step-child kin query: the child of a spouse `anchor` has no
+    /// birth/adoption link to. `step_children_of` desugars here.
+    #[must_use]
+    pub fn kin_step_children(anchor: impl Into<String>) -> Self {
+        Query::lineal(anchor, LinealRole::Descendant, IntRange::exactly(1), None)
+            .with_affinity(Affinity::Step)
+    }
+
+    /// A step-sibling kin query: the child of a step-parent who shares no
+    /// parent with `anchor`. `step_siblings_of` desugars here.
+    #[must_use]
+    pub fn kin_step_siblings(anchor: impl Into<String>) -> Self {
+        Query::kin(
+            anchor,
+            PatternClassification::Collateral {
+                up: IntRange::exactly(1),
+                down: IntRange::exactly(1),
+            },
+            None,
+        )
+        .with_affinity(Affinity::Step)
+    }
+
     /// Build a `members`-projecting `kinOf` query from a classification and an
     /// optional edge filter (no sharing / side filter — those are set on the
     /// returned pattern by callers that need them).
@@ -240,6 +349,8 @@ impl Query {
                     edge_nature,
                     sharing: None,
                     side: None,
+                    affinity: None,
+                    affinal_hops: None,
                 },
             },
             projection: Projection::Members,

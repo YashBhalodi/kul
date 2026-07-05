@@ -3,13 +3,12 @@
 //! (the ego), plus the lossless [`PathHop`] backbone the derivation walked.
 //!
 //! The descriptor is a *contract type*: its shape and serialization are
-//! pinned (PRD 0005, ADR-0026) and committed as TypeScript. This slice only
-//! populates the lineal subset of its dimensions; the rest serialize as
-//! their `notApplicable` values until later slices reach the path shapes
-//! that make them meaningful. **Defining the full type now** is deliberate —
-//! a future culture pack keys terminology off these fields, so every
-//! distinction any culture could need must already exist for that layer to
-//! be pure data.
+//! pinned (PRD 0005, ADR-0026) and committed as TypeScript. Every dimension
+//! is now populated — lineal and collateral blood shapes (#256, #257) plus
+//! affinal `across` hops (#258). **Defining the full type up front** was
+//! deliberate — a future culture pack keys terminology off these fields, so
+//! every distinction any culture could need must already exist for that layer
+//! to be pure data.
 //!
 //! Serialization rules (pinned):
 //! - camelCase field names.
@@ -116,11 +115,23 @@ pub enum EdgeNature {
     Adoptive,
 }
 
-/// Whether the relationship runs through marriage hops. Strictly about
-/// `across` hops: none ⇒ `blood`. This slice produces only blood segments
-/// (no `across` hops exist yet), so `affinity` is always `blood`; `step`
-/// and `inLaw` arrive with the affinal-hop slice.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+/// Whether the relationship runs through marriage hops, and if so in what
+/// position (issue #258). A three-way scalar over the path's `across` hops:
+/// - no `across` hop ⇒ `blood`;
+/// - every `across` hop *in ancestor position* ⇒ `step`;
+/// - any `across` hop *not* in ancestor position ⇒ `inLaw` (inLaw wins the
+///   scalar when both kinds appear; the [`PathHop`] backbone keeps the full
+///   truth).
+///
+/// **Ancestor position** is mechanical: an `across` hop is in ancestor
+/// position iff it is preceded by at least one hop and *every* preceding hop
+/// is [`Up`](PathHop::Up). A path-initial `across` is therefore never in
+/// ancestor position — spouse and spouse's kin read `inLaw`, while a parent's
+/// spouse (`up`, `across`) reads `step`.
+///
+/// Also usable as a kin-pattern filter (`step_parents_of` selects `step`,
+/// `in_laws_of` selects `inLaw`), so it is `Deserialize`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum Affinity {
@@ -188,8 +199,11 @@ impl From<ParentLinkKind> for HopEdge {
     }
 }
 
-/// A marriage hop's status. Wire form: `"ongoing" | "ended"`. Not produced
-/// this slice (no `across` hops yet).
+/// A marriage hop's status. Wire form: `"ongoing" | "ended"`. `ended` iff the
+/// marriage record carries an `end` date or an `end_reason`; otherwise
+/// `ongoing`. Ended marriages are traversed exactly like ongoing ones — the
+/// core reports and tags, never filters (whether divorce dissolves affinity is
+/// a downstream terminology decision).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
@@ -200,8 +214,9 @@ pub enum MarriageStatus {
 
 /// One hop of the lossless path backbone. Internally tagged on `step`.
 /// Vertical hops (`up` / `down`) carry the person landed on, that person's
-/// gender, and the edge kind. The `across` variant (a marriage hop) is part
-/// of the pinned type but not produced this slice.
+/// gender, and the edge kind. The `across` variant (a marriage hop) carries
+/// the marriage id, its [`MarriageStatus`], and the reason it ended when
+/// present.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(tag = "step", rename_all = "camelCase")]
@@ -266,13 +281,12 @@ pub struct RelationshipDescriptor {
 impl RelationshipDescriptor {
     /// Derive the descriptor for reaching `alter` from `ego` along `path`.
     ///
-    /// Every derivation rule below is pinned by PRD 0005 / issues #256, #257.
-    /// Paths are a single blood segment — `up+` (ancestors), `down+`
-    /// (descendants), or `up+ down+` (collateral, through one apex). The
-    /// affinal dimensions (`affinity`, marriage hops) still derive at their
-    /// blood defaults until the affinal-hop slice; the collateral dimensions
-    /// (`sharing`, `side = both`, `apexSeniority`) are populated here from the
-    /// path's [sibling junction](junction_of).
+    /// Every derivation rule below is pinned by PRD 0005 / issues #256, #257,
+    /// #258. Paths are 1–3 blood segments (each `up* down*`) joined by at most
+    /// two marriage (`across`) hops. `classification` and `edgeNature` count
+    /// vertical hops only; `affinity` reads the `across` hops and their
+    /// positions; `sharing` / `side` / `apexSeniority` are populated from the
+    /// path's first [sibling junction](junction_of) when one exists.
     ///
     /// Takes `resolved` because `sharing` and `apexSeniority` compare the two
     /// branch siblings at the junction — a property of the graph around the
@@ -370,17 +384,34 @@ fn derive_edge_nature(path: &[PathHop]) -> EdgeNature {
     }
 }
 
-/// `affinity`: `blood` when the path has no marriage (`across`) hop. This
-/// slice produces only blood segments, so this is always `blood`; the
-/// `step` / `inLaw` disambiguation (by marriage-hop position) lands with the
-/// affinal-hop slice.
+/// `affinity` from the path's marriage (`across`) hops and their positions
+/// (issue #258):
+/// - no `across` hop ⇒ `blood`;
+/// - every `across` hop in **ancestor position** ⇒ `step`;
+/// - any `across` hop not in ancestor position ⇒ `inLaw`.
+///
+/// Ancestor position is mechanical: an `across` hop at index `i` is in
+/// ancestor position iff `i ≥ 1` and every hop before it is an `up` hop. So a
+/// path-initial `across` (spouse, spouse's kin) is `inLaw`, while `up`+`across`
+/// (a parent's spouse) is `step`. `inLaw` wins any mix — the backbone keeps
+/// the per-hop truth.
 fn derive_affinity(path: &[PathHop]) -> Affinity {
-    if path.iter().any(|h| matches!(h, PathHop::Across { .. })) {
-        // Unreachable this slice; the position-based step/in-law rule is a
-        // later slice's concern. Kept honest rather than guessed.
-        Affinity::InLaw
-    } else {
-        Affinity::Blood
+    let mut any_across = false;
+    let mut all_ancestor_position = true;
+    for (i, hop) in path.iter().enumerate() {
+        if matches!(hop, PathHop::Across { .. }) {
+            any_across = true;
+            let ancestor_position =
+                i >= 1 && path[..i].iter().all(|h| matches!(h, PathHop::Up { .. }));
+            if !ancestor_position {
+                all_ancestor_position = false;
+            }
+        }
+    }
+    match (any_across, all_ancestor_position) {
+        (false, _) => Affinity::Blood,
+        (true, true) => Affinity::Step,
+        (true, false) => Affinity::InLaw,
     }
 }
 

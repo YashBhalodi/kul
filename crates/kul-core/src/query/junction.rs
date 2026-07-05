@@ -54,40 +54,41 @@ pub(crate) struct Junction<'a> {
 }
 
 /// Compute the sibling junction of `path` from `ego`. Returns `None` when the
-/// path is lineal or self (no `up` hop followed by a `down` hop) — those
-/// shapes have no sibling junction, so `sharing` / `apexSeniority` are
-/// `notApplicable` and `side` is never `both`.
+/// path has no sibling junction — no `up` hop immediately followed by a `down`
+/// hop — so `sharing` / `apexSeniority` are `notApplicable` and `side` is
+/// never `both`.
 ///
-/// The path is a single blood segment `up^u down^d` (the only shape this
-/// slice's traversal produces), so the initial ascent length `u` is the count
-/// of leading `up` hops and the apex is the node the ascent ends on.
+/// The junction is the **first** `up`→`down` turn from ego. On a blood segment
+/// `up^u down^d` that is the node the leading ascent ends on; on an affinal
+/// path (#258) the marriage (`across`) hops may bracket it — e.g. a spouse's
+/// sibling `[across, up, down]` junctions at the spouse's parent — and the
+/// rule is unchanged: the sharing/seniority comparison is of the two branch
+/// siblings on either side of that turn.
 pub(crate) fn junction_of<'a>(
     resolved: &'a ResolvedDocument,
     ego: &'a PersonStmt,
     path: &[PathHop],
 ) -> Option<Junction<'a>> {
-    let up = path
-        .iter()
-        .take_while(|h| matches!(h, PathHop::Up { .. }))
-        .count();
-    let down = path.len() - up;
-    // A sibling junction needs at least one ascent hop and one descent hop.
-    if up == 0 || down == 0 {
-        return None;
-    }
-
+    // The apex hop is the first `up` immediately followed by a `down`.
+    let apex_pos = path.iter().enumerate().position(|(i, h)| {
+        matches!(h, PathHop::Up { .. }) && matches!(path.get(i + 1), Some(PathHop::Down { .. }))
+    })?;
     // Node sequence: node[0] = ego, node[i+1] = path[i].to. The apex is
-    // node[up]; egoChild = node[up-1]; alterChild = node[up+1].
-    let ego_child_id = if up == 1 {
+    // node[apex_pos+1]; egoChild = node[apex_pos] (ego when apex_pos == 0);
+    // alterChild = node[apex_pos+2]. `up` = apex_pos + 1 is the ascent length
+    // up to and including the apex hop (its role in `derive_side`'s `both`
+    // check and in `canonicalize_apex`'s rewrite index).
+    let up = apex_pos + 1;
+    let ego_child_id = if apex_pos == 0 {
         ego.id.name.as_str()
     } else {
-        path[up - 2].to()
+        path[apex_pos - 1].to()
     };
-    let alter_child_id = path[up].to();
+    let alter_child_id = path[apex_pos + 1].to();
 
     let ego_child = resolved.person(ego_child_id)?;
     let alter_child = resolved.person(alter_child_id)?;
-    let apex = resolved.person(path[up - 1].to())?;
+    let apex = resolved.person(path[apex_pos].to())?;
 
     let ego_bio = parent_ids(resolved, ego_child, ParentLinkKind::Bio);
     let ego_adopt = parent_ids(resolved, ego_child, ParentLinkKind::Adoption);

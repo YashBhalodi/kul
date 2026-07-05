@@ -116,11 +116,11 @@ The declarative, serializable request the query engine evaluates: a `source` (th
 
 ### Kin-set query
 
-A query from one anchor person + a [descriptor pattern](#descriptor-pattern) to the *set* of related persons, each carrying its [relationship descriptor](#relationship-descriptor). The relation vocabulary is the descriptor's own classification. Named **sugar** in `crates/kul-core/src/query/sugar.rs` — lineal (`parents_of`, `children_of`, `ancestors_of(depth?)`, `descendants_of(depth?)`) and collateral (`siblings_of`, `aunts_uncles_of`, `nieces_nephews_of`, `cousins_of(degree, removed)`) — is documented convenience, each *defined as* its [Query value](#query-value) expansion (e.g. `parents_of(x) ≡ kinOf(x, lineal ancestor, generations {1,1})`; `siblings_of(x) ≡ kinOf(x, collateral, up {1,1}, down {1,1})`). Parameterized queries ("second cousins once removed") are expressible by construction — no dedicated API. Raw up/down/across step composition stays internal — exposing it would recreate the "compute the derivation yourself" trap (self-exclusion, cycle guarding, and subsumption are engine-owned). Results are set-shaped: no wrapper, and an empty set ("no kin matched") is a complete answer.
+A query from one anchor person + a [descriptor pattern](#descriptor-pattern) to the *set* of related persons, each carrying its [relationship descriptor](#relationship-descriptor). The relation vocabulary is the descriptor's own classification. Named **sugar** in `crates/kul-core/src/query/sugar.rs` — lineal (`parents_of`, `children_of`, `ancestors_of(depth?)`, `descendants_of(depth?)`), collateral (`siblings_of`, `aunts_uncles_of`, `nieces_nephews_of`, `cousins_of(degree, removed)`), and affinal (`spouses_of`, `in_laws_of`, `step_parents_of`, `step_siblings_of`, `step_children_of`) — is documented convenience, each *defined as* its [Query value](#query-value) expansion (e.g. `parents_of(x) ≡ kinOf(x, lineal ancestor, generations {1,1})`; `siblings_of(x) ≡ kinOf(x, collateral, up {1,1}, down {1,1})`; `spouses_of(x) ≡ kinOf(x, any {0,0}, affinalHops {1,1})`). Parameterized queries ("second cousins once removed") are expressible by construction — no dedicated API. Raw up/down/across step composition stays internal — exposing it would recreate the "compute the derivation yourself" trap (self-exclusion, cycle guarding, and subsumption are engine-owned). Results are set-shaped: no wrapper, and an empty set ("no kin matched") is a complete answer.
 
 ### Descriptor pattern
 
-The declarative selector inside a kin-set query's `kinOf` source: a classification with numeric parameters and ranges — `lineal { role, generations: IntRange }`, `collateral { up: IntRange, down: IntRange }`, or `collateralByDegree { degree: IntRange, removed: IntRange }` (the last matches **both orientations** by construction, so `degree 0, removed 1` selects aunts/uncles *and* nieces/nephews) — plus optional filters (`edgeNature`, `sharing`, `side`). Anything [relationship resolution](#relationship-descriptor) can *name*, a pattern can *ask for* — one shared vocabulary. `KinPattern` in `crates/kul-core/src/query/pattern.rs`.
+The declarative selector inside a kin-set query's `kinOf` source: a classification with numeric parameters and ranges — `lineal { role, generations: IntRange }`, `collateral { up: IntRange, down: IntRange }`, `collateralByDegree { degree: IntRange, removed: IntRange }` (the third matches **both orientations** by construction, so `degree 0, removed 1` selects aunts/uncles *and* nieces/nephews), or `any { maxUp, maxDown }` (the unclassified match within a vertical bound, used by the affinity-scoped sugars) — plus optional filters (`edgeNature`, `sharing`, `side`, `affinity`, `affinalHops`). An `affinity` or `affinalHops` filter is also the switch that lets the engine spend marriage hops (up to the [affinal ceiling](#affinal-ceiling)); with neither, a query stays blood-only. Anything [relationship resolution](#relationship-descriptor) can *name*, a pattern can *ask for* — one shared vocabulary. `KinPattern` in `crates/kul-core/src/query/pattern.rs`.
 
 ### Relationship descriptor
 
@@ -132,7 +132,7 @@ The terminology-neutral, **maximally discriminating** record of how one person (
 
 ### Path backbone
 
-The ordered hop sequence from ego to alter carried on every [relationship descriptor](#relationship-descriptor) — **lossless ground truth**, so a distinction nobody anticipated is still recoverable without an engine change. Each `PathHop` (in `crates/kul-core/src/query/descriptor.rs`) is `up` / `down` (carrying the person id landed on, that person's gender, and the `bio` / `adoptive` edge tag) or `across` (a marriage hop: marriage id + status + optional end reason). Backbones are one blood segment with zero marriage hops — `up+` / `down+` (lineal) or `up+ down+` through a single apex (collateral); the `across` marriage hops arrive with the affinal slice. Hops carry **ids, never entity payloads** — consumers hydrate via the [detail lookups](#detail-lookup).
+The ordered hop sequence from ego to alter carried on every [relationship descriptor](#relationship-descriptor) — **lossless ground truth**, so a distinction nobody anticipated is still recoverable without an engine change. Each `PathHop` (in `crates/kul-core/src/query/descriptor.rs`) is `up` / `down` (carrying the person id landed on, that person's gender, and the `bio` / `adoptive` edge tag) or `across` (a marriage hop: marriage id + status + optional end reason). A backbone is 1–3 blood segments (each an `up* down*` run, possibly empty) joined by at most two [affinal hops](#affinal-hop): `up+` / `down+` (lineal), `up+ down+` through a single apex (collateral), or any of those bracketed by `across` hops (spouse, step, in-law). Hops carry **ids, never entity payloads** — consumers hydrate via the [detail lookups](#detail-lookup).
 
 ### Edge nature
 
@@ -169,6 +169,30 @@ An [apex junction](#apex-junction) whose two [branch siblings](#branch-siblings)
 ### Double cousins
 
 Two people related the same way via two distinct paths through *different* grandparent couples (two brothers marrying two sisters → the children are first cousins twice over). Because the two paths run through different [apex junctions](#apex-junction), they are two members of a kin-set result, differing in [side](#side) (paternal vs maternal) and [path backbone](#path-backbone). [Path identity](#path-identity) is non-negotiable here — collapsing them would hide a true tie; only same-junction co-parent routes (a [couple apex](#couple-apex)) collapse.
+
+### Affinity
+
+A descriptor dimension: `blood | step | inLaw`, about the path's marriage ([affinal](#affinal-hop)) hops — distinct from [edge nature](#edge-nature) (about parent-child edges). `blood` when the path has no `across` hop; `step` when *every* `across` hop is in [ancestor position](#ancestor-position); `inLaw` when *any* `across` hop is not (inLaw wins a mixed path; the [backbone](#path-backbone) keeps the per-hop truth). This is what separates a step-parent (`up`, `across`) from a parent-in-law (`across`, `up`), and a co-wife (`across`, `across`) from a full sibling.
+
+### Affinal hop
+
+A marriage (`across`) [path hop](#path-backbone): the move between the two spouses of a marriage, in either direction, carrying the marriage id, its status (`ongoing | ended`), and — when ended — the recorded reason. Ended marriages are traversed **exactly like ongoing ones**; the core reports and tags, never filters (whether divorce dissolves affinity is a downstream terminology decision). The engine crosses at most two affinal hops per path (the [affinal ceiling](#affinal-ceiling)).
+
+### Ancestor position
+
+The mechanical test that makes an [affinal hop](#affinal-hop) read as `step` rather than `inLaw`: an `across` hop is *in ancestor position* iff it is preceded by at least one hop and **every** preceding hop is `up`. A path-initial `across` is therefore never in ancestor position — so a spouse and a spouse's kin are `inLaw`, while a parent's spouse (`up`, `across`) is `step`. Drives the [affinity](#affinity) scalar.
+
+### Step subsumption
+
+A step path is a *derived stand-in* for parenthood, **suppressed — not emitted alongside** — when the underlying fact is real. A `step`-shaped path to a person who is also an actual parent of ego (a step-parent shape to a real bio/adoptive parent), an actual child (step-child shape), or someone who shares ≥1 actual parent with ego (a step-sibling shape to a full/half sibling) is dropped; only the blood/adoptive path is emitted. An explicit adoption edge always beats the step reading. This does *not* contradict [path identity](#path-identity): [double cousins](#double-cousins) are two independent *true* paths, whereas a shadowed step path is one fact derived two ways. Engine-owned (`crates/kul-core/src/query/engine.rs`).
+
+### Co-spouse
+
+Two people married to the same third person (the *sautan* / co-wife shape a polygamy corpus needs): ego → spouse → spouse's *other* spouse, two **consecutive** `across` hops with zero vertical displacement. Classified `self` with [affinity](#affinity) `inLaw`. The corpus reason consecutive affinal hops are allowed at all.
+
+### Affinal ceiling
+
+The engine crosses **at most two** [affinal hops](#affinal-hop) per path — fixed semantics, never a configuration knob. No culture lexicalizes three affinal hops (spouse's sibling's spouse's sibling names nothing), so the ceiling is part of the model, not a caller budget. This is the semantics side of the semantics-vs-budget line (the generation cap, by contrast, is a caller budget). Pinned in [ADR-0027](./docs/adr/0027-affinal-traversal-ceiling-and-step-subsumption.md).
 
 ### Render shape
 

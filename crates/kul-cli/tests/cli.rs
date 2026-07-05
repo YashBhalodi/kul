@@ -820,6 +820,57 @@ fn query_kin_cousins_json_snapshot() {
     insta::assert_snapshot!(stdout);
 }
 
+/// Affinal human output: `spouses` renders the `across` marriage hop with its
+/// id, status, and — for the ended marriage — the end reason. Still
+/// terminology-neutral (no "wife" / "husband" / "spouse").
+#[test]
+fn query_kin_spouses_human_snapshot() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("03-divorce-and-remarriage"))
+        .args(["query", "kin", "erik", "spouses"])
+        .output()
+        .expect("run kul query kin spouses");
+    assert!(output.status.success(), "expected exit 0");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // The ended and ongoing marriages both render, tagged.
+    assert!(stdout.contains("across m_erik_astrid · ended · divorce"));
+    assert!(stdout.contains("across m_erik_maja · ongoing"));
+    for word in ["wife", "husband", "spouse", "ex-"] {
+        assert!(
+            !stdout.to_lowercase().contains(word),
+            "human output leaked a kinship word `{word}`: {stdout}"
+        );
+    }
+    insta::assert_snapshot!(stdout);
+}
+
+/// Affinal JSON contract: `step-parents` desugars to the lineal-ancestor +
+/// `affinity: step` Query; the real parents are subsumed (only step-parents
+/// remain), and the `across` hop serializes with status.
+#[test]
+fn query_kin_step_parents_json_snapshot() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("03-divorce-and-remarriage"))
+        .args(["query", "kin", "linnea", "step-parents", "--format", "json"])
+        .output()
+        .expect("run kul query kin step-parents --format json");
+    assert!(output.status.success(), "expected exit 0");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid json");
+    assert_eq!(env["ok"], true);
+    // johan and maja only — erik and astrid (real parents) are subsumed.
+    let members = env["result"]["members"].as_array().unwrap();
+    let ids: Vec<&str> = members
+        .iter()
+        .map(|m| m["personId"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["johan", "maja"]);
+    assert_eq!(members[0]["descriptor"]["affinity"], "step");
+    insta::assert_snapshot!(stdout);
+}
+
 /// `cousins` without `--degree` is a usage error (exit 2), not an empty set.
 #[test]
 fn query_kin_cousins_requires_degree() {

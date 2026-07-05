@@ -19,9 +19,10 @@ use kul_core::CheckResult;
 use kul_core::ast::InputFile;
 use kul_core::manifest::Manifest;
 use kul_core::query::{
-    Classification, EdgeNature, IntRange, LinealRole, Query, QueryEvalError, Seniority, Sharing,
-    Side, ancestors_of, aunts_uncles_of, children_of, cousins_of, descendants_of, evaluate,
-    kin_query, nieces_nephews_of, parents_of, siblings_of,
+    Affinity, Classification, EdgeNature, IntRange, LinealRole, MarriageStatus, PathHop, Query,
+    QueryEvalError, Seniority, Sharing, Side, ancestors_of, aunts_uncles_of, children_of,
+    cousins_of, descendants_of, evaluate, in_laws_of, kin_query, nieces_nephews_of, parents_of,
+    siblings_of, spouses_of, step_children_of, step_parents_of, step_siblings_of,
 };
 
 use crate::common::check_one;
@@ -959,4 +960,382 @@ fn sharing_and_side_filters_narrow_results() {
     )
     .unwrap();
     assert_eq!(member_ids(&half), ["hassan", "noor", "zahra"]);
+}
+
+// ---------------------------------------------------------------------------
+// Affinal traversal (issue #258): contract snapshots over the corpus
+// ---------------------------------------------------------------------------
+
+#[test]
+fn divorce_spouses_ended_and_ongoing_tagged() {
+    // erik has an ended marriage (to astrid, divorce) and an ongoing one (to
+    // maja). `spouses` returns both, each `across` hop tagged with its status
+    // and — for the ended one — the verbatim end reason.
+    let check = check_example("03-divorce-and-remarriage", "divorce-and-remarriage");
+    insta::assert_snapshot!(envelope_json(&check, &Query::kin_spouses("erik")));
+}
+
+#[test]
+fn divorce_step_parents_with_subsumption() {
+    // linnea's step-parents are maja (via erik's remarriage) and johan (via
+    // astrid's). Her actual parents erik and astrid are reachable as a
+    // step-parent shape too (`up`, `across` back to the co-parent) but are
+    // suppressed — the real parent edge wins.
+    let check = check_example("03-divorce-and-remarriage", "divorce-and-remarriage");
+    insta::assert_snapshot!(envelope_json(&check, &Query::kin_step_parents("linnea")));
+}
+
+#[test]
+fn polygamous_spouses_all_ongoing() {
+    // khalid hosts three concurrent marriages → three ongoing spouses.
+    let check = check_example("06-polygamous-household", "polygamous-household");
+    insta::assert_snapshot!(envelope_json(&check, &Query::kin_spouses("khalid")));
+}
+
+// ---------------------------------------------------------------------------
+// Affinity scalar: blood / step / inLaw by hop position; inLaw wins a mix.
+// ---------------------------------------------------------------------------
+
+/// One family with every affinal shape off a single ego (`kid`):
+/// - `dad` remarries `stepmom` → step-parent (`up`, `across`);
+/// - `dad`'s prior spouse via `stepmom`'s own marriage is not modelled here;
+/// - `kid` marries `spouse`; `spouse`'s mother `sml` is a parent-in-law
+///   (`across`, `up`); `spouse`'s sibling `siblinlaw` is `across`, `up`, `down`.
+const AFFINITY_FIXTURE: &str = "\
+person kid name:\"Kid\" gender:female born:1990
+  birth m_dad_mom
+person dad name:\"Dad\" gender:male born:1960
+person mom name:\"Mom\" gender:female born:1962
+marriage m_dad_mom dad mom start:1985 end:1992 end_reason:divorce
+person stepmom name:\"StepMom\" gender:female born:1965
+marriage m_dad_step dad stepmom start:1995
+
+person spouse name:\"Spouse\" gender:male born:1988
+  birth m_spouse_parents
+marriage m_kid_spouse kid spouse start:2012
+person sml name:\"SpouseMother\" gender:female born:1960
+person smf name:\"SpouseFather\" gender:male born:1958
+marriage m_spouse_parents smf sml start:1980
+person siblinlaw name:\"SpouseSibling\" gender:male born:1990
+  birth m_spouse_parents
+";
+
+#[test]
+fn affinity_scalar_by_position() {
+    let check = check_one(AFFINITY_FIXTURE);
+    let resolved = check.resolved();
+
+    // Step-parent: spouse of a parent, marriage in ancestor position → step.
+    let steps = step_parents_of(resolved, "kid").unwrap();
+    assert_eq!(member_ids(&steps), ["stepmom"]);
+    assert_eq!(steps[0].descriptor.affinity, Affinity::Step);
+
+    // Spouse: one path-initial `across`, zero vertical → self, inLaw.
+    let spouses = spouses_of(resolved, "kid").unwrap();
+    assert_eq!(member_ids(&spouses), ["spouse"]);
+    assert_eq!(spouses[0].descriptor.affinity, Affinity::InLaw);
+    assert!(matches!(
+        spouses[0].descriptor.classification,
+        Classification::SelfRel
+    ));
+
+    // Parent-in-law (`across`, `up`) and sibling-in-law (`across`, `up`,
+    // `down`) are inLaw, not step — the marriage hop is path-initial.
+    let in_laws = in_laws_of(resolved, "kid").unwrap();
+    let affinity_of = |id: &str| {
+        in_laws
+            .iter()
+            .find(|m| m.person.id.name == id)
+            .unwrap_or_else(|| panic!("in-law {id}"))
+            .descriptor
+            .affinity
+    };
+    assert_eq!(affinity_of("sml"), Affinity::InLaw);
+    assert_eq!(affinity_of("siblinlaw"), Affinity::InLaw);
+    // The spouse's father is an in-law too (`across`, `up`).
+    assert_eq!(affinity_of("smf"), Affinity::InLaw);
+}
+
+#[test]
+fn affinity_inlaw_wins_a_mixed_path() {
+    // A path with one ancestor-position `across` and one non-ancestor `across`
+    // resolves to inLaw. father's-wife's-child-by-another-marriage: `up` to
+    // dad, `across` to stepmom (ancestor position), `across` to stepmom's other
+    // husband (not ancestor position), `down` to that husband's child.
+    let src = "\
+person ego name:\"Ego\" gender:female born:1990
+  birth m_dad_mom
+person dad name:\"Dad\" gender:male born:1960
+person mom name:\"Mom\" gender:female born:1962
+marriage m_dad_mom dad mom start:1985
+person stepmom name:\"StepMom\" gender:female born:1965
+marriage m_dad_step dad stepmom start:1995 end:2000 end_reason:divorce
+person newhusband name:\"NewHusband\" gender:male born:1963
+marriage m_step_other stepmom newhusband start:2003
+person stepkid name:\"StepKid\" gender:male born:2005
+  birth m_step_other
+";
+    let check = check_one(src);
+    // Reach stepkid via [up dad, across stepmom, across newhusband, down stepkid]:
+    // two marriage hops (ceiling), the second not in ancestor position → inLaw.
+    let in_laws = in_laws_of(check.resolved(), "ego").unwrap();
+    let stepkid = in_laws
+        .iter()
+        .find(|m| m.person.id.name == "stepkid")
+        .expect("stepkid reachable within two affinal hops");
+    assert_eq!(stepkid.descriptor.affinity, Affinity::InLaw);
+}
+
+// ---------------------------------------------------------------------------
+// Step subsumption: the real edge always beats the derived step reading.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn step_subsumed_by_adoption_edge() {
+    // ego's parent `dad` remarries `stepmom`, who then *adopts* ego. stepmom is
+    // reachable both as a step-parent (`up` dad, `across`) and as a real
+    // adoptive parent (`up`). The step reading is suppressed — only the
+    // adoptive parent path is a step-parent-query member (empty), and a parents
+    // query returns her as adoptive.
+    let src = "\
+person ego name:\"Ego\" gender:female born:2000
+  birth m_dad_mom
+  adoption m_dad_step start:2006
+person dad name:\"Dad\" gender:male born:1970
+person mom name:\"Mom\" gender:female born:1972
+marriage m_dad_mom dad mom start:1998 end:2003 end_reason:divorce
+person stepmom name:\"StepMom\" gender:female born:1974
+marriage m_dad_step dad stepmom start:2005
+";
+    let check = check_one(src);
+    let resolved = check.resolved();
+
+    // The step reading of stepmom is suppressed (she is a real adoptive parent).
+    let steps = step_parents_of(resolved, "ego").unwrap();
+    assert!(
+        !member_ids(&steps).contains(&"stepmom".to_string()),
+        "adoption edge beats the step reading: {:?}",
+        member_ids(&steps)
+    );
+    // She is emitted as an adoptive parent instead.
+    let parents = parents_of(resolved, "ego").unwrap();
+    let sm = parents
+        .iter()
+        .find(|m| m.person.id.name == "stepmom")
+        .expect("stepmom is an adoptive parent");
+    assert_eq!(sm.descriptor.edge_nature, EdgeNature::Adoptive);
+}
+
+#[test]
+fn step_sibling_shared_parent_suppressed_positive_kept() {
+    // Two children of one parent's two marriages share that parent → they are
+    // half-siblings, and the step-sibling shape is suppressed. A child the
+    // step-parent brings from a *prior* relationship shares no parent → a true
+    // step-sibling, kept.
+    let src = "\
+person ego name:\"Ego\" gender:female born:2000
+  birth m_dad_mom
+person dad name:\"Dad\" gender:male born:1970
+person mom name:\"Mom\" gender:female born:1972
+marriage m_dad_mom dad mom start:1998 end:2003 end_reason:divorce
+person stepmom name:\"StepMom\" gender:female born:1974
+marriage m_dad_step dad stepmom start:2005
+person halfsib name:\"HalfSib\" gender:male born:2006
+  birth m_dad_step
+person bringing name:\"Bringing\" gender:male born:1973
+marriage m_step_prior bringing stepmom start:1996 end:2004 end_reason:divorce
+person truestep name:\"TrueStep\" gender:female born:1997
+  birth m_step_prior
+";
+    let check = check_one(src);
+    let resolved = check.resolved();
+
+    // halfsib shares dad → suppressed from step-siblings, kept as a half sibling.
+    let steps = step_siblings_of(resolved, "ego").unwrap();
+    assert_eq!(
+        member_ids(&steps),
+        ["truestep"],
+        "shared-parent sibling suppressed; the true step-sibling kept"
+    );
+    assert_eq!(steps[0].descriptor.affinity, Affinity::Step);
+
+    let sibs = siblings_of(resolved, "ego").unwrap();
+    let hs = sibs
+        .iter()
+        .find(|m| m.person.id.name == "halfsib")
+        .expect("halfsib is a blood half sibling");
+    assert_eq!(hs.descriptor.sharing, Sharing::Half);
+}
+
+// ---------------------------------------------------------------------------
+// The fixed two-affinal-hop ceiling: a three-hop shape is never returned.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn three_affinal_hops_never_returned() {
+    // A chain of three marriages: ego–p1, then p1's later marriage to p2, then
+    // p2's to p3. p1 is one affinal hop from ego, p2 two (reachable), p3 three
+    // — beyond the fixed ceiling, so p3 must never appear. (The middle
+    // marriages end so nobody is a concurrent hub — R14 stays satisfied; ended
+    // marriages traverse identically.)
+    let src = "\
+person ego name:\"Ego\" gender:female born:1990
+person p1 name:\"P1\" gender:male born:1988
+person p2 name:\"P2\" gender:female born:1986
+person p3 name:\"P3\" gender:male born:1984
+marriage m1 ego p1 start:2010 end:2012 end_reason:divorce
+marriage m2 p1 p2 start:2013 end:2015 end_reason:divorce
+marriage m3 p2 p3 start:2016
+";
+    let check = check_one(src);
+    // A wide `any` query with the inLaw filter still honours the ceiling.
+    let ids = member_ids(&in_laws_of(check.resolved(), "ego").unwrap());
+    // One and two affinal hops are reachable.
+    assert!(ids.contains(&"p1".to_string()), "one affinal hop: {ids:?}");
+    assert!(ids.contains(&"p2".to_string()), "two affinal hops: {ids:?}");
+    // Three affinal hops exceed the fixed ceiling.
+    assert!(
+        !ids.contains(&"p3".to_string()),
+        "three affinal hops exceed the fixed ceiling: {ids:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// The samdhi shape: child's spouse's parent — collateral 1/1, inLaw, no
+// junction (so sharing / apexSeniority notApplicable).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn samdhi_child_spouse_parent_is_inlaw_collateral() {
+    let src = "\
+person ego name:\"Ego\" gender:male born:1950
+person spouse name:\"Spouse\" gender:female born:1952
+marriage m_ego ego spouse start:1975
+person child name:\"Child\" gender:female born:1978
+  birth m_ego
+person childspouse name:\"ChildSpouse\" gender:male born:1976
+  birth m_cs_parents
+marriage m_child child childspouse start:2000
+person samdhi name:\"Samdhi\" gender:male born:1950
+person samdhan name:\"Samdhan\" gender:female born:1952
+marriage m_cs_parents samdhi samdhan start:1974
+";
+    let check = check_one(src);
+    // ego → down child → across childspouse → up samdhi: [down, across, up].
+    let in_laws = in_laws_of(check.resolved(), "ego").unwrap();
+    let s = in_laws
+        .iter()
+        .find(|m| m.person.id.name == "samdhi")
+        .expect("samdhi = child's spouse's parent");
+    assert_eq!(s.descriptor.affinity, Affinity::InLaw);
+    assert!(matches!(
+        s.descriptor.classification,
+        Classification::Collateral { up: 1, down: 1, .. }
+    ));
+    // No sibling junction on this path → sharing / apexSeniority notApplicable.
+    assert_eq!(s.descriptor.sharing, Sharing::NotApplicable);
+    assert_eq!(s.descriptor.apex_seniority, Seniority::NotApplicable);
+}
+
+// ---------------------------------------------------------------------------
+// Co-spouse (sautan): two consecutive `across` hops, self / inLaw.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn co_spouse_consecutive_across_hops() {
+    // aisha and layla are both married to khalid → co-spouses, reached by two
+    // consecutive `across` hops (aisha → khalid → layla), zero vertical.
+    let check = check_example("06-polygamous-household", "polygamous-household");
+    let in_laws = in_laws_of(check.resolved(), "aisha").unwrap();
+    let co_wives: Vec<_> = in_laws
+        .iter()
+        .filter(|m| matches!(m.descriptor.classification, Classification::SelfRel))
+        .filter(|m| m.person.id.name == "layla" || m.person.id.name == "mariam")
+        .collect();
+    assert_eq!(co_wives.len(), 2, "layla and mariam are aisha's co-wives");
+    for cw in &co_wives {
+        assert_eq!(cw.descriptor.affinity, Affinity::InLaw);
+        // Two consecutive `across` hops, zero vertical.
+        assert_eq!(cw.descriptor.path.len(), 2);
+        assert!(
+            cw.descriptor
+                .path
+                .iter()
+                .all(|h| matches!(h, PathHop::Across { .. })),
+            "both hops are marriage hops"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Ended-marriage `across` hop carries status `ended` + verbatim end reason.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn ended_marriage_hop_tagged_with_reason() {
+    let check = check_example("03-divorce-and-remarriage", "divorce-and-remarriage");
+    let spouses = spouses_of(check.resolved(), "erik").unwrap();
+    // Both marriages returned: the ended one (astrid) and the ongoing one (maja).
+    assert_eq!(member_ids(&spouses), ["astrid", "maja"]);
+    let hop_of = |id: &str| {
+        spouses
+            .iter()
+            .find(|m| m.person.id.name == id)
+            .unwrap()
+            .descriptor
+            .path
+            .first()
+            .cloned()
+            .unwrap()
+    };
+    match hop_of("astrid") {
+        PathHop::Across {
+            status, end_reason, ..
+        } => {
+            assert_eq!(status, MarriageStatus::Ended);
+            assert_eq!(end_reason.as_deref(), Some("divorce"));
+        }
+        other => panic!("expected an across hop, got {other:?}"),
+    }
+    match hop_of("maja") {
+        PathHop::Across {
+            status, end_reason, ..
+        } => {
+            assert_eq!(status, MarriageStatus::Ongoing);
+            assert_eq!(end_reason, None);
+        }
+        other => panic!("expected an across hop, got {other:?}"),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Affinal sugar desugars to the Query value (one evaluation path).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn affinal_sugar_matches_query_value() {
+    let check = check_example("03-divorce-and-remarriage", "divorce-and-remarriage");
+    let resolved = check.resolved();
+
+    for (sugar, query) in [
+        (
+            spouses_of(resolved, "erik").unwrap(),
+            Query::kin_spouses("erik"),
+        ),
+        (
+            step_parents_of(resolved, "linnea").unwrap(),
+            Query::kin_step_parents("linnea"),
+        ),
+        (
+            step_children_of(resolved, "maja").unwrap(),
+            Query::kin_step_children("maja"),
+        ),
+        (
+            in_laws_of(resolved, "linnea").unwrap(),
+            Query::kin_in_laws("linnea"),
+        ),
+    ] {
+        let via_query = evaluate(resolved, &query).unwrap();
+        assert_eq!(member_ids(&sugar), member_ids(&via_query));
+    }
 }

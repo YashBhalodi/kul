@@ -200,11 +200,17 @@ Detail lookups and kin-set queries:
   kul query kin <id> aunts-uncles             a parent's siblings
   kul query kin <id> nieces-nephews           a sibling's children
   kul query kin <id> cousins --degree D [--removed R]   cousins (R defaults to 0)
+  kul query kin <id> spouses                  spouses (past + current, tagged)
+  kul query kin <id> in-laws                  in-laws (spouse's kin, kin's spouse, …)
+  kul query kin <id> step-parents             a parent's spouse (no birth link)
+  kul query kin <id> step-siblings            a step-parent's other child
+  kul query kin <id> step-children            a spouse's child (no birth link)
 
 Kin output is a set, each member carrying its terminology-neutral
-relationship descriptor (classification, edge nature, side, seniority).
-Human output never prints a kinship word — rendering terms is a future
-layer's job. An empty set is a complete answer and exits 0.
+relationship descriptor (classification, edge nature, affinity, side,
+seniority). Marriage hops render with the marriage id, status, and end
+reason. Human output never prints a kinship word — rendering terms is a
+future layer's job. An empty set is a complete answer and exits 0.
 
 FORMATS (`--format`):
 
@@ -370,6 +376,11 @@ enum KinRelation {
     AuntsUncles,
     NiecesNephews,
     Cousins,
+    Spouses,
+    InLaws,
+    StepParents,
+    StepSiblings,
+    StepChildren,
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum, PartialEq, Eq)]
@@ -470,6 +481,11 @@ fn run_query_kin(
                 None,
             )
         }
+        KinRelation::Spouses => Query::kin_spouses(&anchor),
+        KinRelation::InLaws => Query::kin_in_laws(&anchor),
+        KinRelation::StepParents => Query::kin_step_parents(&anchor),
+        KinRelation::StepSiblings => Query::kin_step_siblings(&anchor),
+        KinRelation::StepChildren => Query::kin_step_children(&anchor),
     };
     commands::query::run_kin(commands::query::KinOptions {
         anchor,

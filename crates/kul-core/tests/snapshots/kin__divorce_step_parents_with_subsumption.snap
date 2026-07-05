@@ -1,0 +1,82 @@
+---
+source: crates/kul-core/tests/kin.rs
+expression: "envelope_json(&check, &Query::kin_step_parents(\"linnea\"))"
+---
+{
+  "ok": true,
+  "result": {
+    "kind": "members",
+    "members": [
+      {
+        "personId": "johan",
+        "descriptor": {
+          "egoId": "linnea",
+          "alterId": "johan",
+          "egoGender": "female",
+          "alterGender": "male",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 1
+          },
+          "edgeNature": "blood",
+          "affinity": "step",
+          "sharing": "notApplicable",
+          "side": "maternal",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "astrid",
+              "gender": "female",
+              "edge": "bio"
+            },
+            {
+              "step": "across",
+              "to": "johan",
+              "gender": "male",
+              "marriage": "m_astrid_johan",
+              "status": "ongoing"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "maja",
+        "descriptor": {
+          "egoId": "linnea",
+          "alterId": "maja",
+          "egoGender": "female",
+          "alterGender": "female",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 1
+          },
+          "edgeNature": "blood",
+          "affinity": "step",
+          "sharing": "notApplicable",
+          "side": "paternal",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "erik",
+              "gender": "male",
+              "edge": "bio"
+            },
+            {
+              "step": "across",
+              "to": "maja",
+              "gender": "female",
+              "marriage": "m_erik_maja",
+              "status": "ongoing"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

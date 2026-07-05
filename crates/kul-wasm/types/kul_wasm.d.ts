@@ -37,11 +37,31 @@ export interface KinPattern {
      * `Some(Side::Maternal)` a single family branch, and so on.
      */
     side?: Side;
+    /**
+     * Optional filter on the derived [`Affinity`]; omitted (`None`) matches
+     * every affinity. `Some(Affinity::Step)` / `Some(Affinity::InLaw)` select
+     * affinal relations (and, since a blood path is always `blood`, exclude
+     * blood ones). Also the switch that lets the engine spend affinal hops:
+     * with no `affinal_hops` bound set, a `step` / `inLaw` affinity filter
+     * raises the marriage-hop budget to the fixed ceiling of 2.
+     */
+    affinity?: Affinity;
+    /**
+     * Optional filter on the number of marriage (`across`) hops on the path.
+     * Omitted (`None`) leaves the count unconstrained (0 when no affinity
+     * filter opens the budget, up to the ceiling of 2 otherwise). The engine
+     * caps traversal at 2 affinal hops regardless of this bound — the ceiling
+     * is fixed semantics, not a knob (ADR-0027).
+     */
+    affinalHops?: IntRange;
 }
 
 /**
- * A marriage hop\'s status. Wire form: `\"ongoing\" | \"ended\"`. Not produced
- * this slice (no `across` hops yet).
+ * A marriage hop\'s status. Wire form: `\"ongoing\" | \"ended\"`. `ended` iff the
+ * marriage record carries an `end` date or an `end_reason`; otherwise
+ * `ongoing`. Ended marriages are traversed exactly like ongoing ones — the
+ * core reports and tags, never filters (whether divorce dissolves affinity is
+ * a downstream terminology decision).
  */
 export type MarriageStatus = "ongoing" | "ended";
 
@@ -166,8 +186,9 @@ export interface WasmInputFile {
 /**
  * One hop of the lossless path backbone. Internally tagged on `step`.
  * Vertical hops (`up` / `down`) carry the person landed on, that person\'s
- * gender, and the edge kind. The `across` variant (a marriage hop) is part
- * of the pinned type but not produced this slice.
+ * gender, and the edge kind. The `across` variant (a marriage hop) carries
+ * the marriage id, its [`MarriageStatus`], and the reason it ended when
+ * present.
  */
 export type PathHop = { step: "up"; to: string; gender: Gender; edge: HopEdge } | { step: "down"; to: string; gender: Gender; edge: HopEdge } | { step: "across"; to: string; gender: Gender; marriage: string; status: MarriageStatus; endReason?: string };
 
@@ -244,7 +265,7 @@ export interface CytoscapeGraph {
  * `kind`. `any` (an unclassified match) arrives with a later slice as a
  * further additive variant.
  */
-export type PatternClassification = { kind: "lineal"; role: LinealRole; generations: IntRange } | { kind: "collateral"; up: IntRange; down: IntRange } | { kind: "collateralByDegree"; degree: IntRange; removed: IntRange };
+export type PatternClassification = { kind: "lineal"; role: LinealRole; generations: IntRange } | { kind: "collateral"; up: IntRange; down: IntRange } | { kind: "collateralByDegree"; degree: IntRange; removed: IntRange } | { kind: "any"; maxUp: number; maxDown: number };
 
 /**
  * The edge tag on a vertical [`PathHop`]. Wire form: `\"bio\" | \"adoptive\"`.
@@ -347,10 +368,22 @@ export type QuerySource = { kind: "kinOf"; anchor: string; pattern: KinPattern }
 export type EdgeNature = "blood" | "adoptive";
 
 /**
- * Whether the relationship runs through marriage hops. Strictly about
- * `across` hops: none ⇒ `blood`. This slice produces only blood segments
- * (no `across` hops exist yet), so `affinity` is always `blood`; `step`
- * and `inLaw` arrive with the affinal-hop slice.
+ * Whether the relationship runs through marriage hops, and if so in what
+ * position (issue #258). A three-way scalar over the path\'s `across` hops:
+ * - no `across` hop ⇒ `blood`;
+ * - every `across` hop *in ancestor position* ⇒ `step`;
+ * - any `across` hop *not* in ancestor position ⇒ `inLaw` (inLaw wins the
+ *   scalar when both kinds appear; the [`PathHop`] backbone keeps the full
+ *   truth).
+ *
+ * **Ancestor position** is mechanical: an `across` hop is in ancestor
+ * position iff it is preceded by at least one hop and *every* preceding hop
+ * is [`Up`](PathHop::Up). A path-initial `across` is therefore never in
+ * ancestor position — spouse and spouse\'s kin read `inLaw`, while a parent\'s
+ * spouse (`up`, `across`) reads `step`.
+ *
+ * Also usable as a kin-pattern filter (`step_parents_of` selects `step`,
+ * `in_laws_of` selects `inLaw`), so it is `Deserialize`.
  */
 export type Affinity = "blood" | "step" | "inLaw";
 
