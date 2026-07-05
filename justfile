@@ -25,6 +25,13 @@ lint:
 run *ARGS:
     cargo run -p kul-cli -- {{ARGS}}
 
+# Install this checkout's `kul` binary onto PATH via `cargo install`
+# (`~/.cargo/bin/kul`). Idempotent — re-run after each code change to
+# refresh the installed CLI, then use `kul` from any Kul project directory
+# on disk. `--force` overwrites a previously-installed build.
+install:
+    cargo install --path crates/kul-cli --force
+
 # Render a committed `tree.svg` next to every example project's `.kul`
 # source, using this checkout's CLI. Output is byte-for-byte deterministic
 # and host-independent, so CI auto-regenerates and commits any diff (see
