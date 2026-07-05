@@ -288,6 +288,47 @@ export interface ExportedGraph {
 }
 
 /**
+ * The one caller knob for [`resolve`](super::resolve): the *search budget*.
+ *
+ * `max_apex_generations` bounds **each blood segment\'s** ascent and descent
+ * (the up-count and down-count of every `up* down*` run) — a nearest-common-
+ * ancestor bound, not a total-path-length bound. It is a budget, never
+ * semantics: the fixed 2-affinal-hop ceiling is not configurable here.
+ *
+ * Deserializes with the field defaulted, so an over-the-wire `{}` (or an
+ * omitted config) yields the default budget.
+ */
+export interface ResolveConfig {
+    /**
+     * Per-blood-segment ascent/descent cap. Defaults to
+     * [`DEFAULT_MAX_APEX_GENERATIONS`].
+     */
+    maxApexGenerations?: number;
+}
+
+/**
+ * The result of [`resolve`](super::resolve): every way `x` and `y` are
+ * related, plus — **only when the list is empty** — the reason.
+ *
+ * One descriptor per distinct relationship path (path identity, exactly as in
+ * the kin-set queries; ADR-0026), in the pinned deterministic order
+ * ([`resolve`](super::resolve) sorts by path hop count then serialized
+ * backbone). Never a bare set: `empty_reason` carries the honest \"why\" when
+ * there is nothing to show.
+ */
+export interface ResolveResult {
+    /**
+     * Every distinct relationship path from `x` to `y`, deterministically
+     * ordered. Empty when the two are unrelated (see `empty_reason`).
+     */
+    relationships: RelationshipDescriptor[];
+    /**
+     * Present **iff** `relationships` is empty: why no tie was found.
+     */
+    emptyReason?: EmptyReason;
+}
+
+/**
  * The result of evaluating a [`Query`]. A tagged union so later
  * projections (`count`, the `allPersons` `personIds` shape) slot in without
  * reshaping. This slice produces only the `members` variant.
@@ -394,6 +435,13 @@ export type Affinity = "blood" | "step" | "inLaw";
  * `Deserialize`.
  */
 export type Side = "maternal" | "paternal" | "other" | "both" | "notApplicable";
+
+/**
+ * Why a [`ResolveResult`] is empty. Present **iff** the relationship list is
+ * empty (PRD 0005) — the distinction is the product: it lets an app say \"not
+ * related\" only when it truly means it.
+ */
+export type EmptyReason = "disconnected" | "noneWithinBounds";
 
 export interface CytoscapeEdge {
     data: EdgeData;
@@ -600,5 +648,16 @@ export function queryMarriage(files: WasmInputFile[], manifest: Manifest, id: st
  * shape, or `null` when no person has that id.
  */
 export function queryPerson(files: WasmInputFile[], manifest: Manifest, id: string): QueryEnvelope<PersonLookupResult>;
+
+/**
+ * Relationship resolution on the fourth WASM shape (issue #259): return
+ * **all** the ways two persons `xId` and `yId` are related, each a
+ * terminology-neutral descriptor, plus — only when there are none — an
+ * honest emptiness reason (`disconnected` vs `noneWithinBounds`). An omitted
+ * `config` uses the default generation budget of 5. Same load-and-check gate
+ * as the other query shapes; a failing project or an unknown / wrong-kind id
+ * yields the envelope's error arm with a diagnostic, never a throw.
+ */
+export function queryResolve(files: WasmInputFile[], manifest: Manifest, x_id: string, y_id: string, config?: ResolveConfig | null): QueryEnvelope<ResolveResult>;
 
 export function renderSvg(files: WasmInputFile[], manifest: Manifest): RenderEnvelope;
