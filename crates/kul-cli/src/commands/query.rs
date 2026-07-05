@@ -214,6 +214,7 @@ fn finish_kin_json(envelope: &QueryEnvelope<QueryResult>) -> ExitCode {
     // anchor, failing project) — always stdout, and it already carries the
     // diagnostic for the error arms. No stderr echo, so a failing-project
     // envelope is never mislabelled as a bad anchor.
+    // Infallible: the envelope is built from owned, well-formed data.
     let json = serde_json::to_string(envelope).expect("serialize kin envelope");
     let stdout = io::stdout();
     let mut out = stdout.lock();
