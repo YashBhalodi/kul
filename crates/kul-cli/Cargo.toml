@@ -19,9 +19,7 @@ path = "src/main.rs"
 kul-core = { workspace = true, features = ["yaml"] }
 kul-loader = { workspace = true }
 kul-lsp = { workspace = true }
-kul-render = { workspace = true }
-kul-layout = { workspace = true }
-kul-svg = { workspace = true }
+kul-visual = { workspace = true }
 clap = { workspace = true }
 miette = { workspace = true, features = ["fancy"] }
 serde = { workspace = true }

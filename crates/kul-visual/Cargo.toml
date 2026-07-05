@@ -1,0 +1,24 @@
+[package]
+name = "kul-visual"
+description = "Thin composition facade over the visualization pipeline: owns the compute→layout→render success sequence so every SVG-producing surface routes through one entrypoint (ADR-0031)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+kul-core = { workspace = true }
+kul-render = { workspace = true }
+kul-layout = { workspace = true }
+kul-svg = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }

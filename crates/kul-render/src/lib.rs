@@ -59,14 +59,23 @@ pub fn transform(envelope: &ExportEnvelope) -> RenderShape {
                 .graph
                 .as_native()
                 .expect("kul-render::transform requires the kinship-native graph shape");
-            let (components, edges) = build::build(native);
-            RenderShape::Success(SuccessRender {
-                ok: true,
-                schema: RENDER_SCHEMA_VERSION,
-                kul: s.kul.clone(),
-                components,
-                edges,
-            })
+            match build::build(native) {
+                Ok((components, edges)) => RenderShape::Success(SuccessRender {
+                    ok: true,
+                    schema: RENDER_SCHEMA_VERSION,
+                    kul: s.kul.clone(),
+                    components,
+                    edges,
+                }),
+                // A lineage past the depth cap downgrades to a failure
+                // shape rather than overflowing the stack downstream
+                // (ADR-0032). Layout only ever runs on the success arm, so
+                // this single guard bounds every recursive pass.
+                Err(diagnostic) => RenderShape::Failure(FailureRender {
+                    ok: false,
+                    diagnostics: vec![*diagnostic],
+                }),
+            }
         }
     }
 }

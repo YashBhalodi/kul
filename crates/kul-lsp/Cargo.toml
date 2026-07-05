@@ -21,9 +21,7 @@ path = "src/main.rs"
 [dependencies]
 kul-core = { workspace = true, features = ["yaml"] }
 kul-loader = { workspace = true }
-kul-render = { workspace = true }
-kul-layout = { workspace = true }
-kul-svg = { workspace = true }
+kul-visual = { workspace = true }
 tower-lsp = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
@@ -33,3 +31,9 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }
+# The perf gate times each pipeline stage (compute / layout / render)
+# separately, so it reaches the pinned crates directly rather than through
+# the `kul-visual` facade.
+kul-render = { workspace = true }
+kul-layout = { workspace = true }
+kul-svg = { workspace = true }

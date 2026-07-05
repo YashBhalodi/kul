@@ -5,7 +5,7 @@
 //! `kul/render`; the only behavioural difference is the baked theme +
 //! legend (ADR-0022) via [`ThemeConfig::for_file_export`].
 
-use kul_svg::ThemeConfig;
+use kul_visual::ThemeConfig;
 use serde::Deserialize;
 use tower_lsp::lsp_types::Url;
 

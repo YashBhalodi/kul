@@ -98,7 +98,7 @@ impl std::error::Error for ParseError {}
 #[cfg(feature = "yaml")]
 #[must_use = "parsing the manifest is pointless if the result is discarded"]
 pub fn parse(yaml: &str) -> Result<Manifest, ParseError> {
-    serde_yaml::from_str(yaml).map_err(|err| ParseError {
+    serde_norway::from_str(yaml).map_err(|err| ParseError {
         message: format!("invalid YAML: {err}"),
         location: err.location().map(|loc| (loc.line(), loc.column())),
     })
@@ -117,10 +117,10 @@ pub fn validate(yaml: &str, manifest_file: FileId) -> (Option<Manifest>, Vec<Dia
         // [`Manifest::default`] silently.
         return (None, diagnostics);
     }
-    let value: serde_yaml::Value = match serde_yaml::from_str(yaml) {
+    let value: serde_norway::Value = match serde_norway::from_str(yaml) {
         Ok(v) => v,
         Err(err) => {
-            let span = serde_yaml_span(yaml, err.location());
+            let span = yaml_error_span(yaml, err.location());
             diagnostics.push(Diagnostic::error(
                 manifest_codes::M02_MALFORMED_YAML,
                 format!("invalid manifest YAML: {err}"),
@@ -131,7 +131,7 @@ pub fn validate(yaml: &str, manifest_file: FileId) -> (Option<Manifest>, Vec<Dia
     };
 
     let mapping = match &value {
-        serde_yaml::Value::Mapping(m) => m,
+        serde_norway::Value::Mapping(m) => m,
         _ => {
             // YAML parsed but not a mapping (e.g. bare scalar). Surface
             // as M02 — structurally valid YAML but not a manifest.
@@ -145,7 +145,7 @@ pub fn validate(yaml: &str, manifest_file: FileId) -> (Option<Manifest>, Vec<Dia
         }
     };
 
-    let mut kul_value: Option<&serde_yaml::Value> = None;
+    let mut kul_value: Option<&serde_norway::Value> = None;
     for (k, v) in mapping {
         let key = match k.as_str() {
             Some(s) => s,
@@ -173,10 +173,10 @@ pub fn validate(yaml: &str, manifest_file: FileId) -> (Option<Manifest>, Vec<Dia
             return (None, diagnostics);
         }
         Some(v) => match v {
-            serde_yaml::Value::String(s) => s.clone(),
+            serde_norway::Value::String(s) => s.clone(),
             other => {
                 let span = locate_key_value(yaml, "kul");
-                let raw = serde_yaml::to_string(other)
+                let raw = serde_norway::to_string(other)
                     .unwrap_or_default()
                     .trim()
                     .to_string();
@@ -209,9 +209,9 @@ pub fn validate(yaml: &str, manifest_file: FileId) -> (Option<Manifest>, Vec<Dia
     (Some(Manifest { kul_version }), diagnostics)
 }
 
-/// `serde_yaml` location → one-byte [`ByteSpan`] for KUL-M02 anchoring.
+/// YAML parser location → one-byte [`ByteSpan`] for KUL-M02 anchoring.
 #[cfg(feature = "yaml")]
-fn serde_yaml_span(yaml: &str, loc: Option<serde_yaml::Location>) -> ByteSpan {
+fn yaml_error_span(yaml: &str, loc: Option<serde_norway::Location>) -> ByteSpan {
     let Some(loc) = loc else {
         return ByteSpan::new(0, yaml.len().min(1));
     };

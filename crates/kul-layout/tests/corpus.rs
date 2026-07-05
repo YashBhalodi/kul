@@ -58,7 +58,7 @@ fn layout_example(dir: &str) -> String {
         .expect("example must produce a success render shape");
     let positioned = layout(success, &LayoutConfig::default());
     let dump: PositionedDump = (&positioned).into();
-    serde_yaml::to_string(&dump).expect("serialize positioned shape")
+    serde_norway::to_string(&dump).expect("serialize positioned shape")
 }
 
 #[test]

@@ -26,4 +26,4 @@ kul-core = { workspace = true }
 kul-render = { workspace = true }
 insta = { workspace = true }
 serde = { workspace = true }
-serde_yaml = { workspace = true }
+serde_norway = { workspace = true }

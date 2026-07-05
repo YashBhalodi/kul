@@ -6,6 +6,10 @@ The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi
 
 ## [Unreleased]
 
+### `kul-core`, `kul-layout`
+
+- **Replaced the unmaintained `serde_yaml` with the maintained `serde_norway` fork.** `serde_yaml` was archived upstream (`0.9.34+deprecated`, RUSTSEC-2024-0320 *unmaintained*) yet parsed `kul.yml` — untrusted input from cloned projects — on every validate/format/export and LSP project load. `serde_norway` is a rename-fork with an identical 0.9 API, so the swap is a mechanical path substitution behind the `yaml` feature; the manifest format, the `KUL-M02..M05` diagnostics, and the layout corpus snapshots are byte-identical. See ADR-0030 (#228).
+
 ## [0.4.3] — 2026-06-12
 
 A one-fix preview release. The #221 chrome-extraction refactor regressed the preview pane's full-height layout; this release restores it. No other component changed behaviour. The Kul *language* version is unchanged at `0.1`; documents valid at 0.4.2 remain valid.

@@ -11,6 +11,7 @@ crates/
   kul-render/ — library: the canonical UI pattern as data — projects `ExportEnvelope` into `RenderShape` for surface renderers to consume (ADR-0016, ADR-0017)
   kul-layout/ — library: positioning pass — turns `RenderShape` into a `PositionedShape` (cards and edges in absolute pixel coordinates; marriages render as thick marriage edges) via a Walker's-algorithm port plus a canonical-pattern adapter (ADR-0018)
   kul-svg/    — library: theme-agnostic SVG emitter over `PositionedShape` (semantic CSS classes; no inline colours) (ADR-0016)
+  kul-visual/ — library: thin composition facade over the pinned pipeline crates — `render_from_check` owns the `compute → layout → render` success sequence so every SVG-producing surface routes through one entrypoint (ADR-0031)
   kul-cli/    — binary `kul`: `kul validate`, `kul format`, `kul export`, `kul lsp` subcommands
   kul-lsp/    — library + binary `kul-lsp`: LSP adapter over kul-core (handles standard capabilities plus the `kul/export` and `kul/render` custom requests)
   kul-wasm/   — library (cdylib): WASM adapter over kul-core, published as `@kullang/wasm` (npm) and `kul-wasm.tar.gz` (GitHub Release). Surface is `check`, `exportGraph`, `format` (per ADR-0011).
@@ -53,6 +54,8 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 - Rust toolchain (stable, edition 2024). Install via [`rustup`](https://rustup.rs/).
 - [`just`](https://just.systems/) — task runner. `cargo install just --locked` or `brew install just`.
 - [`cargo-nextest`](https://nexte.st/) — test runner. `cargo install cargo-nextest --locked`.
+- [Node 22](https://nodejs.org/) with `npm ci` run once at the repo root — `just check`'s TypeScript gate and the VSCode extension build need it. The pinned version lives in `.nvmrc`.
+- [`wasm-pack`](https://rustwasm.github.io/wasm-pack/installer/) — only for `just wasm`. `cargo install wasm-pack --locked` or the installer script.
 
 ### One command for green
 
@@ -60,7 +63,7 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 just check
 ```
 
-Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo nextest run --workspace`. Local-green should imply CI-green; the same commands run in `.github/workflows/rust.yml`.
+Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo nextest run --workspace`, and then the TypeScript workspace tests (`npm test --workspaces --if-present`, i.e. Vitest in `packages/preview` and `editor/vscode`). Local-green should imply CI-green; the Rust gates run in `.github/workflows/rust.yml` and the same TypeScript suites run in `.github/workflows/vscode-extension.yml`.
 
 Other recipes:
 

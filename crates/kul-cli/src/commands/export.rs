@@ -6,9 +6,7 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use kul_core::export::{ExportFormat, ExportOptions, export};
-use kul_layout::{LayoutConfig, layout};
-use kul_render::{RenderShape, compute};
-use kul_svg::{ThemeConfig, render};
+use kul_visual::{ThemeConfig, render_from_check};
 
 use crate::commands::diag;
 use crate::commands::project::load_and_check;
@@ -86,16 +84,11 @@ fn run_svg(with_positions: bool) -> ExitCode {
         Ok(x) => x,
         Err(code) => return code,
     };
-    let shape = compute(&check);
-    match shape {
-        RenderShape::Failure(_) => {
-            diag::render_human(&check, false);
-            ExitCode::from(1)
-        }
-        RenderShape::Success(s) => {
-            let positioned = layout(&s, &LayoutConfig::default());
-            // Self-contained + legend per ADR-0022; shared with `kul/exportSvg`.
-            let svg = render(&positioned, &ThemeConfig::for_file_export());
+    // Self-contained + legend per ADR-0022; shared with `kul/exportSvg`.
+    // This surface owns only its theme choice, its failure projection
+    // (miette-to-stderr), and its output sink (stdout).
+    match render_from_check(&check, &ThemeConfig::for_file_export()) {
+        Ok(svg) => {
             let stdout = io::stdout();
             let mut out = stdout.lock();
             if let Err(err) = writeln!(out, "{svg}") {
@@ -103,6 +96,10 @@ fn run_svg(with_positions: bool) -> ExitCode {
                 return ExitCode::from(1);
             }
             ExitCode::SUCCESS
+        }
+        Err(_) => {
+            diag::render_human(&check, false);
+            ExitCode::from(1)
         }
     }
 }

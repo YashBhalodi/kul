@@ -4,9 +4,7 @@
 //! the extension's failure handler is one code path.
 
 use kul_core::diagnostic::Severity;
-use kul_layout::{LayoutConfig, layout};
-use kul_render::{RenderShape, compute};
-use kul_svg::{ThemeConfig, render};
+use kul_visual::{ThemeConfig, render_from_check};
 use serde::Serialize;
 use tower_lsp::lsp_types::Range;
 
@@ -30,23 +28,21 @@ impl SvgRequestError {
     }
 }
 
-/// Run the canonical-visual pipeline (render → layout → svg) for a cached
-/// [`ProjectEntry`], projecting into the shared [`RenderResponse`] envelope.
-/// Project-wide (ADR-0015): every URI in the same project produces the same
-/// SVG. The pipeline is parameterized only by `theme` — the sole behavioural
-/// difference between `kul/render` and `kul/exportSvg`.
+/// Route the canonical-visual pipeline through the shared
+/// [`render_from_check`] facade for a cached [`ProjectEntry`], projecting
+/// into the shared [`RenderResponse`] envelope. Project-wide (ADR-0015):
+/// every URI in the same project produces the same SVG. This surface owns
+/// only its `theme` (the sole behavioural difference between `kul/render`
+/// and `kul/exportSvg`), its failure projection (URI/range-anchored
+/// diagnostics via [`errors_for_preview`]), and its output sink (the
+/// `RenderResponse` envelope).
 pub fn render_svg_for(entry: &ProjectEntry, theme: &ThemeConfig) -> RenderResponse {
-    let shape = compute(&entry.check);
-    match shape {
-        RenderShape::Failure(_) => RenderResponse::Failure(RenderFailure {
+    match render_from_check(&entry.check, theme) {
+        Ok(svg) => RenderResponse::Success(RenderSuccess { ok: true, svg }),
+        Err(_) => RenderResponse::Failure(RenderFailure {
             ok: false,
             diagnostics: errors_for_preview(entry),
         }),
-        RenderShape::Success(s) => {
-            let positioned = layout(&s, &LayoutConfig::default());
-            let svg = render(&positioned, theme);
-            RenderResponse::Success(RenderSuccess { ok: true, svg })
-        }
     }
 }
 

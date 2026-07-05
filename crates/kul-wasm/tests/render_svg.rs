@@ -121,6 +121,43 @@ fn wasm_abi_signature_round_trips_to_render_svg_with() {
     assert_eq!(abi_json, native_json);
 }
 
+/// A single unbroken `.kul` lineage `generations` deep: a root couple,
+/// then one child + spouse per generation, each child born of the previous
+/// generation's marriage. Machine-generatable, exactly the untrusted input
+/// #251 is about.
+fn deep_lineage_source(generations: usize) -> String {
+    let mut s = String::from(
+        "person p0a name:\"P0A\" gender:male\nperson p0b name:\"P0B\" gender:female\nmarriage m0 p0a p0b start:1000\n",
+    );
+    for i in 1..generations {
+        s.push_str(&format!(
+            "person c{i} name:\"C{i}\" gender:male\n  birth m{prev}\nperson s{i} name:\"S{i}\" gender:female\nmarriage m{i} c{i} s{i} start:{year}\n",
+            prev = i - 1,
+            year = 1000 + i,
+        ));
+    }
+    s
+}
+
+/// Regression: #251 — `renderSvg` accepts arbitrary strings, and a
+/// pathologically deep lineage previously drove per-generation recursion
+/// deep enough to overflow the (small) WASM stack and trap across the JS
+/// boundary. The depth cap (ADR-0032) downgrades over-limit input to a
+/// failure envelope, so the bridge returns a value instead of trapping.
+#[test]
+fn deep_lineage_returns_failure_envelope_not_a_trap() {
+    let inputs = vec![InputFile::new("deep.kul", deep_lineage_source(3_000))];
+    let envelope = kul_wasm::render_svg_with(&inputs, &kul_core::manifest::Manifest::default());
+    let RenderEnvelope::Failure(failure) = envelope else {
+        panic!("a lineage past the depth cap must return a failure envelope, not a success");
+    };
+    assert!(
+        failure.diagnostics.iter().any(|d| d.code == "KUL-V01"),
+        "expected a KUL-V01 depth diagnostic, got {:?}",
+        failure.diagnostics
+    );
+}
+
 #[test]
 fn failure_envelope_for_broken_source_is_bit_identical() {
     let inputs = vec![InputFile::new("input.kul", "person alice gender:female\n")];
