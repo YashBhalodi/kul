@@ -47,6 +47,18 @@ Every descriptor carries the ordered hop sequence it was derived from — direct
 - Set-shaped, path-identity output means a consumer building a consanguinity-aware or double-relationship view never loses a true tie to engine-side collapsing.
 - Deterministic ordering makes the descriptor serialization snapshot-testable, which is how kinship correctness is pinned once at the core seam.
 
+## Amendment (2026-07-05, collateral slice #257) — the couple apex is one relationship fact
+
+Path identity said "one descriptor per distinct relationship path, no engine-side collapsing." The collateral slice surfaced a case the bare rule mis-handles: full siblings (and every relation routed onward through a full-sibling junction) are reachable through *either* co-parent of the shared couple — `up→father→down→alter` and `up→mother→down→alter`. These are **not two relationships**; they are one fact the backbone can spell two ways.
+
+The refinement: at a **couple apex** — an [apex junction](../../CONTEXT.md) whose two branch siblings share the *same two parents* (identical bio-parent sets of size 2, or both adopted by the same couple) — the engine **canonicalizes** the backbone through the co-parent whose id sorts first by codepoint (deterministic, snapshot-stable) and de-duplicates, emitting one descriptor. This is the *only* collapsing the engine does, and it is not a relaxation of path identity but its correct application: the two co-parent routes were never distinct facts.
+
+The boundary is exact and load-bearing:
+
+- **Double cousins** (two brothers marrying two sisters) route through *different* grandparent couples — **different junctions** — so they stay two descriptors, differing in `side` and backbone. Collapsing them would hide a true tie.
+- A **mixed junction** (a bio child and an adoptee of the same couple) is not a *same-kind* couple apex, so its two co-parent routes are **not** collapsed — every reading is `half`, but path identity keeps them both.
+- `side = both` follows from the same couple-apex test: it fires only when the initial ascent lands on the couple apex in a single hop (full siblings and relations routed onward through them), never for an uncle/cousin whose first ascent hop is ego's own individual parent.
+
 ## Anti-suggestions (do not re-propose)
 
 - **"Collapse same-classification descriptors and return one row per person — apps don't want duplicates."** That hides real relationships (double cousins; bio-and-adoptive ancestor) and forces the core to rank. Path identity is the contract; collapsing is the consumer's UX choice.
