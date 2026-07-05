@@ -780,6 +780,59 @@ fn query_kin_json_matches_core_envelope_bytes() {
     assert_eq!(cli_json.trim(), core_json);
 }
 
+/// Collateral human output: structured facts including sharing and apex
+/// seniority, still terminology-neutral (no "cousin" / "aunt").
+#[test]
+fn query_kin_collateral_human_snapshot() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("05-cousins-and-in-laws"))
+        .args(["query", "kin", "matteo", "aunts-uncles"])
+        .output()
+        .expect("run kul query kin aunts-uncles");
+    assert!(output.status.success(), "expected exit 0");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    for word in ["cousin ", "aunt", "uncle", "niece", "nephew", "sibling"] {
+        assert!(
+            !stdout.to_lowercase().contains(word),
+            "human output leaked a kinship word `{word}`: {stdout}"
+        );
+    }
+    insta::assert_snapshot!(stdout);
+}
+
+/// `cousins --degree D --removed R` maps onto the collateralByDegree Query.
+#[test]
+fn query_kin_cousins_json_snapshot() {
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("05-cousins-and-in-laws"))
+        .args([
+            "query", "kin", "matteo", "cousins", "--degree", "1", "--format", "json",
+        ])
+        .output()
+        .expect("run kul query kin cousins --format json");
+    assert!(output.status.success(), "expected exit 0");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid json");
+    assert_eq!(env["ok"], true);
+    assert_eq!(env["result"]["members"][0]["personId"], "giulia");
+    insta::assert_snapshot!(stdout);
+}
+
+/// `cousins` without `--degree` is a usage error (exit 2), not an empty set.
+#[test]
+fn query_kin_cousins_requires_degree() {
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir().join("05-cousins-and-in-laws"))
+        .args(["query", "kin", "matteo", "cousins"])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(contains("requires --degree"));
+}
+
 #[test]
 fn query_missing_id_is_usage_error() {
     Command::cargo_bin("kul")

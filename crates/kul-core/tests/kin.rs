@@ -19,8 +19,9 @@ use kul_core::CheckResult;
 use kul_core::ast::InputFile;
 use kul_core::manifest::Manifest;
 use kul_core::query::{
-    Classification, EdgeNature, IntRange, LinealRole, Query, QueryEvalError, Seniority, Side,
-    ancestors_of, children_of, descendants_of, evaluate, kin_query, parents_of,
+    Classification, EdgeNature, IntRange, LinealRole, Query, QueryEvalError, Seniority, Sharing,
+    Side, ancestors_of, aunts_uncles_of, children_of, cousins_of, descendants_of, evaluate,
+    kin_query, nieces_nephews_of, parents_of, siblings_of,
 };
 
 use crate::common::check_one;
@@ -494,4 +495,468 @@ person d name:\"D\" gender:male born:1986
             ..
         }
     )));
+}
+
+// ---------------------------------------------------------------------------
+// Collateral contract snapshots over the example corpus (issue #257)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn three_generations_siblings() {
+    // chidi & amara are full siblings (both born m_emeka_ngozi) → one member,
+    // `side: both`, sharing `full`, backbone canonicalized via the smaller-id
+    // parent (emeka < ngozi).
+    let check = check_example("02-three-generations", "three-generations");
+    insta::assert_snapshot!(envelope_json(
+        &check,
+        &Query::kin_collateral("chidi", IntRange::exactly(1), IntRange::exactly(1), None)
+    ));
+}
+
+#[test]
+fn cousins_first_cousins() {
+    // matteo (via marco) and giulia (via lucia); marco & lucia are full
+    // siblings → giulia is a first cousin routed through the giuseppe/sofia
+    // couple apex.
+    let check = check_example("05-cousins-and-in-laws", "cousins-and-in-laws");
+    insta::assert_snapshot!(envelope_json(
+        &check,
+        &Query::kin_collateral_by_degree(
+            "matteo",
+            IntRange::exactly(1),
+            IntRange::exactly(0),
+            None
+        )
+    ));
+}
+
+#[test]
+fn cousins_aunts_uncles() {
+    // matteo's aunts/uncles: marco's sibling lucia (elena has no siblings in
+    // this corpus).
+    let check = check_example("05-cousins-and-in-laws", "cousins-and-in-laws");
+    insta::assert_snapshot!(envelope_json(
+        &check,
+        &Query::kin_collateral("matteo", IntRange::exactly(2), IntRange::exactly(1), None)
+    ));
+}
+
+#[test]
+fn cousins_nieces_nephews() {
+    // lucia's niece/nephew: her sibling marco's child matteo.
+    let check = check_example("05-cousins-and-in-laws", "cousins-and-in-laws");
+    insta::assert_snapshot!(envelope_json(
+        &check,
+        &Query::kin_collateral("lucia", IntRange::exactly(1), IntRange::exactly(2), None)
+    ));
+}
+
+// ---------------------------------------------------------------------------
+// Sugar desugars to the collateral Query value
+// ---------------------------------------------------------------------------
+
+#[test]
+fn collateral_sugar_matches_query_value() {
+    let check = check_example("05-cousins-and-in-laws", "cousins-and-in-laws");
+    let resolved = check.resolved();
+
+    assert_eq!(
+        member_ids(&siblings_of(resolved, "marco").unwrap()),
+        ["lucia"]
+    );
+    assert_eq!(
+        member_ids(&aunts_uncles_of(resolved, "matteo").unwrap()),
+        ["lucia"]
+    );
+    assert_eq!(
+        member_ids(&nieces_nephews_of(resolved, "lucia").unwrap()),
+        ["matteo"]
+    );
+    assert_eq!(
+        member_ids(&cousins_of(resolved, "matteo", 1, 0).unwrap()),
+        ["giulia"]
+    );
+
+    // siblings_of ≡ kinOf(x, collateral, up {1,1}, down {1,1}).
+    let via_sugar = siblings_of(resolved, "marco").unwrap();
+    let via_query = evaluate(
+        resolved,
+        &Query::kin_collateral("marco", IntRange::exactly(1), IntRange::exactly(1), None),
+    )
+    .unwrap();
+    assert_eq!(member_ids(&via_sugar), member_ids(&via_query));
+}
+
+// ---------------------------------------------------------------------------
+// Couple apex: full siblings are ONE member, `side: both`, canonicalized
+// through the smaller-id parent.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn full_siblings_one_member_side_both_canonical_backbone() {
+    let check = check_example("02-three-generations", "three-generations");
+    let sibs = siblings_of(check.resolved(), "chidi").unwrap();
+    assert_eq!(
+        sibs.len(),
+        1,
+        "one relationship fact, not one per co-parent"
+    );
+    let amara = &sibs[0];
+    assert_eq!(amara.person.id.name, "amara");
+    assert_eq!(amara.descriptor.sharing, Sharing::Full);
+    assert_eq!(amara.descriptor.side, Side::Both);
+    // amara (1983) is younger than chidi (1980): endpoint and apex seniority
+    // coincide for siblings.
+    assert_eq!(amara.descriptor.seniority, Seniority::Younger);
+    assert_eq!(amara.descriptor.apex_seniority, Seniority::Younger);
+    // Backbone canonicalized through emeka (< ngozi): up→emeka, down→amara.
+    let hops: Vec<&str> = amara.descriptor.path.iter().map(|h| h.to()).collect();
+    assert_eq!(hops, ["emeka", "amara"]);
+}
+
+// ---------------------------------------------------------------------------
+// Half via a single shared parent: polygamous co-wives' children.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn polygamous_half_siblings_side_from_shared_parent() {
+    // yusuf, zahra, hassan, noor all share khalid but have different mothers
+    // (co-wives). From yusuf: three half-siblings, side paternal (khalid).
+    let check = check_example("06-polygamous-household", "polygamous-household");
+    let sibs = siblings_of(check.resolved(), "yusuf").unwrap();
+    assert_eq!(member_ids(&sibs), ["hassan", "noor", "zahra"]);
+    for s in &sibs {
+        assert_eq!(s.descriptor.sharing, Sharing::Half, "{}", s.person.id.name);
+        assert_eq!(
+            s.descriptor.side,
+            Side::Paternal,
+            "shared parent khalid is male → paternal ({})",
+            s.person.id.name
+        );
+        assert_eq!(s.descriptor.edge_nature, EdgeNature::Blood);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Full via parent-set equality even across a same-couple divorce-and-remarry.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn same_couple_divorce_remarry_is_full() {
+    // p1 & p2 marry, divorce, and remarry each other; a child from each
+    // marriage. Equal bio-parent sets → `full`, never demoted by the two
+    // distinct marriage records.
+    let src = "\
+person p1 name:\"P1\" gender:male born:1970
+person p2 name:\"P2\" gender:female born:1972
+marriage m1 p1 p2 start:1990 end:1995 end_reason:divorce
+marriage m2 p1 p2 start:2000
+person childa name:\"ChildA\" gender:female born:1992
+  birth m1
+person childb name:\"ChildB\" gender:male born:2001
+  birth m2
+";
+    let check = check_one(src);
+    let sibs = siblings_of(check.resolved(), "childa").unwrap();
+    assert_eq!(sibs.len(), 1);
+    assert_eq!(sibs[0].person.id.name, "childb");
+    assert_eq!(sibs[0].descriptor.sharing, Sharing::Full);
+    assert_eq!(sibs[0].descriptor.side, Side::Both);
+}
+
+// ---------------------------------------------------------------------------
+// Adoptive sharing: full-adoptive (same couple) vs half-adoptive (one shared
+// adoptive parent).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn full_adoptive_siblings_full_and_adoptive_edge() {
+    // a and b are both adopted by the same couple (c1, c2) → full, and the
+    // edge nature is adoptive, and side is both (couple apex).
+    let src = "\
+person c1 name:\"C1\" gender:male born:1950
+person c2 name:\"C2\" gender:female born:1952
+marriage m_c c1 c2 start:1975
+person a name:\"A\" gender:female born:1980
+  adoption m_c start:1985
+person b name:\"B\" gender:male born:1982
+  adoption m_c start:1986
+";
+    let check = check_one(src);
+    let sibs = siblings_of(check.resolved(), "a").unwrap();
+    assert_eq!(sibs.len(), 1);
+    assert_eq!(sibs[0].person.id.name, "b");
+    assert_eq!(sibs[0].descriptor.sharing, Sharing::Full);
+    assert_eq!(sibs[0].descriptor.edge_nature, EdgeNature::Adoptive);
+    assert_eq!(sibs[0].descriptor.side, Side::Both);
+}
+
+#[test]
+fn half_adoptive_siblings_share_one_parent() {
+    // a adopted by (c1, c2); b adopted by (c1, c3). One shared adoptive
+    // parent, no same-kind set equality → half.
+    let src = "\
+person c1 name:\"C1\" gender:male born:1950
+person c2 name:\"C2\" gender:female born:1952
+person c3 name:\"C3\" gender:female born:1955
+marriage m_ab c1 c2 start:1975
+marriage m_ac c1 c3 start:1985
+person a name:\"A\" gender:female born:1980
+  adoption m_ab start:1981
+person b name:\"B\" gender:male born:1990
+  adoption m_ac start:1991
+";
+    let check = check_one(src);
+    let sibs = siblings_of(check.resolved(), "a").unwrap();
+    assert_eq!(sibs.len(), 1);
+    assert_eq!(sibs[0].person.id.name, "b");
+    assert_eq!(sibs[0].descriptor.sharing, Sharing::Half);
+    assert_eq!(sibs[0].descriptor.edge_nature, EdgeNature::Adoptive);
+    // Shared adoptive parent c1 (male) → paternal.
+    assert_eq!(sibs[0].descriptor.side, Side::Paternal);
+}
+
+#[test]
+fn mixed_bio_and_adoptive_is_half() {
+    // a is a bio child of the couple; b is adopted by the same couple. No
+    // same-kind set equality (bio ≠ adoptive) → half, not full.
+    let src = "\
+person c1 name:\"C1\" gender:male born:1950
+person c2 name:\"C2\" gender:female born:1952
+marriage m_c c1 c2 start:1975
+person a name:\"A\" gender:female born:1980
+  birth m_c
+person b name:\"B\" gender:male born:1982
+  adoption m_c start:1986
+";
+    let check = check_one(src);
+    let sibs = siblings_of(check.resolved(), "a").unwrap();
+    // A mixed junction is not a same-kind couple apex, so the two co-parent
+    // routes are not collapsed (path identity) — but every reading is `half`.
+    assert!(sibs.iter().all(|s| s.person.id.name == "b"));
+    assert!(!sibs.is_empty());
+    assert!(sibs.iter().all(|s| s.descriptor.sharing == Sharing::Half));
+}
+
+// ---------------------------------------------------------------------------
+// apexSeniority: chacha vs tau — the uncle's birth order versus ego's parent.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn apex_seniority_uncle_vs_parent() {
+    // father born 1970; tau (elder uncle) 1968, chacha (younger uncle) 1973,
+    // and an overlapping-circa uncle → unknown. apexSeniority compares the
+    // uncle (alter-branch sibling) to father (ego-branch sibling).
+    let src = "\
+person ego name:\"Ego\" gender:male born:2000
+  birth m_parents
+person father name:\"Father\" gender:male born:1970
+  birth m_grand
+person mother name:\"Mother\" gender:female born:1972
+marriage m_parents father mother start:1998
+person gpa name:\"GPa\" gender:male born:1945
+person gma name:\"GMa\" gender:female born:1947
+marriage m_grand gpa gma start:1966
+person tau name:\"Tau\" gender:male born:1968
+  birth m_grand
+person chacha name:\"Chacha\" gender:male born:1973
+  birth m_grand
+person circa name:\"Circa\" gender:male born:~1970
+  birth m_grand
+";
+    let check = check_one(src);
+    let uncles = aunts_uncles_of(check.resolved(), "ego").unwrap();
+    let apex = |id: &str| {
+        uncles
+            .iter()
+            .find(|m| m.person.id.name == id)
+            .unwrap_or_else(|| panic!("uncle {id}"))
+            .descriptor
+            .apex_seniority
+    };
+    assert_eq!(apex("tau"), Seniority::Elder, "1968 strictly before 1970");
+    assert_eq!(
+        apex("chacha"),
+        Seniority::Younger,
+        "1973 strictly after 1970"
+    );
+    assert_eq!(apex("circa"), Seniority::Unknown, "~1970 overlaps 1970");
+    // All are paternal-side uncles routed through father.
+    for m in &uncles {
+        assert_eq!(m.descriptor.side, Side::Paternal, "{}", m.person.id.name);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Double cousins: two members for the same alter, differing in side + backbone.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn double_cousins_two_members_differing_side() {
+    // Two brothers (b1, b2) marry two sisters (s1, s2). ego = b1+s1's child;
+    // cous = b2+s2's child → first cousins twice over, via two distinct
+    // grandparent couples.
+    let src = "\
+person pgf name:\"PGF\" gender:male born:1920
+person pgm name:\"PGM\" gender:female born:1922
+marriage m_p pgf pgm start:1945
+person b1 name:\"B1\" gender:male born:1946
+  birth m_p
+person b2 name:\"B2\" gender:male born:1948
+  birth m_p
+person mgf name:\"MGF\" gender:male born:1921
+person mgm name:\"MGM\" gender:female born:1923
+marriage m_m mgf mgm start:1946
+person s1 name:\"S1\" gender:female born:1947
+  birth m_m
+person s2 name:\"S2\" gender:female born:1949
+  birth m_m
+marriage m_1 b1 s1 start:1970
+marriage m_2 b2 s2 start:1972
+person ego name:\"Ego\" gender:male born:1975
+  birth m_1
+person cous name:\"Cous\" gender:female born:1977
+  birth m_2
+";
+    let check = check_one(src);
+    let cousins = cousins_of(check.resolved(), "ego", 1, 0).unwrap();
+    let to_cous: Vec<_> = cousins
+        .iter()
+        .filter(|m| m.person.id.name == "cous")
+        .collect();
+    assert_eq!(
+        to_cous.len(),
+        2,
+        "double cousins: two distinct relationship facts, not collapsed"
+    );
+    let sides: Vec<Side> = to_cous.iter().map(|m| m.descriptor.side).collect();
+    assert!(
+        sides.contains(&Side::Paternal) && sides.contains(&Side::Maternal),
+        "one paternal (via the brothers), one maternal (via the sisters): {sides:?}"
+    );
+    // Distinct backbones.
+    let backbones: std::collections::BTreeSet<Vec<&str>> = to_cous
+        .iter()
+        .map(|m| m.descriptor.path.iter().map(|h| h.to()).collect())
+        .collect();
+    assert_eq!(backbones.len(), 2, "two distinct path backbones");
+}
+
+// ---------------------------------------------------------------------------
+// collateralByDegree matches both orientations by construction.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn collateral_by_degree_zero_removed_one_both_orientations() {
+    // ego has an uncle (up 2, down 1) and a niece (up 1, down 2). degree 0
+    // removed 1 must return BOTH.
+    let src = "\
+person gp1 name:\"GP1\" gender:male born:1940
+person gp2 name:\"GP2\" gender:female born:1942
+marriage m_gp gp1 gp2 start:1965
+person parent name:\"Parent\" gender:female born:1966
+  birth m_gp
+person uncle name:\"Uncle\" gender:male born:1968
+  birth m_gp
+person ps name:\"PS\" gender:male born:1965
+marriage m_par ps parent start:1990
+person ego name:\"Ego\" gender:male born:1992
+  birth m_par
+person sib name:\"Sib\" gender:female born:1994
+  birth m_par
+person ss name:\"SS\" gender:male born:1993
+marriage m_sib ss sib start:2015
+person niece name:\"Niece\" gender:female born:2016
+  birth m_sib
+";
+    let check = check_one(src);
+    let both = cousins_of(check.resolved(), "ego", 0, 1).unwrap();
+    let ids = member_ids(&both);
+    assert!(
+        ids.contains(&"uncle".to_string()),
+        "up 2 down 1 orientation"
+    );
+    assert!(
+        ids.contains(&"niece".to_string()),
+        "up 1 down 2 orientation"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Adoption-into-relatives: the same alter reachable as adoptive parent
+// (lineal) and blood aunt (collateral) → two distinct descriptors.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn adoption_into_relatives_two_readings() {
+    // aunt is ego's parent's sibling (blood aunt) AND adopts ego directly
+    // (adoptive parent). A parents query and an aunts/uncles query each return
+    // her, with the corresponding classification.
+    let src = "\
+person gp1 name:\"GP1\" gender:male born:1940
+person gp2 name:\"GP2\" gender:female born:1942
+marriage m_gp gp1 gp2 start:1965
+person parent name:\"Parent\" gender:male born:1966
+  birth m_gp
+person aunt name:\"Aunt\" gender:female born:1968
+  birth m_gp
+person ps name:\"PS\" gender:female born:1967
+marriage m_par parent ps start:1990
+person ego name:\"Ego\" gender:male born:1992
+  birth m_par
+  adoption m_aunt start:1995
+person asp name:\"ASp\" gender:male born:1966
+marriage m_aunt aunt asp start:1990
+";
+    let check = check_one(src);
+    let resolved = check.resolved();
+
+    // As an adoptive parent (lineal).
+    let parents = parents_of(resolved, "ego").unwrap();
+    let as_parent = parents.iter().find(|m| m.person.id.name == "aunt").unwrap();
+    assert!(matches!(
+        as_parent.descriptor.classification,
+        Classification::Lineal {
+            role: LinealRole::Ancestor,
+            ..
+        }
+    ));
+    assert_eq!(as_parent.descriptor.edge_nature, EdgeNature::Adoptive);
+
+    // As a blood aunt (collateral, up 2 down 1).
+    let uncles = aunts_uncles_of(resolved, "ego").unwrap();
+    let as_aunt = uncles.iter().find(|m| m.person.id.name == "aunt").unwrap();
+    assert!(matches!(
+        as_aunt.descriptor.classification,
+        Classification::Collateral { up: 2, down: 1, .. }
+    ));
+    assert_eq!(as_aunt.descriptor.edge_nature, EdgeNature::Blood);
+}
+
+// ---------------------------------------------------------------------------
+// Pattern-level sharing / side filters narrow a collateral result.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sharing_and_side_filters_narrow_results() {
+    // yusuf's siblings are all half; a `full` filter drops them all, a `half`
+    // filter keeps them.
+    let check = check_example("06-polygamous-household", "polygamous-household");
+    let resolved = check.resolved();
+
+    let full = evaluate(
+        resolved,
+        &Query::kin_collateral("yusuf", IntRange::exactly(1), IntRange::exactly(1), None)
+            .with_sharing(Sharing::Full),
+    )
+    .unwrap();
+    assert!(full.is_empty(), "no full siblings for yusuf");
+
+    let half = evaluate(
+        resolved,
+        &Query::kin_collateral("yusuf", IntRange::exactly(1), IntRange::exactly(1), None)
+            .with_sharing(Sharing::Half),
+    )
+    .unwrap();
+    assert_eq!(member_ids(&half), ["hassan", "noor", "zahra"]);
 }

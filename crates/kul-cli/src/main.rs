@@ -188,7 +188,7 @@ that passes its checks. A project with error-severity diagnostics blocks
 the query — the diagnostics render to stderr (or, under `--format json`,
 as the envelope's error arm) and the exit code is non-zero.
 
-Detail lookups and lineal kin-set queries:
+Detail lookups and kin-set queries:
 
   kul query person <id>          look up a person by id
   kul query marriage <id>        look up a marriage by id
@@ -196,6 +196,10 @@ Detail lookups and lineal kin-set queries:
   kul query kin <id> children    the person's children
   kul query kin <id> ancestors [--depth N]    ancestors (unbounded if no depth)
   kul query kin <id> descendants [--depth N]  descendants
+  kul query kin <id> siblings                 siblings (full / half tagged)
+  kul query kin <id> aunts-uncles             a parent's siblings
+  kul query kin <id> nieces-nephews           a sibling's children
+  kul query kin <id> cousins --degree D [--removed R]   cousins (R defaults to 0)
 
 Kin output is a set, each member carrying its terminology-neutral
 relationship descriptor (classification, edge nature, side, seniority).
@@ -321,20 +325,30 @@ enum QueryVerb {
         format: OutputFormat,
     },
 
-    /// Return the set of a person's lineal kin (parents, children,
-    /// ancestors, descendants).
+    /// Return the set of a person's kin — lineal (parents, children,
+    /// ancestors, descendants) or collateral (siblings, aunts-uncles,
+    /// nieces-nephews, cousins).
     Kin {
         /// The anchor person id.
         anchor: String,
 
-        /// Which lineal relation to return.
+        /// Which relation to return.
         relation: KinRelation,
 
         /// Generation cap for `ancestors` / `descendants` (omit for
-        /// unbounded). Ignored for `parents` / `children` (always one
-        /// generation).
+        /// unbounded). Ignored for the fixed-shape relations.
         #[arg(long)]
         depth: Option<u32>,
+
+        /// Cousin degree for `cousins` (1 = first cousins, 2 = second, …).
+        /// Required for `cousins`, ignored otherwise.
+        #[arg(long)]
+        degree: Option<u32>,
+
+        /// Cousin removal for `cousins` (generations of offset; defaults to
+        /// 0). Ignored for other relations.
+        #[arg(long, default_value_t = 0)]
+        removed: u32,
 
         /// Output format: `human` (default, terminology-neutral facts) or
         /// `json` (the query envelope, byte-identical to the WASM surface).
@@ -343,15 +357,19 @@ enum QueryVerb {
     },
 }
 
-/// The lineal relation a `kul query kin` invocation asks for. Each maps 1:1
-/// onto a [`Query`](kul_core::query::Query) value's named sugar — the CLI
-/// carries no query semantics of its own.
+/// The relation a `kul query kin` invocation asks for. Each maps 1:1 onto a
+/// [`Query`](kul_core::query::Query) value's named sugar — the CLI carries no
+/// query semantics of its own.
 #[derive(Copy, Clone, Debug, ValueEnum, PartialEq, Eq)]
 enum KinRelation {
     Parents,
     Children,
     Ancestors,
     Descendants,
+    Siblings,
+    AuntsUncles,
+    NiecesNephews,
+    Cousins,
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum, PartialEq, Eq)]
@@ -401,8 +419,10 @@ fn run_query(verb: QueryVerb) -> ExitCode {
             anchor,
             relation,
             depth,
+            degree,
+            removed,
             format,
-        } => return run_query_kin(anchor, relation, depth, format),
+        } => return run_query_kin(anchor, relation, depth, degree, removed, format),
     };
     commands::query::run(options)
 }
@@ -416,6 +436,8 @@ fn run_query_kin(
     anchor: String,
     relation: KinRelation,
     depth: Option<u32>,
+    degree: Option<u32>,
+    removed: u32,
     format: OutputFormat,
 ) -> ExitCode {
     use kul_core::query::{IntRange, Query};
@@ -426,6 +448,27 @@ fn run_query_kin(
         KinRelation::Ancestors => Query::kin_ancestors(&anchor, IntRange::from_one(depth), None),
         KinRelation::Descendants => {
             Query::kin_descendants(&anchor, IntRange::from_one(depth), None)
+        }
+        KinRelation::Siblings => {
+            Query::kin_collateral(&anchor, IntRange::exactly(1), IntRange::exactly(1), None)
+        }
+        KinRelation::AuntsUncles => {
+            Query::kin_collateral(&anchor, IntRange::exactly(2), IntRange::exactly(1), None)
+        }
+        KinRelation::NiecesNephews => {
+            Query::kin_collateral(&anchor, IntRange::exactly(1), IntRange::exactly(2), None)
+        }
+        KinRelation::Cousins => {
+            let Some(degree) = degree else {
+                eprintln!("kul: `cousins` requires --degree (1 = first cousins, 2 = second, …)");
+                return ExitCode::from(2);
+            };
+            Query::kin_collateral_by_degree(
+                &anchor,
+                IntRange::exactly(degree),
+                IntRange::exactly(removed),
+                None,
+            )
         }
     };
     commands::query::run_kin(commands::query::KinOptions {

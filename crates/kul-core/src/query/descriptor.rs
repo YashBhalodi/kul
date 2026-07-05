@@ -31,7 +31,9 @@ use tsify::Tsify;
 
 use crate::ast::{self, PersonStmt};
 use crate::date::before_strict;
-use crate::semantic::ParentLinkKind;
+use crate::semantic::{ParentLinkKind, ResolvedDocument};
+
+use super::junction::{Junction, junction_of};
 
 /// Endpoint / linking-relative gender. Wire form: `"male" | "female" |
 /// "other"`. Mirrors [`ast::Gender`] but lives here so the descriptor's
@@ -129,9 +131,8 @@ pub enum Affinity {
 
 /// Sibling-junction parent-set sharing. An apex-junction comparison, so
 /// `notApplicable` for every lineal / self path (there is no sibling
-/// junction). This slice produces only lineal paths ⇒ always
-/// `notApplicable`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+/// junction). Also usable as a kin-pattern filter, so it is `Deserialize`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum Sharing {
@@ -141,9 +142,10 @@ pub enum Sharing {
 }
 
 /// Which side of the family the relationship routes through. Derived from
-/// the path's *initial ascent*, never guessed. `both` (couple-apex
-/// collateral paths) arrives with the next slice.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+/// the path's *initial ascent*, never guessed. `both` marks a couple-apex
+/// collateral path. Also usable as a kin-pattern filter, so it is
+/// `Deserialize`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum Side {
@@ -264,19 +266,36 @@ pub struct RelationshipDescriptor {
 impl RelationshipDescriptor {
     /// Derive the descriptor for reaching `alter` from `ego` along `path`.
     ///
-    /// Every derivation rule below is pinned by PRD 0005 / issue #256. This
-    /// slice's paths are exactly one blood segment — `up+` (ancestors) or
-    /// `down+` (descendants) — so the collateral / affinal dimensions are
-    /// derived at their `notApplicable` defaults, but the mechanical rules
-    /// (classification, edge nature) are written in full so later slices
-    /// extend rather than rewrite them.
+    /// Every derivation rule below is pinned by PRD 0005 / issues #256, #257.
+    /// Paths are a single blood segment — `up+` (ancestors), `down+`
+    /// (descendants), or `up+ down+` (collateral, through one apex). The
+    /// affinal dimensions (`affinity`, marriage hops) still derive at their
+    /// blood defaults until the affinal-hop slice; the collateral dimensions
+    /// (`sharing`, `side = both`, `apexSeniority`) are populated here from the
+    /// path's [sibling junction](junction_of).
+    ///
+    /// Takes `resolved` because `sharing` and `apexSeniority` compare the two
+    /// branch siblings at the junction — a property of the graph around the
+    /// path, not of the hop sequence alone.
     #[must_use]
-    pub fn derive(ego: &PersonStmt, alter: &PersonStmt, path: Vec<PathHop>) -> Self {
+    pub fn derive(
+        resolved: &ResolvedDocument,
+        ego: &PersonStmt,
+        alter: &PersonStmt,
+        path: Vec<PathHop>,
+    ) -> Self {
+        let junction = junction_of(resolved, ego, &path);
         let classification = derive_classification(&path);
         let edge_nature = derive_edge_nature(&path);
         let affinity = derive_affinity(&path);
-        let side = derive_side(&path);
-        let seniority = derive_seniority(alter, ego);
+        let side = derive_side(&path, junction.as_ref());
+        let seniority = seniority_of(alter, ego);
+        // At a sibling junction, `sharing` and `apexSeniority` are defined;
+        // otherwise (lineal / self) both are `notApplicable`.
+        let (sharing, apex_seniority) = match &junction {
+            Some(j) => (j.sharing, seniority_of(j.alter_child, j.ego_child)),
+            None => (Sharing::NotApplicable, Seniority::NotApplicable),
+        };
         RelationshipDescriptor {
             ego_id: ego.id.name.clone(),
             alter_id: alter.id.name.clone(),
@@ -285,12 +304,10 @@ impl RelationshipDescriptor {
             classification,
             edge_nature,
             affinity,
-            // No sibling junction on a lineal path ⇒ sharing is n/a.
-            sharing: Sharing::NotApplicable,
+            sharing,
             side,
             seniority,
-            // Reserved for a sibling junction; no junction on a lineal path.
-            apex_seniority: Seniority::NotApplicable,
+            apex_seniority,
             path,
         }
     }
@@ -367,18 +384,22 @@ fn derive_affinity(path: &[PathHop]) -> Affinity {
     }
 }
 
-/// `side`, derived from the path's *initial ascent* (the maximal run of
-/// `up` hops at the start), never guessed:
-/// - no initial ascent (the path never starts by ascending, i.e. every
-///   descendant path) → `notApplicable`;
+/// `side`, derived from the path's *initial ascent* (the maximal leading run
+/// of `up` hops), never guessed:
+/// - no initial ascent (a descendant path, or any non-ascending start) →
+///   `notApplicable`;
 /// - the entire path is exactly one `up` hop (a direct parent) →
 ///   `notApplicable` (your mother is not your "maternal side");
+/// - the initial ascent reaches its apex in a *single* hop that lands on a
+///   **couple junction** (full siblings, and every relation routed onward
+///   through them) → `both` — you route through the couple, with no
+///   individual shared parent to take a side from;
 /// - otherwise the gender of the first parent-person on the initial ascent:
-///   female → `maternal`, male → `paternal`, `other` → `other`.
-///
-/// `both` (a couple apex reached without passing through an individual
-/// parent) arrives with couple-apex collateral paths.
-fn derive_side(path: &[PathHop]) -> Side {
+///   female → `maternal`, male → `paternal`, `other` → `other`. For an
+///   uncle/cousin (`up ≥ 2`) that first person is ego's own parent, so the
+///   apex's own couple-ness never overrides ego's side (this is what keeps
+///   *mama* vs *chacha* — a maternal vs paternal uncle — expressible).
+fn derive_side(path: &[PathHop], junction: Option<&Junction>) -> Side {
     let first = match path.first() {
         Some(PathHop::Up { gender, .. }) => *gender,
         // Descendants and any non-ascending start: side does not apply.
@@ -388,6 +409,16 @@ fn derive_side(path: &[PathHop]) -> Side {
     if path.len() == 1 {
         return Side::NotApplicable;
     }
+    // A single-hop initial ascent onto a couple junction routes through the
+    // couple itself → `both`. `junction.up == 1` means ego *is* the ego-branch
+    // sibling, so there is no individual shared parent between ego and the
+    // apex; `up ≥ 2` falls through to the first-ascent parent's gender.
+    if let Some(j) = junction
+        && j.up == 1
+        && j.is_couple_apex
+    {
+        return Side::Both;
+    }
     match first {
         Gender::Female => Side::Maternal,
         Gender::Male => Side::Paternal,
@@ -395,20 +426,25 @@ fn derive_side(path: &[PathHop]) -> Side {
     }
 }
 
-/// `seniority` (endpoint): the alter's birth order versus the ego under the
-/// strict-interval rule, reusing the toolchain's single
+/// A birth-order comparison of `earlier` against `later` under the strict-
+/// interval rule, reusing the toolchain's single
 /// [`before_strict`](crate::date::before_strict) comparison. `elder` iff
-/// every interpretation of the alter's birth date is strictly before every
-/// interpretation of the ego's; `younger` for the reverse; otherwise
+/// every interpretation of `earlier`'s birth date is strictly before every
+/// interpretation of `later`'s; `younger` for the reverse; otherwise
 /// `unknown` (a missing date, overlapping partial/circa intervals, or
-/// same-day twins are all `unknown`). `notApplicable` is reserved for self.
-fn derive_seniority(alter: &PersonStmt, ego: &PersonStmt) -> Seniority {
-    let (Some(alter_born), Some(ego_born)) = (alter.born(), ego.born()) else {
+/// same-day twins are all `unknown`).
+///
+/// Both seniority fields ride this one comparison: `seniority` compares the
+/// alter to the ego, and `apexSeniority` the alter-branch sibling to the
+/// ego-branch sibling. For siblings the branch siblings *are* ego and alter,
+/// so the two fields coincide by construction.
+fn seniority_of(earlier: &PersonStmt, later: &PersonStmt) -> Seniority {
+    let (Some(earlier_born), Some(later_born)) = (earlier.born(), later.born()) else {
         return Seniority::Unknown;
     };
-    if before_strict(alter_born, ego_born) {
+    if before_strict(earlier_born, later_born) {
         Seniority::Elder
-    } else if before_strict(ego_born, alter_born) {
+    } else if before_strict(later_born, earlier_born) {
         Seniority::Younger
     } else {
         Seniority::Unknown

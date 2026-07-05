@@ -24,7 +24,7 @@ use kul_core::CheckResult;
 use kul_core::export::{ExportedDate, ExportedMarriage, ExportedPerson};
 use kul_core::query::{
     Classification, EdgeNature, LinealRole, Member, Query, QueryEnvelope, QueryResult, Seniority,
-    Side, kin_query, marriage_lookup, person_lookup,
+    Sharing, Side, kin_query, marriage_lookup, person_lookup,
 };
 
 use crate::OutputFormat;
@@ -301,19 +301,43 @@ fn descriptor_facts(d: &kul_core::query::RelationshipDescriptor) -> String {
             down,
             cousin_degree,
             removed,
-        } => format!(
-            "collateral up {up} down {down} · cousin degree {cousin_degree} · removed {removed}"
-        ),
+        } => format!("collateral {up}/{down} · cousinDegree {cousin_degree}, removed {removed}"),
     };
     let edge = match d.edge_nature {
         EdgeNature::Blood => "blood",
         EdgeNature::Adoptive => "adoptive",
     };
-    format!(
-        "{classification} · {edge} · side {} · {}",
-        side_word(d.side),
-        seniority_word(d.seniority),
-    )
+    let mut facts = format!("{classification} · {edge}");
+    // `sharing` and `apexSeniority` apply only at a sibling junction; skip the
+    // `notApplicable` cases so lineal output stays a clean line.
+    if let Some(word) = sharing_word(d.sharing) {
+        facts.push_str(&format!(" · {word}"));
+    }
+    facts.push_str(&format!(" · side {}", side_word(d.side)));
+    facts.push_str(&format!(" · {}", seniority_word(d.seniority)));
+    if let Some(word) = apex_seniority_word(d.apex_seniority) {
+        facts.push_str(&format!(" · apex {word}"));
+    }
+    facts
+}
+
+/// The sharing token, or `None` for `notApplicable` (lineal / self paths,
+/// which carry no sibling junction).
+fn sharing_word(sharing: Sharing) -> Option<&'static str> {
+    match sharing {
+        Sharing::Full => Some("full"),
+        Sharing::Half => Some("half"),
+        Sharing::NotApplicable => None,
+    }
+}
+
+/// The apex-seniority token, or `None` for `notApplicable` (no sibling
+/// junction on the path).
+fn apex_seniority_word(seniority: Seniority) -> Option<&'static str> {
+    match seniority {
+        Seniority::NotApplicable => None,
+        other => Some(seniority_word(other)),
+    }
 }
 
 fn side_word(side: Side) -> &'static str {

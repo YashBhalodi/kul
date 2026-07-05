@@ -116,11 +116,11 @@ The declarative, serializable request the query engine evaluates: a `source` (th
 
 ### Kin-set query
 
-A query from one anchor person + a [descriptor pattern](#descriptor-pattern) to the *set* of related persons, each carrying its [relationship descriptor](#relationship-descriptor). The relation vocabulary is the descriptor's own classification. Named **sugar** — `parents_of`, `children_of`, `ancestors_of(depth?)`, `descendants_of(depth?)` in `crates/kul-core/src/query/sugar.rs` — is documented convenience, each *defined as* its [Query value](#query-value) expansion (e.g. `parents_of(x) ≡ kinOf(x, lineal ancestor, generations {1,1})`). Raw up/down/across step composition stays internal — exposing it would recreate the "compute the derivation yourself" trap (self-exclusion, cycle guarding, and subsumption are engine-owned). Results are set-shaped: no wrapper, and an empty set ("no kin matched") is a complete answer.
+A query from one anchor person + a [descriptor pattern](#descriptor-pattern) to the *set* of related persons, each carrying its [relationship descriptor](#relationship-descriptor). The relation vocabulary is the descriptor's own classification. Named **sugar** in `crates/kul-core/src/query/sugar.rs` — lineal (`parents_of`, `children_of`, `ancestors_of(depth?)`, `descendants_of(depth?)`) and collateral (`siblings_of`, `aunts_uncles_of`, `nieces_nephews_of`, `cousins_of(degree, removed)`) — is documented convenience, each *defined as* its [Query value](#query-value) expansion (e.g. `parents_of(x) ≡ kinOf(x, lineal ancestor, generations {1,1})`; `siblings_of(x) ≡ kinOf(x, collateral, up {1,1}, down {1,1})`). Parameterized queries ("second cousins once removed") are expressible by construction — no dedicated API. Raw up/down/across step composition stays internal — exposing it would recreate the "compute the derivation yourself" trap (self-exclusion, cycle guarding, and subsumption are engine-owned). Results are set-shaped: no wrapper, and an empty set ("no kin matched") is a complete answer.
 
 ### Descriptor pattern
 
-The declarative selector inside a kin-set query's `kinOf` source: a classification with numeric parameters and ranges (this slice: `lineal { role, generations: IntRange }`), plus optional filters (this slice: `edgeNature`). Anything [relationship resolution](#relationship-descriptor) can *name*, a pattern can *ask for* — one shared vocabulary. `KinPattern` in `crates/kul-core/src/query/pattern.rs`.
+The declarative selector inside a kin-set query's `kinOf` source: a classification with numeric parameters and ranges — `lineal { role, generations: IntRange }`, `collateral { up: IntRange, down: IntRange }`, or `collateralByDegree { degree: IntRange, removed: IntRange }` (the last matches **both orientations** by construction, so `degree 0, removed 1` selects aunts/uncles *and* nieces/nephews) — plus optional filters (`edgeNature`, `sharing`, `side`). Anything [relationship resolution](#relationship-descriptor) can *name*, a pattern can *ask for* — one shared vocabulary. `KinPattern` in `crates/kul-core/src/query/pattern.rs`.
 
 ### Relationship descriptor
 
@@ -132,7 +132,7 @@ The terminology-neutral, **maximally discriminating** record of how one person (
 
 ### Path backbone
 
-The ordered hop sequence from ego to alter carried on every [relationship descriptor](#relationship-descriptor) — **lossless ground truth**, so a distinction nobody anticipated is still recoverable without an engine change. Each `PathHop` (in `crates/kul-core/src/query/descriptor.rs`) is `up` / `down` (carrying the person id landed on, that person's gender, and the `bio` / `adoptive` edge tag) or `across` (a marriage hop: marriage id + status + optional end reason). This slice produces only `up+` / `down+` backbones (one blood segment, zero marriage hops). Hops carry **ids, never entity payloads** — consumers hydrate via the [detail lookups](#detail-lookup).
+The ordered hop sequence from ego to alter carried on every [relationship descriptor](#relationship-descriptor) — **lossless ground truth**, so a distinction nobody anticipated is still recoverable without an engine change. Each `PathHop` (in `crates/kul-core/src/query/descriptor.rs`) is `up` / `down` (carrying the person id landed on, that person's gender, and the `bio` / `adoptive` edge tag) or `across` (a marriage hop: marriage id + status + optional end reason). Backbones are one blood segment with zero marriage hops — `up+` / `down+` (lineal) or `up+ down+` through a single apex (collateral); the `across` marriage hops arrive with the affinal slice. Hops carry **ids, never entity payloads** — consumers hydrate via the [detail lookups](#detail-lookup).
 
 ### Edge nature
 
@@ -140,11 +140,35 @@ A descriptor dimension: `blood | adoptive`, strictly about the parent-child edge
 
 ### Side
 
-A descriptor dimension: `maternal | paternal | other | both | notApplicable`, **derived from the path's routing, never guessed**. `notApplicable` when the path never ascends from ego (descendants, direct parents); otherwise the gender of the first parent-person on the initial ascent — female → maternal, male → paternal, `other` → other (the grammar permits `gender:other`, so side is *derived*, never assumed binary). Side is about routing; endpoint gender is its own field. `both` (couple-apex collateral paths) arrives in a later slice.
+A descriptor dimension: `maternal | paternal | other | both | notApplicable`, **derived from the path's routing, never guessed**. `notApplicable` when the path never ascends from ego (descendants, direct parents); `both` when the initial ascent reaches its apex in a *single* hop that lands on a [couple apex](#couple-apex) (full siblings and every relation routed onward through them — you route through the couple, with no individual shared parent to take a side from); otherwise the gender of the first parent-person on the initial ascent — female → maternal, male → paternal, `other` → other (the grammar permits `gender:other`, so side is *derived*, never assumed binary). For an uncle/cousin (initial ascent ≥ 2 hops) that first person is ego's own parent, so the apex's couple-ness never overrides ego's side — this is what keeps *mama* (maternal uncle) vs *chacha* (paternal uncle) expressible. Side is about routing; endpoint gender is its own field.
 
 ### Seniority
 
-Two descriptor dimensions, both riding the toolchain's single strict-interval date comparison (`before_strict` — one notion of "date A is before date B", shared with the validator's temporal rules): `seniority` (endpoint — the alter's birth order vs the ego) and `apexSeniority` (the sibling junction, `notApplicable` on a lineal path). Each is `elder | younger | unknown | notApplicable`. `elder` / `younger` only when *every* interpretation of one birth date strictly precedes the other; missing dates, overlapping partial/circa intervals, and same-day twins are `unknown`; `notApplicable` is reserved for self. The engine never invents a seniority.
+Two descriptor dimensions, both riding the toolchain's single strict-interval date comparison (`before_strict` — one notion of "date A is before date B", shared with the validator's temporal rules): `seniority` (endpoint — the alter's birth order vs the ego) and [`apexSeniority`](#apex-seniority) (the [sibling junction](#apex-junction), `notApplicable` on a lineal/self path). Each is `elder | younger | unknown | notApplicable`. `elder` / `younger` only when *every* interpretation of one birth date strictly precedes the other; missing dates, overlapping partial/circa intervals, and same-day twins are `unknown`; `notApplicable` is reserved for self (endpoint) or a path with no sibling junction (apex). The engine never invents a seniority.
+
+### Apex junction
+
+The **apex** of a collateral blood segment (`up* down*`) is the person where ascent turns to descent. The **junction** is the triple *(apex, egoChild, alterChild)*: *egoChild* is the person the last `up` hop ascended from (ego itself, for siblings); *alterChild* is the person the first `down` hop descended to (the alter itself, for siblings). egoChild and alterChild are the two [branch siblings](#branch-siblings). Computed in `crates/kul-core/src/query/junction.rs`; it is where [sharing](#sharing), [apex seniority](#apex-seniority), the [couple apex](#couple-apex), and `side: both` are all derived. A lineal/self path has no junction (nothing is `notApplicable`-worthy there).
+
+### Branch siblings
+
+The two children *(egoChild, alterChild)* at an [apex junction](#apex-junction) — the pair whose parent-set comparison yields [sharing](#sharing) and whose birth order yields [apex seniority](#apex-seniority). The no-backtracking rule ([ADR-0025](./docs/adr/0025-kinship-query-engine-contract-and-traversal.md)) guarantees they are distinct.
+
+### Sharing
+
+A descriptor dimension: `full | half | notApplicable`, an **apex-junction comparison** of the [branch siblings](#branch-siblings)' parent sets **per edge kind** (bio set vs bio set; adoptive set vs adoptive set). `full` iff the bio sets are equal and non-empty, OR the adoptive sets are equal and non-empty (adoptive-full) — parent-*set* equality, never a shared marriage, so full siblings stay `full` across a same-couple divorce-and-remarry, and a bio child and an adoptee of the same couple do *not* read as full. `half` iff they share at least one parent of any kind but no same-kind set equality holds (polygamy and remarriage collapse identically here, distinguishable only via the [path backbone](#path-backbone)'s marriage references). `notApplicable` for lineal/self (no sibling junction). Derived in `crates/kul-core/src/query/junction.rs`.
+
+### Apex seniority
+
+The `apexSeniority` half of [seniority](#seniority): the birth order of the *alter-branch* sibling versus the *ego-branch* sibling at the [apex junction](#apex-junction), under the same `before_strict` rule as the endpoint field. It is why *chacha* (father's *younger* brother) vs *tau* (father's *elder* brother) is expressible — a distinction that compares the uncle to ego's father, which the ego-relative endpoint seniority cannot capture. For siblings the branch siblings *are* ego and alter, so `apexSeniority` coincides with `seniority` by construction. `notApplicable` on any path with no sibling junction.
+
+### Couple apex
+
+An [apex junction](#apex-junction) whose two [branch siblings](#branch-siblings) share the *same two parents* — identical bio-parent sets of size 2, or both adopted by the same couple. Two consequences: (1) paths that differ only in *which* shared co-parent they route through are **one relationship fact** — the engine canonicalizes the backbone through the shared parent whose id sorts first by codepoint (deterministic, snapshot-stable) and emits one descriptor; (2) `side = both` when the couple apex is the apex of the path's initial *single-hop* ascent. This is *not* engine-side collapsing of distinct relationships — [double cousins](#double-cousins) have *different* junctions and stay two descriptors.
+
+### Double cousins
+
+Two people related the same way via two distinct paths through *different* grandparent couples (two brothers marrying two sisters → the children are first cousins twice over). Because the two paths run through different [apex junctions](#apex-junction), they are two members of a kin-set result, differing in [side](#side) (paternal vs maternal) and [path backbone](#path-backbone). [Path identity](#path-identity) is non-negotiable here — collapsing them would hide a true tie; only same-junction co-parent routes (a [couple apex](#couple-apex)) collapse.
 
 ### Render shape
 

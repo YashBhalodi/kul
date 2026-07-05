@@ -1,0 +1,61 @@
+---
+source: crates/kul-core/tests/kin.rs
+assertion_line: 522
+expression: "envelope_json(&check,\n&Query::kin_collateral_by_degree(\"matteo\", IntRange::exactly(1),\nIntRange::exactly(0), None))"
+---
+{
+  "ok": true,
+  "result": {
+    "kind": "members",
+    "members": [
+      {
+        "personId": "giulia",
+        "descriptor": {
+          "egoId": "matteo",
+          "alterId": "giulia",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "collateral",
+            "up": 2,
+            "down": 2,
+            "cousinDegree": 1,
+            "removed": 0
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "full",
+          "side": "paternal",
+          "seniority": "younger",
+          "apexSeniority": "younger",
+          "path": [
+            {
+              "step": "up",
+              "to": "marco",
+              "gender": "male",
+              "edge": "bio"
+            },
+            {
+              "step": "up",
+              "to": "giuseppe",
+              "gender": "male",
+              "edge": "bio"
+            },
+            {
+              "step": "down",
+              "to": "lucia",
+              "gender": "female",
+              "edge": "bio"
+            },
+            {
+              "step": "down",
+              "to": "giulia",
+              "gender": "female",
+              "edge": "bio"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
