@@ -383,14 +383,14 @@ fn eval(person: &PersonStmt, pred: &Compiled) -> Bool3 {
             negate,
         } => {
             let base = match person_string(person, *field) {
-                Some(s) if &s == value => Bool3::True,
+                Some(s) if value.as_str() == s => Bool3::True,
                 Some(_) => Bool3::False,
                 None => Bool3::Unknown,
             };
             if *negate { base.not() } else { base }
         }
         Compiled::StrIn { field, values } => match person_string(person, *field) {
-            Some(s) if values.iter().any(|v| v == &s) => Bool3::True,
+            Some(s) if values.iter().any(|v| v.as_str() == s) => Bool3::True,
             Some(_) => Bool3::False,
             None => Bool3::Unknown,
         },
@@ -458,13 +458,13 @@ fn date_order(recorded: &DateLit, lit: &DateLit, op: OrderOp) -> Bool3 {
 
 /// The person's value for a string field (`None` when absent). `id` is always
 /// present; `gender` renders to its canonical token.
-fn person_string(person: &PersonStmt, field: PersonField) -> Option<String> {
+fn person_string(person: &PersonStmt, field: PersonField) -> Option<&str> {
     match field {
-        PersonField::Id => Some(person.id.name.clone()),
-        PersonField::Name => person.name().map(|v| v.value.clone()),
-        PersonField::Family => person.family().map(|v| v.value.clone()),
-        PersonField::Given => person.given().map(|v| v.value.clone()),
-        PersonField::Gender => person.gender().map(|g| g.value.as_token().to_string()),
+        PersonField::Id => Some(person.id.name.as_str()),
+        PersonField::Name => person.name().map(|v| v.value.as_str()),
+        PersonField::Family => person.family().map(|v| v.value.as_str()),
+        PersonField::Given => person.given().map(|v| v.value.as_str()),
+        PersonField::Gender => person.gender().map(|g| g.value.as_token()),
         PersonField::Born | PersonField::Died => None,
     }
 }
@@ -506,7 +506,7 @@ fn sort_key(person: &PersonStmt, field: PersonField) -> Option<SortKey> {
     if field.is_date() {
         person_date(person, field).map(|d| SortKey::Date(d.lower_bound(), d.upper_bound()))
     } else {
-        person_string(person, field).map(SortKey::Str)
+        person_string(person, field).map(|s| SortKey::Str(s.to_owned()))
     }
 }
 
