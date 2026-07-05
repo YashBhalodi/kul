@@ -20,7 +20,7 @@ use kul_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic};
 use kul_core::manifest::Manifest;
 use kul_core::query::{
     MarriageLookupResult, PersonLookupResult, Query, QueryEnvelope, QueryResult, ResolveConfig,
-    ResolveResult, kin_query, marriage_lookup, person_lookup, resolve_relationship,
+    ResolveResult, kin_query, marriage_lookup, person_lookup, query_envelope, resolve_relationship,
 };
 use kul_layout::{LayoutConfig, layout};
 use kul_render::{RenderShape, compute};
@@ -271,6 +271,38 @@ pub fn query_kin_with(
 ) -> QueryEnvelope<QueryResult> {
     let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
     kin_query(&result, query)
+}
+
+/// The general query surface on the fourth WASM shape: evaluate any
+/// declarative [`Query`] — an `allPersons` or `kinOf` source, an optional
+/// `where` filter, `sort`, certainty `mode`, and a `members`/`count`
+/// projection — and return the [`QueryResult`] (`members`, `personIds`, or
+/// `count`). The single evaluation path underlying [`query_kin`]; use this for
+/// attribute-filter and count queries. Same load-and-check gate; a failing
+/// project, unknown anchor, or malformed predicate yields the envelope's error
+/// arm with a diagnostic, never a throw.
+#[wasm_bindgen(
+    js_name = "runQuery",
+    unchecked_return_type = "QueryEnvelope<QueryResult>"
+)]
+pub fn run_query(
+    files: Vec<WasmInputFile>,
+    manifest: Manifest,
+    query: Query,
+) -> QueryEnvelope<QueryResult> {
+    console_error_panic_hook::set_once();
+    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
+    run_query_with(&inputs, &manifest, &query)
+}
+
+/// Native-callable variant of [`run_query`].
+pub fn run_query_with(
+    inputs: &[InputFile],
+    manifest: &Manifest,
+    query: &Query,
+) -> QueryEnvelope<QueryResult> {
+    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+    query_envelope(&result, query)
 }
 
 /// Relationship resolution on the fourth WASM shape (issue #259): return
