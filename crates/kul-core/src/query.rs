@@ -56,8 +56,9 @@ pub use pattern::{
     QuerySource,
 };
 pub use sugar::{
-    ancestors_of, aunts_uncles_of, children_of, cousins_of, descendants_of, nieces_nephews_of,
-    parents_of, siblings_of,
+    ancestors_of, aunts_uncles_of, children_of, cousins_of, descendants_of, in_laws_of,
+    nieces_nephews_of, parents_of, siblings_of, spouses_of, step_children_of, step_parents_of,
+    step_siblings_of,
 };
 
 /// Look up a person by id. Returns the person in the export shape, or

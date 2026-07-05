@@ -23,8 +23,9 @@ use serde::Serialize;
 use kul_core::CheckResult;
 use kul_core::export::{ExportedDate, ExportedMarriage, ExportedPerson};
 use kul_core::query::{
-    Classification, EdgeNature, LinealRole, Member, Query, QueryEnvelope, QueryResult, Seniority,
-    Sharing, Side, kin_query, marriage_lookup, person_lookup,
+    Affinity, Classification, EdgeNature, LinealRole, MarriageStatus, Member, PathHop, Query,
+    QueryEnvelope, QueryResult, Seniority, Sharing, Side, kin_query, marriage_lookup,
+    person_lookup,
 };
 
 use crate::OutputFormat;
@@ -270,12 +271,38 @@ fn render_member_human(member: &Member, check: &CheckResult) -> String {
         .person(&member.person_id)
         .map(|p| p.display_name().to_string())
         .unwrap_or_else(|| member.person_id.clone());
-    format!(
+    let mut block = format!(
         "{}  {}\n  {}\n",
         member.person_id,
         name,
         descriptor_facts(&member.descriptor)
-    )
+    );
+    // Marriage hops on the path render on their own lines with the marriage id,
+    // status, and end reason — the affinal backbone the descriptor walked.
+    for hop in &member.descriptor.path {
+        if let PathHop::Across {
+            marriage,
+            status,
+            end_reason,
+            ..
+        } = hop
+        {
+            block.push_str(&format!("  across {marriage} · {}", status_word(*status)));
+            if let Some(reason) = end_reason {
+                block.push_str(&format!(" · {reason}"));
+            }
+            block.push('\n');
+        }
+    }
+    block
+}
+
+/// The marriage-status token for an `across` hop.
+fn status_word(status: MarriageStatus) -> &'static str {
+    match status {
+        MarriageStatus::Ongoing => "ongoing",
+        MarriageStatus::Ended => "ended",
+    }
 }
 
 /// The descriptor's structured facts as a middot-separated line, e.g.
@@ -308,6 +335,11 @@ fn descriptor_facts(d: &kul_core::query::RelationshipDescriptor) -> String {
         EdgeNature::Adoptive => "adoptive",
     };
     let mut facts = format!("{classification} · {edge}");
+    // Affinity is shown only when the path runs through marriage; a blood path
+    // is always `blood` and would only clutter the lineal / collateral line.
+    if let Some(word) = affinity_word(d.affinity) {
+        facts.push_str(&format!(" · {word}"));
+    }
     // `sharing` and `apexSeniority` apply only at a sibling junction; skip the
     // `notApplicable` cases so lineal output stays a clean line.
     if let Some(word) = sharing_word(d.sharing) {
@@ -337,6 +369,16 @@ fn apex_seniority_word(seniority: Seniority) -> Option<&'static str> {
     match seniority {
         Seniority::NotApplicable => None,
         other => Some(seniority_word(other)),
+    }
+}
+
+/// The affinity token, or `None` for `blood` (a non-affinal path carries no
+/// marriage hop, so the token would be noise).
+fn affinity_word(affinity: Affinity) -> Option<&'static str> {
+    match affinity {
+        Affinity::Blood => None,
+        Affinity::Step => Some("step"),
+        Affinity::InLaw => Some("inLaw"),
     }
 }
 

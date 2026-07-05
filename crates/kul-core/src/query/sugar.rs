@@ -160,3 +160,76 @@ pub fn cousins_of<'a>(
         ),
     )
 }
+
+/// `spouses_of(x)` ≡ `kinOf(x, classification any {0,0}, affinalHops {1,1})` —
+/// every spouse across every marriage, past or current. Each member is a
+/// `self`-classification, `inLaw` relation whose `across` hop is tagged with
+/// the marriage's status (and end reason when ended).
+///
+/// # Errors
+///
+/// [`QueryEvalError::UnknownPerson`] when `anchor` names no person.
+pub fn spouses_of<'a>(
+    resolved: &'a ResolvedDocument,
+    anchor: &str,
+) -> Result<Vec<KinMember<'a>>, QueryEvalError> {
+    evaluate(resolved, &Query::kin_spouses(anchor))
+}
+
+/// `in_laws_of(x)` ≡ `kinOf(x, classification any {2,2}, affinity inLaw)` —
+/// every relation reached through a non-ancestor marriage hop within two
+/// ascent and two descent hops (spouse's kin, kin's spouse, the *samdhi*,
+/// co-spouses, and so on).
+///
+/// # Errors
+///
+/// [`QueryEvalError::UnknownPerson`] when `anchor` names no person.
+pub fn in_laws_of<'a>(
+    resolved: &'a ResolvedDocument,
+    anchor: &str,
+) -> Result<Vec<KinMember<'a>>, QueryEvalError> {
+    evaluate(resolved, &Query::kin_in_laws(anchor))
+}
+
+/// `step_parents_of(x)` ≡ `kinOf(x, lineal ancestor {1,1}, affinity step)` —
+/// the spouse of a parent via a marriage `x` has no birth/adoption link to. A
+/// person who is *also* an actual parent is emitted only as that real parent
+/// (step subsumption), never doubled as a step-parent.
+///
+/// # Errors
+///
+/// [`QueryEvalError::UnknownPerson`] when `anchor` names no person.
+pub fn step_parents_of<'a>(
+    resolved: &'a ResolvedDocument,
+    anchor: &str,
+) -> Result<Vec<KinMember<'a>>, QueryEvalError> {
+    evaluate(resolved, &Query::kin_step_parents(anchor))
+}
+
+/// `step_siblings_of(x)` ≡ `kinOf(x, collateral {1,1}/{1,1}, affinity step)` —
+/// a step-parent's child who shares no parent with `x`. Anyone sharing a parent
+/// is a full/half sibling and is suppressed here (step subsumption).
+///
+/// # Errors
+///
+/// [`QueryEvalError::UnknownPerson`] when `anchor` names no person.
+pub fn step_siblings_of<'a>(
+    resolved: &'a ResolvedDocument,
+    anchor: &str,
+) -> Result<Vec<KinMember<'a>>, QueryEvalError> {
+    evaluate(resolved, &Query::kin_step_siblings(anchor))
+}
+
+/// `step_children_of(x)` ≡ `kinOf(x, lineal descendant {1,1}, affinity step)`
+/// — the child of a spouse `x` has no birth/adoption link to. The inverse of
+/// [`step_parents_of`], with the mirror subsumption.
+///
+/// # Errors
+///
+/// [`QueryEvalError::UnknownPerson`] when `anchor` names no person.
+pub fn step_children_of<'a>(
+    resolved: &'a ResolvedDocument,
+    anchor: &str,
+) -> Result<Vec<KinMember<'a>>, QueryEvalError> {
+    evaluate(resolved, &Query::kin_step_children(anchor))
+}
