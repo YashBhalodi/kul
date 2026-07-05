@@ -22,10 +22,21 @@ export interface KinPattern {
     classification: PatternClassification;
     /**
      * Optional filter on the path\'s edge nature; omitted (`None`) matches
-     * both blood and adoptive. Affinity / sharing / side filters arrive in
-     * later slices.
+     * both blood and adoptive.
      */
     edgeNature?: EdgeNature;
+    /**
+     * Optional filter on the sibling-junction [`Sharing`]; omitted (`None`)
+     * matches every sharing. Only ever narrows collateral results — a lineal
+     * path is always `notApplicable`.
+     */
+    sharing?: Sharing;
+    /**
+     * Optional filter on the derived [`Side`]; omitted (`None`) matches every
+     * side. `Some(Side::Both)` selects couple-apex-rooted relations,
+     * `Some(Side::Maternal)` a single family branch, and so on.
+     */
+    side?: Side;
 }
 
 /**
@@ -202,8 +213,7 @@ export interface ExportedDate {
 /**
  * Sibling-junction parent-set sharing. An apex-junction comparison, so
  * `notApplicable` for every lineal / self path (there is no sibling
- * junction). This slice produces only lineal paths ⇒ always
- * `notApplicable`.
+ * junction). Also usable as a kin-pattern filter, so it is `Deserialize`.
  */
 export type Sharing = "full" | "half" | "notApplicable";
 
@@ -230,11 +240,11 @@ export interface CytoscapeGraph {
 }
 
 /**
- * The classification a [`KinPattern`] selects for. This slice ships only
- * the lineal arm; `collateral`, `collateralByDegree`, and `any` arrive in
- * later slices as additional internally-tagged variants.
+ * The classification a [`KinPattern`] selects for, internally tagged on
+ * `kind`. `any` (an unclassified match) arrives with a later slice as a
+ * further additive variant.
  */
-export type PatternClassification = { kind: "lineal"; role: LinealRole; generations: IntRange };
+export type PatternClassification = { kind: "lineal"; role: LinealRole; generations: IntRange } | { kind: "collateral"; up: IntRange; down: IntRange } | { kind: "collateralByDegree"; degree: IntRange; removed: IntRange };
 
 /**
  * The edge tag on a vertical [`PathHop`]. Wire form: `\"bio\" | \"adoptive\"`.
@@ -346,8 +356,9 @@ export type Affinity = "blood" | "step" | "inLaw";
 
 /**
  * Which side of the family the relationship routes through. Derived from
- * the path\'s *initial ascent*, never guessed. `both` (couple-apex
- * collateral paths) arrives with the next slice.
+ * the path\'s *initial ascent*, never guessed. `both` marks a couple-apex
+ * collateral path. Also usable as a kin-pattern filter, so it is
+ * `Deserialize`.
  */
 export type Side = "maternal" | "paternal" | "other" | "both" | "notApplicable";
 

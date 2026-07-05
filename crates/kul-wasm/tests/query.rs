@@ -147,6 +147,30 @@ fn kin_query_abi_returns_members() {
     assert!(members[0].get("name").is_none(), "no person payload");
 }
 
+/// A collateral Query value (the new pattern variant) round-trips through the
+/// wasm-ABI signature and yields the collateral descriptor — the fourth shape
+/// carries the additive variants with no new entry point.
+#[test]
+fn kin_query_collateral_round_trips() {
+    let inputs = nuclear_inputs();
+    let files = vec![WasmInputFile {
+        name: "nuclear-family.kul".into(),
+        source: inputs[0].source.clone(),
+    }];
+    // akiko & kenji are siblings (both children of hiroshi/yuki).
+    let query = Query::kin_collateral("akiko", IntRange::exactly(1), IntRange::exactly(1), None);
+    let envelope = query_kin(files, Manifest::default(), query);
+    let json = serde_json::to_value(&envelope).unwrap();
+    assert_eq!(json["ok"], true);
+    let members = json["result"]["members"].as_array().unwrap();
+    assert_eq!(members.len(), 1);
+    assert_eq!(members[0]["personId"], "kenji");
+    assert_eq!(
+        members[0]["descriptor"]["classification"]["kind"],
+        "collateral"
+    );
+}
+
 /// A bad anchor on a clean project is the error arm with a diagnostic naming
 /// the id — never an empty ok set.
 #[test]

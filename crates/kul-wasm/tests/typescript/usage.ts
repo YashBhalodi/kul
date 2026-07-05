@@ -269,6 +269,39 @@ if ('result' in kinEnvelope) {
     kinErrorCode = kinEnvelope.diagnostics[0]?.code ?? '';
 }
 
+// Collateral patterns are additive variants on the same Query value — a
+// `collateralByDegree` cousins query with the new sharing/side filters must
+// type-check without any new entry point.
+const cousinsQuery: Query = {
+    source: {
+        kind: 'kinOf',
+        anchor: 'alice',
+        pattern: {
+            classification: { kind: 'collateralByDegree', degree: { min: 1, max: 1 }, removed: { min: 0, max: 0 } },
+            sharing: 'full',
+            side: 'both',
+        },
+    },
+    projection: 'members',
+};
+const cousinsEnvelope = queryKin(multiFile, manifest, cousinsQuery);
+if ('result' in cousinsEnvelope && cousinsEnvelope.result.kind === 'members') {
+    for (const member of cousinsEnvelope.result.members) {
+        // The collateral arm carries the materialized derived numbers.
+        if (member.descriptor.classification.kind === 'collateral') {
+            const degree: number = member.descriptor.classification.cousinDegree;
+            const removed: number = member.descriptor.classification.removed;
+            void degree;
+            void removed;
+        }
+        // `sharing` / `apexSeniority` are explicit enums, never null/absent.
+        const sharing: string = member.descriptor.sharing;
+        const apex: string = member.descriptor.apexSeniority;
+        void sharing;
+        void apex;
+    }
+}
+
 // Type system must reject an id string where a Query value is expected.
 // @ts-expect-error queryKin requires a Query value, not an id string
 queryKin(multiFile, manifest, 'alice');
