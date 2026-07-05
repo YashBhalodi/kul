@@ -9,7 +9,7 @@ use kul_visual::ThemeConfig;
 use serde::Deserialize;
 use tower_lsp::lsp_types::Url;
 
-use crate::features::svg_envelope::{RenderResponse, SvgRequestError, render_svg_for};
+use crate::features::svg_envelope::{RenderResponse, render_svg_for};
 use crate::state::ProjectEntry;
 
 /// Request parameters for `kul/exportSvg`.
@@ -26,11 +26,8 @@ pub struct ExportSvgParams {
 /// project produces the same SVG. The output is byte-identical to
 /// `kul export --format=svg` for the same project — both call sites
 /// route through [`ThemeConfig::for_file_export`].
-pub fn export_svg_for(
-    entry: &ProjectEntry,
-    _params: &ExportSvgParams,
-) -> Result<RenderResponse, SvgRequestError> {
-    Ok(render_svg_for(entry, &ThemeConfig::for_file_export()))
+pub fn export_svg_for(entry: &ProjectEntry, _params: &ExportSvgParams) -> RenderResponse {
+    render_svg_for(entry, &ThemeConfig::for_file_export())
 }
 
 #[cfg(test)]
@@ -51,7 +48,7 @@ mod tests {
         let doc = test_open_file(
             "person alice name:\"Alice\" gender:female\nperson bob name:\"Bob\" gender:male\nmarriage m alice bob start:1972\n",
         );
-        let response = export_svg_for(&doc, &dummy_params()).expect("ok");
+        let response = export_svg_for(&doc, &dummy_params());
         match response {
             RenderResponse::Success(s) => {
                 assert!(s.ok);
@@ -76,7 +73,7 @@ mod tests {
     #[test]
     fn export_svg_dirty_document_returns_failure_with_diagnostics() {
         let doc = test_open_file("person alice gender:female\n");
-        let response = export_svg_for(&doc, &dummy_params()).expect("ok");
+        let response = export_svg_for(&doc, &dummy_params());
         match response {
             RenderResponse::Failure(f) => {
                 assert!(!f.ok);

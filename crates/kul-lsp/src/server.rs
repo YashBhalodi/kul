@@ -25,7 +25,7 @@ use crate::features::export::{ExportParams, ExportRequestError, export_for};
 use crate::features::export_svg::{ExportSvgParams, export_svg_for};
 use crate::features::locate::{LocateParams, LocateResponse, locate};
 use crate::features::render::{RenderParams, render_for};
-use crate::features::svg_envelope::{RenderResponse, SvgRequestError};
+use crate::features::svg_envelope::RenderResponse;
 use crate::features::{
     code_action, completion, definition, diagnostics, document_symbol, formatting, hover,
     references, rename, semantic_tokens,
@@ -81,9 +81,10 @@ impl Backend {
             .with_project(&uri, |entry| render_for(entry, &params))
             .await;
         match result {
-            None => Err(invalid_params(SvgRequestError::DocumentNotOpen.message())),
-            Some(Err(e)) => Err(invalid_params(e.message())),
-            Some(Ok(response)) => Ok(response),
+            None => Err(invalid_params(
+                "document is not open in the language server".to_owned(),
+            )),
+            Some(response) => Ok(response),
         }
     }
 
@@ -97,9 +98,10 @@ impl Backend {
             .with_project(&uri, |entry| export_svg_for(entry, &params))
             .await;
         match result {
-            None => Err(invalid_params(SvgRequestError::DocumentNotOpen.message())),
-            Some(Err(e)) => Err(invalid_params(e.message())),
-            Some(Ok(response)) => Ok(response),
+            None => Err(invalid_params(
+                "document is not open in the language server".to_owned(),
+            )),
+            Some(response) => Ok(response),
         }
     }
 

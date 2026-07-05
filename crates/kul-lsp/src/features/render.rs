@@ -6,7 +6,7 @@ use kul_visual::ThemeConfig;
 use serde::Deserialize;
 use tower_lsp::lsp_types::Url;
 
-use crate::features::svg_envelope::{RenderResponse, SvgRequestError, render_svg_for};
+use crate::features::svg_envelope::{RenderResponse, render_svg_for};
 use crate::state::ProjectEntry;
 
 /// Request parameters for `kul/render`.
@@ -21,11 +21,8 @@ pub struct RenderParams {
 /// response. Thin delegator over [`render_svg_for`] with the preview
 /// theme; project-wide (ADR-0015): every URI in the same project
 /// produces the same SVG.
-pub fn render_for(
-    entry: &ProjectEntry,
-    _params: &RenderParams,
-) -> Result<RenderResponse, SvgRequestError> {
-    Ok(render_svg_for(entry, &ThemeConfig::default()))
+pub fn render_for(entry: &ProjectEntry, _params: &RenderParams) -> RenderResponse {
+    render_svg_for(entry, &ThemeConfig::default())
 }
 
 #[cfg(test)]
@@ -46,7 +43,7 @@ mod tests {
         let doc = test_open_file(
             "person alice name:\"Alice\" gender:female\nperson bob name:\"Bob\" gender:male\nmarriage m alice bob start:1972\n",
         );
-        let response = render_for(&doc, &dummy_params()).expect("ok");
+        let response = render_for(&doc, &dummy_params());
         match response {
             RenderResponse::Success(s) => {
                 assert!(s.ok);
@@ -69,7 +66,7 @@ mod tests {
     #[test]
     fn render_dirty_document_returns_failure_with_diagnostics() {
         let doc = test_open_file("person alice gender:female\n");
-        let response = render_for(&doc, &dummy_params()).expect("ok");
+        let response = render_for(&doc, &dummy_params());
         match response {
             RenderResponse::Failure(f) => {
                 assert!(!f.ok);
