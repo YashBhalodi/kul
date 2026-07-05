@@ -44,17 +44,19 @@ mod descriptor;
 mod engine;
 mod junction;
 mod pattern;
+mod resolve;
 mod sugar;
 
 pub use descriptor::{
     Affinity, Classification, EdgeNature, Gender, HopEdge, LinealRole, MarriageStatus, PathHop,
     RelationshipDescriptor, Seniority, Sharing, Side,
 };
-pub use engine::{KinMember, QueryEvalError, evaluate};
+pub use engine::{KinMember, QueryEvalError, evaluate, resolve};
 pub use pattern::{
     IntRange, KinPattern, Member, PatternClassification, Projection, Query, QueryResult,
     QuerySource,
 };
+pub use resolve::{DEFAULT_MAX_APEX_GENERATIONS, EmptyReason, ResolveConfig, ResolveResult};
 pub use sugar::{
     ancestors_of, aunts_uncles_of, children_of, cousins_of, descendants_of, in_laws_of,
     nieces_nephews_of, parents_of, siblings_of, spouses_of, step_children_of, step_parents_of,
@@ -212,6 +214,43 @@ pub fn kin_query(check: &CheckResult, query: &Query) -> QueryEnvelope<QueryResul
                 members: members.iter().map(KinMember::to_member).collect(),
             },
         }),
+        Err(err) => QueryEnvelope::Error(QueryError {
+            ok: false,
+            diagnostics: vec![err.to_diagnostic()],
+        }),
+    }
+}
+
+/// Resolve **all** the ways two persons are related and wrap the answer in a
+/// [`QueryEnvelope`], gated on the project passing its checks (strict-on-
+/// errors, ADR-0009). The single source of the resolution contract
+/// serialization shared by the WASM `queryResolve` surface and the CLI
+/// `kul query rel --format json` path.
+///
+/// Three outcomes, all non-throwing:
+/// - project failed its checks → the error arm carries the check diagnostics;
+/// - either id names no person → the error arm carries a single synthesized
+///   diagnostic naming the bad id ([`QueryEvalError::to_diagnostic`]);
+/// - otherwise → the ok arm carries the [`ResolveResult`] (a possibly-empty
+///   relationship list plus its [`EmptyReason`](resolve::EmptyReason)).
+///
+/// An empty-but-clean result is the **ok** arm — an empty result is an answer,
+/// not an error.
+#[must_use]
+pub fn resolve_relationship(
+    check: &CheckResult,
+    x: &str,
+    y: &str,
+    config: &ResolveConfig,
+) -> QueryEnvelope<ResolveResult> {
+    if check.has_errors() {
+        return QueryEnvelope::Error(QueryError {
+            ok: false,
+            diagnostics: export_diagnostics(check),
+        });
+    }
+    match resolve(check.resolved(), x, y, config) {
+        Ok(result) => QueryEnvelope::Ok(QueryOk { ok: true, result }),
         Err(err) => QueryEnvelope::Error(QueryError {
             ok: false,
             diagnostics: vec![err.to_diagnostic()],

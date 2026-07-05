@@ -1,0 +1,16 @@
+---
+source: crates/kul-core/tests/resolve.rs
+assertion_line: 111
+expression: "envelope_json(&check, \"hiroshi\", \"nobody\", &default())"
+---
+{
+  "ok": false,
+  "diagnostics": [
+    {
+      "code": "KUL-Q01",
+      "severity": "error",
+      "message": "no person with id `nobody`",
+      "related": []
+    }
+  ]
+}

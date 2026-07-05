@@ -361,6 +361,29 @@ enum QueryVerb {
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
+
+    /// Resolve all the ways two persons are related — each a terminology-
+    /// neutral descriptor with its hop-by-hop path. An empty result reports
+    /// whether the two are disconnected or merely unrelated within the budget.
+    Rel {
+        /// The first person id.
+        x: String,
+
+        /// The second person id.
+        y: String,
+
+        /// Per-blood-segment generation budget (nearest-common-ancestor
+        /// bound). Higher reaches more distant collaterals; direct-line ties
+        /// are always found regardless. The fixed 2-affinal-hop ceiling is
+        /// never configurable.
+        #[arg(long, default_value_t = kul_core::query::DEFAULT_MAX_APEX_GENERATIONS)]
+        max_generations: u32,
+
+        /// Output format: `human` (default, terminology-neutral facts) or
+        /// `json` (the query envelope, byte-identical to the WASM surface).
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+    },
 }
 
 /// The relation a `kul query kin` invocation asks for. Each maps 1:1 onto a
@@ -434,6 +457,21 @@ fn run_query(verb: QueryVerb) -> ExitCode {
             removed,
             format,
         } => return run_query_kin(anchor, relation, depth, degree, removed, format),
+        QueryVerb::Rel {
+            x,
+            y,
+            max_generations,
+            format,
+        } => {
+            return commands::query::run_rel(commands::query::RelOptions {
+                x,
+                y,
+                config: kul_core::query::ResolveConfig {
+                    max_apex_generations: max_generations,
+                },
+                format,
+            });
+        }
     };
     commands::query::run(options)
 }

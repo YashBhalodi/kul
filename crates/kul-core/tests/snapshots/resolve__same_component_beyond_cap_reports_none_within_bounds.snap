@@ -1,0 +1,12 @@
+---
+source: crates/kul-core/tests/resolve.rs
+assertion_line: 105
+expression: "envelope_json(&check, \"tobi\", \"ife\", &cap(1))"
+---
+{
+  "ok": true,
+  "result": {
+    "relationships": [],
+    "emptyReason": "noneWithinBounds"
+  }
+}

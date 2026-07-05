@@ -16,6 +16,7 @@ import {
     queryPerson,
     queryMarriage,
     queryKin,
+    queryResolve,
     type ExportedGraph,
     type CytoscapeGraph,
     type ExportedPerson,
@@ -24,6 +25,8 @@ import {
     type WasmInputFile,
     type Query,
     type RelationshipDescriptor,
+    type ResolveResult,
+    type EmptyReason,
 } from '../../pkg/kul_wasm.js';
 
 // `format` accepts a string and returns a string unconditionally
@@ -306,6 +309,33 @@ if ('result' in cousinsEnvelope && cousinsEnvelope.result.kind === 'members') {
 // @ts-expect-error queryKin requires a Query value, not an id string
 queryKin(multiFile, manifest, 'alice');
 
+// `queryResolve` is the two-anchor variant of the fourth shape: two ids plus
+// an optional config, returning `QueryEnvelope<ResolveResult>`. An omitted
+// config uses the default generation budget. The result is a descriptor list
+// plus — only when it is empty — an `emptyReason`.
+let firstRelationshipKind = '';
+let resolveEmptyReason: EmptyReason | undefined;
+let resolveErrorCode = '';
+const resolveEnvelope = queryResolve(multiFile, manifest, 'alice', 'bob');
+if ('result' in resolveEnvelope) {
+    const result: ResolveResult = resolveEnvelope.result;
+    if (result.relationships.length === 0) {
+        // `emptyReason` is present iff the list is empty.
+        resolveEmptyReason = result.emptyReason;
+    } else {
+        firstRelationshipKind = result.relationships[0]!.classification.kind;
+    }
+} else {
+    resolveErrorCode = resolveEnvelope.diagnostics[0]?.code ?? '';
+}
+
+// The config is optional; when present it carries only the generation budget.
+queryResolve(multiFile, manifest, 'alice', 'bob', { maxApexGenerations: 3 });
+
+// Type system must reject a missing second anchor id.
+// @ts-expect-error queryResolve requires two anchor ids
+queryResolve(multiFile, manifest, 'alice');
+
 // Suppress "unused binding" diagnostics in --noUnusedLocals mode.
 export const _exports = {
     formatted,
@@ -329,4 +359,7 @@ export const _exports = {
     lookedUpMarriageId,
     firstKinId,
     kinErrorCode,
+    firstRelationshipKind,
+    resolveEmptyReason,
+    resolveErrorCode,
 };

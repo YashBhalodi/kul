@@ -19,8 +19,8 @@ use kul_core::ast::InputFile;
 use kul_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic};
 use kul_core::manifest::Manifest;
 use kul_core::query::{
-    MarriageLookupResult, PersonLookupResult, Query, QueryEnvelope, QueryResult, kin_query,
-    marriage_lookup, person_lookup,
+    MarriageLookupResult, PersonLookupResult, Query, QueryEnvelope, QueryResult, ResolveConfig,
+    ResolveResult, kin_query, marriage_lookup, person_lookup, resolve_relationship,
 };
 use kul_layout::{LayoutConfig, layout};
 use kul_render::{RenderShape, compute};
@@ -271,4 +271,40 @@ pub fn query_kin_with(
 ) -> QueryEnvelope<QueryResult> {
     let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
     kin_query(&result, query)
+}
+
+/// Relationship resolution on the fourth WASM shape (issue #259): return
+/// **all** the ways two persons `xId` and `yId` are related, each a
+/// terminology-neutral descriptor, plus — only when there are none — an
+/// honest emptiness reason (`disconnected` vs `noneWithinBounds`). An omitted
+/// `config` uses the default generation budget of 5. Same load-and-check gate
+/// as the other query shapes; a failing project or an unknown / wrong-kind id
+/// yields the envelope's error arm with a diagnostic, never a throw.
+#[wasm_bindgen(
+    js_name = "queryResolve",
+    unchecked_return_type = "QueryEnvelope<ResolveResult>"
+)]
+pub fn query_resolve(
+    files: Vec<WasmInputFile>,
+    manifest: Manifest,
+    x_id: String,
+    y_id: String,
+    config: Option<ResolveConfig>,
+) -> QueryEnvelope<ResolveResult> {
+    console_error_panic_hook::set_once();
+    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
+    query_resolve_with(&inputs, &manifest, &x_id, &y_id, config)
+}
+
+/// Native-callable variant of [`query_resolve`]; lets non-wasm tests call in
+/// without round-tripping through `JsValue`.
+pub fn query_resolve_with(
+    inputs: &[InputFile],
+    manifest: &Manifest,
+    x_id: &str,
+    y_id: &str,
+    config: Option<ResolveConfig>,
+) -> QueryEnvelope<ResolveResult> {
+    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+    resolve_relationship(&result, x_id, y_id, &config.unwrap_or_default())
 }

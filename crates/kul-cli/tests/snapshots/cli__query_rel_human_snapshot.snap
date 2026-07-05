@@ -1,0 +1,8 @@
+---
+source: crates/kul-cli/tests/cli.rs
+assertion_line: 925
+expression: stdout
+---
+relationship 1: collateral 1/1 · cousinDegree 0, removed 0 · blood · full · side both · younger · apex younger
+  up bio emeka (Emeka Okeke)
+  down bio amara (Amara Okeke)

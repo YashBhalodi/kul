@@ -23,9 +23,10 @@ use serde::Serialize;
 use kul_core::CheckResult;
 use kul_core::export::{ExportedDate, ExportedMarriage, ExportedPerson};
 use kul_core::query::{
-    Affinity, Classification, EdgeNature, LinealRole, MarriageStatus, Member, PathHop, Query,
-    QueryEnvelope, QueryResult, Seniority, Sharing, Side, kin_query, marriage_lookup,
-    person_lookup,
+    Affinity, Classification, EdgeNature, EmptyReason, HopEdge, LinealRole, MarriageStatus, Member,
+    PathHop, Query, QueryEnvelope, QueryResult, RelationshipDescriptor, ResolveConfig,
+    ResolveResult, Seniority, Sharing, Side, kin_query, marriage_lookup, person_lookup,
+    resolve_relationship,
 };
 
 use crate::OutputFormat;
@@ -398,5 +399,172 @@ fn seniority_word(seniority: Seniority) -> &'static str {
         Seniority::Younger => "younger",
         Seniority::Unknown => "unknown",
         Seniority::NotApplicable => "n/a",
+    }
+}
+
+// ---- Relationship resolution (`kul query rel <x> <y>`) ----
+
+/// Options for a `kul query rel` run: the two anchor ids, the resolution
+/// config (the generation budget), and the output format.
+pub struct RelOptions {
+    pub x: String,
+    pub y: String,
+    pub config: ResolveConfig,
+    pub format: OutputFormat,
+}
+
+pub fn run_rel(opts: RelOptions) -> ExitCode {
+    let (_project, check) = match load_and_check() {
+        Ok(x) => x,
+        Err(code) => return code,
+    };
+    // One evaluation path: the same envelope the WASM `queryResolve` surface
+    // returns, so `--format json` bytes are byte-identical.
+    let envelope = resolve_relationship(&check, &opts.x, &opts.y, &opts.config);
+    match opts.format {
+        OutputFormat::Json => finish_rel_json(&envelope),
+        OutputFormat::Human => finish_rel_human(&envelope, &opts, &check),
+    }
+}
+
+fn finish_rel_json(envelope: &QueryEnvelope<ResolveResult>) -> ExitCode {
+    // The envelope IS the contract answer for every outcome (an empty-with-
+    // reason result, a bad id, a failing project) — always stdout, carrying the
+    // diagnostic on the error arms. An empty result is an answer: exit 0.
+    let json = serde_json::to_string(envelope).expect("serialize resolve envelope");
+    let stdout = io::stdout();
+    let mut out = stdout.lock();
+    if let Err(err) = writeln!(out, "{json}") {
+        eprintln!("kul: failed to write query envelope: {err}");
+        return ExitCode::from(1);
+    }
+    match envelope {
+        QueryEnvelope::Error(_) => ExitCode::from(1),
+        QueryEnvelope::Ok(_) => ExitCode::SUCCESS,
+    }
+}
+
+fn finish_rel_human(
+    envelope: &QueryEnvelope<ResolveResult>,
+    opts: &RelOptions,
+    check: &CheckResult,
+) -> ExitCode {
+    match envelope {
+        QueryEnvelope::Error(_) => {
+            if check.has_errors() {
+                // Load-and-check gate: render the project's diagnostics.
+                diag::render_human(check, false);
+            } else {
+                // A clean project with an error arm can only be a bad id; the
+                // synthesized diagnostic already names which one.
+                for d in envelope_diagnostics(envelope) {
+                    eprintln!("kul: {}", d);
+                }
+            }
+            ExitCode::from(1)
+        }
+        QueryEnvelope::Ok(ok) => {
+            print!("{}", render_resolve_human(&ok.result, opts, check));
+            // An empty result is a complete answer — exit 0.
+            ExitCode::SUCCESS
+        }
+    }
+}
+
+/// The messages of an error envelope's diagnostics (a bad-id resolve carries
+/// exactly one, naming the offending id).
+fn envelope_diagnostics(envelope: &QueryEnvelope<ResolveResult>) -> Vec<String> {
+    match envelope {
+        QueryEnvelope::Error(err) => err.diagnostics.iter().map(|d| d.message.clone()).collect(),
+        QueryEnvelope::Ok(_) => Vec::new(),
+    }
+}
+
+/// Render a resolution result for humans: one terminology-neutral block per
+/// relationship (its descriptor facts plus the hop-by-hop path with ids and
+/// display names), or the honest empty-reason wording when there is no tie.
+fn render_resolve_human(result: &ResolveResult, opts: &RelOptions, check: &CheckResult) -> String {
+    if result.relationships.is_empty() {
+        return match result.empty_reason {
+            Some(EmptyReason::Disconnected) => {
+                "no connection: the two persons are in different family components\n".to_string()
+            }
+            // `None` cannot occur for an empty list (the core sets a reason iff
+            // empty), but fall through to the bounds wording rather than panic.
+            _ => format!(
+                "no relationship found within {} generations (try --max-generations)\n",
+                opts.config.max_apex_generations
+            ),
+        };
+    }
+    let mut out = String::new();
+    for (i, descriptor) in result.relationships.iter().enumerate() {
+        out.push_str(&format!(
+            "relationship {}: {}\n",
+            i + 1,
+            descriptor_facts(descriptor)
+        ));
+        out.push_str(&render_path_human(descriptor, check));
+    }
+    out
+}
+
+/// The hop-by-hop path of a resolution descriptor, one hop per line, each with
+/// the id landed on and its display name; `across` hops carry the marriage id,
+/// status, and end reason. An empty path (the reflexive `self`) renders a
+/// single explanatory line.
+fn render_path_human(descriptor: &RelationshipDescriptor, check: &CheckResult) -> String {
+    if descriptor.path.is_empty() {
+        return "  (no path — same person)\n".to_string();
+    }
+    let name_of = |id: &str| {
+        check
+            .resolved()
+            .person(id)
+            .map(|p| p.display_name().to_string())
+            .unwrap_or_else(|| id.to_string())
+    };
+    let mut out = String::new();
+    for hop in &descriptor.path {
+        match hop {
+            PathHop::Up { to, edge, .. } => {
+                out.push_str(&format!(
+                    "  up {} {} ({})\n",
+                    edge_word(*edge),
+                    to,
+                    name_of(to)
+                ));
+            }
+            PathHop::Down { to, edge, .. } => {
+                out.push_str(&format!(
+                    "  down {} {} ({})\n",
+                    edge_word(*edge),
+                    to,
+                    name_of(to)
+                ));
+            }
+            PathHop::Across {
+                to,
+                marriage,
+                status,
+                end_reason,
+                ..
+            } => {
+                out.push_str(&format!("  across {marriage} · {}", status_word(*status)));
+                if let Some(reason) = end_reason {
+                    out.push_str(&format!(" · {reason}"));
+                }
+                out.push_str(&format!(" {} ({})\n", to, name_of(to)));
+            }
+        }
+    }
+    out
+}
+
+/// The edge-kind token for a vertical hop.
+fn edge_word(edge: HopEdge) -> &'static str {
+    match edge {
+        HopEdge::Bio => "bio",
+        HopEdge::Adoptive => "adoptive",
     }
 }

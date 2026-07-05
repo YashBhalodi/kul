@@ -192,7 +192,23 @@ Two people married to the same third person (the *sautan* / co-wife shape a poly
 
 ### Affinal ceiling
 
-The engine crosses **at most two** [affinal hops](#affinal-hop) per path — fixed semantics, never a configuration knob. No culture lexicalizes three affinal hops (spouse's sibling's spouse's sibling names nothing), so the ceiling is part of the model, not a caller budget. This is the semantics side of the semantics-vs-budget line (the generation cap, by contrast, is a caller budget). Pinned in [ADR-0027](./docs/adr/0027-affinal-traversal-ceiling-and-step-subsumption.md).
+The engine crosses **at most two** [affinal hops](#affinal-hop) per path — fixed semantics, never a configuration knob. No culture lexicalizes three affinal hops (spouse's sibling's spouse's sibling names nothing), so the ceiling is part of the model, not a caller budget. This is the semantics side of the [semantics-vs-budget line](#semantics-vs-budget-line) (the [generation budget](#generation-budget), by contrast, is a caller budget). Pinned in [ADR-0027](./docs/adr/0027-affinal-traversal-ceiling-and-step-subsumption.md).
+
+### Relationship resolution
+
+The **two-anchor** query on the [query seam](#query-seam): given persons `x` and `y`, `query::resolve(x, y, config)` returns *all* the ways they are related — a `ResolveResult` (in `crates/kul-core/src/query/resolve.rs`) carrying one [relationship descriptor](#relationship-descriptor) per distinct path (same [path identity](#path-identity), same [descriptor](#relationship-descriptor) derivation, same [traversal engine](#query-seam) as the [kin-set queries](#kin-set-query) — **resolution never forks the kin-set logic**) plus, **only when the list is empty**, an [emptiness reason](#emptiness-reason). It is a *separate call*, not a [Query value](#query-value) pipeline stage — a different question ("how are these two related?" vs "who are this person's …?"). Enumeration is all simple paths under the full grammar where every blood segment stays within the [generation budget](#generation-budget); pure-lineal (direct ancestor/descendant) ties are additionally detected **unbounded**, regardless of the budget, so a `noneWithinBounds` never hides a recorded direct-line tie. `x == y` yields a single `self` descriptor (empty path). Results are sorted by (path hop count) → (serialized backbone). An unknown or wrong-kind id (either anchor) is a typed `UnknownPerson` error, never an empty result. Surfaced as WASM `queryResolve` and CLI `kul query rel <x> <y> [--max-generations N]` ([ADR-0028](./docs/adr/0028-relationship-resolution-and-honest-emptiness.md), PRD 0005).
+
+### Emptiness reason
+
+The honest "why" a [relationship resolution](#relationship-resolution) found nothing — present on `ResolveResult.emptyReason` **iff** the relationship list is empty: `disconnected` (`x` and `y` lie in different connected components of the full relation graph — undirected reachability over every parent-child edge of both kinds plus every spouse edge — so raising the budget can never help) or `noneWithinBounds` (same component, but nothing is derivable under the semantics and the current [generation budget](#generation-budget) — a bigger budget might reveal a tie). Collapsing the two into a bare empty list would let an app render "not related" when the truth is "not related as far as we looked"; the distinction is the product ([ADR-0028](./docs/adr/0028-relationship-resolution-and-honest-emptiness.md)).
+
+### Generation budget
+
+The one knob of [relationship resolution](#relationship-resolution): `maxApexGenerations` (default 5) bounds **each blood segment's** ascent and descent — a nearest-common-ancestor bound, not a total-path-length bound. It is a caller *budget*: 5 reaches through fourth cousins (a strict superset of every lexicalized kinship term — cultures run out by third cousins) while cutting off the remote-ancestor haystack; a caller who wants to look nearer or farther legitimately says so. Contrast the fixed [affinal ceiling](#affinal-ceiling), which is *semantics*, not a budget — see the [semantics-vs-budget line](#semantics-vs-budget-line).
+
+### Semantics-vs-budget line
+
+The distinction that governs what is a caller knob and what is fixed engine law. The 2-hop [affinal ceiling](#affinal-ceiling) is **semantics**: it defines *what counts as a relationship* (no culture names a three-affinal-hop tie), so it is never configurable — two apps must never disagree about *what relationships exist*. The [generation budget](#generation-budget) is a **search budget**: two apps may legitimately look differently far, so it is a caller knob. The line keeps the contract honest — a bigger budget can reveal more of the *same* relationship space, but can never change its definition ([ADR-0027](./docs/adr/0027-affinal-traversal-ceiling-and-step-subsumption.md), [ADR-0028](./docs/adr/0028-relationship-resolution-and-honest-emptiness.md)).
 
 ### Render shape
 
