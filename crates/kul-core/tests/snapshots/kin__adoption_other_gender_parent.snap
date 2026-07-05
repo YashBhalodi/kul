@@ -1,0 +1,68 @@
+---
+source: crates/kul-core/tests/kin.rs
+expression: "envelope_json(&check,\n&Query::kin_ancestors(\"bayani\", IntRange::exactly(1), None))"
+---
+{
+  "ok": true,
+  "result": {
+    "kind": "members",
+    "members": [
+      {
+        "personId": "carlos",
+        "descriptor": {
+          "egoId": "bayani",
+          "alterId": "carlos",
+          "egoGender": "other",
+          "alterGender": "male",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 1
+          },
+          "edgeNature": "adoptive",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "carlos",
+              "gender": "male",
+              "edge": "adoptive"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "rosa",
+        "descriptor": {
+          "egoId": "bayani",
+          "alterId": "rosa",
+          "egoGender": "other",
+          "alterGender": "female",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 1
+          },
+          "edgeNature": "adoptive",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "rosa",
+              "gender": "female",
+              "edge": "adoptive"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

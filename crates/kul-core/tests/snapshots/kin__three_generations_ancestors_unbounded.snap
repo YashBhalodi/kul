@@ -1,0 +1,136 @@
+---
+source: crates/kul-core/tests/kin.rs
+expression: "envelope_json(&check,\n&Query::kin_ancestors(\"chidi\", IntRange::from_one(None), None))"
+---
+{
+  "ok": true,
+  "result": {
+    "kind": "members",
+    "members": [
+      {
+        "personId": "adaeze",
+        "descriptor": {
+          "egoId": "chidi",
+          "alterId": "adaeze",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 2
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "paternal",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "emeka",
+              "gender": "male",
+              "edge": "bio"
+            },
+            {
+              "step": "up",
+              "to": "adaeze",
+              "gender": "female",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "chinua",
+        "descriptor": {
+          "egoId": "chidi",
+          "alterId": "chinua",
+          "egoGender": "male",
+          "alterGender": "male",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 2
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "paternal",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "emeka",
+              "gender": "male",
+              "edge": "bio"
+            },
+            {
+              "step": "up",
+              "to": "chinua",
+              "gender": "male",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "emeka",
+        "descriptor": {
+          "egoId": "chidi",
+          "alterId": "emeka",
+          "egoGender": "male",
+          "alterGender": "male",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 1
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "emeka",
+              "gender": "male",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "ngozi",
+        "descriptor": {
+          "egoId": "chidi",
+          "alterId": "ngozi",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 1
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "ngozi",
+              "gender": "female",
+              "edge": "bio"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

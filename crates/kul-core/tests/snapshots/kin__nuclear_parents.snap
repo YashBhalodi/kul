@@ -1,0 +1,68 @@
+---
+source: crates/kul-core/tests/kin.rs
+expression: "envelope_json(&check,\n&Query::kin_ancestors(\"akiko\", IntRange::exactly(1), None))"
+---
+{
+  "ok": true,
+  "result": {
+    "kind": "members",
+    "members": [
+      {
+        "personId": "hiroshi",
+        "descriptor": {
+          "egoId": "akiko",
+          "alterId": "hiroshi",
+          "egoGender": "female",
+          "alterGender": "male",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 1
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "hiroshi",
+              "gender": "male",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "yuki",
+        "descriptor": {
+          "egoId": "akiko",
+          "alterId": "yuki",
+          "egoGender": "female",
+          "alterGender": "female",
+          "classification": {
+            "kind": "lineal",
+            "role": "ancestor",
+            "generations": 1
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "elder",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "up",
+              "to": "yuki",
+              "gender": "female",
+              "edge": "bio"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

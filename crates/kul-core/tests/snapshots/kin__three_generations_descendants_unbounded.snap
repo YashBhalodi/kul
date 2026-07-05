@@ -1,0 +1,108 @@
+---
+source: crates/kul-core/tests/kin.rs
+expression: "envelope_json(&check,\n&Query::kin_descendants(\"chinua\", IntRange::from_one(None), None))"
+---
+{
+  "ok": true,
+  "result": {
+    "kind": "members",
+    "members": [
+      {
+        "personId": "amara",
+        "descriptor": {
+          "egoId": "chinua",
+          "alterId": "amara",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "lineal",
+            "role": "descendant",
+            "generations": 2
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "younger",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "down",
+              "to": "emeka",
+              "gender": "male",
+              "edge": "bio"
+            },
+            {
+              "step": "down",
+              "to": "amara",
+              "gender": "female",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "chidi",
+        "descriptor": {
+          "egoId": "chinua",
+          "alterId": "chidi",
+          "egoGender": "male",
+          "alterGender": "male",
+          "classification": {
+            "kind": "lineal",
+            "role": "descendant",
+            "generations": 2
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "younger",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "down",
+              "to": "emeka",
+              "gender": "male",
+              "edge": "bio"
+            },
+            {
+              "step": "down",
+              "to": "chidi",
+              "gender": "male",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "emeka",
+        "descriptor": {
+          "egoId": "chinua",
+          "alterId": "emeka",
+          "egoGender": "male",
+          "alterGender": "male",
+          "classification": {
+            "kind": "lineal",
+            "role": "descendant",
+            "generations": 1
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "younger",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "down",
+              "to": "emeka",
+              "gender": "male",
+              "edge": "bio"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

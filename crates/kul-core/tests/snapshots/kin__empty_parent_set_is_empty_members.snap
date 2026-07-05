@@ -1,0 +1,11 @@
+---
+source: crates/kul-core/tests/kin.rs
+expression: "envelope_json(&check,\n&Query::kin_ancestors(\"hiroshi\", IntRange::exactly(1), None))"
+---
+{
+  "ok": true,
+  "result": {
+    "kind": "members",
+    "members": []
+  }
+}

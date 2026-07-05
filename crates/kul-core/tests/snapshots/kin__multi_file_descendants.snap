@@ -1,0 +1,136 @@
+---
+source: crates/kul-core/tests/kin.rs
+expression: "envelope_json(&check,\n&Query::kin_descendants(\"diego\", IntRange::from_one(None), None))"
+---
+{
+  "ok": true,
+  "result": {
+    "kind": "members",
+    "members": [
+      {
+        "personId": "javier",
+        "descriptor": {
+          "egoId": "diego",
+          "alterId": "javier",
+          "egoGender": "male",
+          "alterGender": "male",
+          "classification": {
+            "kind": "lineal",
+            "role": "descendant",
+            "generations": 1
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "younger",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "down",
+              "to": "javier",
+              "gender": "male",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "lucia",
+        "descriptor": {
+          "egoId": "diego",
+          "alterId": "lucia",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "lineal",
+            "role": "descendant",
+            "generations": 2
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "younger",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "down",
+              "to": "javier",
+              "gender": "male",
+              "edge": "bio"
+            },
+            {
+              "step": "down",
+              "to": "lucia",
+              "gender": "female",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "mateo",
+        "descriptor": {
+          "egoId": "diego",
+          "alterId": "mateo",
+          "egoGender": "male",
+          "alterGender": "male",
+          "classification": {
+            "kind": "lineal",
+            "role": "descendant",
+            "generations": 2
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "younger",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "down",
+              "to": "sofia",
+              "gender": "female",
+              "edge": "bio"
+            },
+            {
+              "step": "down",
+              "to": "mateo",
+              "gender": "male",
+              "edge": "bio"
+            }
+          ]
+        }
+      },
+      {
+        "personId": "sofia",
+        "descriptor": {
+          "egoId": "diego",
+          "alterId": "sofia",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "lineal",
+            "role": "descendant",
+            "generations": 1
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "notApplicable",
+          "side": "notApplicable",
+          "seniority": "younger",
+          "apexSeniority": "notApplicable",
+          "path": [
+            {
+              "step": "down",
+              "to": "sofia",
+              "gender": "female",
+              "edge": "bio"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
