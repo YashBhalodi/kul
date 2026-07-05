@@ -14,6 +14,8 @@ import {
     previewHtml,
 } from "@kullang/preview";
 
+import { postToPreview } from "./post-to-preview";
+
 let client: LanguageClient | undefined;
 let previewPanel: vscode.WebviewPanel | undefined;
 let previewDebounce: NodeJS.Timeout | undefined;
@@ -26,6 +28,19 @@ const PREVIEW_DEBOUNCE_MS = 300;
 // Cursor movement fires far more often than edits; tighter debounce keeps
 // the highlight live without flooding the server.
 const SELECTION_DEBOUNCE_MS = 50;
+
+// Every webview post goes through this so the panel is re-read at post time
+// (narrowing does not survive the in-flight `await`) and a dispose-mid-post
+// throw is swallowed instead of becoming an unhandled rejection. Any new
+// message type must route through here rather than posting to the webview
+// directly, or it reintroduces the disposal race (see post-to-preview.ts).
+function post(message: unknown): Promise<boolean> {
+    return postToPreview(
+        () => previewPanel,
+        message,
+        (text) => client?.outputChannel.appendLine(text),
+    );
+}
 
 export async function activate(
     context: vscode.ExtensionContext,
@@ -353,14 +368,14 @@ async function syncSelection(
         client.outputChannel.appendLine(
             `kul/entityAt failed: ${message}`,
         );
-        await previewPanel.webview.postMessage({
+        await post({
             type: "highlightEntity",
             id: null,
         });
         return;
     }
     const entity = response.entity;
-    await previewPanel.webview.postMessage({
+    await post({
         type: "highlightEntity",
         id: entity ? entity.id : null,
         kind: entity ? entity.kind : undefined,
@@ -563,14 +578,14 @@ async function refreshPreview(uri: vscode.Uri): Promise<void> {
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         // Transport failure — surface as a single synthetic error row.
-        await previewPanel.webview.postMessage({
+        await post({
             type: "renderError",
             errors: [{ message: `Kul render failed: ${message}` }],
         });
         return;
     }
     if (response.ok && response.svg) {
-        await previewPanel.webview.postMessage({
+        await post({
             type: "render",
             svg: response.svg,
         });
@@ -599,7 +614,7 @@ async function refreshPreview(uri: vscode.Uri): Promise<void> {
                 uri: d.uri,
                 range: d.range,
             }));
-        await previewPanel.webview.postMessage({
+        await post({
             type: "renderError",
             errors,
         });
