@@ -89,15 +89,28 @@ fn finish<E: Serialize>(
     }
 }
 
+/// Write `value` as a single JSON line to stdout — the contract answer for
+/// every query outcome. On write failure, report to stderr and hand back the
+/// failure exit code; on success return `Ok(())` so the caller can layer its
+/// outcome-specific exit code on top.
+fn write_json_line<T: Serialize>(value: &T) -> Result<(), ExitCode> {
+    let json = serde_json::to_string(value).expect("serialize query envelope");
+    let stdout = io::stdout();
+    let mut out = stdout.lock();
+    match writeln!(out, "{json}") {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            eprintln!("kul: failed to write query envelope: {err}");
+            Err(ExitCode::from(1))
+        }
+    }
+}
+
 fn finish_json<E: Serialize>(envelope: &QueryEnvelope<Option<E>>, opts: &Options) -> ExitCode {
     // The envelope IS the contract answer, even for not-found (null result)
     // and failing-check (error arm) cases — always to stdout.
-    let json = serde_json::to_string(envelope).expect("serialize query envelope");
-    let stdout = io::stdout();
-    let mut out = stdout.lock();
-    if let Err(err) = writeln!(out, "{json}") {
-        eprintln!("kul: failed to write query envelope: {err}");
-        return ExitCode::from(1);
+    if let Err(code) = write_json_line(envelope) {
+        return code;
     }
     match envelope {
         QueryEnvelope::Error(_) => ExitCode::from(1),
@@ -426,12 +439,8 @@ pub fn run_persons(opts: PersonsOptions) -> ExitCode {
 /// outcome). Error arm → exit 1; ok arm (including an empty set) → exit 0.
 /// Shared by the kin and persons json paths.
 fn finish_query_json(envelope: &QueryEnvelope<QueryResult>) -> ExitCode {
-    let json = serde_json::to_string(envelope).expect("serialize query envelope");
-    let stdout = io::stdout();
-    let mut out = stdout.lock();
-    if let Err(err) = writeln!(out, "{json}") {
-        eprintln!("kul: failed to write query envelope: {err}");
-        return ExitCode::from(1);
+    if let Err(code) = write_json_line(envelope) {
+        return code;
     }
     match envelope {
         QueryEnvelope::Error(_) => ExitCode::from(1),
@@ -719,12 +728,8 @@ fn finish_rel_json(envelope: &QueryEnvelope<ResolveResult>) -> ExitCode {
     // The envelope IS the contract answer for every outcome (an empty-with-
     // reason result, a bad id, a failing project) — always stdout, carrying the
     // diagnostic on the error arms. An empty result is an answer: exit 0.
-    let json = serde_json::to_string(envelope).expect("serialize resolve envelope");
-    let stdout = io::stdout();
-    let mut out = stdout.lock();
-    if let Err(err) = writeln!(out, "{json}") {
-        eprintln!("kul: failed to write query envelope: {err}");
-        return ExitCode::from(1);
+    if let Err(code) = write_json_line(envelope) {
+        return code;
     }
     match envelope {
         QueryEnvelope::Error(_) => ExitCode::from(1),
