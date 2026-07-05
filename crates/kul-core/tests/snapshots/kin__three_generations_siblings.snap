@@ -1,0 +1,49 @@
+---
+source: crates/kul-core/tests/kin.rs
+assertion_line: 510
+expression: "envelope_json(&check,\n&Query::kin_collateral(\"chidi\", IntRange::exactly(1), IntRange::exactly(1),\nNone))"
+---
+{
+  "ok": true,
+  "result": {
+    "kind": "members",
+    "members": [
+      {
+        "personId": "amara",
+        "descriptor": {
+          "egoId": "chidi",
+          "alterId": "amara",
+          "egoGender": "male",
+          "alterGender": "female",
+          "classification": {
+            "kind": "collateral",
+            "up": 1,
+            "down": 1,
+            "cousinDegree": 0,
+            "removed": 0
+          },
+          "edgeNature": "blood",
+          "affinity": "blood",
+          "sharing": "full",
+          "side": "both",
+          "seniority": "younger",
+          "apexSeniority": "younger",
+          "path": [
+            {
+              "step": "up",
+              "to": "emeka",
+              "gender": "male",
+              "edge": "bio"
+            },
+            {
+              "step": "down",
+              "to": "amara",
+              "gender": "female",
+              "edge": "bio"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

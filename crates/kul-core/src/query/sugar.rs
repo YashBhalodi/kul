@@ -78,3 +78,85 @@ pub fn descendants_of<'a>(
         &Query::kin_descendants(anchor, IntRange::from_one(depth), None),
     )
 }
+
+/// `siblings_of(x)` ≡ `kinOf(x, collateral, up {1,1}, down {1,1})`.
+///
+/// The apex is the parent (couple or single) shared with the sibling, so each
+/// member carries its `sharing` (full / half), `apexSeniority`, and — for a
+/// couple-apex full sibling — `side: both`.
+///
+/// # Errors
+///
+/// [`QueryEvalError::UnknownPerson`] when `anchor` names no person.
+pub fn siblings_of<'a>(
+    resolved: &'a ResolvedDocument,
+    anchor: &str,
+) -> Result<Vec<KinMember<'a>>, QueryEvalError> {
+    evaluate(
+        resolved,
+        &Query::kin_collateral(anchor, IntRange::exactly(1), IntRange::exactly(1), None),
+    )
+}
+
+/// `aunts_uncles_of(x)` ≡ `kinOf(x, collateral, up {2,2}, down {1,1})` — a
+/// parent's siblings. `side` is ego's linking-parent gender (maternal vs
+/// paternal), and `apexSeniority` is the aunt/uncle's birth order versus that
+/// parent — the two distinctions *mama*/*chacha* and *chacha*/*tau* need.
+///
+/// # Errors
+///
+/// [`QueryEvalError::UnknownPerson`] when `anchor` names no person.
+pub fn aunts_uncles_of<'a>(
+    resolved: &'a ResolvedDocument,
+    anchor: &str,
+) -> Result<Vec<KinMember<'a>>, QueryEvalError> {
+    evaluate(
+        resolved,
+        &Query::kin_collateral(anchor, IntRange::exactly(2), IntRange::exactly(1), None),
+    )
+}
+
+/// `nieces_nephews_of(x)` ≡ `kinOf(x, collateral, up {1,1}, down {2,2})` — a
+/// sibling's children, the inverse orientation of [`aunts_uncles_of`].
+///
+/// # Errors
+///
+/// [`QueryEvalError::UnknownPerson`] when `anchor` names no person.
+pub fn nieces_nephews_of<'a>(
+    resolved: &'a ResolvedDocument,
+    anchor: &str,
+) -> Result<Vec<KinMember<'a>>, QueryEvalError> {
+    evaluate(
+        resolved,
+        &Query::kin_collateral(anchor, IntRange::exactly(1), IntRange::exactly(2), None),
+    )
+}
+
+/// `cousins_of(x, degree, removed = 0)` ≡ `kinOf(x, collateralByDegree,
+/// degree {degree,degree}, removed {removed,removed})`.
+///
+/// Degree 1 removed 0 is first cousins; degree 2 removed 1 is "second cousins
+/// once removed" — expressible by construction, no dedicated API. Because
+/// `collateralByDegree` matches both orientations, `removed ≥ 1` returns the
+/// relation both up-heavy and down-heavy (e.g. degree 0 removed 1 is aunts/
+/// uncles *and* nieces/nephews).
+///
+/// # Errors
+///
+/// [`QueryEvalError::UnknownPerson`] when `anchor` names no person.
+pub fn cousins_of<'a>(
+    resolved: &'a ResolvedDocument,
+    anchor: &str,
+    degree: u32,
+    removed: u32,
+) -> Result<Vec<KinMember<'a>>, QueryEvalError> {
+    evaluate(
+        resolved,
+        &Query::kin_collateral_by_degree(
+            anchor,
+            IntRange::exactly(degree),
+            IntRange::exactly(removed),
+            None,
+        ),
+    )
+}

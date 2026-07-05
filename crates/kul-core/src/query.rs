@@ -42,6 +42,7 @@ use crate::semantic::ResolvedDocument;
 
 mod descriptor;
 mod engine;
+mod junction;
 mod pattern;
 mod sugar;
 
@@ -54,7 +55,10 @@ pub use pattern::{
     IntRange, KinPattern, Member, PatternClassification, Projection, Query, QueryResult,
     QuerySource,
 };
-pub use sugar::{ancestors_of, children_of, descendants_of, parents_of};
+pub use sugar::{
+    ancestors_of, aunts_uncles_of, children_of, cousins_of, descendants_of, nieces_nephews_of,
+    parents_of, siblings_of,
+};
 
 /// Look up a person by id. Returns the person in the export shape, or
 /// `None` when no person has that id (an unknown id, or an id that names a

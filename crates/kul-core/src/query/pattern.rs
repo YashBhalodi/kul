@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
-use super::descriptor::{EdgeNature, LinealRole, RelationshipDescriptor};
+use super::descriptor::{EdgeNature, LinealRole, RelationshipDescriptor, Sharing, Side};
 
 /// An inclusive integer range; an absent `max` means unbounded. Used for a
 /// lineal pattern's generation bounds.
@@ -52,9 +52,9 @@ impl IntRange {
     }
 }
 
-/// The classification a [`KinPattern`] selects for. This slice ships only
-/// the lineal arm; `collateral`, `collateralByDegree`, and `any` arrive in
-/// later slices as additional internally-tagged variants.
+/// The classification a [`KinPattern`] selects for, internally tagged on
+/// `kind`. `any` (an unclassified match) arrives with a later slice as a
+/// further additive variant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -65,6 +65,18 @@ pub enum PatternClassification {
         role: LinealRole,
         generations: IntRange,
     },
+    /// Collateral relatives selected by raw hop counts: `up` hops to the
+    /// common apex and `down` hops to the alter both falling in their ranges.
+    /// `siblings` / `aunts_uncles` / `nieces_nephews` desugar here.
+    Collateral { up: IntRange, down: IntRange },
+    /// Collateral relatives selected by **cousin degree and removal**.
+    /// Matches *both orientations* by construction: a `{degree: d, removed:
+    /// r}` pattern matches every path whose `min(up,down) − 1` falls in
+    /// `degree` and whose `|up − down|` falls in `removed`, so `up`/`down`
+    /// may appear either way round. Corollary: `degree 0, removed 1` matches
+    /// aunts/uncles **and** nieces/nephews. `cousins_of(degree, removed)`
+    /// desugars here.
+    CollateralByDegree { degree: IntRange, removed: IntRange },
 }
 
 /// A declarative descriptor pattern: which relationships to a person count
@@ -76,10 +88,19 @@ pub enum PatternClassification {
 pub struct KinPattern {
     pub classification: PatternClassification,
     /// Optional filter on the path's edge nature; omitted (`None`) matches
-    /// both blood and adoptive. Affinity / sharing / side filters arrive in
-    /// later slices.
+    /// both blood and adoptive.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub edge_nature: Option<EdgeNature>,
+    /// Optional filter on the sibling-junction [`Sharing`]; omitted (`None`)
+    /// matches every sharing. Only ever narrows collateral results — a lineal
+    /// path is always `notApplicable`.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub sharing: Option<Sharing>,
+    /// Optional filter on the derived [`Side`]; omitted (`None`) matches every
+    /// side. `Some(Side::Both)` selects couple-apex-rooted relations,
+    /// `Some(Side::Maternal)` a single family branch, and so on.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub side: Option<Side>,
 }
 
 /// Where a query draws its candidate persons from. This slice ships only
@@ -141,12 +162,84 @@ impl Query {
         generations: IntRange,
         edge_nature: Option<EdgeNature>,
     ) -> Self {
+        Query::kin(
+            anchor,
+            PatternClassification::Lineal { role, generations },
+            edge_nature,
+        )
+    }
+
+    /// A collateral kin query by raw hop counts: every relative reached by
+    /// `up` ascent hops and `down` descent hops through a single apex, both
+    /// falling in their ranges. `siblings_of` / `aunts_uncles_of` /
+    /// `nieces_nephews_of` desugar through here. Projects `members`.
+    #[must_use]
+    pub fn kin_collateral(
+        anchor: impl Into<String>,
+        up: IntRange,
+        down: IntRange,
+        edge_nature: Option<EdgeNature>,
+    ) -> Self {
+        Query::kin(
+            anchor,
+            PatternClassification::Collateral { up, down },
+            edge_nature,
+        )
+    }
+
+    /// A collateral kin query by **cousin degree and removal**, matching both
+    /// orientations by construction (see
+    /// [`PatternClassification::CollateralByDegree`]). `cousins_of(degree,
+    /// removed)` desugars through here. Projects `members`.
+    #[must_use]
+    pub fn kin_collateral_by_degree(
+        anchor: impl Into<String>,
+        degree: IntRange,
+        removed: IntRange,
+        edge_nature: Option<EdgeNature>,
+    ) -> Self {
+        Query::kin(
+            anchor,
+            PatternClassification::CollateralByDegree { degree, removed },
+            edge_nature,
+        )
+    }
+
+    /// Narrow a `kinOf` query to only members whose derived sharing equals
+    /// `sharing`. A no-op on a non-`kinOf` source. Desugars to the pattern's
+    /// `sharing` filter — no second evaluation path.
+    #[must_use]
+    pub fn with_sharing(mut self, sharing: Sharing) -> Self {
+        let QuerySource::KinOf { pattern, .. } = &mut self.source;
+        pattern.sharing = Some(sharing);
+        self
+    }
+
+    /// Narrow a `kinOf` query to only members whose derived side equals
+    /// `side`. Side counterpart to [`Query::with_sharing`].
+    #[must_use]
+    pub fn with_side(mut self, side: Side) -> Self {
+        let QuerySource::KinOf { pattern, .. } = &mut self.source;
+        pattern.side = Some(side);
+        self
+    }
+
+    /// Build a `members`-projecting `kinOf` query from a classification and an
+    /// optional edge filter (no sharing / side filter — those are set on the
+    /// returned pattern by callers that need them).
+    fn kin(
+        anchor: impl Into<String>,
+        classification: PatternClassification,
+        edge_nature: Option<EdgeNature>,
+    ) -> Self {
         Query {
             source: QuerySource::KinOf {
                 anchor: anchor.into(),
                 pattern: KinPattern {
-                    classification: PatternClassification::Lineal { role, generations },
+                    classification,
                     edge_nature,
+                    sharing: None,
+                    side: None,
                 },
             },
             projection: Projection::Members,
