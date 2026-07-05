@@ -1,0 +1,7 @@
+---
+source: crates/kul-cli/tests/cli.rs
+assertion_line: 801
+expression: stdout
+---
+lucia  Lucia Rossi
+  collateral 2/1 · cousinDegree 0, removed 1 · blood · full · side paternal · elder · apex younger
