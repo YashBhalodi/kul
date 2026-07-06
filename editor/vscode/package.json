@@ -153,10 +153,10 @@
   },
   "dependencies": {
     "@kullang/preview": "*",
-    "vscode-languageclient": "^9.0.1"
+    "vscode-languageclient": "^10.1.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.0",
+    "@types/node": "^26.1.0",
     "@types/vscode": "^1.85.0",
     "esbuild": "^0.28.1",
     "typescript": "^6.0.3",
