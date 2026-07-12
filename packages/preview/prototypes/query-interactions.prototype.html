@@ -132,7 +132,7 @@
 
 <div id="proto-root">
   <div class="proto-head">
-    <span class="proto-badge">PROTOTYPE · ROUND 9.1 · LENS × WIDGET</span>
+    <span class="proto-badge">PROTOTYPE · ROUND 9.2 · SINGLE SELECTION</span>
     <span class="proto-title">On-canvas kinship querying <span>— #276 · the synthesis candidate</span></span>
     <span class="spacer"></span>
     <span class="sim-wrap">
@@ -157,11 +157,9 @@
             <dt>Select</dt>
             <dd>Click a person → the <b>details widget</b>, fixed to the right edge (it never covers the tree, so every card stays hoverable): detail on top, “Explore kin” opening the flat scrollable list. Its content follows the selection — and it has room to grow more affordances later.</dd>
             <dt>Relate = hover (the lens)</dt>
-            <dd>While someone is selected, <b>hovering any other card whispers the tie under it</b> — the docked tag, live, zero clicks. No ⚭ badges, no pick mode: the lens made both redundant. During a kin-set paint the lens still reads on hover.</dd>
-            <dt>Pin & walk</dt>
-            <dd><b>Click</b> the hovered person to pin: path glow, others dim, ⇄ swap appears. Click the pinned person <b>again</b> to re-anchor the plate onto them — reading flows into walking.</dd>
-            <dt>Staged escape</dt>
-            <dd><kbd>Esc</kbd> unpins first, then clears the selection. Canvas click clears everything. Editor sync suspends while querying.</dd>
+            <dd>While someone is selected, <b>hovering any other card whispers the tie under it</b> — the docked tag, live, zero clicks. The lens keeps reading during a kin-set paint.</dd>
+            <dt>One selection, always</dt>
+            <dd>There is no second selected state: <b>clicking any person simply moves the selection</b> (and the widget follows) — that’s also how you walk the family. <kbd>Esc</kbd> or a canvas click clears.</dd>
           </dl>
         </div>
       </details>
@@ -634,64 +632,30 @@ svg {
   });
   document.getElementById("langSel").addEventListener("change", function () {
     LANG = this.value;
-    if (model.anchor && model.pinned) {
-      whisperAt(model.anchor, model.pinned, resolvePair(model.anchor, model.pinned), model.swapFn());
-    }
     if (model.anchor) model.renderPlate();
   });
 
   /* =============== the synthesis: lens × plate =============== */
   var model = {
-    anchor: null, pinned: null, listOpen: false, activeSet: null,
+    anchor: null, listOpen: false, activeSet: null,
 
     select: function (id) {
-      this.anchor = id; this.pinned = null; this.listOpen = false; this.activeSet = null;
+      this.anchor = id; this.activeSet = null;   // listOpen survives — the widget follows the walk
       removeFloats(); clearPaint();
       addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
       this.renderPlate();
       syncHint();
     },
     clearAll: function () {
-      this.anchor = null; this.pinned = null; this.listOpen = false; this.activeSet = null;
+      this.anchor = null; this.listOpen = false; this.activeSet = null;
       removeFloats(); this.renderPlate(); clearPaint(); applyEditorSim(); syncHint();
     },
-    escape: function () {
-      if (this.pinned) { this.unpin(); return; }
-      this.clearAll();
-    },
-    unpin: function () {
-      this.pinned = null;
-      removeWhisper(); clearPaint();
-      addClass(this.anchor, "q-anchor-a", "canonical"); applyEditorSim();
-      if (this.activeSet) this.runSet(this.activeSet);
-      syncHint();
-    },
-    swapFn: function () {
-      var self = this;
-      return function () {
-        var oldAnchor = self.anchor;
-        self.anchor = self.pinned; self.pinned = oldAnchor;
-        var ties = resolvePair(self.anchor, self.pinned);
-        paintResolution(self.anchor, self.pinned, ties);
-        self.renderPlate();
-        whisperAt(self.anchor, self.pinned, ties, self.swapFn());
-        syncHint();
-      };
-    },
     onCardClick: function (id) {
-      if (!this.anchor) { this.select(id); return; }
       if (id === this.anchor) return;
-      if (this.pinned === id) { this.select(id); return; }   // click pinned again → re-anchor
-      // pin the lens reading (activeSet is kept — Esc restores the set paint)
-      this.pinned = id;
-      var ties = resolvePair(this.anchor, id);
-      paintResolution(this.anchor, id, ties);
-      this.renderPlate();
-      whisperAt(this.anchor, id, ties, this.swapFn());
-      syncHint();
+      this.select(id);   // one selection state — clicking anyone just moves it
     },
     onCardHover: function (id, entering) {
-      if (!this.anchor || this.pinned || id === this.anchor) return;
+      if (!this.anchor || id === this.anchor) return;
       if (entering) {
         var ties = resolvePair(this.anchor, id);
         addClass(id, "q-anchor-b", "canonical");
@@ -738,11 +702,7 @@ svg {
         '<div class="pop-body">' + detailHtml(a) + "</div>" +
         '<div class="plate-section"><div class="plate-sec-head" data-togglelist="1">Explore kin' +
         '<span class="arr">' + kinArr + "</span></div>" + listHtml + "</div>" +
-        '<div class="lens-hint">' +
-        (this.pinned
-          ? "pinned to <b>" + firstName(this.pinned) + "</b> — click them again to move the plate there · <b>Esc</b> unpins"
-          : "the <b>lens</b> is live: hover anyone to read your tie · click to pin") +
-        "</div>";
+        '<div class="lens-hint">the <b>lens</b> is live: hover anyone to read your tie · click a person to select them</div>';
       pop.addEventListener("click", function (ev) {
         ev.stopPropagation();
         var el = ev.target.closest("[data-close],[data-togglelist],[data-set]");
@@ -750,7 +710,6 @@ svg {
         if (el.hasAttribute("data-close")) { self.clearAll(); return; }
         if (el.hasAttribute("data-togglelist")) { self.listOpen = !self.listOpen; self.renderPlate(); return; }
         if (el.hasAttribute("data-set")) {
-          if (self.pinned) { self.pinned = null; removeWhisper(); }
           self.runSet(el.getAttribute("data-set"));
           pop.querySelectorAll(".kin-row").forEach(function (rw) { rw.classList.remove("on"); });
           el.classList.add("on");
@@ -777,7 +736,7 @@ svg {
   document.addEventListener("keydown", function (ev) {
     var tag = (document.activeElement && document.activeElement.tagName) || "";
     if (/INPUT|TEXTAREA|SELECT/.test(tag) || (document.activeElement && document.activeElement.isContentEditable)) return;
-    if (ev.key === "Escape") model.escape();
+    if (ev.key === "Escape") model.clearAll();
   });
 })();
 </script>
