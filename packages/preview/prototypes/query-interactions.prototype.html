@@ -9,12 +9,14 @@
 <!--BODY-START-->
 <title>Kul query-UX prototype — ticket #276</title>
 <!-- ============================================================
-  PROTOTYPE — THROWAWAY. Wayfinder ticket #276 (map #275), round 2.
-  Direction settled on the on-canvas model (old variant A). Three
-  variations of it, differing on (1) the progressive-disclosure
-  shape: person detail → query types → exact queries, and (2) the
-  mouse-only affordance for two-person relationship resolution.
-  Switch via ?variant=1|2|3, the floating bar, or ← → keys.
+  PROTOTYPE — THROWAWAY. Wayfinder ticket #276 (map #275), round 3.
+  CONVERGED interaction model (variation 1 × variation 3):
+    - click a person → anchored plate: detail on top, then flat
+      affordances — "Explore kin" opens ONE scrollable vertical
+      list of all kin queries (no category nesting), and
+      "How related to…?" arms a click-the-target pick mode.
+    - zero-mode relate: while a person is selected, every other
+      card wears a ⚭ corner badge; one click resolves.
   The "kinship engine" below is a mock good only for examples/05.
   ============================================================ -->
 <style>
@@ -36,7 +38,7 @@
   /* ---------- header ---------- */
   .proto-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap;
     padding:10px 16px; background:#fff; border-bottom:1px solid var(--line); }
-  .proto-badge { background:#fef3c7; color:#92400e; border:1px solid #fcd34d;
+  .proto-badge { background:#dcfce7; color:#166534; border:1px solid #86efac;
     font-size:11px; font-weight:700; letter-spacing:.06em; padding:3px 8px; border-radius:5px; }
   .proto-title { font-size:14px; font-weight:600; }
   .proto-title span { color:var(--muted); font-weight:400; }
@@ -46,7 +48,7 @@
   .sim-dot { width:10px; height:10px; border-radius:50%; background:var(--sync); display:inline-block; }
 
   /* ---------- explainer ---------- */
-  .explainer { position:absolute; top:12px; left:12px; z-index:30; max-width:330px;
+  .explainer { position:absolute; top:12px; left:12px; z-index:30; max-width:340px;
     background:var(--panel); border:1px solid var(--line); border-radius:10px;
     box-shadow:0 4px 16px rgba(16,24,40,.09); font-size:12.5px; line-height:1.45; }
   .explainer summary { cursor:pointer; padding:8px 12px; font-weight:600; font-size:12.5px; list-style:none; }
@@ -58,7 +60,7 @@
 
   /* ---------- stage ---------- */
   .stage-row { display:flex; flex:1; min-height:0; position:relative; }
-  .stage { position:relative; flex:1; overflow:auto; padding:24px 16px 150px; }
+  .stage { position:relative; flex:1; overflow:auto; padding:24px 16px 90px; }
   .stage svg.kul-tree { width:100%; max-width:1250px; height:auto; display:block; margin:0 auto;
     background:#fff; border:1px solid var(--line); border-radius:8px; }
 
@@ -95,24 +97,14 @@
   .sync-hint { position:absolute; z-index:19; top:12px; right:12px; background:#fff7ed;
     border:1px solid #fed7aa; color:#9a3412; font-size:11.5px; padding:5px 10px; border-radius:8px; }
   .sync-hint kbd { background:#fff; border:1px solid #fed7aa; border-radius:4px; padding:0 4px; }
-  .chips { display:flex; flex-wrap:wrap; gap:5px; }
-  .chip { border:1px solid var(--line); background:var(--chip); border-radius:999px;
-    padding:3px 9px; font-size:11.5px; cursor:pointer; user-select:none; }
-  .chip:hover { border-color:var(--qa); }
-  .chip.on { background:var(--chip-on); border-color:var(--qa); color:#5b21b6; font-weight:600; }
-  .chip .cnt { color:var(--muted); font-weight:400; }
 
-  /* ---------- popover / plate (variants 1 & 3) ---------- */
-  .pop { max-width:290px; min-width:230px; background:var(--panel); border:1px solid var(--line);
+  /* ---------- the plate ---------- */
+  .pop { max-width:280px; min-width:240px; background:var(--panel); border:1px solid var(--line);
     border-radius:10px; box-shadow:0 6px 24px rgba(16,24,40,.14); font-size:12px; z-index:22; }
   .pop-head { display:flex; align-items:center; gap:6px; padding:8px 10px;
     border-bottom:1px solid var(--line); }
-  .pop-back { cursor:pointer; font-size:14px; color:var(--qa); padding:0 3px; user-select:none;
-    border-radius:5px; }
-  .pop-back:hover { background:var(--chip-on); }
-  .pop-crumb { flex:1; font-weight:600; font-size:12px; color:var(--muted);
+  .pop-crumb { flex:1; font-weight:600; font-size:12px; color:var(--ink);
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .pop-crumb b { color:var(--ink); }
   .pop-close { cursor:pointer; color:var(--muted); padding:0 3px; user-select:none; }
   .pop-body { padding:9px 11px; }
   .detail-name { font-weight:700; font-size:13.5px; }
@@ -120,29 +112,29 @@
   .detail-line b { color:var(--ink); font-weight:600; }
   .ghost-note { margin-top:5px; font-size:11px; color:#92400e; background:#fef3c7;
     border:1px solid #fcd34d; border-radius:5px; padding:2px 6px; display:inline-block; }
-  .qtype-btn { display:flex; align-items:center; gap:7px; width:100%; margin-top:6px;
-    border:1px solid var(--line); background:var(--chip); border-radius:8px; padding:7px 10px;
-    font-size:12px; font-weight:600; cursor:pointer; user-select:none; }
-  .qtype-btn:hover { border-color:var(--qa); background:var(--chip-on); }
-  .qtype-btn .arr { margin-left:auto; color:var(--muted); font-weight:400; }
-  .qtype-btn .sub { display:block; font-weight:400; color:var(--muted); font-size:11px; }
-  .group-row { display:flex; align-items:center; width:100%; margin-top:5px;
-    border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:12px;
-    font-weight:600; cursor:pointer; user-select:none; }
-  .group-row:hover { border-color:var(--qa); background:var(--chip); }
-  .group-row .arr { margin-left:auto; color:var(--muted); font-weight:400; }
-  .pop-hintline { color:var(--muted); font-size:11.5px; margin-top:6px; line-height:1.45; }
-  .relate-wait { border:1.5px dashed var(--qb); border-radius:8px; padding:8px 10px; margin-top:6px;
-    color:#92400e; background:#fffbeb; font-size:12px; line-height:1.5; }
-  .cancel-link { color:var(--qa); cursor:pointer; text-decoration:underline; user-select:none; }
-
-  /* ---------- accordion plate (variant 3) ---------- */
   .plate-section { border-top:1px solid var(--line); }
-  .plate-sec-head { display:flex; align-items:center; padding:7px 11px; font-weight:600;
+  .plate-sec-head { display:flex; align-items:center; padding:8px 11px; font-weight:600;
     cursor:pointer; user-select:none; font-size:12px; }
   .plate-sec-head:hover { background:var(--chip); }
   .plate-sec-head .arr { margin-left:auto; color:var(--muted); font-weight:400; }
-  .plate-sec-body { padding:2px 11px 9px; }
+  .relate-row .sub, .plate-sec-head .sub { display:block; font-weight:400; color:var(--muted); font-size:11px; }
+  .relate-row { display:block; padding:8px 11px; font-weight:600; font-size:12px; cursor:pointer;
+    user-select:none; border-top:1px solid var(--line); }
+  .relate-row:hover { background:var(--chip); }
+  .relate-wait { margin:0 11px 9px; border:1.5px dashed var(--qb); border-radius:8px; padding:7px 10px;
+    color:#92400e; background:#fffbeb; font-size:12px; line-height:1.5; }
+  .cancel-link { color:var(--qa); cursor:pointer; text-decoration:underline; user-select:none; }
+
+  /* the one flat scrollable kin list — no category nesting */
+  .kin-list { max-height:236px; overflow-y:auto; padding:3px 6px 7px; }
+  .kin-row { display:flex; align-items:center; padding:6px 8px; border-radius:7px;
+    cursor:pointer; user-select:none; font-size:12px; }
+  .kin-row:hover { background:var(--chip); }
+  .kin-row.on { background:var(--chip-on); color:#5b21b6; font-weight:600; }
+  .kin-row .cnt { margin-left:auto; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .kin-row .cnt.zero { color:#b42318; }
+
+  /* zero-mode relate badges on target cards */
   .relate-badge { position:absolute; z-index:21; width:20px; height:20px; border-radius:999px;
     background:var(--panel); border:1.5px solid var(--qb); color:#92400e; font-size:11px;
     display:flex; align-items:center; justify-content:center; cursor:pointer; user-select:none;
@@ -151,37 +143,12 @@
   .relate-badge:hover { width:auto; padding:0 8px; font-weight:600; background:#fffbeb; }
   .relate-badge .lbl { display:none; margin-left:4px; }
   .relate-badge:hover .lbl { display:inline; }
-
-  /* ---------- halo ring (variant 2) ---------- */
-  .petal { position:absolute; z-index:22; background:var(--panel); border:1px solid var(--line);
-    border-radius:999px; padding:4px 11px; font-size:11.5px; font-weight:600; cursor:pointer;
-    user-select:none; box-shadow:0 3px 12px rgba(16,24,40,.16); white-space:nowrap; }
-  .petal:hover { border-color:var(--qa); background:var(--chip-on); color:#5b21b6; }
-  .petal.relate { border-color:var(--qb); color:#92400e; background:#fffbeb; cursor:grab; }
-  .petal.relate:active { cursor:grabbing; }
-  .petal.home { background:var(--chip); color:var(--muted); font-weight:400; }
-  .fan-chip { position:absolute; z-index:22; }
-  .detail-plate { max-width:250px; background:var(--panel); border:1px solid var(--line);
-    border-radius:9px; box-shadow:0 4px 16px rgba(16,24,40,.12); padding:7px 10px;
-    font-size:11.5px; z-index:21; }
-  .thread-svg { position:absolute; left:0; top:0; z-index:23; pointer-events:none; }
-  .thread-svg line { stroke:var(--qb); stroke-width:2.5; stroke-dasharray:7 5; }
-
-  /* ---------- switcher ---------- */
-  .switcher { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; z-index:40;
-    display:flex; align-items:center; gap:10px; background:#0f172a; color:#f8fafc;
-    border-radius:999px; padding:7px 12px; box-shadow:0 8px 30px rgba(2,6,23,.4);
-    font-size:13px; user-select:none; }
-  .switcher .arrow { cursor:pointer; font-size:15px; padding:0 6px; opacity:.85; }
-  .switcher .arrow:hover { opacity:1; }
-  .switcher .vlabel { min-width:200px; text-align:center; font-weight:600; }
-  .switcher .vkeys { color:#94a3b8; font-weight:400; font-size:11px; }
 </style>
 
 <div id="proto-root">
   <div class="proto-head">
-    <span class="proto-badge">PROTOTYPE · THROWAWAY · ROUND 2</span>
-    <span class="proto-title">On-canvas kinship querying <span>— #276 · progressive disclosure + mouse-only relate</span></span>
+    <span class="proto-badge">PROTOTYPE · ROUND 3 · CONVERGED</span>
+    <span class="proto-title">On-canvas kinship querying <span>— #276 · plate + flat kin list + ⚭ badges</span></span>
     <span class="spacer"></span>
     <span class="sim-wrap">
       <span class="sim-dot"></span> Simulate editor cursor on:
@@ -192,8 +159,17 @@
   <div class="stage-row">
     <div class="stage" id="stage">
       <details class="explainer" id="explainer" open>
-        <summary>What this variation tries</summary>
-        <div class="ex-body" id="exBody"></div>
+        <summary>The converged model</summary>
+        <div class="ex-body">
+          <dl>
+            <dt>Progressive disclosure, shallow</dt>
+            <dd>Click a person → anchored plate: <b>detail</b> on top, then two affordances. “Explore kin” opens <b>one flat, scrollable list</b> of every kin query with counts — no category nesting. Everything stays visible in place; nothing navigates away.</dd>
+            <dt>Relate, mouse-only, two doors</dt>
+            <dd><b>⚭ corner badges</b> on every other card — one click, no mode. Or the plate’s “How related to…?” row, which arms a pick mode (dashed rings). Same resolution either way, with ⇄ swap in the banner.</dd>
+            <dt>Unchanged stances</dt>
+            <dd>Results glow + rest dims; ghosts light too; editor sync suspends during a query (<kbd>Esc</kbd> resumes); empty results toast honestly.</dd>
+          </dl>
+        </div>
       </details>
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1162 586"><style>
 svg {
@@ -247,12 +223,6 @@ svg {
 .kul-legend .kul-edge[data-link-kind="marriage"] { stroke-width: var(--kul-legend-marriage-edge-stroke-width); }
 </style><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="birth" data-child-id="marco" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 380 156 L 114 156 Q 104 156 104 166 L 104 184"/><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="birth" data-child-id="lucia" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 400 156 L 476 156 Q 486 156 486 166 L 486 184"/><path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="birth" data-child-id="elena" data-is-past="true" fill="none" d="M 963 56 L 963 156 L 963 156 L 963 184"/><path class="kul-edge" data-marriage-id="m_marco_elena" data-link-kind="birth" data-child-id="matteo" data-is-past="false" fill="none" d="M 199 216 L 199 306 Q 199 316 189 316 L 114 316 Q 104 316 104 326 L 104 344"/><path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="birth" data-child-id="giulia" data-is-past="true" fill="none" d="M 581 216 L 581 316 L 581 316 L 581 344"/><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="marriage" data-host-id="giuseppe" data-joining-id="sofia" data-start="1965-06-12" data-is-ended="false" fill="none" d="M 375 56 L 405 56"/><path class="kul-edge" data-marriage-id="m_marco_elena" data-link-kind="marriage" data-host-id="marco" data-joining-id="elena" data-start="1995-07-22" data-is-ended="false" fill="none" d="M 184 216 L 214 216"/><path class="kul-edge" data-marriage-id="m_matteo_giulia" data-link-kind="marriage" data-host-id="matteo" data-joining-id="giulia" data-start="2020-09-12" data-is-ended="false" fill="none" d="M 184 376 L 214 376"/><path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="marriage" data-host-id="lucia" data-joining-id="paolo" data-start="1996-10-05" data-is-ended="false" fill="none" d="M 566 216 L 596 216"/><path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="marriage" data-host-id="aldo" data-joining-id="bianca" data-start="1967-05-30" data-is-ended="false" fill="none" d="M 948 56 L 978 56"/><g class="kul-card" data-person-id="giuseppe" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1940-05-19" data-generation="0"><rect x="215" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Giuseppe Rossi</text></g><g class="kul-card" data-person-id="sofia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1943-01-27" data-generation="0"><rect x="405" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="485" y="56" text-anchor="middle" dominant-baseline="central">Sofia Rossi</text></g><g class="kul-card" data-person-id="marco" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1968-09-30" data-generation="1"><rect x="24" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Marco Rossi</text></g><g class="kul-card" data-person-id="elena" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1"><rect x="214" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="294" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text></g><g class="kul-card" data-person-id="matteo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1997-02-14" data-generation="2"><rect x="24" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="376" text-anchor="middle" dominant-baseline="central">Matteo Rossi</text></g><g class="kul-card" data-person-id="giulia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2"><rect x="214" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="294" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text></g><g class="kul-card" data-person-id="lucia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1971-04-08" data-generation="1"><rect x="406" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="486" y="216" text-anchor="middle" dominant-baseline="central">Lucia Rossi</text></g><g class="kul-card" data-person-id="paolo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1969-03-17" data-generation="1"><rect x="596" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="676" y="216" text-anchor="middle" dominant-baseline="central">Paolo Conti</text></g><g class="kul-card" data-person-id="giulia" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2"><rect x="501" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="581" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text></g><g class="kul-card" data-person-id="aldo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1942-08-03" data-generation="0"><rect x="788" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="868" y="56" text-anchor="middle" dominant-baseline="central">Aldo Bianchi</text></g><g class="kul-card" data-person-id="bianca" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1945-12-21" data-generation="0"><rect x="978" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="1058" y="56" text-anchor="middle" dominant-baseline="central">Bianca Bianchi</text></g><g class="kul-card" data-person-id="elena" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1"><rect x="883" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="963" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text></g><g class="kul-legend"><rect class="kul-legend-bg" x="8" y="448" width="188" height="130" rx="6" ry="6"/><g class="kul-card" data-kind="canonical" data-gender="male"><rect x="22" y="462" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="469" dominant-baseline="central">Male</text><g class="kul-card" data-kind="canonical" data-gender="female"><rect x="22" y="484" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="491" dominant-baseline="central">Female</text><g class="kul-card" data-kind="ghost"><rect x="22" y="506" width="30" height="14" rx="3" ry="3" stroke-dasharray="3 2"/></g><text class="kul-legend-label" x="62" y="513" dominant-baseline="central">Past record</text><path class="kul-edge" data-link-kind="birth" fill="none" d="M 22 535 L 52 535"/><text class="kul-legend-label" x="62" y="535" dominant-baseline="central">Birth</text><path class="kul-edge" data-link-kind="marriage" fill="none" d="M 22 557 L 52 557"/><text class="kul-legend-label" x="62" y="557" dominant-baseline="central">Marriage</text></g></svg>
     </div>
-  </div>
-
-  <div class="switcher">
-    <span class="arrow" id="prevV">←</span>
-    <span class="vlabel"><span id="vName"></span><br><span class="vkeys">?variant= · ← → keys · Esc clears</span></span>
-    <span class="arrow" id="nextV">→</span>
   </div>
 </div>
 
@@ -503,6 +473,7 @@ svg {
     return uniq(out).filter(function (y) { return y !== x; });
   }
 
+  /* the one flat kin-query list — order: immediate → lineage → extended → affinal → step */
   var KIN_SETS = [
     { id: "parents", label: "Parents", fn: parentsOf },
     { id: "children", label: "Children", fn: childrenOf },
@@ -519,19 +490,6 @@ svg {
     { id: "stepChildren", label: "Step-children", fn: function () { return []; } }
   ];
   function setById(id) { return KIN_SETS.filter(function (s) { return s.id === id; })[0]; }
-
-  /* level 2 of the disclosure: query TYPES (groups of exact queries) */
-  var KIN_GROUPS = [
-    { id: "immediate", label: "Immediate family", sets: ["parents", "children", "siblings", "spouses"] },
-    { id: "lineage", label: "Lineage", sets: ["ancestors", "descendants"] },
-    { id: "extended", label: "Extended kin", sets: ["auntsUncles", "niecesNephews", "cousins"] },
-    { id: "inlaw", label: "In-laws", sets: ["inLaws"] },
-    { id: "step", label: "Step relations", sets: ["stepParents", "stepSiblings", "stepChildren"] }
-  ];
-  function groupById(id) { return KIN_GROUPS.filter(function (g) { return g.id === id; })[0]; }
-  function groupCount(gid, anchor) {
-    return groupById(gid).sets.reduce(function (n, sid) { return n + setById(sid).fn(anchor).length; }, 0);
-  }
 
   /* =============== DOM + paint helpers =============== */
   var stage = document.getElementById("stage");
@@ -556,7 +514,7 @@ svg {
       if (keep.indexOf(c.getAttribute("data-person-id")) < 0) c.classList.add("q-dim");
     });
   }
-  /* on-canvas stance: a person's result glow lights every card they own —
+  /* stance: a person's result glow lights every card they own —
      canonical solid, past-record ghost dashed */
   function paintResults(anchorIds, resultIds) {
     clearPaint();
@@ -665,13 +623,13 @@ svg {
   function applyEditorSim() {
     allCards().forEach(function (c) { c.classList.remove("kul-selected"); });
     if (!editorSel) return;
-    if (current().queryActive()) return; // on-canvas stance: query suspends sync
+    if (model.queryActive()) return; // query suspends sync
     addClass(editorSel, "kul-selected", "canonical");
   }
   function syncHint() {
     var old = stage.querySelector(".sync-hint");
     if (old) old.remove();
-    if (editorSel && current().queryActive()) {
+    if (editorSel && model.queryActive()) {
       var hint = document.createElement("div");
       hint.className = "sync-hint";
       hint.innerHTML = "editor sync paused while querying — <kbd>Esc</kbd> to resume";
@@ -684,329 +642,99 @@ svg {
     syncHint();
   });
 
-  /* =============== shared query actions =============== */
-  function runKinSet(anchor, setId) {
-    var s = setById(setId);
-    var ids = s.fn(anchor);
-    paintResults([anchor], ids);
-    if (!ids.length) {
-      toastAt("No " + s.label.toLowerCase() + " in the recorded facts for " + P[anchor].name +
-        ". Nothing is guessed — absence stays absence.", cardRect(anchor));
-    }
-    return ids;
-  }
-
-  /* =============== Variation 1: drill-down card =============== */
-  var variant1 = {
-    key: "1", name: "1 — Drill-down card",
-    anchor: null, page: null, group: null, relateArmed: false,
-    explainer:
-      "<dl>" +
-      "<dt>Disclosure shape</dt><dd>One popover that navigates like pages with a breadcrumb: <b>person detail</b> → <b>query types</b> → <b>exact queries</b>. ‹ walks back up.</dd>" +
-      "<dt>Relate (mouse-only)</dt><dd>“How related to…?” is a query type. Choosing it arms a pick mode: every other card gets a dashed target ring; clicking one resolves. Cancel link or Esc backs out.</dd>" +
-      "<dt>Character</dt><dd>Familiar and compact — a context card, like an IDE hover. Everything happens in one place; the tree only ever shows paint.</dd>" +
-      "</dl>",
+  /* =============== the converged model =============== */
+  var model = {
+    anchor: null, listOpen: false, activeSet: null, relateArmed: false, scrollHandler: null,
     queryActive: function () { return !!this.anchor; },
-    enter: function () {},
-    exit: function () { this.anchor = null; this.page = null; this.group = null; this.relateArmed = false; removeFloats(); clearPaint(); applyEditorSim(); },
-    clear: function () { this.exit(); syncHint(); },
-    onCardClick: function (id) {
-      if (this.relateArmed && this.anchor && id !== this.anchor) { this.resolveTo(id); return; }
-      this.anchor = id; this.group = null; this.relateArmed = false;
-      clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim(); syncHint();
-      this.showPage("detail");
-    },
-    resolveTo: function (b) {
-      var self = this, a = this.anchor;
-      this.relateArmed = false;
-      allCards().forEach(function (c) { c.classList.remove("q-target"); });
-      var ties = resolvePair(a, b);
-      paintResolution(a, b, ties);
-      var pop = stage.querySelector(".pop"); if (pop) pop.remove();
-      showBanner(a, b, ties, function () { self.anchor = b; self.resolveTo(a); });
-    },
-    showPage: function (page) {
-      var self = this, a = this.anchor;
-      this.page = page;
-      var old = stage.querySelector(".pop"); if (old) old.remove();
-      var pop = document.createElement("div");
-      pop.className = "pop";
-      var crumb = "<b>" + P[a].name + "</b>", back = null, body = "";
-      if (page === "detail") {
-        body = detailHtml(a) +
-          '<button class="qtype-btn" data-go="groups">Explore their kin <span class="sub">parents, cousins, in-laws…</span><span class="arr">▸</span></button>' +
-          '<button class="qtype-btn" data-go="relate">How related to…? <span class="sub">pick any other person</span><span class="arr">▸</span></button>';
-      } else if (page === "groups") {
-        back = "detail"; crumb += " ▸ Explore kin";
-        body = KIN_GROUPS.map(function (g) {
-          var n = groupCount(g.id, a);
-          return '<div class="group-row" data-group="' + g.id + '">' + g.label +
-            ' <span class="arr">' + n + " ▸</span></div>";
-        }).join("") +
-        '<div class="pop-hintline">Counts are totals across the group’s queries.</div>';
-      } else if (page === "sets") {
-        back = "groups";
-        var g = groupById(this.group);
-        crumb += " ▸ " + g.label;
-        body = '<div class="chips">' + g.sets.map(function (sid) {
-          var s = setById(sid);
-          return '<span class="chip" data-set="' + sid + '">' + s.label +
-            ' <span class="cnt">· ' + s.fn(a).length + "</span></span>";
-        }).join("") + "</div>";
-      } else if (page === "relate") {
-        back = "detail"; crumb += " ▸ How related to…?";
-        body = '<div class="relate-wait">Click any other person on the tree.<br>' +
-          '<span class="cancel-link" data-cancel="1">Cancel</span></div>';
-      }
-      pop.innerHTML = '<div class="pop-head">' +
-        (back ? '<span class="pop-back" data-back="' + back + '">‹</span>' : "") +
-        '<span class="pop-crumb">' + crumb + '</span><span class="pop-close" data-close="1">✕</span></div>' +
-        '<div class="pop-body">' + body + "</div>";
-      pop.addEventListener("click", function (ev) {
-        ev.stopPropagation();
-        var el = ev.target.closest("[data-go],[data-back],[data-close],[data-group],[data-set],[data-cancel]");
-        if (!el) return;
-        if (el.hasAttribute("data-close")) { self.clear(); return; }
-        if (el.hasAttribute("data-cancel") || el.hasAttribute("data-back")) {
-          self.relateArmed = false;
-          allCards().forEach(function (c) { c.classList.remove("q-target"); });
-          self.showPage(el.getAttribute("data-back") || "detail"); return;
-        }
-        if (el.hasAttribute("data-go")) {
-          var go = el.getAttribute("data-go");
-          if (go === "relate") {
-            self.relateArmed = true;
-            ALL.forEach(function (pid) { if (pid !== a) addClass(pid, "q-target"); });
-          }
-          self.showPage(go); return;
-        }
-        if (el.hasAttribute("data-group")) { self.group = el.getAttribute("data-group"); self.showPage("sets"); return; }
-        if (el.hasAttribute("data-set")) {
-          runKinSet(a, el.getAttribute("data-set"));
-          pop.querySelectorAll(".chip").forEach(function (c) { c.classList.remove("on"); });
-          el.classList.add("on");
-        }
-      });
-      popAt(pop, cardRect(a));
-    }
-  };
-
-  /* =============== Variation 2: halo ring =============== */
-  var variant2 = {
-    key: "2", name: "2 — Halo ring",
-    anchor: null, level: null, group: null, relateArmed: false, dragState: null,
-    explainer:
-      "<dl>" +
-      "<dt>Disclosure shape</dt><dd>Spatial: a compact <b>detail plate</b> under the card, then <b>query types orbit the card</b> as petals, then a group petal fans its <b>exact queries</b> out in an arc. ⌂ collapses a level.</dd>" +
-      "<dt>Relate (mouse-only)</dt><dd><b>Drag the ⇄ petal</b> — a dashed thread follows the mouse; drop it on any person to resolve. A plain click on ⇄ arms click-to-pick instead. Both are one hand on the mouse.</dd>" +
-      "<dt>Character</dt><dd>The query lives ON the tree — no panel at all. Most direct manipulation, most visual motion.</dd>" +
-      "</dl>",
-    queryActive: function () { return !!this.anchor; },
-    enter: function () {},
-    exit: function () {
-      this.anchor = null; this.level = null; this.group = null; this.relateArmed = false;
-      this.dragState = null; removeFloats(); clearPaint(); applyEditorSim();
-    },
-    clear: function () { this.exit(); syncHint(); },
-    onCardClick: function (id) {
-      if (this.relateArmed && this.anchor && id !== this.anchor) { this.resolveTo(id); return; }
-      this.anchor = id; this.group = null; this.relateArmed = false;
-      clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
-      this.showLevel("petals");
-      syncHint();
-    },
-    resolveTo: function (b) {
-      var self = this, a = this.anchor;
-      this.relateArmed = false;
-      allCards().forEach(function (c) { c.classList.remove("q-target"); });
-      removeFloats();
-      var ties = resolvePair(a, b);
-      paintResolution(a, b, ties);
-      showBanner(a, b, ties, function () { self.anchor = b; self.resolveTo(a); });
-      syncHint();
-    },
-    centerOf: function (id) {
-      var r = cardRect(id);
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: Math.max(r.width, r.height) / 2 };
-    },
-    placeAround: function (labels, radius, startDeg) {
-      var self = this, a = this.anchor, c = this.centerOf(a), made = [];
-      labels.forEach(function (item, i) {
-        var deg = startDeg + (360 / labels.length) * i;
-        var rad = deg * Math.PI / 180;
-        var el = document.createElement("div");
-        el.className = "petal " + (item.cls || "");
-        el.innerHTML = item.html;
-        el.classList.add("q-float");
-        stage.appendChild(el);
-        var x = c.x + radius * Math.cos(rad) - el.offsetWidth / 2;
-        var y = c.y + radius * Math.sin(rad) - el.offsetHeight / 2;
-        el.style.left = Math.max(8, Math.min(x, stage.scrollWidth - el.offsetWidth - 8)) + "px";
-        el.style.top = Math.max(8, y) + "px";
-        if (item.onClick) el.addEventListener("click", function (ev) { ev.stopPropagation(); item.onClick(el); });
-        if (item.onMouseDown) el.addEventListener("mousedown", function (ev) { ev.stopPropagation(); item.onMouseDown(ev, el); });
-        made.push(el);
-      });
-      return made;
-    },
-    showLevel: function (level) {
-      var self = this, a = this.anchor;
-      this.level = level;
-      removeFloats();
-      // level 1: detail plate, always visible while selected
-      var plate = document.createElement("div");
-      plate.className = "detail-plate q-float";
-      plate.innerHTML = detailHtml(a);
-      var r = cardRect(a);
-      stage.appendChild(plate);
-      plate.style.left = Math.max(8, Math.min(r.left + r.width / 2 - plate.offsetWidth / 2,
-        stage.scrollWidth - plate.offsetWidth - 8)) + "px";
-      plate.style.top = (r.top + r.height + 12) + "px";
-      plate.addEventListener("click", function (ev) { ev.stopPropagation(); });
-
-      var radius = Math.max(r.width, r.height) / 2 + 58;
-      if (level === "petals") {
-        // level 2: query types orbit the card
-        var items = KIN_GROUPS.map(function (g) {
-          return { html: g.label + ' <span style="color:var(--muted)">' + groupCount(g.id, a) + "</span>",
-            onClick: function () { self.group = g.id; self.showLevel("fan"); } };
-        });
-        items.push({ html: "⇄ how related?", cls: "relate",
-          onClick: function () {
-            self.relateArmed = true;
-            ALL.forEach(function (pid) { if (pid !== a) addClass(pid, "q-target"); });
-            toastAt("Click any other person — or drag the ⇄ petal onto them.", cardRect(a));
-          },
-          onMouseDown: function (ev) { self.startThread(ev); } });
-        this.placeAround(items, radius, -90);
-      } else if (level === "fan") {
-        // level 3: the chosen group's exact queries fan out in an arc
-        var g = groupById(this.group);
-        var items = g.sets.map(function (sid) {
-          var s = setById(sid);
-          return { html: s.label + ' <span style="color:var(--muted)">' + s.fn(a).length + "</span>",
-            onClick: function (el) {
-              runKinSet(a, sid);
-              stage.querySelectorAll(".petal").forEach(function (p) { p.classList.remove("relate"); });
-            } };
-        });
-        items.push({ html: "⌂ back", cls: "home", onClick: function () { self.showLevel("petals"); } });
-        this.placeAround(items, radius, -90);
-      }
-    },
-    startThread: function (ev) {
-      var self = this, a = this.anchor, c = this.centerOf(a);
-      var overlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      overlay.setAttribute("class", "thread-svg q-float");
-      overlay.setAttribute("width", stage.scrollWidth);
-      overlay.setAttribute("height", stage.scrollHeight);
-      var line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      line.setAttribute("x1", c.x); line.setAttribute("y1", c.y);
-      line.setAttribute("x2", c.x); line.setAttribute("y2", c.y);
-      overlay.appendChild(line);
-      stage.appendChild(overlay);
-      var startX = ev.clientX, startY = ev.clientY, moved = false;
-      function toStage(e) {
-        var s = stage.getBoundingClientRect();
-        return { x: e.clientX - s.left + stage.scrollLeft, y: e.clientY - s.top + stage.scrollTop };
-      }
-      function onMove(e) {
-        var p = toStage(e);
-        if (Math.abs(e.clientX - startX) + Math.abs(e.clientY - startY) > 5) moved = true;
-        line.setAttribute("x2", p.x); line.setAttribute("y2", p.y);
-      }
-      function onUp(e) {
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", onUp);
-        overlay.remove();
-        if (!moved) return; // plain click — the click handler arms pick mode
-        var el = document.elementFromPoint(e.clientX, e.clientY);
-        var card = el && el.closest ? el.closest('.kul-card[data-person-id]') : null;
-        var id = card && card.getAttribute("data-person-id");
-        if (id && id !== a) self.resolveTo(id);
-      }
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", onUp);
-    }
-  };
-
-  /* =============== Variation 3: corner badges =============== */
-  var variant3 = {
-    key: "3", name: "3 — Corner badges",
-    anchor: null, openGroup: null, scrollHandler: null,
-    explainer:
-      "<dl>" +
-      "<dt>Disclosure shape</dt><dd>An anchored plate that <b>accordions downward in place</b>: person detail on top, query types as collapsed sections, exact queries inside the section you open. Levels stay visible — no navigation.</dd>" +
-      "<dt>Relate (mouse-only)</dt><dd><b>No mode at all</b>: while someone is selected, every other card wears a small ⚭ badge in its corner. Hover names it, one click resolves. The affordance lives on the target, not in a menu.</dd>" +
-      "<dt>Character</dt><dd>Calmest of the three — nothing orbits, nothing arms. Costs a little canvas clutter (badges) to make relating a single click.</dd>" +
-      "</dl>",
-    queryActive: function () { return !!this.anchor; },
-    enter: function () {},
-    exit: function () {
-      this.anchor = null; this.openGroup = null;
+    clear: function () {
+      this.anchor = null; this.listOpen = false; this.activeSet = null; this.relateArmed = false;
       if (this.scrollHandler) { stage.removeEventListener("scroll", this.scrollHandler); this.scrollHandler = null; }
-      removeFloats(); clearPaint(); applyEditorSim();
+      removeFloats(); clearPaint(); applyEditorSim(); syncHint();
     },
-    clear: function () { this.exit(); syncHint(); },
     onCardClick: function (id) {
-      this.anchor = id; this.openGroup = null;
+      if (this.relateArmed && this.anchor && id !== this.anchor) { this.resolveTo(id); return; }
+      this.anchor = id; this.listOpen = false; this.activeSet = null; this.relateArmed = false;
       clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
       this.render();
       syncHint();
     },
     resolveTo: function (b) {
       var self = this, a = this.anchor;
+      this.relateArmed = false;
+      allCards().forEach(function (c) { c.classList.remove("q-target"); });
       var ties = resolvePair(a, b);
       paintResolution(a, b, ties);
       var pop = stage.querySelector(".pop"); if (pop) pop.remove();
       Array.prototype.slice.call(stage.querySelectorAll(".relate-badge")).forEach(function (n) { n.remove(); });
-      showBanner(a, b, ties, function () { self.anchor = b; self.render(); self.resolveTo(a); });
+      showBanner(a, b, ties, function () { self.anchor = b; self.resolveTo(a); });
+      syncHint();
     },
     render: function () {
       var self = this, a = this.anchor;
       removeFloats();
       var pop = document.createElement("div");
       pop.className = "pop";
-      var sections = KIN_GROUPS.map(function (g) {
-        var open = self.openGroup === g.id;
-        var body = "";
-        if (open) {
-          body = '<div class="plate-sec-body"><div class="chips">' + g.sets.map(function (sid) {
-            var s = setById(sid);
-            return '<span class="chip" data-set="' + sid + '">' + s.label +
-              ' <span class="cnt">· ' + s.fn(a).length + "</span></span>";
-          }).join("") + "</div></div>";
-        }
-        return '<div class="plate-section"><div class="plate-sec-head" data-group="' + g.id + '">' +
-          g.label + '<span class="arr">' + groupCount(g.id, a) + (open ? " ▾" : " ▸") + "</span></div>" + body + "</div>";
-      }).join("");
-      pop.innerHTML = '<div class="pop-head"><span class="pop-crumb"><b>' + P[a].name + '</b></span>' +
+      var kinArr = this.listOpen ? "▾" : "▸";
+      var listHtml = "";
+      if (this.listOpen) {
+        listHtml = '<div class="kin-list">' + KIN_SETS.map(function (s) {
+          var n = s.fn(a).length;
+          var on = self.activeSet === s.id;
+          return '<div class="kin-row' + (on ? " on" : "") + '" data-set="' + s.id + '">' + s.label +
+            '<span class="cnt' + (n ? "" : " zero") + '">' + n + "</span></div>";
+        }).join("") + "</div>";
+      }
+      var relateHtml = this.relateArmed
+        ? '<div class="relate-wait">Click any other person on the tree — or use a ⚭ badge.<br><span class="cancel-link" data-cancel="1">Cancel</span></div>'
+        : "";
+      pop.innerHTML = '<div class="pop-head"><span class="pop-crumb">' + P[a].name + "</span>" +
         '<span class="pop-close" data-close="1">✕</span></div>' +
-        '<div class="pop-body">' + detailHtml(a) +
-        '<div class="pop-hintline">⚭ on any other card answers “how are we related?” — one click, no mode.</div></div>' +
-        sections;
+        '<div class="pop-body">' + detailHtml(a) + "</div>" +
+        '<div class="plate-section"><div class="plate-sec-head" data-togglelist="1">Explore kin' +
+        '<span class="arr">' + kinArr + "</span></div>" + listHtml + "</div>" +
+        '<div class="relate-row" data-relate="1">How related to…?' +
+        '<span class="sub">click the ⚭ badge on any card, or arm here and pick</span></div>' + relateHtml;
       pop.addEventListener("click", function (ev) {
         ev.stopPropagation();
-        var el = ev.target.closest("[data-close],[data-group],[data-set]");
+        var el = ev.target.closest("[data-close],[data-togglelist],[data-set],[data-relate],[data-cancel]");
         if (!el) return;
         if (el.hasAttribute("data-close")) { self.clear(); return; }
-        if (el.hasAttribute("data-group")) {
-          var gid = el.getAttribute("data-group");
-          self.openGroup = self.openGroup === gid ? null : gid;
+        if (el.hasAttribute("data-togglelist")) { self.listOpen = !self.listOpen; self.render(); return; }
+        if (el.hasAttribute("data-set")) {
+          var sid = el.getAttribute("data-set");
+          self.activeSet = sid;
+          var s = setById(sid);
+          var ids = s.fn(a);
+          paintResults([a], ids);
+          if (!ids.length) {
+            toastAt("No " + s.label.toLowerCase() + " in the recorded facts for " + P[a].name +
+              ". Nothing is guessed — absence stays absence.", cardRect(a));
+          }
+          pop.querySelectorAll(".kin-row").forEach(function (rw) { rw.classList.remove("on"); });
+          el.classList.add("on");
+          return;
+        }
+        if (el.hasAttribute("data-relate")) {
+          self.relateArmed = true;
+          ALL.forEach(function (pid) { if (pid !== a) addClass(pid, "q-target"); });
           self.render(); return;
         }
-        if (el.hasAttribute("data-set")) {
-          runKinSet(a, el.getAttribute("data-set"));
-          pop.querySelectorAll(".chip").forEach(function (c) { c.classList.remove("on"); });
-          el.classList.add("on");
+        if (el.hasAttribute("data-cancel")) {
+          self.relateArmed = false;
+          allCards().forEach(function (c) { c.classList.remove("q-target"); });
+          self.render(); return;
         }
       });
       popAt(pop, cardRect(a));
+      if (this.relateArmed) {
+        ALL.forEach(function (pid) { if (pid !== a) addClass(pid, "q-target"); });
+      }
       this.renderBadges();
       if (!this.scrollHandler) {
         this.scrollHandler = function () { self.renderBadges(); };
         stage.addEventListener("scroll", this.scrollHandler);
       }
+      syncHint();
     },
     renderBadges: function () {
       var self = this, a = this.anchor;
@@ -1028,54 +756,20 @@ svg {
     }
   };
 
-  /* =============== variant switching =============== */
-  var VARIANTS = [variant1, variant2, variant3];
-  var vIndex = 0;
-  function current() { return VARIANTS[vIndex]; }
-  function setVariant(i, updateUrl) {
-    current().exit();
-    vIndex = (i + VARIANTS.length) % VARIANTS.length;
-    var v = current();
-    document.body.setAttribute("data-variant", v.key);
-    document.getElementById("vName").textContent = v.name;
-    document.getElementById("exBody").innerHTML = v.explainer;
-    if (updateUrl !== false) {
-      try {
-        var u = new URL(window.location.href);
-        u.searchParams.set("variant", v.key);
-        history.replaceState(null, "", u.toString());
-      } catch (e) { /* file:// without history — fine for a prototype */ }
-    }
-    v.enter();
-    applyEditorSim();
-    syncHint();
-  }
-  document.getElementById("prevV").addEventListener("click", function () { setVariant(vIndex - 1); });
-  document.getElementById("nextV").addEventListener("click", function () { setVariant(vIndex + 1); });
-  document.addEventListener("keydown", function (ev) {
-    var tag = (document.activeElement && document.activeElement.tagName) || "";
-    if (/INPUT|TEXTAREA|SELECT/.test(tag) || (document.activeElement && document.activeElement.isContentEditable)) return;
-    if (ev.key === "ArrowLeft") setVariant(vIndex - 1);
-    else if (ev.key === "ArrowRight") setVariant(vIndex + 1);
-    else if (ev.key === "Escape") { current().clear(); }
-  });
-
   /* =============== wire the SVG =============== */
   allCards().forEach(function (card) {
     card.addEventListener("click", function (ev) {
       var id = card.getAttribute("data-person-id");
-      if (current().onCardClick) current().onCardClick(id, ev);
+      model.onCardClick(id, ev);
       ev.stopPropagation();
     });
   });
-  svg.addEventListener("click", function () { current().clear(); });
-
-  /* =============== boot =============== */
-  var initial = "1";
-  try { initial = new URL(window.location.href).searchParams.get("variant") || "1"; } catch (e) {}
-  var idx = { 1: 0, 2: 1, 3: 2, a: 0, b: 1, c: 2 }[String(initial).toLowerCase()];
-  vIndex = 0;
-  setVariant(idx === undefined ? 0 : idx, false);
+  svg.addEventListener("click", function () { model.clear(); });
+  document.addEventListener("keydown", function (ev) {
+    var tag = (document.activeElement && document.activeElement.tagName) || "";
+    if (/INPUT|TEXTAREA|SELECT/.test(tag) || (document.activeElement && document.activeElement.isContentEditable)) return;
+    if (ev.key === "Escape") model.clear();
+  });
 })();
 </script>
 <!--BODY-END-->
