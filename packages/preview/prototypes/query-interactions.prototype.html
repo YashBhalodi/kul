@@ -9,14 +9,17 @@
 <!--BODY-START-->
 <title>Kul query-UX prototype — ticket #276</title>
 <!-- ============================================================
-  PROTOTYPE — THROWAWAY. Wayfinder ticket #276 (map #275), round 3.
-  CONVERGED interaction model (variation 1 × variation 3):
-    - click a person → anchored plate: detail on top, then flat
-      affordances — "Explore kin" opens ONE scrollable vertical
-      list of all kin queries (no category nesting), and
-      "How related to…?" arms a click-the-target pick mode.
-    - zero-mode relate: while a person is selected, every other
-      card wears a ⚭ corner badge; one click resolves.
+  PROTOTYPE — THROWAWAY. Wayfinder ticket #276 (map #275), round 8.
+  BOOKMARKED incumbent: converged plate model + docked-tag whisper.
+  This round: five COMPLETELY DIFFERENT whole-UX paradigms, built
+  against the taste profile from rounds 1-7 (tree-as-interface,
+  position over prose, whisper density, modeless, mouse-only):
+    1 Lens     — hover reads ties ambiently; click pins
+    2 Radiate  — one click labels every card with its term
+    3 Compass  — kin sets as spatial directions around the card
+    4 Trail    — walk hop by hop; the genitive chain composes
+    5 Brushes  — paint the tree with composable filter brushes
+  Switch via ?ux=1..5, the floating bar, or ← → keys.
   The "kinship engine" below is a mock good only for examples/05.
   ============================================================ -->
 <style>
@@ -35,10 +38,9 @@
     display: flex; flex-direction: column; }
   #proto-root *, #proto-root *::before, #proto-root *::after { box-sizing: border-box; }
 
-  /* ---------- header ---------- */
   .proto-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap;
     padding:10px 16px; background:#fff; border-bottom:1px solid var(--line); }
-  .proto-badge { background:#dcfce7; color:#166534; border:1px solid #86efac;
+  .proto-badge { background:#fae8ff; color:#86198f; border:1px solid #f0abfc;
     font-size:11px; font-weight:700; letter-spacing:.06em; padding:3px 8px; border-radius:5px; }
   .proto-title { font-size:14px; font-weight:600; }
   .proto-title span { color:var(--muted); font-weight:400; }
@@ -47,7 +49,6 @@
   .sim-wrap select { font-size:12px; padding:3px 6px; border:1px solid var(--line); border-radius:6px; background:#fff; }
   .sim-dot { width:10px; height:10px; border-radius:50%; background:var(--sync); display:inline-block; }
 
-  /* ---------- explainer ---------- */
   .explainer { position:absolute; top:12px; left:12px; z-index:30; max-width:340px;
     background:var(--panel); border:1px solid var(--line); border-radius:10px;
     box-shadow:0 4px 16px rgba(16,24,40,.09); font-size:12.5px; line-height:1.45; }
@@ -58,13 +59,11 @@
   .explainer dt { font-weight:600; margin-top:6px; }
   .explainer dd { margin:1px 0 0 0; color:var(--muted); }
 
-  /* ---------- stage ---------- */
   .stage-row { display:flex; flex:1; min-height:0; position:relative; }
   .stage { position:relative; flex:1; overflow:auto; padding:24px 16px 90px; }
   .stage svg.kul-tree { width:100%; max-width:1250px; height:auto; display:block; margin:0 auto;
     background:#fff; border:1px solid var(--line); border-radius:8px; }
 
-  /* ---------- card paint states (outline technique = real preview chrome) ---------- */
   .kul-card { cursor:pointer; }
   .kul-card.kul-selected > rect { outline:3px solid var(--sync); outline-offset:2px; }
   .kul-card.q-anchor-a > rect { outline:3px solid var(--qa); outline-offset:3px; }
@@ -74,125 +73,99 @@
   .kul-card.q-result-ghost > rect { outline:2px dashed var(--qr); outline-offset:2px; }
   .kul-card.q-path > rect { outline:2px dashed var(--qpath); outline-offset:4px; }
   .kul-card.q-dim { opacity:.22; }
-  .kul-card.q-target > rect { outline:2px dashed var(--qb); outline-offset:2px; cursor:crosshair; }
+  .kul-card.q-fade { opacity:.45; }
   .kul-card.q-pulse > rect { animation:qpulse .9s ease-in-out infinite alternate; }
   @keyframes qpulse { from { outline-color:var(--qr); } to { outline-color:transparent; } }
 
-  /* ---------- shared floating pieces ---------- */
   .q-float { position:absolute; z-index:20; }
   .halo-toast { position:absolute; z-index:26; background:#0f172a; color:#f8fafc;
-    padding:7px 11px; border-radius:8px; font-size:12px; max-width:280px;
+    padding:7px 11px; border-radius:8px; font-size:12px; max-width:300px;
     box-shadow:0 6px 20px rgba(2,6,23,.35); }
-  .halo-banner { position:absolute; z-index:24; background:var(--panel); border:1px solid var(--line);
-    border-left:4px solid var(--qpath); border-radius:10px; padding:10px 14px;
-    box-shadow:0 8px 28px rgba(16,24,40,.18); font-size:12.5px; max-width:400px; }
-  .tie-row { margin:3px 0; }
-  .tie-en { font-weight:700; }
-  .tie-en.tie-term-gu { font-size:15px; cursor:help; }
-  .tie-gu { color:#5b21b6; }
-  .tie-gu .script { font-size:14px; }
-  .tie-note { color:var(--muted); font-size:11.5px; }
-  .swap-btn { display:inline-block; cursor:pointer; border:1px solid var(--line); background:var(--chip);
-    border-radius:7px; padding:2px 9px; font-size:12px; user-select:none; margin-top:6px; }
-  .swap-btn:hover { border-color:var(--qa); }
-
-  /* ---------- relation-card styles (the thing being varied) ---------- */
-  .p-pill { display:inline-block; padding:0 8px; border-radius:999px; font-weight:600;
-    font-size:12px; line-height:1.6; white-space:nowrap; }
-  .p-pill.a { background:#ede9fe; color:#5b21b6; border:1px solid #c4b5fd; }
-  .p-pill.b { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
-  .p-pill.mid { background:#e0f2fe; color:#075985; border:1px solid #7dd3fc; }
-  .card-head { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
-  .card-head .vs { color:var(--muted); font-size:13px; }
-  .dir-block { padding:6px 0; }
-  .dir-block + .dir-block { border-top:1px dashed var(--line); }
-  .dir-label { font-size:11px; color:var(--muted); letter-spacing:.03em; text-transform:uppercase;
-    margin-bottom:2px; }
-  .dir-label b { color:var(--ink); text-transform:none; letter-spacing:0; }
-  .chain { display:flex; align-items:center; flex-wrap:wrap; gap:4px; margin-top:4px; }
-  .chain .hop { color:var(--muted); font-size:12px; }
-  .chain .p-pill { cursor:default; font-weight:500; }
-  .tie-block { padding:5px 0; }
-  .tie-block + .tie-block { border-top:1px dashed var(--line); }
-
-  /* whisper pill (all three direction variants) */
-  .halo-banner.whisper-pill { padding:6px 12px; border-radius:999px; border-left-width:1px; }
-  .wh { display:flex; align-items:center; gap:7px; font-size:14px; font-weight:700; white-space:nowrap; }
-  .wh .tie-note { font-weight:400; font-size:12px; }
-  .wh .sep, .wh .arrow-line, .wh .gen { color:var(--muted); font-weight:400; }
-  .wh .gen { color:var(--ink); font-weight:700; margin-left:-3px; }
-  .wh .term { cursor:help; }
-  .wh .term.gu { font-size:15.5px; }
-  .dot { width:11px; height:11px; border-radius:50%; display:inline-block; flex:none; cursor:default; }
-  .dot.a { background:var(--qa); box-shadow:0 0 0 2px #ede9fe; }
-  .dot.b { background:var(--qb); box-shadow:0 0 0 2px #fef3c7; }
-  .swap-mini { cursor:pointer; color:var(--muted); font-size:14px; user-select:none; border-radius:5px; padding:0 3px; }
-  .swap-mini:hover { color:var(--qa); background:var(--chip-on); }
   .sync-hint { position:absolute; z-index:19; top:12px; right:12px; background:#fff7ed;
     border:1px solid #fed7aa; color:#9a3412; font-size:11.5px; padding:5px 10px; border-radius:8px; }
   .sync-hint kbd { background:#fff; border:1px solid #fed7aa; border-radius:4px; padding:0 4px; }
 
-  /* ---------- the plate ---------- */
-  .pop { max-width:280px; min-width:240px; background:var(--panel); border:1px solid var(--line);
-    border-radius:10px; box-shadow:0 6px 24px rgba(16,24,40,.14); font-size:12px; z-index:22; }
-  .pop-head { display:flex; align-items:center; gap:6px; padding:8px 10px;
-    border-bottom:1px solid var(--line); }
-  .pop-crumb { flex:1; font-weight:600; font-size:12px; color:var(--ink);
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .pop-close { cursor:pointer; color:var(--muted); padding:0 3px; user-select:none; }
-  .pop-body { padding:9px 11px; }
-  .detail-name { font-weight:700; font-size:13.5px; }
-  .detail-line { color:var(--muted); margin-top:3px; line-height:1.45; }
-  .detail-line b { color:var(--ink); font-weight:600; }
-  .ghost-note { margin-top:5px; font-size:11px; color:#92400e; background:#fef3c7;
-    border:1px solid #fcd34d; border-radius:5px; padding:2px 6px; display:inline-block; }
-  .plate-section { border-top:1px solid var(--line); }
-  .plate-sec-head { display:flex; align-items:center; padding:8px 11px; font-weight:600;
-    cursor:pointer; user-select:none; font-size:12px; }
-  .plate-sec-head:hover { background:var(--chip); }
-  .plate-sec-head .arr { margin-left:auto; color:var(--muted); font-weight:400; }
-  .relate-row .sub, .plate-sec-head .sub { display:block; font-weight:400; color:var(--muted); font-size:11px; }
-  .relate-row { display:block; padding:8px 11px; font-weight:600; font-size:12px; cursor:pointer;
-    user-select:none; border-top:1px solid var(--line); }
-  .relate-row:hover { background:var(--chip); }
-  .relate-wait { margin:0 11px 9px; border:1.5px dashed var(--qb); border-radius:8px; padding:7px 10px;
-    color:#92400e; background:#fffbeb; font-size:12px; line-height:1.5; }
-  .cancel-link { color:var(--qa); cursor:pointer; text-decoration:underline; user-select:none; }
+  /* the bookmarked docked-tag whisper */
+  .whisper-pill { position:absolute; z-index:24; background:var(--panel); border:1px solid var(--line);
+    border-radius:999px; padding:5px 12px; box-shadow:0 6px 20px rgba(16,24,40,.16);
+    display:flex; align-items:center; gap:7px; font-size:14px; font-weight:700; white-space:nowrap; }
+  .whisper-pill .tie-note { font-weight:400; font-size:12px; color:var(--muted); }
+  .whisper-pill .sep { color:var(--muted); font-weight:400; }
+  .whisper-pill .term { cursor:help; }
+  .whisper-pill .term.gu { font-size:15.5px; }
+  .dot { width:11px; height:11px; border-radius:50%; display:inline-block; flex:none; cursor:default; }
+  .dot.a { background:var(--qa); box-shadow:0 0 0 2px #ede9fe; }
+  .swap-mini { cursor:pointer; color:var(--muted); font-size:14px; user-select:none; border-radius:5px; padding:0 3px; }
+  .swap-mini:hover { color:var(--qa); background:var(--chip-on); }
 
-  /* the one flat scrollable kin list — no category nesting */
-  .kin-list { max-height:236px; overflow-y:auto; padding:3px 6px 7px; }
-  .kin-row { display:flex; align-items:center; padding:6px 8px; border-radius:7px;
-    cursor:pointer; user-select:none; font-size:12px; }
-  .kin-row:hover { background:var(--chip); }
-  .kin-row.on { background:var(--chip-on); color:#5b21b6; font-weight:600; }
-  .kin-row .cnt { margin-left:auto; color:var(--muted); font-variant-numeric:tabular-nums; }
-  .kin-row .cnt.zero { color:#b42318; }
+  /* radiate: tiny term tags under every card */
+  .mini-tag { position:absolute; z-index:21; background:var(--panel); border:1px solid #99f6e4;
+    color:#0f766e; border-radius:999px; padding:0 7px; font-size:10.5px; font-weight:600;
+    box-shadow:0 2px 8px rgba(16,24,40,.12); white-space:nowrap; cursor:pointer; }
+  .mini-tag.gu { font-size:12px; }
+  .mini-tag:hover { border-color:var(--qr); }
+  .mini-tag .plus { color:var(--muted); font-weight:400; margin-left:3px; }
+  .mini-tag.hop { border-color:#fcd34d; color:#92400e; cursor:default; }
 
-  /* ---------- card-style switcher ---------- */
+  /* compass */
+  .compass { position:absolute; z-index:22; width:190px; height:190px; }
+  .compass .hub { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:14px; height:14px; border-radius:50%; background:var(--qa); box-shadow:0 0 0 3px #ede9fe; }
+  .compass .ring { position:absolute; inset:14px; border:1.5px dashed #d8d2f0; border-radius:50%; }
+  .spoke { position:absolute; transform:translate(-50%,-50%); background:var(--panel);
+    border:1px solid var(--line); border-radius:999px; padding:2px 9px; font-size:11px;
+    font-weight:600; cursor:pointer; user-select:none; white-space:nowrap;
+    box-shadow:0 2px 8px rgba(16,24,40,.14); }
+  .spoke:hover { border-color:var(--qa); background:var(--chip-on); color:#5b21b6; }
+  .spoke.on { background:var(--chip-on); border-color:var(--qa); color:#5b21b6; }
+  .spoke .cnt { color:var(--muted); font-weight:400; }
+  .compass-more { position:absolute; z-index:22; display:flex; gap:4px; flex-wrap:wrap; max-width:200px; }
+  .compass-more .spoke { position:static; transform:none; font-size:10.5px; padding:1px 7px; }
+
+  /* trail */
+  .trail-svg { position:absolute; left:0; top:0; z-index:18; pointer-events:none; }
+  .trail-svg polyline { fill:none; stroke:var(--qpath); stroke-width:2.5; stroke-dasharray:8 6;
+    stroke-linejoin:round; opacity:.85; }
+  .crumbs { position:absolute; z-index:25; left:50%; transform:translateX(-50%); top:12px;
+    display:flex; align-items:center; gap:5px; background:var(--panel); border:1px solid var(--line);
+    border-radius:999px; padding:5px 12px; box-shadow:0 6px 20px rgba(16,24,40,.14);
+    font-size:12px; flex-wrap:wrap; max-width:70%; }
+  .crumbs .crumb { font-weight:600; cursor:pointer; border-radius:6px; padding:0 4px; }
+  .crumbs .crumb:hover { background:var(--chip-on); color:#5b21b6; }
+  .crumbs .hop-term { color:#0f766e; font-weight:400; font-size:11px; }
+  .crumbs .hop-term.gu { font-size:12.5px; }
+  .crumbs .arr { color:var(--muted); }
+
+  /* brushes */
+  .palette { position:absolute; z-index:28; top:56px; right:12px; width:190px;
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    box-shadow:0 6px 24px rgba(16,24,40,.14); padding:9px 11px; font-size:12px; }
+  .palette .pal-title { font-weight:700; font-size:11px; letter-spacing:.05em; color:var(--muted);
+    text-transform:uppercase; margin-bottom:6px; }
+  .brush { display:inline-block; border:1px solid var(--line); background:var(--chip);
+    border-radius:999px; padding:2px 9px; font-size:11.5px; cursor:pointer; user-select:none;
+    margin:0 4px 5px 0; }
+  .brush:hover { border-color:var(--qa); }
+  .brush.on { background:var(--chip-on); border-color:var(--qa); color:#5b21b6; font-weight:600; }
+  .brush.armed { border-style:dashed; border-color:var(--qb); color:#92400e; background:#fffbeb; }
+  .brush .x { margin-left:4px; color:var(--muted); }
+  .pal-count { margin-top:4px; padding-top:6px; border-top:1px solid var(--line); color:var(--muted); }
+  .pal-count b { color:var(--ink); }
+
   .switcher { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; z-index:40;
     display:flex; align-items:center; gap:10px; background:#0f172a; color:#f8fafc;
     border-radius:999px; padding:7px 12px; box-shadow:0 8px 30px rgba(2,6,23,.4);
     font-size:13px; user-select:none; }
   .switcher .arrow { cursor:pointer; font-size:15px; padding:0 6px; opacity:.85; }
   .switcher .arrow:hover { opacity:1; }
-  .switcher .vlabel { min-width:190px; text-align:center; font-weight:600; }
+  .switcher .vlabel { min-width:200px; text-align:center; font-weight:600; }
   .switcher .vkeys { color:#94a3b8; font-weight:400; font-size:11px; }
-
-  /* zero-mode relate badges on target cards */
-  .relate-badge { position:absolute; z-index:21; width:20px; height:20px; border-radius:999px;
-    background:var(--panel); border:1.5px solid var(--qb); color:#92400e; font-size:11px;
-    display:flex; align-items:center; justify-content:center; cursor:pointer; user-select:none;
-    box-shadow:0 2px 8px rgba(16,24,40,.18); white-space:nowrap; overflow:hidden;
-    transition:width .12s ease; }
-  .relate-badge:hover { width:auto; padding:0 8px; font-weight:600; background:#fffbeb; }
-  .relate-badge .lbl { display:none; margin-left:4px; }
-  .relate-badge:hover .lbl { display:inline; }
 </style>
 
 <div id="proto-root">
   <div class="proto-head">
-    <span class="proto-badge">PROTOTYPE · ROUND 7 · WHISPER DIRECTION</span>
-    <span class="proto-title">On-canvas kinship querying <span>— #276 · whisper card · 3 direction treatments</span></span>
+    <span class="proto-badge">PROTOTYPE · ROUND 8 · FIVE PARADIGMS</span>
+    <span class="proto-title">Kinship query UX <span>— #276 · wild alternatives to the bookmarked model</span></span>
     <span class="spacer"></span>
     <span class="sim-wrap">
       Phrasing language:
@@ -210,21 +183,8 @@
   <div class="stage-row">
     <div class="stage" id="stage">
       <details class="explainer" id="explainer" open>
-        <summary>The converged model</summary>
-        <div class="ex-body">
-          <dl>
-            <dt>Progressive disclosure, shallow</dt>
-            <dd>Click a person → anchored plate: <b>detail</b> on top, then two affordances. “Explore kin” opens <b>one flat, scrollable list</b> of every kin query with counts — no category nesting. Everything stays visible in place; nothing navigates away.</dd>
-            <dt>Relate, mouse-only, two doors</dt>
-            <dd><b>⚭ corner badges</b> on every other card — one click, no mode. Or the plate’s “How related to…?” row, which arms a pick mode (dashed rings). Same resolution either way, with ⇄ swap in the banner.</dd>
-            <dt>Unchanged stances</dt>
-            <dd>Results glow + rest dims; ghosts light too; editor sync suspends during a query (<kbd>Esc</kbd> resumes); empty results toast honestly.</dd>
-            <dt>The whisper card — three direction treatments</dt>
-            <dd>The whisper (terms only) won; the open question is how it shows <b>direction</b>. Flip with the bottom bar or ← → keys while a card is open. <b>A Docked tag</b>: the pill attaches under the target card — position says who the term describes; the violet dot says whose viewpoint. <b>B Genitive</b>: one violet name chip in possessive form — “Giulia’s māmā”. <b>C Glyph arrow</b>: ⬤ ─term→ ⬤, colors matching the tree rings; hover a dot to pulse its card. All keep terms-only density; hover any term for the fuller phrasing.</dd>
-            <dt>Language is a user setting</dt>
-            <dd>Phrasing renders in <b>one language at a time</b> — the header select stands in for a top-level user setting. In ગુજરાતી, hover a term for its transliteration; nothing is stacked bilingually.</dd>
-          </dl>
-        </div>
+        <summary>This paradigm</summary>
+        <div class="ex-body" id="exBody"></div>
       </details>
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1162 586"><style>
 svg {
@@ -281,9 +241,9 @@ svg {
   </div>
 
   <div class="switcher">
-    <span class="arrow" id="prevCard">←</span>
-    <span class="vlabel"><span id="cardName"></span><br><span class="vkeys">relation-card style · ?card= · ← → keys</span></span>
-    <span class="arrow" id="nextCard">→</span>
+    <span class="arrow" id="prevV">←</span>
+    <span class="vlabel"><span id="vName"></span><br><span class="vkeys">?ux=1..5 · ← → keys · Esc clears</span></span>
+    <span class="arrow" id="nextV">→</span>
   </div>
 </div>
 
@@ -314,7 +274,7 @@ svg {
     lucia: ["paolo"], paolo: ["lucia"], matteo: ["giulia"], giulia: ["matteo"],
     aldo: ["bianca"], bianca: ["aldo"]
   };
-  var GHOSTS = { elena: true, giulia: true }; // persons that also render a ghost card
+  var GHOSTS = { elena: true, giulia: true };
   var ALL = Object.keys(P);
 
   function parentsOf(x) { return PARENTS[x] || []; }
@@ -329,7 +289,7 @@ svg {
   }
   function uniq(a) { return a.filter(function (v, i) { return a.indexOf(v) === i; }); }
 
-  /* =============== mock kinship engine =============== */
+  /* =============== mock kinship engine (unchanged since round 1) =============== */
   function ancEntries(x) {
     var out = [];
     (function walk(chain) {
@@ -430,12 +390,11 @@ svg {
     if (spousesOf(ego).indexOf(alter) >= 0) {
       push(P[alter].g === "m" ? t("husband", "pati / var", "પતિ / વર") : t("wife", "patnī", "પત્ની"), [ego, alter]);
     }
-    // alter = spouse of a blood kin K of ego
     ALL.forEach(function (K) {
       if (K === ego || K === alter) return;
       if (spousesOf(K).indexOf(alter) < 0) return;
       bloodTies(ego, K).forEach(function (bt) {
-        var shape = bt.path.length; // ego..K inclusive
+        var shape = bt.path.length;
         var up1down1 = /brother|sister/.test(bt.en) && shape === 3;
         var term = null, ag = P[alter].g;
         if (/uncle|aunt/.test(bt.en)) {
@@ -457,7 +416,6 @@ svg {
         push(term, bt.path.concat([alter]));
       });
     });
-    // alter = blood kin of ego's spouse
     spousesOf(ego).forEach(function (S) {
       if (S === alter) return;
       bloodTies(S, alter).forEach(function (bt) {
@@ -478,7 +436,6 @@ svg {
         push(term, [ego].concat(bt.path));
       });
     });
-    // vevāī: alter is a parent of ego's child's spouse
     childrenOf(ego).forEach(function (c) {
       spousesOf(c).forEach(function (sp) {
         if (parentsOf(sp).indexOf(alter) >= 0) {
@@ -494,14 +451,12 @@ svg {
   function resolvePair(ego, alter) {
     var blood = bloodTies(ego, alter);
     var affinal = affinalTies(ego, alter);
-    // step-subsumption stand-in (ADR-0027): when a blood tie exists, drop
-    // compositional affinal chains and keep only lexicalized affinal ties
     if (blood.length) {
       affinal = affinal.filter(function (tie) { return tie.note.indexOf("compositional") < 0; });
     }
     var seen = {}, out = [];
     blood.concat(affinal).forEach(function (tie) { if (!seen[tie.gu]) { seen[tie.gu] = 1; out.push(tie); } });
-    return out; // [] = honest emptiness: no relationship within traversal bounds
+    return out;
   }
 
   function auntsUnclesOf(x) {
@@ -534,7 +489,6 @@ svg {
     return uniq(out).filter(function (y) { return y !== x; });
   }
 
-  /* the one flat kin-query list — order: immediate → lineage → extended → affinal → step */
   var KIN_SETS = [
     { id: "parents", label: "Parents", fn: parentsOf },
     { id: "children", label: "Children", fn: childrenOf },
@@ -556,7 +510,7 @@ svg {
   var stage = document.getElementById("stage");
   var svg = stage.querySelector("svg");
   svg.classList.add("kul-tree");
-  var PAINT = ["q-anchor-a", "q-anchor-b", "q-result", "q-result-ghost", "q-path", "q-dim", "q-target", "q-pulse"];
+  var PAINT = ["q-anchor-a", "q-anchor-b", "q-result", "q-result-ghost", "q-path", "q-dim", "q-fade", "q-pulse"];
 
   function cardsFor(id, kind) {
     var sel = '.kul-card[data-person-id="' + id + '"]';
@@ -570,13 +524,12 @@ svg {
     allCards().forEach(function (c) { PAINT.forEach(function (k) { c.classList.remove(k); }); });
   }
   function addClass(id, cls, kind) { cardsFor(id, kind).forEach(function (c) { c.classList.add(cls); }); }
-  function dimAllExcept(keep) {
+  function rmClass(id, cls) { cardsFor(id).forEach(function (c) { c.classList.remove(cls); }); }
+  function dimAllExcept(keep, cls) {
     allCards().forEach(function (c) {
-      if (keep.indexOf(c.getAttribute("data-person-id")) < 0) c.classList.add("q-dim");
+      if (keep.indexOf(c.getAttribute("data-person-id")) < 0) c.classList.add(cls || "q-dim");
     });
   }
-  /* stance: a person's result glow lights every card they own —
-     canonical solid, past-record ghost dashed */
   function paintResults(anchorIds, resultIds) {
     clearPaint();
     anchorIds.forEach(function (a, i) { addClass(a, i === 0 ? "q-anchor-a" : "q-anchor-b", "canonical"); });
@@ -587,14 +540,18 @@ svg {
     dimAllExcept(anchorIds.concat(resultIds));
     applyEditorSim();
   }
-  function paintResolution(a, b, ties) {
-    clearPaint();
-    addClass(a, "q-anchor-a", "canonical");
-    addClass(b, "q-anchor-b", "canonical");
+  function pathMids(a, b, ties) {
     var mid = [];
     ties.forEach(function (tie) {
       tie.path.forEach(function (pid) { if (pid !== a && pid !== b && mid.indexOf(pid) < 0) mid.push(pid); });
     });
+    return mid;
+  }
+  function paintResolution(a, b, ties) {
+    clearPaint();
+    addClass(a, "q-anchor-a", "canonical");
+    addClass(b, "q-anchor-b", "canonical");
+    var mid = pathMids(a, b, ties);
     mid.forEach(function (m) { addClass(m, "q-path", "canonical"); });
     dimAllExcept([a, b].concat(mid));
     applyEditorSim();
@@ -605,164 +562,58 @@ svg {
     var r = el.getBoundingClientRect(), s = stage.getBoundingClientRect();
     return { left: r.left - s.left + stage.scrollLeft, top: r.top - s.top + stage.scrollTop, width: r.width, height: r.height };
   }
-  /* phrasing language is a top-level USER SETTING — one language at a time,
-     never both stacked (transliteration survives as a hover tooltip in gu) */
-  var LANG = "en";
-  function tieHtml(tie) {
-    var term = LANG === "gu"
-      ? '<span class="tie-en tie-term-gu" title="' + tie.gu + '">' + tie.script + "</span>"
-      : '<span class="tie-en">' + tie.en + "</span>";
-    return '<div class="tie-row">' + term +
-      (tie.note ? '<div class="tie-note">' + tie.note + "</div>" : "") + "</div>";
+  function cardCenter(id) {
+    var r = cardRect(id);
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   }
-  function detailHtml(id) {
-    var pd = P[id];
-    var lines = ['<div class="detail-name">' + pd.name + "</div>"];
-    lines.push('<div class="detail-line">' + (pd.g === "m" ? "male" : "female") + " · born <b>" + pd.born + "</b></div>");
-    var ps = parentsOf(id);
-    if (ps.length) lines.push('<div class="detail-line">child of <b>' + P[ps[0]].name + "</b> &amp; <b>" + P[ps[1]].name + "</b></div>");
-    var sp = spousesOf(id);
-    if (sp.length) lines.push('<div class="detail-line">married to <b>' + sp.map(function (s) { return P[s].name; }).join(", ") + "</b></div>");
-    var kids = childrenOf(id);
-    if (kids.length) lines.push('<div class="detail-line">' + kids.length + " child" + (kids.length > 1 ? "ren" : "") + ": <b>" +
-      kids.map(function (k) { return P[k].name; }).join(", ") + "</b></div>");
-    if (GHOSTS[id]) lines.push('<div class="ghost-note">↺ also appears as a past-record ghost</div>');
-    return lines.join("");
+  function firstName(id) { return P[id].name.split(" ")[0]; }
+
+  /* single-language short term; hover carries the fuller phrasing */
+  var LANG = "en";
+  function termShort(tie) { return LANG === "gu" ? tie.script : tie.en.replace(/\s*\(.*?\)/, ""); }
+  function termFull(tie) { return LANG === "gu" ? tie.gu + " — " + tie.en : tie.en; }
+  function termSpan(tie) {
+    return '<span class="term' + (LANG === "gu" ? " gu" : "") + '" title="' +
+      termFull(tie).replace(/"/g, "&quot;") + '">' + termShort(tie) + "</span>";
   }
 
   /* =============== floating helpers =============== */
-  function popAt(el, rect, prefer) {
-    el.classList.add("q-float");
-    stage.appendChild(el);
-    var w = el.offsetWidth, h = el.offsetHeight;
-    var left = rect.left + rect.width + 10, top = rect.top;
-    if (prefer === "above") { left = rect.left + rect.width / 2 - w / 2; top = rect.top - h - 12; }
-    var maxLeft = stage.scrollWidth - w - 8;
-    if (left > maxLeft) left = rect.left - w - 10;
-    el.style.left = Math.max(8, Math.min(left, maxLeft)) + "px";
-    el.style.top = Math.max(8, top) + "px";
-  }
   function removeFloats() {
-    Array.prototype.slice.call(stage.querySelectorAll(".q-float, .sync-hint"))
-      .forEach(function (n) { n.remove(); });
+    Array.prototype.slice.call(stage.querySelectorAll(".q-float, .sync-hint")).forEach(function (n) { n.remove(); });
+  }
+  function place(el, left, top) {
+    el.style.left = Math.max(8, Math.min(left, stage.scrollWidth - el.offsetWidth - 8)) + "px";
+    el.style.top = Math.max(8, top) + "px";
   }
   function toastAt(msg, rect) {
     var old = stage.querySelector(".halo-toast");
     if (old) old.remove();
     var toast = document.createElement("div");
-    toast.className = "halo-toast";
+    toast.className = "halo-toast q-float";
     toast.textContent = msg;
-    popAt(toast, rect, "above");
+    stage.appendChild(toast);
+    place(toast, rect.left + rect.width / 2 - toast.offsetWidth / 2, rect.top - toast.offsetHeight - 12);
   }
-  /* =============== the relation card — three styles =============== */
-  function pill(id, cls) { return '<span class="p-pill ' + cls + '">' + P[id].name + "</span>"; }
-  function hopGlyph(p, q) {
-    if (spousesOf(p).indexOf(q) >= 0) return "⚭";
-    if (parentsOf(p).indexOf(q) >= 0) return "↑";   // q is p's parent
-    if (parentsOf(q).indexOf(p) >= 0) return "↓";   // q is p's child
-    return "·";
-  }
-  function chainHtml(path, a, b) {
-    var bits = [];
-    path.forEach(function (pid, i) {
-      var cls = pid === a ? "a" : pid === b ? "b" : "mid";
-      bits.push(pill(pid, cls));
-      if (i < path.length - 1) bits.push('<span class="hop">' + hopGlyph(pid, path[i + 1]) + "</span>");
-    });
-    return '<div class="chain">' + bits.join("") + "</div>";
-  }
-  var CARD_STYLES = [
-    { key: "a", name: "Whisper A — docked tag",
-      hint: "The pill docks under the TARGET card, so the term self-evidently describes that person. The violet dot = ‘as the selected person sees it’.",
-      place: "target",
-      render: function (a, b, ties) {
-        var dotA = '<span class="dot a" data-person="' + a + '" title="from ' + P[a].name + '’s perspective"></span>';
-        if (!ties.length) return '<div class="wh">' + dotA + '<span class="tie-note">not related (within bounds)</span></div>';
-        return '<div class="wh">' + dotA + "<span>" +
-          ties.map(termSpan).join('<span class="sep">·</span>') + "</span>" +
-          '<span class="swap-mini" data-swap="1" title="swap perspective">⇄</span></div>';
-      } },
-    { key: "b", name: "Whisper B — genitive",
-      hint: "One name only — the selected person’s, as a violet chip in genitive form: ‘Giulia’s māmā’. The amber ring shows who the term lands on.",
-      render: function (a, b, ties) {
-        var gen = LANG === "gu" ? "ના" : "’s";
-        var chip = '<span class="p-pill a">' + firstName(a) + '</span><span class="gen">' + gen + "</span>";
-        if (!ties.length) return '<div class="wh">' + chip + '<span class="tie-note">— no tie within bounds</span></div>';
-        return '<div class="wh">' + chip + "<span>" +
-          ties.map(termSpan).join('<span class="sep">·</span>') + "</span>" +
-          '<span class="swap-mini" data-swap="1" title="swap perspective">⇄</span></div>';
-      } },
-    { key: "c", name: "Whisper C — glyph arrow",
-      hint: "Pure glyph grammar: ⬤ ─term→ ⬤ — follow the term from the violet dot (selected person) and you arrive at the amber dot. Hover a dot to pulse its card.",
-      render: function (a, b, ties) {
-        var dA = '<span class="dot a" data-person="' + a + '" title="' + P[a].name + ' (selected)"></span>';
-        var dB = '<span class="dot b" data-person="' + b + '" title="' + P[b].name + '"></span>';
-        if (!ties.length) return '<div class="wh">' + dA + '<span class="arrow-line">⇹</span>' + dB +
-          '<span class="tie-note">no tie within bounds</span></div>';
-        return '<div class="wh">' + dA + '<span class="arrow-line">─</span><span>' +
-          ties.map(termSpan).join('<span class="sep">·</span>') +
-          '</span><span class="arrow-line">→</span>' + dB +
-          '<span class="swap-mini" data-swap="1" title="swap perspective">⇄</span></div>';
-      } }
-  ];
-  function firstName(id) { return P[id].name.split(" ")[0]; }
-  /* single-language short term; hover carries the disambiguating detail */
-  function termSpan(tie) {
-    var short = LANG === "gu" ? tie.script : tie.en.replace(/\s*\(.*?\)/, "");
-    var full = LANG === "gu" ? tie.gu + " — " + tie.en : tie.en;
-    return '<span class="term' + (LANG === "gu" ? " gu" : "") + '" title="' + full.replace(/"/g, "&quot;") + '">' + short + "</span>";
-  }
-  var cardIndex = 0;
-  var lastResolution = null;
-  function showBanner(a, b, ties, onSwap) {
-    lastResolution = { a: a, b: b, ties: ties, onSwap: onSwap };
-    var old = stage.querySelector(".halo-banner");
+  /* the BOOKMARKED relation card: docked-tag whisper under the target */
+  function whisperAt(a, b, ties, onSwap) {
+    var old = stage.querySelector(".whisper-pill");
     if (old) old.remove();
-    var style = CARD_STYLES[cardIndex];
-    var banner = document.createElement("div");
-    banner.className = "halo-banner whisper-pill card-" + style.key;
-    banner.innerHTML = style.render(a, b, ties);
-    var ra = cardRect(a), rb = cardRect(b);
-    banner.classList.add("q-float");
-    stage.appendChild(banner);
-    var left, top;
-    if (style.place === "target") {
-      // dock under the target card — proximity is the disambiguator
-      left = rb.left + rb.width / 2 - banner.offsetWidth / 2;
-      top = rb.top + rb.height + 8;
+    var pill = document.createElement("div");
+    pill.className = "whisper-pill q-float";
+    var dotA = '<span class="dot a" title="from ' + P[a].name + "’s perspective\"></span>";
+    if (!ties.length) {
+      pill.innerHTML = dotA + '<span class="tie-note">not related (within bounds)</span>';
     } else {
-      left = (ra.left + rb.left) / 2 + (ra.width - banner.offsetWidth) / 2;
-      top = Math.min(ra.top, rb.top) - banner.offsetHeight - 14;
-      if (top < 8) top = Math.max(ra.top, rb.top) + ra.height + 14;
+      pill.innerHTML = dotA + "<span>" + ties.map(termSpan).join('<span class="sep">·</span>') + "</span>" +
+        (onSwap ? '<span class="swap-mini" data-swap="1" title="swap perspective">⇄</span>' : "");
     }
-    banner.style.left = Math.max(8, Math.min(left, stage.scrollWidth - banner.offsetWidth - 8)) + "px";
-    banner.style.top = top + "px";
-    banner.addEventListener("click", function (ev) { ev.stopPropagation(); });
-    var swap = banner.querySelector("[data-swap]");
+    stage.appendChild(pill);
+    var rb = cardRect(b);
+    place(pill, rb.left + rb.width / 2 - pill.offsetWidth / 2, rb.top + rb.height + 8);
+    pill.addEventListener("click", function (ev) { ev.stopPropagation(); });
+    var swap = pill.querySelector("[data-swap]");
     if (swap && onSwap) swap.addEventListener("click", function (ev) { ev.stopPropagation(); onSwap(); });
-    Array.prototype.slice.call(banner.querySelectorAll(".dot[data-person]")).forEach(function (dot) {
-      var pid = dot.getAttribute("data-person");
-      dot.addEventListener("mouseenter", function () { addClass(pid, "q-pulse"); });
-      dot.addEventListener("mouseleave", function () {
-        cardsFor(pid).forEach(function (c) { c.classList.remove("q-pulse"); });
-      });
-    });
-  }
-  function setCardStyle(i, updateUrl) {
-    cardIndex = (i + CARD_STYLES.length) % CARD_STYLES.length;
-    var cs = CARD_STYLES[cardIndex];
-    document.getElementById("cardName").textContent = cs.name;
-    document.getElementById("cardName").title = cs.hint;
-    if (updateUrl !== false) {
-      try {
-        var u = new URL(window.location.href);
-        u.searchParams.set("card", cs.key);
-        history.replaceState(null, "", u.toString());
-      } catch (e) { /* file:// without history — fine for a prototype */ }
-    }
-    if (lastResolution && stage.querySelector(".halo-banner")) {
-      showBanner(lastResolution.a, lastResolution.b, lastResolution.ties, lastResolution.onSwap);
-    }
+    return pill;
   }
 
   /* =============== editor-selection simulation =============== */
@@ -776,13 +627,13 @@ svg {
   function applyEditorSim() {
     allCards().forEach(function (c) { c.classList.remove("kul-selected"); });
     if (!editorSel) return;
-    if (model.queryActive()) return; // query suspends sync
+    if (current().queryActive()) return;
     addClass(editorSel, "kul-selected", "canonical");
   }
   function syncHint() {
     var old = stage.querySelector(".sync-hint");
     if (old) old.remove();
-    if (editorSel && model.queryActive()) {
+    if (editorSel && current().queryActive()) {
       var hint = document.createElement("div");
       hint.className = "sync-hint";
       hint.innerHTML = "editor sync paused while querying — <kbd>Esc</kbd> to resume";
@@ -794,149 +645,469 @@ svg {
     applyEditorSim();
     syncHint();
   });
+  document.getElementById("langSel").addEventListener("change", function () {
+    LANG = this.value;
+    if (current().refresh) current().refresh();
+  });
 
-  /* =============== the converged model =============== */
-  var model = {
-    anchor: null, listOpen: false, activeSet: null, relateArmed: false, scrollHandler: null,
+  /* =============== paradigm 1: LENS =============== */
+  var lens = {
+    key: "1", name: "1 — Lens",
+    anchor: null, pinned: null,
+    explainer:
+      "<dl><dt>The idea</dt><dd>Relationship reading becomes <b>ambient</b>. Click one person to hold the lens; then merely <b>hovering</b> anyone else whispers the tie under their card — zero extra clicks. Click a person to <b>pin</b> the reading (full path glow + ⇄); click empty canvas or Esc to release.</dd>" +
+      "<dt>Trade</dt><dd>Fastest possible resolution; kin-set queries are absent — this paradigm bets that “how is X related?” is the query 90% of the time.</dd></dl>",
     queryActive: function () { return !!this.anchor; },
-    clear: function () {
-      this.anchor = null; this.listOpen = false; this.activeSet = null; this.relateArmed = false;
-      if (this.scrollHandler) { stage.removeEventListener("scroll", this.scrollHandler); this.scrollHandler = null; }
-      removeFloats(); clearPaint(); applyEditorSim(); syncHint();
+    enter: function () {},
+    exit: function () { this.anchor = null; this.pinned = null; removeFloats(); clearPaint(); applyEditorSim(); },
+    clear: function () { this.exit(); syncHint(); },
+    refresh: function () {
+      if (this.anchor && this.pinned) {
+        whisperAt(this.anchor, this.pinned, resolvePair(this.anchor, this.pinned), this.swapFn());
+      }
+    },
+    swapFn: function () {
+      var self = this;
+      return function () {
+        var a = self.anchor;
+        self.anchor = self.pinned; self.pinned = a;
+        var ties = resolvePair(self.anchor, self.pinned);
+        paintResolution(self.anchor, self.pinned, ties);
+        whisperAt(self.anchor, self.pinned, ties, self.swapFn());
+        syncHint();
+      };
     },
     onCardClick: function (id) {
-      if (this.relateArmed && this.anchor && id !== this.anchor) { this.resolveTo(id); return; }
-      this.anchor = id; this.listOpen = false; this.activeSet = null; this.relateArmed = false;
-      clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
-      this.render();
+      if (!this.anchor || id === this.anchor) {
+        this.anchor = id; this.pinned = null;
+        removeFloats(); clearPaint();
+        addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
+        toastAt("Lens held on " + firstName(id) + " — hover anyone to read the tie; click to pin.", cardRect(id));
+        syncHint();
+        return;
+      }
+      this.pinned = id;
+      var ties = resolvePair(this.anchor, id);
+      paintResolution(this.anchor, id, ties);
+      var old = stage.querySelector(".halo-toast"); if (old) old.remove();
+      whisperAt(this.anchor, id, ties, this.swapFn());
       syncHint();
     },
-    resolveTo: function (b) {
+    onCardHover: function (id, entering) {
+      if (!this.anchor || this.pinned || id === this.anchor) return;
+      if (entering) {
+        var ties = resolvePair(this.anchor, id);
+        addClass(id, "q-anchor-b", "canonical");
+        pathMids(this.anchor, id, ties).forEach(function (m) { addClass(m, "q-path", "canonical"); });
+        whisperAt(this.anchor, id, ties, null);
+      } else {
+        var self = this;
+        allCards().forEach(function (c) {
+          c.classList.remove("q-anchor-b", "q-path");
+        });
+        var pill = stage.querySelector(".whisper-pill"); if (pill) pill.remove();
+      }
+    }
+  };
+
+  /* =============== paradigm 2: RADIATE =============== */
+  var radiate = {
+    key: "2", name: "2 — Radiate",
+    anchor: null, terms: null, scrollHandler: null,
+    explainer:
+      "<dl><dt>The idea</dt><dd><b>One click answers everything.</b> Selecting a person labels every other card with its kinship term — the whole field radiates from the anchor. No menus, no lists: “show my cousins” becomes <i>scanning for the word</i>. Unrelated people dim. Hover a tag to isolate everyone with the same term; click a tag for the full whisper.</dd>" +
+      "<dt>Trade</dt><dd>Maximum answer density per click; at thousands of persons it needs level-of-detail policy (viewport-only tags).</dd></dl>",
+    queryActive: function () { return !!this.anchor; },
+    enter: function () {},
+    exit: function () {
+      this.anchor = null; this.terms = null;
+      if (this.scrollHandler) { stage.removeEventListener("scroll", this.scrollHandler); this.scrollHandler = null; }
+      removeFloats(); clearPaint(); applyEditorSim();
+    },
+    clear: function () { this.exit(); syncHint(); },
+    refresh: function () { if (this.anchor) this.radiateFrom(this.anchor); },
+    onCardClick: function (id) { this.radiateFrom(id); syncHint(); },
+    radiateFrom: function (a) {
+      var self = this;
+      this.anchor = a;
+      removeFloats(); clearPaint();
+      addClass(a, "q-anchor-a", "canonical");
+      this.terms = {};
+      ALL.forEach(function (p) {
+        if (p === a) return;
+        var ties = resolvePair(a, p);
+        if (!ties.length) { addClass(p, "q-dim"); return; }
+        self.terms[p] = ties;
+      });
+      applyEditorSim();
+      this.renderTags();
+      if (!this.scrollHandler) {
+        this.scrollHandler = function () { self.renderTags(); };
+        stage.addEventListener("scroll", this.scrollHandler);
+      }
+    },
+    renderTags: function () {
       var self = this, a = this.anchor;
-      this.relateArmed = false;
-      allCards().forEach(function (c) { c.classList.remove("q-target"); });
-      var ties = resolvePair(a, b);
-      paintResolution(a, b, ties);
-      var pop = stage.querySelector(".pop"); if (pop) pop.remove();
-      Array.prototype.slice.call(stage.querySelectorAll(".relate-badge")).forEach(function (n) { n.remove(); });
-      showBanner(a, b, ties, function () { self.anchor = b; self.resolveTo(a); });
+      Array.prototype.slice.call(stage.querySelectorAll(".mini-tag")).forEach(function (n) { n.remove(); });
+      if (!a || !this.terms) return;
+      Object.keys(this.terms).forEach(function (p) {
+        var ties = self.terms[p];
+        var tag = document.createElement("div");
+        tag.className = "mini-tag q-float" + (LANG === "gu" ? " gu" : "");
+        tag.innerHTML = termShort(ties[0]) + (ties.length > 1 ? '<span class="plus">+' + (ties.length - 1) + "</span>" : "");
+        tag.title = ties.map(termFull).join(" · ");
+        stage.appendChild(tag);
+        var r = cardRect(p);
+        place(tag, r.left + r.width / 2 - tag.offsetWidth / 2, r.top + r.height + 4);
+        tag.addEventListener("mouseenter", function () {
+          var word = termShort(ties[0]);
+          Object.keys(self.terms).forEach(function (q) {
+            if (termShort(self.terms[q][0]) !== word) addClass(q, "q-fade");
+          });
+        });
+        tag.addEventListener("mouseleave", function () {
+          ALL.forEach(function (q) { rmClass(q, "q-fade"); });
+        });
+        tag.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          whisperAt(a, p, ties, null);
+        });
+      });
+    }
+  };
+
+  /* =============== paradigm 3: COMPASS =============== */
+  var COMPASS_SPOKES = [
+    { set: "parents", deg: -90 }, { set: "ancestors", deg: -135 }, { set: "auntsUncles", deg: -45 },
+    { set: "siblings", deg: 180 }, { set: "spouses", deg: 0 },
+    { set: "cousins", deg: 135 }, { set: "children", deg: 90 }, { set: "descendants", deg: 45 }
+  ];
+  var COMPASS_MORE = ["inLaws", "niecesNephews", "stepParents", "stepSiblings", "stepChildren"];
+  var compass = {
+    key: "3", name: "3 — Compass",
+    anchor: null, active: null,
+    explainer:
+      "<dl><dt>The idea</dt><dd>Kin sets as <b>spatial directions</b>. Selecting a person conjures a compass around them whose geometry mirrors the tree: ancestors point up, descendants down, siblings sideways, marriage east. Hover a spoke to preview that kin set; click to hold it. No list, no taxonomy — direction <i>is</i> the query. The ⚭ relate badges stay (hover any other card).</dd>" +
+      "<dt>Trade</dt><dd>Eight sets get prime spots; the long tail lives in small chips below. Most spatial of the five.</dd></dl>",
+    queryActive: function () { return !!this.anchor; },
+    enter: function () {},
+    exit: function () { this.anchor = null; this.active = null; removeFloats(); clearPaint(); applyEditorSim(); },
+    clear: function () { this.exit(); syncHint(); },
+    refresh: function () {},
+    onCardClick: function (id) {
+      this.anchor = id; this.active = null;
+      removeFloats(); clearPaint();
+      addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
+      this.render();
       syncHint();
     },
     render: function () {
       var self = this, a = this.anchor;
-      removeFloats();
-      var pop = document.createElement("div");
-      pop.className = "pop";
-      var kinArr = this.listOpen ? "▾" : "▸";
-      var listHtml = "";
-      if (this.listOpen) {
-        listHtml = '<div class="kin-list">' + KIN_SETS.map(function (s) {
-          var n = s.fn(a).length;
-          var on = self.activeSet === s.id;
-          return '<div class="kin-row' + (on ? " on" : "") + '" data-set="' + s.id + '">' + s.label +
-            '<span class="cnt' + (n ? "" : " zero") + '">' + n + "</span></div>";
-        }).join("") + "</div>";
-      }
-      var relateHtml = this.relateArmed
-        ? '<div class="relate-wait">Click any other person on the tree — or use a ⚭ badge.<br><span class="cancel-link" data-cancel="1">Cancel</span></div>'
-        : "";
-      pop.innerHTML = '<div class="pop-head"><span class="pop-crumb">' + P[a].name + "</span>" +
-        '<span class="pop-close" data-close="1">✕</span></div>' +
-        '<div class="pop-body">' + detailHtml(a) + "</div>" +
-        '<div class="plate-section"><div class="plate-sec-head" data-togglelist="1">Explore kin' +
-        '<span class="arr">' + kinArr + "</span></div>" + listHtml + "</div>" +
-        '<div class="relate-row" data-relate="1">How related to…?' +
-        '<span class="sub">click the ⚭ badge on any card, or arm here and pick</span></div>' + relateHtml;
-      pop.addEventListener("click", function (ev) {
-        ev.stopPropagation();
-        var el = ev.target.closest("[data-close],[data-togglelist],[data-set],[data-relate],[data-cancel]");
-        if (!el) return;
-        if (el.hasAttribute("data-close")) { self.clear(); return; }
-        if (el.hasAttribute("data-togglelist")) { self.listOpen = !self.listOpen; self.render(); return; }
-        if (el.hasAttribute("data-set")) {
-          var sid = el.getAttribute("data-set");
-          self.activeSet = sid;
-          var s = setById(sid);
-          var ids = s.fn(a);
-          paintResults([a], ids);
-          if (!ids.length) {
-            toastAt("No " + s.label.toLowerCase() + " in the recorded facts for " + P[a].name +
-              ". Nothing is guessed — absence stays absence.", cardRect(a));
-          }
-          pop.querySelectorAll(".kin-row").forEach(function (rw) { rw.classList.remove("on"); });
-          el.classList.add("on");
-          return;
-        }
-        if (el.hasAttribute("data-relate")) {
-          self.relateArmed = true;
-          ALL.forEach(function (pid) { if (pid !== a) addClass(pid, "q-target"); });
-          self.render(); return;
-        }
-        if (el.hasAttribute("data-cancel")) {
-          self.relateArmed = false;
-          allCards().forEach(function (c) { c.classList.remove("q-target"); });
-          self.render(); return;
-        }
+      var comp = document.createElement("div");
+      comp.className = "compass q-float";
+      comp.innerHTML = '<div class="ring"></div><div class="hub" title="' + P[a].name + '"></div>';
+      stage.appendChild(comp);
+      var r = cardRect(a);
+      place(comp, r.left + r.width + 26, r.top + r.height / 2 - 95);
+      var cx = comp.offsetLeft + 95, cy = comp.offsetTop + 95;
+      COMPASS_SPOKES.forEach(function (sp) {
+        var s = setById(sp.set);
+        var n = s.fn(a).length;
+        var el = document.createElement("div");
+        el.className = "spoke q-float";
+        el.innerHTML = s.label + ' <span class="cnt">' + n + "</span>";
+        stage.appendChild(el);
+        var rad = sp.deg * Math.PI / 180;
+        el.style.left = (cx + 92 * Math.cos(rad) - el.offsetWidth / 2) + "px";
+        el.style.top = (cy + 92 * Math.sin(rad) - el.offsetHeight / 2) + "px";
+        self.wireSpoke(el, sp.set);
       });
-      popAt(pop, cardRect(a));
-      if (this.relateArmed) {
-        ALL.forEach(function (pid) { if (pid !== a) addClass(pid, "q-target"); });
+      var more = document.createElement("div");
+      more.className = "compass-more q-float";
+      COMPASS_MORE.forEach(function (sid) {
+        var s = setById(sid);
+        var el = document.createElement("div");
+        el.className = "spoke";
+        el.innerHTML = s.label + ' <span class="cnt">' + s.fn(a).length + "</span>";
+        more.appendChild(el);
+        self.wireSpoke(el, sid);
+      });
+      stage.appendChild(more);
+      place(more, cx - 95, cy + 130);
+      comp.addEventListener("click", function (ev) { ev.stopPropagation(); });
+    },
+    wireSpoke: function (el, sid) {
+      var self = this, a = this.anchor;
+      var s = setById(sid);
+      el.addEventListener("mouseenter", function () {
+        if (self.active) return;
+        var ids = s.fn(a);
+        paintResults([a], ids);
+      });
+      el.addEventListener("mouseleave", function () {
+        if (self.active) return;
+        clearPaint(); addClass(a, "q-anchor-a", "canonical"); applyEditorSim();
+      });
+      el.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        stage.querySelectorAll(".spoke").forEach(function (x) { x.classList.remove("on"); });
+        if (self.active === sid) { self.active = null; clearPaint(); addClass(a, "q-anchor-a", "canonical"); applyEditorSim(); return; }
+        self.active = sid;
+        el.classList.add("on");
+        var ids = s.fn(a);
+        paintResults([a], ids);
+        if (!ids.length) toastAt("No " + s.label.toLowerCase() + " in the recorded facts — absence stays absence.", cardRect(a));
+      });
+    },
+    onCardHoverRelate: true // badges handled globally below
+  };
+
+  /* =============== paradigm 4: TRAIL =============== */
+  var trail = {
+    key: "4", name: "4 — Trail",
+    steps: [],
+    explainer:
+      "<dl><dt>The idea</dt><dd><b>Walk the kinship.</b> Each click extends a trail; every hop gets its own term tag, the route draws itself on the tree, and the whisper under the last person shows the <b>composed</b> tie back to the start — the genitive chain Gujarati already speaks (“māmā-no dīkro” <i>is</i> a walk). Click a breadcrumb to rewind; click the last person again to step back; Esc clears.</dd>" +
+      "<dt>Trade</dt><dd>Resolution and exploration become the same gesture; multi-hop curiosity (“and <i>her</i> mother-in-law?”) is one click per hop.</dd></dl>",
+    queryActive: function () { return this.steps.length > 0; },
+    enter: function () {},
+    exit: function () { this.steps = []; removeFloats(); clearPaint(); applyEditorSim(); },
+    clear: function () { this.exit(); syncHint(); },
+    refresh: function () { if (this.steps.length) this.render(); },
+    onCardClick: function (id) {
+      var last = this.steps[this.steps.length - 1];
+      if (id === last) this.steps.pop();
+      else if (this.steps.indexOf(id) >= 0) this.steps = this.steps.slice(0, this.steps.indexOf(id) + 1);
+      else this.steps.push(id);
+      this.render();
+      syncHint();
+    },
+    render: function () {
+      var self = this;
+      removeFloats(); clearPaint();
+      if (!this.steps.length) { applyEditorSim(); return; }
+      var first = this.steps[0], last = this.steps[this.steps.length - 1];
+      addClass(first, "q-anchor-a", "canonical");
+      if (this.steps.length > 1) addClass(last, "q-anchor-b", "canonical");
+      this.steps.slice(1, -1).forEach(function (m) { addClass(m, "q-path", "canonical"); });
+      dimAllExcept(this.steps);
+      applyEditorSim();
+      if (this.steps.length === 1) {
+        toastAt("Trail starts at " + firstName(first) + " — click a relative to walk.", cardRect(first));
+        return;
       }
-      this.renderBadges();
-      if (!this.scrollHandler) {
-        this.scrollHandler = function () { self.renderBadges(); };
-        stage.addEventListener("scroll", this.scrollHandler);
+      // route line through card centres
+      var overlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      overlay.setAttribute("class", "trail-svg q-float");
+      overlay.setAttribute("width", stage.scrollWidth);
+      overlay.setAttribute("height", stage.scrollHeight);
+      var poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      poly.setAttribute("points", this.steps.map(function (id) {
+        var c = cardCenter(id); return c.x + "," + c.y;
+      }).join(" "));
+      overlay.appendChild(poly);
+      stage.appendChild(overlay);
+      // per-hop term tags
+      var crumbBits = ['<span class="crumb" data-i="0">' + firstName(first) + "</span>"];
+      for (var i = 1; i < this.steps.length; i++) {
+        var prev = this.steps[i - 1], cur = this.steps[i];
+        var hop = resolvePair(prev, cur);
+        var hopTxt = hop.length ? termShort(hop[0]) : "—";
+        var tag = document.createElement("div");
+        tag.className = "mini-tag hop q-float" + (LANG === "gu" ? " gu" : "");
+        tag.textContent = hopTxt;
+        tag.title = hop.length ? termFull(hop[0]) : "no direct tie";
+        stage.appendChild(tag);
+        var r = cardRect(cur);
+        place(tag, r.left + r.width / 2 - tag.offsetWidth / 2, r.top - tag.offsetHeight - 4);
+        crumbBits.push('<span class="arr">→</span><span class="hop-term' + (LANG === "gu" ? " gu" : "") + '">' + hopTxt +
+          '</span><span class="crumb" data-i="' + i + '">' + firstName(cur) + "</span>");
+      }
+      var crumbs = document.createElement("div");
+      crumbs.className = "crumbs q-float";
+      crumbs.innerHTML = crumbBits.join("");
+      stage.appendChild(crumbs);
+      crumbs.style.left = (stage.scrollLeft + stage.clientWidth / 2 - crumbs.offsetWidth / 2) + "px";
+      crumbs.style.top = (stage.scrollTop + 12) + "px";
+      crumbs.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var c = ev.target.closest(".crumb");
+        if (!c) return;
+        self.steps = self.steps.slice(0, +c.getAttribute("data-i") + 1);
+        self.render();
+      });
+      // composed whisper: the tie from start to end (the bookmarked docked tag)
+      whisperAt(first, last, resolvePair(first, last), null);
+    }
+  };
+
+  /* =============== paradigm 5: BRUSHES =============== */
+  var brushes = {
+    key: "5", name: "5 — Brushes",
+    state: null, armed: null,
+    explainer:
+      "<dl><dt>The idea</dt><dd>Querying as <b>painting</b>. A tiny palette holds composable brushes — attributes (gender, era) and kin brushes (“ancestors of…”, “descendants of…” — click the brush, then tap a person to load it). Every stroke repaints the tree live; the count keeps score. This is the attribute-filter capability the other paradigms leave out.</dd>" +
+      "<dt>Trade</dt><dd>Set-algebra power (“women born before 1950 among Giulia’s ancestors”) with zero syntax; relationship phrasing isn’t this paradigm’s job.</dd></dl>",
+    queryActive: function () {
+      var s = this.state;
+      return !!(s && (s.gender || s.born || s.kinOf));
+    },
+    enter: function () { this.state = { gender: null, born: null, kin: null, kinOf: null }; this.render(); },
+    exit: function () { this.state = null; this.armed = null; removeFloats(); clearPaint(); applyEditorSim(); },
+    clear: function () {
+      this.state = { gender: null, born: null, kin: null, kinOf: null }; this.armed = null;
+      removeFloats(); clearPaint(); applyEditorSim(); this.render(); syncHint();
+    },
+    refresh: function () { if (this.state) this.render(); },
+    onCardClick: function (id) {
+      if (this.armed) {
+        this.state.kin = this.armed; this.state.kinOf = id; this.armed = null;
+        this.apply(); this.render();
       }
       syncHint();
     },
-    renderBadges: function () {
-      var self = this, a = this.anchor;
-      Array.prototype.slice.call(stage.querySelectorAll(".relate-badge")).forEach(function (n) { n.remove(); });
-      if (!a) return;
-      ALL.forEach(function (pid) {
-        if (pid === a) return;
-        var r = cardRect(pid);
-        if (!r) return;
-        var b = document.createElement("div");
-        b.className = "relate-badge q-float";
-        b.innerHTML = '⚭<span class="lbl">related?</span>';
-        b.title = "How is " + P[pid].name + " related to " + P[a].name + "?";
-        stage.appendChild(b);
-        b.style.left = (r.left + r.width - 10) + "px";
-        b.style.top = (r.top - 10) + "px";
-        b.addEventListener("click", function (ev) { ev.stopPropagation(); self.resolveTo(pid); });
+    apply: function () {
+      var s = this.state;
+      if (!this.queryActive()) { clearPaint(); applyEditorSim(); return; }
+      var ids = ALL.filter(function (id) {
+        if (s.gender && P[id].g !== s.gender) return false;
+        if (s.born && !(P[id].born < s.born)) return false;
+        return true;
+      });
+      if (s.kin && s.kinOf) {
+        var kinIds = (s.kin === "ancestors" ? ancestorsOf : descendantsOf)(s.kinOf);
+        ids = ids.filter(function (id) { return kinIds.indexOf(id) >= 0; });
+      }
+      paintResults(s.kinOf ? [s.kinOf] : [], ids);
+      this.matches = ids;
+    },
+    render: function () {
+      var self = this, s = this.state;
+      var old = stage.querySelector(".palette"); if (old) old.remove();
+      var pal = document.createElement("div");
+      pal.className = "palette q-float";
+      function b(label, cls, data) { return '<span class="brush ' + cls + '" ' + data + ">" + label + "</span>"; }
+      var kinLabel = function (k) {
+        return (k === "ancestors" ? "Ancestors of " : "Descendants of ") +
+          (s.kinOf ? firstName(s.kinOf) : "…");
+      };
+      pal.innerHTML = '<div class="pal-title">Brushes</div>' +
+        b("Women", s.gender === "f" ? "on" : "", 'data-g="f"') +
+        b("Men", s.gender === "m" ? "on" : "", 'data-g="m"') +
+        b("Born &lt; 1950", s.born === 1950 ? "on" : "", 'data-born="1950"') +
+        b("Born &lt; 1975", s.born === 1975 ? "on" : "", 'data-born="1975"') +
+        "<div></div>" +
+        b(this.armed === "ancestors" ? "Ancestors of — tap a person" : (s.kin === "ancestors" ? kinLabel("ancestors") + '<span class="x">✕</span>' : "Ancestors of…"),
+          this.armed === "ancestors" ? "armed" : (s.kin === "ancestors" ? "on" : ""), 'data-kin="ancestors"') +
+        b(this.armed === "descendants" ? "Descendants of — tap a person" : (s.kin === "descendants" ? kinLabel("descendants") + '<span class="x">✕</span>' : "Descendants of…"),
+          this.armed === "descendants" ? "armed" : (s.kin === "descendants" ? "on" : ""), 'data-kin="descendants"') +
+        (this.queryActive()
+          ? '<div class="pal-count"><b>' + (this.matches ? this.matches.length : 0) + "</b> match" +
+            ((this.matches || []).length === 1 ? "" : "es") +
+            ((this.matches || []).length ? "" : " — empty is the honest answer") + "</div>"
+          : '<div class="pal-count">no strokes yet — the tree is untouched</div>');
+      stage.appendChild(pal);
+      pal.style.left = ""; pal.style.top = "";
+      pal.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var el = ev.target.closest(".brush");
+        if (!el) return;
+        if (el.hasAttribute("data-g")) {
+          var g = el.getAttribute("data-g");
+          s.gender = s.gender === g ? null : g;
+        } else if (el.hasAttribute("data-born")) {
+          var y = +el.getAttribute("data-born");
+          s.born = s.born === y ? null : y;
+        } else if (el.hasAttribute("data-kin")) {
+          var k = el.getAttribute("data-kin");
+          if (s.kin === k) { s.kin = null; s.kinOf = null; }
+          else { self.armed = self.armed === k ? null : k; }
+        }
+        self.apply(); self.render(); syncHint();
       });
     }
   };
+
+  /* =============== paradigm switching =============== */
+  var MODES = [lens, radiate, compass, trail, brushes];
+  var vIndex = 0;
+  function current() { return MODES[vIndex]; }
+  function setMode(i, updateUrl) {
+    current().exit();
+    vIndex = (i + MODES.length) % MODES.length;
+    var m = current();
+    document.getElementById("vName").textContent = m.name;
+    document.getElementById("exBody").innerHTML = m.explainer;
+    if (updateUrl !== false) {
+      try {
+        var u = new URL(window.location.href);
+        u.searchParams.set("ux", m.key);
+        history.replaceState(null, "", u.toString());
+      } catch (e) { /* file:// — fine for a prototype */ }
+    }
+    m.enter();
+    applyEditorSim();
+    syncHint();
+  }
+  document.getElementById("prevV").addEventListener("click", function () { setMode(vIndex - 1); });
+  document.getElementById("nextV").addEventListener("click", function () { setMode(vIndex + 1); });
+  document.addEventListener("keydown", function (ev) {
+    var tag = (document.activeElement && document.activeElement.tagName) || "";
+    if (/INPUT|TEXTAREA|SELECT/.test(tag) || (document.activeElement && document.activeElement.isContentEditable)) return;
+    if (ev.key === "Escape") current().clear();
+    else if (ev.key === "ArrowLeft") setMode(vIndex - 1);
+    else if (ev.key === "ArrowRight") setMode(vIndex + 1);
+  });
+
+  /* relate badges — only in compass mode (the other paradigms replace relating) */
+  var hoverBadge = null;
+  function maybeBadge(card, entering) {
+    if (!compass.anchor || current() !== compass) return;
+    var id = card.getAttribute("data-person-id");
+    if (id === compass.anchor) return;
+    if (hoverBadge) { hoverBadge.remove(); hoverBadge = null; }
+    if (!entering) return;
+    var el = document.createElement("div");
+    el.className = "mini-tag q-float";
+    el.textContent = "⚭ related?";
+    el.style.cursor = "pointer";
+    stage.appendChild(el);
+    var r = cardRect(id);
+    place(el, r.left + r.width - 14, r.top - 12);
+    el.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      var ties = resolvePair(compass.anchor, id);
+      paintResolution(compass.anchor, id, ties);
+      whisperAt(compass.anchor, id, ties, null);
+    });
+    hoverBadge = el;
+  }
 
   /* =============== wire the SVG =============== */
   allCards().forEach(function (card) {
     card.addEventListener("click", function (ev) {
       var id = card.getAttribute("data-person-id");
-      model.onCardClick(id, ev);
+      if (current().onCardClick) current().onCardClick(id, ev);
       ev.stopPropagation();
     });
+    card.addEventListener("mouseenter", function () {
+      var id = card.getAttribute("data-person-id");
+      if (current().onCardHover) current().onCardHover(id, true);
+      maybeBadge(card, true);
+    });
+    card.addEventListener("mouseleave", function () {
+      var id = card.getAttribute("data-person-id");
+      if (current().onCardHover) current().onCardHover(id, false);
+    });
   });
-  svg.addEventListener("click", function () { model.clear(); });
-  document.addEventListener("keydown", function (ev) {
-    var tag = (document.activeElement && document.activeElement.tagName) || "";
-    if (/INPUT|TEXTAREA|SELECT/.test(tag) || (document.activeElement && document.activeElement.isContentEditable)) return;
-    if (ev.key === "Escape") { model.clear(); lastResolution = null; }
-    else if (ev.key === "ArrowLeft") setCardStyle(cardIndex - 1);
-    else if (ev.key === "ArrowRight") setCardStyle(cardIndex + 1);
-  });
-  document.getElementById("prevCard").addEventListener("click", function () { setCardStyle(cardIndex - 1); });
-  document.getElementById("nextCard").addEventListener("click", function () { setCardStyle(cardIndex + 1); });
-  document.getElementById("langSel").addEventListener("change", function () {
-    LANG = this.value;
-    setCardStyle(cardIndex, false); // re-render an open card in the new language
-  });
+  svg.addEventListener("click", function () { current().clear(); });
 
   /* =============== boot =============== */
-  var initialCard = "a";
-  try { initialCard = new URL(window.location.href).searchParams.get("card") || "a"; } catch (e) {}
-  var ci = { a: 0, b: 1, c: 2 }[String(initialCard).toLowerCase()];
-  setCardStyle(ci === undefined ? 0 : ci, false);
+  var initial = "1";
+  try { initial = new URL(window.location.href).searchParams.get("ux") || "1"; } catch (e) {}
+  var idx = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4 }[String(initial)];
+  vIndex = 0;
+  setMode(idx === undefined ? 0 : idx, false);
 })();
 </script>
 <!--BODY-END-->
