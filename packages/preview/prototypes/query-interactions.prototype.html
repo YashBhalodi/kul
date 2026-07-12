@@ -94,6 +94,25 @@
   .swap-btn { display:inline-block; cursor:pointer; border:1px solid var(--line); background:var(--chip);
     border-radius:7px; padding:2px 9px; font-size:12px; user-select:none; margin-top:6px; }
   .swap-btn:hover { border-color:var(--qa); }
+
+  /* ---------- relation-card styles (the thing being varied) ---------- */
+  .p-pill { display:inline-block; padding:0 8px; border-radius:999px; font-weight:600;
+    font-size:12px; line-height:1.6; white-space:nowrap; }
+  .p-pill.a { background:#ede9fe; color:#5b21b6; border:1px solid #c4b5fd; }
+  .p-pill.b { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+  .p-pill.mid { background:#e0f2fe; color:#075985; border:1px solid #7dd3fc; }
+  .card-head { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
+  .card-head .vs { color:var(--muted); font-size:13px; }
+  .dir-block { padding:6px 0; }
+  .dir-block + .dir-block { border-top:1px dashed var(--line); }
+  .dir-label { font-size:11px; color:var(--muted); letter-spacing:.03em; text-transform:uppercase;
+    margin-bottom:2px; }
+  .dir-label b { color:var(--ink); text-transform:none; letter-spacing:0; }
+  .chain { display:flex; align-items:center; flex-wrap:wrap; gap:4px; margin-top:4px; }
+  .chain .hop { color:var(--muted); font-size:12px; }
+  .chain .p-pill { cursor:default; font-weight:500; }
+  .tie-block { padding:5px 0; }
+  .tie-block + .tie-block { border-top:1px dashed var(--line); }
   .sync-hint { position:absolute; z-index:19; top:12px; right:12px; background:#fff7ed;
     border:1px solid #fed7aa; color:#9a3412; font-size:11.5px; padding:5px 10px; border-radius:8px; }
   .sync-hint kbd { background:#fff; border:1px solid #fed7aa; border-radius:4px; padding:0 4px; }
@@ -134,6 +153,16 @@
   .kin-row .cnt { margin-left:auto; color:var(--muted); font-variant-numeric:tabular-nums; }
   .kin-row .cnt.zero { color:#b42318; }
 
+  /* ---------- card-style switcher ---------- */
+  .switcher { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; z-index:40;
+    display:flex; align-items:center; gap:10px; background:#0f172a; color:#f8fafc;
+    border-radius:999px; padding:7px 12px; box-shadow:0 8px 30px rgba(2,6,23,.4);
+    font-size:13px; user-select:none; }
+  .switcher .arrow { cursor:pointer; font-size:15px; padding:0 6px; opacity:.85; }
+  .switcher .arrow:hover { opacity:1; }
+  .switcher .vlabel { min-width:190px; text-align:center; font-weight:600; }
+  .switcher .vkeys { color:#94a3b8; font-weight:400; font-size:11px; }
+
   /* zero-mode relate badges on target cards */
   .relate-badge { position:absolute; z-index:21; width:20px; height:20px; border-radius:999px;
     background:var(--panel); border:1.5px solid var(--qb); color:#92400e; font-size:11px;
@@ -147,8 +176,8 @@
 
 <div id="proto-root">
   <div class="proto-head">
-    <span class="proto-badge">PROTOTYPE · ROUND 3 · CONVERGED</span>
-    <span class="proto-title">On-canvas kinship querying <span>— #276 · plate + flat kin list + ⚭ badges</span></span>
+    <span class="proto-badge">PROTOTYPE · ROUND 4 · RELATION CARD</span>
+    <span class="proto-title">On-canvas kinship querying <span>— #276 · converged model · 3 relation-card styles</span></span>
     <span class="spacer"></span>
     <span class="sim-wrap">
       <span class="sim-dot"></span> Simulate editor cursor on:
@@ -168,6 +197,8 @@
             <dd><b>⚭ corner badges</b> on every other card — one click, no mode. Or the plate’s “How related to…?” row, which arms a pick mode (dashed rings). Same resolution either way, with ⇄ swap in the banner.</dd>
             <dt>Unchanged stances</dt>
             <dd>Results glow + rest dims; ghosts light too; editor sync suspends during a query (<kbd>Esc</kbd> resumes); empty results toast honestly.</dd>
+            <dt>This round: the relation card</dt>
+            <dd>Three styles for the resolution card, switchable with the bottom bar or ← → keys — <b>while a card is open</b>, so you can flip styles on the same pair. <b>1 Sentence</b>: phrased one direction + ⇄ swap. <b>2 Both ways</b>: both directions at once, no swap needed. <b>3 Path chain</b>: each term with its walk through the tree (⚭ ↑ ↓), mirroring the dashed path glow.</dd>
           </dl>
         </div>
       </details>
@@ -223,6 +254,12 @@ svg {
 .kul-legend .kul-edge[data-link-kind="marriage"] { stroke-width: var(--kul-legend-marriage-edge-stroke-width); }
 </style><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="birth" data-child-id="marco" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 380 156 L 114 156 Q 104 156 104 166 L 104 184"/><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="birth" data-child-id="lucia" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 400 156 L 476 156 Q 486 156 486 166 L 486 184"/><path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="birth" data-child-id="elena" data-is-past="true" fill="none" d="M 963 56 L 963 156 L 963 156 L 963 184"/><path class="kul-edge" data-marriage-id="m_marco_elena" data-link-kind="birth" data-child-id="matteo" data-is-past="false" fill="none" d="M 199 216 L 199 306 Q 199 316 189 316 L 114 316 Q 104 316 104 326 L 104 344"/><path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="birth" data-child-id="giulia" data-is-past="true" fill="none" d="M 581 216 L 581 316 L 581 316 L 581 344"/><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="marriage" data-host-id="giuseppe" data-joining-id="sofia" data-start="1965-06-12" data-is-ended="false" fill="none" d="M 375 56 L 405 56"/><path class="kul-edge" data-marriage-id="m_marco_elena" data-link-kind="marriage" data-host-id="marco" data-joining-id="elena" data-start="1995-07-22" data-is-ended="false" fill="none" d="M 184 216 L 214 216"/><path class="kul-edge" data-marriage-id="m_matteo_giulia" data-link-kind="marriage" data-host-id="matteo" data-joining-id="giulia" data-start="2020-09-12" data-is-ended="false" fill="none" d="M 184 376 L 214 376"/><path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="marriage" data-host-id="lucia" data-joining-id="paolo" data-start="1996-10-05" data-is-ended="false" fill="none" d="M 566 216 L 596 216"/><path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="marriage" data-host-id="aldo" data-joining-id="bianca" data-start="1967-05-30" data-is-ended="false" fill="none" d="M 948 56 L 978 56"/><g class="kul-card" data-person-id="giuseppe" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1940-05-19" data-generation="0"><rect x="215" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Giuseppe Rossi</text></g><g class="kul-card" data-person-id="sofia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1943-01-27" data-generation="0"><rect x="405" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="485" y="56" text-anchor="middle" dominant-baseline="central">Sofia Rossi</text></g><g class="kul-card" data-person-id="marco" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1968-09-30" data-generation="1"><rect x="24" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Marco Rossi</text></g><g class="kul-card" data-person-id="elena" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1"><rect x="214" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="294" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text></g><g class="kul-card" data-person-id="matteo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1997-02-14" data-generation="2"><rect x="24" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="376" text-anchor="middle" dominant-baseline="central">Matteo Rossi</text></g><g class="kul-card" data-person-id="giulia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2"><rect x="214" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="294" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text></g><g class="kul-card" data-person-id="lucia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1971-04-08" data-generation="1"><rect x="406" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="486" y="216" text-anchor="middle" dominant-baseline="central">Lucia Rossi</text></g><g class="kul-card" data-person-id="paolo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1969-03-17" data-generation="1"><rect x="596" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="676" y="216" text-anchor="middle" dominant-baseline="central">Paolo Conti</text></g><g class="kul-card" data-person-id="giulia" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2"><rect x="501" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="581" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text></g><g class="kul-card" data-person-id="aldo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1942-08-03" data-generation="0"><rect x="788" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="868" y="56" text-anchor="middle" dominant-baseline="central">Aldo Bianchi</text></g><g class="kul-card" data-person-id="bianca" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1945-12-21" data-generation="0"><rect x="978" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="1058" y="56" text-anchor="middle" dominant-baseline="central">Bianca Bianchi</text></g><g class="kul-card" data-person-id="elena" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1"><rect x="883" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="963" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text></g><g class="kul-legend"><rect class="kul-legend-bg" x="8" y="448" width="188" height="130" rx="6" ry="6"/><g class="kul-card" data-kind="canonical" data-gender="male"><rect x="22" y="462" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="469" dominant-baseline="central">Male</text><g class="kul-card" data-kind="canonical" data-gender="female"><rect x="22" y="484" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="491" dominant-baseline="central">Female</text><g class="kul-card" data-kind="ghost"><rect x="22" y="506" width="30" height="14" rx="3" ry="3" stroke-dasharray="3 2"/></g><text class="kul-legend-label" x="62" y="513" dominant-baseline="central">Past record</text><path class="kul-edge" data-link-kind="birth" fill="none" d="M 22 535 L 52 535"/><text class="kul-legend-label" x="62" y="535" dominant-baseline="central">Birth</text><path class="kul-edge" data-link-kind="marriage" fill="none" d="M 22 557 L 52 557"/><text class="kul-legend-label" x="62" y="557" dominant-baseline="central">Marriage</text></g></svg>
     </div>
+  </div>
+
+  <div class="switcher">
+    <span class="arrow" id="prevCard">←</span>
+    <span class="vlabel"><span id="cardName"></span><br><span class="vkeys">relation-card style · ?card= · ← → keys</span></span>
+    <span class="arrow" id="nextCard">→</span>
   </div>
 </div>
 
@@ -588,18 +625,67 @@ svg {
     toast.textContent = msg;
     popAt(toast, rect, "above");
   }
+  /* =============== the relation card — three styles =============== */
+  function pill(id, cls) { return '<span class="p-pill ' + cls + '">' + P[id].name + "</span>"; }
+  function hopGlyph(p, q) {
+    if (spousesOf(p).indexOf(q) >= 0) return "⚭";
+    if (parentsOf(p).indexOf(q) >= 0) return "↑";   // q is p's parent
+    if (parentsOf(q).indexOf(p) >= 0) return "↓";   // q is p's child
+    return "·";
+  }
+  function chainHtml(path, a, b) {
+    var bits = [];
+    path.forEach(function (pid, i) {
+      var cls = pid === a ? "a" : pid === b ? "b" : "mid";
+      bits.push(pill(pid, cls));
+      if (i < path.length - 1) bits.push('<span class="hop">' + hopGlyph(pid, path[i + 1]) + "</span>");
+    });
+    return '<div class="chain">' + bits.join("") + "</div>";
+  }
+  var emptyHtml = function (a, b) {
+    return '<div class="card-head">' + pill(a, "a") + '<span class="vs">↔</span>' + pill(b, "b") + "</div>" +
+      '<div class="tie-note">No relationship within traversal bounds — reported honestly, nothing invented.</div>';
+  };
+  var CARD_STYLES = [
+    { key: "1", name: "Card 1 — Sentence",
+      hint: "Reads like speech: “B is A’s …”. One direction at a time; ⇄ re-phrases from the other side. Ties stack as lines.",
+      render: function (a, b, ties) {
+        if (!ties.length) return emptyHtml(a, b);
+        return '<div class="card-head">' + pill(b, "b") + '<span class="vs">is</span>' + pill(a, "a") +
+          '<span class="vs">’s</span></div>' + ties.map(tieHtml).join("") +
+          '<span class="swap-btn" data-swap="1">⇄ swap perspective</span>';
+      } },
+    { key: "2", name: "Card 2 — Both ways",
+      hint: "Symmetric: both directions shown at once, so the swap button disappears. Each side lists its own terms.",
+      render: function (a, b, ties) {
+        if (!ties.length) return emptyHtml(a, b);
+        var back = resolvePair(b, a);
+        function dir(x, y, list) {
+          return '<div class="dir-block"><div class="dir-label"><b>' + P[y].name + "</b> is <b>" + P[x].name + "</b>’s</div>" +
+            list.map(tieHtml).join("") + "</div>";
+        }
+        return '<div class="card-head">' + pill(a, "a") + '<span class="vs">⇄</span>' + pill(b, "b") + "</div>" +
+          dir(a, b, ties) + dir(b, a, back);
+      } },
+    { key: "3", name: "Card 3 — Path chain",
+      hint: "Shows HOW the tie runs: each term with its walk through the tree (⚭ marriage, ↑ parent, ↓ child), matching the dashed path glow.",
+      render: function (a, b, ties) {
+        if (!ties.length) return emptyHtml(a, b);
+        return '<div class="card-head">' + pill(b, "b") + '<span class="vs">is</span>' + pill(a, "a") +
+          '<span class="vs">’s</span></div>' +
+          ties.map(function (tie) { return '<div class="tie-block">' + tieHtml(tie) + chainHtml(tie.path, a, b) + "</div>"; }).join("") +
+          '<span class="swap-btn" data-swap="1">⇄ swap perspective</span>';
+      } }
+  ];
+  var cardIndex = 0;
+  var lastResolution = null;
   function showBanner(a, b, ties, onSwap) {
+    lastResolution = { a: a, b: b, ties: ties, onSwap: onSwap };
     var old = stage.querySelector(".halo-banner");
     if (old) old.remove();
     var banner = document.createElement("div");
     banner.className = "halo-banner";
-    if (!ties.length) {
-      banner.innerHTML = "<b>" + P[a].name + " ↔ " + P[b].name + "</b>" +
-        '<div class="tie-note">No relationship within traversal bounds — reported honestly, nothing invented.</div>';
-    } else {
-      banner.innerHTML = "<b>" + P[b].name + "</b> is <b>" + P[a].name + "</b>’s:" + ties.map(tieHtml).join("") +
-        '<span class="swap-btn" data-swap="1">⇄ swap perspective</span>';
-    }
+    banner.innerHTML = CARD_STYLES[cardIndex].render(a, b, ties);
     var ra = cardRect(a), rb = cardRect(b);
     banner.classList.add("q-float");
     stage.appendChild(banner);
@@ -608,8 +694,25 @@ svg {
     if (top < 8) top = Math.max(ra.top, rb.top) + ra.height + 14;
     banner.style.left = Math.max(8, Math.min(left, stage.scrollWidth - banner.offsetWidth - 8)) + "px";
     banner.style.top = top + "px";
+    banner.addEventListener("click", function (ev) { ev.stopPropagation(); });
     var swap = banner.querySelector("[data-swap]");
     if (swap && onSwap) swap.addEventListener("click", function (ev) { ev.stopPropagation(); onSwap(); });
+  }
+  function setCardStyle(i, updateUrl) {
+    cardIndex = (i + CARD_STYLES.length) % CARD_STYLES.length;
+    var cs = CARD_STYLES[cardIndex];
+    document.getElementById("cardName").textContent = cs.name;
+    document.getElementById("cardName").title = cs.hint;
+    if (updateUrl !== false) {
+      try {
+        var u = new URL(window.location.href);
+        u.searchParams.set("card", cs.key);
+        history.replaceState(null, "", u.toString());
+      } catch (e) { /* file:// without history — fine for a prototype */ }
+    }
+    if (lastResolution && stage.querySelector(".halo-banner")) {
+      showBanner(lastResolution.a, lastResolution.b, lastResolution.ties, lastResolution.onSwap);
+    }
   }
 
   /* =============== editor-selection simulation =============== */
@@ -768,8 +871,18 @@ svg {
   document.addEventListener("keydown", function (ev) {
     var tag = (document.activeElement && document.activeElement.tagName) || "";
     if (/INPUT|TEXTAREA|SELECT/.test(tag) || (document.activeElement && document.activeElement.isContentEditable)) return;
-    if (ev.key === "Escape") model.clear();
+    if (ev.key === "Escape") { model.clear(); lastResolution = null; }
+    else if (ev.key === "ArrowLeft") setCardStyle(cardIndex - 1);
+    else if (ev.key === "ArrowRight") setCardStyle(cardIndex + 1);
   });
+  document.getElementById("prevCard").addEventListener("click", function () { setCardStyle(cardIndex - 1); });
+  document.getElementById("nextCard").addEventListener("click", function () { setCardStyle(cardIndex + 1); });
+
+  /* =============== boot =============== */
+  var initialCard = "1";
+  try { initialCard = new URL(window.location.href).searchParams.get("card") || "1"; } catch (e) {}
+  var ci = { 1: 0, 2: 1, 3: 2 }[String(initialCard)];
+  setCardStyle(ci === undefined ? 0 : ci, false);
 })();
 </script>
 <!--BODY-END-->
