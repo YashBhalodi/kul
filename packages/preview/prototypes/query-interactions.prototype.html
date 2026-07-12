@@ -114,6 +114,23 @@
   .chain .p-pill { cursor:default; font-weight:500; }
   .tie-block { padding:5px 0; }
   .tie-block + .tie-block { border-top:1px dashed var(--line); }
+
+  /* density variants (cards 4–6) */
+  .halo-banner.card-4 { padding:6px 12px; border-radius:999px; border-left-width:1px; }
+  .whisper { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:700; white-space:nowrap; }
+  .whisper .tie-note { font-weight:400; font-size:12px; }
+  .swap-mini { cursor:pointer; color:var(--muted); font-size:14px; user-select:none; border-radius:5px; padding:0 3px; }
+  .swap-mini:hover { color:var(--qa); background:var(--chip-on); }
+  .oneline { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12.5px; }
+  .oneline b { font-weight:700; }
+  .oneline .term { font-weight:700; }
+  .oneline .term.gu { font-size:14.5px; cursor:help; }
+  .kind-chip { font-size:10px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+    padding:0 5px; border-radius:4px; margin-left:6px; vertical-align:1px; }
+  .kind-chip.blood { background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
+  .kind-chip.inlaw { background:#e0e7ff; color:#3730a3; border:1px solid #c7d2fe; }
+  .meta-foot { margin-top:7px; color:var(--muted); font-size:11px;
+    border-top:1px solid var(--line); padding-top:5px; }
   .sync-hint { position:absolute; z-index:19; top:12px; right:12px; background:#fff7ed;
     border:1px solid #fed7aa; color:#9a3412; font-size:11.5px; padding:5px 10px; border-radius:8px; }
   .sync-hint kbd { background:#fff; border:1px solid #fed7aa; border-radius:4px; padding:0 4px; }
@@ -177,8 +194,8 @@
 
 <div id="proto-root">
   <div class="proto-head">
-    <span class="proto-badge">PROTOTYPE · ROUND 5 · SINGLE LANGUAGE</span>
-    <span class="proto-title">On-canvas kinship querying <span>— #276 · converged model · 3 relation-card styles</span></span>
+    <span class="proto-badge">PROTOTYPE · ROUND 6 · CARD DENSITY</span>
+    <span class="proto-title">On-canvas kinship querying <span>— #276 · converged model · 6 relation-card styles</span></span>
     <span class="spacer"></span>
     <span class="sim-wrap">
       Phrasing language:
@@ -205,8 +222,8 @@
             <dd><b>⚭ corner badges</b> on every other card — one click, no mode. Or the plate’s “How related to…?” row, which arms a pick mode (dashed rings). Same resolution either way, with ⇄ swap in the banner.</dd>
             <dt>Unchanged stances</dt>
             <dd>Results glow + rest dims; ghosts light too; editor sync suspends during a query (<kbd>Esc</kbd> resumes); empty results toast honestly.</dd>
-            <dt>This round: the relation card</dt>
-            <dd>Three styles for the resolution card, switchable with the bottom bar or ← → keys — <b>while a card is open</b>, so you can flip styles on the same pair. <b>1 Sentence</b>: phrased one direction + ⇄ swap. <b>2 Both ways</b>: both directions at once, no swap needed. <b>3 Path chain</b>: each term with its walk through the tree (⚭ ↑ ↓), mirroring the dashed path glow.</dd>
+            <dt>The relation card — six styles, two axes</dt>
+            <dd>Flip with the bottom bar or ← → keys <b>while a card is open</b>. Cards 1–3 vary <b>shape</b>: <b>1 Sentence</b> (phrased + ⇄ swap), <b>2 Both ways</b> (both directions, no swap), <b>3 Path chain</b> (terms with their tree walk). Cards 4–6 vary <b>density</b>: <b>4 Whisper</b> (term only — the tree outlines already say who; hover for the sentence), <b>5 One-liner</b> (first names + terms, breadcrumb-style), <b>6 Dossier</b> (both directions, blood/in-law tags, path chains, summary footer).</dd>
             <dt>Language is a user setting</dt>
             <dd>Phrasing renders in <b>one language at a time</b> — the header select stands in for a top-level user setting. In ગુજરાતી, hover a term for its transliteration; nothing is stacked bilingually.</dd>
           </dl>
@@ -690,8 +707,60 @@ svg {
           '<span class="vs">’s</span></div>' +
           ties.map(function (tie) { return '<div class="tie-block">' + tieHtml(tie) + chainHtml(tie.path, a, b) + "</div>"; }).join("") +
           '<span class="swap-btn" data-swap="1">⇄ swap perspective</span>';
+      } },
+    { key: "4", name: "Card 4 — Whisper",
+      hint: "Minimum density: the term(s) and nothing else — the tree's violet/amber outlines already say who. Hover the term for the full sentence.",
+      render: function (a, b, ties) {
+        if (!ties.length) {
+          return '<div class="whisper"><span class="tie-note">not related (within bounds)</span></div>';
+        }
+        var full = P[b].name + " is " + P[a].name + "’s " + ties.map(function (tie) { return termText(tie, false); }).join(" & ");
+        return '<div class="whisper"><span title="' + full.replace(/"/g, "&quot;") + '">' +
+          ties.map(function (tie) { return termText(tie, true); }).join(" · ") + "</span>" +
+          '<span class="swap-mini" data-swap="1" title="swap perspective">⇄</span></div>';
+      } },
+    { key: "5", name: "Card 5 — One-liner",
+      hint: "Medium density: first names + terms on a single line, icon-only swap. Reads like a breadcrumb.",
+      render: function (a, b, ties) {
+        if (!ties.length) {
+          return '<div class="oneline"><b>' + firstName(a) + "</b> ↔ <b>" + firstName(b) +
+            '</b><span class="tie-note">— no tie within bounds</span></div>';
+        }
+        var guCls = LANG === "gu" ? " gu" : "";
+        return '<div class="oneline"><b>' + firstName(b) + '</b><span class="vs">is</span><b>' +
+          firstName(a) + "</b>’s " +
+          ties.map(function (tie) {
+            return '<span class="term' + guCls + '"' + (LANG === "gu" ? ' title="' + tie.gu + '"' : "") + ">" +
+              termText(tie, true) + "</span>";
+          }).join('<span class="vs">&amp;</span>') +
+          '<span class="swap-mini" data-swap="1" title="swap perspective">⇄</span></div>';
+      } },
+    { key: "6", name: "Card 6 — Dossier",
+      hint: "Maximum density: both directions, every tie tagged blood/in-law with its path chain, and a summary footer. The full report.",
+      render: function (a, b, ties) {
+        if (!ties.length) return emptyHtml(a, b);
+        var back = resolvePair(b, a);
+        function block(x, y, list) {
+          return '<div class="dir-block"><div class="dir-label"><b>' + P[y].name + "</b> is <b>" + P[x].name + "</b>’s</div>" +
+            list.map(function (tie) {
+              return '<div class="tie-block">' + tieHtml(tie).replace("</span>",
+                '</span><span class="kind-chip ' + (tie.kind === "blood" ? "blood" : "inlaw") + '">' + tie.kind + "</span>") +
+                chainHtml(tie.path, x, y) + "</div>";
+            }).join("") + "</div>";
+        }
+        var kinds = uniq(ties.map(function (tie) { return tie.kind; }));
+        return '<div class="card-head">' + pill(a, "a") + '<span class="vs">⇄</span>' + pill(b, "b") + "</div>" +
+          block(a, b, ties) + block(b, a, back) +
+          '<div class="meta-foot">' + ties.length + " tie" + (ties.length > 1 ? "s" : "") + " each way · " +
+          kinds.join(" + ") + " · within traversal bounds</div>";
       } }
   ];
+  function firstName(id) { return P[id].name.split(" ")[0]; }
+  /* single-language term text; short=true strips the English parenthetical gloss */
+  function termText(tie, short) {
+    if (LANG === "gu") return tie.script;
+    return short ? tie.en.replace(/\s*\(.*?\)/, "") : tie.en;
+  }
   var cardIndex = 0;
   var lastResolution = null;
   function showBanner(a, b, ties, onSwap) {
@@ -699,7 +768,7 @@ svg {
     var old = stage.querySelector(".halo-banner");
     if (old) old.remove();
     var banner = document.createElement("div");
-    banner.className = "halo-banner";
+    banner.className = "halo-banner card-" + CARD_STYLES[cardIndex].key;
     banner.innerHTML = CARD_STYLES[cardIndex].render(a, b, ties);
     var ra = cardRect(a), rb = cardRect(b);
     banner.classList.add("q-float");
@@ -900,7 +969,7 @@ svg {
   /* =============== boot =============== */
   var initialCard = "1";
   try { initialCard = new URL(window.location.href).searchParams.get("card") || "1"; } catch (e) {}
-  var ci = { 1: 0, 2: 1, 3: 2 }[String(initialCard)];
+  var ci = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5 }[String(initialCard)];
   setCardStyle(ci === undefined ? 0 : ci, false);
 })();
 </script>
