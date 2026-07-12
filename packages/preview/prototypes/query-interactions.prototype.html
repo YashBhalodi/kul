@@ -88,6 +88,7 @@
     box-shadow:0 8px 28px rgba(16,24,40,.18); font-size:12.5px; max-width:400px; }
   .tie-row { margin:3px 0; }
   .tie-en { font-weight:700; }
+  .tie-en.tie-term-gu { font-size:15px; cursor:help; }
   .tie-gu { color:#5b21b6; }
   .tie-gu .script { font-size:14px; }
   .tie-note { color:var(--muted); font-size:11.5px; }
@@ -176,9 +177,16 @@
 
 <div id="proto-root">
   <div class="proto-head">
-    <span class="proto-badge">PROTOTYPE · ROUND 4 · RELATION CARD</span>
+    <span class="proto-badge">PROTOTYPE · ROUND 5 · SINGLE LANGUAGE</span>
     <span class="proto-title">On-canvas kinship querying <span>— #276 · converged model · 3 relation-card styles</span></span>
     <span class="spacer"></span>
+    <span class="sim-wrap">
+      Phrasing language:
+      <select id="langSel">
+        <option value="en">English</option>
+        <option value="gu">ગુજરાતી</option>
+      </select>
+    </span>
     <span class="sim-wrap">
       <span class="sim-dot"></span> Simulate editor cursor on:
       <select id="editorSim"><option value="">— none —</option></select>
@@ -199,6 +207,8 @@
             <dd>Results glow + rest dims; ghosts light too; editor sync suspends during a query (<kbd>Esc</kbd> resumes); empty results toast honestly.</dd>
             <dt>This round: the relation card</dt>
             <dd>Three styles for the resolution card, switchable with the bottom bar or ← → keys — <b>while a card is open</b>, so you can flip styles on the same pair. <b>1 Sentence</b>: phrased one direction + ⇄ swap. <b>2 Both ways</b>: both directions at once, no swap needed. <b>3 Path chain</b>: each term with its walk through the tree (⚭ ↑ ↓), mirroring the dashed path glow.</dd>
+            <dt>Language is a user setting</dt>
+            <dd>Phrasing renders in <b>one language at a time</b> — the header select stands in for a top-level user setting. In ગુજરાતી, hover a term for its transliteration; nothing is stacked bilingually.</dd>
           </dl>
         </div>
       </details>
@@ -581,9 +591,14 @@ svg {
     var r = el.getBoundingClientRect(), s = stage.getBoundingClientRect();
     return { left: r.left - s.left + stage.scrollLeft, top: r.top - s.top + stage.scrollTop, width: r.width, height: r.height };
   }
+  /* phrasing language is a top-level USER SETTING — one language at a time,
+     never both stacked (transliteration survives as a hover tooltip in gu) */
+  var LANG = "en";
   function tieHtml(tie) {
-    return '<div class="tie-row"><span class="tie-en">' + tie.en + "</span> · " +
-      '<span class="tie-gu">' + tie.gu + ' <span class="script">' + tie.script + "</span></span>" +
+    var term = LANG === "gu"
+      ? '<span class="tie-en tie-term-gu" title="' + tie.gu + '">' + tie.script + "</span>"
+      : '<span class="tie-en">' + tie.en + "</span>";
+    return '<div class="tie-row">' + term +
       (tie.note ? '<div class="tie-note">' + tie.note + "</div>" : "") + "</div>";
   }
   function detailHtml(id) {
@@ -877,6 +892,10 @@ svg {
   });
   document.getElementById("prevCard").addEventListener("click", function () { setCardStyle(cardIndex - 1); });
   document.getElementById("nextCard").addEventListener("click", function () { setCardStyle(cardIndex + 1); });
+  document.getElementById("langSel").addEventListener("change", function () {
+    LANG = this.value;
+    setCardStyle(cardIndex, false); // re-render an open card in the new language
+  });
 
   /* =============== boot =============== */
   var initialCard = "1";
