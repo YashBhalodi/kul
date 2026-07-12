@@ -9,11 +9,13 @@
 <!--BODY-START-->
 <title>Kul query-UX prototype — ticket #276</title>
 <!-- ============================================================
-  PROTOTYPE — THROWAWAY. Wayfinder ticket #276 (map #275).
-  Three variants of direct-manipulation kinship querying over the
-  real rendered SVG of examples/05-cousins-and-in-laws, switchable
-  via ?variant=a|b|c and the floating bottom switcher (or ← → keys).
-  The "kinship engine" below is a mock good only for this family.
+  PROTOTYPE — THROWAWAY. Wayfinder ticket #276 (map #275), round 2.
+  Direction settled on the on-canvas model (old variant A). Three
+  variations of it, differing on (1) the progressive-disclosure
+  shape: person detail → query types → exact queries, and (2) the
+  mouse-only affordance for two-person relationship resolution.
+  Switch via ?variant=1|2|3, the floating bar, or ← → keys.
+  The "kinship engine" below is a mock good only for examples/05.
   ============================================================ -->
 <style>
   :root {
@@ -57,7 +59,7 @@
   /* ---------- stage ---------- */
   .stage-row { display:flex; flex:1; min-height:0; position:relative; }
   .stage { position:relative; flex:1; overflow:auto; padding:24px 16px 150px; }
-  .stage svg { width:100%; max-width:1250px; height:auto; display:block; margin:0 auto;
+  .stage svg.kul-tree { width:100%; max-width:1250px; height:auto; display:block; margin:0 auto;
     background:#fff; border:1px solid var(--line); border-radius:8px; }
 
   /* ---------- card paint states (outline technique = real preview chrome) ---------- */
@@ -68,128 +70,118 @@
   .kul-card.q-result > rect { outline:3px solid var(--qr); outline-offset:2px;
     filter:drop-shadow(0 0 6px rgba(13,148,136,.55)); }
   .kul-card.q-result-ghost > rect { outline:2px dashed var(--qr); outline-offset:2px; }
-  .kul-card.q-ghost-dot > rect { outline:2px dotted var(--qr); outline-offset:1px; }
   .kul-card.q-path > rect { outline:2px dashed var(--qpath); outline-offset:4px; }
   .kul-card.q-dim { opacity:.22; }
+  .kul-card.q-target > rect { outline:2px dashed var(--qb); outline-offset:2px; cursor:crosshair; }
   .kul-card.q-pulse > rect { animation:qpulse .9s ease-in-out infinite alternate; }
   @keyframes qpulse { from { outline-color:var(--qr); } to { outline-color:transparent; } }
 
-  /* ---------- variant A: halo popover + banner ---------- */
-  .halo-pop { position:absolute; z-index:20; max-width:300px; background:var(--panel);
-    border:1px solid var(--line); border-radius:10px; box-shadow:0 6px 24px rgba(16,24,40,.14);
-    padding:10px; font-size:12px; }
-  .halo-pop .hp-name { font-weight:700; font-size:13px; margin-bottom:2px; }
-  .halo-pop .hp-hint { color:var(--muted); margin-bottom:8px; }
-  .halo-pop .hp-hint kbd { background:var(--chip); border:1px solid var(--line); border-radius:4px;
-    padding:0 4px; font-size:11px; }
+  /* ---------- shared floating pieces ---------- */
+  .q-float { position:absolute; z-index:20; }
+  .halo-toast { position:absolute; z-index:26; background:#0f172a; color:#f8fafc;
+    padding:7px 11px; border-radius:8px; font-size:12px; max-width:280px;
+    box-shadow:0 6px 20px rgba(2,6,23,.35); }
+  .halo-banner { position:absolute; z-index:24; background:var(--panel); border:1px solid var(--line);
+    border-left:4px solid var(--qpath); border-radius:10px; padding:10px 14px;
+    box-shadow:0 8px 28px rgba(16,24,40,.18); font-size:12.5px; max-width:400px; }
+  .tie-row { margin:3px 0; }
+  .tie-en { font-weight:700; }
+  .tie-gu { color:#5b21b6; }
+  .tie-gu .script { font-size:14px; }
+  .tie-note { color:var(--muted); font-size:11.5px; }
+  .swap-btn { display:inline-block; cursor:pointer; border:1px solid var(--line); background:var(--chip);
+    border-radius:7px; padding:2px 9px; font-size:12px; user-select:none; margin-top:6px; }
+  .swap-btn:hover { border-color:var(--qa); }
+  .sync-hint { position:absolute; z-index:19; top:12px; right:12px; background:#fff7ed;
+    border:1px solid #fed7aa; color:#9a3412; font-size:11.5px; padding:5px 10px; border-radius:8px; }
+  .sync-hint kbd { background:#fff; border:1px solid #fed7aa; border-radius:4px; padding:0 4px; }
   .chips { display:flex; flex-wrap:wrap; gap:5px; }
   .chip { border:1px solid var(--line); background:var(--chip); border-radius:999px;
     padding:3px 9px; font-size:11.5px; cursor:pointer; user-select:none; }
   .chip:hover { border-color:var(--qa); }
   .chip.on { background:var(--chip-on); border-color:var(--qa); color:#5b21b6; font-weight:600; }
   .chip .cnt { color:var(--muted); font-weight:400; }
-  .halo-toast { position:absolute; z-index:21; background:#0f172a; color:#f8fafc;
-    padding:7px 11px; border-radius:8px; font-size:12px; max-width:280px;
-    box-shadow:0 6px 20px rgba(2,6,23,.35); }
-  .halo-banner { position:absolute; z-index:22; background:var(--panel); border:1px solid var(--line);
-    border-left:4px solid var(--qpath); border-radius:10px; padding:10px 14px;
-    box-shadow:0 8px 28px rgba(16,24,40,.18); font-size:12.5px; max-width:380px; }
-  .tie-row { margin:3px 0; }
-  .tie-en { font-weight:700; }
-  .tie-gu { color:#5b21b6; }
-  .tie-gu .script { font-size:14px; }
-  .tie-note { color:var(--muted); font-size:11.5px; }
-  .sync-hint { position:absolute; z-index:19; top:12px; right:12px; background:#fff7ed;
-    border:1px solid #fed7aa; color:#9a3412; font-size:11.5px; padding:5px 10px; border-radius:8px; }
-  .sync-hint kbd { background:#fff; border:1px solid #fed7aa; border-radius:4px; padding:0 4px; }
 
-  /* ---------- variant B: dock ---------- */
-  #dock { width:320px; flex:none; background:var(--panel); border-left:1px solid var(--line);
-    display:none; flex-direction:column; min-height:0; }
-  body[data-variant="b"] #dock { display:flex; }
-  .dock-tabs { display:flex; border-bottom:1px solid var(--line); }
-  .dock-tab { flex:1; text-align:center; font-size:12.5px; padding:9px 4px; cursor:pointer;
-    color:var(--muted); border-bottom:2px solid transparent; user-select:none; }
-  .dock-tab.on { color:var(--qa); border-bottom-color:var(--qa); font-weight:600; }
-  .dock-body { flex:1; overflow:auto; padding:12px; font-size:12.5px; }
-  .dock-empty { color:var(--muted); text-align:center; margin-top:40px; padding:0 20px; line-height:1.5; }
-  .detail-card { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:12px; }
-  .detail-card .dc-name { font-weight:700; font-size:14px; }
-  .detail-card .dc-meta { color:var(--muted); font-size:12px; margin-top:2px; }
-  .detail-card .dc-sync { display:inline-block; margin-top:6px; font-size:11px; color:var(--sync);
-    border:1px solid #ffd6ea; background:#fff0f7; border-radius:999px; padding:1px 8px; }
-  .set-row { border:1px solid var(--line); border-radius:8px; margin-bottom:6px; overflow:hidden; }
-  .set-row-head { display:flex; align-items:center; padding:7px 10px; cursor:pointer; user-select:none; }
-  .set-row-head:hover { background:var(--chip); }
-  .set-row.on .set-row-head { background:var(--chip-on); }
-  .set-row .sr-label { flex:1; font-weight:600; }
-  .set-row .sr-count { color:var(--muted); }
-  .set-row .sr-count.zero { color:#b42318; }
-  .set-members { border-top:1px solid var(--line); padding:6px 10px; }
-  .member { display:flex; align-items:baseline; gap:6px; padding:4px 2px; border-radius:6px; cursor:pointer; }
-  .member:hover { background:var(--chip); }
-  .member .m-name { font-weight:600; }
-  .member .m-term { color:var(--muted); font-size:11.5px; }
-  .member .m-ghost { font-size:10.5px; color:#92400e; background:#fef3c7; border:1px solid #fcd34d;
-    border-radius:4px; padding:0 4px; }
-  .empty-note { color:var(--muted); font-style:italic; padding:4px 2px; }
-  .slot-row { display:flex; gap:8px; margin-bottom:10px; }
-  .slot { flex:1; border:1.5px dashed var(--line); border-radius:8px; padding:8px; text-align:center;
-    font-size:12px; color:var(--muted); }
-  .slot.filled { border-style:solid; color:var(--ink); font-weight:600; }
-  .slot.a.filled { border-color:var(--qa); background:#f5f3ff; }
-  .slot.b.filled { border-color:var(--qb); background:#fffbeb; }
-  .slot .x { cursor:pointer; color:var(--muted); margin-left:6px; }
-  .dock-btn { display:inline-block; border:1px solid var(--line); background:var(--chip);
-    border-radius:7px; padding:5px 10px; font-size:12px; cursor:pointer; user-select:none; }
-  .dock-btn:hover { border-color:var(--qa); }
-  .filter-field { margin-bottom:10px; }
-  .filter-field label { display:block; font-weight:600; margin-bottom:3px; }
-  .filter-field select, .filter-field input[type="number"] { width:100%; padding:5px 7px;
-    border:1px solid var(--line); border-radius:7px; font-size:12.5px; background:#fff; }
-  .result-strip { margin-top:10px; }
+  /* ---------- popover / plate (variants 1 & 3) ---------- */
+  .pop { max-width:290px; min-width:230px; background:var(--panel); border:1px solid var(--line);
+    border-radius:10px; box-shadow:0 6px 24px rgba(16,24,40,.14); font-size:12px; z-index:22; }
+  .pop-head { display:flex; align-items:center; gap:6px; padding:8px 10px;
+    border-bottom:1px solid var(--line); }
+  .pop-back { cursor:pointer; font-size:14px; color:var(--qa); padding:0 3px; user-select:none;
+    border-radius:5px; }
+  .pop-back:hover { background:var(--chip-on); }
+  .pop-crumb { flex:1; font-weight:600; font-size:12px; color:var(--muted);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pop-crumb b { color:var(--ink); }
+  .pop-close { cursor:pointer; color:var(--muted); padding:0 3px; user-select:none; }
+  .pop-body { padding:9px 11px; }
+  .detail-name { font-weight:700; font-size:13.5px; }
+  .detail-line { color:var(--muted); margin-top:3px; line-height:1.45; }
+  .detail-line b { color:var(--ink); font-weight:600; }
+  .ghost-note { margin-top:5px; font-size:11px; color:#92400e; background:#fef3c7;
+    border:1px solid #fcd34d; border-radius:5px; padding:2px 6px; display:inline-block; }
+  .qtype-btn { display:flex; align-items:center; gap:7px; width:100%; margin-top:6px;
+    border:1px solid var(--line); background:var(--chip); border-radius:8px; padding:7px 10px;
+    font-size:12px; font-weight:600; cursor:pointer; user-select:none; }
+  .qtype-btn:hover { border-color:var(--qa); background:var(--chip-on); }
+  .qtype-btn .arr { margin-left:auto; color:var(--muted); font-weight:400; }
+  .qtype-btn .sub { display:block; font-weight:400; color:var(--muted); font-size:11px; }
+  .group-row { display:flex; align-items:center; width:100%; margin-top:5px;
+    border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:12px;
+    font-weight:600; cursor:pointer; user-select:none; }
+  .group-row:hover { border-color:var(--qa); background:var(--chip); }
+  .group-row .arr { margin-left:auto; color:var(--muted); font-weight:400; }
+  .pop-hintline { color:var(--muted); font-size:11.5px; margin-top:6px; line-height:1.45; }
+  .relate-wait { border:1.5px dashed var(--qb); border-radius:8px; padding:8px 10px; margin-top:6px;
+    color:#92400e; background:#fffbeb; font-size:12px; line-height:1.5; }
+  .cancel-link { color:var(--qa); cursor:pointer; text-decoration:underline; user-select:none; }
 
-  /* ---------- variant C: tray ---------- */
-  #tray { position:fixed; left:0; right:0; bottom:0; z-index:25; display:none;
-    background:var(--panel); border-top:1px solid var(--line);
-    box-shadow:0 -6px 24px rgba(16,24,40,.08); padding:10px 16px 12px; font-size:12.5px; }
-  body[data-variant="c"] #tray { display:block; }
-  .tray-rows { display:flex; gap:14px; align-items:flex-start; max-width:1250px; margin:0 auto; flex-wrap:wrap; }
-  .tray-slots { display:flex; gap:8px; align-items:center; flex:none; }
-  .tray-slot { min-width:130px; border:1.5px dashed var(--line); border-radius:9px; padding:7px 10px;
-    color:var(--muted); text-align:center; }
-  .tray-slot.filled { border-style:solid; color:var(--ink); font-weight:600; }
-  .tray-slot.a.filled { border-color:var(--qa); background:#f5f3ff; }
-  .tray-slot.b.filled { border-color:var(--qb); background:#fffbeb; }
-  .tray-slot .from-editor { display:block; font-size:10px; color:var(--sync); font-weight:400; }
-  .tray-slot .x { cursor:pointer; color:var(--muted); margin-left:6px; }
-  .tray-main { flex:1; min-width:280px; }
-  .tray-pill { display:inline-block; background:#f1f5f9; border:1px solid var(--line);
-    border-radius:999px; padding:4px 11px; font-size:12px; color:var(--muted); }
-  .tray-pill.warn { background:#fff7ed; border-color:#fed7aa; color:#9a3412; }
-  .swap-btn { cursor:pointer; border:1px solid var(--line); background:var(--chip); border-radius:7px;
-    padding:3px 9px; font-size:12px; user-select:none; }
-  .tray-side { flex:none; display:flex; align-items:center; gap:8px; }
-  .toggle { cursor:pointer; font-size:12px; border:1px solid var(--line); border-radius:999px;
-    padding:4px 11px; user-select:none; background:var(--chip); }
-  .toggle.on { background:var(--chip-on); border-color:var(--qa); color:#5b21b6; font-weight:600; }
+  /* ---------- accordion plate (variant 3) ---------- */
+  .plate-section { border-top:1px solid var(--line); }
+  .plate-sec-head { display:flex; align-items:center; padding:7px 11px; font-weight:600;
+    cursor:pointer; user-select:none; font-size:12px; }
+  .plate-sec-head:hover { background:var(--chip); }
+  .plate-sec-head .arr { margin-left:auto; color:var(--muted); font-weight:400; }
+  .plate-sec-body { padding:2px 11px 9px; }
+  .relate-badge { position:absolute; z-index:21; width:20px; height:20px; border-radius:999px;
+    background:var(--panel); border:1.5px solid var(--qb); color:#92400e; font-size:11px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; user-select:none;
+    box-shadow:0 2px 8px rgba(16,24,40,.18); white-space:nowrap; overflow:hidden;
+    transition:width .12s ease; }
+  .relate-badge:hover { width:auto; padding:0 8px; font-weight:600; background:#fffbeb; }
+  .relate-badge .lbl { display:none; margin-left:4px; }
+  .relate-badge:hover .lbl { display:inline; }
+
+  /* ---------- halo ring (variant 2) ---------- */
+  .petal { position:absolute; z-index:22; background:var(--panel); border:1px solid var(--line);
+    border-radius:999px; padding:4px 11px; font-size:11.5px; font-weight:600; cursor:pointer;
+    user-select:none; box-shadow:0 3px 12px rgba(16,24,40,.16); white-space:nowrap; }
+  .petal:hover { border-color:var(--qa); background:var(--chip-on); color:#5b21b6; }
+  .petal.relate { border-color:var(--qb); color:#92400e; background:#fffbeb; cursor:grab; }
+  .petal.relate:active { cursor:grabbing; }
+  .petal.home { background:var(--chip); color:var(--muted); font-weight:400; }
+  .fan-chip { position:absolute; z-index:22; }
+  .detail-plate { max-width:250px; background:var(--panel); border:1px solid var(--line);
+    border-radius:9px; box-shadow:0 4px 16px rgba(16,24,40,.12); padding:7px 10px;
+    font-size:11.5px; z-index:21; }
+  .thread-svg { position:absolute; left:0; top:0; z-index:23; pointer-events:none; }
+  .thread-svg line { stroke:var(--qb); stroke-width:2.5; stroke-dasharray:7 5; }
 
   /* ---------- switcher ---------- */
   .switcher { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; z-index:40;
     display:flex; align-items:center; gap:10px; background:#0f172a; color:#f8fafc;
     border-radius:999px; padding:7px 12px; box-shadow:0 8px 30px rgba(2,6,23,.4);
     font-size:13px; user-select:none; }
-  body[data-variant="c"] .switcher { bottom:132px; }
   .switcher .arrow { cursor:pointer; font-size:15px; padding:0 6px; opacity:.85; }
   .switcher .arrow:hover { opacity:1; }
-  .switcher .vlabel { min-width:190px; text-align:center; font-weight:600; }
+  .switcher .vlabel { min-width:200px; text-align:center; font-weight:600; }
   .switcher .vkeys { color:#94a3b8; font-weight:400; font-size:11px; }
 </style>
 
 <div id="proto-root">
   <div class="proto-head">
-    <span class="proto-badge">PROTOTYPE · THROWAWAY</span>
-    <span class="proto-title">Kinship query interactions <span>— #276 · examples/05-cousins-and-in-laws · mock engine, real SVG</span></span>
+    <span class="proto-badge">PROTOTYPE · THROWAWAY · ROUND 2</span>
+    <span class="proto-title">On-canvas kinship querying <span>— #276 · progressive disclosure + mouse-only relate</span></span>
     <span class="spacer"></span>
     <span class="sim-wrap">
       <span class="sim-dot"></span> Simulate editor cursor on:
@@ -200,7 +192,7 @@
   <div class="stage-row">
     <div class="stage" id="stage">
       <details class="explainer" id="explainer" open>
-        <summary>What this variant tries</summary>
+        <summary>What this variation tries</summary>
         <div class="ex-body" id="exBody"></div>
       </details>
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1162 586"><style>
@@ -255,14 +247,11 @@ svg {
 .kul-legend .kul-edge[data-link-kind="marriage"] { stroke-width: var(--kul-legend-marriage-edge-stroke-width); }
 </style><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="birth" data-child-id="marco" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 380 156 L 114 156 Q 104 156 104 166 L 104 184"/><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="birth" data-child-id="lucia" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 400 156 L 476 156 Q 486 156 486 166 L 486 184"/><path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="birth" data-child-id="elena" data-is-past="true" fill="none" d="M 963 56 L 963 156 L 963 156 L 963 184"/><path class="kul-edge" data-marriage-id="m_marco_elena" data-link-kind="birth" data-child-id="matteo" data-is-past="false" fill="none" d="M 199 216 L 199 306 Q 199 316 189 316 L 114 316 Q 104 316 104 326 L 104 344"/><path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="birth" data-child-id="giulia" data-is-past="true" fill="none" d="M 581 216 L 581 316 L 581 316 L 581 344"/><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="marriage" data-host-id="giuseppe" data-joining-id="sofia" data-start="1965-06-12" data-is-ended="false" fill="none" d="M 375 56 L 405 56"/><path class="kul-edge" data-marriage-id="m_marco_elena" data-link-kind="marriage" data-host-id="marco" data-joining-id="elena" data-start="1995-07-22" data-is-ended="false" fill="none" d="M 184 216 L 214 216"/><path class="kul-edge" data-marriage-id="m_matteo_giulia" data-link-kind="marriage" data-host-id="matteo" data-joining-id="giulia" data-start="2020-09-12" data-is-ended="false" fill="none" d="M 184 376 L 214 376"/><path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="marriage" data-host-id="lucia" data-joining-id="paolo" data-start="1996-10-05" data-is-ended="false" fill="none" d="M 566 216 L 596 216"/><path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="marriage" data-host-id="aldo" data-joining-id="bianca" data-start="1967-05-30" data-is-ended="false" fill="none" d="M 948 56 L 978 56"/><g class="kul-card" data-person-id="giuseppe" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1940-05-19" data-generation="0"><rect x="215" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Giuseppe Rossi</text></g><g class="kul-card" data-person-id="sofia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1943-01-27" data-generation="0"><rect x="405" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="485" y="56" text-anchor="middle" dominant-baseline="central">Sofia Rossi</text></g><g class="kul-card" data-person-id="marco" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1968-09-30" data-generation="1"><rect x="24" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Marco Rossi</text></g><g class="kul-card" data-person-id="elena" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1"><rect x="214" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="294" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text></g><g class="kul-card" data-person-id="matteo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1997-02-14" data-generation="2"><rect x="24" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="376" text-anchor="middle" dominant-baseline="central">Matteo Rossi</text></g><g class="kul-card" data-person-id="giulia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2"><rect x="214" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="294" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text></g><g class="kul-card" data-person-id="lucia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1971-04-08" data-generation="1"><rect x="406" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="486" y="216" text-anchor="middle" dominant-baseline="central">Lucia Rossi</text></g><g class="kul-card" data-person-id="paolo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1969-03-17" data-generation="1"><rect x="596" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="676" y="216" text-anchor="middle" dominant-baseline="central">Paolo Conti</text></g><g class="kul-card" data-person-id="giulia" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2"><rect x="501" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="581" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text></g><g class="kul-card" data-person-id="aldo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1942-08-03" data-generation="0"><rect x="788" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="868" y="56" text-anchor="middle" dominant-baseline="central">Aldo Bianchi</text></g><g class="kul-card" data-person-id="bianca" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1945-12-21" data-generation="0"><rect x="978" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="1058" y="56" text-anchor="middle" dominant-baseline="central">Bianca Bianchi</text></g><g class="kul-card" data-person-id="elena" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1"><rect x="883" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="963" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text></g><g class="kul-legend"><rect class="kul-legend-bg" x="8" y="448" width="188" height="130" rx="6" ry="6"/><g class="kul-card" data-kind="canonical" data-gender="male"><rect x="22" y="462" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="469" dominant-baseline="central">Male</text><g class="kul-card" data-kind="canonical" data-gender="female"><rect x="22" y="484" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="491" dominant-baseline="central">Female</text><g class="kul-card" data-kind="ghost"><rect x="22" y="506" width="30" height="14" rx="3" ry="3" stroke-dasharray="3 2"/></g><text class="kul-legend-label" x="62" y="513" dominant-baseline="central">Past record</text><path class="kul-edge" data-link-kind="birth" fill="none" d="M 22 535 L 52 535"/><text class="kul-legend-label" x="62" y="535" dominant-baseline="central">Birth</text><path class="kul-edge" data-link-kind="marriage" fill="none" d="M 22 557 L 52 557"/><text class="kul-legend-label" x="62" y="557" dominant-baseline="central">Marriage</text></g></svg>
     </div>
-    <aside id="dock"></aside>
   </div>
-
-  <div id="tray"></div>
 
   <div class="switcher">
     <span class="arrow" id="prevV">←</span>
-    <span class="vlabel"><span id="vName"></span><br><span class="vkeys">?variant= · ← → keys</span></span>
+    <span class="vlabel"><span id="vName"></span><br><span class="vkeys">?variant= · ← → keys · Esc clears</span></span>
     <span class="arrow" id="nextV">→</span>
   </div>
 </div>
@@ -529,11 +518,26 @@ svg {
     { id: "stepSiblings", label: "Step-siblings", fn: function () { return []; } },
     { id: "stepChildren", label: "Step-children", fn: function () { return []; } }
   ];
+  function setById(id) { return KIN_SETS.filter(function (s) { return s.id === id; })[0]; }
+
+  /* level 2 of the disclosure: query TYPES (groups of exact queries) */
+  var KIN_GROUPS = [
+    { id: "immediate", label: "Immediate family", sets: ["parents", "children", "siblings", "spouses"] },
+    { id: "lineage", label: "Lineage", sets: ["ancestors", "descendants"] },
+    { id: "extended", label: "Extended kin", sets: ["auntsUncles", "niecesNephews", "cousins"] },
+    { id: "inlaw", label: "In-laws", sets: ["inLaws"] },
+    { id: "step", label: "Step relations", sets: ["stepParents", "stepSiblings", "stepChildren"] }
+  ];
+  function groupById(id) { return KIN_GROUPS.filter(function (g) { return g.id === id; })[0]; }
+  function groupCount(gid, anchor) {
+    return groupById(gid).sets.reduce(function (n, sid) { return n + setById(sid).fn(anchor).length; }, 0);
+  }
 
   /* =============== DOM + paint helpers =============== */
   var stage = document.getElementById("stage");
   var svg = stage.querySelector("svg");
-  var PAINT = ["q-anchor-a", "q-anchor-b", "q-result", "q-result-ghost", "q-ghost-dot", "q-path", "q-dim", "q-pulse"];
+  svg.classList.add("kul-tree");
+  var PAINT = ["q-anchor-a", "q-anchor-b", "q-result", "q-result-ghost", "q-path", "q-dim", "q-target", "q-pulse"];
 
   function cardsFor(id, kind) {
     var sel = '.kul-card[data-person-id="' + id + '"]';
@@ -552,21 +556,19 @@ svg {
       if (keep.indexOf(c.getAttribute("data-person-id")) < 0) c.classList.add("q-dim");
     });
   }
-  /** ghostMode: 'both' (A) | 'canonical' (B) | 'dot' (C) */
-  function paintResults(anchorIds, resultIds, ghostMode) {
+  /* on-canvas stance: a person's result glow lights every card they own —
+     canonical solid, past-record ghost dashed */
+  function paintResults(anchorIds, resultIds) {
     clearPaint();
     anchorIds.forEach(function (a, i) { addClass(a, i === 0 ? "q-anchor-a" : "q-anchor-b", "canonical"); });
     resultIds.forEach(function (r) {
       addClass(r, "q-result", "canonical");
-      if (GHOSTS[r]) {
-        if (ghostMode === "both") addClass(r, "q-result-ghost", "ghost");
-        else if (ghostMode === "dot") addClass(r, "q-ghost-dot", "ghost");
-      }
+      if (GHOSTS[r]) addClass(r, "q-result-ghost", "ghost");
     });
     dimAllExcept(anchorIds.concat(resultIds));
     applyEditorSim();
   }
-  function paintResolution(a, b, ties, ghostMode) {
+  function paintResolution(a, b, ties) {
     clearPaint();
     addClass(a, "q-anchor-a", "canonical");
     addClass(b, "q-anchor-b", "canonical");
@@ -589,6 +591,68 @@ svg {
       '<span class="tie-gu">' + tie.gu + ' <span class="script">' + tie.script + "</span></span>" +
       (tie.note ? '<div class="tie-note">' + tie.note + "</div>" : "") + "</div>";
   }
+  function detailHtml(id) {
+    var pd = P[id];
+    var lines = ['<div class="detail-name">' + pd.name + "</div>"];
+    lines.push('<div class="detail-line">' + (pd.g === "m" ? "male" : "female") + " · born <b>" + pd.born + "</b></div>");
+    var ps = parentsOf(id);
+    if (ps.length) lines.push('<div class="detail-line">child of <b>' + P[ps[0]].name + "</b> &amp; <b>" + P[ps[1]].name + "</b></div>");
+    var sp = spousesOf(id);
+    if (sp.length) lines.push('<div class="detail-line">married to <b>' + sp.map(function (s) { return P[s].name; }).join(", ") + "</b></div>");
+    var kids = childrenOf(id);
+    if (kids.length) lines.push('<div class="detail-line">' + kids.length + " child" + (kids.length > 1 ? "ren" : "") + ": <b>" +
+      kids.map(function (k) { return P[k].name; }).join(", ") + "</b></div>");
+    if (GHOSTS[id]) lines.push('<div class="ghost-note">↺ also appears as a past-record ghost</div>');
+    return lines.join("");
+  }
+
+  /* =============== floating helpers =============== */
+  function popAt(el, rect, prefer) {
+    el.classList.add("q-float");
+    stage.appendChild(el);
+    var w = el.offsetWidth, h = el.offsetHeight;
+    var left = rect.left + rect.width + 10, top = rect.top;
+    if (prefer === "above") { left = rect.left + rect.width / 2 - w / 2; top = rect.top - h - 12; }
+    var maxLeft = stage.scrollWidth - w - 8;
+    if (left > maxLeft) left = rect.left - w - 10;
+    el.style.left = Math.max(8, Math.min(left, maxLeft)) + "px";
+    el.style.top = Math.max(8, top) + "px";
+  }
+  function removeFloats() {
+    Array.prototype.slice.call(stage.querySelectorAll(".q-float, .sync-hint"))
+      .forEach(function (n) { n.remove(); });
+  }
+  function toastAt(msg, rect) {
+    var old = stage.querySelector(".halo-toast");
+    if (old) old.remove();
+    var toast = document.createElement("div");
+    toast.className = "halo-toast";
+    toast.textContent = msg;
+    popAt(toast, rect, "above");
+  }
+  function showBanner(a, b, ties, onSwap) {
+    var old = stage.querySelector(".halo-banner");
+    if (old) old.remove();
+    var banner = document.createElement("div");
+    banner.className = "halo-banner";
+    if (!ties.length) {
+      banner.innerHTML = "<b>" + P[a].name + " ↔ " + P[b].name + "</b>" +
+        '<div class="tie-note">No relationship within traversal bounds — reported honestly, nothing invented.</div>';
+    } else {
+      banner.innerHTML = "<b>" + P[b].name + "</b> is <b>" + P[a].name + "</b>’s:" + ties.map(tieHtml).join("") +
+        '<span class="swap-btn" data-swap="1">⇄ swap perspective</span>';
+    }
+    var ra = cardRect(a), rb = cardRect(b);
+    banner.classList.add("q-float");
+    stage.appendChild(banner);
+    var left = (ra.left + rb.left) / 2 + (ra.width - banner.offsetWidth) / 2;
+    var top = Math.min(ra.top, rb.top) - banner.offsetHeight - 14;
+    if (top < 8) top = Math.max(ra.top, rb.top) + ra.height + 14;
+    banner.style.left = Math.max(8, Math.min(left, stage.scrollWidth - banner.offsetWidth - 8)) + "px";
+    banner.style.top = top + "px";
+    var swap = banner.querySelector("[data-swap]");
+    if (swap && onSwap) swap.addEventListener("click", function (ev) { ev.stopPropagation(); onSwap(); });
+  }
 
   /* =============== editor-selection simulation =============== */
   var editorSel = "";
@@ -601,461 +665,375 @@ svg {
   function applyEditorSim() {
     allCards().forEach(function (c) { c.classList.remove("kul-selected"); });
     if (!editorSel) return;
-    var v = current();
-    if (v.suspendsSync && v.queryActive()) return; // variant A: query suspends sync
+    if (current().queryActive()) return; // on-canvas stance: query suspends sync
     addClass(editorSel, "kul-selected", "canonical");
+  }
+  function syncHint() {
+    var old = stage.querySelector(".sync-hint");
+    if (old) old.remove();
+    if (editorSel && current().queryActive()) {
+      var hint = document.createElement("div");
+      hint.className = "sync-hint";
+      hint.innerHTML = "editor sync paused while querying — <kbd>Esc</kbd> to resume";
+      stage.appendChild(hint);
+    }
   }
   editorSimEl.addEventListener("change", function () {
     editorSel = editorSimEl.value;
-    var v = current();
-    if (v.onEditorSelect) v.onEditorSelect(editorSel);
     applyEditorSim();
+    syncHint();
   });
 
-  /* =============== floating helpers (variant A) =============== */
-  function popAt(el, rect, prefer) {
-    stage.appendChild(el);
-    var w = el.offsetWidth, h = el.offsetHeight;
-    var left = rect.left + rect.width + 10, top = rect.top;
-    if (prefer === "above") { left = rect.left + rect.width / 2 - w / 2; top = rect.top - h - 12; }
-    var maxLeft = stage.scrollWidth - w - 8;
-    if (left > maxLeft) left = rect.left - w - 10;
-    el.style.left = Math.max(8, Math.min(left, maxLeft)) + "px";
-    el.style.top = Math.max(8, top) + "px";
-  }
-  function removeFloats() {
-    Array.prototype.slice.call(stage.querySelectorAll(".halo-pop, .halo-toast, .halo-banner, .sync-hint"))
-      .forEach(function (n) { n.remove(); });
+  /* =============== shared query actions =============== */
+  function runKinSet(anchor, setId) {
+    var s = setById(setId);
+    var ids = s.fn(anchor);
+    paintResults([anchor], ids);
+    if (!ids.length) {
+      toastAt("No " + s.label.toLowerCase() + " in the recorded facts for " + P[anchor].name +
+        ". Nothing is guessed — absence stays absence.", cardRect(anchor));
+    }
+    return ids;
   }
 
-  /* =============== Variant A: on-canvas halo =============== */
-  var variantA = {
-    key: "a", name: "A — On-canvas halo",
-    suspendsSync: true,
-    anchor: null, setId: null,
+  /* =============== Variation 1: drill-down card =============== */
+  var variant1 = {
+    key: "1", name: "1 — Drill-down card",
+    anchor: null, page: null, group: null, relateArmed: false,
     explainer:
       "<dl>" +
-      "<dt>Results surface</dt><dd>Only the tree: matches glow, everyone else dims. Kin-set chips float beside the selected card.</dd>" +
-      "<dt>Second anchor</dt><dd><b>⇧-click</b> a second person → floating relationship banner between them; connecting persons get a dashed ring.</dd>" +
-      "<dt>Editor sync</dt><dd><b>Suspended</b> while a query is active (hint appears top-right); <kbd>Esc</kbd> clears the query and sync resumes.</dd>" +
-      "<dt>Ghosts</dt><dd>Result highlighting lights <b>every</b> card of a person — canonical solid, ghost dashed.</dd>" +
+      "<dt>Disclosure shape</dt><dd>One popover that navigates like pages with a breadcrumb: <b>person detail</b> → <b>query types</b> → <b>exact queries</b>. ‹ walks back up.</dd>" +
+      "<dt>Relate (mouse-only)</dt><dd>“How related to…?” is a query type. Choosing it arms a pick mode: every other card gets a dashed target ring; clicking one resolves. Cancel link or Esc backs out.</dd>" +
+      "<dt>Character</dt><dd>Familiar and compact — a context card, like an IDE hover. Everything happens in one place; the tree only ever shows paint.</dd>" +
       "</dl>",
     queryActive: function () { return !!this.anchor; },
     enter: function () {},
-    exit: function () { this.anchor = null; this.setId = null; removeFloats(); clearPaint(); applyEditorSim(); },
-    clear: function () { this.exit(); },
-    onCardClick: function (id, ev) {
-      if (ev.shiftKey && this.anchor && id !== this.anchor) { this.resolve(this.anchor, id); return; }
-      this.anchor = id; this.setId = null;
-      removeFloats(); clearPaint();
-      addClass(id, "q-anchor-a", "canonical");
-      applyEditorSim(); this.syncHint();
+    exit: function () { this.anchor = null; this.page = null; this.group = null; this.relateArmed = false; removeFloats(); clearPaint(); applyEditorSim(); },
+    clear: function () { this.exit(); syncHint(); },
+    onCardClick: function (id) {
+      if (this.relateArmed && this.anchor && id !== this.anchor) { this.resolveTo(id); return; }
+      this.anchor = id; this.group = null; this.relateArmed = false;
+      clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim(); syncHint();
+      this.showPage("detail");
+    },
+    resolveTo: function (b) {
+      var self = this, a = this.anchor;
+      this.relateArmed = false;
+      allCards().forEach(function (c) { c.classList.remove("q-target"); });
+      var ties = resolvePair(a, b);
+      paintResolution(a, b, ties);
+      var pop = stage.querySelector(".pop"); if (pop) pop.remove();
+      showBanner(a, b, ties, function () { self.anchor = b; self.resolveTo(a); });
+    },
+    showPage: function (page) {
+      var self = this, a = this.anchor;
+      this.page = page;
+      var old = stage.querySelector(".pop"); if (old) old.remove();
       var pop = document.createElement("div");
-      pop.className = "halo-pop";
-      pop.innerHTML = '<div class="hp-name">' + P[id].name + "</div>" +
-        '<div class="hp-hint">Pick a kin set — or <kbd>⇧</kbd>-click another person to relate. <kbd>Esc</kbd> clears.</div>' +
-        '<div class="chips">' + KIN_SETS.map(function (s) {
-          return '<span class="chip" data-set="' + s.id + '">' + s.label + "</span>";
+      pop.className = "pop";
+      var crumb = "<b>" + P[a].name + "</b>", back = null, body = "";
+      if (page === "detail") {
+        body = detailHtml(a) +
+          '<button class="qtype-btn" data-go="groups">Explore their kin <span class="sub">parents, cousins, in-laws…</span><span class="arr">▸</span></button>' +
+          '<button class="qtype-btn" data-go="relate">How related to…? <span class="sub">pick any other person</span><span class="arr">▸</span></button>';
+      } else if (page === "groups") {
+        back = "detail"; crumb += " ▸ Explore kin";
+        body = KIN_GROUPS.map(function (g) {
+          var n = groupCount(g.id, a);
+          return '<div class="group-row" data-group="' + g.id + '">' + g.label +
+            ' <span class="arr">' + n + " ▸</span></div>";
+        }).join("") +
+        '<div class="pop-hintline">Counts are totals across the group’s queries.</div>';
+      } else if (page === "sets") {
+        back = "groups";
+        var g = groupById(this.group);
+        crumb += " ▸ " + g.label;
+        body = '<div class="chips">' + g.sets.map(function (sid) {
+          var s = setById(sid);
+          return '<span class="chip" data-set="' + sid + '">' + s.label +
+            ' <span class="cnt">· ' + s.fn(a).length + "</span></span>";
         }).join("") + "</div>";
-      var self = this;
-      pop.addEventListener("click", function (ev2) {
-        var chip = ev2.target.closest(".chip");
-        if (chip) self.runSet(chip.getAttribute("data-set"), chip);
-        ev2.stopPropagation();
-      });
-      popAt(pop, cardRect(id));
-    },
-    runSet: function (setId, chipEl) {
-      var s = KIN_SETS.filter(function (k) { return k.id === setId; })[0];
-      var ids = s.fn(this.anchor);
-      this.setId = setId;
-      Array.prototype.slice.call(chipEl.parentNode.children).forEach(function (c) {
-        c.classList.remove("on");
-        c.innerHTML = c.innerHTML.replace(/ <span class="cnt">.*<\/span>/, "");
-      });
-      chipEl.classList.add("on");
-      chipEl.innerHTML = s.label + ' <span class="cnt">· ' + ids.length + "</span>";
-      var old = stage.querySelector(".halo-toast"); if (old) old.remove();
-      if (!ids.length) {
-        paintResults([this.anchor], [], "both");
-        var toast = document.createElement("div");
-        toast.className = "halo-toast";
-        toast.textContent = "No " + s.label.toLowerCase() + " in the recorded facts for " +
-          P[this.anchor].name + ". Nothing is guessed — absence stays absence.";
-        popAt(toast, cardRect(this.anchor), "above");
-      } else {
-        paintResults([this.anchor], ids, "both");
+      } else if (page === "relate") {
+        back = "detail"; crumb += " ▸ How related to…?";
+        body = '<div class="relate-wait">Click any other person on the tree.<br>' +
+          '<span class="cancel-link" data-cancel="1">Cancel</span></div>';
       }
-      this.syncHint();
+      pop.innerHTML = '<div class="pop-head">' +
+        (back ? '<span class="pop-back" data-back="' + back + '">‹</span>' : "") +
+        '<span class="pop-crumb">' + crumb + '</span><span class="pop-close" data-close="1">✕</span></div>' +
+        '<div class="pop-body">' + body + "</div>";
+      pop.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var el = ev.target.closest("[data-go],[data-back],[data-close],[data-group],[data-set],[data-cancel]");
+        if (!el) return;
+        if (el.hasAttribute("data-close")) { self.clear(); return; }
+        if (el.hasAttribute("data-cancel") || el.hasAttribute("data-back")) {
+          self.relateArmed = false;
+          allCards().forEach(function (c) { c.classList.remove("q-target"); });
+          self.showPage(el.getAttribute("data-back") || "detail"); return;
+        }
+        if (el.hasAttribute("data-go")) {
+          var go = el.getAttribute("data-go");
+          if (go === "relate") {
+            self.relateArmed = true;
+            ALL.forEach(function (pid) { if (pid !== a) addClass(pid, "q-target"); });
+          }
+          self.showPage(go); return;
+        }
+        if (el.hasAttribute("data-group")) { self.group = el.getAttribute("data-group"); self.showPage("sets"); return; }
+        if (el.hasAttribute("data-set")) {
+          runKinSet(a, el.getAttribute("data-set"));
+          pop.querySelectorAll(".chip").forEach(function (c) { c.classList.remove("on"); });
+          el.classList.add("on");
+        }
+      });
+      popAt(pop, cardRect(a));
+    }
+  };
+
+  /* =============== Variation 2: halo ring =============== */
+  var variant2 = {
+    key: "2", name: "2 — Halo ring",
+    anchor: null, level: null, group: null, relateArmed: false, dragState: null,
+    explainer:
+      "<dl>" +
+      "<dt>Disclosure shape</dt><dd>Spatial: a compact <b>detail plate</b> under the card, then <b>query types orbit the card</b> as petals, then a group petal fans its <b>exact queries</b> out in an arc. ⌂ collapses a level.</dd>" +
+      "<dt>Relate (mouse-only)</dt><dd><b>Drag the ⇄ petal</b> — a dashed thread follows the mouse; drop it on any person to resolve. A plain click on ⇄ arms click-to-pick instead. Both are one hand on the mouse.</dd>" +
+      "<dt>Character</dt><dd>The query lives ON the tree — no panel at all. Most direct manipulation, most visual motion.</dd>" +
+      "</dl>",
+    queryActive: function () { return !!this.anchor; },
+    enter: function () {},
+    exit: function () {
+      this.anchor = null; this.level = null; this.group = null; this.relateArmed = false;
+      this.dragState = null; removeFloats(); clearPaint(); applyEditorSim();
     },
-    resolve: function (a, b) {
+    clear: function () { this.exit(); syncHint(); },
+    onCardClick: function (id) {
+      if (this.relateArmed && this.anchor && id !== this.anchor) { this.resolveTo(id); return; }
+      this.anchor = id; this.group = null; this.relateArmed = false;
+      clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
+      this.showLevel("petals");
+      syncHint();
+    },
+    resolveTo: function (b) {
+      var self = this, a = this.anchor;
+      this.relateArmed = false;
+      allCards().forEach(function (c) { c.classList.remove("q-target"); });
       removeFloats();
       var ties = resolvePair(a, b);
-      paintResolution(a, b, ties, "both");
-      var banner = document.createElement("div");
-      banner.className = "halo-banner";
-      if (!ties.length) {
-        banner.innerHTML = "<b>" + P[a].name + " ↔ " + P[b].name + "</b>" +
-          '<div class="tie-note">No relationship within traversal bounds — the engine reports emptiness honestly rather than inventing a chain.</div>';
-      } else {
-        banner.innerHTML = "<b>" + P[b].name + "</b> is <b>" + P[a].name + "</b>’s:" + ties.map(tieHtml).join("");
-      }
-      var ra = cardRect(a), rb = cardRect(b);
-      stage.appendChild(banner);
-      var left = (ra.left + rb.left) / 2 + (ra.width - banner.offsetWidth) / 2;
-      var top = Math.min(ra.top, rb.top) - banner.offsetHeight - 14;
-      if (top < 8) top = Math.max(ra.top, rb.top) + ra.height + 14;
-      banner.style.left = Math.max(8, left) + "px";
-      banner.style.top = top + "px";
-      this.anchor = a; this.syncHint();
+      paintResolution(a, b, ties);
+      showBanner(a, b, ties, function () { self.anchor = b; self.resolveTo(a); });
+      syncHint();
     },
-    syncHint: function () {
-      var old = stage.querySelector(".sync-hint"); if (old) old.remove();
-      if (editorSel && this.queryActive()) {
-        var hint = document.createElement("div");
-        hint.className = "sync-hint";
-        hint.innerHTML = "editor sync paused while querying — <kbd>Esc</kbd> to resume";
-        stage.appendChild(hint);
+    centerOf: function (id) {
+      var r = cardRect(id);
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: Math.max(r.width, r.height) / 2 };
+    },
+    placeAround: function (labels, radius, startDeg) {
+      var self = this, a = this.anchor, c = this.centerOf(a), made = [];
+      labels.forEach(function (item, i) {
+        var deg = startDeg + (360 / labels.length) * i;
+        var rad = deg * Math.PI / 180;
+        var el = document.createElement("div");
+        el.className = "petal " + (item.cls || "");
+        el.innerHTML = item.html;
+        el.classList.add("q-float");
+        stage.appendChild(el);
+        var x = c.x + radius * Math.cos(rad) - el.offsetWidth / 2;
+        var y = c.y + radius * Math.sin(rad) - el.offsetHeight / 2;
+        el.style.left = Math.max(8, Math.min(x, stage.scrollWidth - el.offsetWidth - 8)) + "px";
+        el.style.top = Math.max(8, y) + "px";
+        if (item.onClick) el.addEventListener("click", function (ev) { ev.stopPropagation(); item.onClick(el); });
+        if (item.onMouseDown) el.addEventListener("mousedown", function (ev) { ev.stopPropagation(); item.onMouseDown(ev, el); });
+        made.push(el);
+      });
+      return made;
+    },
+    showLevel: function (level) {
+      var self = this, a = this.anchor;
+      this.level = level;
+      removeFloats();
+      // level 1: detail plate, always visible while selected
+      var plate = document.createElement("div");
+      plate.className = "detail-plate q-float";
+      plate.innerHTML = detailHtml(a);
+      var r = cardRect(a);
+      stage.appendChild(plate);
+      plate.style.left = Math.max(8, Math.min(r.left + r.width / 2 - plate.offsetWidth / 2,
+        stage.scrollWidth - plate.offsetWidth - 8)) + "px";
+      plate.style.top = (r.top + r.height + 12) + "px";
+      plate.addEventListener("click", function (ev) { ev.stopPropagation(); });
+
+      var radius = Math.max(r.width, r.height) / 2 + 58;
+      if (level === "petals") {
+        // level 2: query types orbit the card
+        var items = KIN_GROUPS.map(function (g) {
+          return { html: g.label + ' <span style="color:var(--muted)">' + groupCount(g.id, a) + "</span>",
+            onClick: function () { self.group = g.id; self.showLevel("fan"); } };
+        });
+        items.push({ html: "⇄ how related?", cls: "relate",
+          onClick: function () {
+            self.relateArmed = true;
+            ALL.forEach(function (pid) { if (pid !== a) addClass(pid, "q-target"); });
+            toastAt("Click any other person — or drag the ⇄ petal onto them.", cardRect(a));
+          },
+          onMouseDown: function (ev) { self.startThread(ev); } });
+        this.placeAround(items, radius, -90);
+      } else if (level === "fan") {
+        // level 3: the chosen group's exact queries fan out in an arc
+        var g = groupById(this.group);
+        var items = g.sets.map(function (sid) {
+          var s = setById(sid);
+          return { html: s.label + ' <span style="color:var(--muted)">' + s.fn(a).length + "</span>",
+            onClick: function (el) {
+              runKinSet(a, sid);
+              stage.querySelectorAll(".petal").forEach(function (p) { p.classList.remove("relate"); });
+            } };
+        });
+        items.push({ html: "⌂ back", cls: "home", onClick: function () { self.showLevel("petals"); } });
+        this.placeAround(items, radius, -90);
       }
+    },
+    startThread: function (ev) {
+      var self = this, a = this.anchor, c = this.centerOf(a);
+      var overlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      overlay.setAttribute("class", "thread-svg q-float");
+      overlay.setAttribute("width", stage.scrollWidth);
+      overlay.setAttribute("height", stage.scrollHeight);
+      var line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", c.x); line.setAttribute("y1", c.y);
+      line.setAttribute("x2", c.x); line.setAttribute("y2", c.y);
+      overlay.appendChild(line);
+      stage.appendChild(overlay);
+      var startX = ev.clientX, startY = ev.clientY, moved = false;
+      function toStage(e) {
+        var s = stage.getBoundingClientRect();
+        return { x: e.clientX - s.left + stage.scrollLeft, y: e.clientY - s.top + stage.scrollTop };
+      }
+      function onMove(e) {
+        var p = toStage(e);
+        if (Math.abs(e.clientX - startX) + Math.abs(e.clientY - startY) > 5) moved = true;
+        line.setAttribute("x2", p.x); line.setAttribute("y2", p.y);
+      }
+      function onUp(e) {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        overlay.remove();
+        if (!moved) return; // plain click — the click handler arms pick mode
+        var el = document.elementFromPoint(e.clientX, e.clientY);
+        var card = el && el.closest ? el.closest('.kul-card[data-person-id]') : null;
+        var id = card && card.getAttribute("data-person-id");
+        if (id && id !== a) self.resolveTo(id);
+      }
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
     }
   };
 
-  /* =============== Variant B: query dock =============== */
-  var dock = document.getElementById("dock");
-  var variantB = {
-    key: "b", name: "B — Query dock",
-    suspendsSync: false,
-    tab: "explore", anchor: null, openSet: null, slotA: null, slotB: null,
-    filters: { gender: "", bornBefore: "" },
+  /* =============== Variation 3: corner badges =============== */
+  var variant3 = {
+    key: "3", name: "3 — Corner badges",
+    anchor: null, openGroup: null, scrollHandler: null,
     explainer:
       "<dl>" +
-      "<dt>Results surface</dt><dd>Tree highlight <b>and</b> a docked panel: counts, member lists with en + gu phrasing, person detail card.</dd>" +
-      "<dt>Second anchor</dt><dd>The <b>Relate</b> tab has two slots; clicking cards fills A then B. Ties list in the dock; connectors ring on the tree.</dd>" +
-      "<dt>Editor sync</dt><dd><b>Coexists</b>: the pink sync outline stays; query paint uses its own colours. The detail card shows a “synced from editor” chip.</dd>" +
-      "<dt>Ghosts</dt><dd>Only the <b>canonical</b> card lights; members with a past record get a ↺ badge in the list (click badge to pulse the ghost).</dd>" +
-      "<dt>Filtering</dt><dd>The <b>Filter</b> tab queries by attribute (gender, born-before) across the whole tree.</dd>" +
+      "<dt>Disclosure shape</dt><dd>An anchored plate that <b>accordions downward in place</b>: person detail on top, query types as collapsed sections, exact queries inside the section you open. Levels stay visible — no navigation.</dd>" +
+      "<dt>Relate (mouse-only)</dt><dd><b>No mode at all</b>: while someone is selected, every other card wears a small ⚭ badge in its corner. Hover names it, one click resolves. The affordance lives on the target, not in a menu.</dd>" +
+      "<dt>Character</dt><dd>Calmest of the three — nothing orbits, nothing arms. Costs a little canvas clutter (badges) to make relating a single click.</dd>" +
       "</dl>",
-    queryActive: function () { return false; },
-    enter: function () { this.render(); },
+    queryActive: function () { return !!this.anchor; },
+    enter: function () {},
     exit: function () {
-      this.anchor = null; this.openSet = null; this.slotA = null; this.slotB = null;
-      this.tab = "explore"; clearPaint(); applyEditorSim();
+      this.anchor = null; this.openGroup = null;
+      if (this.scrollHandler) { stage.removeEventListener("scroll", this.scrollHandler); this.scrollHandler = null; }
+      removeFloats(); clearPaint(); applyEditorSim();
     },
-    clear: function () { this.exit(); this.render(); },
-    onEditorSelect: function (id) { if (this.tab === "explore" && id) { this.anchor = id; this.render(); } },
+    clear: function () { this.exit(); syncHint(); },
     onCardClick: function (id) {
-      if (this.tab === "relate") {
-        if (!this.slotA || (this.slotA && this.slotB)) { this.slotA = id; this.slotB = null; }
-        else if (id !== this.slotA) this.slotB = id;
-      } else {
-        this.anchor = id; this.openSet = null;
-        clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
-      }
-      this.render();
-    },
-    setTab: function (tab) { this.tab = tab; clearPaint(); applyEditorSim(); this.render(); },
-    render: function () {
-      var self = this;
-      var html = '<div class="dock-tabs">' +
-        ["explore", "relate", "filter"].map(function (tb) {
-          var lbl = tb.charAt(0).toUpperCase() + tb.slice(1);
-          return '<div class="dock-tab' + (self.tab === tb ? " on" : "") + '" data-tab="' + tb + '">' + lbl + "</div>";
-        }).join("") + "</div>" + '<div class="dock-body">';
-
-      if (this.tab === "explore") {
-        if (!this.anchor) {
-          html += '<div class="dock-empty">Click a person on the tree to explore their kin.<br><br>The dock is the reading surface; the tree is the pointing surface.</div>';
-        } else {
-          var a = this.anchor, pd = P[a];
-          html += '<div class="detail-card"><div class="dc-name">' + pd.name + "</div>" +
-            '<div class="dc-meta">' + (pd.g === "m" ? "male" : "female") + " · born " + pd.born +
-            (GHOSTS[a] ? " · has a past record (ghost) on the canvas" : "") + "</div>" +
-            (editorSel === a ? '<span class="dc-sync">● synced from editor</span>' : "") + "</div>";
-          KIN_SETS.forEach(function (s) {
-            var ids = s.fn(a), open = self.openSet === s.id;
-            html += '<div class="set-row' + (open ? " on" : "") + '" data-set="' + s.id + '">' +
-              '<div class="set-row-head"><span class="sr-label">' + s.label + "</span>" +
-              '<span class="sr-count' + (ids.length ? "" : " zero") + '">' + ids.length + "</span></div>";
-            if (open) {
-              html += '<div class="set-members">';
-              if (!ids.length) {
-                html += '<div class="empty-note">None in the recorded facts — shown as honest absence, not “Unknown”.</div>';
-              } else {
-                ids.forEach(function (m) {
-                  var tie = resolvePair(a, m)[0];
-                  html += '<div class="member" data-member="' + m + '"><span class="m-name">' + P[m].name + "</span>" +
-                    (tie ? '<span class="m-term">' + tie.gu + " · " + tie.en + "</span>" : "") +
-                    (GHOSTS[m] ? '<span class="m-ghost" data-ghost="' + m + '">↺ past record</span>' : "") + "</div>";
-                });
-              }
-              html += "</div>";
-            }
-            html += "</div>";
-          });
-        }
-      } else if (this.tab === "relate") {
-        html += '<div class="slot-row">' +
-          '<div class="slot a' + (this.slotA ? " filled" : "") + '">' +
-          (this.slotA ? P[this.slotA].name + '<span class="x" data-clear="a">✕</span>' : "Click a card → person A") + "</div>" +
-          '<div class="slot b' + (this.slotB ? " filled" : "") + '">' +
-          (this.slotB ? P[this.slotB].name + '<span class="x" data-clear="b">✕</span>' : "…then person B") + "</div></div>";
-        if (this.slotA && this.slotB) {
-          var ties = resolvePair(this.slotA, this.slotB);
-          paintResolution(this.slotA, this.slotB, ties, "canonical");
-          html += '<div><span class="dock-btn" data-swap="1">⇄ swap perspective</span></div><div class="result-strip">';
-          if (!ties.length) {
-            html += '<div class="empty-note">No relationship within traversal bounds. The engine says so rather than inventing a chain (honest emptiness).</div>';
-          } else {
-            html += "<b>" + P[this.slotB].name + "</b> is <b>" + P[this.slotA].name + "</b>’s:" + ties.map(tieHtml).join("");
-          }
-          html += "</div>";
-        } else {
-          html += '<div class="dock-empty">Two anchors resolve every tie between them — blood and in-law, all of them, not just one.</div>';
-        }
-      } else {
-        html += '<div class="filter-field"><label>Gender</label><select data-f="gender">' +
-          '<option value="">any</option><option value="m"' + (this.filters.gender === "m" ? " selected" : "") + ">male</option>" +
-          '<option value="f"' + (this.filters.gender === "f" ? " selected" : "") + ">female</option></select></div>" +
-          '<div class="filter-field"><label>Born before</label><input type="number" data-f="bornBefore" placeholder="e.g. 1970" value="' +
-          this.filters.bornBefore + '"></div>' +
-          '<div><span class="dock-btn" data-apply="1">Apply filter</span> <span class="dock-btn" data-reset="1">Reset</span></div>';
-        var ms = this.filterMatches();
-        if (this.filters.gender || this.filters.bornBefore) {
-          html += '<div class="result-strip"><b>' + ms.length + "</b> match" + (ms.length === 1 ? "" : "es") +
-            (ms.length ? ":" : " — an empty result renders as an empty tree, not an error.") +
-            ms.map(function (m) { return '<div class="member" data-member="' + m + '"><span class="m-name">' + P[m].name + '</span><span class="m-term">born ' + P[m].born + "</span></div>"; }).join("") + "</div>";
-        }
-      }
-      html += "</div>";
-      dock.innerHTML = html;
-
-      dock.querySelectorAll(".dock-tab").forEach(function (tb) {
-        tb.addEventListener("click", function () { self.setTab(tb.getAttribute("data-tab")); });
-      });
-      dock.querySelectorAll(".set-row-head").forEach(function (h) {
-        h.addEventListener("click", function () {
-          var sid = h.parentNode.getAttribute("data-set");
-          self.openSet = self.openSet === sid ? null : sid;
-          if (self.openSet) {
-            var s = KIN_SETS.filter(function (k) { return k.id === sid; })[0];
-            paintResults([self.anchor], s.fn(self.anchor), "canonical");
-          } else { clearPaint(); addClass(self.anchor, "q-anchor-a", "canonical"); applyEditorSim(); }
-          self.render();
-        });
-      });
-      dock.querySelectorAll(".member").forEach(function (m) {
-        var id = m.getAttribute("data-member");
-        m.addEventListener("mouseenter", function () { addClass(id, "q-pulse"); });
-        m.addEventListener("mouseleave", function () { cardsFor(id).forEach(function (c) { c.classList.remove("q-pulse"); }); });
-        m.addEventListener("click", function (ev) {
-          if (ev.target.hasAttribute("data-ghost")) {
-            addClass(id, "q-pulse", "ghost");
-            setTimeout(function () { cardsFor(id, "ghost").forEach(function (c) { c.classList.remove("q-pulse"); }); }, 1800);
-            return;
-          }
-          if (self.tab === "explore") { self.anchor = id; self.openSet = null; clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim(); self.render(); }
-        });
-      });
-      dock.querySelectorAll("[data-clear]").forEach(function (x) {
-        x.addEventListener("click", function () {
-          if (x.getAttribute("data-clear") === "a") self.slotA = null; else self.slotB = null;
-          clearPaint(); applyEditorSim(); self.render();
-        });
-      });
-      var swap = dock.querySelector("[data-swap]");
-      if (swap) swap.addEventListener("click", function () {
-        var tmp = self.slotA; self.slotA = self.slotB; self.slotB = tmp; self.render();
-      });
-      dock.querySelectorAll("[data-f]").forEach(function (f) {
-        f.addEventListener("change", function () { self.filters[f.getAttribute("data-f")] = f.value; });
-      });
-      var apply = dock.querySelector("[data-apply]");
-      if (apply) apply.addEventListener("click", function () {
-        var ms = self.filterMatches();
-        paintResults([], ms, "canonical");
-        self.render();
-      });
-      var reset = dock.querySelector("[data-reset]");
-      if (reset) reset.addEventListener("click", function () {
-        self.filters = { gender: "", bornBefore: "" };
-        clearPaint(); applyEditorSim(); self.render();
-      });
-    },
-    filterMatches: function () {
-      var f = this.filters;
-      return ALL.filter(function (id) {
-        if (f.gender && P[id].g !== f.gender) return false;
-        if (f.bornBefore && !(P[id].born < +f.bornBefore)) return false;
-        return !!(f.gender || f.bornBefore);
-      });
-    }
-  };
-
-  /* =============== Variant C: anchor tray =============== */
-  var tray = document.getElementById("tray");
-  var variantC = {
-    key: "c", name: "C — Anchor tray",
-    suspendsSync: false,
-    slotA: null, slotB: null, slotAFromEditor: false, setId: null,
-    filterMode: false, filters: { women: false, men: false, born1970: false },
-    explainer:
-      "<dl>" +
-      "<dt>Results surface</dt><dd>Tree highlight plus a persistent bottom tray — result names as chips, phrasing as a sentence.</dd>" +
-      "<dt>Second anchor</dt><dd>Sequential clicks: first fills slot A, second fills slot B → the tie resolves <b>automatically</b>, with a ⇄ perspective swap.</dd>" +
-      "<dt>Editor sync</dt><dd><b>Unified</b>: moving the editor cursor onto a person auto-fills slot A (tagged “from editor”). One selection concept, two sources.</dd>" +
-      "<dt>Ghosts</dt><dd>Canonical card lights; ghosts of matched people get a thin dotted ring as a secondary cue.</dd>" +
-      "<dt>Filtering</dt><dd>Filter mode replaces the anchors: composable attribute chips query the whole tree, no anchor needed.</dd>" +
-      "</dl>",
-    queryActive: function () { return false; },
-    enter: function () { this.render(); },
-    exit: function () {
-      this.slotA = null; this.slotB = null; this.slotAFromEditor = false; this.setId = null;
-      this.filterMode = false; clearPaint(); applyEditorSim();
-    },
-    clear: function () { this.exit(); this.render(); },
-    onEditorSelect: function (id) {
-      if (!id || this.filterMode) return;
-      this.slotA = id; this.slotAFromEditor = true; this.slotB = null; this.setId = null;
+      this.anchor = id; this.openGroup = null;
       clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
       this.render();
+      syncHint();
     },
-    onCardClick: function (id) {
-      if (this.filterMode) return;
-      if (!this.slotA || (this.slotA && this.slotB)) {
-        this.slotA = id; this.slotAFromEditor = false; this.slotB = null; this.setId = null;
-        clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
-      } else if (id !== this.slotA) {
-        this.slotB = id; this.setId = null;
-      }
-      this.render();
+    resolveTo: function (b) {
+      var self = this, a = this.anchor;
+      var ties = resolvePair(a, b);
+      paintResolution(a, b, ties);
+      var pop = stage.querySelector(".pop"); if (pop) pop.remove();
+      Array.prototype.slice.call(stage.querySelectorAll(".relate-badge")).forEach(function (n) { n.remove(); });
+      showBanner(a, b, ties, function () { self.anchor = b; self.render(); self.resolveTo(a); });
     },
     render: function () {
-      var self = this, html = '<div class="tray-rows">';
-      if (!this.filterMode) {
-        html += '<div class="tray-slots">' +
-          '<div class="tray-slot a' + (this.slotA ? " filled" : "") + '">' +
-          (this.slotA ? P[this.slotA].name + (this.slotAFromEditor ? '<span class="from-editor">● from editor cursor</span>' : "") +
-            '<span class="x" data-clear="a">✕</span>' : "Click a person → A") + "</div>" +
-          '<div class="tray-slot b' + (this.slotB ? " filled" : "") + '">' +
-          (this.slotB ? P[this.slotB].name + '<span class="x" data-clear="b">✕</span>' : "second person → B") + "</div></div>";
-        html += '<div class="tray-main">';
-        if (this.slotA && this.slotB) {
-          var ties = resolvePair(this.slotA, this.slotB);
-          paintResolution(this.slotA, this.slotB, ties, "dot");
-          if (!ties.length) {
-            html += '<span class="tray-pill warn">No relationship within traversal bounds — reported honestly, nothing invented.</span>';
-          } else {
-            html += "<b>" + P[this.slotB].name + "</b> is <b>" + P[this.slotA].name + "</b>’s " +
-              ties.map(function (tie) {
-                return '<span class="tie-en">' + tie.en + '</span> (<span class="tie-gu">' + tie.gu +
-                  ' <span class="script">' + tie.script + "</span></span>)";
-              }).join(" and ") + ' <span class="swap-btn" data-swap="1">⇄ swap</span>';
-          }
-        } else if (this.slotA) {
-          html += '<div class="chips">' + KIN_SETS.map(function (s) {
-            var on = self.setId === s.id;
-            var ids = s.fn(self.slotA);
-            return '<span class="chip' + (on ? " on" : "") + '" data-set="' + s.id + '">' + s.label +
-              (on ? ' <span class="cnt">· ' + ids.length + "</span>" : "") + "</span>";
-          }).join("") + "</div>";
-          if (this.setId) {
-            var s2 = KIN_SETS.filter(function (k) { return k.id === self.setId; })[0];
-            var ids2 = s2.fn(this.slotA);
-            if (!ids2.length) {
-              html += '<div style="margin-top:6px"><span class="tray-pill warn">0 ' + s2.label.toLowerCase() +
-                " in the recorded facts — absence, not error.</span></div>";
-            } else {
-              html += '<div style="margin-top:6px" class="chips">' + ids2.map(function (m) {
-                return '<span class="chip" data-member="' + m + '">' + P[m].name + "</span>";
-              }).join("") + "</div>";
-            }
-          }
-        } else {
-          html += '<span class="tray-pill">The tray is the query. Click any person to start — the editor cursor fills slot A too.</span>';
+      var self = this, a = this.anchor;
+      removeFloats();
+      var pop = document.createElement("div");
+      pop.className = "pop";
+      var sections = KIN_GROUPS.map(function (g) {
+        var open = self.openGroup === g.id;
+        var body = "";
+        if (open) {
+          body = '<div class="plate-sec-body"><div class="chips">' + g.sets.map(function (sid) {
+            var s = setById(sid);
+            return '<span class="chip" data-set="' + sid + '">' + s.label +
+              ' <span class="cnt">· ' + s.fn(a).length + "</span></span>";
+          }).join("") + "</div></div>";
         }
-        html += "</div>";
-      } else {
-        html += '<div class="tray-main"><div class="chips">' +
-          '<span class="chip' + (this.filters.women ? " on" : "") + '" data-flt="women">Women</span>' +
-          '<span class="chip' + (this.filters.men ? " on" : "") + '" data-flt="men">Men</span>' +
-          '<span class="chip' + (this.filters.born1970 ? " on" : "") + '" data-flt="born1970">Born before 1970</span></div>';
-        var ms = this.filterMatchIds();
-        var any = this.filters.women || this.filters.men || this.filters.born1970;
-        if (any) {
-          html += '<div style="margin-top:6px">' +
-            (ms.length ? '<span class="tray-pill">' + ms.length + " people match</span>"
-                       : '<span class="tray-pill warn">0 people match — the tree just dims; nothing is invented.</span>') + "</div>";
+        return '<div class="plate-section"><div class="plate-sec-head" data-group="' + g.id + '">' +
+          g.label + '<span class="arr">' + groupCount(g.id, a) + (open ? " ▾" : " ▸") + "</span></div>" + body + "</div>";
+      }).join("");
+      pop.innerHTML = '<div class="pop-head"><span class="pop-crumb"><b>' + P[a].name + '</b></span>' +
+        '<span class="pop-close" data-close="1">✕</span></div>' +
+        '<div class="pop-body">' + detailHtml(a) +
+        '<div class="pop-hintline">⚭ on any other card answers “how are we related?” — one click, no mode.</div></div>' +
+        sections;
+      pop.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var el = ev.target.closest("[data-close],[data-group],[data-set]");
+        if (!el) return;
+        if (el.hasAttribute("data-close")) { self.clear(); return; }
+        if (el.hasAttribute("data-group")) {
+          var gid = el.getAttribute("data-group");
+          self.openGroup = self.openGroup === gid ? null : gid;
+          self.render(); return;
         }
-        html += "</div>";
+        if (el.hasAttribute("data-set")) {
+          runKinSet(a, el.getAttribute("data-set"));
+          pop.querySelectorAll(".chip").forEach(function (c) { c.classList.remove("on"); });
+          el.classList.add("on");
+        }
+      });
+      popAt(pop, cardRect(a));
+      this.renderBadges();
+      if (!this.scrollHandler) {
+        this.scrollHandler = function () { self.renderBadges(); };
+        stage.addEventListener("scroll", this.scrollHandler);
       }
-      html += '<div class="tray-side"><span class="toggle' + (this.filterMode ? " on" : "") +
-        '" data-fmode="1">Filter mode</span></div></div>';
-      tray.innerHTML = html;
-
-      tray.querySelectorAll("[data-clear]").forEach(function (x) {
-        x.addEventListener("click", function () {
-          if (x.getAttribute("data-clear") === "a") { self.slotA = null; self.slotAFromEditor = false; self.slotB = null; }
-          else self.slotB = null;
-          self.setId = null; clearPaint(); applyEditorSim();
-          if (self.slotA) addClass(self.slotA, "q-anchor-a", "canonical");
-          self.render();
-        });
-      });
-      var swap = tray.querySelector("[data-swap]");
-      if (swap) swap.addEventListener("click", function () {
-        var tmp = self.slotA; self.slotA = self.slotB; self.slotB = tmp; self.slotAFromEditor = false; self.render();
-      });
-      tray.querySelectorAll("[data-set]").forEach(function (chip) {
-        chip.addEventListener("click", function () {
-          self.setId = chip.getAttribute("data-set");
-          var s = KIN_SETS.filter(function (k) { return k.id === self.setId; })[0];
-          paintResults([self.slotA], s.fn(self.slotA), "dot");
-          self.render();
-        });
-      });
-      tray.querySelectorAll("[data-member]").forEach(function (chip) {
-        var id = chip.getAttribute("data-member");
-        chip.addEventListener("mouseenter", function () { addClass(id, "q-pulse"); });
-        chip.addEventListener("mouseleave", function () {
-          cardsFor(id).forEach(function (c) { c.classList.remove("q-pulse"); });
-        });
-      });
-      tray.querySelectorAll("[data-flt]").forEach(function (chip) {
-        chip.addEventListener("click", function () {
-          var k = chip.getAttribute("data-flt");
-          self.filters[k] = !self.filters[k];
-          var ms = self.filterMatchIds();
-          var any = self.filters.women || self.filters.men || self.filters.born1970;
-          if (any) paintResults([], ms, "dot"); else { clearPaint(); applyEditorSim(); }
-          self.render();
-        });
-      });
-      var fmode = tray.querySelector("[data-fmode]");
-      if (fmode) fmode.addEventListener("click", function () {
-        self.filterMode = !self.filterMode;
-        self.slotA = null; self.slotB = null; self.setId = null;
-        self.filters = { women: false, men: false, born1970: false };
-        clearPaint(); applyEditorSim(); self.render();
-      });
     },
-    filterMatchIds: function () {
-      var f = this.filters;
-      return ALL.filter(function (id) {
-        if (f.women && P[id].g !== "f") return false;
-        if (f.men && P[id].g !== "m") return false;
-        if (f.born1970 && !(P[id].born < 1970)) return false;
-        return true;
+    renderBadges: function () {
+      var self = this, a = this.anchor;
+      Array.prototype.slice.call(stage.querySelectorAll(".relate-badge")).forEach(function (n) { n.remove(); });
+      if (!a) return;
+      ALL.forEach(function (pid) {
+        if (pid === a) return;
+        var r = cardRect(pid);
+        if (!r) return;
+        var b = document.createElement("div");
+        b.className = "relate-badge q-float";
+        b.innerHTML = '⚭<span class="lbl">related?</span>';
+        b.title = "How is " + P[pid].name + " related to " + P[a].name + "?";
+        stage.appendChild(b);
+        b.style.left = (r.left + r.width - 10) + "px";
+        b.style.top = (r.top - 10) + "px";
+        b.addEventListener("click", function (ev) { ev.stopPropagation(); self.resolveTo(pid); });
       });
     }
   };
 
   /* =============== variant switching =============== */
-  var VARIANTS = [variantA, variantB, variantC];
+  var VARIANTS = [variant1, variant2, variant3];
   var vIndex = 0;
   function current() { return VARIANTS[vIndex]; }
   function setVariant(i, updateUrl) {
     current().exit();
-    removeFloats();
     vIndex = (i + VARIANTS.length) % VARIANTS.length;
     var v = current();
     document.body.setAttribute("data-variant", v.key);
@@ -1070,6 +1048,7 @@ svg {
     }
     v.enter();
     applyEditorSim();
+    syncHint();
   }
   document.getElementById("prevV").addEventListener("click", function () { setVariant(vIndex - 1); });
   document.getElementById("nextV").addEventListener("click", function () { setVariant(vIndex + 1); });
@@ -1092,9 +1071,9 @@ svg {
   svg.addEventListener("click", function () { current().clear(); });
 
   /* =============== boot =============== */
-  var initial = "a";
-  try { initial = new URL(window.location.href).searchParams.get("variant") || "a"; } catch (e) {}
-  var idx = { a: 0, b: 1, c: 2 }[initial.toLowerCase()];
+  var initial = "1";
+  try { initial = new URL(window.location.href).searchParams.get("variant") || "1"; } catch (e) {}
+  var idx = { 1: 0, 2: 1, 3: 2, a: 0, b: 1, c: 2 }[String(initial).toLowerCase()];
   vIndex = 0;
   setVariant(idx === undefined ? 0 : idx, false);
 })();
