@@ -1,0 +1,1104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kul query-UX prototype — ticket #276</title>
+</head>
+<body>
+<!--BODY-START-->
+<title>Kul query-UX prototype — ticket #276</title>
+<!-- ============================================================
+  PROTOTYPE — THROWAWAY. Wayfinder ticket #276 (map #275).
+  Three variants of direct-manipulation kinship querying over the
+  real rendered SVG of examples/05-cousins-and-in-laws, switchable
+  via ?variant=a|b|c and the floating bottom switcher (or ← → keys).
+  The "kinship engine" below is a mock good only for this family.
+  ============================================================ -->
+<style>
+  :root {
+    --qa: #7c3aed;         /* query anchor A (violet) */
+    --qb: #d97706;         /* query anchor B (amber) */
+    --qr: #0d9488;         /* query result (teal) */
+    --qpath: #0ea5e9;      /* resolution path glow */
+    --sync: #ff2d95;       /* editor selection-sync (real preview token) */
+    --ink: #1a1a1a; --muted: #667085; --line: #e4e7ec; --bg: #f8fafc;
+    --panel: #ffffff; --chip: #f1f5f9; --chip-on: #ede9fe;
+  }
+  html, body { margin:0; padding:0; }
+  #proto-root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink); background: var(--bg); min-height: 100vh; box-sizing: border-box;
+    display: flex; flex-direction: column; }
+  #proto-root *, #proto-root *::before, #proto-root *::after { box-sizing: border-box; }
+
+  /* ---------- header ---------- */
+  .proto-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    padding:10px 16px; background:#fff; border-bottom:1px solid var(--line); }
+  .proto-badge { background:#fef3c7; color:#92400e; border:1px solid #fcd34d;
+    font-size:11px; font-weight:700; letter-spacing:.06em; padding:3px 8px; border-radius:5px; }
+  .proto-title { font-size:14px; font-weight:600; }
+  .proto-title span { color:var(--muted); font-weight:400; }
+  .proto-head .spacer { flex:1; }
+  .sim-wrap { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); }
+  .sim-wrap select { font-size:12px; padding:3px 6px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  .sim-dot { width:10px; height:10px; border-radius:50%; background:var(--sync); display:inline-block; }
+
+  /* ---------- explainer ---------- */
+  .explainer { position:absolute; top:12px; left:12px; z-index:30; max-width:330px;
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    box-shadow:0 4px 16px rgba(16,24,40,.09); font-size:12.5px; line-height:1.45; }
+  .explainer summary { cursor:pointer; padding:8px 12px; font-weight:600; font-size:12.5px; list-style:none; }
+  .explainer summary::before { content:"ⓘ "; color:var(--qa); }
+  .explainer[open] summary { border-bottom:1px solid var(--line); }
+  .explainer .ex-body { padding:8px 12px 10px; }
+  .explainer dt { font-weight:600; margin-top:6px; }
+  .explainer dd { margin:1px 0 0 0; color:var(--muted); }
+
+  /* ---------- stage ---------- */
+  .stage-row { display:flex; flex:1; min-height:0; position:relative; }
+  .stage { position:relative; flex:1; overflow:auto; padding:24px 16px 150px; }
+  .stage svg { width:100%; max-width:1250px; height:auto; display:block; margin:0 auto;
+    background:#fff; border:1px solid var(--line); border-radius:8px; }
+
+  /* ---------- card paint states (outline technique = real preview chrome) ---------- */
+  .kul-card { cursor:pointer; }
+  .kul-card.kul-selected > rect { outline:3px solid var(--sync); outline-offset:2px; }
+  .kul-card.q-anchor-a > rect { outline:3px solid var(--qa); outline-offset:3px; }
+  .kul-card.q-anchor-b > rect { outline:3px solid var(--qb); outline-offset:3px; }
+  .kul-card.q-result > rect { outline:3px solid var(--qr); outline-offset:2px;
+    filter:drop-shadow(0 0 6px rgba(13,148,136,.55)); }
+  .kul-card.q-result-ghost > rect { outline:2px dashed var(--qr); outline-offset:2px; }
+  .kul-card.q-ghost-dot > rect { outline:2px dotted var(--qr); outline-offset:1px; }
+  .kul-card.q-path > rect { outline:2px dashed var(--qpath); outline-offset:4px; }
+  .kul-card.q-dim { opacity:.22; }
+  .kul-card.q-pulse > rect { animation:qpulse .9s ease-in-out infinite alternate; }
+  @keyframes qpulse { from { outline-color:var(--qr); } to { outline-color:transparent; } }
+
+  /* ---------- variant A: halo popover + banner ---------- */
+  .halo-pop { position:absolute; z-index:20; max-width:300px; background:var(--panel);
+    border:1px solid var(--line); border-radius:10px; box-shadow:0 6px 24px rgba(16,24,40,.14);
+    padding:10px; font-size:12px; }
+  .halo-pop .hp-name { font-weight:700; font-size:13px; margin-bottom:2px; }
+  .halo-pop .hp-hint { color:var(--muted); margin-bottom:8px; }
+  .halo-pop .hp-hint kbd { background:var(--chip); border:1px solid var(--line); border-radius:4px;
+    padding:0 4px; font-size:11px; }
+  .chips { display:flex; flex-wrap:wrap; gap:5px; }
+  .chip { border:1px solid var(--line); background:var(--chip); border-radius:999px;
+    padding:3px 9px; font-size:11.5px; cursor:pointer; user-select:none; }
+  .chip:hover { border-color:var(--qa); }
+  .chip.on { background:var(--chip-on); border-color:var(--qa); color:#5b21b6; font-weight:600; }
+  .chip .cnt { color:var(--muted); font-weight:400; }
+  .halo-toast { position:absolute; z-index:21; background:#0f172a; color:#f8fafc;
+    padding:7px 11px; border-radius:8px; font-size:12px; max-width:280px;
+    box-shadow:0 6px 20px rgba(2,6,23,.35); }
+  .halo-banner { position:absolute; z-index:22; background:var(--panel); border:1px solid var(--line);
+    border-left:4px solid var(--qpath); border-radius:10px; padding:10px 14px;
+    box-shadow:0 8px 28px rgba(16,24,40,.18); font-size:12.5px; max-width:380px; }
+  .tie-row { margin:3px 0; }
+  .tie-en { font-weight:700; }
+  .tie-gu { color:#5b21b6; }
+  .tie-gu .script { font-size:14px; }
+  .tie-note { color:var(--muted); font-size:11.5px; }
+  .sync-hint { position:absolute; z-index:19; top:12px; right:12px; background:#fff7ed;
+    border:1px solid #fed7aa; color:#9a3412; font-size:11.5px; padding:5px 10px; border-radius:8px; }
+  .sync-hint kbd { background:#fff; border:1px solid #fed7aa; border-radius:4px; padding:0 4px; }
+
+  /* ---------- variant B: dock ---------- */
+  #dock { width:320px; flex:none; background:var(--panel); border-left:1px solid var(--line);
+    display:none; flex-direction:column; min-height:0; }
+  body[data-variant="b"] #dock { display:flex; }
+  .dock-tabs { display:flex; border-bottom:1px solid var(--line); }
+  .dock-tab { flex:1; text-align:center; font-size:12.5px; padding:9px 4px; cursor:pointer;
+    color:var(--muted); border-bottom:2px solid transparent; user-select:none; }
+  .dock-tab.on { color:var(--qa); border-bottom-color:var(--qa); font-weight:600; }
+  .dock-body { flex:1; overflow:auto; padding:12px; font-size:12.5px; }
+  .dock-empty { color:var(--muted); text-align:center; margin-top:40px; padding:0 20px; line-height:1.5; }
+  .detail-card { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:12px; }
+  .detail-card .dc-name { font-weight:700; font-size:14px; }
+  .detail-card .dc-meta { color:var(--muted); font-size:12px; margin-top:2px; }
+  .detail-card .dc-sync { display:inline-block; margin-top:6px; font-size:11px; color:var(--sync);
+    border:1px solid #ffd6ea; background:#fff0f7; border-radius:999px; padding:1px 8px; }
+  .set-row { border:1px solid var(--line); border-radius:8px; margin-bottom:6px; overflow:hidden; }
+  .set-row-head { display:flex; align-items:center; padding:7px 10px; cursor:pointer; user-select:none; }
+  .set-row-head:hover { background:var(--chip); }
+  .set-row.on .set-row-head { background:var(--chip-on); }
+  .set-row .sr-label { flex:1; font-weight:600; }
+  .set-row .sr-count { color:var(--muted); }
+  .set-row .sr-count.zero { color:#b42318; }
+  .set-members { border-top:1px solid var(--line); padding:6px 10px; }
+  .member { display:flex; align-items:baseline; gap:6px; padding:4px 2px; border-radius:6px; cursor:pointer; }
+  .member:hover { background:var(--chip); }
+  .member .m-name { font-weight:600; }
+  .member .m-term { color:var(--muted); font-size:11.5px; }
+  .member .m-ghost { font-size:10.5px; color:#92400e; background:#fef3c7; border:1px solid #fcd34d;
+    border-radius:4px; padding:0 4px; }
+  .empty-note { color:var(--muted); font-style:italic; padding:4px 2px; }
+  .slot-row { display:flex; gap:8px; margin-bottom:10px; }
+  .slot { flex:1; border:1.5px dashed var(--line); border-radius:8px; padding:8px; text-align:center;
+    font-size:12px; color:var(--muted); }
+  .slot.filled { border-style:solid; color:var(--ink); font-weight:600; }
+  .slot.a.filled { border-color:var(--qa); background:#f5f3ff; }
+  .slot.b.filled { border-color:var(--qb); background:#fffbeb; }
+  .slot .x { cursor:pointer; color:var(--muted); margin-left:6px; }
+  .dock-btn { display:inline-block; border:1px solid var(--line); background:var(--chip);
+    border-radius:7px; padding:5px 10px; font-size:12px; cursor:pointer; user-select:none; }
+  .dock-btn:hover { border-color:var(--qa); }
+  .filter-field { margin-bottom:10px; }
+  .filter-field label { display:block; font-weight:600; margin-bottom:3px; }
+  .filter-field select, .filter-field input[type="number"] { width:100%; padding:5px 7px;
+    border:1px solid var(--line); border-radius:7px; font-size:12.5px; background:#fff; }
+  .result-strip { margin-top:10px; }
+
+  /* ---------- variant C: tray ---------- */
+  #tray { position:fixed; left:0; right:0; bottom:0; z-index:25; display:none;
+    background:var(--panel); border-top:1px solid var(--line);
+    box-shadow:0 -6px 24px rgba(16,24,40,.08); padding:10px 16px 12px; font-size:12.5px; }
+  body[data-variant="c"] #tray { display:block; }
+  .tray-rows { display:flex; gap:14px; align-items:flex-start; max-width:1250px; margin:0 auto; flex-wrap:wrap; }
+  .tray-slots { display:flex; gap:8px; align-items:center; flex:none; }
+  .tray-slot { min-width:130px; border:1.5px dashed var(--line); border-radius:9px; padding:7px 10px;
+    color:var(--muted); text-align:center; }
+  .tray-slot.filled { border-style:solid; color:var(--ink); font-weight:600; }
+  .tray-slot.a.filled { border-color:var(--qa); background:#f5f3ff; }
+  .tray-slot.b.filled { border-color:var(--qb); background:#fffbeb; }
+  .tray-slot .from-editor { display:block; font-size:10px; color:var(--sync); font-weight:400; }
+  .tray-slot .x { cursor:pointer; color:var(--muted); margin-left:6px; }
+  .tray-main { flex:1; min-width:280px; }
+  .tray-pill { display:inline-block; background:#f1f5f9; border:1px solid var(--line);
+    border-radius:999px; padding:4px 11px; font-size:12px; color:var(--muted); }
+  .tray-pill.warn { background:#fff7ed; border-color:#fed7aa; color:#9a3412; }
+  .swap-btn { cursor:pointer; border:1px solid var(--line); background:var(--chip); border-radius:7px;
+    padding:3px 9px; font-size:12px; user-select:none; }
+  .tray-side { flex:none; display:flex; align-items:center; gap:8px; }
+  .toggle { cursor:pointer; font-size:12px; border:1px solid var(--line); border-radius:999px;
+    padding:4px 11px; user-select:none; background:var(--chip); }
+  .toggle.on { background:var(--chip-on); border-color:var(--qa); color:#5b21b6; font-weight:600; }
+
+  /* ---------- switcher ---------- */
+  .switcher { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; z-index:40;
+    display:flex; align-items:center; gap:10px; background:#0f172a; color:#f8fafc;
+    border-radius:999px; padding:7px 12px; box-shadow:0 8px 30px rgba(2,6,23,.4);
+    font-size:13px; user-select:none; }
+  body[data-variant="c"] .switcher { bottom:132px; }
+  .switcher .arrow { cursor:pointer; font-size:15px; padding:0 6px; opacity:.85; }
+  .switcher .arrow:hover { opacity:1; }
+  .switcher .vlabel { min-width:190px; text-align:center; font-weight:600; }
+  .switcher .vkeys { color:#94a3b8; font-weight:400; font-size:11px; }
+</style>
+
+<div id="proto-root">
+  <div class="proto-head">
+    <span class="proto-badge">PROTOTYPE · THROWAWAY</span>
+    <span class="proto-title">Kinship query interactions <span>— #276 · examples/05-cousins-and-in-laws · mock engine, real SVG</span></span>
+    <span class="spacer"></span>
+    <span class="sim-wrap">
+      <span class="sim-dot"></span> Simulate editor cursor on:
+      <select id="editorSim"><option value="">— none —</option></select>
+    </span>
+  </div>
+
+  <div class="stage-row">
+    <div class="stage" id="stage">
+      <details class="explainer" id="explainer" open>
+        <summary>What this variant tries</summary>
+        <div class="ex-body" id="exBody"></div>
+      </details>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1162 586"><style>
+svg {
+  --kul-preview-bg: #ffffff;
+  --kul-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --kul-card-fill: #ffffff;
+  --kul-card-stroke: #455a64;
+  --kul-card-stroke-male: #1565c0;
+  --kul-card-stroke-female: #c2185b;
+  --kul-card-stroke-other: #f9a825;
+  --kul-ghost-fill: #eceff1;
+  --kul-ghost-stroke: #90a4ae;
+  --kul-ghost-stroke-male: #1565c0;
+  --kul-ghost-stroke-female: #c2185b;
+  --kul-ghost-stroke-other: #f9a825;
+  --kul-label-fill: #1a1a1a;
+  --kul-ghost-label-fill: #607d8b;
+  --kul-edge-stroke: #2e7d32;
+  --kul-adoption-edge-stroke: #ef6c00;
+  --kul-marriage-edge-stroke: #6a1b9a;
+  --kul-card-stroke-width: 1.5;
+  --kul-edge-stroke-width: 1.5;
+  --kul-marriage-edge-stroke-width: 8.75;
+  --kul-ghost-fill-opacity: 0.5;
+  --kul-ended-edge-stroke-opacity: 0.6;
+  --kul-label-font-size: 13px;
+  --kul-legend-label-font-size: 12px;
+  --kul-legend-marriage-edge-stroke-width: 5;
+  --kul-legend-panel-bg: #f7f9fa;
+  --kul-legend-panel-border: #cfd8dc;
+  --kul-legend-panel-border-width: 1;
+  background-color: var(--kul-preview-bg);
+  font-family: var(--kul-font-family);
+}
+.kul-card rect { fill: var(--kul-card-fill); stroke: var(--kul-card-stroke); stroke-width: var(--kul-card-stroke-width); }
+.kul-card[data-gender="male"] rect { stroke: var(--kul-card-stroke-male); }
+.kul-card[data-gender="female"] rect { stroke: var(--kul-card-stroke-female); }
+.kul-card[data-gender="other"] rect { stroke: var(--kul-card-stroke-other); }
+.kul-card[data-kind="ghost"] rect { fill: var(--kul-ghost-fill); stroke: var(--kul-ghost-stroke); fill-opacity: var(--kul-ghost-fill-opacity); }
+.kul-card[data-kind="ghost"][data-gender="male"] rect { stroke: var(--kul-ghost-stroke-male); }
+.kul-card[data-kind="ghost"][data-gender="female"] rect { stroke: var(--kul-ghost-stroke-female); }
+.kul-card[data-kind="ghost"][data-gender="other"] rect { stroke: var(--kul-ghost-stroke-other); }
+.kul-label-name { fill: var(--kul-label-fill); font-size: var(--kul-label-font-size); }
+.kul-card[data-kind="ghost"] .kul-label-name { fill: var(--kul-ghost-label-fill); }
+.kul-edge { stroke: var(--kul-edge-stroke); stroke-width: var(--kul-edge-stroke-width); }
+.kul-edge[data-link-kind="adoption"] { stroke: var(--kul-adoption-edge-stroke); }
+.kul-edge[data-link-kind="marriage"] { stroke: var(--kul-marriage-edge-stroke); stroke-width: var(--kul-marriage-edge-stroke-width); }
+.kul-edge[data-is-ended="true"] { stroke-opacity: var(--kul-ended-edge-stroke-opacity); }
+.kul-legend-bg { fill: var(--kul-legend-panel-bg); stroke: var(--kul-legend-panel-border); stroke-width: var(--kul-legend-panel-border-width); }
+.kul-legend-label { fill: var(--kul-label-fill); font-size: var(--kul-legend-label-font-size); }
+.kul-legend .kul-edge[data-link-kind="marriage"] { stroke-width: var(--kul-legend-marriage-edge-stroke-width); }
+</style><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="birth" data-child-id="marco" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 380 156 L 114 156 Q 104 156 104 166 L 104 184"/><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="birth" data-child-id="lucia" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 400 156 L 476 156 Q 486 156 486 166 L 486 184"/><path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="birth" data-child-id="elena" data-is-past="true" fill="none" d="M 963 56 L 963 156 L 963 156 L 963 184"/><path class="kul-edge" data-marriage-id="m_marco_elena" data-link-kind="birth" data-child-id="matteo" data-is-past="false" fill="none" d="M 199 216 L 199 306 Q 199 316 189 316 L 114 316 Q 104 316 104 326 L 104 344"/><path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="birth" data-child-id="giulia" data-is-past="true" fill="none" d="M 581 216 L 581 316 L 581 316 L 581 344"/><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="marriage" data-host-id="giuseppe" data-joining-id="sofia" data-start="1965-06-12" data-is-ended="false" fill="none" d="M 375 56 L 405 56"/><path class="kul-edge" data-marriage-id="m_marco_elena" data-link-kind="marriage" data-host-id="marco" data-joining-id="elena" data-start="1995-07-22" data-is-ended="false" fill="none" d="M 184 216 L 214 216"/><path class="kul-edge" data-marriage-id="m_matteo_giulia" data-link-kind="marriage" data-host-id="matteo" data-joining-id="giulia" data-start="2020-09-12" data-is-ended="false" fill="none" d="M 184 376 L 214 376"/><path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="marriage" data-host-id="lucia" data-joining-id="paolo" data-start="1996-10-05" data-is-ended="false" fill="none" d="M 566 216 L 596 216"/><path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="marriage" data-host-id="aldo" data-joining-id="bianca" data-start="1967-05-30" data-is-ended="false" fill="none" d="M 948 56 L 978 56"/><g class="kul-card" data-person-id="giuseppe" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1940-05-19" data-generation="0"><rect x="215" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Giuseppe Rossi</text></g><g class="kul-card" data-person-id="sofia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1943-01-27" data-generation="0"><rect x="405" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="485" y="56" text-anchor="middle" dominant-baseline="central">Sofia Rossi</text></g><g class="kul-card" data-person-id="marco" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1968-09-30" data-generation="1"><rect x="24" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Marco Rossi</text></g><g class="kul-card" data-person-id="elena" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1"><rect x="214" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="294" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text></g><g class="kul-card" data-person-id="matteo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1997-02-14" data-generation="2"><rect x="24" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="376" text-anchor="middle" dominant-baseline="central">Matteo Rossi</text></g><g class="kul-card" data-person-id="giulia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2"><rect x="214" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="294" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text></g><g class="kul-card" data-person-id="lucia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1971-04-08" data-generation="1"><rect x="406" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="486" y="216" text-anchor="middle" dominant-baseline="central">Lucia Rossi</text></g><g class="kul-card" data-person-id="paolo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1969-03-17" data-generation="1"><rect x="596" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="676" y="216" text-anchor="middle" dominant-baseline="central">Paolo Conti</text></g><g class="kul-card" data-person-id="giulia" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2"><rect x="501" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="581" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text></g><g class="kul-card" data-person-id="aldo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1942-08-03" data-generation="0"><rect x="788" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="868" y="56" text-anchor="middle" dominant-baseline="central">Aldo Bianchi</text></g><g class="kul-card" data-person-id="bianca" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1945-12-21" data-generation="0"><rect x="978" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="1058" y="56" text-anchor="middle" dominant-baseline="central">Bianca Bianchi</text></g><g class="kul-card" data-person-id="elena" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1"><rect x="883" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="963" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text></g><g class="kul-legend"><rect class="kul-legend-bg" x="8" y="448" width="188" height="130" rx="6" ry="6"/><g class="kul-card" data-kind="canonical" data-gender="male"><rect x="22" y="462" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="469" dominant-baseline="central">Male</text><g class="kul-card" data-kind="canonical" data-gender="female"><rect x="22" y="484" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="491" dominant-baseline="central">Female</text><g class="kul-card" data-kind="ghost"><rect x="22" y="506" width="30" height="14" rx="3" ry="3" stroke-dasharray="3 2"/></g><text class="kul-legend-label" x="62" y="513" dominant-baseline="central">Past record</text><path class="kul-edge" data-link-kind="birth" fill="none" d="M 22 535 L 52 535"/><text class="kul-legend-label" x="62" y="535" dominant-baseline="central">Birth</text><path class="kul-edge" data-link-kind="marriage" fill="none" d="M 22 557 L 52 557"/><text class="kul-legend-label" x="62" y="557" dominant-baseline="central">Marriage</text></g></svg>
+    </div>
+    <aside id="dock"></aside>
+  </div>
+
+  <div id="tray"></div>
+
+  <div class="switcher">
+    <span class="arrow" id="prevV">←</span>
+    <span class="vlabel"><span id="vName"></span><br><span class="vkeys">?variant= · ← → keys</span></span>
+    <span class="arrow" id="nextV">→</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =============== mock family data (examples/05) =============== */
+  var P = {
+    giuseppe: { name: "Giuseppe Rossi", g: "m", born: 1940 },
+    sofia:    { name: "Sofia Rossi",    g: "f", born: 1943 },
+    marco:    { name: "Marco Rossi",    g: "m", born: 1968 },
+    lucia:    { name: "Lucia Rossi",    g: "f", born: 1971 },
+    elena:    { name: "Elena Bianchi",  g: "f", born: 1970 },
+    paolo:    { name: "Paolo Conti",    g: "m", born: 1969 },
+    matteo:   { name: "Matteo Rossi",   g: "m", born: 1997 },
+    giulia:   { name: "Giulia Conti",   g: "f", born: 1998 },
+    aldo:     { name: "Aldo Bianchi",   g: "m", born: 1942 },
+    bianca:   { name: "Bianca Bianchi", g: "f", born: 1945 }
+  };
+  var PARENTS = {
+    marco: ["giuseppe", "sofia"], lucia: ["giuseppe", "sofia"],
+    matteo: ["marco", "elena"], giulia: ["lucia", "paolo"],
+    elena: ["aldo", "bianca"]
+  };
+  var SPOUSES = {
+    giuseppe: ["sofia"], sofia: ["giuseppe"], marco: ["elena"], elena: ["marco"],
+    lucia: ["paolo"], paolo: ["lucia"], matteo: ["giulia"], giulia: ["matteo"],
+    aldo: ["bianca"], bianca: ["aldo"]
+  };
+  var GHOSTS = { elena: true, giulia: true }; // persons that also render a ghost card
+  var ALL = Object.keys(P);
+
+  function parentsOf(x) { return PARENTS[x] || []; }
+  function spousesOf(x) { return SPOUSES[x] || []; }
+  function childrenOf(x) {
+    return ALL.filter(function (k) { return parentsOf(k).indexOf(x) >= 0; });
+  }
+  function siblingsOf(x) {
+    var ps = parentsOf(x);
+    if (!ps.length) return [];
+    return childrenOf(ps[0]).filter(function (y) { return y !== x; });
+  }
+  function uniq(a) { return a.filter(function (v, i) { return a.indexOf(v) === i; }); }
+
+  /* =============== mock kinship engine =============== */
+  function ancEntries(x) {
+    var out = [];
+    (function walk(chain) {
+      var last = chain[chain.length - 1];
+      out.push({ anc: last, up: chain.length - 1, chain: chain.slice() });
+      parentsOf(last).forEach(function (p) { walk(chain.concat([p])); });
+    })([x]);
+    return out;
+  }
+  function ancestorsOf(x) {
+    return uniq(ancEntries(x).filter(function (e) { return e.up > 0; }).map(function (e) { return e.anc; }));
+  }
+  function descendantsOf(x) {
+    var out = [];
+    (function walk(y) {
+      childrenOf(y).forEach(function (c) { if (out.indexOf(c) < 0) { out.push(c); walk(c); } });
+    })(x);
+    return out;
+  }
+
+  function t(en, gu, script, note) { return { en: en, gu: gu, script: script, note: note || "" }; }
+
+  function auntUncleTerm(side, g, alterId, linkParentId) {
+    if (side === "paternal" && g === "m") {
+      var elder = P[alterId].born < P[linkParentId].born;
+      return elder ? t("paternal uncle (father’s elder brother)", "moṭā bāpā", "મોટા બાપા")
+                   : t("paternal uncle (father’s brother)", "kākā", "કાકા");
+    }
+    if (side === "paternal") return t("paternal aunt (father’s sister)", "foī", "ફોઈ");
+    if (g === "m") return t("maternal uncle (mother’s brother)", "māmā", "મામા");
+    return t("maternal aunt (mother’s sister)", "māsī", "માસી");
+  }
+
+  function bloodTerm(up, down, egoChain, alterChain) {
+    var alter = alterChain[0], ag = P[alter].g;
+    var side = up >= 2 ? (P[egoChain[1]].g === "m" ? "paternal" : "maternal") : null;
+    if (up === 1 && down === 0) return ag === "m" ? t("father", "bāpuji", "બાપુજી") : t("mother", "bā", "બા");
+    if (up === 2 && down === 0) {
+      if (side === "paternal") return ag === "m" ? t("grandfather (paternal)", "dādā", "દાદા") : t("grandmother (paternal)", "dādī", "દાદી");
+      return ag === "m" ? t("grandfather (maternal)", "nānā", "નાના") : t("grandmother (maternal)", "nānī", "નાની");
+    }
+    if (up === 0 && down === 1) return ag === "m" ? t("son", "dīkro", "દીકરો") : t("daughter", "dīkrī", "દીકરી");
+    if (up === 0 && down === 2) {
+      var viaSon = P[alterChain[1]].g === "m";
+      if (viaSon) return ag === "m" ? t("grandson (son’s son)", "pautra", "પૌત્ર") : t("granddaughter (son’s daughter)", "pautrī", "પૌત્રી");
+      return ag === "m" ? t("grandson (daughter’s son)", "dohitra", "દોહિત્ર") : t("granddaughter (daughter’s daughter)", "dohitrī", "દોહિત્રી");
+    }
+    if (up === 1 && down === 1) {
+      var elder = P[alter].born < P[egoChain[0]].born;
+      if (ag === "m") return elder ? t("elder brother", "moṭā bhāī", "મોટા ભાઈ") : t("younger brother", "nānā bhāī", "નાના ભાઈ");
+      return elder ? t("elder sister", "moṭī ben", "મોટી બેન") : t("younger sister", "nānī ben", "નાની બેન");
+    }
+    if (up === 2 && down === 1) return auntUncleTerm(side, ag, alter, egoChain[1]);
+    if (up === 1 && down === 2) {
+      var viaBro = P[alterChain[1]].g === "m";
+      if (viaBro) return ag === "m" ? t("nephew (brother’s son)", "bhatrījo", "ભત્રીજો") : t("niece (brother’s daughter)", "bhatrījī", "ભત્રીજી");
+      return ag === "m" ? t("nephew (sister’s son)", "bhāṇej", "ભાણેજ") : t("niece (sister’s daughter)", "bhāṇī", "ભાણી");
+    }
+    if (up === 2 && down === 2) {
+      var au = alterChain[1];
+      var auT = auntUncleTerm(side, P[au].g, au, egoChain[1]);
+      var suffix = ag === "m" ? ["-no dīkro", "નો દીકરો"] : ["-ni dīkrī", "ની દીકરી"];
+      return t("first cousin (" + auT.en + "’s child)", auT.gu + suffix[0], auT.script + suffix[1],
+        "genitive walk of the path backbone — no single lexeme");
+    }
+    var enG = ag === "m" ? "kinsman" : "kinswoman";
+    return t("distant blood " + enG + " (up " + up + ", down " + down + ")", "dūr-nā sagā", "દૂરનાં સગાં",
+      "beyond the lexicalized inventory — compositional fallback");
+  }
+
+  function bloodTies(ego, alter) {
+    if (ego === alter) return [];
+    var A = ancEntries(ego), B = ancEntries(alter), cands = [];
+    A.forEach(function (a) {
+      B.forEach(function (b) {
+        if (a.anc === b.anc) cands.push({ up: a.up, down: b.up, egoChain: a.chain, alterChain: b.chain, total: a.up + b.up });
+      });
+    });
+    if (!cands.length) return [];
+    var min = Math.min.apply(null, cands.map(function (c) { return c.total; }));
+    var seen = {}, ties = [];
+    cands.filter(function (c) { return c.total === min; }).forEach(function (c) {
+      var k = c.up + "/" + c.down;
+      if (seen[k]) return;
+      seen[k] = 1;
+      var term = bloodTerm(c.up, c.down, c.egoChain, c.alterChain);
+      var path = c.egoChain.concat(c.alterChain.slice(0, -1).reverse());
+      ties.push({ en: term.en, gu: term.gu, script: term.script, note: term.note, kind: "blood", path: path });
+    });
+    return ties;
+  }
+
+  function affinalTies(ego, alter) {
+    var ties = [];
+    function push(term, path) {
+      ties.push({ en: term.en, gu: term.gu, script: term.script, note: term.note, kind: "in-law", path: path });
+    }
+    if (spousesOf(ego).indexOf(alter) >= 0) {
+      push(P[alter].g === "m" ? t("husband", "pati / var", "પતિ / વર") : t("wife", "patnī", "પત્ની"), [ego, alter]);
+    }
+    // alter = spouse of a blood kin K of ego
+    ALL.forEach(function (K) {
+      if (K === ego || K === alter) return;
+      if (spousesOf(K).indexOf(alter) < 0) return;
+      bloodTies(ego, K).forEach(function (bt) {
+        var shape = bt.path.length; // ego..K inclusive
+        var up1down1 = /brother|sister/.test(bt.en) && shape === 3;
+        var term = null, ag = P[alter].g;
+        if (/uncle|aunt/.test(bt.en)) {
+          if (bt.gu === "foī") term = t("uncle (foī’s husband)", "fuvā", "ફુવા");
+          else if (bt.gu === "māmā") term = t("aunt (māmā’s wife)", "māmī", "મામી");
+          else if (bt.gu === "māsī") term = t("uncle (māsī’s husband)", "māsā", "માસા");
+          else term = t("aunt (kākā’s wife)", "kākī", "કાકી");
+        } else if (up1down1) {
+          term = P[K].g === "m" ? t("sister-in-law (brother’s wife)", "bhābhī", "ભાભી")
+                                : t("brother-in-law (sister’s husband)", "banevī", "બનેવી");
+        } else if (/^son$|^daughter$/.test(bt.en)) {
+          term = ag === "m" ? t("son-in-law (daughter’s husband)", "jamāī", "જમાઈ")
+                            : t("daughter-in-law (son’s wife)", "vahu / putravadhū", "વહુ / પુત્રવધૂ");
+        } else {
+          term = t(bt.en + "’s " + (ag === "m" ? "husband" : "wife"),
+                   bt.gu + (ag === "m" ? "-no var" : "-nī patnī"), bt.script + (ag === "m" ? "નો વર" : "ની પત્ની"),
+                   "compositional — no single lexeme");
+        }
+        push(term, bt.path.concat([alter]));
+      });
+    });
+    // alter = blood kin of ego's spouse
+    spousesOf(ego).forEach(function (S) {
+      if (S === alter) return;
+      bloodTies(S, alter).forEach(function (bt) {
+        var term = null, ag = P[alter].g;
+        if (bt.en === "father") term = t("father-in-law (spouse’s father)", "sasro", "સસરો");
+        else if (bt.en === "mother") term = t("mother-in-law (spouse’s mother)", "sāsu", "સાસુ");
+        else if (/brother|sister/.test(bt.en) && bt.path.length === 3) {
+          if (P[S].g === "f") term = ag === "m" ? t("brother-in-law (wife’s brother)", "sāḷo", "સાળો")
+                                                : t("sister-in-law (wife’s sister)", "sāḷī", "સાળી");
+          else if (ag === "m") {
+            var elder = P[alter].born < P[S].born;
+            term = elder ? t("brother-in-law (husband’s elder brother)", "jeṭh", "જેઠ")
+                         : t("brother-in-law (husband’s younger brother)", "diyar", "દિયર");
+          } else term = t("sister-in-law (husband’s sister)", "naṇand", "નણંદ");
+        } else {
+          term = t("spouse’s " + bt.en, "(spouse-nā) " + bt.gu, bt.script, "compositional — no single lexeme");
+        }
+        push(term, [ego].concat(bt.path));
+      });
+    });
+    // vevāī: alter is a parent of ego's child's spouse
+    childrenOf(ego).forEach(function (c) {
+      spousesOf(c).forEach(function (sp) {
+        if (parentsOf(sp).indexOf(alter) >= 0) {
+          push(P[alter].g === "m" ? t("co-father-in-law (child’s spouse’s father)", "vevāī", "વેવાઈ")
+                                  : t("co-mother-in-law (child’s spouse’s mother)", "vevāṇ", "વેવાણ"),
+               [ego, c, sp, alter]);
+        }
+      });
+    });
+    return ties;
+  }
+
+  function resolvePair(ego, alter) {
+    var blood = bloodTies(ego, alter);
+    var affinal = affinalTies(ego, alter);
+    // step-subsumption stand-in (ADR-0027): when a blood tie exists, drop
+    // compositional affinal chains and keep only lexicalized affinal ties
+    if (blood.length) {
+      affinal = affinal.filter(function (tie) { return tie.note.indexOf("compositional") < 0; });
+    }
+    var seen = {}, out = [];
+    blood.concat(affinal).forEach(function (tie) { if (!seen[tie.gu]) { seen[tie.gu] = 1; out.push(tie); } });
+    return out; // [] = honest emptiness: no relationship within traversal bounds
+  }
+
+  function auntsUnclesOf(x) {
+    var out = [];
+    parentsOf(x).forEach(function (p) {
+      siblingsOf(p).forEach(function (s) {
+        out.push(s);
+        spousesOf(s).forEach(function (sp) { out.push(sp); });
+      });
+    });
+    return uniq(out);
+  }
+  function cousinsOf(x) {
+    var out = [];
+    parentsOf(x).forEach(function (p) {
+      siblingsOf(p).forEach(function (s) { out = out.concat(childrenOf(s)); });
+    });
+    return uniq(out).filter(function (y) { return y !== x; });
+  }
+  function niecesNephewsOf(x) {
+    var out = [];
+    siblingsOf(x).forEach(function (s) { out = out.concat(childrenOf(s)); });
+    return uniq(out);
+  }
+  function inLawsOf(x) {
+    var out = [];
+    spousesOf(x).forEach(function (S) { out = out.concat(parentsOf(S)).concat(siblingsOf(S)); });
+    siblingsOf(x).forEach(function (s) { out = out.concat(spousesOf(s)); });
+    childrenOf(x).forEach(function (c) { out = out.concat(spousesOf(c)); });
+    return uniq(out).filter(function (y) { return y !== x; });
+  }
+
+  var KIN_SETS = [
+    { id: "parents", label: "Parents", fn: parentsOf },
+    { id: "children", label: "Children", fn: childrenOf },
+    { id: "siblings", label: "Siblings", fn: siblingsOf },
+    { id: "spouses", label: "Spouses", fn: spousesOf },
+    { id: "ancestors", label: "Ancestors", fn: ancestorsOf },
+    { id: "descendants", label: "Descendants", fn: descendantsOf },
+    { id: "auntsUncles", label: "Aunts & uncles", fn: auntsUnclesOf },
+    { id: "niecesNephews", label: "Nieces & nephews", fn: niecesNephewsOf },
+    { id: "cousins", label: "Cousins", fn: cousinsOf },
+    { id: "inLaws", label: "In-laws", fn: inLawsOf },
+    { id: "stepParents", label: "Step-parents", fn: function () { return []; } },
+    { id: "stepSiblings", label: "Step-siblings", fn: function () { return []; } },
+    { id: "stepChildren", label: "Step-children", fn: function () { return []; } }
+  ];
+
+  /* =============== DOM + paint helpers =============== */
+  var stage = document.getElementById("stage");
+  var svg = stage.querySelector("svg");
+  var PAINT = ["q-anchor-a", "q-anchor-b", "q-result", "q-result-ghost", "q-ghost-dot", "q-path", "q-dim", "q-pulse"];
+
+  function cardsFor(id, kind) {
+    var sel = '.kul-card[data-person-id="' + id + '"]';
+    if (kind) sel += '[data-kind="' + kind + '"]';
+    return Array.prototype.slice.call(svg.querySelectorAll(sel));
+  }
+  function allCards() {
+    return Array.prototype.slice.call(svg.querySelectorAll(".kul-card[data-person-id]"));
+  }
+  function clearPaint() {
+    allCards().forEach(function (c) { PAINT.forEach(function (k) { c.classList.remove(k); }); });
+  }
+  function addClass(id, cls, kind) { cardsFor(id, kind).forEach(function (c) { c.classList.add(cls); }); }
+  function dimAllExcept(keep) {
+    allCards().forEach(function (c) {
+      if (keep.indexOf(c.getAttribute("data-person-id")) < 0) c.classList.add("q-dim");
+    });
+  }
+  /** ghostMode: 'both' (A) | 'canonical' (B) | 'dot' (C) */
+  function paintResults(anchorIds, resultIds, ghostMode) {
+    clearPaint();
+    anchorIds.forEach(function (a, i) { addClass(a, i === 0 ? "q-anchor-a" : "q-anchor-b", "canonical"); });
+    resultIds.forEach(function (r) {
+      addClass(r, "q-result", "canonical");
+      if (GHOSTS[r]) {
+        if (ghostMode === "both") addClass(r, "q-result-ghost", "ghost");
+        else if (ghostMode === "dot") addClass(r, "q-ghost-dot", "ghost");
+      }
+    });
+    dimAllExcept(anchorIds.concat(resultIds));
+    applyEditorSim();
+  }
+  function paintResolution(a, b, ties, ghostMode) {
+    clearPaint();
+    addClass(a, "q-anchor-a", "canonical");
+    addClass(b, "q-anchor-b", "canonical");
+    var mid = [];
+    ties.forEach(function (tie) {
+      tie.path.forEach(function (pid) { if (pid !== a && pid !== b && mid.indexOf(pid) < 0) mid.push(pid); });
+    });
+    mid.forEach(function (m) { addClass(m, "q-path", "canonical"); });
+    dimAllExcept([a, b].concat(mid));
+    applyEditorSim();
+  }
+  function cardRect(id) {
+    var el = cardsFor(id, "canonical")[0] || cardsFor(id)[0];
+    if (!el) return null;
+    var r = el.getBoundingClientRect(), s = stage.getBoundingClientRect();
+    return { left: r.left - s.left + stage.scrollLeft, top: r.top - s.top + stage.scrollTop, width: r.width, height: r.height };
+  }
+  function tieHtml(tie) {
+    return '<div class="tie-row"><span class="tie-en">' + tie.en + "</span> · " +
+      '<span class="tie-gu">' + tie.gu + ' <span class="script">' + tie.script + "</span></span>" +
+      (tie.note ? '<div class="tie-note">' + tie.note + "</div>" : "") + "</div>";
+  }
+
+  /* =============== editor-selection simulation =============== */
+  var editorSel = "";
+  var editorSimEl = document.getElementById("editorSim");
+  ALL.forEach(function (id) {
+    var o = document.createElement("option");
+    o.value = id; o.textContent = P[id].name;
+    editorSimEl.appendChild(o);
+  });
+  function applyEditorSim() {
+    allCards().forEach(function (c) { c.classList.remove("kul-selected"); });
+    if (!editorSel) return;
+    var v = current();
+    if (v.suspendsSync && v.queryActive()) return; // variant A: query suspends sync
+    addClass(editorSel, "kul-selected", "canonical");
+  }
+  editorSimEl.addEventListener("change", function () {
+    editorSel = editorSimEl.value;
+    var v = current();
+    if (v.onEditorSelect) v.onEditorSelect(editorSel);
+    applyEditorSim();
+  });
+
+  /* =============== floating helpers (variant A) =============== */
+  function popAt(el, rect, prefer) {
+    stage.appendChild(el);
+    var w = el.offsetWidth, h = el.offsetHeight;
+    var left = rect.left + rect.width + 10, top = rect.top;
+    if (prefer === "above") { left = rect.left + rect.width / 2 - w / 2; top = rect.top - h - 12; }
+    var maxLeft = stage.scrollWidth - w - 8;
+    if (left > maxLeft) left = rect.left - w - 10;
+    el.style.left = Math.max(8, Math.min(left, maxLeft)) + "px";
+    el.style.top = Math.max(8, top) + "px";
+  }
+  function removeFloats() {
+    Array.prototype.slice.call(stage.querySelectorAll(".halo-pop, .halo-toast, .halo-banner, .sync-hint"))
+      .forEach(function (n) { n.remove(); });
+  }
+
+  /* =============== Variant A: on-canvas halo =============== */
+  var variantA = {
+    key: "a", name: "A — On-canvas halo",
+    suspendsSync: true,
+    anchor: null, setId: null,
+    explainer:
+      "<dl>" +
+      "<dt>Results surface</dt><dd>Only the tree: matches glow, everyone else dims. Kin-set chips float beside the selected card.</dd>" +
+      "<dt>Second anchor</dt><dd><b>⇧-click</b> a second person → floating relationship banner between them; connecting persons get a dashed ring.</dd>" +
+      "<dt>Editor sync</dt><dd><b>Suspended</b> while a query is active (hint appears top-right); <kbd>Esc</kbd> clears the query and sync resumes.</dd>" +
+      "<dt>Ghosts</dt><dd>Result highlighting lights <b>every</b> card of a person — canonical solid, ghost dashed.</dd>" +
+      "</dl>",
+    queryActive: function () { return !!this.anchor; },
+    enter: function () {},
+    exit: function () { this.anchor = null; this.setId = null; removeFloats(); clearPaint(); applyEditorSim(); },
+    clear: function () { this.exit(); },
+    onCardClick: function (id, ev) {
+      if (ev.shiftKey && this.anchor && id !== this.anchor) { this.resolve(this.anchor, id); return; }
+      this.anchor = id; this.setId = null;
+      removeFloats(); clearPaint();
+      addClass(id, "q-anchor-a", "canonical");
+      applyEditorSim(); this.syncHint();
+      var pop = document.createElement("div");
+      pop.className = "halo-pop";
+      pop.innerHTML = '<div class="hp-name">' + P[id].name + "</div>" +
+        '<div class="hp-hint">Pick a kin set — or <kbd>⇧</kbd>-click another person to relate. <kbd>Esc</kbd> clears.</div>' +
+        '<div class="chips">' + KIN_SETS.map(function (s) {
+          return '<span class="chip" data-set="' + s.id + '">' + s.label + "</span>";
+        }).join("") + "</div>";
+      var self = this;
+      pop.addEventListener("click", function (ev2) {
+        var chip = ev2.target.closest(".chip");
+        if (chip) self.runSet(chip.getAttribute("data-set"), chip);
+        ev2.stopPropagation();
+      });
+      popAt(pop, cardRect(id));
+    },
+    runSet: function (setId, chipEl) {
+      var s = KIN_SETS.filter(function (k) { return k.id === setId; })[0];
+      var ids = s.fn(this.anchor);
+      this.setId = setId;
+      Array.prototype.slice.call(chipEl.parentNode.children).forEach(function (c) {
+        c.classList.remove("on");
+        c.innerHTML = c.innerHTML.replace(/ <span class="cnt">.*<\/span>/, "");
+      });
+      chipEl.classList.add("on");
+      chipEl.innerHTML = s.label + ' <span class="cnt">· ' + ids.length + "</span>";
+      var old = stage.querySelector(".halo-toast"); if (old) old.remove();
+      if (!ids.length) {
+        paintResults([this.anchor], [], "both");
+        var toast = document.createElement("div");
+        toast.className = "halo-toast";
+        toast.textContent = "No " + s.label.toLowerCase() + " in the recorded facts for " +
+          P[this.anchor].name + ". Nothing is guessed — absence stays absence.";
+        popAt(toast, cardRect(this.anchor), "above");
+      } else {
+        paintResults([this.anchor], ids, "both");
+      }
+      this.syncHint();
+    },
+    resolve: function (a, b) {
+      removeFloats();
+      var ties = resolvePair(a, b);
+      paintResolution(a, b, ties, "both");
+      var banner = document.createElement("div");
+      banner.className = "halo-banner";
+      if (!ties.length) {
+        banner.innerHTML = "<b>" + P[a].name + " ↔ " + P[b].name + "</b>" +
+          '<div class="tie-note">No relationship within traversal bounds — the engine reports emptiness honestly rather than inventing a chain.</div>';
+      } else {
+        banner.innerHTML = "<b>" + P[b].name + "</b> is <b>" + P[a].name + "</b>’s:" + ties.map(tieHtml).join("");
+      }
+      var ra = cardRect(a), rb = cardRect(b);
+      stage.appendChild(banner);
+      var left = (ra.left + rb.left) / 2 + (ra.width - banner.offsetWidth) / 2;
+      var top = Math.min(ra.top, rb.top) - banner.offsetHeight - 14;
+      if (top < 8) top = Math.max(ra.top, rb.top) + ra.height + 14;
+      banner.style.left = Math.max(8, left) + "px";
+      banner.style.top = top + "px";
+      this.anchor = a; this.syncHint();
+    },
+    syncHint: function () {
+      var old = stage.querySelector(".sync-hint"); if (old) old.remove();
+      if (editorSel && this.queryActive()) {
+        var hint = document.createElement("div");
+        hint.className = "sync-hint";
+        hint.innerHTML = "editor sync paused while querying — <kbd>Esc</kbd> to resume";
+        stage.appendChild(hint);
+      }
+    }
+  };
+
+  /* =============== Variant B: query dock =============== */
+  var dock = document.getElementById("dock");
+  var variantB = {
+    key: "b", name: "B — Query dock",
+    suspendsSync: false,
+    tab: "explore", anchor: null, openSet: null, slotA: null, slotB: null,
+    filters: { gender: "", bornBefore: "" },
+    explainer:
+      "<dl>" +
+      "<dt>Results surface</dt><dd>Tree highlight <b>and</b> a docked panel: counts, member lists with en + gu phrasing, person detail card.</dd>" +
+      "<dt>Second anchor</dt><dd>The <b>Relate</b> tab has two slots; clicking cards fills A then B. Ties list in the dock; connectors ring on the tree.</dd>" +
+      "<dt>Editor sync</dt><dd><b>Coexists</b>: the pink sync outline stays; query paint uses its own colours. The detail card shows a “synced from editor” chip.</dd>" +
+      "<dt>Ghosts</dt><dd>Only the <b>canonical</b> card lights; members with a past record get a ↺ badge in the list (click badge to pulse the ghost).</dd>" +
+      "<dt>Filtering</dt><dd>The <b>Filter</b> tab queries by attribute (gender, born-before) across the whole tree.</dd>" +
+      "</dl>",
+    queryActive: function () { return false; },
+    enter: function () { this.render(); },
+    exit: function () {
+      this.anchor = null; this.openSet = null; this.slotA = null; this.slotB = null;
+      this.tab = "explore"; clearPaint(); applyEditorSim();
+    },
+    clear: function () { this.exit(); this.render(); },
+    onEditorSelect: function (id) { if (this.tab === "explore" && id) { this.anchor = id; this.render(); } },
+    onCardClick: function (id) {
+      if (this.tab === "relate") {
+        if (!this.slotA || (this.slotA && this.slotB)) { this.slotA = id; this.slotB = null; }
+        else if (id !== this.slotA) this.slotB = id;
+      } else {
+        this.anchor = id; this.openSet = null;
+        clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
+      }
+      this.render();
+    },
+    setTab: function (tab) { this.tab = tab; clearPaint(); applyEditorSim(); this.render(); },
+    render: function () {
+      var self = this;
+      var html = '<div class="dock-tabs">' +
+        ["explore", "relate", "filter"].map(function (tb) {
+          var lbl = tb.charAt(0).toUpperCase() + tb.slice(1);
+          return '<div class="dock-tab' + (self.tab === tb ? " on" : "") + '" data-tab="' + tb + '">' + lbl + "</div>";
+        }).join("") + "</div>" + '<div class="dock-body">';
+
+      if (this.tab === "explore") {
+        if (!this.anchor) {
+          html += '<div class="dock-empty">Click a person on the tree to explore their kin.<br><br>The dock is the reading surface; the tree is the pointing surface.</div>';
+        } else {
+          var a = this.anchor, pd = P[a];
+          html += '<div class="detail-card"><div class="dc-name">' + pd.name + "</div>" +
+            '<div class="dc-meta">' + (pd.g === "m" ? "male" : "female") + " · born " + pd.born +
+            (GHOSTS[a] ? " · has a past record (ghost) on the canvas" : "") + "</div>" +
+            (editorSel === a ? '<span class="dc-sync">● synced from editor</span>' : "") + "</div>";
+          KIN_SETS.forEach(function (s) {
+            var ids = s.fn(a), open = self.openSet === s.id;
+            html += '<div class="set-row' + (open ? " on" : "") + '" data-set="' + s.id + '">' +
+              '<div class="set-row-head"><span class="sr-label">' + s.label + "</span>" +
+              '<span class="sr-count' + (ids.length ? "" : " zero") + '">' + ids.length + "</span></div>";
+            if (open) {
+              html += '<div class="set-members">';
+              if (!ids.length) {
+                html += '<div class="empty-note">None in the recorded facts — shown as honest absence, not “Unknown”.</div>';
+              } else {
+                ids.forEach(function (m) {
+                  var tie = resolvePair(a, m)[0];
+                  html += '<div class="member" data-member="' + m + '"><span class="m-name">' + P[m].name + "</span>" +
+                    (tie ? '<span class="m-term">' + tie.gu + " · " + tie.en + "</span>" : "") +
+                    (GHOSTS[m] ? '<span class="m-ghost" data-ghost="' + m + '">↺ past record</span>' : "") + "</div>";
+                });
+              }
+              html += "</div>";
+            }
+            html += "</div>";
+          });
+        }
+      } else if (this.tab === "relate") {
+        html += '<div class="slot-row">' +
+          '<div class="slot a' + (this.slotA ? " filled" : "") + '">' +
+          (this.slotA ? P[this.slotA].name + '<span class="x" data-clear="a">✕</span>' : "Click a card → person A") + "</div>" +
+          '<div class="slot b' + (this.slotB ? " filled" : "") + '">' +
+          (this.slotB ? P[this.slotB].name + '<span class="x" data-clear="b">✕</span>' : "…then person B") + "</div></div>";
+        if (this.slotA && this.slotB) {
+          var ties = resolvePair(this.slotA, this.slotB);
+          paintResolution(this.slotA, this.slotB, ties, "canonical");
+          html += '<div><span class="dock-btn" data-swap="1">⇄ swap perspective</span></div><div class="result-strip">';
+          if (!ties.length) {
+            html += '<div class="empty-note">No relationship within traversal bounds. The engine says so rather than inventing a chain (honest emptiness).</div>';
+          } else {
+            html += "<b>" + P[this.slotB].name + "</b> is <b>" + P[this.slotA].name + "</b>’s:" + ties.map(tieHtml).join("");
+          }
+          html += "</div>";
+        } else {
+          html += '<div class="dock-empty">Two anchors resolve every tie between them — blood and in-law, all of them, not just one.</div>';
+        }
+      } else {
+        html += '<div class="filter-field"><label>Gender</label><select data-f="gender">' +
+          '<option value="">any</option><option value="m"' + (this.filters.gender === "m" ? " selected" : "") + ">male</option>" +
+          '<option value="f"' + (this.filters.gender === "f" ? " selected" : "") + ">female</option></select></div>" +
+          '<div class="filter-field"><label>Born before</label><input type="number" data-f="bornBefore" placeholder="e.g. 1970" value="' +
+          this.filters.bornBefore + '"></div>' +
+          '<div><span class="dock-btn" data-apply="1">Apply filter</span> <span class="dock-btn" data-reset="1">Reset</span></div>';
+        var ms = this.filterMatches();
+        if (this.filters.gender || this.filters.bornBefore) {
+          html += '<div class="result-strip"><b>' + ms.length + "</b> match" + (ms.length === 1 ? "" : "es") +
+            (ms.length ? ":" : " — an empty result renders as an empty tree, not an error.") +
+            ms.map(function (m) { return '<div class="member" data-member="' + m + '"><span class="m-name">' + P[m].name + '</span><span class="m-term">born ' + P[m].born + "</span></div>"; }).join("") + "</div>";
+        }
+      }
+      html += "</div>";
+      dock.innerHTML = html;
+
+      dock.querySelectorAll(".dock-tab").forEach(function (tb) {
+        tb.addEventListener("click", function () { self.setTab(tb.getAttribute("data-tab")); });
+      });
+      dock.querySelectorAll(".set-row-head").forEach(function (h) {
+        h.addEventListener("click", function () {
+          var sid = h.parentNode.getAttribute("data-set");
+          self.openSet = self.openSet === sid ? null : sid;
+          if (self.openSet) {
+            var s = KIN_SETS.filter(function (k) { return k.id === sid; })[0];
+            paintResults([self.anchor], s.fn(self.anchor), "canonical");
+          } else { clearPaint(); addClass(self.anchor, "q-anchor-a", "canonical"); applyEditorSim(); }
+          self.render();
+        });
+      });
+      dock.querySelectorAll(".member").forEach(function (m) {
+        var id = m.getAttribute("data-member");
+        m.addEventListener("mouseenter", function () { addClass(id, "q-pulse"); });
+        m.addEventListener("mouseleave", function () { cardsFor(id).forEach(function (c) { c.classList.remove("q-pulse"); }); });
+        m.addEventListener("click", function (ev) {
+          if (ev.target.hasAttribute("data-ghost")) {
+            addClass(id, "q-pulse", "ghost");
+            setTimeout(function () { cardsFor(id, "ghost").forEach(function (c) { c.classList.remove("q-pulse"); }); }, 1800);
+            return;
+          }
+          if (self.tab === "explore") { self.anchor = id; self.openSet = null; clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim(); self.render(); }
+        });
+      });
+      dock.querySelectorAll("[data-clear]").forEach(function (x) {
+        x.addEventListener("click", function () {
+          if (x.getAttribute("data-clear") === "a") self.slotA = null; else self.slotB = null;
+          clearPaint(); applyEditorSim(); self.render();
+        });
+      });
+      var swap = dock.querySelector("[data-swap]");
+      if (swap) swap.addEventListener("click", function () {
+        var tmp = self.slotA; self.slotA = self.slotB; self.slotB = tmp; self.render();
+      });
+      dock.querySelectorAll("[data-f]").forEach(function (f) {
+        f.addEventListener("change", function () { self.filters[f.getAttribute("data-f")] = f.value; });
+      });
+      var apply = dock.querySelector("[data-apply]");
+      if (apply) apply.addEventListener("click", function () {
+        var ms = self.filterMatches();
+        paintResults([], ms, "canonical");
+        self.render();
+      });
+      var reset = dock.querySelector("[data-reset]");
+      if (reset) reset.addEventListener("click", function () {
+        self.filters = { gender: "", bornBefore: "" };
+        clearPaint(); applyEditorSim(); self.render();
+      });
+    },
+    filterMatches: function () {
+      var f = this.filters;
+      return ALL.filter(function (id) {
+        if (f.gender && P[id].g !== f.gender) return false;
+        if (f.bornBefore && !(P[id].born < +f.bornBefore)) return false;
+        return !!(f.gender || f.bornBefore);
+      });
+    }
+  };
+
+  /* =============== Variant C: anchor tray =============== */
+  var tray = document.getElementById("tray");
+  var variantC = {
+    key: "c", name: "C — Anchor tray",
+    suspendsSync: false,
+    slotA: null, slotB: null, slotAFromEditor: false, setId: null,
+    filterMode: false, filters: { women: false, men: false, born1970: false },
+    explainer:
+      "<dl>" +
+      "<dt>Results surface</dt><dd>Tree highlight plus a persistent bottom tray — result names as chips, phrasing as a sentence.</dd>" +
+      "<dt>Second anchor</dt><dd>Sequential clicks: first fills slot A, second fills slot B → the tie resolves <b>automatically</b>, with a ⇄ perspective swap.</dd>" +
+      "<dt>Editor sync</dt><dd><b>Unified</b>: moving the editor cursor onto a person auto-fills slot A (tagged “from editor”). One selection concept, two sources.</dd>" +
+      "<dt>Ghosts</dt><dd>Canonical card lights; ghosts of matched people get a thin dotted ring as a secondary cue.</dd>" +
+      "<dt>Filtering</dt><dd>Filter mode replaces the anchors: composable attribute chips query the whole tree, no anchor needed.</dd>" +
+      "</dl>",
+    queryActive: function () { return false; },
+    enter: function () { this.render(); },
+    exit: function () {
+      this.slotA = null; this.slotB = null; this.slotAFromEditor = false; this.setId = null;
+      this.filterMode = false; clearPaint(); applyEditorSim();
+    },
+    clear: function () { this.exit(); this.render(); },
+    onEditorSelect: function (id) {
+      if (!id || this.filterMode) return;
+      this.slotA = id; this.slotAFromEditor = true; this.slotB = null; this.setId = null;
+      clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
+      this.render();
+    },
+    onCardClick: function (id) {
+      if (this.filterMode) return;
+      if (!this.slotA || (this.slotA && this.slotB)) {
+        this.slotA = id; this.slotAFromEditor = false; this.slotB = null; this.setId = null;
+        clearPaint(); addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
+      } else if (id !== this.slotA) {
+        this.slotB = id; this.setId = null;
+      }
+      this.render();
+    },
+    render: function () {
+      var self = this, html = '<div class="tray-rows">';
+      if (!this.filterMode) {
+        html += '<div class="tray-slots">' +
+          '<div class="tray-slot a' + (this.slotA ? " filled" : "") + '">' +
+          (this.slotA ? P[this.slotA].name + (this.slotAFromEditor ? '<span class="from-editor">● from editor cursor</span>' : "") +
+            '<span class="x" data-clear="a">✕</span>' : "Click a person → A") + "</div>" +
+          '<div class="tray-slot b' + (this.slotB ? " filled" : "") + '">' +
+          (this.slotB ? P[this.slotB].name + '<span class="x" data-clear="b">✕</span>' : "second person → B") + "</div></div>";
+        html += '<div class="tray-main">';
+        if (this.slotA && this.slotB) {
+          var ties = resolvePair(this.slotA, this.slotB);
+          paintResolution(this.slotA, this.slotB, ties, "dot");
+          if (!ties.length) {
+            html += '<span class="tray-pill warn">No relationship within traversal bounds — reported honestly, nothing invented.</span>';
+          } else {
+            html += "<b>" + P[this.slotB].name + "</b> is <b>" + P[this.slotA].name + "</b>’s " +
+              ties.map(function (tie) {
+                return '<span class="tie-en">' + tie.en + '</span> (<span class="tie-gu">' + tie.gu +
+                  ' <span class="script">' + tie.script + "</span></span>)";
+              }).join(" and ") + ' <span class="swap-btn" data-swap="1">⇄ swap</span>';
+          }
+        } else if (this.slotA) {
+          html += '<div class="chips">' + KIN_SETS.map(function (s) {
+            var on = self.setId === s.id;
+            var ids = s.fn(self.slotA);
+            return '<span class="chip' + (on ? " on" : "") + '" data-set="' + s.id + '">' + s.label +
+              (on ? ' <span class="cnt">· ' + ids.length + "</span>" : "") + "</span>";
+          }).join("") + "</div>";
+          if (this.setId) {
+            var s2 = KIN_SETS.filter(function (k) { return k.id === self.setId; })[0];
+            var ids2 = s2.fn(this.slotA);
+            if (!ids2.length) {
+              html += '<div style="margin-top:6px"><span class="tray-pill warn">0 ' + s2.label.toLowerCase() +
+                " in the recorded facts — absence, not error.</span></div>";
+            } else {
+              html += '<div style="margin-top:6px" class="chips">' + ids2.map(function (m) {
+                return '<span class="chip" data-member="' + m + '">' + P[m].name + "</span>";
+              }).join("") + "</div>";
+            }
+          }
+        } else {
+          html += '<span class="tray-pill">The tray is the query. Click any person to start — the editor cursor fills slot A too.</span>';
+        }
+        html += "</div>";
+      } else {
+        html += '<div class="tray-main"><div class="chips">' +
+          '<span class="chip' + (this.filters.women ? " on" : "") + '" data-flt="women">Women</span>' +
+          '<span class="chip' + (this.filters.men ? " on" : "") + '" data-flt="men">Men</span>' +
+          '<span class="chip' + (this.filters.born1970 ? " on" : "") + '" data-flt="born1970">Born before 1970</span></div>';
+        var ms = this.filterMatchIds();
+        var any = this.filters.women || this.filters.men || this.filters.born1970;
+        if (any) {
+          html += '<div style="margin-top:6px">' +
+            (ms.length ? '<span class="tray-pill">' + ms.length + " people match</span>"
+                       : '<span class="tray-pill warn">0 people match — the tree just dims; nothing is invented.</span>') + "</div>";
+        }
+        html += "</div>";
+      }
+      html += '<div class="tray-side"><span class="toggle' + (this.filterMode ? " on" : "") +
+        '" data-fmode="1">Filter mode</span></div></div>';
+      tray.innerHTML = html;
+
+      tray.querySelectorAll("[data-clear]").forEach(function (x) {
+        x.addEventListener("click", function () {
+          if (x.getAttribute("data-clear") === "a") { self.slotA = null; self.slotAFromEditor = false; self.slotB = null; }
+          else self.slotB = null;
+          self.setId = null; clearPaint(); applyEditorSim();
+          if (self.slotA) addClass(self.slotA, "q-anchor-a", "canonical");
+          self.render();
+        });
+      });
+      var swap = tray.querySelector("[data-swap]");
+      if (swap) swap.addEventListener("click", function () {
+        var tmp = self.slotA; self.slotA = self.slotB; self.slotB = tmp; self.slotAFromEditor = false; self.render();
+      });
+      tray.querySelectorAll("[data-set]").forEach(function (chip) {
+        chip.addEventListener("click", function () {
+          self.setId = chip.getAttribute("data-set");
+          var s = KIN_SETS.filter(function (k) { return k.id === self.setId; })[0];
+          paintResults([self.slotA], s.fn(self.slotA), "dot");
+          self.render();
+        });
+      });
+      tray.querySelectorAll("[data-member]").forEach(function (chip) {
+        var id = chip.getAttribute("data-member");
+        chip.addEventListener("mouseenter", function () { addClass(id, "q-pulse"); });
+        chip.addEventListener("mouseleave", function () {
+          cardsFor(id).forEach(function (c) { c.classList.remove("q-pulse"); });
+        });
+      });
+      tray.querySelectorAll("[data-flt]").forEach(function (chip) {
+        chip.addEventListener("click", function () {
+          var k = chip.getAttribute("data-flt");
+          self.filters[k] = !self.filters[k];
+          var ms = self.filterMatchIds();
+          var any = self.filters.women || self.filters.men || self.filters.born1970;
+          if (any) paintResults([], ms, "dot"); else { clearPaint(); applyEditorSim(); }
+          self.render();
+        });
+      });
+      var fmode = tray.querySelector("[data-fmode]");
+      if (fmode) fmode.addEventListener("click", function () {
+        self.filterMode = !self.filterMode;
+        self.slotA = null; self.slotB = null; self.setId = null;
+        self.filters = { women: false, men: false, born1970: false };
+        clearPaint(); applyEditorSim(); self.render();
+      });
+    },
+    filterMatchIds: function () {
+      var f = this.filters;
+      return ALL.filter(function (id) {
+        if (f.women && P[id].g !== "f") return false;
+        if (f.men && P[id].g !== "m") return false;
+        if (f.born1970 && !(P[id].born < 1970)) return false;
+        return true;
+      });
+    }
+  };
+
+  /* =============== variant switching =============== */
+  var VARIANTS = [variantA, variantB, variantC];
+  var vIndex = 0;
+  function current() { return VARIANTS[vIndex]; }
+  function setVariant(i, updateUrl) {
+    current().exit();
+    removeFloats();
+    vIndex = (i + VARIANTS.length) % VARIANTS.length;
+    var v = current();
+    document.body.setAttribute("data-variant", v.key);
+    document.getElementById("vName").textContent = v.name;
+    document.getElementById("exBody").innerHTML = v.explainer;
+    if (updateUrl !== false) {
+      try {
+        var u = new URL(window.location.href);
+        u.searchParams.set("variant", v.key);
+        history.replaceState(null, "", u.toString());
+      } catch (e) { /* file:// without history — fine for a prototype */ }
+    }
+    v.enter();
+    applyEditorSim();
+  }
+  document.getElementById("prevV").addEventListener("click", function () { setVariant(vIndex - 1); });
+  document.getElementById("nextV").addEventListener("click", function () { setVariant(vIndex + 1); });
+  document.addEventListener("keydown", function (ev) {
+    var tag = (document.activeElement && document.activeElement.tagName) || "";
+    if (/INPUT|TEXTAREA|SELECT/.test(tag) || (document.activeElement && document.activeElement.isContentEditable)) return;
+    if (ev.key === "ArrowLeft") setVariant(vIndex - 1);
+    else if (ev.key === "ArrowRight") setVariant(vIndex + 1);
+    else if (ev.key === "Escape") { current().clear(); }
+  });
+
+  /* =============== wire the SVG =============== */
+  allCards().forEach(function (card) {
+    card.addEventListener("click", function (ev) {
+      var id = card.getAttribute("data-person-id");
+      if (current().onCardClick) current().onCardClick(id, ev);
+      ev.stopPropagation();
+    });
+  });
+  svg.addEventListener("click", function () { current().clear(); });
+
+  /* =============== boot =============== */
+  var initial = "a";
+  try { initial = new URL(window.location.href).searchParams.get("variant") || "a"; } catch (e) {}
+  var idx = { a: 0, b: 1, c: 2 }[initial.toLowerCase()];
+  vIndex = 0;
+  setVariant(idx === undefined ? 0 : idx, false);
+})();
+</script>
+<!--BODY-END-->
+</body>
+</html>
