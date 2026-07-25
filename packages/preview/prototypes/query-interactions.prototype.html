@@ -3,26 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kul query-UX prototype — ticket #276</title>
+<title>Kul query-UX prototype — ticket #277</title>
 </head>
 <body>
 <!--BODY-START-->
-<title>Kul query-UX prototype — ticket #276</title>
+<title>Kul query-UX prototype — ticket #277</title>
 <!-- ============================================================
-  PROTOTYPE — THROWAWAY. Wayfinder ticket #276 (map #275), round 9.
-  SYNTHESIS: Lens × the bookmarked plate model.
-    - click a person → anchored plate (detail + flat kin list)
-    - hovering ANY other card ambiently whispers the tie under it
-      (the lens) — no badges, no pick mode, relating is free
-    - click a hovered person → PIN the resolution (path glow, dim,
-      ⇄ swap); click the pinned person again → re-anchor to them
-    - Esc is staged: unpin → clear selection
-  The "kinship engine" below is a mock good only for examples/05.
+  PROTOTYPE — THROWAWAY. Wayfinder map #275.
+  Rounds 1–9.2 answered #276 (resolved): single on-tree selection →
+  fixed right-edge details widget → flat kin-set list → hover lens.
+  ROUND 10 answers #277: the ATTRIBUTE-FILTER UX. Three variants,
+  switchable via ?variant=1|2|3, the bottom bar, or ← → keys:
+    1 — Widget stack : predicate rows inside the details widget;
+                       non-matching people DIMMED
+    2 — Filter bar   : a chip sentence in stage chrome above the tree;
+                       non-matching people HIDDEN
+    3 — Facet rail   : click attribute values (no operators);
+                       tree UNTOUCHED + a results list
+  The kinship engine below is a mock good only for examples/05.
+  The FILTER engine, by contrast, mirrors crates/kul-core/src/query/
+  filter.rs faithfully: 9 predicates, three-valued Bool3, interval
+  date semantics (partial = whole period, circa = ±5y), AND-only
+  conjunction, certain / includeUncertain, missing-sorts-last.
   ============================================================ -->
 <style>
   :root {
     --qa: #7c3aed;         /* query anchor A (violet) */
-    --qb: #d97706;         /* query anchor B (amber) */
+    --qb: #d97706;         /* query anchor B (amber) — also "can't say" */
     --qr: #0d9488;         /* query result (teal) */
     --qpath: #0ea5e9;      /* resolution path glow */
     --sync: #ff2d95;       /* editor selection-sync (real preview token) */
@@ -46,7 +53,7 @@
   .sim-wrap select { font-size:12px; padding:3px 6px; border:1px solid var(--line); border-radius:6px; background:#fff; }
   .sim-dot { width:10px; height:10px; border-radius:50%; background:var(--sync); display:inline-block; }
 
-  .explainer { position:absolute; top:12px; left:12px; z-index:30; max-width:350px;
+  .explainer { position:absolute; top:12px; left:12px; z-index:30; max-width:365px;
     background:var(--panel); border:1px solid var(--line); border-radius:10px;
     box-shadow:0 4px 16px rgba(16,24,40,.09); font-size:12.5px; line-height:1.45; }
   .explainer summary { cursor:pointer; padding:8px 12px; font-weight:600; font-size:12.5px; list-style:none; }
@@ -58,7 +65,7 @@
   .explainer kbd { background:var(--chip); border:1px solid var(--line); border-radius:4px; padding:0 4px; font-size:11px; }
 
   .stage-row { display:flex; flex:1; min-height:0; position:relative; }
-  .stage { position:relative; flex:1; overflow:auto; padding:24px 16px 40px; }
+  .stage { position:relative; flex:1; overflow:auto; padding:24px 16px 56px; }
   .stage svg.kul-tree { width:100%; max-width:1250px; height:auto; display:block; margin:0 auto;
     background:#fff; border:1px solid var(--line); border-radius:8px; }
 
@@ -69,10 +76,14 @@
   .kul-card.q-result > rect { outline:3px solid var(--qr); outline-offset:2px;
     filter:drop-shadow(0 0 6px rgba(13,148,136,.55)); }
   .kul-card.q-result-ghost > rect { outline:2px dashed var(--qr); outline-offset:2px; }
+  /* the third truth value gets its own paint: amber, dashed — "can't say" */
+  .kul-card.q-maybe > rect { outline:3px dashed var(--qb); outline-offset:2px; }
+  .kul-card.q-maybe-ghost > rect { outline:2px dotted var(--qb); outline-offset:2px; }
   .kul-card.q-path > rect { outline:2px dashed var(--qpath); outline-offset:4px; }
   .kul-card.q-dim { opacity:.22; }
+  .kul-card.q-hide { visibility:hidden; }
   .kul-card.q-pulse > rect { animation:qpulse .9s ease-in-out infinite alternate; }
-  @keyframes qpulse { from { outline-color:var(--qr); } to { outline-color:transparent; } }
+  @keyframes qpulse { from { outline:3px solid var(--qr); outline-offset:2px; } to { outline:3px solid transparent; outline-offset:8px; } }
 
   .q-float { position:absolute; z-index:20; }
   .halo-toast { position:absolute; z-index:26; background:#0f172a; color:#f8fafc;
@@ -82,7 +93,7 @@
     border:1px solid #fed7aa; color:#9a3412; font-size:11.5px; padding:5px 10px; border-radius:8px; }
   .sync-hint kbd { background:#fff; border:1px solid #fed7aa; border-radius:4px; padding:0 4px; }
 
-  /* the bookmarked docked-tag whisper */
+  /* the bookmarked docked-tag whisper (#276) */
   .whisper-pill { position:absolute; z-index:24; background:var(--panel); border:1px solid var(--line);
     border-radius:999px; padding:5px 12px; box-shadow:0 6px 20px rgba(16,24,40,.16);
     display:flex; align-items:center; gap:7px; font-size:14px; font-weight:700; white-space:nowrap; }
@@ -96,9 +107,18 @@
   .swap-mini { cursor:pointer; color:var(--muted); font-size:14px; user-select:none; border-radius:5px; padding:0 3px; }
   .swap-mini:hover { color:var(--qa); background:var(--chip-on); }
 
-  /* the plate — a fixed widget docked to the stage's right edge (never occludes
-     interaction: the tree scrolls under it, cards stay hoverable/clickable) */
-  .pop { position:absolute; top:12px; right:12px; width:260px; background:var(--panel);
+  /* the "can't say" whisper — same docked-tag grammar, amber */
+  .reason-pill { position:absolute; z-index:23; background:#fffbeb; border:1px solid #fcd34d;
+    color:#92400e; border-radius:999px; padding:4px 11px; font-size:11.5px; white-space:nowrap;
+    box-shadow:0 6px 18px rgba(146,64,14,.16); }
+  .reason-pill b { font-weight:700; }
+  /* the ? mark riding a "can't say" card */
+  .maybe-mark { position:absolute; z-index:22; width:17px; height:17px; border-radius:50%;
+    background:var(--qb); color:#fff; font-size:11px; font-weight:700; line-height:17px;
+    text-align:center; box-shadow:0 1px 4px rgba(146,64,14,.4); pointer-events:none; }
+
+  /* the plate — a fixed widget docked to the stage's right edge (#276 round 9.1) */
+  .pop { position:absolute; top:12px; right:12px; width:272px; background:var(--panel);
     border:1px solid var(--line); border-radius:10px;
     box-shadow:0 6px 24px rgba(16,24,40,.14); font-size:12px; z-index:32;
     max-height:calc(100% - 24px); overflow-y:auto; }
@@ -111,6 +131,7 @@
   .detail-name { font-weight:700; font-size:13.5px; }
   .detail-line { color:var(--muted); margin-top:3px; line-height:1.45; }
   .detail-line b { color:var(--ink); font-weight:600; }
+  .unrec { font-style:italic; color:#b45309; }
   .ghost-note { margin-top:5px; font-size:11px; color:#92400e; background:#fef3c7;
     border:1px solid #fcd34d; border-radius:5px; padding:2px 6px; display:inline-block; }
   .plate-section { border-top:1px solid var(--line); }
@@ -118,7 +139,9 @@
     cursor:pointer; user-select:none; font-size:12px; }
   .plate-sec-head:hover { background:var(--chip); }
   .plate-sec-head .arr { margin-left:auto; color:var(--muted); font-weight:400; }
-  .kin-list { max-height:236px; overflow-y:auto; padding:3px 6px 7px; }
+  .plate-sec-head .pip { margin-left:auto; margin-right:6px; background:var(--qr); color:#fff;
+    font-size:10px; font-weight:700; border-radius:999px; padding:1px 6px; }
+  .kin-list { max-height:206px; overflow-y:auto; padding:3px 6px 7px; }
   .kin-row { display:flex; align-items:center; padding:6px 8px; border-radius:7px;
     cursor:pointer; user-select:none; font-size:12px; }
   .kin-row:hover { background:var(--chip); }
@@ -128,12 +151,141 @@
   .lens-hint { padding:7px 11px; border-top:1px solid var(--line); color:var(--muted);
     font-size:11px; line-height:1.5; }
   .lens-hint b { color:#5b21b6; }
+
+  /* ---------- shared filter atoms ---------- */
+  .f-scope { display:flex; gap:5px; padding:8px 11px 4px; flex-wrap:wrap; }
+  .f-scope .sc { font-size:11px; border:1px solid var(--line); background:#fff; color:var(--muted);
+    border-radius:999px; padding:3px 9px; cursor:pointer; user-select:none; }
+  .f-scope .sc.on { background:var(--chip-on); border-color:#c4b5fd; color:#5b21b6; font-weight:600; }
+  .f-scope .sc.off { opacity:.45; cursor:not-allowed; }
+  .f-rows { padding:2px 11px 6px; }
+  .f-row { display:flex; align-items:center; gap:4px; margin-top:5px; }
+  .f-row .and { font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;
+    width:32px; flex:none; }
+  .f-row select, .f-row input { font-size:11.5px; padding:3px 4px; border:1px solid var(--line);
+    border-radius:6px; background:#fff; color:var(--ink); min-width:0; }
+  .f-row select.fld { flex:1.05; }
+  .f-row select.op { flex:.85; }
+  .f-row input.val, .f-row select.val { flex:1; width:100%; }
+  .f-row.f-row2 { margin-top:3px; }
+  .f-row .rm { cursor:pointer; color:var(--muted); font-size:13px; padding:0 2px; user-select:none; flex:none; }
+  .f-row .rm:hover { color:#b42318; }
+  .f-add { margin:7px 0 2px 32px; font-size:11.5px; color:var(--qa); cursor:pointer; user-select:none;
+    font-weight:600; }
+  .f-add:hover { text-decoration:underline; }
+  .f-note { padding:0 11px 8px 43px; font-size:10.5px; color:var(--muted); line-height:1.45; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:7px; overflow:hidden; }
+  .seg button { font:inherit; font-size:11px; padding:3px 8px; border:0; background:#fff;
+    color:var(--muted); cursor:pointer; }
+  .seg button.on { background:var(--qb); color:#fff; font-weight:600; }
+  .seg button:first-child.on { background:var(--qr); }
+  .f-mode { padding:6px 11px 2px; display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+  .f-mode .lbl { font-size:11px; color:var(--muted); }
+  .f-modenote { padding:3px 11px 8px; font-size:10.5px; line-height:1.45; color:var(--muted); }
+  .f-tally { border-top:1px solid var(--line); padding:8px 11px; font-size:11.5px; }
+  .f-tally b { font-variant-numeric:tabular-nums; }
+  .f-tally .excl { display:block; margin-top:4px; color:#92400e; background:#fffbeb;
+    border:1px solid #fcd34d; border-radius:6px; padding:4px 7px; font-size:11px; line-height:1.45; }
+  .f-tally .excl u { cursor:pointer; }
+  .f-sortline { padding:6px 11px 9px; display:flex; align-items:center; gap:5px; font-size:11px;
+    color:var(--muted); flex-wrap:wrap; }
+  .f-sortline select { font-size:11px; padding:2px 4px; border:1px solid var(--line);
+    border-radius:6px; background:#fff; }
+  .f-dead { padding:0 11px 9px; font-size:10.5px; color:#b45309; line-height:1.45; }
+
+  /* ---------- variant 2 — the filter bar ---------- */
+  .filterbar { display:none; align-items:center; gap:7px; flex-wrap:wrap; padding:8px 16px;
+    background:#fffdf7; border-bottom:1px solid var(--line); font-size:12px; position:relative; z-index:34; }
+  #proto-root.v2 .filterbar { display:flex; }
+  .filterbar .kw { color:var(--muted); }
+  .fchip { display:inline-flex; align-items:center; gap:5px; background:#fff; border:1px solid #cbd5e1;
+    border-radius:999px; padding:3px 10px; cursor:pointer; user-select:none; font-size:12px;
+    white-space:nowrap; }
+  .fchip:hover { border-color:var(--qa); }
+  .fchip.scope { background:var(--chip-on); border-color:#c4b5fd; color:#5b21b6; font-weight:600; }
+  .fchip.pred { border-color:#5eead4; background:#f0fdfa; }
+  .fchip.pred.unknownish { border-color:#fcd34d; background:#fffbeb; }
+  .fchip.mode { border-color:#fcd34d; background:#fffbeb; color:#92400e; font-weight:600; }
+  .fchip .x { color:var(--muted); font-size:12px; }
+  .fchip .x:hover { color:#b42318; }
+  .fchip.add { border-style:dashed; color:var(--qa); font-weight:700; }
+  .fbar-tally { margin-left:auto; display:flex; align-items:center; gap:9px; font-size:11.5px; }
+  .fbar-tally .num { font-weight:700; font-variant-numeric:tabular-nums; }
+  .fbar-tally .hidden-note { color:#92400e; background:#fffbeb; border:1px solid #fcd34d;
+    border-radius:999px; padding:2px 9px; }
+  .fbar-tally .hidden-note u { cursor:pointer; }
+  .fpop { position:absolute; z-index:40; top:100%; margin-top:4px; background:var(--panel);
+    border:1px solid var(--line); border-radius:9px; box-shadow:0 8px 26px rgba(16,24,40,.18);
+    padding:8px; min-width:232px; }
+  .fpop .r { display:flex; gap:5px; align-items:center; }
+  .fpop select, .fpop input { font-size:11.5px; padding:3px 5px; border:1px solid var(--line);
+    border-radius:6px; background:#fff; }
+  .fpop .fld-menu { display:grid; grid-template-columns:1fr 1fr; gap:3px; }
+  .fpop .fld-menu button { font:inherit; font-size:11.5px; text-align:left; padding:4px 7px;
+    border:1px solid var(--line); border-radius:6px; background:#fff; cursor:pointer; }
+  .fpop .fld-menu button:hover { background:var(--chip); border-color:var(--qa); }
+  .fpop .hint { font-size:10.5px; color:var(--muted); margin-top:6px; line-height:1.4; }
+
+  /* ---------- variant 3 — the facet rail ---------- */
+  .rail { display:none; width:280px; flex:none; background:var(--panel); border-right:1px solid var(--line);
+    overflow-y:auto; font-size:12px; }
+  #proto-root.v3 .rail { display:block; }
+  .rail-head { padding:9px 12px; border-bottom:1px solid var(--line); font-weight:700; font-size:12.5px;
+    display:flex; align-items:center; }
+  .rail-head .n { margin-left:auto; font-weight:600; color:var(--qr); font-variant-numeric:tabular-nums; }
+  .facet { border-bottom:1px solid var(--line); padding:7px 12px 9px; }
+  .facet h4 { margin:0 0 4px; font-size:10.5px; text-transform:uppercase; letter-spacing:.07em;
+    color:var(--muted); font-weight:700; display:flex; align-items:center; }
+  .facet h4 .single { text-transform:none; letter-spacing:0; margin-left:auto; font-weight:400;
+    font-size:10px; color:#b45309; cursor:help; }
+  .fv { display:flex; align-items:center; gap:7px; padding:3px 5px; border-radius:6px; cursor:pointer;
+    user-select:none; }
+  .fv:hover { background:var(--chip); }
+  .fv.on { background:var(--chip-on); color:#5b21b6; font-weight:600; }
+  .fv .box { width:12px; height:12px; border:1.5px solid #94a3b8; border-radius:3px; flex:none; }
+  .fv .box.radio { border-radius:50%; }
+  .fv.on .box { background:var(--qa); border-color:var(--qa); }
+  .fv .lab { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fv .lab.abs { font-style:italic; color:#b45309; }
+  .fv .n { color:var(--muted); font-variant-numeric:tabular-nums; font-size:11px; }
+  .fv .n .q { color:var(--qb); font-weight:700; }
+  .fv.dead { opacity:.4; }
+  .where-line { padding:8px 12px; background:#f0fdfa; border-bottom:1px solid var(--line);
+    font-size:11px; line-height:1.5; color:#0f766e; }
+  .where-line b { color:#134e4a; }
+  .where-line .none { color:var(--muted); font-style:italic; }
+  .rail-res { padding:7px 12px 14px; }
+  .rail-res h4 { margin:0 0 5px; font-size:10.5px; text-transform:uppercase; letter-spacing:.07em;
+    color:var(--muted); font-weight:700; }
+  .rrow { display:flex; align-items:center; gap:6px; padding:4px 6px; border-radius:6px; cursor:pointer; }
+  .rrow:hover { background:var(--chip); }
+  .rrow .rn { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rrow .meta { font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .rrow.maybe { background:#fffbeb; }
+  .rrow.maybe .rn { color:#92400e; }
+  .rrow .qm { background:var(--qb); color:#fff; font-size:9.5px; font-weight:700; border-radius:999px;
+    padding:0 5px; flex:none; }
+  .rrow .why { display:block; font-size:10px; color:#b45309; }
+  .rail-empty { color:var(--muted); font-style:italic; padding:4px 6px; line-height:1.5; }
+  .excl-fold { margin-top:8px; background:#fffbeb; border:1px solid #fcd34d; border-radius:7px;
+    padding:6px 8px; font-size:10.5px; color:#92400e; line-height:1.5; }
+  .excl-fold u { cursor:pointer; }
+
+  /* ---------- the variant switcher (throwaway chrome) ---------- */
+  .varbar { position:fixed; left:50%; transform:translateX(-50%); bottom:14px; z-index:60;
+    display:flex; align-items:center; gap:2px; background:#0f172a; color:#f8fafc;
+    border-radius:999px; padding:4px 6px; box-shadow:0 8px 26px rgba(2,6,23,.4); font-size:12px; }
+  .varbar button { font:inherit; background:transparent; border:0; color:#f8fafc; cursor:pointer;
+    padding:3px 8px; border-radius:999px; font-size:14px; line-height:1; }
+  .varbar button:hover { background:rgba(248,250,252,.16); }
+  .varbar .vlabel { padding:2px 8px; white-space:nowrap; }
+  .varbar .vlabel b { color:#a5b4fc; }
 </style>
 
-<div id="proto-root">
+<div id="proto-root" class="v1">
   <div class="proto-head">
-    <span class="proto-badge">PROTOTYPE · ROUND 9.2 · SINGLE SELECTION</span>
-    <span class="proto-title">On-canvas kinship querying <span>— #276 · the synthesis candidate</span></span>
+    <span class="proto-badge" id="protoBadge">PROTOTYPE · ROUND 10 · FILTER UX</span>
+    <span class="proto-title">Attribute filtering on the canonical tree <span>— #277 · three variants</span></span>
     <span class="spacer"></span>
     <span class="sim-wrap">
       Phrasing language:
@@ -148,20 +300,14 @@
     </span>
   </div>
 
+  <div class="filterbar" id="filterbar"></div>
+
   <div class="stage-row">
+    <div class="rail" id="rail"></div>
     <div class="stage" id="stage">
       <details class="explainer" id="explainer" open>
-        <summary>Lens × plate — how it works</summary>
-        <div class="ex-body">
-          <dl>
-            <dt>Select</dt>
-            <dd>Click a person → the <b>details widget</b>, fixed to the right edge (it never covers the tree, so every card stays hoverable): detail on top, “Explore kin” opening the flat scrollable list. Its content follows the selection — and it has room to grow more affordances later.</dd>
-            <dt>Relate = hover (the lens)</dt>
-            <dd>While someone is selected, <b>hovering any other card whispers the tie under it</b> — the docked tag, live, zero clicks. The lens keeps reading during a kin-set paint.</dd>
-            <dt>One selection, always</dt>
-            <dd>There is no second selected state: <b>clicking any person simply moves the selection</b> (and the widget follows) — that’s also how you walk the family. <kbd>Esc</kbd> or a canvas click clears.</dd>
-          </dl>
-        </div>
+        <summary id="exSummary">How this variant filters</summary>
+        <div class="ex-body" id="exBody"></div>
       </details>
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1162 586"><style>
 svg {
@@ -213,7 +359,7 @@ svg {
 .kul-legend-bg { fill: var(--kul-legend-panel-bg); stroke: var(--kul-legend-panel-border); stroke-width: var(--kul-legend-panel-border-width); }
 .kul-legend-label { fill: var(--kul-label-fill); font-size: var(--kul-legend-label-font-size); }
 .kul-legend .kul-edge[data-link-kind="marriage"] { stroke-width: var(--kul-legend-marriage-edge-stroke-width); }
-</style><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="birth" data-child-id="marco" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 380 156 L 114 156 Q 104 156 104 166 L 104 184"/><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="birth" data-child-id="lucia" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 400 156 L 476 156 Q 486 156 486 166 L 486 184"/><path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="birth" data-child-id="elena" data-is-past="true" fill="none" d="M 963 56 L 963 156 L 963 156 L 963 184"/><path class="kul-edge" data-marriage-id="m_marco_elena" data-link-kind="birth" data-child-id="matteo" data-is-past="false" fill="none" d="M 199 216 L 199 306 Q 199 316 189 316 L 114 316 Q 104 316 104 326 L 104 344"/><path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="birth" data-child-id="giulia" data-is-past="true" fill="none" d="M 581 216 L 581 316 L 581 316 L 581 344"/><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="marriage" data-host-id="giuseppe" data-joining-id="sofia" data-start="1965-06-12" data-is-ended="false" fill="none" d="M 375 56 L 405 56"/><path class="kul-edge" data-marriage-id="m_marco_elena" data-link-kind="marriage" data-host-id="marco" data-joining-id="elena" data-start="1995-07-22" data-is-ended="false" fill="none" d="M 184 216 L 214 216"/><path class="kul-edge" data-marriage-id="m_matteo_giulia" data-link-kind="marriage" data-host-id="matteo" data-joining-id="giulia" data-start="2020-09-12" data-is-ended="false" fill="none" d="M 184 376 L 214 376"/><path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="marriage" data-host-id="lucia" data-joining-id="paolo" data-start="1996-10-05" data-is-ended="false" fill="none" d="M 566 216 L 596 216"/><path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="marriage" data-host-id="aldo" data-joining-id="bianca" data-start="1967-05-30" data-is-ended="false" fill="none" d="M 948 56 L 978 56"/><g class="kul-card" data-person-id="giuseppe" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1940-05-19" data-generation="0"><rect x="215" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Giuseppe Rossi</text></g><g class="kul-card" data-person-id="sofia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1943-01-27" data-generation="0"><rect x="405" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="485" y="56" text-anchor="middle" dominant-baseline="central">Sofia Rossi</text></g><g class="kul-card" data-person-id="marco" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1968-09-30" data-generation="1"><rect x="24" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Marco Rossi</text></g><g class="kul-card" data-person-id="elena" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1"><rect x="214" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="294" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text></g><g class="kul-card" data-person-id="matteo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1997-02-14" data-generation="2"><rect x="24" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="376" text-anchor="middle" dominant-baseline="central">Matteo Rossi</text></g><g class="kul-card" data-person-id="giulia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2"><rect x="214" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="294" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text></g><g class="kul-card" data-person-id="lucia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1971-04-08" data-generation="1"><rect x="406" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="486" y="216" text-anchor="middle" dominant-baseline="central">Lucia Rossi</text></g><g class="kul-card" data-person-id="paolo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1969-03-17" data-generation="1"><rect x="596" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="676" y="216" text-anchor="middle" dominant-baseline="central">Paolo Conti</text></g><g class="kul-card" data-person-id="giulia" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2"><rect x="501" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="581" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text></g><g class="kul-card" data-person-id="aldo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1942-08-03" data-generation="0"><rect x="788" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="868" y="56" text-anchor="middle" dominant-baseline="central">Aldo Bianchi</text></g><g class="kul-card" data-person-id="bianca" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1945-12-21" data-generation="0"><rect x="978" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="1058" y="56" text-anchor="middle" dominant-baseline="central">Bianca Bianchi</text></g><g class="kul-card" data-person-id="elena" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1"><rect x="883" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="963" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text></g><g class="kul-legend"><rect class="kul-legend-bg" x="8" y="448" width="188" height="130" rx="6" ry="6"/><g class="kul-card" data-kind="canonical" data-gender="male"><rect x="22" y="462" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="469" dominant-baseline="central">Male</text><g class="kul-card" data-kind="canonical" data-gender="female"><rect x="22" y="484" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="491" dominant-baseline="central">Female</text><g class="kul-card" data-kind="ghost"><rect x="22" y="506" width="30" height="14" rx="3" ry="3" stroke-dasharray="3 2"/></g><text class="kul-legend-label" x="62" y="513" dominant-baseline="central">Past record</text><path class="kul-edge" data-link-kind="birth" fill="none" d="M 22 535 L 52 535"/><text class="kul-legend-label" x="62" y="535" dominant-baseline="central">Birth</text><path class="kul-edge" data-link-kind="marriage" fill="none" d="M 22 557 L 52 557"/><text class="kul-legend-label" x="62" y="557" dominant-baseline="central">Marriage</text></g></svg>
+</style><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="birth" data-child-id="marco" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 380 156 L 114 156 Q 104 156 104 166 L 104 184"/><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="birth" data-child-id="lucia" data-is-past="false" fill="none" d="M 390 56 L 390 146 Q 390 156 400 156 L 476 156 Q 486 156 486 166 L 486 184"/><path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="birth" data-child-id="elena" data-is-past="true" fill="none" d="M 963 56 L 963 156 L 963 156 L 963 184"/><path class="kul-edge" data-marriage-id="m_marco_elena" data-link-kind="birth" data-child-id="matteo" data-is-past="false" fill="none" d="M 199 216 L 199 306 Q 199 316 189 316 L 114 316 Q 104 316 104 326 L 104 344"/><path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="birth" data-child-id="giulia" data-is-past="true" fill="none" d="M 581 216 L 581 316 L 581 316 L 581 344"/><path class="kul-edge" data-marriage-id="m_giuseppe_sofia" data-link-kind="marriage" data-host-id="giuseppe" data-joining-id="sofia" data-start="1965-06-12" data-is-ended="false" fill="none" d="M 375 56 L 405 56"/><path class="kul-edge" data-marriage-id="m_marco_elena" data-link-kind="marriage" data-host-id="marco" data-joining-id="elena" data-start="1995-07-22" data-is-ended="false" fill="none" d="M 184 216 L 214 216"/><path class="kul-edge" data-marriage-id="m_matteo_giulia" data-link-kind="marriage" data-host-id="matteo" data-joining-id="giulia" data-start="2020-09-12" data-is-ended="false" fill="none" d="M 184 376 L 214 376"/><path class="kul-edge" data-marriage-id="m_lucia_paolo" data-link-kind="marriage" data-host-id="lucia" data-joining-id="paolo" data-start="1996-10-05" data-is-ended="false" fill="none" d="M 566 216 L 596 216"/><path class="kul-edge" data-marriage-id="m_aldo_bianca" data-link-kind="marriage" data-host-id="aldo" data-joining-id="bianca" data-start="1967-05-30" data-is-ended="false" fill="none" d="M 948 56 L 978 56"/><g class="kul-card" data-person-id="giuseppe" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1940-05-19" data-generation="0"><rect x="215" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="295" y="56" text-anchor="middle" dominant-baseline="central">Giuseppe Rossi</text></g><g class="kul-card" data-person-id="sofia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1943" data-generation="0"><rect x="405" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="485" y="56" text-anchor="middle" dominant-baseline="central">Sofia Rossi</text></g><g class="kul-card" data-person-id="marco" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1968-09-30" data-generation="1"><rect x="24" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="216" text-anchor="middle" dominant-baseline="central">Marco Rossi</text></g><g class="kul-card" data-person-id="elena" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1"><rect x="214" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="294" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text></g><g class="kul-card" data-person-id="matteo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1997-02-14" data-generation="2"><rect x="24" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="104" y="376" text-anchor="middle" dominant-baseline="central">Matteo Rossi</text></g><g class="kul-card" data-person-id="giulia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2"><rect x="214" y="344" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="294" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text></g><g class="kul-card" data-person-id="lucia" data-kind="canonical" data-gender="female" data-is-alive="true" data-born="1971-04-08" data-generation="1"><rect x="406" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="486" y="216" text-anchor="middle" dominant-baseline="central">Lucia Rossi</text></g><g class="kul-card" data-person-id="paolo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="1969-03-17" data-generation="1"><rect x="596" y="184" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="676" y="216" text-anchor="middle" dominant-baseline="central">Paolo Conti</text></g><g class="kul-card" data-person-id="giulia" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1998-06-26" data-generation="2"><rect x="501" y="344" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="581" y="376" text-anchor="middle" dominant-baseline="central">Giulia Conti</text></g><g class="kul-card" data-person-id="aldo" data-kind="canonical" data-gender="male" data-is-alive="true" data-born="~1942" data-generation="0"><rect x="788" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="868" y="56" text-anchor="middle" dominant-baseline="central">Aldo Bianchi</text></g><g class="kul-card" data-person-id="bianca" data-kind="canonical" data-gender="female" data-is-alive="true" data-generation="0"><rect x="978" y="24" width="160" height="64" rx="8" ry="8"/><text class="kul-label-name" x="1058" y="56" text-anchor="middle" dominant-baseline="central">Bianca Bianchi</text></g><g class="kul-card" data-person-id="elena" data-kind="ghost" data-ghost-reason="past-birth" data-gender="female" data-is-alive="true" data-born="1970-11-15" data-generation="1"><rect x="883" y="184" width="160" height="64" rx="8" ry="8" stroke-dasharray="3 2"/><text class="kul-label-name" x="963" y="216" text-anchor="middle" dominant-baseline="central">Elena Bianchi</text></g><g class="kul-legend"><rect class="kul-legend-bg" x="8" y="448" width="188" height="130" rx="6" ry="6"/><g class="kul-card" data-kind="canonical" data-gender="male"><rect x="22" y="462" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="469" dominant-baseline="central">Male</text><g class="kul-card" data-kind="canonical" data-gender="female"><rect x="22" y="484" width="30" height="14" rx="3" ry="3"/></g><text class="kul-legend-label" x="62" y="491" dominant-baseline="central">Female</text><g class="kul-card" data-kind="ghost"><rect x="22" y="506" width="30" height="14" rx="3" ry="3" stroke-dasharray="3 2"/></g><text class="kul-legend-label" x="62" y="513" dominant-baseline="central">Past record</text><path class="kul-edge" data-link-kind="birth" fill="none" d="M 22 535 L 52 535"/><text class="kul-legend-label" x="62" y="535" dominant-baseline="central">Birth</text><path class="kul-edge" data-link-kind="marriage" fill="none" d="M 22 557 L 52 557"/><text class="kul-legend-label" x="62" y="557" dominant-baseline="central">Marriage</text></g></svg>
     </div>
   </div>
 </div>
@@ -235,6 +381,27 @@ svg {
     aldo:     { name: "Aldo Bianchi",   g: "m", born: 1942 },
     bianca:   { name: "Bianca Bianchi", g: "f", born: 1945 }
   };
+
+  /* The *records* the filter sees — deliberately gappy, because the third
+     truth value is the whole point of this round. Gaps planted:
+       aldo   — `family` NOT recorded  → any family predicate is Unknown
+       aldo   — born `~1942` (circa ±5y) → `born < 1945` is Unknown
+       sofia  — born `1943` (year only) → whole-year interval
+       bianca — `born` NOT recorded    → every born predicate is Unknown
+       died   — recorded for 2 of 10   → and "not recorded" ≠ living. */
+  var REC = {
+    giuseppe: { family: "Rossi",   given: "Giuseppe", gender: "male",   born: "1940-05-19", died: "2018-03-02" },
+    sofia:    { family: "Rossi",   given: "Sofia",    gender: "female", born: "1943" },
+    marco:    { family: "Rossi",   given: "Marco",    gender: "male",   born: "1968-09-30" },
+    lucia:    { family: "Rossi",   given: "Lucia",    gender: "female", born: "1971-04-08" },
+    elena:    { family: "Bianchi", given: "Elena",    gender: "female", born: "1970-11-15" },
+    paolo:    { family: "Conti",   given: "Paolo",    gender: "male",   born: "1969-03-17" },
+    matteo:   { family: "Rossi",   given: "Matteo",   gender: "male",   born: "1997-02-14" },
+    giulia:   { family: "Conti",   given: "Giulia",   gender: "female", born: "1998-06-26" },
+    aldo:     {                    given: "Aldo",     gender: "male",   born: "~1942",      died: "2005" },
+    bianca:   { family: "Bianchi", given: "Bianca",   gender: "female" }
+  };
+
   var PARENTS = {
     marco: ["giuseppe", "sofia"], lucia: ["giuseppe", "sofia"],
     matteo: ["marco", "elena"], giulia: ["lucia", "paolo"],
@@ -477,12 +644,194 @@ svg {
   ];
   function setById(id) { return KIN_SETS.filter(function (s) { return s.id === id; })[0]; }
 
+  /* ==========================================================
+     FILTER ENGINE — a faithful port of kul-core query/filter.rs.
+     Three-valued (T / F / U), interval dates, AND-only.
+     ========================================================== */
+  var FIELDS = [
+    { f: "name",   label: "name",   date: false },
+    { f: "family", label: "family", date: false },
+    { f: "given",  label: "given",  date: false },
+    { f: "gender", label: "gender", date: false },
+    { f: "born",   label: "born",   date: true },
+    { f: "died",   label: "died",   date: true },
+    { f: "id",     label: "id",     date: false }
+  ];
+  function fieldDef(f) { return FIELDS.filter(function (d) { return d.f === f; })[0]; }
+  var OPS = {
+    eq: "=", neq: "≠", lt: "<", lte: "≤", gt: ">", gte: "≥",
+    "in": "∈", present: "is recorded", absent: "not recorded"
+  };
+  function opsFor(f) {
+    return fieldDef(f).date
+      ? ["eq", "neq", "lt", "lte", "gt", "gte", "present", "absent"]
+      : ["eq", "neq", "in", "present", "absent"];
+  }
+  function needsValue(op) { return op !== "present" && op !== "absent"; }
+
+  function recOf(id) {
+    var r = REC[id] || {};
+    return { id: id, name: P[id].name, family: r.family, given: r.given,
+             gender: r.gender, born: r.born, died: r.died };
+  }
+  function ymd(y, m, d) { return y * 10000 + m * 100 + d; }
+  function daysIn(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+  /* Kul date literal → closed interval. Partial = the whole period;
+     circa (`~`) = ±5 years on both bounds. Exactly DateLit's bounds. */
+  function parseKulDate(lit) {
+    if (!lit) return null;
+    var circa = lit.charAt(0) === "~";
+    var s = circa ? lit.slice(1) : lit;
+    var m = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/.exec(s);
+    if (!m) return null;
+    var y = +m[1], mo = m[2] ? +m[2] : null, d = m[3] ? +m[3] : null, lo, hi;
+    if (d) { lo = hi = ymd(y, mo, d); }
+    else if (mo) { lo = ymd(y, mo, 1); hi = ymd(y, mo, daysIn(y, mo)); }
+    else { lo = ymd(y, 1, 1); hi = ymd(y, 12, 31); }
+    if (circa) { lo -= 50000; hi += 50000; }
+    return { lo: lo, hi: hi, text: lit, fuzzy: circa || !d };
+  }
+  var T = "T", F3 = "F", U = "U";
+  function not3(v) { return v === T ? F3 : (v === F3 ? T : U); }
+  function dateContains(rec, lit) {
+    if (lit.lo <= rec.lo && rec.hi <= lit.hi) return T;
+    if (rec.hi < lit.lo || lit.hi < rec.lo) return F3;
+    return U;
+  }
+  function dateOrder(rec, lit, op) {
+    var all, none;
+    if (op === "lt") { all = rec.hi < lit.lo; none = rec.lo >= lit.hi; }
+    else if (op === "lte") { all = rec.hi <= lit.lo; none = rec.lo > lit.hi; }
+    else if (op === "gt") { all = rec.lo > lit.hi; none = rec.hi <= lit.lo; }
+    else { all = rec.lo >= lit.hi; none = rec.hi < lit.lo; }
+    return all ? T : (none ? F3 : U);
+  }
+  function evalPred(rec, p) {
+    var isDate = fieldDef(p.field).date;
+    var raw = rec[p.field];
+    if (p.op === "present") return raw === undefined ? F3 : T;
+    if (p.op === "absent") return raw === undefined ? T : F3;
+    if (isDate) {
+      var lit = parseKulDate(p.value);
+      if (!lit) return U;                       // malformed literal → engine errors; here: unknown
+      if (raw === undefined) return U;
+      var rd = parseKulDate(raw);
+      if (p.op === "eq") return dateContains(rd, lit);
+      if (p.op === "neq") return not3(dateContains(rd, lit));
+      return dateOrder(rd, lit, p.op);
+    }
+    if (p.op === "in") {
+      if (raw === undefined) return U;
+      return (p.values || []).indexOf(raw) >= 0 ? T : F3;
+    }
+    var base = raw === undefined ? U : (raw === p.value ? T : F3);
+    return p.op === "neq" ? not3(base) : base;
+  }
+  /* Three-valued AND + certainty mode. Returns the verdict and, when
+     Unknown, WHICH predicates could not be decided — the "why" every
+     variant needs to distinguish a maybe-row from a true row. */
+  function judge(id, preds) {
+    var rec = recOf(id), unknown = [], anyFalse = false;
+    preds.forEach(function (p) {
+      var v = evalPred(rec, p);
+      if (v === F3) anyFalse = true;
+      else if (v === U) unknown.push(p);
+    });
+    if (anyFalse) return { verdict: F3, unknown: [] };
+    return unknown.length ? { verdict: U, unknown: unknown } : { verdict: T, unknown: [] };
+  }
+  function predLabel(p) {
+    var f = p.field;
+    if (p.op === "present") return f + " is recorded";
+    if (p.op === "absent") return f + " not recorded";
+    if (p.op === "in") return f + " ∈ {" + (p.values || []).join(", ") + "}";
+    return f + " " + OPS[p.op] + " " + (p.value || "…");
+  }
+  function whyUnknown(id, preds) {
+    var rec = recOf(id);
+    return judge(id, preds).unknown.map(function (p) {
+      if (rec[p.field] === undefined) return p.field + " not recorded";
+      var raw = rec[p.field];
+      if (fieldDef(p.field).date) {
+        var d = parseKulDate(raw);
+        if (d && d.text.charAt(0) === "~") return raw + " is approximate (±5y) — straddles " + predLabel(p);
+        return raw + " is a whole " + (raw.length === 4 ? "year" : "month") + " — straddles " + predLabel(p);
+      }
+      return "cannot decide " + predLabel(p);
+    });
+  }
+  function sortIds(ids, spec) {
+    var out = ids.slice();
+    if (!spec) return out;
+    function key(id) {
+      var raw = recOf(id)[spec.field];
+      if (raw === undefined) return null;
+      if (fieldDef(spec.field).date) { var d = parseKulDate(raw); return d ? d.lo * 100000 + (d.hi % 100000) : null; }
+      return raw;
+    }
+    out.sort(function (a, b) {
+      var ka = key(a), kb = key(b);
+      if (ka === null && kb === null) return a < b ? -1 : (a > b ? 1 : 0);
+      if (ka === null) return 1;               // missing sorts last, always
+      if (kb === null) return -1;
+      var base = ka < kb ? -1 : (ka > kb ? 1 : 0);
+      if (spec.dir === "desc") base = -base;
+      return base || (a < b ? -1 : (a > b ? 1 : 0));
+    });
+    return out;
+  }
+
+  /* ---------------- filter state (shared across variants) ---------------- */
+  var F = {
+    preds: [],                 // variants 1 & 2 (a predicate builder each)
+    mode: "certain",           // "certain" | "includeUncertain"
+    sort: null,                // { field, dir } — only variant 3 can express it
+    scopeKin: false,           // false → allPersons · true → kinOf(anchor, activeSet)
+    facets: { family: { values: [], absent: false }, gender: { values: [], absent: false },
+              born: { bucket: null, absent: false }, died: { presence: null } },
+    revealUncertain: false     // "show me what I'm being denied" peek
+  };
+  function activePreds() {
+    return VARIANT === "3" ? facetPreds() : F.preds.filter(function (p) {
+      return !needsValue(p.op) || (p.op === "in" ? (p.values || []).length : (p.value || "").length);
+    });
+  }
+  function filterActive() {
+    return activePreds().length > 0;
+  }
+  function candidateIds() {
+    if (F.scopeKin && model.anchor && model.activeSet) return setById(model.activeSet).fn(model.anchor);
+    return ALL;
+  }
+  function scopeLabel() {
+    if (F.scopeKin && model.anchor && model.activeSet) {
+      return firstName(model.anchor) + "’s " + setById(model.activeSet).label.toLowerCase();
+    }
+    return "Everyone";
+  }
+  function runFilter() {
+    var preds = activePreds(), cands = candidateIds();
+    var res = { yes: [], maybe: [], no: [], preds: preds, cands: cands };
+    cands.forEach(function (id) {
+      var j = judge(id, preds);
+      if (j.verdict === T) res.yes.push(id);
+      else if (j.verdict === U) res.maybe.push(id);
+      else res.no.push(id);
+    });
+    res.shown = F.mode === "includeUncertain" ? res.yes.concat(res.maybe) : res.yes;
+    return res;
+  }
+
   /* =============== DOM + paint helpers =============== */
+  var root = document.getElementById("proto-root");
   var stage = document.getElementById("stage");
   var stageRow = document.querySelector(".stage-row");
+  var bar = document.getElementById("filterbar");
+  var rail = document.getElementById("rail");
   var svg = stage.querySelector("svg");
   svg.classList.add("kul-tree");
-  var PAINT = ["q-anchor-a", "q-anchor-b", "q-result", "q-result-ghost", "q-path", "q-dim", "q-pulse"];
+  var PAINT = ["q-anchor-a", "q-anchor-b", "q-result", "q-result-ghost", "q-maybe",
+               "q-maybe-ghost", "q-path", "q-dim", "q-hide", "q-pulse"];
 
   function cardsFor(id, kind) {
     var sel = '.kul-card[data-person-id="' + id + '"]';
@@ -494,6 +843,7 @@ svg {
   }
   function clearPaint() {
     allCards().forEach(function (c) { PAINT.forEach(function (k) { c.classList.remove(k); }); });
+    removeMarks();
   }
   function addClass(id, cls, kind) { cardsFor(id, kind).forEach(function (c) { c.classList.add(cls); }); }
   function dimAllExcept(keep) {
@@ -518,15 +868,6 @@ svg {
     });
     return mid;
   }
-  function paintResolution(a, b, ties) {
-    clearPaint();
-    addClass(a, "q-anchor-a", "canonical");
-    addClass(b, "q-anchor-b", "canonical");
-    var mid = pathMids(a, b, ties);
-    mid.forEach(function (m) { addClass(m, "q-path", "canonical"); });
-    dimAllExcept([a, b].concat(mid));
-    applyEditorSim();
-  }
   function cardRect(id) {
     var el = cardsFor(id, "canonical")[0] || cardsFor(id)[0];
     if (!el) return null;
@@ -542,10 +883,16 @@ svg {
     return '<span class="term' + (LANG === "gu" ? " gu" : "") + '" title="' +
       termFull(tie).replace(/"/g, "&quot;") + '">' + termShort(tie) + "</span>";
   }
+  function fieldLine(label, id, field) {
+    var v = recOf(id)[field];
+    return '<div class="detail-line">' + label + " " +
+      (v === undefined ? '<span class="unrec">not recorded</span>' : "<b>" + v + "</b>") + "</div>";
+  }
   function detailHtml(id) {
     var pd = P[id];
     var lines = ['<div class="detail-name">' + pd.name + "</div>"];
-    lines.push('<div class="detail-line">' + (pd.g === "m" ? "male" : "female") + " · born <b>" + pd.born + "</b></div>");
+    lines.push(fieldLine("family", id, "family") + fieldLine("gender", id, "gender") +
+               fieldLine("born", id, "born") + fieldLine("died", id, "died"));
     var ps = parentsOf(id);
     if (ps.length) lines.push('<div class="detail-line">child of <b>' + P[ps[0]].name + "</b> &amp; <b>" + P[ps[1]].name + "</b></div>");
     var sp = spousesOf(id);
@@ -563,6 +910,9 @@ svg {
     var hint = stageRow.querySelector(".sync-hint");
     if (hint) hint.remove();
   }
+  function removeMarks() {
+    Array.prototype.slice.call(stage.querySelectorAll(".maybe-mark")).forEach(function (n) { n.remove(); });
+  }
   function place(el, left, top) {
     el.style.left = Math.max(8, Math.min(left, stage.scrollWidth - el.offsetWidth - 8)) + "px";
     el.style.top = Math.max(8, top) + "px";
@@ -579,8 +929,10 @@ svg {
   function removeWhisper() {
     var old = stage.querySelector(".whisper-pill");
     if (old) old.remove();
+    var r = stage.querySelector(".reason-pill");
+    if (r) r.remove();
   }
-  /* the bookmarked docked-tag whisper */
+  /* the bookmarked docked-tag whisper (#276) */
   function whisperAt(a, b, ties, onSwap, transient) {
     removeWhisper();
     var pill = document.createElement("div");
@@ -600,6 +952,78 @@ svg {
     if (swap && onSwap) swap.addEventListener("click", function (ev) { ev.stopPropagation(); onSwap(); });
     return pill;
   }
+  /* the same docked-tag grammar, reused to whisper WHY a row is a maybe */
+  function reasonAt(id, reasons) {
+    removeWhisper();
+    var pill = document.createElement("div");
+    pill.className = "reason-pill q-float";
+    pill.innerHTML = "<b>can’t say</b> — " + reasons.join(" · ");
+    stage.appendChild(pill);
+    var r = cardRect(id);
+    place(pill, r.left + r.width / 2 - pill.offsetWidth / 2, r.top + r.height + 8);
+  }
+
+  /* =============== the filter's three tree stances =============== */
+  function paintFilter() {
+    var res = runFilter();
+    clearPaint();
+    if (model.anchor) addClass(model.anchor, "q-anchor-a", "canonical");
+    if (!res.preds.length) { applyEditorSim(); return res; }
+
+    if (VARIANT === "3") {
+      /* stance C: the filter never paints. A kin set still does — it is a kin
+         query, and staying silent about the source would hide where the
+         filtered list came from. */
+      if (F.scopeKin && model.anchor && model.activeSet) {
+        paintResults([model.anchor], setById(model.activeSet).fn(model.anchor));
+      }
+      applyEditorSim();
+      return res;
+    }
+
+    res.yes.forEach(function (id) {
+      addClass(id, "q-result", "canonical");
+      if (GHOSTS[id]) addClass(id, "q-result-ghost", "ghost");
+    });
+    if (F.mode === "includeUncertain" || F.revealUncertain) {
+      res.maybe.forEach(function (id) {
+        addClass(id, "q-maybe", "canonical");
+        if (GHOSTS[id]) addClass(id, "q-maybe-ghost", "ghost");
+      });
+    }
+    var shown = res.yes.concat((F.mode === "includeUncertain" || F.revealUncertain) ? res.maybe : []);
+    if (VARIANT === "1") {                                    // stance A: dim the rest
+      allCards().forEach(function (c) {
+        if (shown.indexOf(c.getAttribute("data-person-id")) < 0) c.classList.add("q-dim");
+      });
+    } else {                                                  // stance B: hide the rest
+      allCards().forEach(function (c) {
+        if (shown.indexOf(c.getAttribute("data-person-id")) < 0) c.classList.add("q-hide");
+      });
+    }
+    /* the ? mark rides every card the data can't judge */
+    if (F.mode === "includeUncertain" || F.revealUncertain) {
+      res.maybe.forEach(function (id) {
+        var r = cardRect(id);
+        if (!r) return;
+        var m = document.createElement("div");
+        m.className = "maybe-mark";
+        m.textContent = "?";
+        stage.appendChild(m);
+        m.style.left = (r.left + r.width - 8) + "px";
+        m.style.top = (r.top - 8) + "px";
+      });
+    }
+    applyEditorSim();
+    return res;
+  }
+  function repaint() {
+    if (filterActive()) paintFilter();
+    else if (model.activeSet) model.runSet(model.activeSet, true);
+    else { clearPaint(); if (model.anchor) addClass(model.anchor, "q-anchor-a", "canonical"); applyEditorSim(); }
+    renderChrome();
+    syncHint();
+  }
 
   /* =============== editor-selection simulation =============== */
   var editorSel = "";
@@ -609,16 +1033,17 @@ svg {
     o.value = id; o.textContent = P[id].name;
     editorSimEl.appendChild(o);
   });
+  function querying() { return !!model.anchor || filterActive(); }
   function applyEditorSim() {
     allCards().forEach(function (c) { c.classList.remove("kul-selected"); });
     if (!editorSel) return;
-    if (model.anchor) return; // querying suspends sync
+    if (querying()) return;   // a filter is a query too — sync stays suspended
     addClass(editorSel, "kul-selected", "canonical");
   }
   function syncHint() {
     var old = stageRow.querySelector(".sync-hint");
     if (old) old.remove();
-    if (editorSel && model.anchor) {
+    if (editorSel && querying()) {
       var hint = document.createElement("div");
       hint.className = "sync-hint";
       hint.innerHTML = "editor sync paused while querying — <kbd>Esc</kbd> to resume";
@@ -632,92 +1057,663 @@ svg {
   });
   document.getElementById("langSel").addEventListener("change", function () {
     LANG = this.value;
-    if (model.anchor) model.renderPlate();
+    renderChrome();
   });
 
-  /* =============== the synthesis: lens × plate =============== */
+  /* =============== the settled model: lens × widget (#276) =============== */
   var model = {
-    anchor: null, listOpen: false, activeSet: null,
+    anchor: null, listOpen: false, activeSet: null, filterOpen: true,
 
     select: function (id) {
-      this.anchor = id; this.activeSet = null;   // listOpen survives — the widget follows the walk
+      this.anchor = id; this.activeSet = null;
       removeFloats(); clearPaint();
-      addClass(id, "q-anchor-a", "canonical"); applyEditorSim();
-      this.renderPlate();
+      addClass(id, "q-anchor-a", "canonical");
+      if (filterActive()) paintFilter();
+      applyEditorSim();
+      renderChrome();
       syncHint();
     },
     clearAll: function () {
       this.anchor = null; this.listOpen = false; this.activeSet = null;
-      removeFloats(); this.renderPlate(); clearPaint(); applyEditorSim(); syncHint();
+      F.preds = []; F.scopeKin = false; F.revealUncertain = false;
+      F.facets = { family: { values: [], absent: false }, gender: { values: [], absent: false },
+                   born: { bucket: null, absent: false }, died: { presence: null } };
+      removeFloats(); clearPaint(); applyEditorSim(); renderChrome(); syncHint();
     },
     onCardClick: function (id) {
       if (id === this.anchor) return;
-      this.select(id);   // one selection state — clicking anyone just moves it
+      this.select(id);
     },
     onCardHover: function (id, entering) {
-      if (!this.anchor || id === this.anchor) return;
-      if (entering) {
-        var ties = resolvePair(this.anchor, id);
-        addClass(id, "q-anchor-b", "canonical");
-        if (!this.activeSet) {
-          pathMids(this.anchor, id, ties).forEach(function (m) { addClass(m, "q-path", "canonical"); });
-        }
-        whisperAt(this.anchor, id, ties, null, true);
-      } else {
+      if (!entering) {
         allCards().forEach(function (c) { c.classList.remove("q-anchor-b"); });
-        if (!this.activeSet) {
+        if (!this.activeSet && !filterActive()) {
           allCards().forEach(function (c) { c.classList.remove("q-path"); });
         }
         removeWhisper();
+        return;
+      }
+      if (this.anchor && id !== this.anchor) {          // the lens
+        var ties = resolvePair(this.anchor, id);
+        addClass(id, "q-anchor-b", "canonical");
+        if (!this.activeSet && !filterActive()) {
+          pathMids(this.anchor, id, ties).forEach(function (m) { addClass(m, "q-path", "canonical"); });
+        }
+        whisperAt(this.anchor, id, ties, null, true);
+        return;
+      }
+      if (!this.anchor && filterActive()) {             // no selection → the filter whispers instead
+        var j = judge(id, activePreds());
+        if (j.verdict === U) reasonAt(id, whyUnknown(id, activePreds()));
       }
     },
-    runSet: function (sid) {
+    runSet: function (sid, quiet) {
       var s = setById(sid);
       var ids = s.fn(this.anchor);
       this.activeSet = sid;
+      if (filterActive() && F.scopeKin) { paintFilter(); renderChrome(); return; }
       paintResults([this.anchor], ids);
-      if (!ids.length) {
+      if (!ids.length && !quiet) {
         toastAt("No " + s.label.toLowerCase() + " in the recorded facts for " + P[this.anchor].name +
           ". Nothing is guessed — absence stays absence.", cardRect(this.anchor));
       }
-    },
-    renderPlate: function () {
-      var self = this, a = this.anchor;
-      var old = stageRow.querySelector(".pop"); if (old) old.remove();
-      if (!a) return;
-      var pop = document.createElement("div");
-      pop.className = "pop";
-      var kinArr = this.listOpen ? "▾" : "▸";
+      renderChrome();
+    }
+  };
+
+  /* ==========================================================
+     VARIANT 1 — predicate rows inside the right-edge widget
+     ========================================================== */
+  function scopeChipsHtml() {
+    var kinOk = !!(model.anchor && model.activeSet);
+    return '<div class="f-scope"><span class="sc' + (F.scopeKin ? "" : " on") + '" data-scope="all">Everyone <b>' +
+      ALL.length + "</b></span>" +
+      '<span class="sc' + (kinOk ? (F.scopeKin ? " on" : "") : " off") + '" data-scope="kin" title="' +
+      (kinOk ? "filter within the painted kin set (kinOf + where)" : "run a kin-set query first") + '">' +
+      (kinOk ? firstName(model.anchor) + "’s " + setById(model.activeSet).label.toLowerCase() +
+        " <b>" + setById(model.activeSet).fn(model.anchor).length + "</b>" : "…within a kin set") + "</span></div>";
+  }
+  function valueControl(p, i) {
+    if (!needsValue(p.op)) return "";
+    if (p.field === "gender") {
+      return '<select class="val" data-i="' + i + '" data-k="value">' +
+        ["", "male", "female", "other"].map(function (g) {
+          return '<option value="' + g + '"' + (p.value === g ? " selected" : "") + ">" + (g || "—") + "</option>";
+        }).join("") + "</select>";
+    }
+    if (p.op === "in") {
+      return '<input class="val" data-i="' + i + '" data-k="values" placeholder="Rossi, Conti" value="' +
+        (p.values || []).join(", ") + '">';
+    }
+    var ph = fieldDef(p.field).date ? "1950 · 1950-04 · ~1950" : "exact, case-sensitive";
+    return '<input class="val" data-i="' + i + '" data-k="value" placeholder="' + ph + '" value="' +
+      (p.value || "") + '">';
+  }
+  function predRowsHtml() {
+    /* Two lines per condition: the 272px widget cannot hold field+op+value on
+       one row and still show a date literal. That squeeze is a finding, not a
+       bug — see the resolution note on hosting the filter in the widget. */
+    var rows = F.preds.map(function (p, i) {
+      var v = valueControl(p, i);
+      return '<div class="f-row"><span class="and">' + (i ? "and" : "where") + "</span>" +
+        '<select class="fld" data-i="' + i + '" data-k="field">' + FIELDS.map(function (d) {
+          return '<option value="' + d.f + '"' + (p.field === d.f ? " selected" : "") + ">" + d.label + "</option>";
+        }).join("") + "</select>" +
+        '<select class="op" data-i="' + i + '" data-k="op">' + opsFor(p.field).map(function (o) {
+          return '<option value="' + o + '"' + (p.op === o ? " selected" : "") + ">" + OPS[o] + "</option>";
+        }).join("") + "</select>" +
+        '<span class="rm" data-rm="' + i + '" title="remove">✕</span></div>' +
+        (v ? '<div class="f-row f-row2"><span class="and"></span>' + v + "</div>" : "");
+    }).join("");
+    return '<div class="f-rows">' + rows + '<div class="f-add" data-add="1">+ condition</div></div>' +
+      '<div class="f-note">Conditions <b>AND</b> together — the engine has no OR, permanently. ' +
+      '“∈” is the one built-in any-of, and only for text fields.</div>';
+  }
+  function modeHtml(res) {
+    var certain = F.mode === "certain";
+    return '<div class="f-mode"><span class="lbl">Certainty</span><span class="seg">' +
+      '<button data-mode="certain" class="' + (certain ? "on" : "") + '">certain</button>' +
+      '<button data-mode="includeUncertain" class="' + (certain ? "" : "on") + '">+ can’t say</button>' +
+      "</span></div>" +
+      '<div class="f-modenote">' + (certain
+        ? "Only people the records can <b>prove</b> match."
+        : 'Also people whose records <b>cannot say</b> — painted <span style="color:#b45309;font-weight:700">amber dashed ?</span>.') +
+      "</div>";
+  }
+  function tallyHtml(res) {
+    var html = '<div class="f-tally">Matching <b>' + res.shown.length + "</b> of <b>" + res.cands.length +
+      "</b> in " + (F.scopeKin ? scopeLabel() : "everyone");
+    if (F.mode === "certain" && res.maybe.length) {
+      html += '<span class="excl"><b>' + res.maybe.length + "</b> more can’t be judged from the records — " +
+        'excluded, not absent. <u data-reveal="1">' + (F.revealUncertain ? "hide" : "peek") + "</u></span>";
+    }
+    return html + "</div>";
+  }
+  function sortHtml() {
+    /* Deliberately shown DEAD in variants 1 & 2: a painted tree has no
+       order to express a sort in. Only variant 3's list can. */
+    return '<div class="f-dead">Sort (the engine’s third filter knob) has <b>nowhere to land here</b> — ' +
+      "a painted tree keeps the canonical layout’s order. See variant 3.</div>";
+  }
+  function filterSectionHtml(res) {
+    var arr = model.filterOpen ? "▾" : "▸";
+    var pip = res.preds.length ? '<span class="pip">' + res.shown.length + "</span>" : "";
+    var body = model.filterOpen
+      ? scopeChipsHtml() + predRowsHtml() + modeHtml(res) + tallyHtml(res) + sortHtml()
+      : "";
+    return '<div class="plate-section"><div class="plate-sec-head" data-togglefilter="1">Filter by attributes' +
+      pip + '<span class="arr">' + arr + "</span></div>" + body + "</div>";
+  }
+
+  /* ==========================================================
+     VARIANT 2 — the chip sentence in stage chrome
+     ========================================================== */
+  var openPop = null;
+  function closePop() { if (openPop) { openPop.remove(); openPop = null; } }
+  function popAt(anchorEl, html) {
+    closePop();
+    var pop = document.createElement("div");
+    pop.className = "fpop";
+    pop.innerHTML = html;
+    bar.appendChild(pop);
+    var ab = anchorEl.getBoundingClientRect(), bb = bar.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(ab.left - bb.left, bb.width - pop.offsetWidth - 8)) + "px";
+    pop.addEventListener("click", function (e) { e.stopPropagation(); });
+    openPop = pop;
+    return pop;
+  }
+  function renderBar() {
+    if (VARIANT !== "2") { bar.innerHTML = ""; return; }
+    var res = runFilter();
+    var kinOk = !!(model.anchor && model.activeSet);
+    var html = '<span class="kw">Showing</span>' +
+      '<span class="fchip scope" data-scopechip="1">' + scopeLabel() + " <b>" + res.cands.length + "</b> ▾</span>";
+    if (res.preds.length) html += '<span class="kw">where</span>';
+    F.preds.forEach(function (p, i) {
+      var unknownish = res.maybe.length > 0;
+      html += (i ? '<span class="kw">and</span>' : "") +
+        '<span class="fchip pred' + (unknownish ? " unknownish" : "") + '" data-chip="' + i + '">' +
+        predLabel(p) + ' <span class="x" data-rm="' + i + '">✕</span></span>';
+    });
+    html += '<span class="fchip add" data-add="1">+</span>' +
+      '<span class="fchip mode" data-modechip="1">' +
+      (F.mode === "certain" ? "certain" : "certain + can’t say") + " ▾</span>" +
+      '<span class="fbar-tally"><span class="num">' + res.shown.length + " of " + res.cands.length + "</span>";
+    if (res.preds.length) {
+      var hidden = res.cands.length - res.shown.length;
+      html += '<span class="hidden-note">' + hidden + " hidden" +
+        (F.mode === "certain" && res.maybe.length ? " · " + res.maybe.length + " can’t say" : "") +
+        ' · <u data-clear="1">clear</u></span>';
+    }
+    html += "</span>";
+    bar.innerHTML = html;
+    if (!kinOk) { /* scope chip still opens; the kin option is simply absent */ }
+  }
+
+  /* ==========================================================
+     VARIANT 3 — the facet rail (click values, no operators)
+     ========================================================== */
+  var BORN_BUCKETS = [
+    { id: "pre1950", label: "before 1950", preds: [{ field: "born", op: "lt", value: "1950" }] },
+    { id: "b5079", label: "1950 – 1979", preds: [{ field: "born", op: "gte", value: "1950" }, { field: "born", op: "lt", value: "1980" }] },
+    { id: "b80", label: "1980 or later", preds: [{ field: "born", op: "gte", value: "1980" }] }
+  ];
+  function valuesOf(field) {
+    var seen = [];
+    ALL.forEach(function (id) {
+      var v = recOf(id)[field];
+      if (v !== undefined && seen.indexOf(v) < 0) seen.push(v);
+    });
+    return seen.sort();
+  }
+  function facetPreds(skip) {
+    var out = [];
+    ["family", "gender"].forEach(function (f) {
+      if (skip === f) return;
+      var st = F.facets[f];
+      if (st.absent) out.push({ field: f, op: "absent" });
+      else if (st.values.length === 1) out.push({ field: f, op: "eq", value: st.values[0] });
+      else if (st.values.length > 1) out.push({ field: f, op: "in", values: st.values.slice() });
+    });
+    if (skip !== "born") {
+      var b = F.facets.born;
+      if (b.absent) out.push({ field: "born", op: "absent" });
+      else if (b.bucket) {
+        BORN_BUCKETS.filter(function (k) { return k.id === b.bucket; })[0].preds.forEach(function (p) { out.push(p); });
+      }
+    }
+    if (skip !== "died" && F.facets.died.presence) {
+      out.push({ field: "died", op: F.facets.died.presence });
+    }
+    return out;
+  }
+  /* faceted counts: every other facet applied, then this value tested */
+  function facetCount(field, testPreds) {
+    var base = facetPreds(field), yes = 0, maybe = 0;
+    candidateIds().forEach(function (id) {
+      var j = judge(id, base.concat(testPreds));
+      if (j.verdict === T) yes++;
+      else if (j.verdict === U) maybe++;
+    });
+    return { yes: yes, maybe: maybe };
+  }
+  function fvHtml(on, label, count, data, opts) {
+    opts = opts || {};
+    return '<div class="fv' + (on ? " on" : "") + (count.yes + count.maybe === 0 ? " dead" : "") + '" ' + data + ">" +
+      '<span class="box' + (opts.radio ? " radio" : "") + '"></span>' +
+      '<span class="lab' + (opts.abs ? " abs" : "") + '">' + label + "</span>" +
+      '<span class="n">' + count.yes + (count.maybe ? ' <span class="q" title="' + count.maybe +
+        ' more the records can’t judge">?' + count.maybe + "</span>" : "") + "</span></div>";
+  }
+  function whereWords() {
+    var preds = facetPreds();
+    if (!preds.length) return '<span class="none">no conditions — everyone shown</span>';
+    return "<b>where</b> " + preds.map(predLabel).join(" <b>and</b> ");
+  }
+  function renderRail() {
+    if (VARIANT !== "3") { rail.innerHTML = ""; return; }
+    var res = runFilter();
+    var html = '<div class="rail-head">Filter by attributes<span class="n">' + res.shown.length + " / " +
+      res.cands.length + "</span></div>";
+
+    html += '<div class="facet"><h4>Within</h4>' +
+      fvHtml(!F.scopeKin, "Everyone", { yes: ALL.length, maybe: 0 }, 'data-scope="all"', { radio: true });
+    if (model.anchor && model.activeSet) {
+      html += fvHtml(F.scopeKin, firstName(model.anchor) + "’s " + setById(model.activeSet).label.toLowerCase(),
+        { yes: setById(model.activeSet).fn(model.anchor).length, maybe: 0 }, 'data-scope="kin"', { radio: true });
+    }
+    html += "</div>";
+
+    ["family", "gender"].forEach(function (f) {
+      html += '<div class="facet"><h4>' + f + "</h4>";
+      valuesOf(f).forEach(function (v) {
+        var on = F.facets[f].values.indexOf(v) >= 0;
+        html += fvHtml(on, v, facetCount(f, [{ field: f, op: "eq", value: v }]),
+          'data-facet="' + f + '" data-val="' + v + '"');
+      });
+      html += fvHtml(F.facets[f].absent, "not recorded", facetCount(f, [{ field: f, op: "absent" }]),
+        'data-facet="' + f + '" data-abs="1"', { abs: true });
+      html += "</div>";
+    });
+
+    html += '<div class="facet"><h4>born<span class="single" title="Two ranges at once would need OR — the engine has none, permanently">one range only</span></h4>';
+    BORN_BUCKETS.forEach(function (b) {
+      html += fvHtml(F.facets.born.bucket === b.id, b.label, facetCount("born", b.preds),
+        'data-born="' + b.id + '"', { radio: true });
+    });
+    html += fvHtml(F.facets.born.absent, "not recorded", facetCount("born", [{ field: "born", op: "absent" }]),
+      'data-born="absent"', { radio: true, abs: true });
+    html += "</div>";
+
+    html += '<div class="facet"><h4>died</h4>' +
+      fvHtml(F.facets.died.presence === "present", "recorded", facetCount("died", [{ field: "died", op: "present" }]),
+        'data-died="present"', { radio: true }) +
+      fvHtml(F.facets.died.presence === "absent", "not recorded", facetCount("died", [{ field: "died", op: "absent" }]),
+        'data-died="absent"', { radio: true, abs: true }) +
+      '<div class="f-note" style="padding:4px 0 0 0">“died not recorded” is <b>not</b> “living” — the engine ' +
+      "reports the record, never a guess.</div></div>";
+
+    html += '<div class="where-line">' + whereWords() + "</div>";
+
+    /* the results list — the only place a sort can land */
+    html += '<div class="rail-res"><h4>Matches</h4>' +
+      '<div class="f-sortline">sort ' +
+      '<select data-sortfield="1"><option value="">— none —</option>' +
+      FIELDS.map(function (d) {
+        return '<option value="' + d.f + '"' + (F.sort && F.sort.field === d.f ? " selected" : "") + ">" + d.label + "</option>";
+      }).join("") + "</select>" +
+      '<select data-sortdir="1"' + (F.sort ? "" : " disabled") + '>' +
+      '<option value="asc"' + (F.sort && F.sort.dir === "asc" ? " selected" : "") + ">asc</option>" +
+      '<option value="desc"' + (F.sort && F.sort.dir === "desc" ? " selected" : "") + ">desc</option>" +
+      "</select>" + (F.sort ? "<span>· missing last</span>" : "") + "</div>";
+
+    var listed = sortIds(res.shown, F.sort);
+    if (!listed.length) {
+      html += '<div class="rail-empty">Nothing matches. That is an answer, not an error — nothing is guessed.</div>';
+    } else {
+      listed.forEach(function (id) {
+        var j = judge(id, res.preds), isMaybe = j.verdict === U;
+        var meta = F.sort ? (recOf(id)[F.sort.field] === undefined ? "—" : recOf(id)[F.sort.field]) : "";
+        html += '<div class="rrow' + (isMaybe ? " maybe" : "") + '" data-pick="' + id + '">' +
+          (isMaybe ? '<span class="qm">?</span>' : "") +
+          '<span class="rn">' + P[id].name +
+          (isMaybe ? '<span class="why">' + whyUnknown(id, res.preds)[0] + "</span>" : "") +
+          '</span><span class="meta">' + meta + "</span></div>";
+      });
+    }
+    if (F.mode === "certain" && res.maybe.length) {
+      html += '<div class="excl-fold"><b>' + res.maybe.length + "</b> more can’t be judged from the records " +
+        "— excluded, not absent:<br>" +
+        res.maybe.map(function (id) { return firstName(id) + " (" + whyUnknown(id, res.preds)[0] + ")"; }).join("; ") +
+        ' <u data-mode="includeUncertain">include them</u></div>';
+    }
+    html += "</div>";
+    rail.innerHTML = html;
+  }
+
+  /* =============== the right-edge widget =============== */
+  function renderWidget() {
+    var self = model, a = model.anchor;
+    var old = stageRow.querySelector(".pop"); if (old) old.remove();
+    var showFilter = VARIANT === "1";
+    if (!a && !showFilter) return;
+    var res = runFilter();
+    var pop = document.createElement("div");
+    pop.className = "pop";
+    var head = '<div class="pop-head"><span class="pop-crumb">' +
+      (a ? P[a].name : "Everyone · " + ALL.length + " people") + "</span>" +
+      '<span class="pop-close" data-close="1">✕</span></div>';
+    var body = a ? '<div class="pop-body">' + detailHtml(a) + "</div>" : "";
+    var kin = "";
+    if (a) {
+      var kinArr = model.listOpen ? "▾" : "▸";
       var listHtml = "";
-      if (this.listOpen) {
+      if (model.listOpen) {
         listHtml = '<div class="kin-list">' + KIN_SETS.map(function (s) {
           var n = s.fn(a).length;
-          var on = self.activeSet === s.id;
+          var on = model.activeSet === s.id;
           return '<div class="kin-row' + (on ? " on" : "") + '" data-set="' + s.id + '">' + s.label +
             '<span class="cnt' + (n ? "" : " zero") + '">' + n + "</span></div>";
         }).join("") + "</div>";
       }
-      pop.innerHTML = '<div class="pop-head"><span class="pop-crumb">' + P[a].name + "</span>" +
-        '<span class="pop-close" data-close="1">✕</span></div>' +
-        '<div class="pop-body">' + detailHtml(a) + "</div>" +
-        '<div class="plate-section"><div class="plate-sec-head" data-togglelist="1">Explore kin' +
-        '<span class="arr">' + kinArr + "</span></div>" + listHtml + "</div>" +
-        '<div class="lens-hint">the <b>lens</b> is live: hover anyone to read your tie · click a person to select them</div>';
-      pop.addEventListener("click", function (ev) {
-        ev.stopPropagation();
-        var el = ev.target.closest("[data-close],[data-togglelist],[data-set]");
-        if (!el) return;
-        if (el.hasAttribute("data-close")) { self.clearAll(); return; }
-        if (el.hasAttribute("data-togglelist")) { self.listOpen = !self.listOpen; self.renderPlate(); return; }
-        if (el.hasAttribute("data-set")) {
-          self.runSet(el.getAttribute("data-set"));
-          pop.querySelectorAll(".kin-row").forEach(function (rw) { rw.classList.remove("on"); });
-          el.classList.add("on");
-        }
-      });
-      stageRow.appendChild(pop);
+      kin = '<div class="plate-section"><div class="plate-sec-head" data-togglelist="1">Explore kin' +
+        '<span class="arr">' + kinArr + "</span></div>" + listHtml + "</div>";
     }
+    var filt = showFilter ? filterSectionHtml(res) : "";
+    var hint = a ? '<div class="lens-hint">the <b>lens</b> is live: hover anyone to read your tie · click a person to select them</div>'
+                 : '<div class="lens-hint">no one selected — hover a <b>?</b> card to hear why the records can’t judge it</div>';
+    pop.innerHTML = head + body + kin + filt + hint;
+    stageRow.appendChild(pop);
+
+    pop.addEventListener("click", function (ev) {
+      var el = ev.target.closest("[data-close],[data-togglelist],[data-set],[data-togglefilter],[data-add],[data-rm],[data-scope],[data-mode],[data-reveal]");
+      ev.stopPropagation();
+      if (!el) return;
+      if (el.hasAttribute("data-close")) { model.clearAll(); return; }
+      if (el.hasAttribute("data-togglelist")) { model.listOpen = !model.listOpen; renderChrome(); return; }
+      if (el.hasAttribute("data-togglefilter")) { model.filterOpen = !model.filterOpen; renderChrome(); return; }
+      if (el.hasAttribute("data-set")) { model.runSet(el.getAttribute("data-set")); return; }
+      if (el.hasAttribute("data-add")) { addPred(); return; }
+      if (el.hasAttribute("data-rm")) { F.preds.splice(+el.getAttribute("data-rm"), 1); repaint(); return; }
+      if (el.hasAttribute("data-scope")) {
+        if (el.classList.contains("off")) return;
+        F.scopeKin = el.getAttribute("data-scope") === "kin"; repaint(); return;
+      }
+      if (el.hasAttribute("data-mode")) { F.mode = el.getAttribute("data-mode"); F.revealUncertain = false; repaint(); return; }
+      if (el.hasAttribute("data-reveal")) { F.revealUncertain = !F.revealUncertain; repaint(); return; }
+    });
+    pop.addEventListener("change", function (ev) { onPredEdit(ev.target); });
+    pop.addEventListener("input", function (ev) {
+      if (ev.target.tagName === "INPUT") onPredEdit(ev.target, true);
+    });
+  }
+  function addPred() {
+    F.preds.push({ field: "family", op: "eq", value: "" });
+    repaint();
+    var inputs = stageRow.querySelectorAll(".f-rows .val");
+    var inp = inputs[inputs.length - 1];
+    if (inp && inp.focus) inp.focus();
+  }
+  function onPredEdit(el, live) {
+    var i = el.getAttribute && el.getAttribute("data-i");
+    if (i === null || i === undefined) return;
+    var p = F.preds[+i], k = el.getAttribute("data-k");
+    if (k === "field") {
+      p.field = el.value;
+      if (opsFor(p.field).indexOf(p.op) < 0) p.op = "eq";
+      if (p.op === "in" && fieldDef(p.field).date) p.op = "eq";
+    } else if (k === "op") {
+      p.op = el.value;
+    } else if (k === "values") {
+      p.values = el.value.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+    } else {
+      p.value = el.value;
+    }
+    /* Typing must not rebuild the widget — that would steal focus every
+       keystroke. Repaint the tree, patch the counters in place. */
+    if (live) { paintFilter(); patchCounters(); syncHint(); return; }
+    repaint();
+  }
+  function patchCounters() {
+    var res = runFilter();
+    var pop = stageRow.querySelector(".pop");
+    if (!pop) return;
+    var tally = pop.querySelector(".f-tally");
+    if (tally) {
+      var holder = document.createElement("div");
+      holder.innerHTML = tallyHtml(res);
+      tally.replaceWith(holder.firstElementChild);
+    }
+    var head = pop.querySelector("[data-togglefilter]");
+    if (head) {
+      var pip = head.querySelector(".pip");
+      if (res.preds.length) {
+        if (!pip) { pip = document.createElement("span"); pip.className = "pip"; head.insertBefore(pip, head.querySelector(".arr")); }
+        pip.textContent = res.shown.length;
+      } else if (pip) { pip.remove(); }
+    }
+  }
+
+  /* =============== variant-2 bar interactions =============== */
+  bar.addEventListener("click", function (ev) {
+    var el = ev.target.closest("[data-chip],[data-rm],[data-add],[data-scopechip],[data-modechip],[data-clear]");
+    if (!el) { closePop(); return; }
+    ev.stopPropagation();
+    if (el.hasAttribute("data-rm")) { F.preds.splice(+el.getAttribute("data-rm"), 1); closePop(); repaint(); return; }
+    if (el.hasAttribute("data-clear")) { F.preds = []; closePop(); repaint(); return; }
+    if (el.hasAttribute("data-add")) {
+      var pop = popAt(el, '<div class="fld-menu">' + FIELDS.map(function (d) {
+        return '<button data-newfield="' + d.f + '">' + d.label + "</button>";
+      }).join("") + "</div><div class=\"hint\">every condition <b>ANDs</b> onto the sentence — there is no OR</div>");
+      pop.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-newfield]");
+        if (!b) return;
+        F.preds.push({ field: b.getAttribute("data-newfield"), op: "eq", value: "" });
+        closePop(); repaint();
+        var chips = bar.querySelectorAll("[data-chip]");
+        if (chips.length) chips[chips.length - 1].click();
+      });
+      return;
+    }
+    if (el.hasAttribute("data-scopechip")) {
+      var kinOk = !!(model.anchor && model.activeSet);
+      var h = '<div class="fld-menu" style="grid-template-columns:1fr">' +
+        '<button data-newscope="all">Everyone (' + ALL.length + ")</button>" +
+        (kinOk ? '<button data-newscope="kin">' + firstName(model.anchor) + "’s " +
+          setById(model.activeSet).label.toLowerCase() + " (" + setById(model.activeSet).fn(model.anchor).length + ")</button>"
+          : "") + "</div>" +
+        (kinOk ? "" : '<div class="hint">run a kin-set query to filter <i>inside</i> it (source: kinOf + where)</div>');
+      var sp = popAt(el, h);
+      sp.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-newscope]");
+        if (!b) return;
+        F.scopeKin = b.getAttribute("data-newscope") === "kin";
+        closePop(); repaint();
+      });
+      return;
+    }
+    if (el.hasAttribute("data-modechip")) {
+      var mp = popAt(el, '<div class="fld-menu" style="grid-template-columns:1fr">' +
+        '<button data-newmode="certain">certain — only provable matches</button>' +
+        '<button data-newmode="includeUncertain">certain + can’t say — include unprovable</button></div>' +
+        '<div class="hint">the third truth value is part of the query, not a display option</div>');
+      mp.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-newmode]");
+        if (!b) return;
+        F.mode = b.getAttribute("data-newmode");
+        closePop(); repaint();
+      });
+      return;
+    }
+    if (el.hasAttribute("data-chip")) {
+      var i = +el.getAttribute("data-chip"), p = F.preds[i];
+      var vc = needsValue(p.op)
+        ? (p.field === "gender"
+            ? '<select data-i="' + i + '" data-k="value">' + ["", "male", "female", "other"].map(function (g) {
+                return '<option value="' + g + '"' + (p.value === g ? " selected" : "") + ">" + (g || "—") + "</option>";
+              }).join("") + "</select>"
+            : '<input data-i="' + i + '" data-k="' + (p.op === "in" ? "values" : "value") + '" value="' +
+              (p.op === "in" ? (p.values || []).join(", ") : (p.value || "")) + '" placeholder="' +
+              (fieldDef(p.field).date ? "1950 · 1950-04 · ~1950" : "exact") + '">')
+        : "";
+      var cp = popAt(el, '<div class="r">' +
+        '<select data-i="' + i + '" data-k="field">' + FIELDS.map(function (d) {
+          return '<option value="' + d.f + '"' + (p.field === d.f ? " selected" : "") + ">" + d.label + "</option>";
+        }).join("") + "</select>" +
+        '<select data-i="' + i + '" data-k="op">' + opsFor(p.field).map(function (o) {
+          return '<option value="' + o + '"' + (p.op === o ? " selected" : "") + ">" + OPS[o] + "</option>";
+        }).join("") + "</select>" + vc + "</div>" +
+        (fieldDef(p.field).date ? '<div class="hint">partial dates are whole periods; <b>~</b> is ±5 years — either can make a person a <b>can’t say</b></div>' : ""));
+      cp.addEventListener("change", function (e) { onBarPredEdit(e.target, el); });
+      cp.addEventListener("input", function (e) { if (e.target.tagName === "INPUT") onBarPredEdit(e.target, el, true); });
+      var fi = cp.querySelector("input");
+      if (fi) fi.focus();
+      return;
+    }
+  });
+  function onBarPredEdit(el, chipEl, live) {
+    var i = el.getAttribute("data-i");
+    if (i === null) return;
+    var p = F.preds[+i], k = el.getAttribute("data-k");
+    if (k === "field") {
+      p.field = el.value;
+      if (opsFor(p.field).indexOf(p.op) < 0) p.op = "eq";
+    } else if (k === "op") { p.op = el.value; }
+    else if (k === "values") { p.values = el.value.split(",").map(function (s) { return s.trim(); }).filter(Boolean); }
+    else { p.value = el.value; }
+    if (live) {                        // repaint the tree, leave the popover alone
+      paintFilter();
+      renderBarTallyOnly();
+      if (chipEl) {                    // keep the sentence honest while typing
+        chipEl.innerHTML = predLabel(p) + ' <span class="x" data-rm="' + i + '">✕</span>';
+      }
+      syncHint();
+      return;
+    }
+    closePop(); repaint();
+    var chips = bar.querySelectorAll("[data-chip]");
+    if (chips[+i]) chips[+i].click();
+  }
+  function renderBarTallyOnly() {
+    var res = runFilter();
+    var tally = bar.querySelector(".fbar-tally");
+    if (!tally) return;
+    var hidden = res.cands.length - res.shown.length;
+    tally.innerHTML = '<span class="num">' + res.shown.length + " of " + res.cands.length + "</span>" +
+      (res.preds.length ? '<span class="hidden-note">' + hidden + " hidden" +
+        (F.mode === "certain" && res.maybe.length ? " · " + res.maybe.length + " can’t say" : "") +
+        ' · <u data-clear="1">clear</u></span>' : "");
+  }
+
+  /* =============== rail interactions =============== */
+  rail.addEventListener("click", function (ev) {
+    var el = ev.target.closest("[data-facet],[data-born],[data-died],[data-scope],[data-pick],[data-mode]");
+    if (!el) return;
+    if (el.hasAttribute("data-scope")) { F.scopeKin = el.getAttribute("data-scope") === "kin"; repaint(); return; }
+    if (el.hasAttribute("data-mode")) { F.mode = el.getAttribute("data-mode"); repaint(); return; }
+    if (el.hasAttribute("data-pick")) { model.select(el.getAttribute("data-pick")); return; }
+    if (el.hasAttribute("data-facet")) {
+      var f = el.getAttribute("data-facet"), st = F.facets[f];
+      if (el.hasAttribute("data-abs")) { st.absent = !st.absent; if (st.absent) st.values = []; }
+      else {
+        var v = el.getAttribute("data-val"), at = st.values.indexOf(v);
+        if (at >= 0) st.values.splice(at, 1); else { st.values.push(v); st.absent = false; }
+      }
+      repaint(); return;
+    }
+    if (el.hasAttribute("data-born")) {
+      var b = el.getAttribute("data-born"), st2 = F.facets.born;
+      if (b === "absent") { st2.absent = !st2.absent; if (st2.absent) st2.bucket = null; }
+      else { st2.bucket = st2.bucket === b ? null : b; st2.absent = false; }
+      repaint(); return;
+    }
+    if (el.hasAttribute("data-died")) {
+      var d = el.getAttribute("data-died");
+      F.facets.died.presence = F.facets.died.presence === d ? null : d;
+      repaint(); return;
+    }
+  });
+  rail.addEventListener("change", function (ev) {
+    if (ev.target.hasAttribute("data-sortfield")) {
+      F.sort = ev.target.value ? { field: ev.target.value, dir: (F.sort && F.sort.dir) || "asc" } : null;
+      renderChrome(); return;
+    }
+    if (ev.target.hasAttribute("data-sortdir") && F.sort) {
+      F.sort.dir = ev.target.value; renderChrome(); return;
+    }
+  });
+  /* hovering a result row pulses its card — the list↔tree tether stance C needs */
+  rail.addEventListener("mouseover", function (ev) {
+    var row = ev.target.closest("[data-pick]");
+    if (!row) return;
+    allCards().forEach(function (c) { c.classList.remove("q-pulse"); });
+    addClass(row.getAttribute("data-pick"), "q-pulse", "canonical");
+  });
+  rail.addEventListener("mouseleave", function () {
+    allCards().forEach(function (c) { c.classList.remove("q-pulse"); });
+  });
+
+  /* =============== variants + chrome =============== */
+  var VARIANTS = [
+    { key: "1", name: "Widget stack", sub: "predicate rows in the details widget · non-matches DIMMED" },
+    { key: "2", name: "Filter bar", sub: "a chip sentence above the tree · non-matches HIDDEN" },
+    { key: "3", name: "Facet rail", sub: "click values, no operators · tree UNTOUCHED + results list" }
+  ];
+  var EXPLAIN = {
+    "1": [["Where it lives", "Inside the <b>right-edge details widget</b> — the surface #276 designated as growable. The widget now stands even with nobody selected (“Everyone · 10 people”)."],
+          ["Input shape", "Stacked <b>field / op / value</b> rows with an explicit <b>and</b> gutter, so conjunction-only is visible in the grammar. Ops are field-aware; ∈ takes a comma list."],
+          ["Certainty", "A <b>segmented control</b> plus a standing disclosure: “N more can’t be judged — excluded, not absent”, with a <u>peek</u>. Can’t-say cards paint <b>amber dashed with a ?</b>."],
+          ["The tree", "Matches glow teal; <b>everyone else dims</b> — the same paint vocabulary kin sets already use."]],
+    "2": [["Where it lives", "<b>Stage chrome</b>, above the tree — independent of selection, always visible, reads left-to-right as a sentence."],
+          ["Input shape", "A <b>chip sentence</b>: <i>Showing Everyone where family = Rossi and born &lt; 1950</i>. Each chip opens a small editor; <b>+</b> picks a field. The <b>and</b> keywords are literal text."],
+          ["Certainty", "A <b>chip inside the sentence</b> (“certain” / “certain + can’t say”) — the third truth value is part of the query, not a view option."],
+          ["The tree", "Non-matches are <b>hidden outright</b> — watch the holes it punches in the canonical layout, and the edges that now lead nowhere."]],
+    "3": [["Where it lives", "A <b>left facet rail</b>, mirroring the right-edge widget — browse, don’t build."],
+          ["Input shape", "<b>No operators at all.</b> Click values; counts are faceted and live. Multi-select inside a text facet becomes <b>∈</b> (the engine’s one any-of); date ranges stay <b>single-select</b>, because two ranges would need OR. The plain-words <i>where</i> line shows what you built."],
+          ["Certainty", "Every facet carries a <b>“not recorded”</b> row (the <i>absent</i> predicate) and a <b>?n</b> superscript counting who can’t be judged. Excluded people are named with reasons, not silently dropped."],
+          ["The tree", "<b>Untouched.</b> Results live in the rail’s list — hover a row to pulse its card, click to select. This is also the only variant where <b>sort</b> means anything."]]
   };
+  var VARIANT = "1";
+  function readVariant() {
+    var m = /[?&]variant=([123])/.exec(location.search);
+    return m ? m[1] : "1";
+  }
+  function setVariant(v, push) {
+    VARIANT = v;
+    root.className = "v" + v;
+    var meta = VARIANTS.filter(function (x) { return x.key === v; })[0];
+    document.getElementById("protoBadge").textContent = "PROTOTYPE · ROUND 10 · VARIANT " + v;
+    document.getElementById("exSummary").innerHTML = "Variant " + v + " — <b>" + meta.name + "</b>";
+    document.getElementById("exBody").innerHTML = "<dl>" + EXPLAIN[v].map(function (r) {
+      return "<dt>" + r[0] + "</dt><dd>" + r[1] + "</dd>";
+    }).join("") + "</dl>";
+    var lbl = document.querySelector(".varbar .vlabel");
+    if (lbl) lbl.innerHTML = v + " — <b>" + meta.name + "</b> · " + meta.sub;
+    if (push && history.replaceState) {
+      history.replaceState(null, "", location.pathname + "?variant=" + v + location.hash);
+    }
+    closePop();
+    repaint();
+  }
+  function renderChrome() {
+    renderWidget();
+    renderBar();
+    renderRail();
+  }
+
+  /* the throwaway switcher — never ships (this whole file is a prototype) */
+  var vb = document.createElement("div");
+  vb.className = "varbar";
+  vb.innerHTML = '<button data-step="-1" title="previous variant">‹</button>' +
+    '<span class="vlabel"></span><button data-step="1" title="next variant">›</button>';
+  document.body.appendChild(vb);
+  vb.addEventListener("click", function (ev) {
+    var b = ev.target.closest("[data-step]");
+    if (!b) return;
+    var i = VARIANTS.map(function (x) { return x.key; }).indexOf(VARIANT);
+    var n = (i + (+b.getAttribute("data-step")) + VARIANTS.length) % VARIANTS.length;
+    setVariant(VARIANTS[n].key, true);
+  });
 
   /* =============== wire the SVG =============== */
   allCards().forEach(function (card) {
@@ -733,11 +1729,21 @@ svg {
     });
   });
   svg.addEventListener("click", function () { model.clearAll(); });
+  document.addEventListener("click", function () { closePop(); });
   document.addEventListener("keydown", function (ev) {
     var tag = (document.activeElement && document.activeElement.tagName) || "";
-    if (/INPUT|TEXTAREA|SELECT/.test(tag) || (document.activeElement && document.activeElement.isContentEditable)) return;
-    if (ev.key === "Escape") model.clearAll();
+    var typing = /INPUT|TEXTAREA|SELECT/.test(tag) ||
+      (document.activeElement && document.activeElement.isContentEditable);
+    if (ev.key === "Escape") { closePop(); model.clearAll(); return; }
+    if (typing) return;
+    if (ev.key === "ArrowLeft" || ev.key === "ArrowRight") {
+      var i = VARIANTS.map(function (x) { return x.key; }).indexOf(VARIANT);
+      var n = (i + (ev.key === "ArrowRight" ? 1 : -1) + VARIANTS.length) % VARIANTS.length;
+      setVariant(VARIANTS[n].key, true);
+    }
   });
+
+  setVariant(readVariant(), false);
 })();
 </script>
 <!--BODY-END-->
