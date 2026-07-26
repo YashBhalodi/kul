@@ -51,6 +51,40 @@ export type {
 export { selectBoundNodes } from "./result-binding.js";
 export type { ResultBinding } from "./result-binding.js";
 
+// The selection seam (ADR-0035, ADR-0042) — one selection over three entity
+// kinds, and the surface every later piece of query chrome hangs off.
+export {
+    SELECTION_CLASS,
+    clearSelectionPaint,
+    createSelectionStore,
+    isSameSelection,
+    paintSelection,
+    selectionAnchorPerson,
+    selectionAtElement,
+    selectionNodes,
+} from "./selection.js";
+export type {
+    EntitySelection,
+    SelectionListener,
+    SelectionStore,
+} from "./selection.js";
+export { REVEAL_LABEL, buildDetailPanel, createDetailPanel } from "./detail-panel.js";
+export type {
+    DetailPanel,
+    DetailPanelModel,
+    PanelField,
+    PanelRow,
+    PanelSection,
+} from "./detail-panel.js";
+export { SYNC_SUSPENDED_HINT, createQuerySurface } from "./query-surface.js";
+export type {
+    QuerySurface,
+    QuerySurfaceOptions,
+    SyncSuspensionReason,
+} from "./query-surface.js";
+export { canonicalCardFor, panToElement, visibleCentre } from "./highlight.js";
+export type { HighlightPanZoom, ScreenBox } from "./highlight.js";
+
 export type {
     EntityRef,
     ErrorRow,
@@ -68,8 +102,6 @@ export type {
 } from "./types.js";
 
 // Re-exports for direct consumption by tests / future webapp.
-export { buildTooltip } from "./tooltip.js";
-export type { TooltipModel } from "./tooltip.js";
 export { LEGEND_ROWS, legendSwatchInnerSvg, presentLegendRows } from "./legend.js";
 export type { LegendRow } from "./legend.js";
 

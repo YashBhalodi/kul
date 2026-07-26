@@ -10,7 +10,7 @@ import { type HighlightPanZoom, highlightEntity } from "./highlight.js";
 import { createLegendController } from "./legend.js";
 import { createLocaleController } from "./locale.js";
 import type { LocaleStore } from "./locale-store.js";
-import { mountHoverTooltip } from "./tooltip.js";
+import { createQuerySurface } from "./query-surface.js";
 import type { EntityRef, ErrorRow, HostAdapter, PreviewHandle } from "./types.js";
 
 /** Optional collaborators a host can supply to {@link mountPreview}. */
@@ -46,9 +46,10 @@ function diagnosticsToErrorRows(diagnostics: ExportedDiagnostic[]): ErrorRow[] {
  * Mount the chrome inside `container`. The container is rewritten with the
  * stage and its regions (ADR-0036) — `#root` in the canvas region, the locale
  * toggle in the flow region, controls / error popover / legend in the overlay
- * stack, the tooltip in the float region — then the runtime wires hover /
- * click / pan-zoom / keyboard / selection-sync / error-popover against
- * `adapter`. Returns the imperative {@link PreviewHandle}.
+ * stack, the details panel in the float layer's dock and the sync hint in the
+ * notify region — then the runtime wires click / pan-zoom / keyboard /
+ * selection / selection-sync / error-popover against `adapter`. Returns the
+ * imperative {@link PreviewHandle}.
  */
 export function mountPreview(
     container: HTMLElement,
@@ -58,7 +59,9 @@ export function mountPreview(
     const engine = options.engine ?? null;
     container.innerHTML = PREVIEW_BODY_HTML;
     const root = container.querySelector("#root") as HTMLElement;
-    const floatRegion = container.querySelector("#kul-region-float") as HTMLElement;
+    const floatDock = container.querySelector(
+        "#kul-region-float-dock",
+    ) as HTMLElement;
     const controls = container.querySelector("#kul-controls") as HTMLElement | null;
     const controlsGroup = container.querySelector(
         "#kul-controls-group",
@@ -70,6 +73,9 @@ export function mountPreview(
         "#kul-error-popover",
     ) as HTMLElement | null;
     const legend = container.querySelector("#kul-legend") as HTMLElement | null;
+    const notifyRegion = container.querySelector(
+        "#kul-region-notify",
+    ) as HTMLElement | null;
 
     // Standing chrome: the toggle is live before the first render, because it
     // is a reading preference rather than a view control.
@@ -96,12 +102,6 @@ export function mountPreview(
         return panZoom as unknown as HighlightPanZoom | null;
     }
 
-    const tooltip = mountHoverTooltip(
-        root,
-        () => (panZoom as unknown) as { getSizes(): { realZoom: number } } | null,
-        floatRegion,
-    );
-
     const errors = createErrorsController({
         errorButton,
         errorPopover,
@@ -127,29 +127,34 @@ export function mountPreview(
         }
     }
 
-    // Click-to-source. Birth/adoption edges also carry data-marriage-id, so
-    // keying on data-link-kind="marriage" (not the bare attr) keeps them inert.
+    // Everything selection-shaped lives behind this one surface: the store
+    // later slices build on, the paint, the details panel, the panel-driven
+    // walk, and the editor-sync suspension.
+    const querySurface = createQuerySurface({
+        root,
+        floatDock,
+        notifyRegion,
+        adapter,
+        lookup: queryDetail,
+        getPanZoom: panZoomForReader,
+        applySyncHighlight,
+    });
+
+    // A locale change re-reads what is already on screen (ADR-0041), and the
+    // open panel is on screen. Today's panel labels are chrome and stay English
+    // (#276 point 6), so this redraws identical words — it is wired now so the
+    // slice that puts phrased rows in the panel adds none of this plumbing.
+    const unsubscribeLocale = locale.subscribe(() => querySurface.refresh());
+
+    // Click selects (ADR-0035). Click-to-source is gone from the tree —
+    // revealing is now the panel header's explicit control, so walking the
+    // family no longer drags the editor's scroll position along with it.
     root.addEventListener("click", (event) => {
         // Clicking a non-focusable SVG doesn't move focus off the text editor;
         // focus #root explicitly so the window keydown handler receives
         // arrows/+/-/0.
         root.focus();
-        const target = event.target as Element | null;
-        const person = target?.closest("[data-person-id]");
-        if (person) {
-            adapter.onRevealRequest({
-                kind: "entity",
-                id: person.getAttribute("data-person-id") ?? "",
-            });
-            return;
-        }
-        const marriage = target?.closest('[data-link-kind="marriage"]');
-        if (marriage) {
-            const id = marriage.getAttribute("data-marriage-id");
-            if (id) {
-                adapter.onRevealRequest({ kind: "entity", id });
-            }
-        }
+        querySurface.handleCanvasClick(event.target as Element | null);
     });
 
     if (controls) {
@@ -204,8 +209,6 @@ export function mountPreview(
         nextProject: ProjectSnapshot | null = null,
     ): void {
         project = nextProject;
-        // Drop the tooltip before its anchor SVG is swapped out.
-        tooltip.close();
         let savedPan: { x: number; y: number } | null = null;
         let savedZoom: number | null = null;
         if (panZoom) {
@@ -225,7 +228,12 @@ export function mountPreview(
             reconcileControlsVisibility();
             return;
         }
-        injectGhostBadges({ svgRoot: svg, root, getPanZoom: panZoomForReader });
+        injectGhostBadges({
+            svgRoot: svg,
+            root,
+            getPanZoom: panZoomForReader,
+            getOccluder: querySurface.occupiedBox,
+        });
         legendCtl.render(svg);
         panZoom = svgPanZoom(svg, {
             zoomEnabled: true,
@@ -238,14 +246,18 @@ export function mountPreview(
             zoomScaleSensitivity: 0.3,
             dblClickZoomEnabled: true,
             mouseWheelZoomEnabled: true,
-            // Any pan/zoom drops the tooltip so it never strands stale.
-            onPan: () => tooltip.close(),
-            onZoom: () => tooltip.close(),
         });
         if (savedZoom !== null && savedPan !== null) {
             panZoom.zoom(savedZoom);
             panZoom.pan(savedPan);
         }
+        // The SVG every piece of query paint was on has just been replaced.
+        // This is the *only* post-render hook query chrome gets, so a slice
+        // that paints (kin results, the filter dim) repaints from inside it
+        // rather than bolting a second call in here. Whether a render should
+        // instead *end* query mode is #304's decision, and
+        // `querySurface.clearSelection()` is the part it composes that from.
+        querySurface.repaintQueryChrome();
         hasRender = true;
         reconcileControlsVisibility();
     }
@@ -256,7 +268,6 @@ export function mountPreview(
         // kul-render-stale class, and surface the errors through the popover.
         // First-open with errors → no SVG yet, panel stays empty; the error
         // button alone signals the failure.
-        tooltip.close();
         setStaleSvg(root, true);
         errors.set(next);
     }
@@ -282,13 +293,14 @@ export function mountPreview(
         return envelope;
     }
 
-    function highlight(ref: EntityRef | null): void {
+    function applySyncHighlight(ref: EntityRef | null): void {
         cancelInFlightPan();
         inFlightPan = highlightEntity(root, panZoomForReader(), ref);
     }
 
     function dispose(): void {
-        tooltip.close();
+        unsubscribeLocale();
+        querySurface.dispose();
         teardownPanZoom();
         teardownKeyboard();
     }
@@ -296,7 +308,7 @@ export function mountPreview(
     return {
         render,
         showErrors,
-        highlightEntity: highlight,
+        highlightEntity: querySurface.syncHighlight,
         queryDetail,
         locale,
         dispose,

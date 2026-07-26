@@ -25,15 +25,13 @@ const themeSheet = readSheet("preview-themes.css");
 const appSheet = readSheet("preview.css");
 
 /**
- * Tier-1 tokens with no consumer yet. The four query paints and the filter
- * alpha are reserved by ADR-0036 for the chrome later slices of epic #296
- * build; they are defined here so the paint vocabulary is decided once, in
- * one place, rather than invented per slice. Every other name must earn its
- * keep — including `--kul-tooltip-*`, whose entry in this lint is what forces
- * the cleanup when #300 deletes `tooltip.ts`.
+ * Tier-1 tokens with no consumer yet. The query paints and the filter alpha
+ * are reserved by ADR-0036 for the chrome later slices of epic #296 build;
+ * they are defined here so the paint vocabulary is decided once, in one place,
+ * rather than invented per slice. Every other name must earn its keep — the
+ * rule that forced `--kul-tooltip-*` out with `tooltip.ts` (#300).
  */
 const RESERVED_PENDING_CONSUMERS = [
-    "--kul-hue-query-selection",
     "--kul-hue-query-result",
     "--kul-hue-query-uncertain",
     "--kul-hue-query-path",
@@ -43,11 +41,17 @@ const RESERVED_PENDING_CONSUMERS = [
 /**
  * Tier-1 tokens whose values are literal hues rather than palette bridges,
  * each documented in place in the theme sheet. This is the *whole* list of
- * places a raw colour may appear in the preview.
+ * places a raw colour may appear in the preview. It is spelled out rather than
+ * derived from the list above, because a reserved hue leaves that list the day
+ * it gains a consumer — the query selection violet did so in #300 — while
+ * staying a literal forever.
  */
 const RESERVED_HUES = [
     "--kul-hue-sync-selection",
-    ...RESERVED_PENDING_CONSUMERS.filter((name) => name !== "--kul-dim-alpha"),
+    "--kul-hue-query-selection",
+    "--kul-hue-query-result",
+    "--kul-hue-query-uncertain",
+    "--kul-hue-query-path",
 ];
 
 /**

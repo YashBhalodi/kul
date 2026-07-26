@@ -160,35 +160,45 @@ describe("mountPreview render lifecycle", () => {
     });
 });
 
-describe("mountPreview click-to-source", () => {
-    it("posts an entity revealRequest for a clicked person card", () => {
+describe("mountPreview click selects — click-to-source is gone (ADR-0035)", () => {
+    it("posts no revealRequest for a clicked person card", () => {
         const { handle, container, reveals } = mount();
         handle.render(SAMPLE_SVG);
         const card = container.querySelector(
             '.kul-card[data-person-id="alice"][data-kind="canonical"]',
         ) as Element;
         card.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-        expect(reveals).toEqual([{ kind: "entity", id: "alice" }]);
+        expect(reveals).toEqual([]);
     });
 
-    it("posts an entity revealRequest for a clicked marriage bar (uses the marriage id)", () => {
+    it("posts no revealRequest for a clicked marriage bar", () => {
         const { handle, container, reveals } = mount();
         handle.render(SAMPLE_SVG);
         const marriage = container.querySelector(
             '.kul-edge[data-link-kind="marriage"][data-marriage-id="m1"]',
         ) as Element;
         marriage.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-        expect(reveals).toEqual([{ kind: "entity", id: "m1" }]);
+        expect(reveals).toEqual([]);
     });
 
-    it("ignores birth/adoption edges (keys on data-link-kind=marriage, not bare data-marriage-id)", () => {
-        const { handle, container, reveals } = mount();
+    it("paints the clicked person, their ghosts included, in the query violet", () => {
+        const { handle, container } = mount();
+        handle.render(SAMPLE_SVG);
+        const card = container.querySelector(
+            '.kul-card[data-person-id="alice"][data-kind="canonical"]',
+        ) as Element;
+        card.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        expect(container.querySelectorAll(".kul-query-selected")).toHaveLength(2);
+    });
+
+    it("ignores birth edges — they carry a marriage id but are not selectable", () => {
+        const { handle, container } = mount();
         handle.render(SAMPLE_SVG);
         const birth = container.querySelector(
             '.kul-edge[data-link-kind="birth"]',
         ) as Element;
         birth.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-        expect(reveals).toEqual([]);
+        expect(container.querySelectorAll(".kul-query-selected")).toHaveLength(0);
     });
 });
 
@@ -228,65 +238,6 @@ describe("mountPreview selection sync (highlightEntity)", () => {
         handle.highlightEntity({ id: "alice", kind: "person" });
         handle.highlightEntity(null);
         expect(container.querySelectorAll(".kul-selected")).toHaveLength(0);
-    });
-});
-
-describe("mountPreview hover tooltip", () => {
-    it("delegates hover on the rendered SVG and shows a .kul-tooltip after the hover-intent delay", async () => {
-        vi.useFakeTimers();
-        try {
-            const { handle, container } = mount();
-            handle.render(SAMPLE_SVG);
-            const card = container.querySelector(
-                '.kul-card[data-person-id="alice"][data-kind="canonical"]',
-            ) as Element;
-            card.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-            expect(document.querySelector(".kul-tooltip")).toBeNull();
-            await vi.advanceTimersByTimeAsync(400);
-            const tip = document.querySelector(".kul-tooltip");
-            expect(tip).not.toBeNull();
-            expect(tip?.querySelector(".kul-tooltip-kind")?.textContent).toBe("Person");
-            expect(tip?.querySelector(".kul-tooltip-title")?.textContent).toBe("Alice");
-        } finally {
-            vi.useRealTimers();
-        }
-    });
-
-    it("tears the tooltip down on render", async () => {
-        vi.useFakeTimers();
-        try {
-            const { handle, container } = mount();
-            handle.render(SAMPLE_SVG);
-            const card = container.querySelector(
-                '.kul-card[data-person-id="alice"][data-kind="canonical"]',
-            ) as Element;
-            card.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-            await vi.advanceTimersByTimeAsync(400);
-            expect(document.querySelector(".kul-tooltip")).not.toBeNull();
-            handle.render(SAMPLE_SVG);
-            expect(document.querySelector(".kul-tooltip")).toBeNull();
-        } finally {
-            vi.useRealTimers();
-        }
-    });
-
-    it("includes a field grid for non-empty person properties", async () => {
-        vi.useFakeTimers();
-        try {
-            const { handle, container } = mount();
-            handle.render(SAMPLE_SVG);
-            const card = container.querySelector(
-                '.kul-card[data-person-id="alice"][data-kind="canonical"]',
-            ) as Element;
-            card.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-            await vi.advanceTimersByTimeAsync(400);
-            const labels = Array.from(
-                document.querySelectorAll(".kul-tooltip-fields .kul-tooltip-label"),
-            ).map((n) => n.textContent);
-            expect(labels).toContain("Gender");
-        } finally {
-            vi.useRealTimers();
-        }
     });
 });
 

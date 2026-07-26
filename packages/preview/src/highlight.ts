@@ -7,15 +7,81 @@ export interface HighlightPanZoom {
 
 export const PAN_ANIM_MS = 500;
 
+/** A rectangle in viewport pixels. */
+export interface ScreenBox {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+}
+
 /**
- * Translate-only animated pan that centres `el`'s bbox in the viewport.
+ * Where a centred entity should land, given a panel floating over the canvas.
+ *
+ * The details panel overlays rather than docks (ADR-0036), so the raw viewport
+ * centre can park a card behind it — and the panel is precisely how off-screen
+ * ancestors get discovered, which makes an invisible selection a dead end
+ * (ADR-0035). Centring therefore targets the **visible** region.
+ *
+ * `occluder` is in viewport-local pixels (origin at the pan/zoom viewport's
+ * top-left). The free strip on each side of it is measured and the wider one
+ * wins, so nothing here assumes which edge the panel sits on. Only the
+ * horizontal axis moves: the panel is a full-height side panel, so the vertical
+ * centre is never the crowded one, and shifting it would fight the reader's
+ * expectation that a centred card is vertically centred.
+ */
+export function visibleCentre(
+    viewport: { width: number; height: number },
+    occluder: ScreenBox | null,
+): { x: number; y: number } {
+    const full = { x: viewport.width / 2, y: viewport.height / 2 };
+    if (!occluder) {
+        return full;
+    }
+    const left = Math.max(0, Math.min(viewport.width, occluder.left));
+    const right = Math.max(0, Math.min(viewport.width, occluder.right));
+    if (right <= left) {
+        return full;
+    }
+    const roomLeft = left;
+    const roomRight = viewport.width - right;
+    if (roomLeft <= 0 && roomRight <= 0) {
+        // The panel spans the whole viewport: there is no visible region to
+        // centre in, so the raw centre is the honest answer.
+        return full;
+    }
+    return roomLeft >= roomRight
+        ? { x: roomLeft / 2, y: full.y }
+        : { x: right + roomRight / 2, y: full.y };
+}
+
+/**
+ * The person's canonical card in `root`, or `null`. Ghost cards are excluded:
+ * a person owns one canonical card and any number of ghosts, and only the
+ * canonical one is a place to be taken to.
+ */
+export function canonicalCardFor(
+    root: ParentNode,
+    personId: string,
+): Element | null {
+    return (
+        Array.from(root.querySelectorAll('[data-person-id][data-kind="canonical"]')).find(
+            (card) => card.getAttribute("data-person-id") === personId,
+        ) ?? null
+    );
+}
+
+/**
+ * Translate-only animated pan that centres `el`'s bbox in the visible region.
  * svg-pan-zoom maps a user-coord point to viewport pixels as `pan + realZoom *
- * point`, so the pan that centres a bbox is `width/2 - centre * realZoom`.
+ * point`, so the pan that centres a bbox is `centre - point * realZoom`, where
+ * the centre accounts for any `occluder` floating over the canvas.
  * Returns a `cancel()` so a new highlight can preempt the in-flight tween.
  */
 export function panToElement(
     panZoom: HighlightPanZoom | null,
     el: Element,
+    occluder: ScreenBox | null = null,
 ): { cancel(): void } {
     if (!panZoom || typeof (el as SVGGraphicsElement).getBBox !== "function") {
         return { cancel() {} };
@@ -28,8 +94,9 @@ export function panToElement(
     const realZoom = sizes.realZoom;
     const cx = bbox.x + bbox.width / 2;
     const cy = bbox.y + bbox.height / 2;
-    const targetX = sizes.width / 2 - cx * realZoom;
-    const targetY = sizes.height / 2 - cy * realZoom;
+    const centre = visibleCentre(sizes, occluder);
+    const targetX = centre.x - cx * realZoom;
+    const targetY = centre.y - cy * realZoom;
     const start = panZoom.getPan();
     const dx = targetX - start.x;
     const dy = targetY - start.y;

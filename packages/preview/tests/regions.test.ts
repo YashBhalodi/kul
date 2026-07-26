@@ -101,12 +101,30 @@ describe("the stage's regions", () => {
         ]);
     });
 
+    it("declares both float placements, so a later float picks one", () => {
+        // ADR-0042: edge-docked chrome joins the dock; entity-anchored chrome
+        // (#302's lens pill, positioned by JS against a hovered card) is
+        // appended to the layer itself and is unaffected by the dock's flow.
+        const { container } = mount();
+        const layer = container.querySelector("#kul-region-float") as HTMLElement;
+        const dock = container.querySelector(
+            "#kul-region-float-dock",
+        ) as HTMLElement;
+        expect(dock.parentElement).toBe(layer);
+        expect(ruleBody(".kul-region-float")).not.toMatch(/display\s*:\s*flex/);
+        expect(ruleBody(".kul-region-float-dock")).toMatch(/display\s*:\s*flex/);
+    });
+
     it("leaves placement to the region, not to the chrome inside it", () => {
         const placement = /(^|\s)(position|top|right|bottom|left|inset|z-index)\s*:/;
         for (const selector of [
             ".kul-preview-controls",
             ".kul-error-popover",
             ".kul-preview-legend",
+            // The details panel joins the float region and the sync hint the
+            // notify region by being appended — neither invents an inset.
+            ".kul-query-panel",
+            ".kul-sync-hint",
         ]) {
             expect(ruleBody(selector)).not.toMatch(placement);
         }
