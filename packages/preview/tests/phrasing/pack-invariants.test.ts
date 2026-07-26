@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { PACKS } from "../../src/phrasing/packs/index.js";
-import { PHRASING_FACETS, phrasingKeyOf, specificityOf } from "../../src/phrasing/index.js";
-import { affixOrderKey, affixVerdict, facetsMatch } from "../../src/phrasing/lexicalize.js";
+import { PHRASING_FACETS } from "../../src/phrasing/index.js";
 import { phrase } from "../../src/phrasing/phrase.js";
 import type { LanguagePack } from "../../src/phrasing/pack.js";
 import { enumerateDescriptors, type EnumerationBounds } from "./enumerate.js";
+import { describePath, findAffixConflicts, findEntryConflicts } from "./pack-audit.js";
 
 /**
  * The pack suites. They walk `PACKS`, so a new language pack inherits every
@@ -37,6 +37,28 @@ const COVERAGE_BOUNDS: EnumerationBounds = {
 
 const conflictDescriptors = enumerateDescriptors(CONFLICT_BOUNDS, PACKS);
 const coverageDescriptors = enumerateDescriptors(COVERAGE_BOUNDS, PACKS);
+
+/**
+ * The suites below are only as good as what the enumeration reaches, and the
+ * value most easily lost is the one that matters most: `unknown` disqualifies
+ * every entry keying its facet, no pack may key it (so it can never be picked
+ * up from the packs themselves), and it is what the engine emits whenever a
+ * birth date is missing. Guard it directly rather than trusting a list order.
+ */
+describe("the bounded enumeration", () => {
+    it.each([["seniority"], ["apexSeniority"]] as const)(
+        "reaches `unknown` on %s, where the never-guess rule bites",
+        (facet) => {
+            expect(new Set(conflictDescriptors.map((d) => d[facet]))).toContain("unknown");
+            expect(new Set(coverageDescriptors.map((d) => d[facet]))).toContain("unknown");
+        },
+    );
+
+    it("reaches both `sharing` values wherever a junction exists", () => {
+        const atJunctions = conflictDescriptors.filter((d) => d.sharing !== "notApplicable");
+        expect(new Set(atJunctions.map((d) => d.sharing))).toEqual(new Set(["full", "half"]));
+    });
+});
 
 describe.each(PACKS.map((pack) => [pack.code, pack] as const))("pack %s", (_code, pack) => {
     it("declares only facets the key space has, and never keys `unknown`", () => {
@@ -109,44 +131,11 @@ describe.each(PACKS.map((pack) => [pack.code, pack] as const))("pack %s", (_code
     });
 
     it("has no two entries winning one key with equal specificity and different terms", () => {
-        const conflicts = new Set<string>();
-        for (const descriptor of conflictDescriptors) {
-            const key = phrasingKeyOf(descriptor);
-            let best = -1;
-            let winners: string[] = [];
-            for (const entry of pack.entries) {
-                if (!facetsMatch(entry.when, key)) continue;
-                const specificity = specificityOf(entry.when);
-                if (specificity > best) {
-                    best = specificity;
-                    winners = [entry.term];
-                } else if (specificity === best) {
-                    winners.push(entry.term);
-                }
-            }
-            if (new Set(winners).size > 1) {
-                conflicts.add(`${[...new Set(winners)].sort().join(" | ")} on ${describePath(descriptor)}`);
-            }
-        }
-        expect([...conflicts].slice(0, 10)).toEqual([]);
+        expect(findEntryConflicts(pack, conflictDescriptors).slice(0, 10)).toEqual([]);
     });
 
     it("has no two affix rules firing on one key in the same order slot", () => {
-        const conflicts = new Set<string>();
-        for (const descriptor of conflictDescriptors) {
-            const key = phrasingKeyOf(descriptor);
-            const slots = new Map<string, string>();
-            for (const rule of pack.affixes) {
-                if (affixVerdict(rule, key).kind !== "fires") continue;
-                const slot = JSON.stringify(affixOrderKey(rule));
-                const held = slots.get(slot);
-                if (held !== undefined && held !== rule.affix) {
-                    conflicts.add(`${held} | ${rule.affix} on ${describePath(descriptor)}`);
-                }
-                slots.set(slot, rule.affix);
-            }
-        }
-        expect([...conflicts]).toEqual([]);
+        expect(findAffixConflicts(pack, conflictDescriptors)).toEqual([]);
     });
 
     it("names the empty path, so `self` never phrases as nothing", () => {
@@ -170,8 +159,4 @@ function nonEmpty(
     gender: "male" | "female" | "other",
 ): boolean {
     return pack.hops[step][gender].trim().length > 0;
-}
-
-function describePath(descriptor: { path: ReadonlyArray<{ step: string; gender: string }> }): string {
-    return descriptor.path.map((hop) => `${hop.step}:${hop.gender[0]}`).join("·") || "(self)";
 }

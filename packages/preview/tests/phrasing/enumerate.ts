@@ -85,9 +85,23 @@ function keyedValues(packs: ReadonlyArray<LanguagePack>, facet: keyof PhrasingKe
 
 /**
  * Keep the first candidate (always) plus every candidate some pack can
- * discriminate on. The enumeration therefore *widens itself* as packs grow: a
- * pack that starts keying `apexSeniority` gets those keys enumerated for free,
- * with no test change.
+ * discriminate on, so the enumeration *widens itself* as packs grow: a pack
+ * that starts keying `apexSeniority` gets those keys enumerated for free, with
+ * no test change.
+ *
+ * Two invariants make that safe, and both are easy to lose:
+ *
+ * 1. **A value no pack keys must always be represented.** Otherwise every
+ *    enumerated key matches some specific entry, and a conflict between two
+ *    coarse entries — the ones that only surface when the specific entries are
+ *    out — is never reached. Index 0 is kept for this, but index 0 may itself
+ *    be a keyed value, so an unkeyed candidate is added when none survived.
+ * 2. **`unknown` must sit at index 0 of any candidate list that has one.** It
+ *    is not merely another value: it disqualifies *every* entry keying that
+ *    facet, whatever value the entry keys, and a pack may never key it (the
+ *    pack-invariant suite forbids that), so `keyedValues` can never surface it.
+ *    It is also what the engine emits whenever a birth date is missing — the
+ *    most common real descriptor there is.
  */
 function narrow<T>(
     candidates: ReadonlyArray<T>,
@@ -95,7 +109,12 @@ function narrow<T>(
     packs: ReadonlyArray<LanguagePack>,
 ): T[] {
     const keyed = keyedValues(packs, facet);
-    return candidates.filter((value, index) => index === 0 || keyed.has(value));
+    const kept = candidates.filter((value, index) => index === 0 || keyed.has(value));
+    if (!kept.some((value) => !keyed.has(value))) {
+        const unkeyed = candidates.find((value) => !keyed.has(value));
+        if (unkeyed !== undefined) kept.push(unkeyed);
+    }
+    return kept;
 }
 
 function sideOfGender(gender: Gender): Side {
@@ -172,15 +191,18 @@ export function enumerateDescriptors(
                             ups[0] === 0 || length <= 1
                                 ? "notApplicable"
                                 : sideOfGender(genders[0] ?? "male");
+                        // `unknown` leads both seniority lists: it is the value
+                        // a missing birth date yields, and `narrow` keeps
+                        // index 0 unconditionally (see its invariants).
                         const sides = couplePossible ? [sideBase, "both" as Side] : [sideBase];
                         const sharings: Sharing[] = hasJunction
                             ? ["full", "half"]
                             : ["notApplicable"];
                         const apexSeniorities: Seniority[] = hasJunction
-                            ? ["elder", "younger", "unknown"]
+                            ? ["unknown", "elder", "younger"]
                             : ["notApplicable"];
                         const seniorities: Seniority[] =
-                            length === 0 ? ["notApplicable"] : ["elder", "younger", "unknown"];
+                            length === 0 ? ["notApplicable"] : ["unknown", "elder", "younger"];
 
                         for (const side of narrow(sides, "side", packs)) {
                             for (const sharing of narrow(sharings, "sharing", packs)) {
