@@ -25,12 +25,11 @@ const themeSheet = readSheet("preview-themes.css");
 const appSheet = readSheet("preview.css");
 
 /**
- * Tier-1 tokens with no consumer yet. The four query paints and the filter
- * alpha are reserved by ADR-0036 for the chrome later slices of epic #296
- * build; they are defined here so the paint vocabulary is decided once, in
- * one place, rather than invented per slice. Every other name must earn its
- * keep — including `--kul-tooltip-*`, whose entry in this lint is what forces
- * the cleanup when #300 deletes `tooltip.ts`.
+ * Tier-1 tokens with no consumer yet. The query paints and the filter alpha
+ * are reserved by ADR-0036 for the chrome later slices of epic #296 build;
+ * they are defined here so the paint vocabulary is decided once, in one place,
+ * rather than invented per slice. Every other name must earn its keep — the
+ * rule that forced `--kul-tooltip-*` out with `tooltip.ts` (#300).
  */
 const RESERVED_PENDING_CONSUMERS = [
     "--kul-hue-query-selection",

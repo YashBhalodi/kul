@@ -10,7 +10,6 @@ import { type HighlightPanZoom, highlightEntity } from "./highlight.js";
 import { createLegendController } from "./legend.js";
 import { createLocaleController } from "./locale.js";
 import type { LocaleStore } from "./locale-store.js";
-import { mountHoverTooltip } from "./tooltip.js";
 import type { EntityRef, ErrorRow, HostAdapter, PreviewHandle } from "./types.js";
 
 /** Optional collaborators a host can supply to {@link mountPreview}. */
@@ -46,9 +45,9 @@ function diagnosticsToErrorRows(diagnostics: ExportedDiagnostic[]): ErrorRow[] {
  * Mount the chrome inside `container`. The container is rewritten with the
  * stage and its regions (ADR-0036) — `#root` in the canvas region, the locale
  * toggle in the flow region, controls / error popover / legend in the overlay
- * stack, the tooltip in the float region — then the runtime wires hover /
- * click / pan-zoom / keyboard / selection-sync / error-popover against
- * `adapter`. Returns the imperative {@link PreviewHandle}.
+ * stack — then the runtime wires click / pan-zoom / keyboard / selection-sync
+ * / error-popover against `adapter`. Returns the imperative
+ * {@link PreviewHandle}.
  */
 export function mountPreview(
     container: HTMLElement,
@@ -95,12 +94,6 @@ export function mountPreview(
     function panZoomForReader(): HighlightPanZoom | null {
         return panZoom as unknown as HighlightPanZoom | null;
     }
-
-    const tooltip = mountHoverTooltip(
-        root,
-        () => (panZoom as unknown) as { getSizes(): { realZoom: number } } | null,
-        floatRegion,
-    );
 
     const errors = createErrorsController({
         errorButton,
@@ -204,8 +197,6 @@ export function mountPreview(
         nextProject: ProjectSnapshot | null = null,
     ): void {
         project = nextProject;
-        // Drop the tooltip before its anchor SVG is swapped out.
-        tooltip.close();
         let savedPan: { x: number; y: number } | null = null;
         let savedZoom: number | null = null;
         if (panZoom) {
@@ -238,9 +229,6 @@ export function mountPreview(
             zoomScaleSensitivity: 0.3,
             dblClickZoomEnabled: true,
             mouseWheelZoomEnabled: true,
-            // Any pan/zoom drops the tooltip so it never strands stale.
-            onPan: () => tooltip.close(),
-            onZoom: () => tooltip.close(),
         });
         if (savedZoom !== null && savedPan !== null) {
             panZoom.zoom(savedZoom);
@@ -256,7 +244,6 @@ export function mountPreview(
         // kul-render-stale class, and surface the errors through the popover.
         // First-open with errors → no SVG yet, panel stays empty; the error
         // button alone signals the failure.
-        tooltip.close();
         setStaleSvg(root, true);
         errors.set(next);
     }
@@ -288,7 +275,6 @@ export function mountPreview(
     }
 
     function dispose(): void {
-        tooltip.close();
         teardownPanZoom();
         teardownKeyboard();
     }

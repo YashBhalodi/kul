@@ -194,26 +194,6 @@ body {
     --kul-control-divider-color: var(--kul-border);
     --kul-control-divider-height: 18px;
 
-    /* ── Tier 2 · hover tooltip ────────────────────────────────────────── */
-    --kul-tooltip-bg: var(--kul-raised);
-    --kul-tooltip-fg: var(--kul-on-surface);
-    --kul-tooltip-border-color: var(--kul-border);
-    --kul-tooltip-shadow-color: var(--kul-shadow);
-    --kul-tooltip-label-fg: var(--kul-muted);
-    --kul-tooltip-kind-fg: var(--kul-muted);
-    --kul-tooltip-title-fg: var(--kul-on-surface);
-    --kul-tooltip-separator-color: var(--kul-border);
-    --kul-tooltip-font-size: var(--kul-font-size-base);
-    --kul-tooltip-max-width: 320px;
-    --kul-tooltip-padding: var(--kul-space-3) calc(var(--kul-space-4) + var(--kul-space-1));
-    --kul-tooltip-radius: var(--kul-radius-sm);
-    --kul-tooltip-row-gap: var(--kul-space-1);
-    --kul-tooltip-col-gap: var(--kul-space-5);
-    --kul-tooltip-header-gap: var(--kul-space-3);
-    --kul-tooltip-header-line-gap: 1px;
-    --kul-tooltip-kind-font-size: 0.85em;
-    --kul-tooltip-title-weight: 600;
-
     /* ── Tier 2 · chrome legend (ADR-0022) ─────────────────────────────── */
     --kul-legend-bg: var(--kul-raised);
     --kul-legend-fg: var(--kul-on-surface);

@@ -25,7 +25,7 @@ docs/
 spec/          — Kul 0.1 language specification (the normative source of truth)
 editor/vscode/ — VSCode extension (LSP-backed, published to both the VS Code Marketplace and Open VSX). Thin host over `@kullang/preview` for the preview chrome.
 packages/
-  preview/     — `@kullang/preview` npm workspace package: webview chrome (HTML shell, bootstrap, tooltip, legend, pan/zoom controls, error popover, ghost-badge injection, selection-sync highlighting, `--kul-*` theme tokens, and the lazily-loaded query engine seam). Consumed by the VSCode extension via a `HostAdapter` (ADR-0016 amendment 2026-06-09)
+  preview/     — `@kullang/preview` npm workspace package: webview chrome (HTML shell, bootstrap, legend, pan/zoom controls, error popover, ghost-badge injection, selection-sync highlighting, the entity selection seam and its details panel, `--kul-*` theme tokens, and the lazily-loaded query engine seam). Consumed by the VSCode extension via a `HostAdapter` (ADR-0016 amendment 2026-06-09)
 examples/      — `.kul` corpus used as both docs and the positive test corpus
 skills/        — agentskills.io-compliant skills delivered separately via `npx skills add` (see `skills/kul-authoring/`)
 CONTEXT.md     — domain glossary; canonical vocabulary for the project

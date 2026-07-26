@@ -481,66 +481,6 @@ body {
     outline-offset: var(--kul-selected-outline-offset);
 }
 
-/* JS-injected hover tooltip — an entity-anchored float. Bootstrap appends it
- * to the float region and sets fixed left/top after measuring +
- * viewport-clamping, so the rule supplies only the box. pointer-events:none
- * keeps it from intercepting hover/click underneath and prevents it from
- * flickering its own mouseout. */
-.kul-tooltip {
-    position: fixed;
-    max-width: var(--kul-tooltip-max-width);
-    padding: var(--kul-tooltip-padding);
-    background-color: var(--kul-tooltip-bg);
-    color: var(--kul-tooltip-fg);
-    border: 1px solid var(--kul-tooltip-border-color);
-    border-radius: var(--kul-tooltip-radius);
-    box-shadow: 0 2px 8px var(--kul-tooltip-shadow-color);
-    font-size: var(--kul-tooltip-font-size);
-    pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    gap: var(--kul-tooltip-row-gap);
-}
-
-.kul-tooltip-header {
-    display: flex;
-    flex-direction: column;
-    gap: var(--kul-tooltip-header-line-gap);
-}
-
-/* Hairline divider only when rows follow — a header-only tooltip has no
- * dangling separator. */
-.kul-tooltip-header:not(:last-child) {
-    margin-bottom: var(--kul-tooltip-header-gap);
-    padding-bottom: var(--kul-tooltip-header-gap);
-    border-bottom: 1px solid var(--kul-tooltip-separator-color);
-}
-
-.kul-tooltip-kind {
-    font-size: var(--kul-tooltip-kind-font-size);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--kul-tooltip-kind-fg);
-}
-
-.kul-tooltip-title {
-    font-weight: var(--kul-tooltip-title-weight);
-    color: var(--kul-tooltip-title-fg);
-}
-
-/* Two-column grid (label | value) so both columns line up across rows
- * regardless of label/value width. */
-.kul-tooltip-fields {
-    display: grid;
-    grid-template-columns: auto auto;
-    column-gap: var(--kul-tooltip-col-gap);
-    row-gap: var(--kul-tooltip-row-gap);
-}
-
-.kul-tooltip-label {
-    color: var(--kul-tooltip-label-fg);
-}
-
 /* Chrome legend (ADR-0022): compact overlay-region member listing the
  * diagram's visual vocabulary. Swatches carry production .kul-card/.kul-edge
  * classes + data-* attributes, so the rules above paint them with the same

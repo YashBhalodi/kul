@@ -68,8 +68,6 @@ export type {
 } from "./types.js";
 
 // Re-exports for direct consumption by tests / future webapp.
-export { buildTooltip } from "./tooltip.js";
-export type { TooltipModel } from "./tooltip.js";
 export { LEGEND_ROWS, legendSwatchInnerSvg, presentLegendRows } from "./legend.js";
 export type { LegendRow } from "./legend.js";
 

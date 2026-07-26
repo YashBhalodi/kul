@@ -231,65 +231,6 @@ describe("mountPreview selection sync (highlightEntity)", () => {
     });
 });
 
-describe("mountPreview hover tooltip", () => {
-    it("delegates hover on the rendered SVG and shows a .kul-tooltip after the hover-intent delay", async () => {
-        vi.useFakeTimers();
-        try {
-            const { handle, container } = mount();
-            handle.render(SAMPLE_SVG);
-            const card = container.querySelector(
-                '.kul-card[data-person-id="alice"][data-kind="canonical"]',
-            ) as Element;
-            card.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-            expect(document.querySelector(".kul-tooltip")).toBeNull();
-            await vi.advanceTimersByTimeAsync(400);
-            const tip = document.querySelector(".kul-tooltip");
-            expect(tip).not.toBeNull();
-            expect(tip?.querySelector(".kul-tooltip-kind")?.textContent).toBe("Person");
-            expect(tip?.querySelector(".kul-tooltip-title")?.textContent).toBe("Alice");
-        } finally {
-            vi.useRealTimers();
-        }
-    });
-
-    it("tears the tooltip down on render", async () => {
-        vi.useFakeTimers();
-        try {
-            const { handle, container } = mount();
-            handle.render(SAMPLE_SVG);
-            const card = container.querySelector(
-                '.kul-card[data-person-id="alice"][data-kind="canonical"]',
-            ) as Element;
-            card.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-            await vi.advanceTimersByTimeAsync(400);
-            expect(document.querySelector(".kul-tooltip")).not.toBeNull();
-            handle.render(SAMPLE_SVG);
-            expect(document.querySelector(".kul-tooltip")).toBeNull();
-        } finally {
-            vi.useRealTimers();
-        }
-    });
-
-    it("includes a field grid for non-empty person properties", async () => {
-        vi.useFakeTimers();
-        try {
-            const { handle, container } = mount();
-            handle.render(SAMPLE_SVG);
-            const card = container.querySelector(
-                '.kul-card[data-person-id="alice"][data-kind="canonical"]',
-            ) as Element;
-            card.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-            await vi.advanceTimersByTimeAsync(400);
-            const labels = Array.from(
-                document.querySelectorAll(".kul-tooltip-fields .kul-tooltip-label"),
-            ).map((n) => n.textContent);
-            expect(labels).toContain("Gender");
-        } finally {
-            vi.useRealTimers();
-        }
-    });
-});
-
 describe("mountPreview renderError last-good persistence (#203)", () => {
     it("does NOT wipe #root on showErrors (keeps the last-good SVG mounted)", () => {
         const { handle, container } = mount();
