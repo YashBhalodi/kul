@@ -19,7 +19,15 @@ interface Stage {
     card(id: string): Element;
 }
 
-/** Give a card a definite screen box; jsdom lays nothing out on its own. */
+/**
+ * Give a card a definite screen box; jsdom lays nothing out on its own.
+ *
+ * The *tag's* own box stays 0×0 for the same reason, which means `halfWidth` is
+ * always 0 here and the horizontal viewport clamp is a no-op in every case
+ * below. The clamp is therefore **not** covered by this suite and cannot be
+ * from this stack — the same limit `tokens.test.ts` records for computed
+ * styles. What is covered is that the tag docks under its anchor and follows it.
+ */
 function stubBox(
     card: Element,
     box: { left: number; bottom: number; width: number },

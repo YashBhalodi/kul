@@ -918,6 +918,43 @@ describe("a live read outranks the paint the reader left behind", () => {
         });
     });
 
+    it("publishes nothing for an unrelated pair, which traces nobody", async () => {
+        // An empty exemption exempts no one, and publishing it would walk every
+        // card in the picture to change nothing — then walk it again on the
+        // dismiss that withdrew it.
+        const published: Array<ReadonlyArray<string> | null> = [];
+        const h = harness({
+            async resolve() {
+                return {
+                    ok: true,
+                    result: { relationships: [], emptyReason: "noneWithinBounds" },
+                };
+            },
+        });
+        const lens = createHoverLens({
+            root: h.root,
+            layer: h.stage.querySelector("#kul-region-float") as HTMLElement,
+            selection: h.surface.selection,
+            async resolve() {
+                return {
+                    ok: true,
+                    result: { relationships: [], emptyReason: "noneWithinBounds" },
+                };
+            },
+            bindPhrase: () => () => {},
+            onTrace: (ids) => published.push(ids === null ? null : [...ids]),
+        });
+        h.surface.selection.select({ kind: "person", id: "giulia" });
+        lens.handleHover(cardOf(h.root, "marco").querySelector("rect"));
+        await settle();
+        // The pill is up — the whisper still happened — and nothing was published.
+        expect(h.stage.querySelectorAll(".kul-lens-empty").length).toBeGreaterThan(0);
+        expect(published).toEqual([]);
+        lens.dismiss();
+        expect(published).toEqual([]);
+        lens.dispose();
+    });
+
     it("lifts the kin dim off the persons the trace runs through", async () => {
         // The end-to-end shape of ADR-0043's rule, through the real surface:
         // paint a kin set that excludes `marco`, then hover a card whose answer

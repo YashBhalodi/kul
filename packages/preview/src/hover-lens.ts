@@ -271,7 +271,11 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
     let tracing = false;
 
     function publishTrace(personIds: string[] | null): void {
-        if (personIds === null) {
+        // An **empty** trace is a withdrawal, not a publication. An unrelated
+        // pair whispers a bounded form and traces nobody, so publishing `[]`
+        // would exempt no one while still walking every card in the picture —
+        // twice, since the next dismiss would withdraw it again.
+        if (personIds === null || personIds.length === 0) {
             if (!tracing) {
                 return;
             }

@@ -74,10 +74,13 @@ its genitive.
 directions. [`docs/kinship-term-inventory.md`](../kinship-term-inventory.md) supplies the romanization
 wherever it has a row for the term. It does not have one for everything the `gu` pack ships: #299 added
 entries the inventory does not list (*pote*, *jīvansāthī*, *vālī*, *santān*, *sahodar*, the *savko
-dīkro* / *savkī dīkrī* pair) and a hop lexicon it never had (*mātā* among them), and four gendered
-sibling forms are normalised to the pack's own *bahen* where the inventory writes the *ben* variant
-(*moṭī bahen*, *nānī bahen*, *pitrāī bahen*, *masiyāī bahen*). So: **the inventory's Latin column where
-it has one, extended by hand for what #299 added beyond it**, following the same conventions.
+dīkro* / *savkī dīkrī* pair), four of the nine hop nouns (*mātā*, *vālī*, *santān*, *jīvansāthī* — the
+other five, *pitā*, *putra*, *putrī*, *pati* and *patnī*, are in it verbatim), and four gendered
+sibling forms normalised to the pack's own *bahen* where the inventory writes the *ben* variant
+(*moṭī bahen*, *nānī bahen*, *pitrāī bahen*, *masiyāī bahen*). Exactly **six** are lexemes the
+document does not contain at all — *jīvansāthī*, *mātā*, *pote*, *sahodar*, *santān*, *vālī*;
+everything else written by hand recombines forms it does have. So: **the inventory's Latin column
+where it has one, extended by hand for what #299 added beyond it**, following the same conventions.
 
 Covering the **composed** forms rather than entries alone is the part worth defending, because
 entries alone would have satisfied ADR-0041's literal description. A genitive chain is precisely where
@@ -174,9 +177,10 @@ card and a pill is docked under it, so the card under one's own cursor is not a 
 colour to be located. The hues are spent where a reader cannot otherwise tell — which is what the sky
 path is for.
 
-So `--kul-hue-query-uncertain` and `--kul-hue-query-result` stay in ADR-0038's
-`RESERVED_PENDING_CONSUMERS`, and `--kul-hue-query-path` leaves it — the converse assertion that
-carve-out was written to force, firing for the second time.
+So `--kul-hue-query-path` leaves ADR-0038's `RESERVED_PENDING_CONSUMERS` and
+`--kul-hue-query-uncertain` stays — the converse assertion that carve-out was written to force,
+firing for the **third** time. The list was created with four names; the selection violet left with
+#300, the result teal with #301, the sky here. The amber is the last one standing, and it is #303's.
 
 ### The trace shows the middle, because the ends are already shown
 
@@ -269,8 +273,10 @@ need that does not exist and would quietly couple this set to a rule that belong
 The alter *is* in it: it is the card under the pointer with the pill docked to it, and the reader
 should not be pointing at something at 30%.
 
-The withdraw is guarded on whether anything was ever published, because withdrawing walks every card
-in the picture. A pointer sweeping a tree with no pill open must not pay for a paint it never caused.
+Publishing and withdrawing both walk every card in the picture, so both are guarded. Nothing is
+published for an **empty** trace — an unrelated pair whispers a bounded form and traces nobody, so an
+empty exemption would exempt no one at the cost of two walks — and nothing is withdrawn when nothing
+is out. A pointer sweeping a tree costs a walk only where a reading actually names someone.
 
 ### The docked tag is the grammar; the lens is one consumer of it
 
@@ -312,14 +318,16 @@ tag stays findable once something else docks one.
   — `translit` is matched by nothing and keys nothing, it only travels.
 - **`docs/kinship-term-inventory.md` is *not* exhausted, and #304 should know that before deleting
   it.** Its script column became the `gu` terms in #299 and its Latin column becomes their glosses
-  here, but the pack deliberately did not take everything it lists: *bā*, *bāpuji*, *var*, *dhaṇī*,
-  *śokya*, *putravadhū*, *apar-mā*, *dattak*, *fai*, *der* and *bhāṇejo* are variants and registers
-  the pack chose one of, and they never became entries. Deleting the file discards them. That is a
+  here, but the pack deliberately did not take everything it lists: *bā*, *mummy*, *bāpuji*, *var*,
+  *dhaṇī*, *śokya*, *putravadhū*, *apar-mā*, *dattak*, *fai*, *der* and *bhāṇejo* are variants and
+  registers the pack chose one of, and they never became entries. Deleting the file discards them. That is a
   legitimate call — a lexicon of alternates is not something a one-term-per-cell pack can hold, and
   the epic decided the shipped pack *becomes* the record (ADR-0041) — but it is a decision, not a
   clean-up, and this ADR states it rather than letting the deletion imply it.
 - **`--kul-hue-query-path` leaves `RESERVED_PENDING_CONSUMERS`** and `--kul-query-path-*` joins tier 2.
-  Two reserved paints and the filter alpha remain: the result teal is #301's, the can't-say amber and the dim alpha are #303's.
+  **One** reserved name remains — the can't-say amber, #303's. Everything else ADR-0036 reserved has
+  been spent: the selection violet by #300, the result teal and the filter alpha by #301, the sky
+  here.
 - **`--kul-phrase-hops` is a declared token that JS writes per element.** It is how a slot sizes for a
   five-hop chain without measuring or parsing text, and it is declared in the tier-2 layer with a
   default so the structural lint has no dangling name to report. It is not a theming knob; the value
@@ -337,17 +345,23 @@ tag stays findable once something else docks one.
 - **`ResolveResult` imports `RelationshipDescriptor` from the phrasing layer's mirror** rather than
   restating it in `engine-wire.ts`. One mirror per wire declaration, one conformance lint, and the
   same one-provenance-path rule ADR-0024 and ADR-0034 hold person data to.
-- **`QuerySurfaceOptions` gains `floatLayer`, `locale` and `resolve`, and `QuerySurface` gains
-  `handleCanvasHover`.** All additive; `mount.ts` now reaches for seven members instead of six.
-- **The `locale` option is a marked threading seam.** #301 threads a pack through the same
-  constructor for the panel's kin rows; on rebase its version wins and this one goes, so there is one
-  locale path through the chrome rather than two.
+- **`QuerySurfaceOptions` gains `floatLayer` and `resolve`, and `QuerySurface` gains
+  `handleCanvasHover`.** All additive; `mount.ts` now reaches for seven members instead of six. The
+  `locale` option is **not** new — ADR-0043 put the `LocaleController` itself on the surface, and the
+  lens takes the `bind` idiom from it, which is the half of that decision this slice is the consumer
+  of. There is one locale path through the chrome, not two.
 - **The lens is `setDimExemption`'s first caller**, and the only one. The exemption is a single slot
   rather than a map keyed by holder, because a pointer is in one place; a second concurrent holder
   would clobber the first, and keying it is the fix if one ever exists (ADR-0043).
-- **#303 gets a placement primitive instead of a file to edit.** `openDockedTag` is importable from
-  the package root, works with no selection present, and needs nothing from `hover-lens.ts`. The
-  chrome already receives `floatLayer` on `QuerySurfaceOptions`, so there is no new plumbing either.
+- **#303 reuses the placement grammar and brings its own trigger.** `openDockedTag` is importable
+  from the package root, works with no selection present, and needs nothing from `hover-lens.ts`;
+  `floatLayer` is already on `QuerySurfaceOptions`. What it does **not** inherit is hover input:
+  `handleCanvasHover` is wired straight to the lens (`handleCanvasHover: lens.handleHover`) and is
+  documented as the lens's own, so a can't-say reason that whispers on hover adds its own plumbing to
+  `createQuerySurface`. That is deliberately not pre-built here. A fan-out with one consumer is
+  speculative generality, and guessing at the shape of #303's trigger is the same guess this ADR
+  refused to make about its content — which is why the tag's content model is a bare node list.
+  Placement when two tags share an anchor is #303's call for the same reason.
 - **A third paint now shares the canvas** and the `.kul-selected` / `.kul-query-selected` invariant is
   untouched: the lens paints neither endpoint and reads only while a person is selected — which
   suspends editor sync and strips its highlight — so its class never lands on a node wearing either.

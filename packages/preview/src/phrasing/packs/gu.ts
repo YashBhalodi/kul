@@ -54,9 +54,12 @@ import type { LanguagePack } from "../pack.js";
  * supplies the romanization wherever it has a row for the term, and the rest is
  * written by hand to the same conventions for what #299 added beyond it — the
  * entries it never listed (પોતે, જીવનસાથી, વાલી, સંતાન, સહોદર, the સાવકો દીકરો /
- * સાવકી દીકરી pair), the whole hop lexicon, and the four gendered sibling forms
- * normalised onto this pack's *bahen* where the inventory writes the *ben*
- * variant.
+ * સાવકી દીકરી pair), four of the nine hop nouns (માતા, વાલી, સંતાન, જીવનસાથી —
+ * the other five are in the document verbatim), and the four gendered sibling
+ * forms normalised onto this pack's *bahen* where the inventory writes the
+ * *ben* variant. Exactly six are lexemes the document does not contain at all —
+ * *jīvansāthī*, *mātā*, *pote*, *sahodar*, *santān*, *vālī*; everything else
+ * written by hand recombines forms it does have.
  *
  * One inconsistency is **reproduced deliberately**: the inventory marks the long
  * ā in *sāsu* and *sāḷo* but not in the *savk-* family, whose સા is the same
