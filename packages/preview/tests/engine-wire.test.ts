@@ -114,8 +114,11 @@ describe("engine-wire mirrors crates/kul-wasm/types/kul_wasm.d.ts", () => {
         // ADR-0040: the engine reaches the webview as a host-supplied build
         // asset, so no source file may carry a dependency edge to the npm
         // package — the whole reason these types are mirrored by hand.
+        // Recursive: `src/` has subdirectories (`phrasing/`), and a flat walk
+        // would let an import in one of them through the lint ADR-0040 names
+        // as the enforcement mechanism.
         const src = resolve(HERE, "..", "src");
-        const offenders = readdirSync(src)
+        const offenders = readdirSync(src, { recursive: true, encoding: "utf8" })
             .filter((f) => f.endsWith(".ts"))
             .filter((f) =>
                 /(?:from|import|require)\s*\(?\s*["']@kullang\/wasm["']/.test(

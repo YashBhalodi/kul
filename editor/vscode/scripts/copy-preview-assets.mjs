@@ -30,7 +30,20 @@ for (const file of [
     console.log(`copied ${file} → media/preview/`);
 }
 
+// Strict by default, because the failure mode of a lenient default is a
+// published .vsix whose preview cannot answer a single query. The one caller
+// that legitimately has no engine is `just check`, which exists to prove the
+// TypeScript graph is sound and which ADR-0040 promises will never need a
+// wasm toolchain — it opts out explicitly.
+const engineOptional = process.env.KUL_ALLOW_MISSING_ENGINE === "1";
+
 if (!existsSync(wasmPkg)) {
+    if (engineOptional) {
+        console.log(
+            `skipped the query engine — no ${wasmPkg} (KUL_ALLOW_MISSING_ENGINE=1).`,
+        );
+        process.exit(0);
+    }
     console.error(
         `\nmissing ${wasmPkg}\n` +
             "The preview's query engine is a build asset, not an npm dependency.\n" +

@@ -63,7 +63,7 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 just check
 ```
 
-Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo nextest run --workspace`, and then the TypeScript workspace tests (`npm test --workspaces --if-present`, i.e. Vitest in `packages/preview` and `editor/vscode`). Local-green should imply CI-green; the Rust gates run in `.github/workflows/rust.yml` and the same TypeScript suites run in `.github/workflows/vscode-extension.yml`.
+Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo nextest run --workspace`, then the TypeScript workspace tests (Vitest in `packages/preview` and `editor/vscode`) and finally the extension's preview build and bundle. That last step is not redundant with the tests: Vitest resolves `packages/preview/src`, while the extension bundles `dist` — only the bundle catches a module that never reached `dist`, which is the failure mode a new `src/` subdirectory introduces. Local-green should imply CI-green; the Rust gates run in `.github/workflows/rust.yml` and the same TypeScript suites run in `.github/workflows/vscode-extension.yml`.
 
 Other recipes:
 

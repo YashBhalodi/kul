@@ -53,7 +53,11 @@ export async function collectProjectSnapshot(
     reader: ProjectReader,
 ): Promise<ProjectSnapshot> {
     const entries = await reader.listEntries();
-    const names = entries.filter((n) => n.endsWith(".kul")).sort();
+    // `.length > 4`, not a bare `endsWith`: kul-loader selects on
+    // `path.extension() == "kul"`, which rejects a file named exactly `.kul`
+    // (Rust reads that as a dotfile with no extension). Diverging here would
+    // let the webview query a file the renderer never read.
+    const names = entries.filter((n) => n.endsWith(".kul") && n.length > 4).sort();
     const files: ProjectSnapshot["files"] = [];
     for (const name of names) {
         const source = await reader.readText(name);

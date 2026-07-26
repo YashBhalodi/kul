@@ -13,9 +13,13 @@ check: fmt-check lint test check-ts
 # resolves `packages/preview/src`, while the extension bundles `dist`. Only
 # the bundle catches a module that never reached `dist` — the failure mode a
 # `src/` subdirectory introduces, invisible to every test.
+#
+# The query engine is skipped here on purpose. ADR-0040 makes it a build asset
+# staged by `just wasm`, and promises this gate never needs a wasm toolchain;
+# packaging keeps the strict check, so a .vsix still cannot ship without it.
 check-ts:
     npm test --workspaces --if-present
-    npm run build:preview --workspace kul
+    KUL_ALLOW_MISSING_ENGINE=1 npm run build:preview --workspace kul
     npm run bundle --workspace kul
 
 # Run the full test suite via cargo-nextest.
