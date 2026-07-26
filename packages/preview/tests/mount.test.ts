@@ -79,7 +79,7 @@ afterEach(() => {
 });
 
 describe("mountPreview scaffold", () => {
-    it("injects #root + control + popover + legend siblings into the container", () => {
+    it("injects #root + controls + popover + legend into the container", () => {
         const { container } = mount();
         expect(container.querySelector("#root")).not.toBeNull();
         expect(container.querySelector("#kul-controls")).not.toBeNull();

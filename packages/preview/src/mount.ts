@@ -10,9 +10,11 @@ import type { EntityRef, ErrorRow, HostAdapter, PreviewHandle } from "./types.js
 
 /**
  * Mount the chrome inside `container`. The container is rewritten with the
- * scaffold (`#root` + controls + popover + legend siblings), then the runtime
- * wires hover / click / pan-zoom / keyboard / selection-sync / error-popover
- * against `adapter`. Returns the imperative {@link PreviewHandle}.
+ * stage and its regions (ADR-0036) — `#root` in the canvas region, controls /
+ * error popover / legend in the overlay stack, the tooltip in the float
+ * region — then the runtime wires hover / click / pan-zoom / keyboard /
+ * selection-sync / error-popover against `adapter`. Returns the imperative
+ * {@link PreviewHandle}.
  */
 export function mountPreview(
     container: HTMLElement,
@@ -20,6 +22,7 @@ export function mountPreview(
 ): PreviewHandle {
     container.innerHTML = PREVIEW_BODY_HTML;
     const root = container.querySelector("#root") as HTMLElement;
+    const floatRegion = container.querySelector("#kul-region-float") as HTMLElement;
     const controls = container.querySelector("#kul-controls") as HTMLElement | null;
     const controlsGroup = container.querySelector(
         "#kul-controls-group",
@@ -47,9 +50,11 @@ export function mountPreview(
         return panZoom as unknown as HighlightPanZoom | null;
     }
 
-    const tooltip = mountHoverTooltip(root, () => (panZoom as unknown) as
-        | { getSizes(): { realZoom: number } }
-        | null);
+    const tooltip = mountHoverTooltip(
+        root,
+        () => (panZoom as unknown) as { getSizes(): { realZoom: number } } | null,
+        floatRegion,
+    );
 
     const errors = createErrorsController({
         errorButton,

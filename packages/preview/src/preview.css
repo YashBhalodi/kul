@@ -1,6 +1,6 @@
 /* Application layer (ADR-0016): each rule consumes exactly one `var(--kul-*)`
  * token and never hard-codes a colour or hooks a VSCode variable directly.
- * Token values live per-theme in preview-themes.css. */
+ * Token values live in preview-themes.css, in two tiers (ADR-0036). */
 
 /* The preview is a pan/zoom surface (svg-pan-zoom): the SVG must fill a sized
  * container rather than letterbox at its intrinsic size. */
@@ -20,17 +20,86 @@ body {
 }
 
 /* Host-provided mount point (id from html.ts MOUNT_POINT_ID). It sits between
- * <body> and #root, so it must carry height:100% or the percentage-height chain
- * breaks here and the SVG collapses to content height instead of filling the
- * pane. */
+ * <body> and the stage, so it must carry height:100% or the percentage-height
+ * chain breaks here and the SVG collapses to content height instead of filling
+ * the pane. */
 #kul-preview-mount {
     width: 100%;
     height: 100%;
 }
 
-#root {
+/* ── The region model (ADR-0036) ─────────────────────────────────────────
+ * The stage declares five regions and every piece of chrome belongs to
+ * exactly one. Placement and stacking are properties of the region, not of
+ * the widget, so two widgets can no longer be pinned to the same inset by
+ * two independent rules — collisions are impossible by construction rather
+ * than by arithmetic.
+ *
+ *   flow     — persistent chrome in the document flow, above the canvas.
+ *   canvas   — the diagram surface itself.
+ *   overlay  — a bottom-left stack: pan/zoom controls, error popover, legend.
+ *   float    — entity-anchored floats, positioned by JS against a screen box.
+ *   notify   — transient notifications, bottom-right.
+ *
+ * A region is declared whether or not this release populates it; joining one
+ * is appending an element, not inventing an inset. */
+
+.kul-stage {
+    position: relative;
+    display: flex;
+    flex-direction: column;
     width: 100%;
     height: 100%;
+}
+
+.kul-region-flow {
+    flex: 0 0 auto;
+}
+
+.kul-region-canvas {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* Stacked bottom-up in DOM order via column-reverse, so a panel that opens
+ * pushes the ones above it up instead of landing on top of them. */
+.kul-region-overlay {
+    position: fixed;
+    bottom: var(--kul-region-overlay-inset);
+    left: var(--kul-region-overlay-inset);
+    z-index: var(--kul-region-overlay-z);
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-start;
+    gap: var(--kul-region-overlay-gap);
+    /* The region spans its children's union box, gaps included; only the
+     * children themselves may intercept the pointer. */
+    pointer-events: none;
+}
+
+.kul-region-float {
+    position: fixed;
+    inset: 0;
+    z-index: var(--kul-region-float-z);
+    pointer-events: none;
+}
+
+.kul-region-notify {
+    position: fixed;
+    right: var(--kul-region-notify-inset);
+    bottom: var(--kul-region-notify-inset);
+    z-index: var(--kul-region-notify-z);
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: var(--kul-region-notify-gap);
+    pointer-events: none;
+}
+
+#root {
+    position: absolute;
+    inset: 0;
 }
 
 #root svg {
@@ -58,13 +127,9 @@ body {
     cursor: pointer;
 }
 
-/* Floating cluster pinned bottom-left, above the SVG. Sibling of #root (not
- * inside it) so the per-render SVG swap never clears it. */
+/* Floating cluster in the overlay region, above the SVG. Outside #root so the
+ * per-render SVG swap never clears it. */
 .kul-preview-controls {
-    position: fixed;
-    bottom: var(--kul-control-inset);
-    left: var(--kul-control-inset);
-    z-index: 10;
     display: flex;
     flex-direction: row;
     gap: var(--kul-control-gap);
@@ -73,6 +138,7 @@ body {
     border: 1px solid var(--kul-control-border-color);
     border-radius: var(--kul-control-radius);
     box-shadow: 0 2px 8px var(--kul-control-shadow-color);
+    pointer-events: auto;
 }
 
 .kul-preview-controls[hidden] {
@@ -87,7 +153,7 @@ body {
     height: var(--kul-control-size);
     padding: 0;
     border: none;
-    border-radius: calc(var(--kul-control-radius) - 2px);
+    border-radius: var(--kul-control-btn-radius);
     background-color: transparent;
     color: var(--kul-control-fg);
     cursor: pointer;
@@ -168,13 +234,9 @@ body {
     text-align: center;
 }
 
-/* Popover anchored above the control panel (same bottom-left family as the
- * legend). Pointer-events on so rows are clickable. */
+/* Overlay-region member: the region stacks it clear of the control cluster
+ * and of the legend. Pointer-events on so rows are clickable. */
 .kul-error-popover {
-    position: fixed;
-    bottom: var(--kul-error-popover-inset-bottom);
-    left: var(--kul-error-popover-inset-left);
-    z-index: 11;
     display: flex;
     flex-direction: column;
     gap: var(--kul-error-popover-row-gap);
@@ -189,6 +251,7 @@ body {
     box-shadow: 0 2px 8px var(--kul-error-popover-shadow-color);
     font-family: var(--kul-error-popover-font-family);
     font-size: var(--kul-error-popover-font-size);
+    pointer-events: auto;
 }
 
 .kul-error-popover[hidden] {
@@ -214,13 +277,13 @@ body {
 }
 
 .kul-error-row:focus-visible {
-    outline: 1px solid var(--kul-control-focus-ring);
+    outline: 1px solid var(--kul-error-row-focus-ring);
     outline-offset: -1px;
 }
 
 .kul-error-code {
     color: var(--kul-error-code-fg);
-    font-family: var(--kul-font-family);
+    font-family: var(--kul-error-code-font-family);
     font-size: var(--kul-error-code-font-size);
 }
 
@@ -320,13 +383,13 @@ body {
 }
 
 /* Jump-to-canonical pulse: when the badge handler centres the canonical card,
- * the `.kul-jump-target` class is applied for a single 1.5s ease-out border
- * glow, then removed via an `animationend` listener (preview-html.ts). The
+ * the `.kul-jump-target` class is applied for a single ease-out border glow,
+ * then removed via an `animationend` listener (preview-html.ts). The
  * underlying outline shorthand animates outline-color + outline-width while
  * keeping outline-style:solid; this paints a ring on the rect without
  * touching its fill/stroke. */
 .kul-card[data-kind="canonical"].kul-jump-target > rect {
-    animation: kul-jump-target-pulse 1.5s ease-out;
+    animation: kul-jump-target-pulse var(--kul-jump-target-pulse-duration) ease-out;
 }
 
 @keyframes kul-jump-target-pulse {
@@ -376,20 +439,20 @@ body {
 
 /* Selection outline (not stroke), so the entity keeps its gender tint /
  * marriage colour without specificity conflict. The ring colour is reserved
- * for selection — a hue used nowhere else in the palette. */
+ * for editor ⇄ preview selection sync — a hue used nowhere else. */
 .kul-card.kul-selected > rect,
 .kul-edge[data-link-kind="marriage"].kul-selected {
     outline: var(--kul-selected-outline-width) solid var(--kul-selected-outline-color);
     outline-offset: var(--kul-selected-outline-offset);
 }
 
-/* JS-injected hover tooltip. Bootstrap appends to <body> and sets fixed
- * left/top after measuring + viewport-clamping, so the rule supplies only the
- * box. pointer-events:none keeps it from intercepting hover/click underneath
- * and prevents it from flickering its own mouseout. */
+/* JS-injected hover tooltip — an entity-anchored float. Bootstrap appends it
+ * to the float region and sets fixed left/top after measuring +
+ * viewport-clamping, so the rule supplies only the box. pointer-events:none
+ * keeps it from intercepting hover/click underneath and prevents it from
+ * flickering its own mouseout. */
 .kul-tooltip {
     position: fixed;
-    z-index: 20;
     max-width: var(--kul-tooltip-max-width);
     padding: var(--kul-tooltip-padding);
     background-color: var(--kul-tooltip-bg);
@@ -443,16 +506,12 @@ body {
     color: var(--kul-tooltip-label-fg);
 }
 
-/* Chrome legend (ADR-0022): compact bottom-left overlay listing the diagram's
- * visual vocabulary. Swatches carry production .kul-card/.kul-edge classes +
- * data-* attributes, so the rules above paint them with the same tokens the
- * diagram uses. pointer-events:none lets clicks/hover pass through and
- * incidentally suppresses the .kul-card:hover bump on static swatches. */
+/* Chrome legend (ADR-0022): compact overlay-region member listing the
+ * diagram's visual vocabulary. Swatches carry production .kul-card/.kul-edge
+ * classes + data-* attributes, so the rules above paint them with the same
+ * tokens the diagram uses. pointer-events:none lets clicks/hover pass through
+ * and incidentally suppresses the .kul-card:hover bump on static swatches. */
 .kul-preview-legend {
-    position: fixed;
-    bottom: var(--kul-legend-inset-bottom);
-    left: var(--kul-legend-inset-left);
-    z-index: 10;
     display: grid;
     grid-template-columns: auto auto;
     column-gap: var(--kul-legend-col-gap);

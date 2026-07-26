@@ -1,161 +1,251 @@
-/* Theme layer (ADR-0016): kul-svg output is theme-agnostic; each theme is a
- * self-contained `body[data-theme="…"]` block supplying values for the
- * element-bound `--kul-*` tokens preview.css consumes. Adding a theme is
- * purely additive: copy the block, change the selector, re-map values.
- * `vscode` is the default — it maps tokens to VSCode palette variables so the
- * preview tracks the active VSCode theme. */
+/* Token layer (ADR-0016, rebuilt in two tiers by ADR-0036).
+ *
+ * TIER 1 — the theme contract. One `body[data-theme="…"]` block per theme,
+ * and the ONLY place in the preview that may read a `--vscode-*` variable.
+ * A theme supplies these values and nothing else; adding a theme is copying
+ * the block, changing the selector, and re-mapping the values.
+ *
+ * TIER 2 — the per-site semantic layer. Declared once on `body`, aliasing
+ * tier 1 rather than `--vscode-*`. ADR-0016's rule that each application
+ * site consumes exactly one `var(--kul-*)` survives intact, and so does the
+ * per-site override: a theme that wants a distinct legend border re-declares
+ * `--kul-legend-border-color` inside its own tier-1 block, where the higher
+ * selector specificity wins.
+ *
+ * `packages/preview/tests/tokens.test.ts` holds this architecture as a
+ * structural lint. `crates/kul-svg/src/emit.rs` bakes the same tier 1 plus
+ * the diagram half of tier 2 (skipping the chrome half) for self-contained
+ * SVG export. */
 
 body[data-theme="vscode"] {
-    /* Colours / fonts */
-    --kul-preview-bg: var(--vscode-editor-background);
-    --kul-preview-fg: var(--vscode-editor-foreground);
-    --kul-font-family: var(--vscode-editor-font-family);
-    --kul-card-fill: var(--vscode-editor-background);
-    --kul-card-stroke: var(--vscode-charts-blue, var(--vscode-editor-foreground));
-    /* One token per gender even where hues coincide, so a future theme can vary each. */
-    --kul-card-stroke-male: var(--vscode-charts-blue, var(--vscode-editor-foreground));
-    --kul-card-stroke-female: var(--vscode-charts-red, var(--vscode-editor-foreground));
-    --kul-card-stroke-other: var(--vscode-charts-yellow, var(--vscode-editor-foreground));
-    --kul-ghost-fill: var(--vscode-editor-inactiveSelectionBackground, var(--vscode-editor-background));
-    --kul-ghost-stroke: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
-    --kul-ghost-stroke-male: var(--vscode-charts-blue, var(--vscode-editor-foreground));
-    --kul-ghost-stroke-female: var(--vscode-charts-red, var(--vscode-editor-foreground));
-    --kul-ghost-stroke-other: var(--vscode-charts-yellow, var(--vscode-editor-foreground));
-    --kul-label-fill: var(--vscode-editor-foreground);
-    --kul-ghost-label-fill: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
-    --kul-ghost-badge-fill: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
-    --kul-ghost-badge-hover-fill: var(--vscode-editor-foreground);
-    --kul-edge-stroke: var(--vscode-charts-green, var(--vscode-editor-foreground));
-    --kul-adoption-edge-stroke: var(--vscode-charts-orange, var(--vscode-descriptionForeground, var(--vscode-editor-foreground)));
-    --kul-marriage-edge-stroke: var(--vscode-charts-purple, var(--vscode-editor-foreground));
-    /* Fixed vivid magenta (not a VSCode palette var) so selection stays equally
-     * bold across light, dark, and high-contrast — and is a hue used nowhere
-     * else in the palette. Swap this one token to retheme it. */
-    --kul-selected-outline-color: #ff2d95;
+    /* ── Tier 1 · colour roles ─────────────────────────────────────────── */
+    --kul-surface: var(--vscode-editor-background);
+    --kul-raised: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+    --kul-on-surface: var(--vscode-editor-foreground);
+    /* Chrome icons track VSCode's icon colour, which is a shade apart from
+     * the editor foreground in every built-in theme. */
+    --kul-on-raised: var(--vscode-icon-foreground, var(--vscode-editor-foreground));
+    --kul-muted: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+    --kul-border: var(--vscode-editorWidget-border, var(--vscode-widget-border, transparent));
+    --kul-shadow: var(--vscode-widget-shadow, transparent);
+    --kul-accent: var(--vscode-focusBorder, var(--vscode-editor-foreground));
+    --kul-danger: var(--vscode-editorError-foreground, var(--vscode-charts-red, var(--vscode-editor-foreground)));
+    --kul-hover: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+    --kul-active: var(--vscode-toolbar-activeBackground, var(--vscode-list-activeSelectionBackground, var(--vscode-toolbar-hoverBackground)));
 
-    /* Mapped to the VSCode editor-hover-widget palette so the tooltip reads as
-     * a native hover popover and tracks the active theme. */
-    --kul-tooltip-bg: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
-    --kul-tooltip-fg: var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground));
-    --kul-tooltip-border-color: var(--vscode-editorHoverWidget-border, var(--vscode-widget-border, transparent));
-    --kul-tooltip-shadow-color: var(--vscode-widget-shadow, transparent);
-    --kul-tooltip-label-fg: var(--vscode-descriptionForeground, var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground)));
-    --kul-tooltip-kind-fg: var(--vscode-descriptionForeground, var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground)));
-    --kul-tooltip-title-fg: var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground));
-    --kul-tooltip-separator-color: var(--vscode-editorHoverWidget-statusBarBackground, var(--vscode-editorHoverWidget-border, var(--vscode-widget-border, transparent)));
+    /* ── Tier 1 · typography ───────────────────────────────────────────── */
+    /* The diagram reads as code (editor font); chrome reads as UI. */
+    --kul-font-diagram: var(--vscode-editor-font-family);
+    --kul-font-chrome: var(--vscode-font-family);
+    --kul-font-size-base: var(--vscode-editor-font-size);
 
-    /* Dimensions / opacities / spacing */
-    --kul-font-size: var(--vscode-editor-font-size);
-    --kul-preview-padding: 16px;
+    /* ── Tier 1 · diagram hues ─────────────────────────────────────────── */
+    /* The `--vscode-charts-*` family is fully spent here: three genders and
+     * three edge kinds. Query paint therefore cannot be themed — see the
+     * reserved block below (ADR-0036). */
+    --kul-hue-male: var(--vscode-charts-blue, var(--vscode-editor-foreground));
+    --kul-hue-female: var(--vscode-charts-red, var(--vscode-editor-foreground));
+    --kul-hue-other: var(--vscode-charts-yellow, var(--vscode-editor-foreground));
+    --kul-hue-birth: var(--vscode-charts-green, var(--vscode-editor-foreground));
+    --kul-hue-adoption: var(--vscode-charts-orange, var(--vscode-descriptionForeground, var(--vscode-editor-foreground)));
+    --kul-hue-marriage: var(--vscode-charts-purple, var(--vscode-editor-foreground));
+    --kul-hue-past: var(--vscode-editor-inactiveSelectionBackground, var(--vscode-editor-background));
+
+    /* ── Tier 1 · reserved paint (literals, not palette-mapped) ────────── */
+    /* Five fixed hues, each chosen to stay equally bold across light, dark
+     * and high-contrast, and each a hue used nowhere else in the palette.
+     * They are literals rather than `--vscode-*` mappings because the charts
+     * family above is already spent on document meaning, so any themed query
+     * paint would collide with something the diagram already says (ADR-0036).
+     * Swap one token to retheme one meaning. */
+    /* Editor ⇄ preview selection sync — vivid magenta. */
+    --kul-hue-sync-selection: #ff2d95;
+    /* Query selection — violet. The entity a kinship query is anchored on. */
+    --kul-hue-query-selection: #7c4dff;
+    /* Query result — teal. Entities the query returned. */
+    --kul-hue-query-result: #00bfa5;
+    /* Can't say — amber. A three-valued predicate that answered `unknown`. */
+    --kul-hue-query-uncertain: #ffab00;
+    /* Resolution path — sky. The traversal that justified a relationship. */
+    --kul-hue-query-path: #40c4ff;
+    /* Filter dim — one alpha, not a per-theme colour: `opacity` composites
+     * against whatever background the theme supplies, so a single value is
+     * theme-symmetric by construction. */
+    --kul-dim-alpha: 0.3;
+
+    /* ── Tier 1 · spacing scale ────────────────────────────────────────── */
+    --kul-space-1: 2px;
+    --kul-space-2: 4px;
+    --kul-space-3: 6px;
+    --kul-space-4: 8px;
+    --kul-space-5: 12px;
+    --kul-space-6: 16px;
+
+    /* ── Tier 1 · radius scale ─────────────────────────────────────────── */
+    --kul-radius-sm: 4px;
+    --kul-radius-md: 6px;
+
+    /* ── Tier 1 · motion ───────────────────────────────────────────────── */
+    --kul-motion-fast: 0.1s;
+    --kul-motion-slow: 0.15s;
+    --kul-motion-pulse: 1.5s;
+}
+
+body {
+    /* ── Tier 2 · regions (ADR-0036) ───────────────────────────────────── */
+    /* The stage's regions, not individual widgets, own placement and
+     * stacking. Chrome joins a region and inherits both. */
+    --kul-preview-padding: var(--kul-space-6);
+    --kul-region-overlay-inset: var(--kul-space-5);
+    /* Clear air between stacked overlay panels — their borders and shadows
+     * would otherwise read as one stroke. */
+    --kul-region-overlay-gap: var(--kul-space-3);
+    --kul-region-overlay-z: 10;
+    --kul-region-float-z: 20;
+    --kul-region-notify-inset: var(--kul-space-5);
+    --kul-region-notify-gap: var(--kul-space-4);
+    --kul-region-notify-z: 30;
+
+    /* ── Tier 2 · preview surface ──────────────────────────────────────── */
+    --kul-preview-bg: var(--kul-surface);
+    --kul-preview-fg: var(--kul-on-surface);
+    --kul-font-family: var(--kul-font-diagram);
+    --kul-font-size: var(--kul-font-size-base);
+
+    /* ── Tier 2 · person cards ─────────────────────────────────────────── */
+    /* One alias per gender even where the hues coincide, so a theme can vary
+     * each independently. The bare `--kul-card-stroke` is the un-gendered
+     * fallback: R03 makes gender required, so it never paints a real card. */
+    --kul-card-fill: var(--kul-surface);
+    --kul-card-stroke: var(--kul-on-surface);
+    --kul-card-stroke-male: var(--kul-hue-male);
+    --kul-card-stroke-female: var(--kul-hue-female);
+    --kul-card-stroke-other: var(--kul-hue-other);
     --kul-card-stroke-width: 1.5;
     --kul-card-hover-stroke-width: 2.5;
-    --kul-ghost-fill-opacity: 0.5;
+    --kul-label-fill: var(--kul-on-surface);
     --kul-label-font-size: 13px;
+
+    /* ── Tier 2 · ghost cards ──────────────────────────────────────────── */
+    --kul-ghost-fill: var(--kul-hue-past);
+    --kul-ghost-fill-opacity: 0.5;
+    --kul-ghost-stroke: var(--kul-muted);
+    --kul-ghost-stroke-male: var(--kul-hue-male);
+    --kul-ghost-stroke-female: var(--kul-hue-female);
+    --kul-ghost-stroke-other: var(--kul-hue-other);
+    --kul-ghost-label-fill: var(--kul-muted);
+    --kul-ghost-badge-fill: var(--kul-muted);
+    --kul-ghost-badge-hover-fill: var(--kul-on-surface);
     --kul-ghost-badge-font-size: 20px;
 
-    /* Jump-to-canonical pulse. Maps to focusBorder so the glow reads as the
-     * same "this is where your attention should go" hue VSCode uses for focus
-     * rings; falls back to charts-blue for themes without focusBorder. */
-    --kul-jump-target-glow-color: var(--vscode-focusBorder, var(--vscode-charts-blue, var(--vscode-editor-foreground)));
-    --kul-jump-target-glow-width: 6px;
-    --kul-jump-target-glow-offset: 2px;
+    /* ── Tier 2 · edges ────────────────────────────────────────────────── */
+    --kul-edge-stroke: var(--kul-hue-birth);
     --kul-edge-stroke-width: 1.5;
+    --kul-adoption-edge-stroke: var(--kul-hue-adoption);
+    --kul-marriage-edge-stroke: var(--kul-hue-marriage);
     --kul-marriage-edge-stroke-width: 8.75;
     --kul-marriage-edge-hover-stroke-width: 10.5;
+    --kul-ended-edge-stroke-opacity: 0.6;
+    --kul-hover-transition-duration: var(--kul-motion-fast);
+
+    /* ── Tier 2 · selection sync and jump-to-canonical ─────────────────── */
+    --kul-selected-outline-color: var(--kul-hue-sync-selection);
     --kul-selected-outline-width: 3px;
     --kul-selected-outline-offset: 2px;
-    --kul-ended-edge-stroke-opacity: 0.6;
-    --kul-hover-transition-duration: 0.1s;
+    /* The pulse reads as "this is where your attention should go", which is
+     * what the accent role means. */
+    --kul-jump-target-glow-color: var(--kul-accent);
+    --kul-jump-target-glow-width: 6px;
+    --kul-jump-target-glow-offset: 2px;
+    --kul-jump-target-pulse-duration: var(--kul-motion-pulse);
 
-    /* Overlay pan/zoom controls */
-    --kul-control-bg: var(--vscode-editorWidget-background, var(--vscode-editor-background));
-    --kul-control-fg: var(--vscode-icon-foreground, var(--vscode-editor-foreground));
-    --kul-control-border-color: var(--vscode-editorWidget-border, var(--vscode-widget-border, transparent));
-    --kul-control-hover-bg: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
-    --kul-control-active-bg: var(--vscode-toolbar-activeBackground, var(--vscode-list-activeSelectionBackground, var(--vscode-toolbar-hoverBackground)));
-    --kul-control-focus-ring: var(--vscode-focusBorder, var(--vscode-editor-foreground));
-    --kul-control-shadow-color: var(--vscode-widget-shadow, transparent);
+    /* ── Tier 2 · pan/zoom controls ────────────────────────────────────── */
+    --kul-control-bg: var(--kul-raised);
+    --kul-control-fg: var(--kul-on-raised);
+    --kul-control-border-color: var(--kul-border);
+    --kul-control-hover-bg: var(--kul-hover);
+    --kul-control-active-bg: var(--kul-active);
+    --kul-control-focus-ring: var(--kul-accent);
+    --kul-control-shadow-color: var(--kul-shadow);
     --kul-control-size: 28px;
     --kul-control-icon-size: 16px;
-    --kul-control-radius: 6px;
-    --kul-control-gap: 4px;
-    --kul-control-padding: 4px;
-    --kul-control-inset: 12px;
-    --kul-control-divider-color: var(--kul-control-border-color);
+    --kul-control-radius: var(--kul-radius-md);
+    --kul-control-btn-radius: var(--kul-radius-sm);
+    --kul-control-gap: var(--kul-space-2);
+    --kul-control-padding: var(--kul-space-2);
+    --kul-control-divider-color: var(--kul-border);
     --kul-control-divider-height: 18px;
 
-    /* Hover tooltip dimensions */
-    --kul-tooltip-font-size: var(--vscode-editor-font-size);
+    /* ── Tier 2 · hover tooltip ────────────────────────────────────────── */
+    --kul-tooltip-bg: var(--kul-raised);
+    --kul-tooltip-fg: var(--kul-on-surface);
+    --kul-tooltip-border-color: var(--kul-border);
+    --kul-tooltip-shadow-color: var(--kul-shadow);
+    --kul-tooltip-label-fg: var(--kul-muted);
+    --kul-tooltip-kind-fg: var(--kul-muted);
+    --kul-tooltip-title-fg: var(--kul-on-surface);
+    --kul-tooltip-separator-color: var(--kul-border);
+    --kul-tooltip-font-size: var(--kul-font-size-base);
     --kul-tooltip-max-width: 320px;
-    --kul-tooltip-padding: 6px 10px;
-    --kul-tooltip-radius: 4px;
-    --kul-tooltip-row-gap: 2px;
-    --kul-tooltip-col-gap: 12px;
-    --kul-tooltip-header-gap: 6px;
+    --kul-tooltip-padding: var(--kul-space-3) calc(var(--kul-space-4) + var(--kul-space-1));
+    --kul-tooltip-radius: var(--kul-radius-sm);
+    --kul-tooltip-row-gap: var(--kul-space-1);
+    --kul-tooltip-col-gap: var(--kul-space-5);
+    --kul-tooltip-header-gap: var(--kul-space-3);
     --kul-tooltip-header-line-gap: 1px;
     --kul-tooltip-kind-font-size: 0.85em;
     --kul-tooltip-title-weight: 600;
 
-    /* Chrome legend (ADR-0022). Reuses the pan/zoom control panel's
-     * bg/border/shadow tokens so the legend sits in the same chrome family.
-     * UI font (not editor font) so it reads as chrome rather than code. */
-    --kul-legend-bg: var(--kul-control-bg);
-    --kul-legend-fg: var(--vscode-editor-foreground);
-    --kul-legend-border-color: var(--kul-control-border-color);
-    --kul-legend-shadow-color: var(--kul-control-shadow-color);
-    --kul-legend-font-family: var(--vscode-font-family);
+    /* ── Tier 2 · chrome legend (ADR-0022) ─────────────────────────────── */
+    --kul-legend-bg: var(--kul-raised);
+    --kul-legend-fg: var(--kul-on-surface);
+    --kul-legend-border-color: var(--kul-border);
+    --kul-legend-shadow-color: var(--kul-shadow);
+    --kul-legend-font-family: var(--kul-font-chrome);
     --kul-legend-font-size: 11px;
-    --kul-legend-radius: var(--kul-control-radius);
-    --kul-legend-padding: 8px 10px;
-    --kul-legend-row-gap: 6px;
-    --kul-legend-col-gap: 24px;
-    --kul-legend-label-gap: 8px;
+    --kul-legend-radius: var(--kul-radius-md);
+    --kul-legend-padding: var(--kul-space-4) calc(var(--kul-space-4) + var(--kul-space-1));
+    --kul-legend-row-gap: var(--kul-space-3);
+    --kul-legend-col-gap: calc(var(--kul-space-6) + var(--kul-space-4));
+    --kul-legend-label-gap: var(--kul-space-4);
     --kul-legend-swatch-width: 22px;
     --kul-legend-swatch-height: 12px;
-    /* Stacked above the pan/zoom controls with a clear gap (their borders +
-     * shadows would otherwise read as one stacked stroke). */
-    --kul-legend-inset-bottom: calc(var(--kul-control-inset) + var(--kul-control-size) + 14px);
-    --kul-legend-inset-left: var(--kul-control-inset);
-    /* Set in SVG user-units (swatch viewBox 0 0 30 18, rendered ~⅔ of value) —
-     * 5 → ~3px versus birth/adoption 1.5 → ~1px, mirroring the diagram's
+    /* Set in SVG user-units (swatch viewBox 0 0 30 18, rendered ~⅔ of value)
+     * — 5 → ~3px versus birth/adoption 1.5 → ~1px, mirroring the diagram's
      * thick-vs-thin contrast. */
     --kul-legend-marriage-stroke-width: 5;
 
-    /* Error button + popover (#203). Maps to VSCode's editor-error palette so
-     * the icon reads at the same severity as Problems-pane squiggles. The
-     * popover reuses the control panel's bg/border/shadow tokens to stay in
-     * the same chrome family as the legend. */
-    --kul-error-icon-color: var(--vscode-editorError-foreground, var(--vscode-charts-red, var(--vscode-editor-foreground)));
-    --kul-error-count-bg: var(--vscode-editorError-foreground, var(--vscode-charts-red, var(--vscode-editor-foreground)));
-    --kul-error-count-fg: var(--vscode-editor-background);
+    /* ── Tier 2 · error button + popover (#203) ────────────────────────── */
+    --kul-error-icon-color: var(--kul-danger);
+    --kul-error-count-bg: var(--kul-danger);
+    --kul-error-count-fg: var(--kul-surface);
     --kul-error-count-size: 14px;
     --kul-error-count-font-size: 10px;
-    --kul-error-popover-bg: var(--kul-control-bg);
-    --kul-error-popover-fg: var(--vscode-editor-foreground);
-    --kul-error-popover-border-color: var(--kul-control-border-color);
-    --kul-error-popover-shadow-color: var(--kul-control-shadow-color);
-    --kul-error-popover-font-family: var(--vscode-font-family);
+    --kul-error-popover-bg: var(--kul-raised);
+    --kul-error-popover-fg: var(--kul-on-surface);
+    --kul-error-popover-border-color: var(--kul-border);
+    --kul-error-popover-shadow-color: var(--kul-shadow);
+    --kul-error-popover-font-family: var(--kul-font-chrome);
     --kul-error-popover-font-size: 12px;
-    --kul-error-popover-radius: var(--kul-control-radius);
-    --kul-error-popover-padding: 6px;
-    --kul-error-popover-row-gap: 2px;
+    --kul-error-popover-radius: var(--kul-radius-md);
+    --kul-error-popover-padding: var(--kul-space-3);
+    --kul-error-popover-row-gap: var(--kul-space-1);
     --kul-error-popover-max-width: 420px;
     --kul-error-popover-max-height: 240px;
-    /* Stacked above the control panel (mirrors the legend's inset formula). */
-    --kul-error-popover-inset-bottom: calc(var(--kul-control-inset) + var(--kul-control-size) + 14px);
-    --kul-error-popover-inset-left: var(--kul-control-inset);
-    --kul-error-row-col-gap: 8px;
-    --kul-error-row-padding: 4px 6px;
-    --kul-error-row-radius: 4px;
-    --kul-error-row-hover-bg: var(--kul-control-hover-bg);
-    --kul-error-code-fg: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+    --kul-error-row-col-gap: var(--kul-space-4);
+    --kul-error-row-padding: var(--kul-space-2) var(--kul-space-3);
+    --kul-error-row-radius: var(--kul-radius-sm);
+    --kul-error-row-hover-bg: var(--kul-hover);
+    --kul-error-row-focus-ring: var(--kul-accent);
+    /* The rule code reads as code, so it keeps the diagram font. */
+    --kul-error-code-fg: var(--kul-muted);
+    --kul-error-code-font-family: var(--kul-font-diagram);
     --kul-error-code-font-size: 11px;
-    --kul-error-location-fg: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+    --kul-error-location-fg: var(--kul-muted);
     --kul-error-location-font-size: 11px;
 
-    /* Stale overlay on the last-good SVG (#203). Dim + slight desaturation so
-     * the author has a visual cue mid-edit without losing readability. */
+    /* ── Tier 2 · stale overlay on the last-good SVG (#203) ────────────── */
     --kul-render-stale-opacity: 0.5;
     --kul-render-stale-filter: grayscale(0.4);
-    --kul-render-stale-transition-duration: 0.15s;
+    --kul-render-stale-transition-duration: var(--kul-motion-slow);
 }
