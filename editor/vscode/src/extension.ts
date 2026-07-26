@@ -12,9 +12,11 @@ import {
     getNonce,
     isRevealTarget,
     previewHtml,
+    type ProjectSnapshot,
 } from "@kullang/preview";
 
 import { postToPreview } from "./post-to-preview";
+import { type ProjectReader, collectProjectSnapshot } from "./project-snapshot";
 
 let client: LanguageClient | undefined;
 let previewPanel: vscode.WebviewPanel | undefined;
@@ -382,6 +384,85 @@ async function syncSelection(
     });
 }
 
+// Where the packaged engine lives, or `undefined` when this build carries no
+// engine asset. Absence is not an error: the preview still renders, the CSP
+// stays at its tighter posture, and the chrome answers no queries.
+function engineSourceUris(
+    context: vscode.ExtensionContext,
+    webview: vscode.Webview,
+): { moduleUri: string; wasmUri: string } | undefined {
+    const dir = vscode.Uri.joinPath(
+        context.extensionUri,
+        "media",
+        "preview",
+        "wasm",
+    );
+    const moduleUri = vscode.Uri.joinPath(dir, "kul_wasm.js");
+    const wasmUri = vscode.Uri.joinPath(dir, "kul_wasm_bg.wasm");
+    if (!fs.existsSync(moduleUri.fsPath) || !fs.existsSync(wasmUri.fsPath)) {
+        client?.outputChannel.appendLine(
+            "kul preview: no query engine asset in media/preview/wasm/ — querying is disabled for this build",
+        );
+        return undefined;
+    }
+    return {
+        moduleUri: webview.asWebviewUri(moduleUri).toString(),
+        wasmUri: webview.asWebviewUri(wasmUri).toString(),
+    };
+}
+
+// The project directory backing a preview: the workspace filesystem for the
+// listing, and — file by file — the open editor buffer when one exists.
+// Reading only from disk would query the last *saved* text while the LSP
+// renders the *live* buffer, which is exactly the skew ADR-0034 says the
+// snapshot exists to prevent.
+function workspaceProjectReader(dir: string): ProjectReader {
+    return {
+        async listEntries() {
+            const entries = await vscode.workspace.fs.readDirectory(
+                vscode.Uri.file(dir),
+            );
+            return entries
+                .filter(([, type]) => type !== vscode.FileType.Directory)
+                .map(([name]) => name);
+        },
+        async readText(name) {
+            const uri = vscode.Uri.file(path.join(dir, name));
+            const open = vscode.workspace.textDocuments.find(
+                (doc) => doc.uri.fsPath === uri.fsPath,
+            );
+            if (open) {
+                return open.getText();
+            }
+            try {
+                const bytes = await vscode.workspace.fs.readFile(uri);
+                return Buffer.from(bytes).toString("utf8");
+            } catch {
+                return null;
+            }
+        },
+    };
+}
+
+// Never fails a render: a project the extension cannot read simply travels as
+// `undefined`, and the webview declines to query rather than answering about a
+// project it does not have.
+async function readProjectSnapshot(
+    uri: vscode.Uri,
+): Promise<ProjectSnapshot | undefined> {
+    try {
+        return await collectProjectSnapshot(
+            workspaceProjectReader(path.dirname(uri.fsPath)),
+        );
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        client?.outputChannel.appendLine(
+            `kul preview: could not read project source for querying: ${message}`,
+        );
+        return undefined;
+    }
+}
+
 async function showPreview(
     context: vscode.ExtensionContext,
 ): Promise<void> {
@@ -443,12 +524,17 @@ async function showPreview(
             "preview-webview.js",
         ),
     );
+    // The query engine ships as a build asset staged into media/preview/wasm/
+    // by scripts/copy-preview-assets.mjs (ADR-0040). The host hands the webview
+    // the two URIs; the webview fetches neither until the first query.
+    const engineSource = engineSourceUris(context, previewPanel.webview);
     previewPanel.webview.html = previewHtml({
         themeStylesheetUri: themeUri.toString(),
         applicationStylesheetUri: cssUri.toString(),
         scriptUri: scriptUri.toString(),
         cspSource: previewPanel.webview.cspSource,
         nonce: getNonce(),
+        engineSource,
     });
 
     previewPanel.webview.onDidReceiveMessage((message: unknown) => {
@@ -585,9 +671,13 @@ async function refreshPreview(uri: vscode.Uri): Promise<void> {
         return;
     }
     if (response.ok && response.svg) {
+        // The WASM query surface is stateless, so the source the webview will
+        // query travels with the picture it came from (ADR-0034). Collected
+        // per render rather than cached: an edit changes both.
         await post({
             type: "render",
             svg: response.svg,
+            project: await readProjectSnapshot(uri),
         });
         // A live-edit re-render rebuilds the SVG and drops the prior
         // `.kul-selected`, so re-resolve the cursor and post it after the swap.
