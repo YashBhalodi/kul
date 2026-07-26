@@ -1,10 +1,10 @@
 // The dim — one class, one owner, union semantics.
 //
-// More than one surface wants to push the non-answer back: kin paint does it
-// today, #303's attribute filter will, and both are ambient context rather than
-// a live read. They must not each own a class of their own — two `opacity`
-// values on nested nodes multiply (0.3 × 0.3 = 0.09), and two independent
-// strippers mean whichever repaints last silently undoes the other.
+// More than one surface pushes the non-answer back: kin paint and the
+// attribute filter, both ambient context rather than a live read. They must not
+// each own a class of their own — two `opacity` values on nested nodes multiply
+// (0.3 × 0.3 = 0.09), and two independent strippers mean whichever repaints
+// last silently undoes the other.
 //
 // So the class has exactly one owner, this registry, and the sources publish
 // **sets of person ids** rather than DOM state:
@@ -22,14 +22,24 @@
 // `paintKinResults` recomputes rather than calling `apply`, and any later source
 // that reads the picture to decide who it dims inherits the same obligation.
 //
-// One thing outranks the union: an **exemption**, which is the set of persons a
-// *live pointer-driven read* is tracing. #302's hover lens traces the persons
-// that justify a relationship, and with a kin set painted those persons are
-// almost always outside the answer — so the trace would render at 30% under the
-// ambient dim. The lens is the thing the reader is doing right now and the dim
-// is the thing they did a moment ago, so the lens wins (ADR-0043). The
-// exemption is held here rather than in kin paint so every later source
-// inherits the rule instead of re-deciding it.
+// One thing outranks the union: an **exemption** — persons a source lifts out
+// of every source's dim. Exemptions are **keyed and unioned**, exactly as dims
+// are, because two of them exist and neither may clobber the other:
+//
+// - the **hover lens** publishes the persons its trace runs through. With a kin
+//   set painted those are almost always outside the answer, so the sky trace
+//   would render at 30% under the ambient dim. The lens is what the reader is
+//   doing now and the dim is what they did a moment ago, so the lens wins
+//   (ADR-0043). It is a live read: published on settle, withdrawn on dismiss.
+// - the **filter's can't-say set** publishes standing, for as long as the
+//   filter stands. An unjudgeable person is a third paint state, not a
+//   non-match, and an amber dashed ring at 30% is the silent drop the whole
+//   disclosure exists to prevent (ADR-0045).
+//
+// The two coexist — a filter running inside a painted kin set with the pointer
+// on a card is all three at once — which is why ADR-0043's single slot became a
+// key. Holding this here rather than in any one paint is what lets a later
+// source inherit the rule instead of re-deciding it.
 
 /** Class a dimmed card wears. One themed alpha, no colour. */
 export const DIM_CLASS = "kul-query-dim";
@@ -44,32 +54,41 @@ export interface DimRegistry {
      */
     set(source: DimSource, personIds: Iterable<string> | null): void;
     /**
-     * The persons a live read is tracing, lifted from **every** source's dim.
-     * `null` withdraws the exemption. Does not touch the DOM.
+     * Publish one source's exempt person ids — lifted from **every** source's
+     * dim, this one's included — or withdraw it with `null`. Does not touch the
+     * DOM.
      *
-     * A single slot, deliberately, where {@link DimRegistry.set} is keyed: a
-     * pointer is in one place, so there is one live read at a time and each
-     * call replaces the last. Two concurrent holders would clobber each other;
-     * keying this is the fix if a second one ever exists.
+     * Keyed like {@link DimRegistry.set}, and for the same reason: a person is
+     * exempt iff **any** source exempts them, so a second holder can only ever
+     * exempt more, and neither can clobber the other by publishing.
      */
-    exempt(personIds: Iterable<string> | null): void;
+    exempt(source: DimSource, personIds: Iterable<string> | null): void;
     /** Recompute the class on every card in `root` from the current union. */
     apply(root: ParentNode): void;
-    /** Withdraw every source and the exemption, and strip the class. */
+    /** Withdraw every source and every exemption, and strip the class. */
     reset(root: ParentNode): void;
-    /** The union currently in force, exemption already subtracted. */
+    /** The union currently in force, exemptions already subtracted. */
     dimmedPersonIds(): ReadonlySet<string>;
 }
 
 export function createDimRegistry(): DimRegistry {
     const sources = new Map<DimSource, ReadonlySet<string>>();
-    let exemption: ReadonlySet<string> = new Set();
+    const exemptions = new Map<DimSource, ReadonlySet<string>>();
+
+    function isExempt(id: string): boolean {
+        for (const ids of exemptions.values()) {
+            if (ids.has(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     function union(): Set<string> {
         const all = new Set<string>();
         for (const ids of sources.values()) {
             for (const id of ids) {
-                if (!exemption.has(id)) {
+                if (!isExempt(id)) {
                     all.add(id);
                 }
             }
@@ -85,8 +104,12 @@ export function createDimRegistry(): DimRegistry {
                 sources.set(source, new Set(personIds));
             }
         },
-        exempt(personIds) {
-            exemption = personIds === null ? new Set() : new Set(personIds);
+        exempt(source, personIds) {
+            if (personIds === null) {
+                exemptions.delete(source);
+            } else {
+                exemptions.set(source, new Set(personIds));
+            }
         },
         apply(root) {
             const dimmed = union();
@@ -97,7 +120,7 @@ export function createDimRegistry(): DimRegistry {
         },
         reset(root) {
             sources.clear();
-            exemption = new Set();
+            exemptions.clear();
             for (const node of root.querySelectorAll("." + DIM_CLASS)) {
                 node.classList.remove(DIM_CLASS);
             }

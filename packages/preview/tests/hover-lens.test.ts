@@ -195,6 +195,13 @@ function harness(options: Partial<QuerySurfaceOptions> = {}): Harness {
         // the surface complete without painting anything. The one suite that
         // *does* need a kin paint — where the trace has to outrank its dim —
         // overrides it.
+        // The filter bar is #303's surface, not this one's. A host without a
+        // flow region gets no bar, which keeps these suites driving exactly
+        // what they are about.
+        flowRegion: null,
+        async runQuery() {
+            return { ok: true, result: { kind: "personIds" as const, personIds: [] } };
+        },
         async runKinQuery() {
             return { ok: true, result: { kind: "count" as const, count: 0 } };
         },
@@ -797,6 +804,12 @@ describe("the mounted preview feeds the lens pointer movement", () => {
             },
             async queryKin() {
                 return { ok: true, result: { kind: "count" as const, count: 0 } };
+            },
+            async runQuery() {
+                return {
+                    ok: true,
+                    result: { kind: "personIds" as const, personIds: [] },
+                };
             },
             async queryResolve() {
                 return {

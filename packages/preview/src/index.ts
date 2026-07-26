@@ -77,6 +77,60 @@ export type { DimRegistry, DimSource } from "./dim.js";
 export { TOAST_DURATION_MS, createToaster } from "./toast.js";
 export type { Toaster } from "./toast.js";
 
+// The attribute filter as a value (#277, ADR-0045) — the chip sentence's
+// vocabulary, the `Query` it spells, and the tally's arithmetic. Pure: the
+// chrome that draws it is `filter-bar.ts`.
+export {
+    EMPTY_FILTER,
+    EVERYONE_SCOPE_ID,
+    FILTER_FIELDS,
+    GENDER_VALUES,
+    PRESENCE_DISCLOSURE,
+    askedConditions,
+    buildFilterQuery,
+    computeTally,
+    conditionLabel,
+    fieldKind,
+    isCompleteCondition,
+    isFilterActive,
+    isPresenceOp,
+    modeLabel,
+    opLabel,
+    opsFor,
+    parseInValues,
+    partitionScope,
+    tallyText,
+    toPredicate,
+} from "./filter.js";
+export type {
+    FieldKind,
+    FilterCondition,
+    FilterField,
+    FilterOp,
+    FilterPartition,
+    FilterScope,
+    FilterState,
+    FilterTally,
+} from "./filter.js";
+export { CANT_SAY_LEAD, cantSayReason } from "./filter-reason.js";
+export {
+    FILTER_DIM_SOURCE,
+    FILTER_MATCH_CLASS,
+    FILTER_UNCERTAIN_CLASS,
+    FILTER_UNCERTAIN_EXEMPTION,
+    UNCERTAIN_BADGE_CLASS,
+    clearFilterPaint,
+    paintFilterResults,
+    uncertainPersonAt,
+} from "./filter-paint.js";
+export {
+    EVERYONE_LABEL,
+    FILTER_BAR_ID,
+    FILTER_REASON_CLASS,
+    createFilterBar,
+} from "./filter-bar.js";
+export type { FilterBar, FilterBarOptions } from "./filter-bar.js";
+
 // The selection seam (ADR-0035, ADR-0042) — one selection over three entity
 // kinds, and the surface every later piece of query chrome hangs off.
 export {
@@ -123,7 +177,11 @@ export {
     resolutionPathBindings,
 } from "./hover-lens.js";
 export type { HoverLens, HoverLensOptions } from "./hover-lens.js";
-export { SYNC_SUSPENDED_HINT, createQuerySurface } from "./query-surface.js";
+export {
+    LENS_DIM_EXEMPTION,
+    SYNC_SUSPENDED_HINT,
+    createQuerySurface,
+} from "./query-surface.js";
 export type {
     QuerySurface,
     QuerySurfaceOptions,

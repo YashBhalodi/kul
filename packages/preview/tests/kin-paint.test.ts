@@ -152,17 +152,17 @@ describe("the dim has one owner and unions its sources", () => {
         const { root, dim } = tree();
         paintKinResults(root, { anchorId: "giuseppe", personIds: ["elena"] }, dim);
         expect(dimmedIds(root)).toEqual(["marco"]);
-        dim.exempt(["marco"]);
+        dim.exempt("lens-trace", ["marco"]);
         dim.apply(root);
         expect(dimmedIds(root)).toEqual([]);
-        dim.exempt(null);
+        dim.exempt("lens-trace", null);
         dim.apply(root);
         expect(dimmedIds(root)).toEqual(["marco"]);
     });
 
     it("keeps the exemption across a repaint, so a trace survives a render", () => {
         const { root, dim } = tree();
-        dim.exempt(["marco"]);
+        dim.exempt("lens-trace", ["marco"]);
         paintKinResults(root, { anchorId: "giuseppe", personIds: ["elena"] }, dim);
         expect(dimmedIds(root)).toEqual([]);
     });

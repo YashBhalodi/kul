@@ -57,7 +57,8 @@ export const LENS_PATH_CLASS = "kul-query-path";
 /**
  * The lens's variant class on its docked tag. It carries no rules of its own —
  * the chrome is `.kul-docked-tag`'s — and exists so the lens's pill is findable
- * among whatever else docks a tag (#303 will add its own).
+ * among whatever else docks a tag. The filter's can't-say reason carries
+ * `kul-filter-reason-tag` for the same reason.
  */
 export const LENS_CLASS = "kul-lens";
 

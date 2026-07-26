@@ -82,6 +82,9 @@ export function mountPreview(
         "#kul-error-popover",
     ) as HTMLElement | null;
     const legend = container.querySelector("#kul-legend") as HTMLElement | null;
+    const flowRegion = container.querySelector(
+        "#kul-region-flow",
+    ) as HTMLElement | null;
     const notifyRegion = container.querySelector(
         "#kul-region-notify",
     ) as HTMLElement | null;
@@ -136,17 +139,20 @@ export function mountPreview(
         }
     }
 
-    // Everything selection-shaped lives behind this one surface: the store
+    // Every piece of query chrome lives behind this one surface: the store
     // later slices build on, the paint, the details panel, the panel-driven
-    // walk, and the editor-sync suspension.
+    // walk, the Explore-kin list, the hover lens, the filter bar, and the
+    // editor-sync suspension.
     const querySurface = createQuerySurface({
         root,
         floatDock,
         floatLayer,
+        flowRegion,
         notifyRegion,
         adapter,
         lookup: queryDetail,
         runKinQuery: queryKin,
+        runQuery: runFilterQuery,
         resolve: queryResolve,
         locale,
         getPanZoom: panZoomForReader,
@@ -277,11 +283,12 @@ export function mountPreview(
             panZoom.pan(savedPan);
         }
         // The SVG every piece of query paint was on has just been replaced.
-        // This is the *only* post-render hook query chrome gets, so a slice
-        // that paints (kin results, the filter dim) repaints from inside it
-        // rather than bolting a second call in here. Whether a render should
-        // instead *end* query mode is #304's decision, and
-        // `querySurface.clearSelection()` is the part it composes that from.
+        // This is the *only* post-render hook query chrome gets, so everything
+        // that paints — the selection, the kin results, the filter — repaints
+        // from inside it rather than bolting a second call in here. Whether a
+        // render should instead *end* query mode is #304's decision, and
+        // `clearSelection()` plus `clearFilter()` are the parts it composes
+        // that from.
         querySurface.repaintQueryChrome();
         hasRender = true;
         reconcileControlsVisibility();
@@ -337,6 +344,10 @@ export function mountPreview(
         return runQuery((it, snapshot) => it.queryKin(snapshot, query));
     }
 
+    function runFilterQuery(query: Query) {
+        return runQuery((it, snapshot) => it.runQuery(snapshot, query));
+    }
+
     function queryResolve(xId: string, yId: string) {
         return runQuery((it, snapshot) => it.queryResolve(snapshot, xId, yId));
     }
@@ -359,6 +370,7 @@ export function mountPreview(
         highlightEntity: querySurface.syncHighlight,
         queryDetail,
         queryKin,
+        runQuery: runFilterQuery,
         queryResolve,
         locale,
         dispose,

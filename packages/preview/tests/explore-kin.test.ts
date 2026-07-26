@@ -37,7 +37,10 @@ import { RESULT_CLASS } from "../src/kin-paint.js";
 import { SELECTION_CLASS } from "../src/selection.js";
 import { createLocaleController } from "../src/locale.js";
 import { mountPreview } from "../src/mount.js";
-import { createQuerySurface } from "../src/query-surface.js";
+import {
+    LENS_DIM_EXEMPTION,
+    createQuerySurface,
+} from "../src/query-surface.js";
 import type { QuerySurface } from "../src/query-surface.js";
 import type { HostAdapter, PreviewHandle } from "../src/types.js";
 
@@ -245,6 +248,11 @@ function fakeEngine(
                 }
                 await behaviour.members.wait(setId);
                 return { ok: true, result: { kind: "members", members } };
+            },
+            async runQuery() {
+                // The filter bar is not what these suites drive; an empty
+                // answer keeps the engine double complete without adding one.
+                return { ok: true, result: { kind: "personIds", personIds: [] } };
             },
             async queryResolve() {
                 // The hover lens is not what these suites drive; a tie-free
@@ -886,6 +894,13 @@ function surface(options: {
         async lookup(targets) {
             return { ok: true, result: targets.map(detailFor) };
         },
+        // The filter bar is #303's surface, not this one's. A host without a
+        // flow region gets no bar, which keeps these suites driving exactly
+        // what they are about.
+        flowRegion: null,
+        async runQuery() {
+            return { ok: true, result: { kind: "personIds" as const, personIds: [] } };
+        },
         runKinQuery: options.runKinQuery,
         async resolve() {
             return { ok: true, result: { relationships: [] } };
@@ -959,13 +974,13 @@ describe("setDimExemption lifts the dim for a live read", () => {
             );
         expect(dimmed()).toEqual(["marco"]);
 
-        built.setDimExemption(["marco"]);
+        built.setDimExemption(LENS_DIM_EXEMPTION, ["marco"]);
         expect(dimmed()).toEqual([]);
         // The answer itself is untouched — an exemption lifts the dim, it does
         // not change who the engine said was kin.
         expect(litPersonIds(stage)).toEqual(["elena"]);
 
-        built.setDimExemption(null);
+        built.setDimExemption(LENS_DIM_EXEMPTION, null);
         expect(dimmed()).toEqual(["marco"]);
         built.dispose();
     });

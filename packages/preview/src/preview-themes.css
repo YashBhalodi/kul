@@ -71,8 +71,8 @@ body[data-theme="vscode"] {
     /* Dim — one alpha, not a per-theme colour: `opacity` composites against
      * whatever background the theme supplies, so a single value is
      * theme-symmetric by construction. Shared by every paint that answers a
-     * question by pushing the non-answer back: kin results today, #303's
-     * filter next. */
+     * question by pushing the non-answer back: kin results and the attribute
+     * filter both consume it through one tier-2 alias. */
     --kul-dim-alpha: 0.3;
 
     /* ── Tier 1 · spacing scale ────────────────────────────────────────── */
@@ -392,6 +392,63 @@ body {
      * and a slot that has not been phrased yet still computes. Not a theming
      * knob — the value belongs to the phrase, not to the theme. */
     --kul-phrase-hops: 0;
+
+    /* ── Tier 2 · filter paint (#277, ADR-0045) ───────────────────────── */
+    /* Three states, three tier-1 sources, and no fourth: a match takes the
+     * reserved teal, an unjudgeable person the last reserved hue — the
+     * can't-say amber — and a non-match the shared dim alias above and no
+     * colour at all. The amber is dashed and carries a glyph as well as a hue,
+     * so the third state is legible as a third state and not as a shade of one
+     * of the other two.
+     *
+     * The match glow aliases the same tier-1 teal kin paint aliases, and takes
+     * a class of its own rather than sharing that one: the two are on screen
+     * together the moment a filter runs inside a painted kin set, and two
+     * owners of one class is the failure the dim registry exists to prevent
+     * (ADR-0045). */
+    --kul-filter-match-outline-color: var(--kul-hue-query-result);
+    --kul-filter-match-outline-width: 3px;
+    --kul-filter-match-outline-offset: 2px;
+    --kul-filter-match-ghost-dash: 4 3;
+    --kul-filter-uncertain-outline-color: var(--kul-hue-query-uncertain);
+    --kul-filter-uncertain-outline-width: 3px;
+    --kul-filter-uncertain-outline-offset: 2px;
+    --kul-filter-uncertain-badge-fill: var(--kul-hue-query-uncertain);
+    --kul-filter-uncertain-badge-font-size: 18px;
+
+    /* ── Tier 2 · the filter bar (#277, ADR-0045) ─────────────────────── */
+    /* Flow-region chrome, so it reads as UI rather than as diagram. The chip
+     * sentence wraps rather than scrolls: it is a sentence, and a sentence
+     * that has to be scrolled sideways to be finished is not readable. */
+    --kul-filter-bar-fg: var(--kul-on-surface);
+    --kul-filter-bar-font-family: var(--kul-font-chrome);
+    --kul-filter-bar-font-size: 11px;
+    --kul-filter-bar-padding: var(--kul-space-2);
+    --kul-filter-bar-gap: var(--kul-space-2);
+    --kul-filter-keyword-fg: var(--kul-muted);
+    --kul-filter-chip-bg: var(--kul-raised);
+    --kul-filter-chip-fg: var(--kul-on-surface);
+    --kul-filter-chip-border-color: var(--kul-border);
+    --kul-filter-chip-hover-bg: var(--kul-hover);
+    --kul-filter-chip-active-bg: var(--kul-active);
+    --kul-filter-chip-radius: var(--kul-radius-sm);
+    --kul-filter-chip-padding: var(--kul-space-1) var(--kul-space-3);
+    --kul-filter-chip-max-width: 260px;
+    --kul-filter-chip-remove-fg: var(--kul-muted);
+    --kul-filter-tally-fg: var(--kul-muted);
+    --kul-filter-editor-bg: var(--kul-raised);
+    --kul-filter-editor-border-color: var(--kul-border);
+    --kul-filter-editor-shadow-color: var(--kul-shadow);
+    --kul-filter-editor-radius: var(--kul-radius-md);
+    --kul-filter-editor-padding: var(--kul-space-3);
+    --kul-filter-editor-gap: var(--kul-space-2);
+    --kul-filter-editor-width: 260px;
+    --kul-filter-editor-z: 1;
+    --kul-filter-note-fg: var(--kul-muted);
+    --kul-filter-note-font-size: 0.9em;
+    /* The can't-say whisper's own content inside the shared docked-tag box:
+     * the reason wears the same amber as the card it is about. */
+    --kul-filter-reason-fg: var(--kul-hue-query-uncertain);
 
     /* ── Tier 2 · stale overlay on the last-good SVG (#203) ────────────── */
     --kul-render-stale-opacity: 0.5;

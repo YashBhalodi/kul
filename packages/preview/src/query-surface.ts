@@ -3,8 +3,9 @@
 // It owns the {@link SelectionStore} every later slice needs, the paint that
 // shows it, the details panel it feeds, the panel-driven walk, the Explore-kin
 // list and the paint an answered kin set puts on the tree, the hover lens that
-// reads ties off the selection, and the editor-sync suspension that keeps the
-// two meanings of "highlighted" from co-painting (#276 point 9).
+// reads ties off the selection, the attribute filter bar, and the editor-sync
+// suspension that keeps the two meanings of "highlighted" from co-painting
+// (#276 point 9).
 //
 // `mount.ts` reaches for seven members and no more: `handleCanvasClick` (a
 // click inside the rendered SVG), `handleCanvasHover` (the pointer moved over
@@ -15,8 +16,8 @@
 // about the selection is this module's business, which is what keeps the
 // chrome's composition in one readable place rather than spread across the
 // mount. The remaining members are for the slices that compose *inside* the
-// surface — `selection`, `clearSelection`, `setSyncSuspended` and
-// `setDimExemption` — and `mount.ts` calls none of them.
+// surface — `selection`, `clearSelection`, `clearFilter`, `setSyncSuspended`
+// and `setDimExemption` — and `mount.ts` calls none of them.
 
 import type {
     DetailLookupResult,
@@ -31,6 +32,8 @@ import type {
 import { isQueryOk } from "./engine-wire.js";
 import { type DetailPanel, createDetailPanel } from "./detail-panel.js";
 import { createDimRegistry } from "./dim.js";
+import type { FilterScope } from "./filter.js";
+import { type FilterBar, createFilterBar } from "./filter-bar.js";
 import { type HoverLens, createHoverLens } from "./hover-lens.js";
 import {
     type HighlightPanZoom,
@@ -58,10 +61,18 @@ import type { EntityRef, HostAdapter } from "./types.js";
 export const SYNC_SUSPENDED_HINT = "Editor sync paused · Esc to resume";
 
 /**
- * Why editor sync is suspended. `"selection"` is this slice's reason; #303's
- * active filter is the other one #276 point 9 names, and it registers itself
- * through {@link QuerySurface.setSyncSuspended} rather than by widening any
- * condition here.
+ * The hover lens's handle in the dim registry's exemption map. The lens itself
+ * does not know the registry exists — it publishes a trace through `onTrace` —
+ * so the key belongs to the composition that wires the two together.
+ */
+export const LENS_DIM_EXEMPTION = "lens-trace";
+
+/**
+ * Why editor sync is suspended. Two reasons exist — an entity selection
+ * registers `"selection"`, an active attribute filter registers `"filter"` —
+ * and sync resumes only when the last one lifts. A later surface with a reason
+ * of its own registers it through {@link QuerySurface.setSyncSuspended} rather
+ * than by widening any condition here (#276 point 9).
  */
 export type SyncSuspensionReason = string;
 
@@ -79,6 +90,13 @@ export interface QuerySurfaceOptions {
      * rather than to a stage edge. The hover lens's pill lives here.
      */
     floatLayer: HTMLElement;
+    /**
+     * The flow region (`#kul-region-flow`) — the filter bar's home. A filter is
+     * a project-scoped question, so its chrome stands above the canvas in the
+     * document flow rather than over it, and is live with nothing selected
+     * (#277, ADR-0038). A host without one gets no filter bar.
+     */
+    flowRegion: HTMLElement | null;
     /** Transient-notification region — the sync hint's home. */
     notifyRegion: HTMLElement | null;
     adapter: HostAdapter;
@@ -92,6 +110,13 @@ export interface QuerySurfaceOptions {
      * evaluates it; nothing here decides membership.
      */
     runKinQuery(query: Query): Promise<QueryEnvelope<QueryResult> | null>;
+    /**
+     * Evaluate any {@link Query} — the filter bar's two certainty questions go
+     * through it. Separate from {@link QuerySurfaceOptions.runKinQuery} because
+     * they are two verbs on the WASM surface naming two questions, even though
+     * `kul-core` evaluates both on one path (`engine.ts` says so at length).
+     */
+    runQuery(query: Query): Promise<QueryEnvelope<QueryResult> | null>;
     /** Two-anchor relationship resolution, ego first — what the lens asks (ADR-0028). */
     resolve(
         egoId: string,
@@ -124,12 +149,21 @@ export interface QuerySurface {
     /** A click landed inside the rendered SVG: an entity moves it, the canvas clears it. */
     handleCanvasClick(target: Element | null): void;
     /**
-     * The pointer moved over the rendered SVG — the hover lens's whole input.
-     * Cheap on every call; only a settled pointer costs a query (#302).
+     * The pointer moved over the rendered SVG. Cheap on every call; only a
+     * settled pointer costs a query (#302).
      *
-     * For a pointer *leaving* the canvas, pass the element it moved onto: the
-     * lens keeps reading when that element is its own pill, so hovering a term
-     * for its gloss does not dismiss the pill being hovered.
+     * **Two consumers, fanned out here.** The hover lens whispers a
+     * relationship while a person is selected; the filter bar whispers a
+     * can't-say reason under an unjudgeable card. Both dock a tag under the
+     * card the pointer is on, so they must never be up together — and the
+     * placement question ADR-0044 handed to #303 is answered by the fan-out
+     * itself: while a person is selected the reason stands down, and is *told*
+     * to (passed `null`) rather than merely not called, so a reason already
+     * open comes off screen. One gesture, one answer (ADR-0045).
+     *
+     * For a pointer *leaving* the canvas, pass the element it moved onto:
+     * either consumer keeps reading when that element is its own tag, so
+     * hovering a term or a reason does not dismiss what is being hovered.
      */
     handleCanvasHover(target: Element | null): void;
     /**
@@ -142,8 +176,14 @@ export interface QuerySurface {
     /**
      * Re-apply **every** piece of query paint after a render swapped the SVG
      * out: the selection outline, the painted kin set's result glow and dim,
-     * and the hover lens — which comes *down* rather than back. #303's filter
-     * dim lands on the same replaced picture and repaints from inside here too.
+     * the hover lens — which comes *down* rather than back — and the filter,
+     * which re-**asks** rather than replaying its last answer.
+     *
+     * The filter's asymmetry is `dim.ts`'s republish rule: its dimmed set is
+     * derived from the cards the picture holds, so a swapped-out SVG can change
+     * it and `apply` alone would not. Re-asking also covers the other thing a
+     * render brings — a new project snapshot, about which the previous verdict
+     * says nothing.
      *
      * The lens's asymmetry is the point: a selection and a kin answer are
      * standing choices the reader made, while a lens reading is about where the
@@ -164,16 +204,25 @@ export interface QuerySurface {
      * It is deliberately **not** named `clear()`: it clears one surface, and
      * `selection.clear()` is a documented no-op when nothing is selected, so a
      * general-sounding name would silently encode "query mode == a selection
-     * exists" — false the moment #303's filter can be active on its own. #304
-     * composes the real mode boundary from this call, the kin paint and the
-     * filter (ADR-0042).
+     * exists", which the filter makes false: it can be active on its own, and
+     * {@link QuerySurface.clearFilter} is its own separate exit. #304 composes
+     * the real mode boundary from both (ADR-0042).
      */
     clearSelection(): void;
     /**
+     * Drop the filter: its sentence, its paint, its dim, its can't-say
+     * exemption and its sync suspension. The other half of what ending query mode is composed from,
+     * and separate from {@link QuerySurface.clearSelection} because a filter
+     * and a selection are independent — either can exist without the other.
+     * A no-op when the host supplied no flow region.
+     */
+    clearFilter(): void;
+    /**
      * Register or lift one reason to suspend editor sync. The selection
-     * registers `"selection"` itself; a later surface with its own reason
-     * (#303's active filter) calls this rather than widening a condition, and
-     * the hint follows the reason set rather than the selection.
+     * registers `"selection"` and the filter bar `"filter"`, both from inside
+     * this module; a later surface with its own reason calls this rather than
+     * widening a condition, and the hint follows the reason set rather than the
+     * selection.
      */
     setSyncSuspended(reason: SyncSuspensionReason, suspended: boolean): void;
     /**
@@ -189,22 +238,26 @@ export interface QuerySurface {
      */
     refresh(): void;
     /**
-     * The persons a **live pointer-driven read** is tracing, lifted from every
-     * dim source. `null` withdraws the exemption.
+     * Publish one source's exempt persons — lifted from every dim source —
+     * or withdraw them with `null`.
      *
-     * #302's hover lens traces the persons that justify a relationship, and with
-     * a kin set painted those persons are almost always outside the answer — so
-     * the sky trace would render under the kin dim's alpha. The lens is what the
+     * The hover lens traces the persons that justify a relationship, and with a
+     * kin set painted those persons are almost always outside the answer, so the
+     * sky trace would render under the kin dim's alpha. The lens is what the
      * reader is doing now and the dim is what they did a moment ago, so the lens
-     * wins (ADR-0043). The rule lives on the dim registry rather than in kin
-     * paint, so #303's filter inherits it instead of re-deciding it.
+     * wins (ADR-0043). The rule lives on the dim registry rather than in any one
+     * paint, so a later source inherits it instead of re-deciding it.
      *
-     * **One live read at a time.** The exemption is a single slot, not a set
-     * keyed by holder, because a pointer is in one place: the lens is the only
-     * caller and each hover replaces the last. A second concurrent holder would
-     * clobber the first, and keying it is the fix if one ever appears.
+     * **Keyed, because there are two.** ADR-0043 held the exemption in a single
+     * slot on the reasoning that a pointer is in one place, and named keying as
+     * the fix if a second holder appeared. The filter's can't-say set is that
+     * holder: it is standing rather than pointer-driven, and it must survive the
+     * lens publishing and withdrawing a trace over the top of it (ADR-0045).
      */
-    setDimExemption(personIds: Iterable<string> | null): void;
+    setDimExemption(
+        source: string,
+        personIds: Iterable<string> | null,
+    ): void;
     /** The panel's viewport box while it is open — the region a pan must avoid. */
     occupiedBox(): ScreenBox | null;
     dispose(): void;
@@ -215,10 +268,12 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
         root,
         floatDock,
         floatLayer,
+        flowRegion,
         notifyRegion,
         adapter,
         lookup,
         runKinQuery,
+        runQuery,
         resolve,
         locale,
         getPanZoom,
@@ -302,18 +357,72 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
         selection,
         resolve,
         bindPhrase: (element, descriptor) => locale.bind(element, descriptor),
-        onTrace: setDimExemption,
+        onTrace: (personIds) => setDimExemption(LENS_DIM_EXEMPTION, personIds),
     });
 
     /**
-     * The persons a live read is tracing, lifted from every dim source
-     * (ADR-0043). The lens is the only caller — the exemption is one slot, not
-     * a set keyed by holder, because a pointer is in one place.
+     * Publish one source's exemption and redraw. Two sources hold one at a
+     * time — the lens's live trace and the filter's standing can't-say set —
+     * and the registry unions them (ADR-0045).
      */
-    function setDimExemption(personIds: Iterable<string> | null): void {
-        dim.exempt(personIds);
+    function setDimExemption(
+        source: string,
+        personIds: Iterable<string> | null,
+    ): void {
+        dim.exempt(source, personIds);
         dim.apply(root);
     }
+
+    /**
+     * The painted kin set as a filter scope, or `null` when none is painted.
+     *
+     * This is the composition #277 asked for: switching the scope chip switches
+     * the `Query`'s **source**, so `kinOf` + `where` is evaluated as one query
+     * and "which of Giuseppe's descendants were born before 1950" is one
+     * question rather than two. The population it carries is the answer already
+     * on screen — the same members the teal was painted from — so the tally's
+     * denominator and the paint can never disagree, and no third call is made
+     * for a set the surface is already holding.
+     *
+     * It is a *function* the bar calls on every draw rather than a value handed
+     * over once, because a kin set is painted and dropped without the filter
+     * being involved.
+     */
+    function kinScope(): FilterScope | null {
+        const set = kinActiveSetId === null ? null : kinSetById(kinActiveSetId);
+        if (!set || kinAnchorId === null) {
+            return null;
+        }
+        return {
+            id: set.id,
+            // The reader's words for the painted answer: the same set label the
+            // row carries, possessed by the same anchor name the empty-set
+            // toast uses, so one painted set is named one way on screen.
+            label: `${anchorName()}'s ${set.label.toLowerCase()}`,
+            source: kinQuery(set, kinAnchorId, "members").source,
+            personIds: new Set(kinActiveMembers.map((member) => member.personId)),
+        };
+    }
+
+    // The filter bar is standing chrome: a filter is project-scoped, so it is
+    // live before any selection. It is composed here rather than in the mount
+    // because everything it needs is here — the dim registry it publishes into,
+    // the sync-suspension reason set, the painted kin set it can scope to, and
+    // the one post-render hook (ADR-0045).
+    const filterBar: FilterBar | null = flowRegion
+        ? createFilterBar({
+              host: flowRegion,
+              root,
+              floatLayer,
+              dim,
+              run: runQuery,
+              lookup,
+              kinScope,
+              setSyncSuspended(suspended) {
+                  setSyncSuspended("filter", suspended);
+              },
+          })
+        : null;
 
     function closePanel(): void {
         shownDetail = null;
@@ -659,10 +768,24 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
         }
     });
 
+    /**
+     * Esc lifts **whatever query state is holding editor sync down** — the
+     * selection, the filter, or both.
+     *
+     * It is not scoped to the selection, and the hint is why: the notify region
+     * says "Editor sync paused · Esc to resume" for as long as *any* reason
+     * holds, so a filter with no selection would otherwise put that sentence on
+     * screen with no key behind it, leaving the reader to click ✕ on every chip.
+     * Esc is a keyboard exit rather than a render, so it decides nothing about
+     * #304's mode boundary; it only keeps the promise this chrome already makes
+     * (ADR-0045).
+     */
     function onKeyDown(event: KeyboardEvent): void {
-        if (event.key === "Escape" && selection.current) {
-            selection.clear();
+        if (event.key !== "Escape" || suspensions.size === 0) {
+            return;
         }
+        selection.clear();
+        filterBar?.reset();
     }
     window.addEventListener("keydown", onKeyDown);
 
@@ -676,7 +799,17 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
                 selection.clear();
             }
         },
-        handleCanvasHover: lens.handleHover,
+        handleCanvasHover(target) {
+            lens.handleHover(target);
+            // A person selection is what arms the lens, and the lens's pill
+            // docks under exactly the card a can't-say reason would. So the
+            // reason stands down while one exists — and is told to, rather than
+            // merely not called, so a reason already open comes off screen
+            // (ADR-0045, answering the placement question ADR-0044 left to
+            // this slice).
+            const lensArmed = selectionAnchorPerson(selection.current) !== null;
+            filterBar?.handleHover(lensArmed ? null : target);
+        },
         syncHighlight(ref) {
             heldSyncRef = ref;
             if (suspensions.size > 0) {
@@ -690,9 +823,17 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
             paintSelection(root, selection.current);
             lens.dismiss();
             paintKin();
+            // Republish, not `apply`: the filter's dimmed set is derived from
+            // the cards the picture holds, and the picture has just been
+            // replaced (`dim.ts`). Re-asking covers the new project snapshot
+            // that came with it too.
+            filterBar?.repaint();
         },
         clearSelection() {
             selection.clear();
+        },
+        clearFilter() {
+            filterBar?.reset();
         },
         setSyncSuspended,
         refresh: redrawPanel,
@@ -701,9 +842,16 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
         dispose() {
             window.removeEventListener("keydown", onKeyDown);
             lens.dispose();
-            // Drop the held ref before clearing, so lifting the selection's
-            // suspension replays nothing onto chrome being torn down.
+            // Drop the held ref first, before *anything* below can lift a
+            // suspension reason. Disposing the filter lifts `"filter"`, and on
+            // a filter-only suspension that is the last reason — which replays
+            // the held highlight onto chrome being torn down unless the ref is
+            // already gone.
             heldSyncRef = null;
+            // Then the filter, before the dim is reset, so its source and its
+            // exemption are withdrawn rather than left in a registry nobody
+            // will apply again.
+            filterBar?.dispose();
             // Clearing runs the normal teardown path — paint off, panel shut,
             // pan cancelled, suspension lifted. A disposed surface stops
             // listening, so a violet outline left behind would have nothing

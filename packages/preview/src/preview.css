@@ -183,6 +183,158 @@ body {
     background-color: var(--kul-locale-active-bg);
 }
 
+/* ── The filter bar (#277, ADR-0045) ──────────────────────────────────────
+ *
+ * The flow region's second member (ADR-0038): it declares no inset and no
+ * z-index, and it sits above the canvas in the document flow rather than over
+ * it, because a filter is a project-scoped question that is live with nothing
+ * selected.
+ *
+ * ADR-0036 makes accessibility a stated non-goal for new query chrome: no
+ * `role`, no `aria-*`, no `:focus-visible` anywhere below. The controls,
+ * legend and error popover keep every attribute they have.
+ *
+ * The sentence **wraps**; it never scrolls sideways. `flex-wrap` plus a
+ * per-chip cap is what keeps a long value from printing through the bar — and
+ * the cap only binds because the label inside carries `min-width: 0`. A flex
+ * item's automatic minimum size is its min-content width, which for a long
+ * unbroken value exceeds the cap, so the item refuses to shrink to it until
+ * that floor is removed. `overflow-wrap` then decides how the text breaks
+ * inside the width `min-width: 0` allowed; it does not reduce min-content size
+ * on its own. */
+.kul-filter-bar {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--kul-filter-bar-gap);
+    padding: var(--kul-filter-bar-padding);
+    color: var(--kul-filter-bar-fg);
+    font-family: var(--kul-filter-bar-font-family);
+    font-size: var(--kul-filter-bar-font-size);
+}
+
+/* "Showing", "where", "and" — literal text, so conjunction-only is visible in
+ * the grammar rather than documented somewhere the reader will not look. */
+.kul-filter-keyword {
+    color: var(--kul-filter-keyword-fg);
+}
+
+.kul-filter-chip {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    position: relative;
+    gap: var(--kul-filter-bar-gap);
+    max-width: var(--kul-filter-chip-max-width);
+    padding: var(--kul-filter-chip-padding);
+    color: var(--kul-filter-chip-fg);
+    background-color: var(--kul-filter-chip-bg);
+    border: 1px solid var(--kul-filter-chip-border-color);
+    border-radius: var(--kul-filter-chip-radius);
+}
+
+.kul-filter-chip-label {
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    overflow-wrap: break-word;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.kul-filter-chip:hover {
+    background-color: var(--kul-filter-chip-hover-bg);
+}
+
+/* The chip whose editor is open. */
+.kul-filter-chip-open {
+    background-color: var(--kul-filter-chip-active-bg);
+}
+
+.kul-filter-chip-remove {
+    flex: 0 0 auto;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--kul-filter-chip-remove-fg);
+    font: inherit;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+/* The tally. Its own line's worth of width when the sentence wraps, and never
+ * a fixed one: the numbers are the disclosure, and a truncated disclosure is
+ * worse than none. */
+.kul-filter-tally {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: var(--kul-filter-tally-fg);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: break-word;
+}
+
+/* The chip editor: field, op, value. Anchored to its own chip — the chip is
+ * `position: relative` above — rather than to the bar, so it opens under the
+ * thing it edits and needs no measurement.
+ *
+ * Its controls are real `<select>` and `<input>` elements, which is what makes
+ * the keyboard-pan target guard bind: arrows and `+` / `-` / `0` typed into a
+ * value belong to the field, not to the canvas. */
+.kul-filter-editor {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: var(--kul-filter-editor-z);
+    display: flex;
+    flex-direction: column;
+    gap: var(--kul-filter-editor-gap);
+    box-sizing: border-box;
+    width: var(--kul-filter-editor-width);
+    max-width: 100%;
+    padding: var(--kul-filter-editor-padding);
+    background-color: var(--kul-filter-editor-bg);
+    border: 1px solid var(--kul-filter-editor-border-color);
+    border-radius: var(--kul-filter-editor-radius);
+    box-shadow: 0 2px 8px var(--kul-filter-editor-shadow-color);
+}
+
+.kul-filter-editor select,
+.kul-filter-editor input {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    font: inherit;
+}
+
+/* The presence disclosure, and the no-kin-set note. Copy that exists so the
+ * surface does not assert a fact the data does not carry. */
+.kul-filter-note {
+    color: var(--kul-filter-note-fg);
+    font-size: var(--kul-filter-note-font-size);
+    overflow-wrap: break-word;
+}
+
+/* The can't-say whisper's content — the docked-tag grammar supplies the box,
+ * the placement and the pointer posture (ADR-0044), and this supplies only the
+ * reason, in the same amber the card wears, so the words and the paint read as
+ * one answer.
+ *
+ * `min-width: 0` and wrapping again, for the same reason `.kul-lens-term` needs
+ * them: a flex item's automatic minimum size is its min-content width, and the
+ * reason is a sentence with a person's own dates in it. */
+.kul-filter-reason {
+    min-width: 0;
+    color: var(--kul-filter-reason-fg);
+    overflow-wrap: break-word;
+}
+
 /* Floating cluster in the overlay region, above the SVG. Outside #root so the
  * per-render SVG swap never clears it. */
 .kul-preview-controls {
@@ -551,6 +703,53 @@ body {
 .kul-card.kul-query-dim {
     opacity: var(--kul-query-dim-opacity);
     transition: opacity var(--kul-query-dim-transition-duration);
+}
+
+/* ── The attribute filter, drawn on the tree (#277, ADR-0045) ─────────────
+ *
+ * The standing rule first, because it is what these rules are *not* allowed
+ * to do: **filtering never hides a node or an edge — it only dims.** Nothing
+ * below sets `display`, `visibility` or `content-visibility`, and nothing
+ * below touches an edge. The canonical layout survives every filter state
+ * intact; only how it reads changes.
+ *
+ * A match takes an outline rather than a stroke, so the card keeps its gender
+ * tint, and every card the person owns takes it — canonical and ghost alike
+ * (ADR-0034). Its own class rather than the kin result's, because a filter
+ * inside a painted kin set puts both on screen at once. */
+.kul-card.kul-filter-match > rect {
+    outline: var(--kul-filter-match-outline-width) solid
+        var(--kul-filter-match-outline-color);
+    outline-offset: var(--kul-filter-match-outline-offset);
+}
+
+/* A matching ghost keeps the glow and takes it dashed: it is still a past
+ * record, and a solid ring would make it read as canonical. */
+.kul-card[data-kind="ghost"].kul-filter-match > rect {
+    outline-style: dashed;
+    stroke-dasharray: var(--kul-filter-match-ghost-dash);
+}
+
+/* The third state, in the last reserved hue. Declared after the match rule, so
+ * it wins on a card that somehow carried both: "we could not judge this" must
+ * never be overpainted by "this matched".
+ *
+ * It is deliberately **not** dimmed. An unjudgeable person receding like a
+ * non-match is the silent drop the whole disclosure exists to prevent, and it
+ * is also what makes the card hoverable-looking enough to ask for its reason. */
+.kul-card.kul-filter-uncertain > rect {
+    outline: var(--kul-filter-uncertain-outline-width) dashed
+        var(--kul-filter-uncertain-outline-color);
+    outline-offset: var(--kul-filter-uncertain-outline-offset);
+}
+
+/* The `?` riding the card. A hue alone would be one dimension; the glyph is
+ * the second, so the third state stays legible where the first two are ringed
+ * shapes of the same weight. */
+.kul-filter-uncertain-badge {
+    fill: var(--kul-filter-uncertain-badge-fill);
+    font-size: var(--kul-filter-uncertain-badge-font-size);
+    pointer-events: none;
 }
 
 /* The details panel — a float-region member (ADR-0038). It declares no
