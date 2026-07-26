@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { getNonce, MOUNT_POINT_ID, previewHtml } from "../src/html.js";
+import {
+    ENGINE_MODULE_ATTR,
+    ENGINE_WASM_ATTR,
+    getNonce,
+    MOUNT_POINT_ID,
+    previewHtml,
+} from "../src/html.js";
 
 const THEME_HREF =
     "https://file%2B.vscode-resource.example/media/preview-themes.css";
@@ -10,6 +16,12 @@ const SCRIPT_HREF =
 const CSP_SOURCE = "https://file%2B.vscode-resource.example";
 const NONCE = "abc123ABC123abc123ABC123abc12345";
 
+const ENGINE_SOURCE = {
+    moduleUri: "https://file%2B.vscode-resource.example/media/preview/wasm/kul_wasm.js",
+    wasmUri:
+        "https://file%2B.vscode-resource.example/media/preview/wasm/kul_wasm_bg.wasm",
+};
+
 function build(): string {
     return previewHtml({
         themeStylesheetUri: THEME_HREF,
@@ -17,6 +29,17 @@ function build(): string {
         scriptUri: SCRIPT_HREF,
         cspSource: CSP_SOURCE,
         nonce: NONCE,
+    });
+}
+
+function buildWithEngine(): string {
+    return previewHtml({
+        themeStylesheetUri: THEME_HREF,
+        applicationStylesheetUri: CSS_HREF,
+        scriptUri: SCRIPT_HREF,
+        cspSource: CSP_SOURCE,
+        nonce: NONCE,
+        engineSource: ENGINE_SOURCE,
     });
 }
 
@@ -29,6 +52,16 @@ function cspDirective(html: string, name: string): string {
         .find((d) => d.startsWith(`${name} `) || d === name);
     expect(directive, `CSP has a ${name} directive`).toBeDefined();
     return directive!;
+}
+
+function cspDirectiveOrNull(html: string, name: string): string | null {
+    const match = html.match(/content="([^"]*)"\s*>/);
+    return (
+        match![1]
+            .split(";")
+            .map((d) => d.trim())
+            .find((d) => d.startsWith(`${name} `) || d === name) ?? null
+    );
 }
 
 describe("getNonce", () => {
@@ -77,6 +110,78 @@ describe("previewHtml CSP", () => {
         const styleSrc = cspDirective(build(), "style-src");
         expect(styleSrc).toContain(CSP_SOURCE);
         expect(styleSrc).toContain("'unsafe-inline'");
+    });
+
+    it("grants no wasm allowance to a shell with no engine", () => {
+        const html = build();
+        expect(cspDirective(html, "script-src")).not.toContain("wasm-unsafe-eval");
+        expect(cspDirectiveOrNull(html, "connect-src")).toBeNull();
+    });
+});
+
+describe("previewHtml CSP with an engine (ADR-0034)", () => {
+    it("adds 'wasm-unsafe-eval' to script-src", () => {
+        expect(cspDirective(buildWithEngine(), "script-src")).toContain(
+            "'wasm-unsafe-eval'",
+        );
+    });
+
+    it("never substitutes the broad 'unsafe-eval'", () => {
+        // The narrow grant exists for exactly this; the broad one would
+        // re-enable eval() on a surface that renders document content.
+        const scriptSrc = cspDirective(buildWithEngine(), "script-src");
+        expect(scriptSrc).not.toMatch(/(^|[^-])'unsafe-eval'/);
+    });
+
+    it("keeps the nonce gate and adds no 'unsafe-inline'", () => {
+        const scriptSrc = cspDirective(buildWithEngine(), "script-src");
+        expect(scriptSrc).toContain(`nonce-${NONCE}`);
+        expect(scriptSrc).not.toContain("'unsafe-inline'");
+    });
+
+    it("opens connect-src to the host origin so the .wasm can be fetched", () => {
+        const connectSrc = cspDirective(buildWithEngine(), "connect-src");
+        expect(connectSrc).toBe(`connect-src ${CSP_SOURCE}`);
+    });
+
+    it("leaves default-src at 'none' and style-src untouched", () => {
+        const html = buildWithEngine();
+        expect(cspDirective(html, "default-src")).toBe("default-src 'none'");
+        expect(cspDirective(html, "style-src")).toBe(
+            `style-src ${CSP_SOURCE} 'unsafe-inline'`,
+        );
+    });
+});
+
+describe("previewHtml engine source", () => {
+    it("stamps both engine URIs on the mount point", () => {
+        const html = buildWithEngine();
+        expect(html).toContain(
+            `${ENGINE_MODULE_ATTR}="${ENGINE_SOURCE.moduleUri}"`,
+        );
+        expect(html).toContain(`${ENGINE_WASM_ATTR}="${ENGINE_SOURCE.wasmUri}"`);
+    });
+
+    it("omits the attributes entirely when no engine is supplied", () => {
+        const html = build();
+        expect(html).not.toContain(ENGINE_MODULE_ATTR);
+        expect(html).not.toContain(ENGINE_WASM_ATTR);
+    });
+
+    it("escapes a quote in a URI so it cannot break out of the attribute", () => {
+        const html = previewHtml({
+            themeStylesheetUri: THEME_HREF,
+            applicationStylesheetUri: CSS_HREF,
+            scriptUri: SCRIPT_HREF,
+            cspSource: CSP_SOURCE,
+            nonce: NONCE,
+            engineSource: {
+                moduleUri: 'x" onload="alert(1)',
+                wasmUri: "y",
+            },
+        });
+        expect(html).toContain('x&quot; onload=&quot;alert(1)');
+        expect(html).not.toContain('onload="alert(1)"');
     });
 });
 
