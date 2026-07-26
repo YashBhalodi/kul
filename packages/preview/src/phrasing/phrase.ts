@@ -23,11 +23,21 @@ export interface Phrase {
  * Phrase one relationship descriptor in one language.
  *
  * Whole-path lookup first. When the language has no term, the fallback is
- * **recursive prefix lexicalization over the same table**: walk the backbone's
- * prefixes longest to shortest, derive a sub-path key for each, look it up,
- * and render the remaining hops as a genitive chain off the first hit. So the
- * composed form reuses a term the language has — "first cousin's wife", not a
- * five-link walk from ego. There is no second lexicon.
+ * **prefix lexicalization over the same table**: walk the backbone's prefixes
+ * longest to shortest, derive a sub-path key for each, look it up, and render
+ * the remaining hops as a genitive chain off the first hit. So the composed
+ * form reuses a term the language has — "first cousin's wife", not a five-link
+ * walk from ego. There is no second lexicon.
+ *
+ * **Exactly one prefix is lexicalized.** The tail is spelled hop by hop and is
+ * never re-read as a relationship of its own, so an `up·down` tail comes out
+ * "X's mother's son" rather than "X's brother" (a spouse's uncle phrases
+ * "father-in-law's mother's son"). That is a deliberate bound on the fallback,
+ * not an oversight: re-lexicalizing tails would need a *second* ego to be
+ * relative to, and every hop of the backbone is relative to the one ego the
+ * descriptor names. Where the flattening reads as the *wrong* relationship
+ * rather than a clumsy one, the fix is an entry in the pack — see the
+ * `other`-gender parent's sibling in `packs/en.ts` (ADR-0039).
  */
 export function phrase(descriptor: RelationshipDescriptor, pack: LanguagePack): Phrase {
     const lexical = lexicalize(phrasingKeyOf(descriptor), pack);

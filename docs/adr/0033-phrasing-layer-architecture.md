@@ -59,6 +59,8 @@ Because `apexSeniority`, `sharing` and the `side = both` couple-apex refinement 
 
 ### A language pack is data: a facet-match table, most-specific-wins
 
+> **Refined by [ADR-0039](./0039-phrasing-lookup-mechanics.md) (#298)** — the tie rule below is sharpened to *disagreement*: entries tied for maximum specificity that yield the **same** term are legitimate, and both packs need them (English writes *brother-in-law* twice, keying each end of the path, so the third shape in that cell stays unnamed; Gujarati's *savkā* many-to-one lands the same way). Only tied entries yielding **different** terms are a defect. ADR-0039 also pins that an entry matches by equality only — a numeric floor lives in an affix rule, never on an entry.
+
 An entry is a record — a **partial match over the phrasing key** plus the term it yields. An omitted facet is a wildcard, so a coarse entry (`{cousinDegree: 1, removed: 0} → bhāī/bahen`) and a specific one (`… + side: maternal, linkGender: female → masiyāī bhāī`) legitimately coexist.
 
 - **Precedence is by specificity: the entry keying the most facets wins.** Declaration order carries no meaning.
@@ -89,6 +91,8 @@ Seniority modifiers (*moṭā* / *nānā bhāī*) need no rule — they are ordi
 So `seniority: unknown` yields *bhāī*, never a guessed *moṭā bhāī*; `apexSeniority: unknown` yields *kākā*, never *moṭā bāpā*. This is ADR-0026's honesty principle ("`unknown` and `notApplicable` are explicit, and never conflated") and [#277](https://github.com/YashBhalodi/kul/issues/277)'s certain-by-default filtering, carried into terminology: the layer never asserts a distinction the data does not support. `notApplicable` is a *value* and matches normally — it is a fact about the path shape, not a gap.
 
 ### The fallback is recursive prefix lexicalization over the backbone
+
+> **Refined by [ADR-0039](./0039-phrasing-lookup-mechanics.md) (#298)** — "recursive" overstates it, and deliberately so in the implementation: **exactly one** prefix is lexicalized and the tail is spelled hop by hop, never re-read as a relationship of its own (an `up·down` tail is "X's mother's son", not "X's brother"). Re-lexicalizing a tail would phrase it relative to a second ego, which the descriptor's ego-relative facets cannot support. Where a flat tail names the *wrong* relationship, the fix is a pack entry.
 
 When no entry matches the whole path, the layer walks prefixes from longest to shortest, deriving a sub-path key for each and looking it up in the **same table**. The first hit becomes the lexicalized head; the remaining hops render as a genitive chain. *māmā-no dīkro*, not *mātā-no bhāī-no dīkro*; "your grandmother's cousin", not a four-link walk.
 
@@ -132,7 +136,7 @@ The inventory surfaced these and deliberately left them here.
 - **"Put the term tables in `kul-core` so `kul query` gets human output for free."** ADR-0026 forbids the engine emitting a word, CLI phrasing is explicitly out of scope for this map, and it would put every term typo behind a Rust release and phrased strings on the LSP wire. A language-neutral Rust core is a deliberate future re-implementation, not a thing to retrofit now.
 - **"Key terms on the normalized descriptor fields only — the descriptor is maximally discriminating."** It is, but only *with* its backbone. Six Gujarati terms share one normalized cell, and four more term families split on hop genders. The inventory disproves this empirically; the six derived facets are the answer.
 - **"Let a language pack export a function for the awkward cases."** The day a hook exists, "adding a language is one additive entry" is no longer true, packs stop being reviewable as data, and specificity goes back to being implicit in code order. Awkward cases extend the affix-rule vocabulary instead.
-- **"Resolve entry conflicts by declaration order."** That makes precedence invisible and order-fragile. Specificity is counted; ties are a defect a test catches.
+- **"Resolve entry conflicts by declaration order."** That makes precedence invisible and order-fragile. Specificity is counted; ties on *different* terms are a defect a test catches ([ADR-0039](./0039-phrasing-lookup-mechanics.md)), and even a defective pack resolves deterministically without consulting order.
 - **"Render the composed fallback as a flat hop walk from ego."** It discards a lexicalized term the language has and the reader prefers — "your mother's brother's son" where every speaker says *māmā-no dīkro*. The fallback reuses the table by design.
 - **"Guess the unmarked-versus-marked term when the deciding facet is `unknown`."** Defaulting `apexSeniority` so *kākā* always beats *moṭā bāpā* invents a fact about someone's family. Unknown disqualifies; the unmarked term is the honest answer.
 - **"Add a `language:` field to `kul.yml` so a family's tree reads in its own language."** Correct instinct, wrong lever — `kul.yml` is normative and binds every third-party consumer. Revisit only if phrasing leaves the preview.

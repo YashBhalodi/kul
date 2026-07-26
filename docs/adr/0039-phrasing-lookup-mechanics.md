@@ -1,4 +1,4 @@
-# ADR 0037 — Phrasing lookup mechanics: equality-only entries, refusing caps, derived orders
+# ADR 0039 — Phrasing lookup mechanics: equality-only entries, refusing caps, derived orders
 
 **Status:** Accepted
 **Date:** 2026-07-26
@@ -89,6 +89,13 @@ term among the winners, so behaviour is deterministic even in a pack that is
 mid-defect, and the failure mode is a wrong word rather than a word that changes
 when someone reorders the file.
 
+The relaxation is **exercised, not hypothetical**: `en-terms.test.ts` asserts
+that the spouse's-sibling's-spouse key really does win two entries at equal
+specificity and that they agree. Review caught an earlier draft where a stray
+`acrossCount: 1` on one side broke the tie by specificity and quietly retired
+the case — so the assertion is on the tie itself, not only on the word it
+produces.
+
 ### A sub-path key marks endpoint `seniority` unknown too
 
 ADR-0033 lists three facets a sub-path key marks `unknown`: `sharing`,
@@ -107,6 +114,29 @@ a `down` hop, which is precisely `junction.up == 1` in
 `crates/kul-core/src/query/junction.rs`. Anything else is derivable from the
 hops alone and is derived.
 
+### The fallback lexicalizes exactly one prefix; the tail stays flat
+
+ADR-0033 calls the fallback "recursive prefix lexicalization". The
+implementation is not recursive and should not become so: one prefix is
+lexicalized and the remaining hops are spelled one by one, never re-read as
+relationships of their own.
+
+The consequence is visible and worth stating plainly. An `up·down` tail comes
+out "X's mother's son" rather than "X's brother" — a spouse's uncle phrases
+*father-in-law's mother's son*. Re-lexicalizing a tail would mean phrasing it
+relative to a *second* ego (the person the head landed on), and every facet the
+descriptor carries — `side`, both seniorities, `sharing` — is relative to the
+one ego it names. Deriving a second set from the backbone alone would be
+inventing exactly the facts the never-guess rule refuses to invent.
+
+So the bound is deliberate, and where a flattened tail reads as the **wrong**
+relationship rather than a clumsy one, the fix is data. Review found the one
+place `en` had it: an `other`-gender parent's sibling fell through to
+"grandfather's child", which a speaker uses for their *parent*. It is now an
+entry (*parent's sibling*). The general rule for a pack author: a composed form
+may be long-winded, but if it names a different relationship than the one the
+descriptor holds, that cell needs an entry.
+
 ### `hopCount` counts the hops the phrase spells out
 
 `hopCount` is `path.length − (length of the lexicalized prefix)`: zero for a
@@ -123,18 +153,55 @@ descriptor types are therefore a verbatim copy of the committed tsify output in
 and a Vitest lint reads both files as text and fails on any drift. Precedent:
 `crates/kul-svg/tests/visual.rs` lints the baked token layer the same way.
 
-### The enumeration widens itself from the packs
+**The lint pins the types, not the derivations.** `sideOf`, `affinityOf`,
+`edgeNatureOf` and `classificationFacetsOf` in `packages/preview/src/phrasing/key.ts`
+are a hand reimplementation of `derive_side`, `derive_affinity`,
+`derive_edge_nature` and `derive_classification` in
+`crates/kul-core/src/query/descriptor.rs`, plus the `junction.up == 1` test from
+`crates/kul-core/src/query/junction.rs`. They are faithful today and only run on
+**sub-path** keys (a whole-path key takes every normalized dimension straight
+from the descriptor), which bounds the blast radius — but nothing catches a
+future change to those Rust functions. Anyone touching them should touch
+`key.ts` in the same change; a cross-language snapshot would be the real fix and
+is deferred, since the honest home for one is the Rust crate ADR-0033 rejected
+on scope.
+
+### The enumeration widens itself from the packs — with two invariants
 
 The pack suites walk a bounded enumeration of *realizable* descriptors built
 from the path grammar. The facets a path does not determine — `sharing`,
 `side`, the two seniorities, `edgeNature`, `egoGender` — are enumerated over
-**the values some registered pack actually keys**, plus one default.
+**the values some registered pack actually keys**, plus a default.
 
 So the key space grows exactly when a pack starts discriminating on something,
 and a new language inherits coverage and conflict-freedom over its own facets
 without editing a test or paying for a combinatorial explosion it does not use.
 Together with the `PACKS` registry (the single registration surface), this is
 what makes "the `gu` pack's PR touches no logic" checkable as a diff shape.
+
+Two invariants keep that mechanism from being worse than no scan at all, and
+review found the second one broken:
+
+1. **A value no pack keys must survive narrowing.** Otherwise every enumerated
+   key matches some specific entry, and a conflict between two *coarse* entries
+   is never reached.
+2. **`unknown` must always be enumerated where the wire form allows it.** It is
+   not one value among many: it disqualifies *every* entry keying its facet
+   whatever value that entry keys, a pack may never key it (the pack suite
+   forbids that), and it is what the engine emits whenever a birth date is
+   missing — the single most common real descriptor.
+
+Losing (2) is silent and severe. With `unknown` unreachable, a `gu`-shaped pack
+whose *marked* seniority entries (*moṭā bhāī* / *nāno bhāī*) shadow a genuine
+disagreeing conflict between two unmarked entries scans **clean** while the
+runtime answers with the defective term. `tests/phrasing/conflict-detection.test.ts`
+now builds exactly that pack and asserts the scan catches it, so the detector is
+itself under test rather than trusted.
+
+Only `seniority` and `apexSeniority` can be `unknown` on a whole-path key: the
+engine never emits `unknown` for `sharing` or `side` (those gain it only on
+sub-path keys, which the fallback exercises from within the same enumeration),
+and no other facet's domain contains it.
 
 ## Consequences
 
@@ -149,7 +216,12 @@ what makes "the `gu` pack's PR touches no logic" checkable as a diff shape.
   per-language code hook exists, and none was needed for `en`.
 - A pack is checkable as data: five suites (facet validity, governed-facet
   validity, coverage, entry conflicts, affix-slot conflicts) run over every
-  registered pack.
+  registered pack, and the conflict scan is itself tested against a pack with a
+  known defect.
+- The one-prefix fallback means a pack author's job is not only "does every key
+  resolve" but "does any composed form name the *wrong* relationship". `en`
+  needed one entry for that (*parent's sibling*); `gu`, whose lexicon is far
+  denser at short distances, should expect the check to be worth running.
 
 ## Anti-suggestions (do not re-propose)
 
@@ -169,3 +241,11 @@ what makes "the `gu` pack's PR touches no logic" checkable as a diff shape.
 - **"Import the descriptor types from `@kullang/wasm`."** That puts a dependency
   on the module whose whole point is having none, and the text lint already
   catches the drift the import would have prevented.
+- **"Narrow the test enumeration to the values packs key, full stop — the rest
+  cannot change a match."** True for equality matching and false for `unknown`,
+  which no pack may key and which disqualifies every entry keying its facet. A
+  narrowing that drops it reports defective packs clean.
+- **"Make the fallback re-lexicalize its tail so `up·down` reads 'brother'."**
+  That phrases a tail relative to a second ego, which the descriptor's
+  ego-relative facets do not support; deriving them would invent the facts the
+  never-guess rule exists to refuse. A misreading tail is a missing pack entry.
