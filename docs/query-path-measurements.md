@@ -143,6 +143,13 @@ Flat — the lookups are free, the check is everything. At the ceiling this turn
 for a 40-row list: a **41× improvement**, and it makes list size stop mattering entirely. Applying
 Finding 1's ~1.0× multiplier at that size, the WASM cost would be the same 13 ms.
 
+> **Shipped and gated ([#306](https://github.com/YashBhalodi/kul/issues/306))**: the batched
+> operation is `query::details` / WASM `queryDetail` ([ADR-0037](./adr/0037-batched-detail-lookup-shape.md)),
+> and this finding's flatness is now the standing test
+> `crates/kul-core/tests/perf.rs::batched_detail_cost_is_flat_in_the_number_of_targets` — 40 targets
+> must cost < 2× one target, check included. That is the part of this document that survives its
+> deletion.
+
 ## Finding 6 — phrasing needs no lookup at all; only the display name does
 
 `queryKin` returns `Member { personId, descriptor }` — the full `RelationshipDescriptor`, backbone

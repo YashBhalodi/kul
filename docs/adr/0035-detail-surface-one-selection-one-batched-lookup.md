@@ -96,6 +96,11 @@ goes from 276 ms to ≈13 ms, and list size stops mattering.
 This adds Rust work and a release to the epic's critical path, and pins a surface shape ADR-0024 did
 not. That is accepted knowingly, in exchange for one provenance path across the whole widget.
 
+> **The operation's shape is decided by [ADR-0037](./0037-batched-detail-lookup-shape.md) (#306)** —
+> a list of `DetailTarget`s in (person id, marriage id, or an adoption's `(childId, marriageId)`
+> pair), a list of `EntityDetail` unions out, in the order asked, `null` per target that names no
+> entity. The CLI is deliberately left without a matching verb.
+
 ### What the panel shows
 
 **Absent fields are omitted**, never rendered as "not recorded". This mirrors the wire exactly —
