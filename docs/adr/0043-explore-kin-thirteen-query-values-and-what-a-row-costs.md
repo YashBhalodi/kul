@@ -90,9 +90,13 @@ at the 10,000-person ceiling is **≈215 ms** — #292 measures one at 16.6 ms o
 ADR-0029's 50 ms budget for one click, and the same arithmetic Finding 4 used to kill eager per-row
 hydration.
 
-That number is a **floor, not an estimate**. #292's 16.6 ms was measured on one
-`collateralByDegree{2,0}` query; the catalogue includes unbounded `ancestors` and `descendants` and
-two affinal `any` patterns, and none of those has been measured. The real sweep is ≥ 215 ms.
+That number is an **extrapolation from one datapoint, and it leans toward being a floor**. #292's
+16.6 ms was measured on a single `collateralByDegree{2,0}` query, and the catalogue's patterns are
+mostly heavier: unbounded `ancestors` and `descendants`, and two affinal `any` patterns that spend
+marriage hops. Pulling the other way, that datapoint was `members`-shaped while the sweep projects
+`count`, which materializes nothing and is plausibly cheaper per call. Neither axis has been
+measured, so the honest statement is that ≈215 ms is the order of magnitude and the pattern axis is
+the larger of the two unknowns.
 
 The bounding is narrow and worth stating exactly, because it is easy to overstate:
 
@@ -127,6 +131,16 @@ One shared counter is the obvious shape and is wrong: painting a row would inval
 sweep, the memo would never re-arm, and every row would read `·` for as long as that person stayed
 selected. `explore-kin.test.ts` holds the sweep open, paints a row inside the window and asserts both
 answers survive.
+
+**The memo is a claim on work in progress, not a record that the work was done**, so it is released
+the moment the sweep does not fully answer — an envelope's error arm, a `null`, or a `runKinQuery`
+that rejects. The error arm is not an exotic path: ADR-0009 makes it what *any* project with a
+validation error yields, which is the ordinary state of a document mid-edit. A claim held across it
+would leave the list permanently dead for that anchor, outliving the fix and the re-render that
+follows it, with no escape but selecting someone else — which is precisely the failure the two-guard
+split above exists to prevent, arriving by a different route. Whatever *did* answer is still shown:
+those numbers are the engine's, and a row the sweep could not answer shows the same placeholder it
+shows before any answer lands.
 
 ### Only the painted row is glossed, and the gloss is what re-phrases
 
@@ -169,9 +183,9 @@ lifetime:
   [#302](https://github.com/YashBhalodi/kul/issues/302)'s lens pill is an element that is *already up*
   when the reader flips language, and `bind` owns its `textContent`, its `lang`, its phrase metadata
   and its title for as long as it lives — five writes per phrase site that a draw-time caller would
-  have to replicate. It also cannot ride `refresh()`: ADR-0044 (#302) has the lens dismissing on
-  repaint, so a `refresh()` widened to "redraw every phrased surface" would name a behaviour one of
-  its surfaces deliberately does not have.
+  have to replicate. It also cannot ride `refresh()`: #302 is expected to dismiss the lens on repaint,
+  so a `refresh()` widened to "redraw every phrased surface" would name a behaviour one of its
+  surfaces deliberately does not have.
 
 Handing the panel a `pack()` getter *only*, and leaving the controller at the mount, was the shape
 this ADR first took. It is rejected because it makes the seam express less than the rule: the lens
@@ -339,9 +353,9 @@ show one it has not been given.
 - **"Keep `pack()` on the surface and let #302 add its own locale option."** Two options onto one
   controller is two paths to one source of truth, and it puts the lens's `bind` outside the seam every
   other phrased surface goes through.
-- **"Broaden `refresh()` to redraw every phrased surface, so the lens rides it too."** ADR-0044
-  (#302) has the lens dismissing on repaint. A name that promised to redraw it would be false about
-  the one surface it was widened for.
+- **"Broaden `refresh()` to redraw every phrased surface, so the lens rides it too."** #302 dismisses
+  the lens on repaint. A name that promised to redraw it would be false about the one surface it was
+  widened for.
 - **"Let each paint source own its own dim class."** Two `opacity` values on nested cards multiply to
   0.09. One class, one owner, union of sources.
 - **"Have the kin repaint strip `.kul-query-dim` — it is stateless paint."** It runs on every render,
@@ -362,3 +376,6 @@ show one it has not been given.
   invalidate the sweep still in flight, and the memo would never re-arm — every row `·` until the
   reader selects someone else. Two questions, two guards; the sweep's is the anchor, because the
   anchor is the only thing that can make its answers wrong.
+- **"Keep the memo once claimed — a re-issued sweep is thirteen more calls."** It is, and a stranded
+  claim is a permanently dead list for an anchor whose project happened to be mid-edit when the reader
+  opened it. The claim marks work in flight; it is released whenever the sweep does not fully answer.

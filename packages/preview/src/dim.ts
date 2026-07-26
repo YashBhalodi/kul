@@ -13,8 +13,14 @@
 //   source can only ever dim more, never un-dim;
 // - `--kul-dim-alpha` is applied once per card and never nests;
 // - a source withdraws by publishing `null`, and `apply` recomputes from
-//   whatever remains — so a repaint after a render is the same call as the
-//   first paint.
+//   whatever remains.
+//
+// **A render obliges each source to republish, not merely to `apply`.** The
+// registry holds ids, not nodes, so `apply` alone is enough for a source whose
+// set is DOM-independent — but kin paint derives its set by walking the cards
+// that are *not* in the answer, so a swapped-out SVG can change it. That is why
+// `paintKinResults` recomputes rather than calling `apply`, and any later source
+// that reads the picture to decide who it dims inherits the same obligation.
 //
 // One thing outranks the union: an **exemption**, which is the set of persons a
 // *live pointer-driven read* is tracing. #302's hover lens traces the persons
@@ -40,6 +46,11 @@ export interface DimRegistry {
     /**
      * The persons a live read is tracing, lifted from **every** source's dim.
      * `null` withdraws the exemption. Does not touch the DOM.
+     *
+     * A single slot, deliberately, where {@link DimRegistry.set} is keyed: a
+     * pointer is in one place, so there is one live read at a time and each
+     * call replaces the last. Two concurrent holders would clobber each other;
+     * keying this is the fix if a second one ever exists.
      */
     exempt(personIds: Iterable<string> | null): void;
     /** Recompute the class on every card in `root` from the current union. */

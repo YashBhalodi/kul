@@ -527,13 +527,12 @@ body {
  * is about a person, and a result that vanished in the past family whose edges
  * its ghost anchors would be a result the reader cannot see.
  *
- * This paint and the query selection violet coexist by design — the anchor of
- * a kin set is a selected person, and both say something true about it. The
- * violet rule above is declared first, so a card that is both takes the teal;
- * the anchor is never in its own answer, so that combination only arises for a
- * result the reader then clicks. */
-.kul-card.kul-query-result > rect,
-.kul-edge.kul-query-result {
+ * Teal and the query selection violet cannot both be on one card at a steady
+ * state: the anchor is never in its own answer, and clicking a lit card moves
+ * the selection, which drops the paint. This rule is declared after the violet
+ * one anyway, so the two are ordered rather than left to chance — a rule whose
+ * only job is to make a transient frame during a repaint look deliberate. */
+.kul-card.kul-query-result > rect {
     outline: var(--kul-query-result-outline-width) solid
         var(--kul-query-result-outline-color);
     outline-offset: var(--kul-query-result-outline-offset);
