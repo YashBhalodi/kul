@@ -32,4 +32,8 @@ Cargo.lock.bak
 
 # WASM build output (wasm-pack). The generated `.d.ts` is extracted into
 # `crates/kul-wasm/types/` and committed; everything else is artifact-only.
+# `pkg/` is the `--target bundler` build published to npm; `pkg-web/` is the
+# `--target web` build the VSCode extension stages into media/preview/wasm/
+# at package time (ADR-0040).
 crates/kul-wasm/pkg/
+crates/kul-wasm/pkg-web/

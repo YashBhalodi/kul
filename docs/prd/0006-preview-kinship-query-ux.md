@@ -86,7 +86,8 @@ Two engineering consequences fall out of the design rather than being chosen for
 
 Per **[ADR-0034](../adr/0034-query-transport-and-result-node-identity.md)**:
 
-- **No `kul/query` LSP request.** The preview calls `@kullang/wasm` directly; `kul-lsp` keeps its five custom methods and is untouched by this epic. A query is a local function call, which is what makes a zero-click hover lens viable.
+- **No `kul/query` LSP request.** The preview calls the WASM query surface directly; `kul-lsp` keeps its five custom methods and is untouched by this epic. A query is a local function call, which is what makes a zero-click hover lens viable.
+- **The engine is a build asset, not an npm dependency** — per **[ADR-0040](../adr/0040-engine-provenance-a-build-asset-not-a-registry-dependency.md)** (#297), which decided the provenance ADR-0034 left open. `just wasm` produces a `--target web` build; the extension stages it into `media/preview/wasm/` and hands the webview two URIs. `@kullang/preview` therefore stays host-agnostic, and the querying engine always comes from the same commit as the core that rendered the picture.
 - **The extension posts `files + manifest` with each render**, because the WASM surface is stateless. The source the webview queries is always the source the picture came from.
 - **The ~580 KB module loads lazily on first query**, so opening a preview stays exactly as fast for anyone who never queries.
 - **Every call re-checks the project.** Measured at ≈13.7 ms (WASM) on 10,000 persons — the dominant per-call cost, inside budget, and the epic's main latency lever if anything bites.

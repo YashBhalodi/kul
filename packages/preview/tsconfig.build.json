@@ -12,7 +12,10 @@
         "src/types.ts",
         "src/html.ts",
         "src/mount.ts",
-        "src/adapter-vscode.ts"
+        "src/adapter-vscode.ts",
+        "src/engine.ts",
+        "src/engine-wire.ts",
+        "src/result-binding.ts"
     ],
     "exclude": ["tests", "node_modules", "dist"]
 }

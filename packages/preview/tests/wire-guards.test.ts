@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isEntityKind, isRevealTarget } from "../src/wire-guards.js";
+import { isEntityKind, isProjectSnapshot, isRevealTarget } from "../src/wire-guards.js";
 
 describe("isEntityKind", () => {
     it("accepts the two union members", () => {
@@ -79,5 +79,46 @@ describe("isRevealTarget", () => {
                 },
             }),
         ).toBe(false);
+    });
+});
+
+describe("isProjectSnapshot", () => {
+    it("accepts a well-formed snapshot", () => {
+        expect(
+            isProjectSnapshot({
+                files: [{ name: "a.kul", source: "person a\n" }],
+                manifest: { kul: "0.1" },
+            }),
+        ).toBe(true);
+    });
+
+    it("accepts an empty file list (an empty project is a real project)", () => {
+        expect(isProjectSnapshot({ files: [], manifest: { kul: "0.1" } })).toBe(true);
+    });
+
+    it("rejects the whole snapshot when one file is malformed", () => {
+        // A partly-valid list would query a different project from the one the
+        // picture shows, so it is rejected whole rather than filtered.
+        expect(
+            isProjectSnapshot({
+                files: [
+                    { name: "a.kul", source: "person a\n" },
+                    { name: "b.kul" },
+                ],
+                manifest: { kul: "0.1" },
+            }),
+        ).toBe(false);
+    });
+
+    it("rejects a missing or non-string manifest version", () => {
+        expect(isProjectSnapshot({ files: [] })).toBe(false);
+        expect(isProjectSnapshot({ files: [], manifest: {} })).toBe(false);
+        expect(isProjectSnapshot({ files: [], manifest: { kul: 0.1 } })).toBe(false);
+    });
+
+    it("rejects non-object payloads", () => {
+        for (const bad of [null, undefined, 42, "project", []]) {
+            expect(isProjectSnapshot(bad)).toBe(false);
+        }
     });
 });

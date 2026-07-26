@@ -2,6 +2,8 @@
 // webview.html assignment. The bundled `preview-webview.js` then mounts the
 // chrome inside `#kul-preview-mount` via `mountPreview`.
 
+import type { EngineSource } from "./engine.js";
+
 // 32-char nonce stamped on every `<script>` so the CSP can drop
 // `'unsafe-inline'`. Standard VSCode webview pattern.
 //
@@ -29,6 +31,22 @@ export function getNonce(): string {
 /** Element id `mountPreview` looks for when called by the VSCode entry. */
 export const MOUNT_POINT_ID = "kul-preview-mount";
 
+/**
+ * Data attributes the shell stamps on the mount point to tell the webview
+ * entry where the host put the engine (ADR-0040). The entry reads them rather
+ * than importing a module, which is what keeps this package host-agnostic.
+ */
+export const ENGINE_MODULE_ATTR = "data-kul-engine-module";
+export const ENGINE_WASM_ATTR = "data-kul-engine-wasm";
+
+function escapeAttribute(value: string): string {
+    return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
 export interface PreviewHtmlOptions {
     /** Webview-resource URI for the theme tokens stylesheet. */
     themeStylesheetUri: string;
@@ -42,6 +60,13 @@ export interface PreviewHtmlOptions {
     nonce: string;
     /** `data-theme` value on `<body>`. Defaults to `vscode`. */
     themeName?: string;
+    /**
+     * Where the host put the query engine (ADR-0040). Supplying it stamps the
+     * URIs onto the mount point *and* widens the CSP so the module can be
+     * imported, fetched and instantiated. Omit it and the shell keeps the
+     * tighter posture — a host that ships no engine pays nothing for one.
+     */
+    engineSource?: EngineSource;
 }
 
 /**
@@ -57,11 +82,35 @@ export function previewHtml(opts: PreviewHtmlOptions): string {
         cspSource,
         nonce,
         themeName = "vscode",
+        engineSource,
     } = opts;
     // script-src is nonce-gated (browsers ignore 'unsafe-inline' once a nonce
     // is present). style-src keeps 'unsafe-inline' for the injected SVG's
     // structural inline styles (ADR-0016).
-    const csp = `default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${cspSource};`;
+    //
+    // Running the engine in the webview costs two additions (ADR-0034), and
+    // both are the narrowest grant that does the job:
+    //
+    //   script-src  'wasm-unsafe-eval'  — compile + instantiate WebAssembly.
+    //                                     NOT 'unsafe-eval', which would
+    //                                     re-enable eval() on a surface that
+    //                                     renders untrusted document content.
+    //   connect-src ${cspSource}        — the glue module fetch()es the .wasm
+    //                                     from the host's resource origin.
+    //                                     default-src 'none' blocks it
+    //                                     otherwise.
+    //
+    // The glue module itself is imported from ${cspSource}, which script-src
+    // already allows (a nonce does not extend to dynamically imported modules;
+    // the host-source expression is what covers them).
+    const scriptSrc = engineSource
+        ? `'nonce-${nonce}' ${cspSource} 'wasm-unsafe-eval'`
+        : `'nonce-${nonce}' ${cspSource}`;
+    const connectSrc = engineSource ? ` connect-src ${cspSource};` : "";
+    const csp = `default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${scriptSrc};${connectSrc}`;
+    const engineAttrs = engineSource
+        ? ` ${ENGINE_MODULE_ATTR}="${escapeAttribute(engineSource.moduleUri)}" ${ENGINE_WASM_ATTR}="${escapeAttribute(engineSource.wasmUri)}"`
+        : "";
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -72,7 +121,7 @@ export function previewHtml(opts: PreviewHtmlOptions): string {
 <title>Kul Preview</title>
 </head>
 <body data-theme="${themeName}">
-<div id="${MOUNT_POINT_ID}"></div>
+<div id="${MOUNT_POINT_ID}"${engineAttrs}></div>
 <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

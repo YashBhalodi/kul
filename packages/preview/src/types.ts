@@ -1,3 +1,10 @@
+import type {
+    DetailLookupResult,
+    DetailTarget,
+    QueryEnvelope,
+} from "./engine-wire.js";
+import type { ProjectSnapshot } from "./engine.js";
+
 /** LSP-style position; 0-based line + character. */
 export interface LspPosition {
     line: number;
@@ -44,9 +51,28 @@ export interface HostAdapter {
  * `webview.postMessage` events into the equivalent calls.
  */
 export interface PreviewHandle {
-    render(svg: string): void;
+    /**
+     * Swap in a rendered picture, optionally with the project source it came
+     * from. The engine is stateless, so a query needs that source; a render
+     * without it leaves the chrome unable to answer queries about the picture
+     * it just drew (ADR-0034).
+     */
+    render(svg: string, project?: ProjectSnapshot | null): void;
     showErrors(errors: ErrorRow[]): void;
     highlightEntity(ref: EntityRef | null): void;
+    /**
+     * Batched detail lookup against the project the current picture came from
+     * (ADR-0037). Loads the engine on first call and never before.
+     *
+     * Resolves `null` when there is nothing to ask — no project has been
+     * rendered yet, or no engine was supplied. An envelope's error arm means
+     * the project failed its checks; its diagnostics are surfaced in the error
+     * popover as well as returned, because a failing project yields no partial
+     * answer (ADR-0009).
+     */
+    queryDetail(
+        targets: DetailTarget[],
+    ): Promise<QueryEnvelope<DetailLookupResult> | null>;
     dispose(): void;
 }
 
@@ -55,6 +81,13 @@ export interface PreviewHandle {
 export interface WireRenderMessage {
     type: "render";
     svg: string;
+    /**
+     * The project the SVG was rendered from. Carried with every render because
+     * the WASM query surface is stateless — the source the webview queries has
+     * to be the source the picture came from (ADR-0034). Absent from a host
+     * that ships no engine.
+     */
+    project?: ProjectSnapshot;
 }
 
 export interface WireRenderErrorMessage {

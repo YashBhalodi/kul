@@ -25,7 +25,7 @@ docs/
 spec/          — Kul 0.1 language specification (the normative source of truth)
 editor/vscode/ — VSCode extension (LSP-backed, published to both the VS Code Marketplace and Open VSX). Thin host over `@kullang/preview` for the preview chrome.
 packages/
-  preview/     — `@kullang/preview` npm workspace package: webview chrome (HTML shell, bootstrap, tooltip, legend, pan/zoom controls, error popover, ghost-badge injection, selection-sync highlighting, `--kul-*` theme tokens). Consumed by the VSCode extension via a `HostAdapter` (ADR-0016 amendment 2026-06-09)
+  preview/     — `@kullang/preview` npm workspace package: webview chrome (HTML shell, bootstrap, tooltip, legend, pan/zoom controls, error popover, ghost-badge injection, selection-sync highlighting, `--kul-*` theme tokens, and the lazily-loaded query engine seam). Consumed by the VSCode extension via a `HostAdapter` (ADR-0016 amendment 2026-06-09)
 examples/      — `.kul` corpus used as both docs and the positive test corpus
 skills/        — agentskills.io-compliant skills delivered separately via `npx skills add` (see `skills/kul-authoring/`)
 CONTEXT.md     — domain glossary; canonical vocabulary for the project
@@ -55,7 +55,7 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 - [`just`](https://just.systems/) — task runner. `cargo install just --locked` or `brew install just`.
 - [`cargo-nextest`](https://nexte.st/) — test runner. `cargo install cargo-nextest --locked`.
 - [Node 22](https://nodejs.org/) with `npm ci` run once at the repo root — `just check`'s TypeScript gate and the VSCode extension build need it. The pinned version lives in `.nvmrc`.
-- [`wasm-pack`](https://rustwasm.github.io/wasm-pack/installer/) — only for `just wasm`. `cargo install wasm-pack --locked` or the installer script.
+- [`wasm-pack`](https://rustwasm.github.io/wasm-pack/installer/) — for `just wasm`, and for **packaging the VSCode extension** (`just vscode`, `npm run package`). The preview's query engine runs in the webview and ships as a build asset rather than an npm dependency ([ADR-0040](./docs/adr/0040-engine-provenance-a-build-asset-not-a-registry-dependency.md)), so `just wasm` must have been run before the `.vsix` can be built. Not needed for `npm ci` or `just check`. `cargo install wasm-pack --locked` or the installer script.
 
 ### One command for green
 
@@ -63,7 +63,7 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 just check
 ```
 
-Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo nextest run --workspace`, and then the TypeScript workspace tests (`npm test --workspaces --if-present`, i.e. Vitest in `packages/preview` and `editor/vscode`). Local-green should imply CI-green; the Rust gates run in `.github/workflows/rust.yml` and the same TypeScript suites run in `.github/workflows/vscode-extension.yml`.
+Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo nextest run --workspace`, then the TypeScript workspace tests (Vitest in `packages/preview` and `editor/vscode`) and finally the extension's preview build and bundle. That last step is not redundant with the tests: Vitest resolves `packages/preview/src`, while the extension bundles `dist` — only the bundle catches a module that never reached `dist`, which is the failure mode a new `src/` subdirectory introduces. Local-green should imply CI-green; the Rust gates run in `.github/workflows/rust.yml` and the same TypeScript suites run in `.github/workflows/vscode-extension.yml`.
 
 Other recipes:
 

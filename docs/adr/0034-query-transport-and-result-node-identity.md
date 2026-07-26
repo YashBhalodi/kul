@@ -41,6 +41,8 @@ The LSP renders the SVG; the bundled WASM answers the queries. Both are thin ada
 
 **This risk is accepted deliberately, and the failure mode is recorded rather than mitigated**: the extension can fetch LSP server binaries separately (`editor/vscode/scripts/fetch-server-binaries.mjs`), so a skewed pair is possible, and its symptom would be silently wrong answers about a family rather than a crash. `KUL_CORE_VERSION` is already exported on the WASM surface, so a startup handshake that disables querying on mismatch is one LSP-side field away. It is not built now; if skew is ever observed, this is the fix, and it does not need a new decision.
 
+> **Narrowed by [ADR-0040](./0040-engine-provenance-a-build-asset-not-a-registry-dependency.md) (#297)** — the querying engine is now built from `crates/kul-wasm` at packaging time, so it can no longer lag the commit the rest of the artifact was cut from. The LSP half is unchanged: separately-fetched server binaries and the `kul.serverPath` setting still let the core that renders differ from the core that queries. Same symptom, one fewer way in.
+
 ### Detail is engine-backed per entity; the kin list hydrates eagerly
 
 > **Superseded by [ADR-0035](./0035-detail-surface-one-selection-one-batched-lookup.md) (#281)** — on #292's measurements, the per-entity shape is replaced by the **batched detail operation** named as the first out below. Engine-backed detail is unchanged; only its granularity is. The eager kin list survives, served by the same batched call.
@@ -80,7 +82,7 @@ Running WASM under the preview's `default-src 'none'; style-src …; script-src 
 ## Consequences
 
 - **`kul-lsp` is untouched by this epic's query work.** Its five custom methods stay as they are; the preview's query path does not widen the LSP contract.
-- **The preview package gains a runtime dependency on `@kullang/wasm`** and a lazy module loader, and the extension gains a wire message carrying `files + manifest`. `@kullang/preview` is host-agnostic chrome today; the WASM dependency is the first thing in it that is not.
+- ~~**The preview package gains a runtime dependency on `@kullang/wasm`**~~ **Amended by [ADR-0040](./0040-engine-provenance-a-build-asset-not-a-registry-dependency.md) (#297):** it gains no npm dependency. The engine is built from this repo as a `wasm-pack --target web` asset, staged into the extension, and reached through host-supplied URIs — so `@kullang/preview` stays host-agnostic after all, and the "two engines" skew below is narrowed to the LSP half. The lazy module loader and the `files + manifest` wire message are unchanged.
 - **Phrasing gets what ADR-0033 needs for free.** Descriptors never cross a wire, so the backbone constraint that ADR decision placed on this one is satisfied by construction.
 - ~~**A re-render no longer destroys query state.**~~ **Reversed by [ADR-0035](./0035-detail-surface-one-selection-one-batched-lookup.md) (#281):** a render means a document change, and an edit now deliberately clears selection, panel, kin paint and filter alike — querying and authoring are separate modes. The transport property still holds (query state does live in the webview); the epic simply chose not to preserve it across edits.
 - **Two measurements are owed to [#282](https://github.com/YashBhalodi/kul/issues/282)** before it can scope loading affordances: the WASM multiplier, and the eager kin-list fetch. The map's **Not yet specified** entry on latency affordances can now be judged, since the transport is known.
