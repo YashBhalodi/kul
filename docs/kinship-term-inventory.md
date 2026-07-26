@@ -11,6 +11,10 @@ so the mapping-entry shape can be judged against what it must express.
 into its `en`/`gu` term data (and the tests that pin it), and this file is deleted. Findings
 load-bearing beyond the epic get lifted into the phrasing-layer ADR first.
 
+> **Resolved (2026-07-26)**: #279 is decided in [ADR-0033](./adr/0033-phrasing-layer-architecture.md),
+> which lifts findings 1, 2, 3, 5, 6 and 7 below and settles the three policy questions of
+> finding 8. This file is now free to be deleted once the `en`/`gu` packs ship.
+
 ## How to read the mapping
 
 The descriptor's normalized dimensions (ADR-0026, [`descriptor.rs`](../crates/kul-core/src/query/descriptor.rs)):
