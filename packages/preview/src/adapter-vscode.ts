@@ -3,7 +3,7 @@ import type {
     PreviewHandle,
     WireInboundMessage,
 } from "./types.js";
-import { isEntityKind } from "./wire-guards.js";
+import { isEntityKind, isProjectSnapshot } from "./wire-guards.js";
 
 /** Subset of the VSCode webview API the adapter needs. */
 interface VsCodeWebviewApi {
@@ -62,7 +62,13 @@ export function installVscodeInboundBridge(handle: PreviewHandle): () => void {
         }
         if (msg.type === "render") {
             if (typeof msg.svg === "string") {
-                handle.render(msg.svg);
+                // A malformed project drops to null rather than failing the
+                // render: the picture is still worth showing, it just cannot
+                // be queried until the next well-formed render arrives.
+                handle.render(
+                    msg.svg,
+                    isProjectSnapshot(msg.project) ? msg.project : null,
+                );
             }
         } else if (msg.type === "renderError") {
             handle.showErrors(Array.isArray(msg.errors) ? msg.errors : []);

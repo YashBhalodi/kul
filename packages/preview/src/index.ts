@@ -1,11 +1,44 @@
-export { previewHtml, getNonce, MOUNT_POINT_ID } from "./html.js";
+export {
+    previewHtml,
+    getNonce,
+    MOUNT_POINT_ID,
+    ENGINE_MODULE_ATTR,
+    ENGINE_WASM_ATTR,
+} from "./html.js";
 export type { PreviewHtmlOptions } from "./html.js";
 
 export { mountPreview } from "./mount.js";
+export type { MountOptions } from "./mount.js";
 
 export { createVscodeAdapter, installVscodeInboundBridge } from "./adapter-vscode.js";
 
-export { isEntityKind, isRevealTarget } from "./wire-guards.js";
+export { isEntityKind, isProjectSnapshot, isRevealTarget } from "./wire-guards.js";
+
+// The query transport (ADR-0034 / ADR-0040).
+export { createQueryEngine, loadEngineModule } from "./engine.js";
+export type {
+    EngineModule,
+    EngineModuleLoader,
+    EngineSource,
+    ProjectSnapshot,
+    QueryEngine,
+} from "./engine.js";
+export { isQueryOk } from "./engine-wire.js";
+export type {
+    DetailLookupResult,
+    DetailTarget,
+    EntityDetail,
+    ExportedDiagnostic,
+    ExportedMarriage,
+    ExportedPerson,
+    LinkedPerson,
+    Manifest,
+    MarriageTie,
+    QueryEnvelope,
+    WasmInputFile,
+} from "./engine-wire.js";
+export { selectBoundNodes } from "./result-binding.js";
+export type { ResultBinding } from "./result-binding.js";
 
 export type {
     EntityRef,

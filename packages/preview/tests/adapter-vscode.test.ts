@@ -1,21 +1,29 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { installVscodeInboundBridge } from "../src/adapter-vscode.js";
+import type { ProjectSnapshot } from "../src/engine.js";
 import type { EntityRef, ErrorRow, PreviewHandle } from "../src/types.js";
 
 function fakeHandle() {
-    const render = vi.fn<(svg: string) => void>();
+    const render = vi.fn<(svg: string, project?: ProjectSnapshot | null) => void>();
     const showErrors = vi.fn<(errors: ErrorRow[]) => void>();
     const highlightEntity = vi.fn<(ref: EntityRef | null) => void>();
+    const queryDetail = vi.fn(async () => null);
     const dispose = vi.fn<() => void>();
     const handle: PreviewHandle = {
         render,
         showErrors,
         highlightEntity,
+        queryDetail,
         dispose,
     };
     return { handle, render, showErrors, highlightEntity, dispose };
 }
+
+const PROJECT: ProjectSnapshot = {
+    files: [{ name: "a.kul", source: 'person a name:"A" gender:male\n' }],
+    manifest: { kul: "0.1" },
+};
 
 // Drive the bridge the way VSCode does: a `window.message` event whose `data`
 // is the wire payload.
@@ -35,7 +43,7 @@ describe("installVscodeInboundBridge — render", () => {
         const { handle, render } = fakeHandle();
         teardown = installVscodeInboundBridge(handle);
         post({ type: "render", svg: "<svg/>" });
-        expect(render).toHaveBeenCalledWith("<svg/>");
+        expect(render).toHaveBeenCalledWith("<svg/>", null);
     });
 
     it("ignores a render message whose svg is not a string", () => {
@@ -44,6 +52,26 @@ describe("installVscodeInboundBridge — render", () => {
         post({ type: "render", svg: 42 });
         post({ type: "render" });
         expect(render).not.toHaveBeenCalled();
+    });
+
+    it("carries a well-formed project snapshot through to the handle", () => {
+        const { handle, render } = fakeHandle();
+        teardown = installVscodeInboundBridge(handle);
+        post({ type: "render", svg: "<svg/>", project: PROJECT });
+        expect(render).toHaveBeenCalledWith("<svg/>", PROJECT);
+    });
+
+    it("drops a malformed project snapshot without dropping the render", () => {
+        const { handle, render } = fakeHandle();
+        teardown = installVscodeInboundBridge(handle);
+        post({
+            type: "render",
+            svg: "<svg/>",
+            project: { files: [{ name: "a.kul" }], manifest: { kul: "0.1" } },
+        });
+        post({ type: "render", svg: "<svg/>", project: { files: [] } });
+        expect(render).toHaveBeenNthCalledWith(1, "<svg/>", null);
+        expect(render).toHaveBeenNthCalledWith(2, "<svg/>", null);
     });
 });
 

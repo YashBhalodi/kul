@@ -1,12 +1,37 @@
 import svgPanZoom from "svg-pan-zoom";
 
 import { PREVIEW_BODY_HTML, mountKeyboardPan } from "./controls.js";
+import type { DetailTarget, ExportedDiagnostic } from "./engine-wire.js";
+import { isQueryOk } from "./engine-wire.js";
+import type { ProjectSnapshot, QueryEngine } from "./engine.js";
 import { createErrorsController, setStaleSvg } from "./errors.js";
 import { injectGhostBadges } from "./ghost-badge.js";
 import { type HighlightPanZoom, highlightEntity } from "./highlight.js";
 import { createLegendController } from "./legend.js";
 import { mountHoverTooltip } from "./tooltip.js";
 import type { EntityRef, ErrorRow, HostAdapter, PreviewHandle } from "./types.js";
+
+export interface MountOptions {
+    /**
+     * The query engine this preview asks. Omitted by hosts that ship no engine
+     * asset (and by tests that do not query): {@link PreviewHandle.queryDetail}
+     * then resolves `null` instead of loading anything.
+     */
+    engine?: QueryEngine;
+}
+
+/**
+ * A query's diagnostics become popover rows. Only error-severity rows surface:
+ * the popover is the error surface, and ADR-0009 guarantees the error arm
+ * carries at least one. `ExportedDiagnostic` anchors to a byte span in a bare
+ * file name, not to a document URI, so the rows carry no location and are not
+ * click-to-source — unlike the render diagnostics the host already anchors.
+ */
+function diagnosticsToErrorRows(diagnostics: ExportedDiagnostic[]): ErrorRow[] {
+    return diagnostics
+        .filter((d) => d.severity === "error")
+        .map((d) => ({ message: d.message, code: d.code }));
+}
 
 /**
  * Mount the chrome inside `container`. The container is rewritten with the
@@ -19,7 +44,9 @@ import type { EntityRef, ErrorRow, HostAdapter, PreviewHandle } from "./types.js
 export function mountPreview(
     container: HTMLElement,
     adapter: HostAdapter,
+    options: MountOptions = {},
 ): PreviewHandle {
+    const engine = options.engine ?? null;
     container.innerHTML = PREVIEW_BODY_HTML;
     const root = container.querySelector("#root") as HTMLElement;
     const floatRegion = container.querySelector("#kul-region-float") as HTMLElement;
@@ -38,6 +65,9 @@ export function mountPreview(
     let panZoom: ReturnType<typeof svgPanZoom> | null = null;
     let hasRender = false;
     let inFlightPan: { cancel(): void } | null = null;
+    // The source the current picture came from. Replaced by every render, so a
+    // query can never answer about a project the reader is no longer looking at.
+    let project: ProjectSnapshot | null = null;
 
     function cancelInFlightPan(): void {
         if (inFlightPan) {
@@ -153,7 +183,11 @@ export function mountPreview(
         }
     }
 
-    function render(svgString: string): void {
+    function render(
+        svgString: string,
+        nextProject: ProjectSnapshot | null = null,
+    ): void {
+        project = nextProject;
         // Drop the tooltip before its anchor SVG is swapped out.
         tooltip.close();
         let savedPan: { x: number; y: number } | null = null;
@@ -211,6 +245,27 @@ export function mountPreview(
         errors.set(next);
     }
 
+    async function queryDetail(targets: DetailTarget[]) {
+        if (!engine || !project) {
+            return null;
+        }
+        let envelope;
+        try {
+            envelope = await engine.queryDetail(project, targets);
+        } catch (err) {
+            // The engine module is a fetched asset; a missing or unreadable one
+            // is a transport failure, and the popover is where transport
+            // failures already surface (#203).
+            const detail = err instanceof Error ? err.message : String(err);
+            showErrors([{ message: `Kul query failed: ${detail}` }]);
+            return null;
+        }
+        if (!isQueryOk(envelope)) {
+            showErrors(diagnosticsToErrorRows(envelope.diagnostics));
+        }
+        return envelope;
+    }
+
     function highlight(ref: EntityRef | null): void {
         cancelInFlightPan();
         inFlightPan = highlightEntity(root, panZoomForReader(), ref);
@@ -226,6 +281,7 @@ export function mountPreview(
         render,
         showErrors,
         highlightEntity: highlight,
+        queryDetail,
         dispose,
     };
 }
