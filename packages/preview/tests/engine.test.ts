@@ -38,6 +38,9 @@ function fakeModule() {
             calls.push({ files, manifest, targets });
             return { ok: true, result: [null] } as QueryEnvelope<DetailLookupResult>;
         },
+        queryKin() {
+            return { ok: true, result: { kind: "count", count: 0 } };
+        },
     };
     return { module, calls };
 }

@@ -1,7 +1,12 @@
 import svgPanZoom from "svg-pan-zoom";
 
 import { PREVIEW_BODY_HTML, mountKeyboardPan } from "./controls.js";
-import type { DetailTarget, ExportedDiagnostic } from "./engine-wire.js";
+import type {
+    DetailTarget,
+    ExportedDiagnostic,
+    Query,
+    QueryEnvelope,
+} from "./engine-wire.js";
 import { isQueryOk } from "./engine-wire.js";
 import type { ProjectSnapshot, QueryEngine } from "./engine.js";
 import { createErrorsController, setStaleSvg } from "./errors.js";
@@ -136,6 +141,8 @@ export function mountPreview(
         notifyRegion,
         adapter,
         lookup: queryDetail,
+        runKinQuery: queryKin,
+        locale,
         getPanZoom: panZoomForReader,
         applySyncHighlight,
     });
@@ -272,17 +279,28 @@ export function mountPreview(
         errors.set(next);
     }
 
-    async function queryDetail(targets: DetailTarget[]) {
+    /**
+     * Run one engine operation against the project the current picture came
+     * from, routing both failure modes to the error popover: a transport
+     * failure (the module is a fetched asset) and a project that failed its
+     * checks (ADR-0009 yields the error arm, never a partial answer).
+     *
+     * Shared by both query entry points below, so the two can never disagree
+     * about where a failure surfaces.
+     */
+    async function runQuery<T>(
+        run: (
+            engine: QueryEngine,
+            snapshot: ProjectSnapshot,
+        ) => Promise<QueryEnvelope<T>>,
+    ): Promise<QueryEnvelope<T> | null> {
         if (!engine || !project) {
             return null;
         }
         let envelope;
         try {
-            envelope = await engine.queryDetail(project, targets);
+            envelope = await run(engine, project);
         } catch (err) {
-            // The engine module is a fetched asset; a missing or unreadable one
-            // is a transport failure, and the popover is where transport
-            // failures already surface (#203).
             const detail = err instanceof Error ? err.message : String(err);
             showErrors([{ message: `Kul query failed: ${detail}` }]);
             return null;
@@ -291,6 +309,14 @@ export function mountPreview(
             showErrors(diagnosticsToErrorRows(envelope.diagnostics));
         }
         return envelope;
+    }
+
+    function queryDetail(targets: DetailTarget[]) {
+        return runQuery((it, snapshot) => it.queryDetail(snapshot, targets));
+    }
+
+    function queryKin(query: Query) {
+        return runQuery((it, snapshot) => it.queryKin(snapshot, query));
     }
 
     function applySyncHighlight(ref: EntityRef | null): void {
@@ -310,6 +336,7 @@ export function mountPreview(
         showErrors,
         highlightEntity: querySurface.syncHighlight,
         queryDetail,
+        queryKin,
         locale,
         dispose,
     };

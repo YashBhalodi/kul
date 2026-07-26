@@ -25,6 +25,9 @@ import type {
     LinkedPerson,
 } from "./engine-wire.js";
 import type { ScreenBox } from "./highlight.js";
+import { buildKinList } from "./kin-list.js";
+import type { KinListModel, KinListState } from "./kin-list.js";
+import type { LanguagePack } from "./phrasing/index.js";
 
 /** One `label: value` line of an entity's own fields. */
 export interface PanelField {
@@ -67,6 +70,32 @@ export interface DetailPanelModel {
     revealId: string;
     fields: PanelField[];
     sections: PanelSection[];
+    /**
+     * The Explore-kin list, on a person panel that has one. `null` on the
+     * marriage and adoption variants: a kin set needs a person anchor, and an
+     * edge is a waypoint (ADR-0035, ADR-0042).
+     */
+    kin: KinListModel | null;
+}
+
+/**
+ * Everything the panel renders that is **not** the engine's answer about the
+ * entity: the language its phrased words are in, and the kin list's state.
+ *
+ * It is a second parameter rather than a second builder because the panel is
+ * one widget with one model — and it is a *value* rather than a controller so
+ * `buildDetailPanel` stays pure and the provenance lint over this file keeps
+ * its plain reading (ADR-0042).
+ *
+ * `pack` is threaded from `createQuerySurface` through `createDetailPanel` to
+ * here, which is the work ADR-0042 recorded as owed. It arrives already
+ * resolved: the DOM layer reads the current pack at render time, so
+ * `QuerySurface.refresh()` — which the locale toggle already drives — is all
+ * a language flip needs.
+ */
+export interface DetailPanelView {
+    pack: LanguagePack;
+    kin: KinListState | null;
 }
 
 /**
@@ -107,11 +136,12 @@ function note(...parts: Array<string | undefined>): string | undefined {
  * The document's own word for a parenthood link, matching the legend the reader
  * already has on screen rather than the wire's internal spelling.
  *
- * English, like every other word this module emits. Panel labels are **chrome**,
+ * English, like every *label* this module emits. Panel labels are **chrome**,
  * and #276 point 6 keeps chrome labels English while the locale setting governs
  * kinship *phrasing*; ADR-0022 pins the same line for the legend, whose rows
- * these words deliberately mirror. When phrased content does land in the panel
- * (#301's kin rows), `QuerySurface.refresh()` is the lever that redraws it.
+ * these words deliberately mirror. The panel's one phrased slot is the kin
+ * list's term gloss, and `QuerySurface.refresh()` is what redraws it when the
+ * locale flips.
  */
 function linkKindLabel(link: ExportedParenthoodLink): string {
     return link.kind === "adoptive" ? "adoption" : "birth";
@@ -190,7 +220,10 @@ function section(title: string, rows: PanelRow[]): PanelSection[] {
  *   the ended marriage on the line is the underlying truth, and sourcing a
  *   ghost note would re-derive ADR-0019 inside the query layer.
  */
-export function buildDetailPanel(detail: EntityDetail): DetailPanelModel {
+export function buildDetailPanel(
+    detail: EntityDetail,
+    view: DetailPanelView,
+): DetailPanelModel {
     switch (detail.kind) {
         case "person":
             return {
@@ -198,6 +231,7 @@ export function buildDetailPanel(detail: EntityDetail): DetailPanelModel {
                 kicker: "Person",
                 title: detail.person.name,
                 revealId: detail.person.id,
+                kin: view.kin ? buildKinList(view.kin, view.pack) : null,
                 fields: personFields(detail.person),
                 sections: [
                     ...section("Parents", detail.parents.map(linkedRow)),
@@ -223,6 +257,7 @@ export function buildDetailPanel(detail: EntityDetail): DetailPanelModel {
                 kicker: "Marriage",
                 title: names.length ? names.join(" & ") : detail.marriage.id,
                 revealId: detail.marriage.id,
+                kin: null,
                 fields: marriageFields(detail.marriage),
                 sections: [
                     ...section("Spouses", detail.spouses.map((s) => personRow(s))),
@@ -237,6 +272,7 @@ export function buildDetailPanel(detail: EntityDetail): DetailPanelModel {
                 title: detail.child.name,
                 // An adoption link has no entity id, so reveal targets the child.
                 revealId: detail.child.id,
+                kin: null,
                 fields: adoptionFields(detail.adoption),
                 sections: [
                     ...section("Child", [personRow(detail.child)]),
@@ -257,7 +293,7 @@ export const REVEAL_LABEL = "Reveal in editor";
  * whose answer has not arrived (or whose host ships no engine) leaves it shut.
  */
 export interface DetailPanel {
-    show(detail: EntityDetail): void;
+    show(detail: EntityDetail, kin: KinListState | null): void;
     close(): void;
     /** The panel's viewport box while open, else `null`. */
     box(): ScreenBox | null;
@@ -280,10 +316,22 @@ export interface DetailPanel {
  */
 export function createDetailPanel(args: {
     host: HTMLElement;
+    /**
+     * The pack the panel's phrased words render in, read **at render time**
+     * rather than captured once. That is what makes the locale toggle's
+     * existing `refresh()` wire sufficient: a flip changes what this returns,
+     * and the next draw is in the new language (ADR-0041, ADR-0043). #302's
+     * lens takes the same shape of seam.
+     */
+    pack(): LanguagePack;
     onSelectPerson(id: string): void;
     onReveal(id: string): void;
+    /** The reader clicked the Explore-kin header. */
+    onToggleKin(): void;
+    /** The reader clicked a kin-set row. */
+    onSelectKinSet(setId: string): void;
 }): DetailPanel {
-    const { host, onSelectPerson, onReveal } = args;
+    const { host, pack, onSelectPerson, onReveal, onToggleKin, onSelectKinSet } = args;
     let panel: HTMLElement | null = null;
 
     function close(): void {
@@ -293,8 +341,8 @@ export function createDetailPanel(args: {
         }
     }
 
-    function show(detail: EntityDetail): void {
-        const model = buildDetailPanel(detail);
+    function show(detail: EntityDetail, kin: KinListState | null): void {
+        const model = buildDetailPanel(detail, { pack: pack(), kin });
         close();
         const el = document.createElement("div");
         el.className = "kul-query-panel";
@@ -371,8 +419,75 @@ export function createDetailPanel(args: {
             el.appendChild(group);
         }
 
+        if (model.kin) {
+            el.appendChild(kinListElement(model.kin));
+        }
+
         host.appendChild(el);
         panel = el;
+    }
+
+    /**
+     * The Explore-kin list. The header opens and closes it; every row is a
+     * button that paints its answer on the tree.
+     *
+     * Row identity travels in a closure, exactly as a person row's does — the
+     * widget stamps no `data-*` of its own to read back (ADR-0042).
+     */
+    function kinListElement(model: KinListModel): HTMLElement {
+        const group = document.createElement("div");
+        group.className = "kul-query-panel-section kul-kin";
+
+        const header = document.createElement("button");
+        header.type = "button";
+        header.className = "kul-kin-header";
+        const title = document.createElement("span");
+        title.textContent = model.title;
+        const arrow = document.createElement("span");
+        arrow.className = "kul-kin-arrow";
+        arrow.textContent = model.open ? "▾" : "▸";
+        header.appendChild(title);
+        header.appendChild(arrow);
+        header.addEventListener("click", onToggleKin);
+        group.appendChild(header);
+
+        if (!model.open) {
+            return group;
+        }
+
+        const list = document.createElement("div");
+        list.className = "kul-kin-list";
+        for (const row of model.rows) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = row.active ? "kul-kin-row kul-kin-row-active" : "kul-kin-row";
+            const label = document.createElement("span");
+            label.className = "kul-kin-label";
+            label.textContent = row.label;
+            button.appendChild(label);
+            if (row.terms.length) {
+                const gloss = document.createElement("span");
+                gloss.className = "kul-kin-terms";
+                gloss.textContent = row.terms.join(" · ");
+                // Per-element `lang`, like every other phrased slot: the chrome
+                // around it stays English while the terms inside need the
+                // browser to pick a font that can render the script (ADR-0033).
+                gloss.setAttribute("lang", pack().code);
+                button.appendChild(gloss);
+            }
+            const count = document.createElement("span");
+            count.className =
+                row.count === 0 ? "kul-kin-count kul-kin-count-zero" : "kul-kin-count";
+            // An unanswered count is a placeholder, never a `0`: a zero is an
+            // answer and the surface must not show one it has not been given.
+            count.textContent = row.count === null ? "·" : String(row.count);
+            button.appendChild(count);
+            const setId = row.id;
+            button.addEventListener("click", () => onSelectKinSet(setId));
+            list.appendChild(button);
+        }
+        group.appendChild(list);
+        return group;
     }
 
     return {
