@@ -11,6 +11,7 @@ function fakeHandle() {
     const highlightEntity = vi.fn<(ref: EntityRef | null) => void>();
     const queryDetail = vi.fn(async () => null);
     const queryKin = vi.fn(async () => null);
+    const runQuery = vi.fn(async () => null);
     const queryResolve = vi.fn(async () => null);
     const dispose = vi.fn<() => void>();
     const handle: PreviewHandle = {
@@ -19,6 +20,7 @@ function fakeHandle() {
         highlightEntity,
         queryDetail,
         queryKin,
+        runQuery,
         queryResolve,
         // The inbound bridge never touches the locale; a detached controller
         // satisfies the handle without pretending to be one of its channels.

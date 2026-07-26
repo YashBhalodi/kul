@@ -131,6 +131,9 @@ const engine: QueryEngine = {
     async queryKin() {
         return { ok: true, result: { kind: "count" as const, count: 0 } };
     },
+    async runQuery() {
+        return { ok: true, result: { kind: "personIds" as const, personIds: [] } };
+    },
     async queryResolve() {
         return { ok: true, result: { relationships: [] } };
     },

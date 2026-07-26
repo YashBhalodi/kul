@@ -337,6 +337,10 @@ export function mountPreview(
         return runQuery((it, snapshot) => it.queryKin(snapshot, query));
     }
 
+    function runFilterQuery(query: Query) {
+        return runQuery((it, snapshot) => it.runQuery(snapshot, query));
+    }
+
     function queryResolve(xId: string, yId: string) {
         return runQuery((it, snapshot) => it.queryResolve(snapshot, xId, yId));
     }
@@ -359,6 +363,7 @@ export function mountPreview(
         highlightEntity: querySurface.syncHighlight,
         queryDetail,
         queryKin,
+        runQuery: runFilterQuery,
         queryResolve,
         locale,
         dispose,

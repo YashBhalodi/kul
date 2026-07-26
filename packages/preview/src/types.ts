@@ -85,6 +85,17 @@ export interface PreviewHandle {
      */
     queryKin(query: Query): Promise<QueryEnvelope<QueryResult> | null>;
     /**
+     * Evaluate any declarative {@link Query} against the same project, with the
+     * same transport policy — the surface's own entry point for attribute-filter
+     * and count queries, which is what the filter bar asks through.
+     *
+     * `kul-core` evaluates this and {@link PreviewHandle.queryKin} on one
+     * `run_query` path; they are separate verbs here because they name two
+     * different questions, and an `allPersons` source routed through a verb
+     * called `queryKin` would falsify that verb's own docstring.
+     */
+    runQuery(query: Query): Promise<QueryEnvelope<QueryResult> | null>;
+    /**
      * Every way `xId` and `yId` are related, as terminology-neutral descriptors
      * relative to `xId` (ADR-0028). Same transport policy as
      * {@link PreviewHandle.queryDetail}: `null` when there is nothing to ask,

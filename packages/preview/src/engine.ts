@@ -56,6 +56,11 @@ export interface EngineModule {
         manifest: Manifest,
         query: Query,
     ): QueryEnvelope<QueryResult>;
+    runQuery(
+        files: WasmInputFile[],
+        manifest: Manifest,
+        query: Query,
+    ): QueryEnvelope<QueryResult>;
     /**
      * Two-anchor relationship resolution (ADR-0028). The shipped function takes
      * a trailing optional `ResolveConfig`; this declaration omits it, which
@@ -131,6 +136,22 @@ export interface QueryEngine {
         query: Query,
     ): Promise<QueryEnvelope<QueryResult>>;
     /**
+     * Evaluate any declarative {@link Query} — the surface's own entry point
+     * for attribute-filter and count queries, which is what the filter bar
+     * asks through.
+     *
+     * `queryKin` above is a documented alias of this in `kul-core`: one
+     * `run_query` path evaluates every source. They are kept apart here because
+     * the *surface* names two questions, and routing an `allPersons` source
+     * through a verb called `queryKin` would falsify the docstring above it.
+     * The result kind is fixed by (source, projection), so an `allPersons` set
+     * answers `personIds` and a `kinOf` one answers `members`.
+     */
+    runQuery(
+        project: ProjectSnapshot,
+        query: Query,
+    ): Promise<QueryEnvelope<QueryResult>>;
+    /**
      * How `xId` and `yId` are related — **every** way, never a primary one
      * (ADR-0028). `xId` is the ego the descriptors are relative to; the hover
      * lens passes the selected person there and the hovered one as `yId`, which
@@ -181,6 +202,10 @@ export function createQueryEngine(
         async queryKin(project, query) {
             const mod = await moduleOnce();
             return mod.queryKin(project.files, project.manifest, query);
+        },
+        async runQuery(project, query) {
+            const mod = await moduleOnce();
+            return mod.runQuery(project.files, project.manifest, query);
         },
         async queryResolve(project, xId, yId) {
             const mod = await moduleOnce();

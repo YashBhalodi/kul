@@ -246,6 +246,11 @@ function fakeEngine(
                 await behaviour.members.wait(setId);
                 return { ok: true, result: { kind: "members", members } };
             },
+            async runQuery() {
+                // The filter bar is not what these suites drive; an empty
+                // answer keeps the engine double complete without adding one.
+                return { ok: true, result: { kind: "personIds", personIds: [] } };
+            },
             async queryResolve() {
                 // The hover lens is not what these suites drive; a tie-free
                 // answer keeps the engine double complete without adding one.

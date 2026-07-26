@@ -25,6 +25,7 @@ import type {
     DetailLookupResult,
     DetailTarget,
     Manifest,
+    Query,
     QueryEnvelope,
     WasmInputFile,
 } from "../src/engine-wire.js";
@@ -77,6 +78,11 @@ function okModule(): {
         manifest: Manifest;
         anchors: [string, string];
     }[];
+    filterCalls: {
+        files: WasmInputFile[];
+        manifest: Manifest;
+        query: Query;
+    }[];
 } {
     const calls: {
         files: WasmInputFile[];
@@ -87,6 +93,11 @@ function okModule(): {
         files: WasmInputFile[];
         manifest: Manifest;
         anchors: [string, string];
+    }[] = [];
+    const filterCalls: {
+        files: WasmInputFile[];
+        manifest: Manifest;
+        query: Query;
     }[] = [];
     return {
         module: {
@@ -100,6 +111,10 @@ function okModule(): {
             queryKin() {
                 return { ok: true, result: { kind: "count", count: 0 } };
             },
+            runQuery(files, manifest, query) {
+                filterCalls.push({ files, manifest, query });
+                return { ok: true, result: { kind: "personIds", personIds: [] } };
+            },
             queryResolve(files, manifest, xId, yId) {
                 resolveCalls.push({ files, manifest, anchors: [xId, yId] });
                 return { ok: true, result: { relationships: [] } };
@@ -107,6 +122,7 @@ function okModule(): {
         },
         calls,
         resolveCalls,
+        filterCalls,
     };
 }
 
@@ -114,6 +130,9 @@ function okModule(): {
 function failingModule(): EngineModule {
     return {
         queryKin() {
+            return failure();
+        },
+        runQuery() {
             return failure();
         },
         queryDetail() {
@@ -220,6 +239,24 @@ describe("a query runs end to end against the rendered project", () => {
                 manifest: PROJECT.manifest,
                 anchors: ["giuseppe", "maria"],
             },
+        ]);
+    });
+
+    it("evaluates a filter's Query against the same project, through the same policy", async () => {
+        const { module, filterCalls } = okModule();
+        const { handle } = mount(async () => module);
+        handle.render(SVG, PROJECT);
+        const query: Query = {
+            source: { kind: "allPersons" },
+            where: [{ op: "eq", field: "family", value: "Rossi" }],
+            mode: "certain",
+            projection: "members",
+        };
+        const envelope = await handle.runQuery(query);
+        expect(envelope).not.toBeNull();
+        expect(isQueryOk(envelope!)).toBe(true);
+        expect(filterCalls).toEqual([
+            { files: PROJECT.files, manifest: PROJECT.manifest, query },
         ]);
     });
 
