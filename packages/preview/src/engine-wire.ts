@@ -9,10 +9,22 @@
 // never as an npm module specifier, so its *types* have to arrive some other
 // way. A text-checked mirror is that way.
 //
-// Only the closure `queryDetail` needs is mirrored (ADR-0037). The descriptor
-// family that `queryResolve` returns is mirrored by the phrasing layer
-// (ADR-0033), which owns those words; duplicating them here would give person
-// data two provenance paths, which ADR-0024 and ADR-0034 both refuse.
+// Two closures are mirrored: the one `queryDetail` needs (ADR-0037) and the
+// one `queryKin` needs — the `Query` value and the `QueryResult` it produces
+// (ADR-0043). The descriptor family is **not** re-declared here: the phrasing
+// layer already mirrors it (ADR-0033) and owns those words, so `Member` imports
+// `RelationshipDescriptor` from there rather than restating it. Restating it
+// would give the descriptor two provenance paths, which ADR-0024 and ADR-0034
+// both refuse.
+
+import type {
+    Affinity,
+    EdgeNature,
+    LinealRole,
+    RelationshipDescriptor,
+    Sharing,
+    Side,
+} from "./phrasing/descriptor.js";
 
 /** One `.kul` input file as the JS host hands it to the bridge. */
 export interface WasmInputFile {
@@ -120,6 +132,60 @@ export type DetailTarget = { kind: "person"; id: string } | { kind: "marriage"; 
 export type EntityDetail = { kind: "person"; person: ExportedPerson; parents: LinkedPerson[]; marriages: MarriageTie[]; children: LinkedPerson[] } | { kind: "marriage"; marriage: ExportedMarriage; spouses: ExportedPerson[]; children: LinkedPerson[] } | { kind: "adoption"; adoption: ExportedParenthoodLink; child: ExportedPerson; parents: ExportedPerson[] };
 
 export type DetailLookupResult = (EntityDetail | null)[];
+
+// --- The kin-set query value (ADR-0025's one contract artifact) -------------
+//
+// A kin set is spelled as a `Query` and handed to `queryKin`; the preview is a
+// thin constructor of that value and never a second evaluator (ADR-0043).
+
+export interface IntRange {
+    min: number;
+    max?: number;
+}
+
+export type PatternClassification = { kind: "lineal"; role: LinealRole; generations: IntRange } | { kind: "collateral"; up: IntRange; down: IntRange } | { kind: "collateralByDegree"; degree: IntRange; removed: IntRange } | { kind: "any"; maxUp: number; maxDown: number };
+
+export interface KinPattern {
+    classification: PatternClassification;
+    edgeNature?: EdgeNature;
+    sharing?: Sharing;
+    side?: Side;
+    affinity?: Affinity;
+    affinalHops?: IntRange;
+}
+
+export type QuerySource = { kind: "allPersons" } | { kind: "kinOf"; anchor: string; pattern: KinPattern };
+
+export type PersonField = "id" | "name" | "family" | "given" | "gender" | "born" | "died";
+
+export type SortDirection = "asc" | "desc";
+
+export interface SortSpec {
+    field: PersonField;
+    direction?: SortDirection;
+}
+
+export type Predicate = { op: "eq"; field: PersonField; value: string } | { op: "neq"; field: PersonField; value: string } | { op: "lt"; field: PersonField; value: string } | { op: "lte"; field: PersonField; value: string } | { op: "gt"; field: PersonField; value: string } | { op: "gte"; field: PersonField; value: string } | { op: "in"; field: PersonField; values: string[] } | { op: "present"; field: PersonField } | { op: "absent"; field: PersonField };
+
+export type FilterMode = "certain" | "includeUncertain";
+
+export type Projection = "members" | "count";
+
+export interface Query {
+    source: QuerySource;
+    where?: Predicate[];
+    sort?: SortSpec;
+    mode?: FilterMode;
+    projection: Projection;
+}
+
+/** One member of a `members` result: the person id plus how it was reached. */
+export interface Member {
+    personId: string;
+    descriptor: RelationshipDescriptor;
+}
+
+export type QueryResult = { kind: "members"; members: Member[] } | { kind: "personIds"; personIds: string[] } | { kind: "count"; count: number };
 
 /**
  * True iff `envelope` is the ok arm. The shipped surface discriminates on an

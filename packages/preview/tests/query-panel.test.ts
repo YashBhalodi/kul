@@ -129,6 +129,9 @@ function fakeEngine(): { engine: QueryEngine; targets: DetailTarget[][] } {
                     result: asked.map(detailFor),
                 } as QueryEnvelope<DetailLookupResult>;
             },
+            async queryKin() {
+                return { ok: true, result: { kind: "count" as const, count: 0 } };
+            },
             get isLoaded() {
                 return true;
             },

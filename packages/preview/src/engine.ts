@@ -15,7 +15,9 @@ import type {
     DetailLookupResult,
     DetailTarget,
     Manifest,
+    Query,
     QueryEnvelope,
+    QueryResult,
     WasmInputFile,
 } from "./engine-wire.js";
 
@@ -48,6 +50,11 @@ export interface EngineModule {
         manifest: Manifest,
         targets: DetailTarget[],
     ): QueryEnvelope<DetailLookupResult>;
+    queryKin(
+        files: WasmInputFile[],
+        manifest: Manifest,
+        query: Query,
+    ): QueryEnvelope<QueryResult>;
 }
 
 /**
@@ -97,6 +104,16 @@ export interface QueryEngine {
         project: ProjectSnapshot,
         targets: DetailTarget[],
     ): Promise<QueryEnvelope<DetailLookupResult>>;
+    /**
+     * Evaluate one kin-set {@link Query} — ADR-0025's single contract artifact,
+     * built by the caller and evaluated only here. The `count` and `members`
+     * projections are the same value one field apart, so the Explore-kin list
+     * and the paint it drives share one call site.
+     */
+    queryKin(
+        project: ProjectSnapshot,
+        query: Query,
+    ): Promise<QueryEnvelope<QueryResult>>;
     /** True once the module has finished loading. Never triggers a load. */
     readonly isLoaded: boolean;
 }
@@ -130,6 +147,10 @@ export function createQueryEngine(
         async queryDetail(project, targets) {
             const mod = await moduleOnce();
             return mod.queryDetail(project.files, project.manifest, targets);
+        },
+        async queryKin(project, query) {
+            const mod = await moduleOnce();
+            return mod.queryKin(project.files, project.manifest, query);
         },
         get isLoaded() {
             return loaded !== null;

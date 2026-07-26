@@ -45,6 +45,19 @@ const MIRRORED = [
     "DetailTarget",
     "EntityDetail",
     "DetailLookupResult",
+    "IntRange",
+    "PatternClassification",
+    "KinPattern",
+    "QuerySource",
+    "PersonField",
+    "SortDirection",
+    "SortSpec",
+    "Predicate",
+    "FilterMode",
+    "Projection",
+    "Query",
+    "Member",
+    "QueryResult",
 ];
 
 /** Drop block comments, then collapse all runs of whitespace to one space. */

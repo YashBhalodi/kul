@@ -1,7 +1,9 @@
 import type {
     DetailLookupResult,
     DetailTarget,
+    Query,
     QueryEnvelope,
+    QueryResult,
 } from "./engine-wire.js";
 import type { ProjectSnapshot } from "./engine.js";
 import type { LocaleController } from "./locale.js";
@@ -74,6 +76,13 @@ export interface PreviewHandle {
     queryDetail(
         targets: DetailTarget[],
     ): Promise<QueryEnvelope<DetailLookupResult> | null>;
+    /**
+     * Evaluate one kin-set {@link Query} against the same project, with the
+     * same `null` and error-arm behaviour as {@link PreviewHandle.queryDetail}.
+     * The chrome builds every Query value it asks (ADR-0025, ADR-0043); this is
+     * the one place they are evaluated.
+     */
+    queryKin(query: Query): Promise<QueryEnvelope<QueryResult> | null>;
     /**
      * The reader's language choice and everything phrased against it. Read it
      * to know which pack the chrome is phrasing in; bind an element to a

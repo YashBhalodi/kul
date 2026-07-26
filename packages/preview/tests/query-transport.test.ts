@@ -87,6 +87,9 @@ function okModule(): {
                     result: targets.map(() => PERSON_DETAIL),
                 } as QueryEnvelope<DetailLookupResult>;
             },
+            queryKin() {
+                return { ok: true, result: { kind: "count", count: 0 } };
+            },
         },
         calls,
     };
@@ -95,26 +98,33 @@ function okModule(): {
 /** A module standing in for a project that fails its checks (ADR-0009). */
 function failingModule(): EngineModule {
     return {
+        queryKin() {
+            return failure();
+        },
         queryDetail() {
-            return {
-                ok: false,
-                diagnostics: [
-                    {
-                        code: "KUL-R03",
-                        severity: "error",
-                        message: "person `giuseppe` is missing required field `gender`",
-                        related: [],
-                    },
-                    {
-                        code: "KUL-W01",
-                        severity: "warning",
-                        message: "unused something",
-                        related: [],
-                    },
-                ],
-            };
+            return failure();
         },
     };
+
+    function failure() {
+        return {
+            ok: false,
+            diagnostics: [
+                {
+                    code: "KUL-R03",
+                    severity: "error",
+                    message: "person `giuseppe` is missing required field `gender`",
+                    related: [],
+                },
+                {
+                    code: "KUL-W01",
+                    severity: "warning",
+                    message: "unused something",
+                    related: [],
+                },
+            ],
+        };
+    }
 }
 
 const adapter: HostAdapter = { onRevealRequest: () => {} };
