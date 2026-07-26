@@ -55,9 +55,11 @@ export interface LocaleController {
      * The element carries its own `lang` — per-element rather than
      * per-document, because the chrome around it stays English while the
      * phrase inside it needs `lang="gu"` for the browser to pick a font that
-     * can render Gujarati. It also carries `data-phrase-kind`, so a slot can
-     * treat a crisp *kākā* differently from a five-hop chain without
-     * string-sniffing (ADR-0033).
+     * can render Gujarati. It also carries the whole phrasing result in a form
+     * chrome can act on without string-sniffing (ADR-0033): `data-phrase-kind`
+     * separates a crisp *kākā* from a chain, the `--kul-phrase-hops` custom
+     * property gives CSS the chain's length, and `title` carries the Latin
+     * gloss for a pack that supplies one.
      *
      * Returns an unbind.
      */
@@ -84,6 +86,20 @@ export function createLocaleController(
         element.textContent = result.text;
         element.setAttribute("lang", current.code);
         element.dataset.phraseKind = result.kind;
+        // `hopCount` reaches CSS as a custom property so a slot can *size* for
+        // a five-hop chain without measuring or parsing the text — the reason
+        // ADR-0033 put the number on the result at all. A data attribute would
+        // only be selectable value by value.
+        element.style.setProperty("--kul-phrase-hops", String(result.hopCount));
+        // The fuller gloss on hover: the same phrase in Latin script, for a
+        // pack that supplies one. Absent — attribute removed, not emptied —
+        // when the pack does not, so English shows no tooltip at all rather
+        // than one repeating the word underneath it (ADR-0044).
+        if (result.translit === undefined) {
+            element.removeAttribute("title");
+        } else {
+            element.title = result.translit;
+        }
     }
 
     function paint(): void {

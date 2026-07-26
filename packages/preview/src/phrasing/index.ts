@@ -31,6 +31,7 @@ export { NUMERIC_FACETS, PHRASING_FACETS, derivedFacetsOf, phrasingKeyOf, subPat
 export type { FacetMatch, NumericFacet, PhrasingKey } from "./key.js";
 
 export { affixOrderKey, affixVerdict, facetsMatch, lexicalize, specificityOf, winningEntries } from "./lexicalize.js";
+export type { LexicalForm } from "./lexicalize.js";
 
 export type {
     Affinity,

@@ -109,18 +109,36 @@ export function affixVerdict(rule: AffixRule, key: PhrasingKey): AffixVerdict {
 }
 
 /**
+ * One rendered token: the phrase text and, when the pack supplies one all the
+ * way through, the same token in Latin script.
+ *
+ * `translit` is **absent, never approximated**: a record with no Latin form
+ * makes the whole form untransliterated rather than half-romanized, and no
+ * romanization is ever computed from the script (ADR-0044).
+ */
+export interface LexicalForm {
+    text: string;
+    translit?: string;
+}
+
+/**
  * Look one key up in a pack: the winning entry's term, decorated by every
  * affix rule that fires. `null` when no entry matches, or when a rule's `cap`
  * refuses — both mean "this language has no term here", and the caller falls
  * back to composition.
  */
-export function lexicalize(key: PhrasingKey, pack: LanguagePack): string | null {
+export function lexicalize(key: PhrasingKey, pack: LanguagePack): LexicalForm | null {
     const winners = winningEntries(key, pack.entries);
     if (winners.length === 0) return null;
     // A tie is a pack defect (caught by the conflict test); picking by term
-    // keeps runtime behaviour deterministic rather than order-dependent.
-    const terms = winners.map((entry) => entry.term).sort();
-    let text = terms[0]!;
+    // keeps runtime behaviour deterministic rather than order-dependent. The
+    // winner is carried as a record, not as a bare string, so its Latin form
+    // travels with the term it belongs to.
+    const winner = [...winners].sort((a, b) =>
+        a.term < b.term ? -1 : a.term > b.term ? 1 : 0,
+    )[0]!;
+    let text = winner.term;
+    let translit = winner.translit;
 
     const firing: Array<{ rule: AffixRule; count: number }> = [];
     for (const rule of pack.affixes) {
@@ -132,6 +150,15 @@ export function lexicalize(key: PhrasingKey, pack: LanguagePack): string | null 
     for (const { rule, count } of firing) {
         const affix = rule.affix.repeat(count);
         text = rule.position === "prefix" ? affix + text : text + affix;
+        if (translit === undefined || rule.translit === undefined) {
+            // A rule with no Latin affix cannot decorate a Latin term, so the
+            // whole form loses its transliteration rather than gaining a
+            // half-romanized one.
+            translit = undefined;
+            continue;
+        }
+        const latin = rule.translit.repeat(count);
+        translit = rule.position === "prefix" ? latin + translit : translit + latin;
     }
-    return text;
+    return translit === undefined ? { text } : { text, translit };
 }

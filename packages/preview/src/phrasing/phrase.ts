@@ -1,6 +1,6 @@
 import type { Gender, PathHop, RelationshipDescriptor } from "./descriptor.js";
 import { phrasingKeyOf, subPathKeyOf } from "./key.js";
-import { lexicalize } from "./lexicalize.js";
+import { type LexicalForm, lexicalize } from "./lexicalize.js";
 import type { GenitivePattern, LanguagePack } from "./pack.js";
 
 /** Whether a phrase is a term the language has, or one it had to build. */
@@ -17,6 +17,16 @@ export interface Phrase {
     kind: PhraseKind;
     /** Hops spelled out as a genitive chain rather than named. `0` when lexical. */
     hopCount: number;
+    /**
+     * The same phrase in Latin script, for a pack that supplies one — the
+     * reading surface for a script the reader may not read yet (#302).
+     *
+     * **Absent rather than approximated.** It is present only when every token
+     * the phrase is built from — the head term, every affix that fired, every
+     * hop noun, the genitive pattern — carries a Latin form in the pack. An `en`
+     * phrase never carries one, because there is nothing to gloss (ADR-0044).
+     */
+    translit?: string;
 }
 
 /**
@@ -38,17 +48,21 @@ export interface Phrase {
  * descriptor names. Where the flattening reads as the *wrong* relationship
  * rather than a clumsy one, the fix is an entry in the pack — see the
  * `other`-gender parent's sibling in `packs/en.ts` (ADR-0039).
+ *
+ * The transliteration, when the pack has one, is built by the **same walk over
+ * the same records** rather than by a second lookup, which is what keeps the
+ * two readings of one phrase from drifting apart.
  */
 export function phrase(descriptor: RelationshipDescriptor, pack: LanguagePack): Phrase {
     const lexical = lexicalize(phrasingKeyOf(descriptor), pack);
-    if (lexical !== null) return { text: lexical, kind: "lexical", hopCount: 0 };
+    if (lexical !== null) return { ...lexical, kind: "lexical", hopCount: 0 };
 
     const hops = descriptor.path;
     for (let head = hops.length - 1; head >= 1; head -= 1) {
         const term = lexicalize(subPathKeyOf(descriptor, head), pack);
         if (term === null) continue;
         return {
-            text: chain(term, hops.slice(head), pack),
+            ...chain(term, hops.slice(head), pack),
             kind: "composed",
             hopCount: hops.length - head,
         };
@@ -60,21 +74,50 @@ export function phrase(descriptor: RelationshipDescriptor, pack: LanguagePack): 
     const first = hops[0];
     if (first === undefined) return { text: "", kind: "composed", hopCount: 0 };
     return {
-        text: chain(hopNoun(first, pack), hops.slice(1), pack),
+        ...chain(hopNoun(first, pack), hops.slice(1), pack),
         kind: "composed",
         hopCount: hops.length,
     };
 }
 
 /** Fold a genitive chain left-to-right off a lexicalized head. */
-function chain(head: string, tail: ReadonlyArray<PathHop>, pack: LanguagePack): string {
+function chain(
+    head: LexicalForm,
+    tail: ReadonlyArray<PathHop>,
+    pack: LanguagePack,
+): LexicalForm {
     return tail.reduce(
-        (possessor, hop) => join(pack.genitive, possessor, hopNoun(hop, pack), hop.gender),
+        (possessor, hop) => join(pack, possessor, hopNoun(hop, pack), hop.gender),
         head,
     );
 }
 
 function join(
+    pack: LanguagePack,
+    possessor: LexicalForm,
+    possessed: LexicalForm,
+    possessedGender: Gender,
+): LexicalForm {
+    const text = substitute(pack.genitive, possessor.text, possessed.text, possessedGender);
+    if (
+        pack.genitiveTranslit === undefined ||
+        possessor.translit === undefined ||
+        possessed.translit === undefined
+    ) {
+        return { text };
+    }
+    return {
+        text,
+        translit: substitute(
+            pack.genitiveTranslit,
+            possessor.translit,
+            possessed.translit,
+            possessedGender,
+        ),
+    };
+}
+
+function substitute(
     pattern: GenitivePattern,
     possessor: string,
     possessed: string,
@@ -85,6 +128,8 @@ function join(
 }
 
 /** The pack's gendered noun for one hop. */
-function hopNoun(hop: PathHop, pack: LanguagePack): string {
-    return pack.hops[hop.step][hop.gender];
+function hopNoun(hop: PathHop, pack: LanguagePack): LexicalForm {
+    const text = pack.hops[hop.step][hop.gender];
+    const translit = pack.hopsTranslit?.[hop.step][hop.gender];
+    return translit === undefined ? { text } : { text, translit };
 }
