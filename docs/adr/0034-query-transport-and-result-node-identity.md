@@ -67,6 +67,8 @@ Single operations sit inside ADR-0029's no-spinner target on the arithmetic abov
 1. **The WASM-over-native multiplier** on `check` + query. For parse- and allocation-heavy work 1.5–2× is typical, which would put a single query at the 10k ceiling near the top of the 50 ms budget.
 2. **The eager kin-list fetch** at a realistic kin-set size.
 
+> **Measured ([#292](https://github.com/YashBhalodi/kul/issues/292), 2026-07-26)** — see [`docs/query-path-measurements.md`](../query-path-measurements.md). The multiplier is **1.0–1.14× at the ceiling**, not 1.5–2×, so every single operation stays inside the budget (worst: `queryResolve` at 32 ms). The eager kin-list fetch does **not** survive: cost is `N × 1.37 µs × persons`, so any list of 4+ rows misses the budget at 10k persons. The fix is one of the two outs recorded below, and needs no new decision.
+
 Queries are gated on a clean project — [ADR-0009](./0009-export-strict-on-diagnostics.md) strict-on-diagnostics means a failing check yields the envelope's error arm, never a partial answer — and the preview's existing error popover is where that surfaces.
 
 ### The webview CSP must be relaxed
@@ -91,4 +93,4 @@ Running WASM under the preview's `default-src 'none'; style-src …; script-src 
 - **"Give ghost cards a per-card id now, while we're in here."** The layout adapter already has `(person_id, marriage_id)`, so it is cheap — but no decided interaction distinguishes one ghost from another, and a result is about a person. Add it when an interaction earns it.
 - **"Paint only the canonical card so the highlight count matches the result count."** #276 settled that ghosts light with results; a result would otherwise read as absent from the past family whose edges its ghost anchors.
 - **"Loosen the CSP to `script-src 'unsafe-eval'` — it's simpler than enumerating."** `'wasm-unsafe-eval'` is the narrow grant that exists for exactly this; the broad one re-enables `eval` on a surface that renders untrusted document content.
-- **"Assume the WASM build performs like the native measurements in this ADR."** The 12.4 ms is native release. The multiplier is unmeasured and is one of the two numbers the epic owes itself.
+- **"Assume the WASM build performs like the native measurements in this ADR."** The 12.4 ms is native release. ~~The multiplier is unmeasured and is one of the two numbers the epic owes itself.~~ Measured in #292: it is 1.0–1.14× at the ceiling, so the assumption turns out to be nearly true — but it was worth checking, because the same exercise is what caught the eager-hydration failure.
