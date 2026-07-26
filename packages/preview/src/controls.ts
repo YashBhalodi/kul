@@ -11,9 +11,10 @@ const ICON_INFO = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"
 const ICON_ERROR = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 1.75 14.5 13.5h-13Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.25v3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.75" r="0.85" fill="currentColor"/></svg>`;
 
 /**
- * Sibling of #root (not a child) so the per-render `root.innerHTML = …` swap
- * never wipes it. The pan/zoom + legend group hides until the first successful
- * render; the error button hides until at least one error fires.
+ * Overlay-region member (not a child of #root) so the per-render
+ * `root.innerHTML = …` swap never wipes it. The pan/zoom + legend group hides
+ * until the first successful render; the error button hides until at least one
+ * error fires.
  */
 export const CONTROLS_HTML = `<div id="kul-controls" class="kul-preview-controls" role="group" aria-label="Diagram view controls" hidden>
 <div id="kul-controls-group" class="kul-controls-group" hidden>
@@ -29,14 +30,33 @@ export const CONTROLS_HTML = `<div id="kul-controls" class="kul-preview-controls
 /** Click-to-source popover the error button opens. Populated on first error. */
 export const ERROR_POPOVER_HTML = `<div id="kul-error-popover" class="kul-error-popover" role="region" aria-label="Render errors" hidden></div>`;
 
-/** ADR-0022: sibling of #root, populated from the rendered SVG on each render. */
+/** ADR-0022: overlay-region member, populated from the rendered SVG on each render. */
 export const LEGEND_HTML = `<div id="kul-legend" class="kul-preview-legend" role="region" aria-label="Diagram legend" hidden></div>`;
 
-/** Single string that mounts the chrome scaffolding around an empty `#root`. */
-export const PREVIEW_BODY_HTML = `<div id="root" tabindex="-1" style="outline: none;"></div>
+/**
+ * The stage and its five regions (ADR-0036). Every piece of chrome belongs to
+ * exactly one region, and the region — not the widget — owns placement and
+ * stacking, so two panels can no longer be pinned to the same inset by two
+ * independent rules.
+ *
+ * The overlay stack is ordered bottom-up by DOM order (`column-reverse`):
+ * controls, then the error popover, then the legend. Opening a second panel
+ * pushes the ones above it up instead of landing on top of them.
+ *
+ * `flow`, `float` and `notify` are declared empty. Later chrome joins one by
+ * appending an element, not by inventing an inset.
+ */
+export const PREVIEW_BODY_HTML = `<div class="kul-stage">
+<div id="kul-region-flow" class="kul-region-flow"></div>
+<div class="kul-region-canvas"><div id="root" tabindex="-1" style="outline: none;"></div></div>
+<div id="kul-region-overlay" class="kul-region-overlay">
 ${CONTROLS_HTML}
 ${ERROR_POPOVER_HTML}
-${LEGEND_HTML}`;
+${LEGEND_HTML}
+</div>
+<div id="kul-region-float" class="kul-region-float"></div>
+<div id="kul-region-notify" class="kul-region-notify"></div>
+</div>`;
 
 /** Minimal svg-pan-zoom surface keyboard pan needs. */
 export interface KeyboardPanZoom {
@@ -49,9 +69,26 @@ export interface KeyboardPanZoom {
 const PAN_SPEED = 12;
 
 /**
+ * Text-entry hosts whose keystrokes belong to the field, not to the canvas.
+ * `closest` covers a keystroke that surfaces from a descendant of an editable
+ * host rather than from the host itself.
+ */
+const TEXT_ENTRY_SELECTOR =
+    'input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]';
+
+function isTextEntry(target: EventTarget | null): boolean {
+    const el = target as Element | null;
+    return typeof el?.closest === "function" && el.closest(TEXT_ENTRY_SELECTOR) !== null;
+}
+
+/**
  * Held arrows drive a rAF loop instead of one-shot per keydown, avoiding OS
  * key-repeat stutter. Modifier (ctrl/meta/alt) bails without preventDefault so
  * VSCode shortcuts like Cmd+0 still pass through. blur clears the held set.
+ *
+ * Keys bind on `window`, so a keystroke originating in a text field would
+ * otherwise pan the canvas and swallow its own character. The target guard
+ * keeps arrows and `+` / `-` / `0` out of any editable host.
  *
  * Returns a teardown that removes the listeners — the consumer rarely needs
  * it because pan/zoom is window-scoped, but `dispose()` calls it for hygiene.
@@ -86,6 +123,9 @@ export function mountKeyboardPan(getPanZoom: () => KeyboardPanZoom | null): () =
     }
     function onKeyDown(event: KeyboardEvent): void {
         if (event.ctrlKey || event.metaKey || event.altKey) {
+            return;
+        }
+        if (isTextEntry(event.target)) {
             return;
         }
         const pz = getPanZoom();

@@ -343,8 +343,17 @@ fn self_contained_true_injects_inline_style_with_concrete_tokens() {
         style_at < first_g,
         "the <style> block must precede the first element: {svg}"
     );
-    assert!(svg.contains("--kul-card-stroke-male: #1565c0;"), "{svg}");
-    assert!(svg.contains("--kul-edge-stroke: #2e7d32;"), "{svg}");
+    // Tier 1 carries the concrete hue; tier 2 aliases onto it (ADR-0036).
+    assert!(svg.contains("--kul-hue-male: #1565c0;"), "{svg}");
+    assert!(
+        svg.contains("--kul-card-stroke-male: var(--kul-hue-male);"),
+        "the male card stroke must alias the tier-1 hue: {svg}"
+    );
+    assert!(svg.contains("--kul-hue-birth: #2e7d32;"), "{svg}");
+    assert!(
+        svg.contains("--kul-edge-stroke: var(--kul-hue-birth);"),
+        "the birth edge stroke must alias the tier-1 hue: {svg}"
+    );
     assert!(
         svg.contains("--kul-marriage-edge-stroke-width: 8.75;"),
         "the thick unified marriage connector width must be baked in: {svg}"
@@ -360,6 +369,44 @@ fn self_contained_true_injects_inline_style_with_concrete_tokens() {
         "no ghost-badge styling may appear: {svg}"
     );
     assert!(!svg.contains("var(--vscode-"), "{svg}");
+}
+
+/// The baked theme is a *structural subset* of the preview's token layer
+/// (ADR-0016, ADR-0036): tier 1 plus the diagram half of tier 2. The chrome
+/// half — interaction states, the layout scales, the query paint reserved for
+/// the preview — has no application site in a bare SVG and must not ship.
+#[test]
+fn self_contained_bakes_no_chrome_tokens() {
+    let mut shape = empty_shape();
+    shape.cards.push(canonical_card("a", "A"));
+    let svg = render(
+        &shape,
+        &ThemeConfig::with_self_contained(true).with_legend(true),
+    );
+    for chrome_token in [
+        "--kul-control-",
+        "--kul-error-",
+        "--kul-tooltip-",
+        "--kul-region-",
+        "--kul-space-",
+        "--kul-radius-",
+        "--kul-motion-",
+        "--kul-hue-query-",
+        "--kul-hue-sync-",
+        "--kul-dim-alpha",
+        "--kul-selected-outline",
+        "--kul-jump-target",
+        "--kul-hover",
+        "--kul-active",
+        "--kul-accent",
+        "--kul-danger",
+        "--kul-shadow",
+    ] {
+        assert!(
+            !svg.contains(chrome_token),
+            "chrome token `{chrome_token}` must not be baked into a self-contained SVG: {svg}"
+        );
+    }
 }
 
 #[test]

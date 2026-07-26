@@ -118,12 +118,15 @@ const MAX_TOOLTIP_SCALE = 1.5;
 /**
  * Wire the floating-tooltip state machine onto `root`. Caller supplies a
  * `getPanZoom()` accessor so the tooltip tracks the live zoom even after
- * pan/zoom destroy/recreate cycles. Returns a manual close handle the caller
- * invokes on render / pan / zoom to ensure no stale tooltip survives.
+ * pan/zoom destroy/recreate cycles, and `floatRegion` — the entity-anchored
+ * float region the tooltip belongs to (ADR-0036), which owns its stacking.
+ * Returns a manual close handle the caller invokes on render / pan / zoom to
+ * ensure no stale tooltip survives.
  */
 export function mountHoverTooltip(
     root: HTMLElement,
     getPanZoom: () => TooltipPanZoomReader | null,
+    floatRegion: HTMLElement,
 ): { close(): void } {
     let hoverTarget: Element | null = null;
     let hoverTimer: ReturnType<typeof setTimeout> | null = null;
@@ -229,7 +232,7 @@ export function mountHoverTooltip(
             });
             el.appendChild(fields);
         }
-        document.body.appendChild(el);
+        floatRegion.appendChild(el);
         tooltipEl = el;
         positionTooltip(target);
     }

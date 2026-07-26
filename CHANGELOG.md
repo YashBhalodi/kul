@@ -6,6 +6,12 @@ The CLI (`kul`), language server (`kul-lsp`), and VSCode extension (`YashBhalodi
 
 ## [Unreleased]
 
+### `@kullang/preview`, `kul-svg`
+
+- **The preview's `--kul-*` theme tokens are rebuilt in two tiers.** Tier 1 is the theme contract — colour roles, typography, the diagram hues, the spacing / radius / motion scales and five reserved literal hues — and is the only layer that bridges to `--vscode-*`. Tier 2 is the per-site semantic layer, aliasing tier 1. A theme now supplies 38 values instead of ~120, and the count no longer grows with the chrome. ADR-0016's two load-bearing properties survive: one `var(--kul-*)` per application site, and the physical two-file split. Values are re-expressed, not re-chosen — the diagram keeps its gender hues, edge colours and ghost treatment, and `kul-svg`'s self-contained export bakes the same tier 1 plus the diagram aliases. A Vitest structural lint reads both sheets as text and holds the architecture. See ADR-0036 and ADR-0038 (#305).
+- **The preview stage declares regions, and chrome joins one instead of computing an inset.** Five regions — flow, canvas, overlay, entity-anchored floats, transient notifications — own placement and stacking. **Fixes a shipped bug:** the legend and the error popover pinned to the identical bottom-left inset with independent visibility booleans, so opening both made them overlap. They are now members of one overlay stack, which cannot overlap by construction (#305).
+- **Arrow keys and `+` / `-` / `0` no longer pan the diagram from inside a text field.** `mountKeyboardPan` binds on `window` with `preventDefault` and had no target guard, so any future input in the preview would have panned the canvas and swallowed its own keystroke (#305).
+
 ### `kul-core`, `kul-layout`
 
 - **Replaced the unmaintained `serde_yaml` with the maintained `serde_norway` fork.** `serde_yaml` was archived upstream (`0.9.34+deprecated`, RUSTSEC-2024-0320 *unmaintained*) yet parsed `kul.yml` — untrusted input from cloned projects — on every validate/format/export and LSP project load. `serde_norway` is a rename-fork with an identical 0.9 API, so the swap is a mechanical path substitution behind the `yaml` feature; the manifest format, the `KUL-M02..M05` diagnostics, and the layout corpus snapshots are byte-identical. See ADR-0030 (#228).
