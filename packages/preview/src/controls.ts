@@ -1,3 +1,5 @@
+import { LOCALE_TOGGLE_HTML } from "./locale.js";
+
 /**
  * `currentColor` lets icons track the button's themed `color` via a single
  * `--kul-control-fg` token (ADR-0016).
@@ -43,11 +45,12 @@ export const LEGEND_HTML = `<div id="kul-legend" class="kul-preview-legend" role
  * controls, then the error popover, then the legend. Opening a second panel
  * pushes the ones above it up instead of landing on top of them.
  *
- * `flow`, `float` and `notify` are declared empty. Later chrome joins one by
- * appending an element, not by inventing an inset.
+ * The locale toggle joins the **flow** region, which is what ADR-0038 said
+ * later chrome would do: append an element, never invent an inset. `float`
+ * and `notify` stay declared and empty.
  */
 export const PREVIEW_BODY_HTML = `<div class="kul-stage">
-<div id="kul-region-flow" class="kul-region-flow"></div>
+<div id="kul-region-flow" class="kul-region-flow">${LOCALE_TOGGLE_HTML}</div>
 <div class="kul-region-canvas"><div id="root" tabindex="-1" style="outline: none;"></div></div>
 <div id="kul-region-overlay" class="kul-region-overlay">
 ${CONTROLS_HTML}

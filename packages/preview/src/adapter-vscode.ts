@@ -1,3 +1,4 @@
+import type { LocaleStore } from "./locale-store.js";
 import type {
     HostAdapter,
     PreviewHandle,
@@ -8,12 +9,32 @@ import { isEntityKind, isProjectSnapshot } from "./wire-guards.js";
 /** Subset of the VSCode webview API the adapter needs. */
 interface VsCodeWebviewApi {
     postMessage(message: unknown): void;
+    /** Webview-local persistent state — survives a panel being hidden/restored. */
+    getState(): unknown;
+    setState(state: unknown): void;
 }
 
 declare global {
     interface Window {
         acquireVsCodeApi?(): VsCodeWebviewApi;
     }
+}
+
+/**
+ * `acquireVsCodeApi` may be called **once** per webview load; a second call
+ * throws. Two consumers need the handle now — the reveal channel and the
+ * locale store — so it is acquired lazily and cached rather than re-acquired.
+ */
+let acquired: VsCodeWebviewApi | null | undefined;
+
+function vscodeApi(): VsCodeWebviewApi | null {
+    if (acquired === undefined) {
+        acquired =
+            typeof window !== "undefined" && typeof window.acquireVsCodeApi === "function"
+                ? window.acquireVsCodeApi()
+                : null;
+    }
+    return acquired;
 }
 
 /**
@@ -25,13 +46,46 @@ declare global {
  * adapter without a live `window.message` channel).
  */
 export function createVscodeAdapter(): HostAdapter {
-    const vscode =
-        typeof window !== "undefined" && typeof window.acquireVsCodeApi === "function"
-            ? window.acquireVsCodeApi()
-            : null;
     return {
         onRevealRequest(target) {
-            vscode?.postMessage({ type: "revealRequest", target });
+            vscodeApi()?.postMessage({ type: "revealRequest", target });
+        },
+    };
+}
+
+/** Key the locale takes inside the webview's single state object. */
+const LOCALE_STATE_KEY = "locale";
+
+/**
+ * The VSCode-backed {@link LocaleStore}: the reader's language choice rides
+ * `getState` / `setState`, so it survives the panel being hidden and restored
+ * (ADR-0033).
+ *
+ * `HostAdapter` is untouched — this is a second, independent seam, which is
+ * what keeps the preview host-agnostic: an embedding with no durable state
+ * simply never constructs this and gets the in-memory default.
+ *
+ * The webview has exactly **one** state object, so the write merges rather
+ * than replaces; any other chrome that later persists something keeps it.
+ */
+export function createVscodeLocaleStore(): LocaleStore {
+    return {
+        read() {
+            const state = vscodeApi()?.getState();
+            if (state === null || typeof state !== "object") {
+                return null;
+            }
+            const held = (state as Record<string, unknown>)[LOCALE_STATE_KEY];
+            return typeof held === "string" ? held : null;
+        },
+        write(code) {
+            const api = vscodeApi();
+            if (!api) {
+                return;
+            }
+            const state = api.getState();
+            const base = state !== null && typeof state === "object" ? state : {};
+            api.setState({ ...base, [LOCALE_STATE_KEY]: code });
         },
     };
 }

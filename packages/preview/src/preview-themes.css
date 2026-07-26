@@ -162,6 +162,21 @@ body {
     --kul-jump-target-glow-offset: 2px;
     --kul-jump-target-pulse-duration: var(--kul-motion-pulse);
 
+    /* ── Tier 2 · locale toggle (ADR-0033) ─────────────────────────────── */
+    /* Chrome growth lands here and costs a theme nothing — the tier-1
+     * register above does not move. */
+    --kul-locale-bar-padding: var(--kul-space-2);
+    --kul-locale-bg: var(--kul-raised);
+    --kul-locale-fg: var(--kul-on-surface);
+    --kul-locale-border-color: var(--kul-border);
+    --kul-locale-hover-bg: var(--kul-hover);
+    --kul-locale-active-bg: var(--kul-active);
+    --kul-locale-radius: var(--kul-radius-sm);
+    --kul-locale-padding: var(--kul-space-1) var(--kul-space-3);
+    --kul-locale-font-family: var(--kul-font-chrome);
+    --kul-locale-font-size: 11px;
+    --kul-locale-transition-duration: var(--kul-motion-fast);
+
     /* ── Tier 2 · pan/zoom controls ────────────────────────────────────── */
     --kul-control-bg: var(--kul-raised);
     --kul-control-fg: var(--kul-on-raised);

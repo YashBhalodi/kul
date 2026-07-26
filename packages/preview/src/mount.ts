@@ -8,9 +8,12 @@ import { createErrorsController, setStaleSvg } from "./errors.js";
 import { injectGhostBadges } from "./ghost-badge.js";
 import { type HighlightPanZoom, highlightEntity } from "./highlight.js";
 import { createLegendController } from "./legend.js";
+import { createLocaleController } from "./locale.js";
+import type { LocaleStore } from "./locale-store.js";
 import { mountHoverTooltip } from "./tooltip.js";
 import type { EntityRef, ErrorRow, HostAdapter, PreviewHandle } from "./types.js";
 
+/** Optional collaborators a host can supply to {@link mountPreview}. */
 export interface MountOptions {
     /**
      * The query engine this preview asks. Omitted by hosts that ship no engine
@@ -18,6 +21,12 @@ export interface MountOptions {
      * then resolves `null` instead of loading anything.
      */
     engine?: QueryEngine;
+    /**
+     * Where the reader's language choice persists. Defaults to in-memory, so
+     * a plain embedding needs nothing; the VSCode entry hands in
+     * `createVscodeLocaleStore()` and the choice then survives a reopen.
+     */
+    localeStore?: LocaleStore;
 }
 
 /**
@@ -35,11 +44,11 @@ function diagnosticsToErrorRows(diagnostics: ExportedDiagnostic[]): ErrorRow[] {
 
 /**
  * Mount the chrome inside `container`. The container is rewritten with the
- * stage and its regions (ADR-0036) — `#root` in the canvas region, controls /
- * error popover / legend in the overlay stack, the tooltip in the float
- * region — then the runtime wires hover / click / pan-zoom / keyboard /
- * selection-sync / error-popover against `adapter`. Returns the imperative
- * {@link PreviewHandle}.
+ * stage and its regions (ADR-0036) — `#root` in the canvas region, the locale
+ * toggle in the flow region, controls / error popover / legend in the overlay
+ * stack, the tooltip in the float region — then the runtime wires hover /
+ * click / pan-zoom / keyboard / selection-sync / error-popover against
+ * `adapter`. Returns the imperative {@link PreviewHandle}.
  */
 export function mountPreview(
     container: HTMLElement,
@@ -61,6 +70,13 @@ export function mountPreview(
         "#kul-error-popover",
     ) as HTMLElement | null;
     const legend = container.querySelector("#kul-legend") as HTMLElement | null;
+
+    // Standing chrome: the toggle is live before the first render, because it
+    // is a reading preference rather than a view control.
+    const locale = createLocaleController(
+        container.querySelector("#kul-locale") as HTMLElement | null,
+        options.localeStore,
+    );
 
     let panZoom: ReturnType<typeof svgPanZoom> | null = null;
     let hasRender = false;
@@ -282,6 +298,7 @@ export function mountPreview(
         showErrors,
         highlightEntity: highlight,
         queryDetail,
+        locale,
         dispose,
     };
 }
