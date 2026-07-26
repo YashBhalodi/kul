@@ -25,9 +25,10 @@ it is written down.
 1. **Where does a can't-say *reason* come from?** #277 requires the whisper — *"can't say — family
    not recorded"*, *"~1942 is approximate (±5y) — straddles born < 1945"* — and the engine has no
    operation that produces one. `runQuery` answers in **sets**.
-2. **What do the tally's numbers mean?** #277's illustrative string is *"3 of 10 · 7 dimmed · 1
-   can't say"*, whose three numbers do not add to ten under any reading where all three name
-   disjoint groups.
+2. **What do the tally's numbers mean?** #277's illustrative string — carried into PRD-0006 —
+   is *"3 of 10 · 7 dimmed · 1 can't say"*, whose three numbers do not add to ten under any reading
+   where all three name disjoint groups. #277's own point 6 says the unjudgeable are a paint
+   distinct from the dimmed, which the illustration then contradicts by counting them inside it.
 3. **Whose teal is a filter match?** #277 says matches take "the existing teal result glow", and
    kin paint already owns a class that paints it. The two surfaces co-exist by design: filtering
    *within* a painted kin set is one of the ticket's own requirements.
@@ -77,12 +78,15 @@ never a count. So certain mode reads *"3 of 10 · 6 dimmed · 1 can't say"* and 
 the other mode reads *"4 of 10 · 6 dimmed · 1 can't say, included"*: the disclosure is the same
 number whichever way the reader is looking, which is the whole point of disclosing it.
 
-This is a deliberate correction to #277's illustrative *"7 dimmed"*, which counted the unjudgeable
-person inside the dimmed group. Keeping that wording would have required either a fourth reading of
-"dimmed" (not-shown, rather than receded) or dimming the amber card — see below. The numbers now
-describe exactly what is on screen.
+This is a deliberate correction to the illustrative *"7 dimmed"* in **#277's point 7 and
+[PRD-0006](../prd/0006-preview-kinship-query-ux.md)'s attribute-filtering section**, both of which
+counted the unjudgeable person inside the dimmed group — while #277's point 6 and the PRD's own
+bullet above it call can't-say a paint *distinct* from non-match. Keeping the wording would have
+required either a second reading of "dimmed" (not-shown, rather than receded) or dimming the amber
+card, which the next section refuses. The numbers now describe exactly what is on screen, and the
+PRD's line is amended to match rather than left to contradict the surface built from it.
 
-### An unjudgeable person is not dimmed
+### An unjudgeable person is not dimmed — by anyone, which makes the exemption a key
 
 Amber, dashed, with a `?` riding every card they own, at full opacity. The reason is the honesty
 stance, not the aesthetics: an unjudgeable person receding like a non-match is precisely the silent
@@ -92,6 +96,38 @@ as something to hover for an explanation.
 The third state is distinguished on **two** dimensions rather than one — a different reserved hue
 *and* a dashed line *and* a glyph — because a hue difference alone is exactly what a high-contrast
 theme flattens.
+
+Leaving the can't-say set out of the *filter's own* dim source is not enough, and the case where it
+is not enough is the one this ADR elsewhere treats as a requirement: a filter running inside a
+painted kin set. Kin paint dims everyone outside its answer, and an unjudgeable person is very often
+outside it, so the amber ring rendered at the dim's alpha — three documents said that never happens
+and it happened.
+
+So the filter publishes its can't-say set as a **standing exemption**, and
+[ADR-0043](./0043-explore-kin-thirteen-query-values-and-what-a-row-costs.md)'s single exemption slot
+becomes a **key**. That ADR reasoned the slot was safe because a pointer is in one place, and named
+keying as the fix if a second holder ever appeared; the filter is that holder, and it differs in
+kind — standing rather than pointer-driven, so it must survive the lens publishing and withdrawing a
+trace over the top of it. Exemptions now union exactly as dims do: a person is exempt iff any source
+exempts them, so neither holder can clobber the other and adding one can only ever exempt more.
+
+**Rejected: qualifying the prose instead.** "Not dimmed, except under a kin set" is a rule with a
+hole in exactly the case the feature was built for.
+
+**Rejected: having the filter suppress kin paint's dim for those persons.** That is one surface
+reaching into another's published set — the arrangement the registry exists to make impossible.
+
+### Esc lifts every reason sync is suspended for
+
+The notify region reads *"Editor sync paused · Esc to resume"* for as long as **any** reason holds
+sync down, and an active filter is now one of those reasons with no selection required. Esc was
+scoped to the selection, so a filter-only suspension put that sentence on screen with no key behind
+it and left clicking ✕ on every chip as the only way out.
+
+Esc therefore clears whatever query state is suspending sync — the selection, the filter, or both.
+It is a keyboard exit rather than a render, so it decides nothing about
+[#304](https://github.com/YashBhalodi/kul/issues/304)'s mode boundary; it keeps a promise this
+chrome already prints.
 
 ### Each painter owns its own match class; only the dim is shared
 
@@ -120,9 +156,10 @@ an anchor**. This is the answer to both, and one decision covers them.
 `handleCanvasHover` becomes a fan-out in `createQuerySurface`. A person selection is what arms the
 relationship whisper, and its pill docks under exactly the card a can't-say reason would, so while a
 person is selected the reason is **not offered** — and it is *told* to stand down (passed `null`)
-rather than merely not called, so a reason already open comes off screen the moment a selection
-arms the lens. One gesture gets one answer. Neither whisper knows about the other; the composition
-that owns both decides.
+rather than merely not called, so a reason already open comes off screen on the next pointer event
+rather than lingering until something else dismisses it. (The fan-out runs on pointer input, so
+selecting a person does not itself take a pill down; the next move does.) One gesture gets one
+answer. Neither whisper knows about the other; the composition that owns both decides.
 
 This also matches the prototype's own framing, which introduced the reason as what happens "with no
 selection".
@@ -178,11 +215,21 @@ selection are independent — either can exist without the other.
 - **The whisper costs one batched lookup per unjudgeable person, once per answer.** Cached while the
   answer stands, dropped when the filter or the project changes, and guarded against the pointer
   firing per pixel over one card.
+- **Two exemption holders now share one registry**, and both consumers were updated: the lens keys
+  its trace, the filter keys its can't-say set. `hover-lens.ts` is untouched — it publishes through
+  `onTrace` and never knew the registry existed — and the key it is filed under belongs to the
+  composition that wires the two together.
 - **The reason can name more than one candidate.** On a two-condition filter where both conditions
   are unjudgeable-shaped for one person, the whisper names both. That is less crisp than the
   prototype's single clause and is the honest reading of what the surface actually knows.
-- **The tally's wording differs from #277's example string.** Deliberately, and the arithmetic is
-  asserted at the module seam.
+- **The tally's wording differs from the example string in #277 and PRD-0006.** Deliberately; the
+  arithmetic is asserted at the module seam, and the PRD's line is corrected in the same change.
+- **One thing this slice does *not* settle: PRD-0006 also says a render clears the filter.** It does
+  not here — `repaintQueryChrome` re-*asks*, because a slice that only builds the filter has no
+  standing to decide when query mode ends. Ending it on an edit is
+  [#304](https://github.com/YashBhalodi/kul/issues/304)'s decision, and `clearFilter()` is the call
+  it composes that from. The PRD notes the divergence as deferred rather than reading as though it
+  were already true.
 - **Filter paint and kin paint can both be on screen, in the same teal.** By decision — #277 says
   matches take *the existing* result glow — and the tally is what distinguishes "3 of 4 in
   Giuseppe's descendants" from a bare kin set.
@@ -218,6 +265,9 @@ selection are independent — either can exist without the other.
   together by design.
 - **"Dim the can't-say cards so the tally can say '7 dimmed'."** That makes the unjudgeable read as
   a non-match, which is the exact outcome the whole disclosure exists to prevent.
+- **"Put the exemption back in a single slot."** Two holders exist, one live and one standing, and
+  a single slot means whichever publishes last silently drops the other's — which is the dim's own
+  original failure mode, one layer up.
 - **"Add an OR chip behind an advanced mode."** OR is permanently out of engine scope (ADR-0025).
   There is no node in the filter's own model that could represent one, which is deliberate: the
   surface must not imply the engine can do something it never will.

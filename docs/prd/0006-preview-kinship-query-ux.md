@@ -147,7 +147,7 @@ Per **[#277](https://github.com/YashBhalodi/kul/issues/277)**'s resolution:
 - **Certainty is a chip inside the sentence** — `certain` / `certain + can't say` — not a display toggle. The third truth value is part of the query.
 - **Non-matching people dim. Always.** No hiding, no collapsing, no re-layout. **Standing rule, generalised past this feature: filtering never hides a node or an edge — it only dims.** Hiding punches holes in the canonical layout and leaves marriage stubs and birth edges running into empty space.
 - **"Can't say" has its own paint** — amber dashed outline plus a `?` riding the card, distinct from both match and non-match — and hovering whispers the reason in the lens's docked-tag grammar (*"can't say — family not recorded"*, *"~1942 is approximate (±5y) — straddles born < 1945"*).
-- **The tally discloses what certain mode dropped**: *"3 of 10 · 7 dimmed · 1 can't say"*. Unjudgeable people are counted and nameable, never silently absent.
+- **The tally discloses what certain mode dropped**: *"3 of 10 · 6 dimmed · 1 can't say"*. Unjudgeable people are counted and nameable, never silently absent. (Corrected from *"7 dimmed"* by [ADR-0045](../adr/0045-the-filter-bars-three-states-derived-reasons-and-one-class-per-painter.md): the three numbers name three **disjoint** groups and add to the total, because the bullet above makes can't-say a paint distinct from non-match — so counting the unjudgeable person inside "dimmed" contradicted it.)
 - **Presence predicates never imply a fact.** `died not recorded` is not "living", and the surface says so where the predicate is offered.
 - **Composition with kin sets:** the scope chip switches between `allPersons` and `kinOf(anchor, set)`, and the tally names the scope — *"3 of 4 in Giuseppe's descendants"*.
 
@@ -194,7 +194,7 @@ It is written down rather than left silent because silence reads as an oversight
 Per **[ADR-0035](../adr/0035-detail-surface-one-selection-one-batched-lookup.md)** and **[#276](https://github.com/YashBhalodi/kul/issues/276)**:
 
 - **Editor⇄preview sync suspends while a query selection or an active filter exists** (with a hint, bottom-right). The two meanings of "highlighted" never co-paint.
-- **An edit ends query mode.** A render clears the selection, its panel, any kin paint and the filter; the tree returns to plain and sync resumes on its own. Renders only ever come from document changes, so no class of repaint clears a selection surprisingly.
+- **An edit ends query mode.** A render clears the selection, its panel, any kin paint and the filter; the tree returns to plain and sync resumes on its own. Renders only ever come from document changes, so no class of repaint clears a selection surprisingly. (**Not yet true of the filter.** #303 built the bar with the post-render hook re-*asking* rather than clearing, since a slice that only builds the filter has no standing to decide when query mode ends; `QuerySurface.clearFilter()` is the call [#304](https://github.com/YashBhalodi/kul/issues/304) composes this rule from. See [ADR-0045](../adr/0045-the-filter-bars-three-states-derived-reasons-and-one-class-per-painter.md).)
 - The accepted cost: a one-character typo fix costs the user their selection, their painted kin set and their filter. Refetching the bundle per render was affordable (≈13 ms per 300 ms-debounced render) and was rejected in favour of the mode boundary — no query artefact outlives the source it was computed from.
 
 ### Latency posture
