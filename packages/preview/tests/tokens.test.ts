@@ -28,13 +28,16 @@ const appSheet = readSheet("preview.css");
  * Tier-1 tokens with no consumer yet. The query paints and the filter alpha
  * were reserved by ADR-0036 for the chrome later slices of epic #296 build, so
  * the paint vocabulary was decided once, in one place, rather than invented per
- * slice. Four of the five have since been spent — the selection violet by #300,
- * the result teal and the dim alpha by #301, the resolution-path sky by #302 —
- * and the can't-say amber is the last one standing, waiting on #303. Every
- * other name must earn its keep: the rule that forced `--kul-tooltip-*` out
- * with `tooltip.ts` (#300).
+ * slice. **All five have now been spent** — the selection violet by #300, the
+ * result teal and the dim alpha by #301, the resolution-path sky by #302, and
+ * the can't-say amber by #303 — so the carve-out is empty and the ledger it
+ * kept is closed. It stays as a declaration that the list is empty on purpose;
+ * a name added back here is a claim that a *new* reservation was decided, which
+ * is an ADR-0036 amendment and not a slice's business. Every other name must
+ * earn its keep: the rule that forced `--kul-tooltip-*` out with `tooltip.ts`
+ * (#300).
  */
-const RESERVED_PENDING_CONSUMERS = ["--kul-hue-query-uncertain"];
+const RESERVED_PENDING_CONSUMERS: string[] = [];
 
 /**
  * Tier-1 tokens whose values are literal hues rather than palette bridges,

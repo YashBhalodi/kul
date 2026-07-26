@@ -113,6 +113,15 @@ export type {
     FilterTally,
 } from "./filter.js";
 export { CANT_SAY_LEAD, cantSayReason } from "./filter-reason.js";
+export {
+    FILTER_DIM_SOURCE,
+    FILTER_MATCH_CLASS,
+    FILTER_UNCERTAIN_CLASS,
+    UNCERTAIN_BADGE_CLASS,
+    clearFilterPaint,
+    paintFilterResults,
+    uncertainPersonAt,
+} from "./filter-paint.js";
 
 // The selection seam (ADR-0035, ADR-0042) — one selection over three entity
 // kinds, and the surface every later piece of query chrome hangs off.

@@ -553,6 +553,53 @@ body {
     transition: opacity var(--kul-query-dim-transition-duration);
 }
 
+/* ── The attribute filter, drawn on the tree (#277, ADR-0045) ─────────────
+ *
+ * The standing rule first, because it is what these rules are *not* allowed
+ * to do: **filtering never hides a node or an edge — it only dims.** Nothing
+ * below sets `display`, `visibility` or `content-visibility`, and nothing
+ * below touches an edge. The canonical layout survives every filter state
+ * intact; only how it reads changes.
+ *
+ * A match takes an outline rather than a stroke, so the card keeps its gender
+ * tint, and every card the person owns takes it — canonical and ghost alike
+ * (ADR-0034). Its own class rather than the kin result's, because a filter
+ * inside a painted kin set puts both on screen at once. */
+.kul-card.kul-filter-match > rect {
+    outline: var(--kul-filter-match-outline-width) solid
+        var(--kul-filter-match-outline-color);
+    outline-offset: var(--kul-filter-match-outline-offset);
+}
+
+/* A matching ghost keeps the glow and takes it dashed: it is still a past
+ * record, and a solid ring would make it read as canonical. */
+.kul-card[data-kind="ghost"].kul-filter-match > rect {
+    outline-style: dashed;
+    stroke-dasharray: var(--kul-filter-match-ghost-dash);
+}
+
+/* The third state, in the last reserved hue. Declared after the match rule, so
+ * it wins on a card that somehow carried both: "we could not judge this" must
+ * never be overpainted by "this matched".
+ *
+ * It is deliberately **not** dimmed. An unjudgeable person receding like a
+ * non-match is the silent drop the whole disclosure exists to prevent, and it
+ * is also what makes the card hoverable-looking enough to ask for its reason. */
+.kul-card.kul-filter-uncertain > rect {
+    outline: var(--kul-filter-uncertain-outline-width) dashed
+        var(--kul-filter-uncertain-outline-color);
+    outline-offset: var(--kul-filter-uncertain-outline-offset);
+}
+
+/* The `?` riding the card. A hue alone would be one dimension; the glyph is
+ * the second, so the third state stays legible where the first two are ringed
+ * shapes of the same weight. */
+.kul-filter-uncertain-badge {
+    fill: var(--kul-filter-uncertain-badge-fill);
+    font-size: var(--kul-filter-uncertain-badge-font-size);
+    pointer-events: none;
+}
+
 /* The details panel — a float-region member (ADR-0038). It declares no
  * position, no inset and no z-index: the region owns all three, so the panel
  * cannot collide with other chrome by arithmetic. It overlays the canvas and
