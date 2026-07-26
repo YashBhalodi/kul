@@ -214,8 +214,12 @@ the same shape of mistake, and it would defeat the source lint's plain reading.
   the wiring; the panel retains the answer it drew, so a redraw costs no engine call.
 - **The chrome's selection vocabulary is pinned to `DetailTarget`.** A wire change that widens the
   union widens what a selection can be, and the chrome must answer for it.
-- **A render repaints rather than clears, until #304.** That is a deliberately temporary state,
-  named here so it is not read as a missing case.
+- ~~**A render repaints rather than clears, until #304.**~~ That was a deliberately temporary
+  state, named here so it would not be read as a missing case. **Superseded by
+  [ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md) (#304):** a render now *ends* query mode, the hook is
+  `endQueryMode()`, and it is composed of `clearSelection()` plus `clearFilter()`. Everything below
+  about the hook being the single one, and about the name not being scoped to the selection, still
+  holds — only what it does inside changed.
 - **`repaintQueryChrome()` is the one post-render hook for query paint.** #301 and #303 repaint from
   inside it rather than adding a second call to `mount.ts`.
 - **`panToElement` gained an occluder parameter** and the ghost badge's jump-to-canonical passes it

@@ -2,7 +2,9 @@ import type { LanguagePack } from "../pack.js";
 
 /**
  * The **Gujarati language pack** — pure data over the phrasing key (ADR-0033).
- * Source: `docs/kinship-term-inventory.md` §1–§8, script column.
+ * Source: the kinship-term inventory (#278) §1–§8, script column. The inventory was a
+ * transient research asset and is retired with the epic; **this pack is now the record**,
+ * and ADR-0046's appendix lists the sixteen register variants it deliberately did not take.
  *
  * Gujarati is the forcing case the whole layer was designed against, and this
  * module is the additivity promise's test: it adds a language with **zero
@@ -50,8 +52,8 @@ import type { LanguagePack } from "../pack.js";
  * simply carry no gloss rather than an invented one (ADR-0044).
  *
  * **Where the Latin forms come from**, stated exactly because "from the
- * inventory" is not true of all of them: `docs/kinship-term-inventory.md`
- * supplies the romanization wherever it has a row for the term, and the rest is
+ * inventory" is not true of all of them: the inventory (#278)
+ * supplied the romanization wherever it had a row for the term, and the rest is
  * written by hand to the same conventions for what #299 added beyond it — the
  * entries it never listed (પોતે, જીવનસાથી, વાલી, સંતાન, સહોદર, the સાવકો દીકરો /
  * સાવકી દીકરી pair), four of the nine hop nouns (માતા, વાલી, સંતાન, જીવનસાથી —
@@ -494,8 +496,8 @@ export const GU: LanguagePack = {
             },
             affix: "પર",
             // The Latin form hyphenates where the script does not, following
-            // the convention `docs/kinship-term-inventory.md` §1 writes the
-            // productive prefix in: *par-dādā*, one word in Gujarati.
+            // the convention the inventory's §1 wrote the productive prefix
+            // in: *par-dādā*, one word in Gujarati.
             translit: "par-",
             position: "prefix",
             cap: 3,

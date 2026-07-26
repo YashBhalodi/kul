@@ -1,6 +1,6 @@
 // Kin paint — an answered kin-set query, drawn on the tree.
 //
-// The tree *is* the result (#276's resolution, PRD-0006): there is no list of
+// The tree *is* the result (#276's resolution, ADR-0043): there is no list of
 // matched people beside the canvas, so this paint is the whole readout. It is
 // stateless — prior paint is stripped before anything is applied, so calling
 // `paintKinResults` after a render re-applies the same answer onto the fresh

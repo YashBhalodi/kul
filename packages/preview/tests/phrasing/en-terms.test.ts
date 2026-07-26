@@ -10,7 +10,7 @@ import { across, collateral, descriptorOf, down, lineal, self, up } from "./fixt
 
 /**
  * Discrimination fixtures for the `en` pack: one row per region of
- * `docs/kinship-term-inventory.md` §9, including the regions where English
+ * the kinship-term inventory (#278) §9, including the regions where English
  * *under*-specifies (aunt covers an uncle's wife) and the regions where it has
  * no lexeme at all (a co-wife, a child's parent-in-law, a spouse's uncle).
  */

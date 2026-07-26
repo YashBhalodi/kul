@@ -9,7 +9,7 @@ import { across, collateral, descriptorOf, down, lineal, self, up } from "./fixt
 /**
  * Discrimination fixtures for the `gu` pack.
  *
- * Every ⚠-marked row of `docs/kinship-term-inventory.md` — every term the
+ * Every ⚠-marked row of the kinship-term inventory (#278) — every term the
  * descriptor's **normalized fields could not select** — has a case here, plus
  * the two rows that inherit a ⚠ from the row above them (*sāḷī* from *sāḷo*,
  * *diyar* from *jeṭh*). Twenty-two terms in all, and they are the reason the

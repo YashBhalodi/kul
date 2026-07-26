@@ -169,9 +169,14 @@ carries the vocabulary. Nothing further is lifted.
   click. Ending query mode is not a reset of the preview: the list is a property of the reader
   (ADR-0043) and the panel it lives in is gone anyway, so the next selection opens straight back
   onto it.
-- **Three transient documents are gone and nothing points at them.** The references were in ten
-  ADRs, two `perf.rs` comments, a dozen preview source comments and four preview test comments;
-  each is repointed at the ADR, the issue or the `CONTEXT.md` entry that now carries the claim.
+- **Three transient documents are gone and nothing points at them.** Forty-seven references, spread
+  across seven ADRs, two `perf.rs` comments, one `CONTEXT.md` entry, fourteen preview source
+  comments and five preview test comments; each is repointed at the ADR, the issue or the
+  `CONTEXT.md` entry that now carries the claim. Where the pointer was to the *epic's* restatement
+  of something #276 or #277 decided, it now names the ticket that decided it — which is a better
+  citation than the PRD ever was, since the PRD only ever summarised them.
+- **`docs/prd/` is left holding only its `README.md`**, which is the lifecycle itself and not a PRD.
+  That is the directory's steady state between epics, and `AGENTS.md` needs no change.
 - **The `gu` pack is now the sole record of Gujarati kinship terminology in this repo**, with this
   ADR's appendix as the note of what it deliberately does not hold. A native reviewer wanting a
   variant back adds a pack entry; a reviewer wanting to know why it is absent reads the appendix.

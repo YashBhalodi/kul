@@ -6,7 +6,7 @@
 // The engine double is a **recorder plus a fixture**, not a re-implementation:
 // it answers from an explicit true / unknown table per query, so nothing here
 // re-derives a three-valued predicate. `kul-core`'s `filter__*.snap` suites
-// own that (PRD-0006, Testing Decisions).
+// own that (#296, Testing Decisions).
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";

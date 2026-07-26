@@ -15,7 +15,7 @@
 //     published to the registry as a standing exemption, not merely left out of
 //     this source's dim, because a kin set painted underneath would otherwise
 //     recede it. An unjudgeable person at 30% behind an amber ring is exactly
-//     the silent drop the disclosure exists to prevent (PRD-0006 story 23,
+//     the silent drop the disclosure exists to prevent (#296 story 23,
 //     ADR-0045).
 //   - **dimmed** — answered `false`. The shared dim, and no colour of its own.
 //

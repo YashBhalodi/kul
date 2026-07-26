@@ -2,7 +2,7 @@
 // arithmetic behind the tally, and the words each of them reads as.
 //
 // Three-valued predicate correctness is **not** re-tested here.
-// `crates/kul-core`'s `filter__*.snap` suites own it (PRD-0006, Testing
+// `crates/kul-core`'s `filter__*.snap` suites own it (#296, Testing
 // Decisions); what this file holds is that the preview asks the right
 // question and adds up the answer honestly.
 

@@ -6,7 +6,7 @@
 
 ## Context
 
-[PRD-0006](../prd/0006-preview-kinship-query-ux.md) calls the hover lens "the affordance that made
+The epic ([#296](https://github.com/YashBhalodi/kul/issues/296)) calls the hover lens "the affordance that made
 the whole model click", and [#302](https://github.com/YashBhalodi/kul/issues/302) says why: it is the
 interaction the architecture was arranged around. A zero-click affordance firing on pointer movement
 cannot afford a webview→extension→LSP round-trip, so the engine came to the webview
@@ -30,7 +30,7 @@ was explicitly deferred to this slice by name.
    says "trailing-edge, not a spinner" and gives the measurement that forces one. It gives no number.
 3. **What does the pill say when there is no tie?** #302 gives one string and simultaneously forbids
    flattening two engine states into one.
-4. **What paints the hovered card?** #276's paint vocabulary, as PRD-0006 restates it, lists
+4. **What paints the hovered card?** #276's paint vocabulary, as the epic restates it, lists
    "hover-target amber". ADR-0036 reserves four hues, and the amber one is spelled
    `--kul-hue-query-uncertain`: the can't-say paint [#303](https://github.com/YashBhalodi/kul/issues/303)
    is being built to use.
@@ -39,7 +39,7 @@ was explicitly deferred to this slice by name.
 6. **What happens to a lens reading when a render swaps the picture?** ADR-0042 pins
    `repaintQueryChrome()` as the one post-render hook and says the selection *repaints*. It says
    nothing about chrome whose whole meaning is "where the pointer is right now".
-7. **Whose is the "docked-tag grammar"?** PRD-0006:149 says the filter's can't-say reason whispers
+7. **Whose is the "docked-tag grammar"?** #277's resolution says the filter's can't-say reason whispers
    *"in the lens's docked-tag grammar"* — under a card, with **no selection anywhere**, on a trigger
    that is not a hover resolution. Calling something a shared grammar and building it as one widget's
    private chrome are different acts, and only the first was written down.
@@ -153,7 +153,7 @@ the epic's own stance about the neighbouring surface.
 The lens adds **one** paint to the tree: the dashed sky resolution path. The hovered card keeps the
 `.kul-card:hover` stroke bump the diagram already ships and gains nothing else.
 
-PRD-0006's paint-vocabulary line lists "hover-target amber". The decisive fact is simply that
+#276's paint-vocabulary line, as the epic restates it, lists "hover-target amber". The decisive fact is simply that
 **ADR-0036 reserved four hues and none of them is a hover target**: it names them "selection violet,
 result teal, can't-say amber, resolution-path sky", `preview-themes.css` documents each in place, and
 the amber is spelled `--kul-hue-query-uncertain` — "a three-valued predicate that answered `unknown`".
@@ -210,7 +210,11 @@ every term: the engine found several ways and the surface shows several ways.
 
 ### A render dismisses the lens; it does not repaint it
 
-`repaintQueryChrome()` re-applies the selection outline and takes the lens **down**.
+`repaintQueryChrome()` re-applies the selection outline and takes the lens **down**. (**Amended by
+[ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md) (#304):** the hook is `endQueryMode()` and a render takes
+the *selection* down too. The lens's half of this is unchanged and is now the whole rule — and it
+needs no call inside the boundary, because dismissing on a selection change is what this section
+decided.)
 
 The asymmetry with the selection is the decision. A selection is a standing choice the reader made and
 has not unmade, so repainting it onto the fresh SVG is restoring something that is still true
@@ -427,7 +431,7 @@ tag stays findable once something else docks one.
   that because it decides who to dim by walking the *cards*; the lens reads `path[].to` off the
   answer. And a render dismisses the lens, so there is nothing left to republish.
 - **"Fold the docked tag back into `hover-lens.ts` — it has one consumer."** It has two by
-  specification: PRD-0006 gives #303's can't-say reason the same grammar, with no selection and its
+  specification: #277 gives #303's can't-say reason the same grammar, with no selection and its
   own trigger, and the lens's entry point refuses to serve that. The alternative to the split is a
   second copy of the placement arithmetic and two grammars that drift.
 - **"Give the docked tag a `note` / `reason` slot so #303 does not have to build one."** That is

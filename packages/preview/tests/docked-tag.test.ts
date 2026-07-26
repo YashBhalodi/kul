@@ -1,7 +1,7 @@
 // The docked-tag mechanism, exercised **without the lens** — which is the case
 // that forced it out of `hover-lens.ts` in the first place. #303's can't-say
 // reason whispers under a card with no selection anywhere and on a trigger of
-// its own (PRD-0006, ADR-0044), so the placement primitive has to work with no
+// its own (#277, ADR-0044), so the placement primitive has to work with no
 // query, no selection store and no phrasing in sight.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

@@ -233,7 +233,7 @@ export function toPredicate(condition: FilterCondition): Predicate {
  * for a number the id set already has.
  *
  * `sort` is never set. The tree keeps its canonical layout order and only a
- * list can express an order; the preview has none (PRD-0006, Out of Scope).
+ * list can express an order; the preview has none (#296, Out of Scope).
  *
  * `mode` is a parameter rather than read off `state`, because the surface asks
  * **both** questions on every evaluation: the difference between the two
@@ -259,7 +259,7 @@ export function buildFilterQuery(
  * The presence ops read as words rather than symbols because they are the two
  * that make a claim about the *record* instead of about a value, and `died ∅`
  * would hide that. "not recorded" is also exactly what it means — never
- * "living", which is the fact the data does not carry (PRD-0006 story 26).
+ * "living", which is the fact the data does not carry (#296 story 26).
  */
 export function opLabel(op: FilterOp): string {
     switch (op) {
@@ -310,7 +310,7 @@ export function conditionLabel(condition: FilterCondition): string {
  * A presence predicate is decidable, which makes it read more confident than
  * it is: the record either carries a death date or it does not, and neither
  * answer says whether the person is alive. The surface says so where the
- * predicate is offered rather than in a doc nobody opens (PRD-0006).
+ * predicate is offered rather than in a doc nobody opens (#277).
  */
 export const PRESENCE_DISCLOSURE =
     "“not recorded” is a fact about the record, not about the person — died not recorded is not “living”.";
@@ -374,7 +374,7 @@ export function partitionScope(
  * `matched + cantSay + dimmed === total`. What the mode changes is `shown` —
  * `certain` shows the matched alone, `includeUncertain` shows the matched plus
  * the unjudgeable — and never a count, so the disclosure certain mode owes the
- * reader is the same number whichever way they are looking (PRD-0006 story 25).
+ * reader is the same number whichever way they are looking (#296 story 25).
  */
 export interface FilterTally {
     /** Everyone in the scope. */

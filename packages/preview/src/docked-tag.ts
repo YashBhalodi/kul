@@ -6,7 +6,7 @@
 // and the pill chrome itself. It decides nothing about **when** a whisper
 // appears or **what** it says — no selection, no query, no words.
 //
-// It is a separate module because #302 is not its only consumer. PRD-0006 says
+// It is a separate module because #302 is not its only consumer. #277 says
 // the attribute filter's "can't say" reason whispers *in the lens's docked-tag
 // grammar* ([#303](https://github.com/YashBhalodi/kul/issues/303)) — under a
 // card, with **no selection anywhere**, on a trigger of its own. Calling that a

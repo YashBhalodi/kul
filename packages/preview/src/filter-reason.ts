@@ -25,7 +25,7 @@
 // A three-valued re-implementation was rejected outright: `kul-core`'s
 // `filter__*.snap` suites own predicate correctness, and a second evaluator in
 // the preview would be a second answer that could disagree with the paint
-// beside it (PRD-0006, Testing Decisions).
+// beside it (#296, Testing Decisions).
 
 import type { ExportedDate, ExportedPerson } from "./engine-wire.js";
 import {
