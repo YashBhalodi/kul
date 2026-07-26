@@ -61,6 +61,13 @@ import type { EntityRef, HostAdapter } from "./types.js";
 export const SYNC_SUSPENDED_HINT = "Editor sync paused · Esc to resume";
 
 /**
+ * The hover lens's handle in the dim registry's exemption map. The lens itself
+ * does not know the registry exists — it publishes a trace through `onTrace` —
+ * so the key belongs to the composition that wires the two together.
+ */
+export const LENS_DIM_EXEMPTION = "lens-trace";
+
+/**
  * Why editor sync is suspended. Two reasons exist — an entity selection
  * registers `"selection"`, an active attribute filter registers `"filter"` —
  * and sync resumes only when the last one lifts. A later surface with a reason
@@ -203,8 +210,8 @@ export interface QuerySurface {
      */
     clearSelection(): void;
     /**
-     * Drop the filter: its sentence, its paint, its dim and its sync
-     * suspension. The other half of what ending query mode is composed from,
+     * Drop the filter: its sentence, its paint, its dim, its can't-say
+     * exemption and its sync suspension. The other half of what ending query mode is composed from,
      * and separate from {@link QuerySurface.clearSelection} because a filter
      * and a selection are independent — either can exist without the other.
      * A no-op when the host supplied no flow region.
@@ -231,22 +238,26 @@ export interface QuerySurface {
      */
     refresh(): void;
     /**
-     * The persons a **live pointer-driven read** is tracing, lifted from every
-     * dim source. `null` withdraws the exemption.
+     * Publish one source's exempt persons — lifted from every dim source —
+     * or withdraw them with `null`.
      *
-     * #302's hover lens traces the persons that justify a relationship, and with
-     * a kin set painted those persons are almost always outside the answer — so
-     * the sky trace would render under the kin dim's alpha. The lens is what the
+     * The hover lens traces the persons that justify a relationship, and with a
+     * kin set painted those persons are almost always outside the answer, so the
+     * sky trace would render under the kin dim's alpha. The lens is what the
      * reader is doing now and the dim is what they did a moment ago, so the lens
-     * wins (ADR-0043). The rule lives on the dim registry rather than in kin
-     * paint, so #303's filter inherits it instead of re-deciding it.
+     * wins (ADR-0043). The rule lives on the dim registry rather than in any one
+     * paint, so a later source inherits it instead of re-deciding it.
      *
-     * **One live read at a time.** The exemption is a single slot, not a set
-     * keyed by holder, because a pointer is in one place: the lens is the only
-     * caller and each hover replaces the last. A second concurrent holder would
-     * clobber the first, and keying it is the fix if one ever appears.
+     * **Keyed, because there are two.** ADR-0043 held the exemption in a single
+     * slot on the reasoning that a pointer is in one place, and named keying as
+     * the fix if a second holder appeared. The filter's can't-say set is that
+     * holder: it is standing rather than pointer-driven, and it must survive the
+     * lens publishing and withdrawing a trace over the top of it (ADR-0045).
      */
-    setDimExemption(personIds: Iterable<string> | null): void;
+    setDimExemption(
+        source: string,
+        personIds: Iterable<string> | null,
+    ): void;
     /** The panel's viewport box while it is open — the region a pan must avoid. */
     occupiedBox(): ScreenBox | null;
     dispose(): void;
@@ -346,16 +357,19 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
         selection,
         resolve,
         bindPhrase: (element, descriptor) => locale.bind(element, descriptor),
-        onTrace: setDimExemption,
+        onTrace: (personIds) => setDimExemption(LENS_DIM_EXEMPTION, personIds),
     });
 
     /**
-     * The persons a live read is tracing, lifted from every dim source
-     * (ADR-0043). The lens is the only caller — the exemption is one slot, not
-     * a set keyed by holder, because a pointer is in one place.
+     * Publish one source's exemption and redraw. Two sources hold one at a
+     * time — the lens's live trace and the filter's standing can't-say set —
+     * and the registry unions them (ADR-0045).
      */
-    function setDimExemption(personIds: Iterable<string> | null): void {
-        dim.exempt(personIds);
+    function setDimExemption(
+        source: string,
+        personIds: Iterable<string> | null,
+    ): void {
+        dim.exempt(source, personIds);
         dim.apply(root);
     }
 
@@ -754,10 +768,24 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
         }
     });
 
+    /**
+     * Esc lifts **whatever query state is holding editor sync down** — the
+     * selection, the filter, or both.
+     *
+     * It is not scoped to the selection, and the hint is why: the notify region
+     * says "Editor sync paused · Esc to resume" for as long as *any* reason
+     * holds, so a filter with no selection would otherwise put that sentence on
+     * screen with no key behind it, leaving the reader to click ✕ on every chip.
+     * Esc is a keyboard exit rather than a render, so it decides nothing about
+     * #304's mode boundary; it only keeps the promise this chrome already makes
+     * (ADR-0045).
+     */
     function onKeyDown(event: KeyboardEvent): void {
-        if (event.key === "Escape" && selection.current) {
-            selection.clear();
+        if (event.key !== "Escape" || suspensions.size === 0) {
+            return;
         }
+        selection.clear();
+        filterBar?.reset();
     }
     window.addEventListener("keydown", onKeyDown);
 
@@ -814,12 +842,16 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
         dispose() {
             window.removeEventListener("keydown", onKeyDown);
             lens.dispose();
-            // Before the dim is reset, so the filter's source is withdrawn
-            // rather than left in a registry nobody will apply again.
-            filterBar?.dispose();
-            // Drop the held ref before clearing, so lifting the selection's
-            // suspension replays nothing onto chrome being torn down.
+            // Drop the held ref first, before *anything* below can lift a
+            // suspension reason. Disposing the filter lifts `"filter"`, and on
+            // a filter-only suspension that is the last reason — which replays
+            // the held highlight onto chrome being torn down unless the ref is
+            // already gone.
             heldSyncRef = null;
+            // Then the filter, before the dim is reset, so its source and its
+            // exemption are withdrawn rather than left in a registry nobody
+            // will apply again.
+            filterBar?.dispose();
             // Clearing runs the normal teardown path — paint off, panel shut,
             // pan cancelled, suspension lifted. A disposed surface stops
             // listening, so a violet outline left behind would have nothing

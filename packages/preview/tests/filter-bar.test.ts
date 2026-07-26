@@ -28,11 +28,18 @@ import type {
     QueryResult,
 } from "../src/engine-wire.js";
 import type { FilterScope } from "../src/filter.js";
-import { EVERYONE_LABEL, createFilterBar } from "../src/filter-bar.js";
+import {
+    EVERYONE_LABEL,
+    FILTER_REASON_CLASS,
+    createFilterBar,
+} from "../src/filter-bar.js";
 import type { FilterBar } from "../src/filter-bar.js";
 import { FILTER_MATCH_CLASS, FILTER_UNCERTAIN_CLASS } from "../src/filter-paint.js";
 import { createLocaleController } from "../src/locale.js";
-import { createQuerySurface } from "../src/query-surface.js";
+import {
+    SYNC_SUSPENDED_HINT,
+    createQuerySurface,
+} from "../src/query-surface.js";
 import type { QuerySurface } from "../src/query-surface.js";
 import { DIM_CLASS } from "../src/dim.js";
 
@@ -88,11 +95,31 @@ const DESCENDANTS: FilterScope = {
 };
 
 /**
- * The verdict fixture: which persons a question answers `true` for, and which
- * it answers `unknown` for. Everyone else is `false`. Keyed on the predicate
- * list, so a scope change or a certainty flip reads the same table.
+ * What one *question* answers: which persons it says `true` for, and which it
+ * says `unknown` for. Everyone else is `false`.
  */
 type Verdicts = { certain: string[]; unknown: string[] };
+
+/** Nothing matched, nothing was unjudgeable — what an unseeded question answers. */
+const NO_ONE: Verdicts = { certain: [], unknown: [] };
+
+/**
+ * How the engine double keys its answers: **the predicate list**, and nothing
+ * else. A certainty flip and a scope change read the same entry, because the
+ * mode is applied on top and the scope filters the answer — but two different
+ * `where` lists are two different questions with two different answers, which
+ * is the whole property the concurrency suites rest on. A question with no
+ * entry answers {@link NO_ONE}, so a superseded evaluation can never come back
+ * looking like the one that replaced it.
+ */
+function whereKey(query: Query): string {
+    return JSON.stringify(query.where ?? []);
+}
+
+/** The key for the chip `family = <value>`, which is what most suites ask. */
+function familyIs(value: string): string {
+    return JSON.stringify([{ op: "eq", field: "family", value }]);
+}
 
 interface Harness {
     stage: HTMLElement;
@@ -104,7 +131,8 @@ interface Harness {
     lookups: DetailTarget[][];
     suspensions: boolean[];
     kin: { current: FilterScope | null };
-    verdicts: Verdicts;
+    /** Question (predicate list) → what it answers. Seeded per test. */
+    answers: Map<string, Verdicts>;
     /** Fail every query from here on, as a project that fails its checks does. */
     failing: { value: boolean };
     /**
@@ -129,10 +157,18 @@ function harness(overrides: Partial<Verdicts> = {}): Harness {
     const lookups: DetailTarget[][] = [];
     const suspensions: boolean[] = [];
     const kin: { current: FilterScope | null } = { current: null };
-    const verdicts: Verdicts = {
-        certain: overrides.certain ?? [],
-        unknown: overrides.unknown ?? [],
-    };
+    // The constructor seeds one question — `family = Rossi`, which is what
+    // nearly every suite here asks. Anything else answers `NO_ONE` until a test
+    // seeds it by key.
+    const answers = new Map<string, Verdicts>([
+        [
+            familyIs("Rossi"),
+            {
+                certain: overrides.certain ?? [],
+                unknown: overrides.unknown ?? [],
+            },
+        ],
+    ]);
     const failing = { value: false };
     const holding = { value: false };
     const gates: Array<() => void> = [];
@@ -164,6 +200,10 @@ function harness(overrides: Partial<Verdicts> = {}): Harness {
                 query.source.kind === "kinOf"
                     ? DESCENDANTS.personIds
                     : new Set(Object.keys(PEOPLE));
+            // Read *after* the gate, and keyed on the question — so a held
+            // evaluation answers what it asked, not what the table happens to
+            // say when it resolves.
+            const verdicts = answers.get(whereKey(query)) ?? NO_ONE;
             const shown =
                 query.mode === "includeUncertain"
                     ? [...verdicts.certain, ...verdicts.unknown]
@@ -216,7 +256,7 @@ function harness(overrides: Partial<Verdicts> = {}): Harness {
         lookups,
         suspensions,
         kin,
-        verdicts,
+        answers,
         failing,
         holding,
         gates,
@@ -583,6 +623,26 @@ describe("an active filter suspends editor sync", () => {
         expect(h.suspensions).toEqual([false]);
     });
 
+    it("does not register for a chip the reader has not finished", async () => {
+        // Not the same as the `+` test above: this *commits* — the op select
+        // fires `evaluate` — and still asks nothing, so the whole path runs
+        // with an incomplete sentence and must leave sync alone.
+        const h = harness({ certain: ["giulia"], unknown: [] });
+        click(h.bar.element.querySelector(".kul-filter-chip-add .kul-filter-chip-label"));
+        change(selects(h)[0], "born");
+        await settle();
+        change(selects(h)[1], "lt");
+        await settle();
+        expect(chipLabels(h)[1]).toBe("born <");
+        expect(h.queries).toEqual([]);
+        expect(h.suspensions).not.toContain(true);
+
+        // Finishing it does register.
+        change(editor(h).querySelector("input"), "1950");
+        await settle();
+        expect(h.suspensions).toContain(true);
+    });
+
     it("lifts on dispose, so a torn-down bar leaves sync held down by nobody", async () => {
         const h = harness({ certain: ["giulia"], unknown: [] });
         await addCondition(h, "family", "eq", "Rossi");
@@ -611,7 +671,12 @@ describe("the can't-say whisper", () => {
         const h = await hovering();
         h.bar.handleHover(h.root.querySelector('[data-person-id="aldo"] rect'));
         await settle();
-        expect(h.floatLayer.querySelector("." + DOCKED_TAG_CLASS)).not.toBeNull();
+        const tag = h.floatLayer.querySelector("." + DOCKED_TAG_CLASS);
+        expect(tag).not.toBeNull();
+        // The variant marker earns its keep only if it is actually on the tag:
+        // it is the one thing that tells this whisper from the lens's pill,
+        // which docks into the same layer with the same box.
+        expect(tag?.classList.contains(FILTER_REASON_CLASS)).toBe(true);
         expect(whisper(h)).toBe("can't say — family not recorded");
     });
 
@@ -621,6 +686,26 @@ describe("the can't-say whisper", () => {
         h.bar.handleHover(h.root.querySelector('[data-person-id="aldo"] rect'));
         await settle();
         expect(h.lookups).toEqual([[{ kind: "person", id: "aldo" }]]);
+    });
+
+    it("names only conditions the engine was actually asked", async () => {
+        // A chip the reader has not finished asks nothing, so naming it as a
+        // candidate would explain the verdict with a predicate that never ran
+        // (ADR-0045; `filter.ts` says the same about `askedConditions`).
+        const h = await hovering();
+        // A second chip, on a *different* field so its leak would be visible,
+        // and left unfinished.
+        click(h.bar.element.querySelector(".kul-filter-chip-add .kul-filter-chip-label"));
+        change(selects(h)[0], "given");
+        await settle();
+        expect(chipLabels(h)[2]).toBe("given =");
+        expect(PEOPLE.aldo.given).toBeUndefined();
+
+        h.bar.handleHover(h.root.querySelector('[data-person-id="aldo"] rect'));
+        await settle();
+        // One clause, from the one chip the engine was asked — never
+        // "· given not recorded" from a predicate that never ran.
+        expect(whisper(h)).toBe("can't say — family not recorded");
     });
 
     it("says nothing about a card the filter could judge", async () => {
@@ -685,30 +770,39 @@ describe("the can't-say whisper", () => {
 
 describe("concurrent gestures", () => {
     it("discards a superseded evaluation rather than painting it", async () => {
-        // Two evaluations overlap and the *earlier* one answers last. Guarding
-        // on the thing that actually invalidated it — the sentence changed —
-        // is what keeps the later answer on the tree.
+        // Two evaluations overlap and the *earlier* one answers last. The three
+        // questions answer three different things, so a stale answer on the
+        // tree is a different tally rather than the same one — which is the
+        // only way this suite can fail when the generation guard is gone.
         const h = harness({ certain: ["giulia"], unknown: [] });
+        h.answers.set(familyIs("Bianchi"), {
+            certain: ["giulia", "marco"],
+            unknown: [],
+        });
+        h.answers.set(familyIs("Verdi"), { certain: ["nina"], unknown: [] });
         await addCondition(h, "family", "eq", "Rossi");
         await settle();
+        expect(tally(h)).toBe("1 of 4 · 3 dimmed");
 
         h.holding.value = true;
         change(editor(h).querySelector("input"), "Bianchi");
         await settle();
-        const firstPair = h.gates.splice(0);
+        const bianchi = h.gates.splice(0);
+        expect(bianchi).toHaveLength(2);
 
-        h.verdicts.certain = ["nina"];
         change(editor(h).querySelector("input"), "Verdi");
         await settle();
-        const secondPair = h.gates.splice(0);
+        const verdi = h.gates.splice(0);
+        expect(verdi).toHaveLength(2);
 
         // The later question answers first, the earlier one second.
-        for (const release of [...secondPair, ...firstPair]) {
+        for (const release of [...verdi, ...bianchi]) {
             release();
         }
         await settle();
         await settle();
 
+        // Verdi's answer, not Bianchi's: one match, not two.
         expect(chipLabels(h)[1]).toBe("family = Verdi");
         expect(tally(h)).toBe("1 of 4 · 3 dimmed");
         expect(
@@ -721,6 +815,10 @@ describe("concurrent gestures", () => {
 
     it("discards a render's re-ask that a chip edit has already superseded", async () => {
         const h = harness({ certain: ["giulia"], unknown: [] });
+        h.answers.set(familyIs("Bianchi"), {
+            certain: ["nina", "marco"],
+            unknown: [],
+        });
         await addCondition(h, "family", "eq", "Rossi");
         await settle();
 
@@ -728,20 +826,27 @@ describe("concurrent gestures", () => {
         h.bar.repaint();
         await settle();
         const fromRender = h.gates.splice(0);
+        expect(fromRender).toHaveLength(2);
 
-        h.verdicts.certain = ["nina"];
         change(editor(h).querySelector("input"), "Bianchi");
         await settle();
         const fromEdit = h.gates.splice(0);
+        expect(fromEdit).toHaveLength(2);
 
         for (const release of [...fromEdit, ...fromRender]) {
             release();
         }
         await settle();
         await settle();
+
+        // The edit's answer, not the render's re-ask of the old question.
+        expect(tally(h)).toBe("2 of 4 · 2 dimmed");
         expect(
             h.root.querySelector('[data-person-id="nina"]')?.getAttribute("class"),
         ).toContain(FILTER_MATCH_CLASS);
+        expect(
+            h.root.querySelector('[data-person-id="giulia"]')?.getAttribute("class"),
+        ).toContain(DIM_CLASS);
     });
 
     it("drops a reason whose filter moved on under it", async () => {
@@ -810,9 +915,13 @@ describe("the chip sentence cannot print through its own chrome", () => {
         expect(bar).not.toContain("overflow-x");
     });
 
-    it("caps a chip and lets its text wrap, so the cap can bind", () => {
-        // A flex item's automatic minimum size is its min-content width, so a
-        // non-wrapping label silently refuses every max-width.
+    it("caps a chip and removes the floor that would refuse the cap", () => {
+        // `min-width: 0` is the load-bearing half: a flex item's automatic
+        // minimum size is its min-content width, which for a long unbroken
+        // value exceeds the cap, so the item will not shrink to it until that
+        // floor is removed. `overflow-wrap` decides how the text breaks inside
+        // the resulting width — per spec it does not reduce min-content size,
+        // so it cannot make a `max-width` bind on its own.
         expect(ruleFor(".kul-filter-chip")).toContain(
             "max-width: var(--kul-filter-chip-max-width)",
         );
@@ -1131,5 +1240,161 @@ describe("filtering inside a painted kin set, through the real chrome", () => {
         expect(
             h.root.querySelector('[data-person-id="aldo"]')?.getAttribute("class"),
         ).not.toContain(FILTER_UNCERTAIN_CLASS);
+    });
+});
+
+describe("the post-render hook, and coexistence with kin paint", () => {
+    afterEach(() => {
+        document.body.innerHTML = "";
+    });
+
+    function bar(h: { stage: HTMLElement }): HTMLElement {
+        return h.stage.querySelector("#kul-filter-bar") as HTMLElement;
+    }
+
+    /** Apply `family = Rossi` through the bar the surface built. */
+    async function filter(h: { stage: HTMLElement }): Promise<void> {
+        click(bar(h).querySelector(".kul-filter-chip-add .kul-filter-chip-label"));
+        change(
+            (bar(h).querySelector(".kul-filter-editor") as HTMLElement).querySelector(
+                "input",
+            ),
+            "Rossi",
+        );
+        await settle();
+    }
+
+    function classOf(root: HTMLElement, id: string): string {
+        return root.querySelector(`[data-person-id="${id}"]`)?.getAttribute("class") ?? "";
+    }
+
+    it("puts the paint back on the SVG a render replaced", async () => {
+        const h = surfaceHarness();
+        await filter(h);
+        expect(classOf(h.root, "giulia")).toContain(FILTER_MATCH_CLASS);
+        expect(h.root.querySelectorAll(".kul-filter-uncertain-badge")).toHaveLength(1);
+
+        // A render swaps the SVG out from under every piece of query paint.
+        // The new picture carries none of it, and the id-keyed dim is the only
+        // thing `apply` alone would restore — the classes and the `?` are not.
+        h.root.innerHTML = SURFACE_SVG;
+        expect(classOf(h.root, "giulia")).not.toContain(FILTER_MATCH_CLASS);
+
+        h.surface.repaintQueryChrome();
+        await settle();
+
+        expect(classOf(h.root, "giulia")).toContain(FILTER_MATCH_CLASS);
+        expect(classOf(h.root, "aldo")).toContain(FILTER_UNCERTAIN_CLASS);
+        expect(h.root.querySelectorAll(".kul-filter-uncertain-badge")).toHaveLength(1);
+        expect(classOf(h.root, "nina")).toContain(DIM_CLASS);
+        expect(bar(h).querySelector(".kul-filter-tally")?.textContent).toBe(
+            "1 of 5 · 3 dimmed · 1 can't say",
+        );
+    });
+
+    it("never lets a kin set recede an unjudgeable card", async () => {
+        // The case ADR-0045 treats as a requirement rather than an edge: both
+        // paints on screen at once. Aldo is not one of Giuseppe's siblings, so
+        // kin paint dims him — and he is the filter's can't-say, which must
+        // never recede. The exemption is what settles it (S1).
+        const h = surfaceHarness();
+        h.surface.selection.select({ kind: "person", id: "giuseppe" });
+        await settle();
+        click(h.stage.querySelector(".kul-kin-header"));
+        await settle();
+        const row = Array.from(h.stage.querySelectorAll(".kul-kin-row")).find(
+            (candidate) =>
+                candidate.querySelector(".kul-kin-label")?.textContent === "Siblings",
+        );
+        click(row);
+        await settle();
+        expect(classOf(h.root, "aldo")).toContain(DIM_CLASS);
+
+        await filter(h);
+        expect(classOf(h.root, "aldo")).toContain(FILTER_UNCERTAIN_CLASS);
+        expect(classOf(h.root, "aldo")).not.toContain(DIM_CLASS);
+        // Nina is neither kin nor a match, so both sources dim her and she
+        // stays dimmed — the exemption lifts one person, not the union.
+        expect(classOf(h.root, "nina")).toContain(DIM_CLASS);
+
+        // Dropping the filter hands Aldo back to the kin dim.
+        h.surface.clearFilter();
+        await settle();
+        expect(classOf(h.root, "aldo")).toContain(DIM_CLASS);
+    });
+});
+
+describe("Esc means what the sync hint says", () => {
+    afterEach(() => {
+        document.body.innerHTML = "";
+    });
+
+    function press(): void {
+        window.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+    }
+
+    function bar(h: { stage: HTMLElement }): HTMLElement {
+        return h.stage.querySelector("#kul-filter-bar") as HTMLElement;
+    }
+
+    function hint(h: { stage: HTMLElement }): string | null {
+        return h.stage.querySelector(".kul-sync-hint")?.textContent ?? null;
+    }
+
+    async function filter(h: { stage: HTMLElement }): Promise<void> {
+        click(bar(h).querySelector(".kul-filter-chip-add .kul-filter-chip-label"));
+        change(
+            (bar(h).querySelector(".kul-filter-editor") as HTMLElement).querySelector(
+                "input",
+            ),
+            "Rossi",
+        );
+        await settle();
+    }
+
+    it("clears a filter with no selection anywhere", async () => {
+        // The hint reads "Editor sync paused · Esc to resume" the moment *any*
+        // reason holds sync down, so a filter-only suspension with a
+        // selection-only Esc would put that sentence on screen with no key
+        // behind it (ADR-0045).
+        const h = surfaceHarness();
+        await filter(h);
+        expect(h.surface.selection.current).toBeNull();
+        expect(hint(h)).toBe(SYNC_SUSPENDED_HINT);
+
+        press();
+        await settle();
+
+        expect(bar(h).textContent).not.toContain("where");
+        expect(hint(h)).toBeNull();
+        expect(
+            h.root.querySelector('[data-person-id="giulia"]')?.getAttribute("class"),
+        ).not.toContain(FILTER_MATCH_CLASS);
+    });
+
+    it("clears a selection and a filter together when both hold sync down", async () => {
+        const h = surfaceHarness();
+        await filter(h);
+        h.surface.selection.select({ kind: "person", id: "giuseppe" });
+        await settle();
+        expect(hint(h)).toBe(SYNC_SUSPENDED_HINT);
+
+        press();
+        await settle();
+
+        expect(h.surface.selection.current).toBeNull();
+        expect(bar(h).textContent).not.toContain("where");
+        expect(hint(h)).toBeNull();
+    });
+
+    it("does nothing when nothing is holding sync down", async () => {
+        const h = surfaceHarness();
+        const before = bar(h).textContent;
+        press();
+        await settle();
+        expect(bar(h).textContent).toBe(before);
+        expect(hint(h)).toBeNull();
     });
 });

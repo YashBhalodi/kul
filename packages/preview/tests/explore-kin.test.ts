@@ -37,7 +37,10 @@ import { RESULT_CLASS } from "../src/kin-paint.js";
 import { SELECTION_CLASS } from "../src/selection.js";
 import { createLocaleController } from "../src/locale.js";
 import { mountPreview } from "../src/mount.js";
-import { createQuerySurface } from "../src/query-surface.js";
+import {
+    LENS_DIM_EXEMPTION,
+    createQuerySurface,
+} from "../src/query-surface.js";
 import type { QuerySurface } from "../src/query-surface.js";
 import type { HostAdapter, PreviewHandle } from "../src/types.js";
 
@@ -971,13 +974,13 @@ describe("setDimExemption lifts the dim for a live read", () => {
             );
         expect(dimmed()).toEqual(["marco"]);
 
-        built.setDimExemption(["marco"]);
+        built.setDimExemption(LENS_DIM_EXEMPTION, ["marco"]);
         expect(dimmed()).toEqual([]);
         // The answer itself is untouched — an exemption lifts the dim, it does
         // not change who the engine said was kin.
         expect(litPersonIds(stage)).toEqual(["elena"]);
 
-        built.setDimExemption(null);
+        built.setDimExemption(LENS_DIM_EXEMPTION, null);
         expect(dimmed()).toEqual(["marco"]);
         built.dispose();
     });

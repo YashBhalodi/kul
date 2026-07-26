@@ -195,9 +195,13 @@ body {
  * legend and error popover keep every attribute they have.
  *
  * The sentence **wraps**; it never scrolls sideways. `flex-wrap` plus a
- * per-chip cap is what keeps a long value from printing through the bar: a
- * flex item's automatic minimum size is its min-content width, so a chip whose
- * text may not wrap would silently refuse every `max-width`. */
+ * per-chip cap is what keeps a long value from printing through the bar — and
+ * the cap only binds because the label inside carries `min-width: 0`. A flex
+ * item's automatic minimum size is its min-content width, which for a long
+ * unbroken value exceeds the cap, so the item refuses to shrink to it until
+ * that floor is removed. `overflow-wrap` then decides how the text breaks
+ * inside the width `min-width: 0` allowed; it does not reduce min-content size
+ * on its own. */
 .kul-filter-bar {
     display: flex;
     flex-direction: row;

@@ -16,7 +16,9 @@
 //
 // The content model is deliberately a list of nodes. The caller builds its own
 // chrome inside the tag — the lens builds a viewpoint dot and phrased terms,
-// #303 will build a reason string — and neither has to know about the other's.
+// the filter builds a can't-say reason — and neither knows about the other's.
+// Each also brings its own variant class, which is what tells two tags in one
+// layer apart.
 //
 // ACCESSIBILITY. Per ADR-0036 this chrome carries no `role`, no `aria-*` and no
 // `:focus-visible`, and a consumer must not add them.

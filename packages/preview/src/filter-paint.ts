@@ -11,9 +11,12 @@
 //
 //   - **matched** — every condition answered `true`. The reserved teal.
 //   - **can't say** — the conjunction answered `unknown`. Amber, dashed, and a
-//     `?` riding the card. It is *not* dimmed: an unjudgeable person that
-//     receded like a non-match would be exactly the silent drop the disclosure
-//     exists to prevent (PRD-0006 story 23).
+//     `?` riding the card. It is *not* dimmed — by **anyone**: the set is
+//     published to the registry as a standing exemption, not merely left out of
+//     this source's dim, because a kin set painted underneath would otherwise
+//     recede it. An unjudgeable person at 30% behind an amber ring is exactly
+//     the silent drop the disclosure exists to prevent (PRD-0006 story 23,
+//     ADR-0045).
 //   - **dimmed** — answered `false`. The shared dim, and no colour of its own.
 //
 // The dim class is never touched here: this publishes a set of person ids and
@@ -42,6 +45,14 @@ export const UNCERTAIN_BADGE_CLASS = "kul-filter-uncertain-badge";
 
 /** This paint's handle in the shared {@link DimRegistry}. */
 export const FILTER_DIM_SOURCE = "filter";
+
+/**
+ * This paint's handle in the registry's **exemption** map, which is a different
+ * claim from {@link FILTER_DIM_SOURCE}'s: "nobody may recede these", against
+ * "these recede unless someone says otherwise". Standing for as long as the
+ * filter stands, unlike the hover lens's pointer-driven trace beside it.
+ */
+export const FILTER_UNCERTAIN_EXEMPTION = "filter-cant-say";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -84,10 +95,11 @@ function markUncertain(card: Element): void {
     card.appendChild(glyph);
 }
 
-/** Strip the filter's paint and withdraw its dim. */
+/** Strip the filter's paint and withdraw both its dim and its exemption. */
 export function clearFilterPaint(root: ParentNode, dim: DimRegistry): void {
     strip(root);
     dim.set(FILTER_DIM_SOURCE, null);
+    dim.exempt(FILTER_UNCERTAIN_EXEMPTION, null);
     dim.apply(root);
 }
 
@@ -124,6 +136,9 @@ export function paintFilterResults(
         }
     }
     dim.set(FILTER_DIM_SOURCE, answer.dimmed);
+    // The can't-say set is exempted rather than merely omitted, so a kin set
+    // painted underneath cannot recede the one state that must never recede.
+    dim.exempt(FILTER_UNCERTAIN_EXEMPTION, answer.cantSay);
     dim.apply(root);
 }
 

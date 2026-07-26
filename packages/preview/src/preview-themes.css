@@ -71,8 +71,8 @@ body[data-theme="vscode"] {
     /* Dim — one alpha, not a per-theme colour: `opacity` composites against
      * whatever background the theme supplies, so a single value is
      * theme-symmetric by construction. Shared by every paint that answers a
-     * question by pushing the non-answer back: kin results today, #303's
-     * filter next. */
+     * question by pushing the non-answer back: kin results and the attribute
+     * filter both consume it through one tier-2 alias. */
     --kul-dim-alpha: 0.3;
 
     /* ── Tier 1 · spacing scale ────────────────────────────────────────── */

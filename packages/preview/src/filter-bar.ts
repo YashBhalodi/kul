@@ -52,6 +52,7 @@ import {
     type FilterTally,
     GENDER_VALUES,
     PRESENCE_DISCLOSURE,
+    askedConditions,
     buildFilterQuery,
     computeTally,
     conditionLabel,
@@ -139,7 +140,11 @@ export interface FilterBar {
      * its reason; anything else takes the whisper down.
      */
     handleHover(target: Element | null): void;
-    /** Drop the filter entirely: sentence, paint, dim and suspension. */
+    /**
+     * Drop the filter entirely: sentence, paint, dim, can't-say exemption and
+     * sync suspension. What Esc runs, and what `QuerySurface.clearFilter`
+     * exposes to the slice that ends query mode.
+     */
     reset(): void;
     dispose(): void;
 }
@@ -350,7 +355,10 @@ export function createFilterBar(options: FilterBarOptions): FilterBar {
             return;
         }
         const person: ExportedPerson = detail.person;
-        const reason = cantSayReason(person, state.conditions);
+        // The conditions the engine was *asked*, not every chip on screen: a
+        // half-written one asks nothing, so naming it as a candidate would
+        // explain the verdict with a predicate that never ran.
+        const reason = cantSayReason(person, askedConditions(state));
         reasons.set(personId, reason);
         showReason(card, reason);
     }

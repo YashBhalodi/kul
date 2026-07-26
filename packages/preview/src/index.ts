@@ -117,6 +117,7 @@ export {
     FILTER_DIM_SOURCE,
     FILTER_MATCH_CLASS,
     FILTER_UNCERTAIN_CLASS,
+    FILTER_UNCERTAIN_EXEMPTION,
     UNCERTAIN_BADGE_CLASS,
     clearFilterPaint,
     paintFilterResults,
@@ -176,7 +177,11 @@ export {
     resolutionPathBindings,
 } from "./hover-lens.js";
 export type { HoverLens, HoverLensOptions } from "./hover-lens.js";
-export { SYNC_SUSPENDED_HINT, createQuerySurface } from "./query-surface.js";
+export {
+    LENS_DIM_EXEMPTION,
+    SYNC_SUSPENDED_HINT,
+    createQuerySurface,
+} from "./query-surface.js";
 export type {
     QuerySurface,
     QuerySurfaceOptions,
