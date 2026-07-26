@@ -162,9 +162,9 @@ There is no fifth reserved hue and no unspent one to promote, because ADR-0036 r
 hover-target paint would therefore have to take a hue that already means something else, which is the
 collision the whole reservation exists to prevent.
 
-The PRD line is a leftover rather than a decision, and its provenance is checkable. It restates #276's
-point 7, whose amber comes from **round 7, card B ("Genitive")**, where the pill floated between the
-pair and "the amber ring shows who it lands on" was that card's direction chrome. **Card A ("Docked
+That vocabulary line is a leftover rather than a decision, and its provenance is checkable. It
+restates #276's point 7, whose amber comes from **round 7, card B ("Genitive")**, where the pill
+floated between the pair and "the amber ring shows who it lands on" was that card's direction chrome. **Card A ("Docked
 tag") won**, and it disambiguates by *position* plus the violet viewpoint dot — the design this slice
 built. Point 7's vocabulary line was never rewritten afterwards. Taking a hue on the strength of an
 un-rewritten summary of a discarded card, against the ADR that allocates hues, is the wrong way round.
@@ -406,11 +406,11 @@ tag stays findable once something else docks one.
   calls the distinction the product. One string discards it in one direction or the other.
 - **"Show nothing when two people are unrelated."** Then a working lens looks like a broken one, and
   the reader cannot tell "no tie" from "the lens did not fire".
-- **"Paint the hover target amber; the PRD's vocabulary says so."** ADR-0036 reserved four hues and
-  none of them is a hover target; the only amber is `--kul-hue-query-uncertain`, and the charts family
-  is fully spent, so there is nothing to promote. The PRD line restates #276 point 7, whose amber is
-  round 7's discarded card B. There is also nothing to disambiguate — the reader's pointer is on the
-  card.
+- **"Paint the hover target amber; #276's paint vocabulary says so."** ADR-0036 reserved four hues
+  and none of them is a hover target; the only amber is `--kul-hue-query-uncertain`, and the charts
+  family is fully spent, so there is nothing to promote. That vocabulary line is #276 point 7, whose
+  amber is round 7's discarded card B. There is also nothing to disambiguate — the reader's pointer
+  is on the card.
 - **"Trace the endpoints too; the path runs from ego to alter."** It does, and both ends already carry
   a paint that says which they are. A third meaning on the two least ambiguous cards buys nothing and
   collides with the selection outline on one of them.

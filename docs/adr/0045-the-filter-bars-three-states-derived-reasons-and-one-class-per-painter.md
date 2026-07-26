@@ -80,12 +80,12 @@ the other mode reads *"4 of 10 · 6 dimmed · 1 can't say, included"*: the discl
 number whichever way the reader is looking, which is the whole point of disclosing it.
 
 This is a deliberate correction to the illustrative *"7 dimmed"* in **#277's point 7 and the
-epic's attribute-filtering section**, both of which
-counted the unjudgeable person inside the dimmed group — while #277's point 6 and the PRD's own
-bullet above it call can't-say a paint *distinct* from non-match. Keeping the wording would have
-required either a second reading of "dimmed" (not-shown, rather than receded) or dimming the amber
-card, which the next section refuses. The numbers now describe exactly what is on screen, and the
-PRD's line is amended to match rather than left to contradict the surface built from it.
+epic's attribute-filtering section**, both of which counted the unjudgeable person inside the dimmed
+group — while #277's point 6 and the epic's own bullet above it call can't-say a paint *distinct*
+from non-match. Keeping the wording would have required either a second reading of "dimmed"
+(not-shown, rather than receded) or dimming the amber card, which the next section refuses. The
+numbers now describe exactly what is on screen, and the illustration is superseded rather than left
+to contradict the surface built from it.
 
 ### An unjudgeable person is not dimmed — by anyone, which makes the exemption a key
 

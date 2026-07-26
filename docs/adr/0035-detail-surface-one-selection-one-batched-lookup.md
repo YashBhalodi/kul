@@ -18,8 +18,9 @@ to the two shipped behaviours it collides with. It resolves
 
 Five facts were established before deciding, because each one moved an answer:
 
-1. **A hover tooltip already ships.** [`tooltip.ts`](../../packages/preview/src/tooltip.ts) mounts on
-   `.kul-card, .kul-edge` with a 350 ms hover-intent delay, reads `data-*` straight off the SVG
+1. **A hover tooltip already ships.** `tooltip.ts` — deleted by this ADR's own decision in #300, so
+   the name below is a historical one — mounts on `.kul-card, .kul-edge` with a 350 ms hover-intent
+   delay, reads `data-*` straight off the SVG
    ([ADR-0021](./0021-language-properties-plumb-to-svg.md)), auto-surfaces new fields through a
    structural denylist, and already covers three entity kinds — Person, Marriage and **Adoption**.
    #276 gave hover to the lens.
@@ -36,8 +37,13 @@ Five facts were established before deciding, because each one moved an answer:
    emits one ghost per past intimacy inside `kul-layout`. The engine has no notion that a person was
    drawn three times.
 5. **Renders mean edits.** The preview re-renders only from `onDidChangeTextDocument`
-   ([`extension.ts:519`](../../editor/vscode/src/extension.ts)), debounced at 300 ms. "A render
-   arrived" and "the document changed" are the same event.
+   ([`extension.ts`](../../editor/vscode/src/extension.ts)), debounced at 300 ms. "A render
+   arrived" and "the document changed" are the same event. (**Corrected by
+   [ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md)
+   (#304)**, which checked this fact rather than inheriting it: there are three other render paths,
+   and the rule that actually holds is *every render that can reach live query state is either an
+   edit or an explicit command*. The mode boundary below is unaffected — but the premise as written
+   here would break the day someone set `retainContextWhenHidden`.)
 
 ## Decision
 

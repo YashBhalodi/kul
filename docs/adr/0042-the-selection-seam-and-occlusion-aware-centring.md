@@ -78,6 +78,13 @@ different name.
 
 ### `mount.ts` sees one surface, and #304 composes the mode boundary from named parts
 
+> **Amended by [ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md) (#304).** The hook named
+> throughout this section is now `endQueryMode()` and it *clears* rather than repaints; #304 composed
+> the boundary from `clearSelection()` plus `clearFilter()` — two parts, not the three anticipated
+> below, because the kin paint is anchored to the selection. The six-member mount surface is seven
+> since #302 added `handleCanvasHover`. What this section *decides* is unchanged: one hook, named for
+> all of query chrome rather than for the selection, and a mount that knows nothing else about it.
+
 `createQuerySurface` composes the store, the paint, the panel, the panel-driven walk and the
 editor-sync suspension. `mount.ts` reaches for six members and no more —
 `handleCanvasClick` (a click inside the rendered SVG), `repaintQueryChrome` (a render swapped the
@@ -214,8 +221,8 @@ the same shape of mistake, and it would defeat the source lint's plain reading.
   the wiring; the panel retains the answer it drew, so a redraw costs no engine call.
 - **The chrome's selection vocabulary is pinned to `DetailTarget`.** A wire change that widens the
   union widens what a selection can be, and the chrome must answer for it.
-- ~~**A render repaints rather than clears, until #304.**~~ That was a deliberately temporary
-  state, named here so it would not be read as a missing case. **Superseded by
+- ~~**A render repaints rather than clears, until #304.** That is a deliberately temporary state,
+  named here so it is not read as a missing case.~~ **Superseded by
   [ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md) (#304):** a render now *ends* query mode, the hook is
   `endQueryMode()`, and it is composed of `clearSelection()` plus `clearFilter()`. Everything below
   about the hook being the single one, and about the name not being scoped to the selection, still
@@ -260,7 +267,8 @@ the same shape of mistake, and it would defeat the source lint's plain reading.
 - **"Narrow `repaintQueryChrome()` back to the selection — that is all it repaints."** Today, yes.
   It is the single hook a render gives query paint, and the two slices that add paint land on the
   same swapped-out SVG. A name that has to be widened later is widened by three parties instead of
-  one.
+  one. (ADR-0046 renamed it `endQueryMode()` rather than narrowing it, for the same reason stated
+  the other way round: the name should say the rule, not the gesture.)
 - **"Assume the panel is on the right; it is."** Today. ADR-0038 made placement a property of the
   region so it can stop being true, and the failure mode is silent — a card centred behind the panel
   looks like a pan that did nothing.
