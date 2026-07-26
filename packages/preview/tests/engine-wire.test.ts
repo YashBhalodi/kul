@@ -58,6 +58,8 @@ const MIRRORED = [
     "Query",
     "Member",
     "QueryResult",
+    "EmptyReason",
+    "ResolveResult",
 ];
 
 /** Drop block comments, then collapse all runs of whitespace to one space. */

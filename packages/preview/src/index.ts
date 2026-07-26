@@ -38,6 +38,7 @@ export { isQueryOk } from "./engine-wire.js";
 export type {
     DetailLookupResult,
     DetailTarget,
+    EmptyReason,
     EntityDetail,
     ExportedDiagnostic,
     ExportedMarriage,
@@ -51,6 +52,7 @@ export type {
     Query,
     QueryEnvelope,
     QueryResult,
+    ResolveResult,
     WasmInputFile,
 } from "./engine-wire.js";
 export { selectBoundNodes } from "./result-binding.js";

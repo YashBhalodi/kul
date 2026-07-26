@@ -133,6 +133,9 @@ function fakeEngine(): { engine: QueryEngine; targets: DetailTarget[][] } {
             async queryKin() {
                 return { ok: true, result: { kind: "count" as const, count: 0 } };
             },
+            async queryResolve() {
+                return { ok: true, result: { relationships: [] } };
+            },
             get isLoaded() {
                 return true;
             },

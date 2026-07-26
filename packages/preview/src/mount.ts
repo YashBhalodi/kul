@@ -285,7 +285,7 @@ export function mountPreview(
      * failure (the module is a fetched asset) and a project that failed its
      * checks (ADR-0009 yields the error arm, never a partial answer).
      *
-     * Shared by both query entry points below, so the two can never disagree
+     * Shared by all three query entry points below, so they can never disagree
      * about where a failure surfaces.
      */
     async function runQuery<T>(
@@ -297,7 +297,7 @@ export function mountPreview(
         if (!engine || !project) {
             return null;
         }
-        let envelope;
+        let envelope: QueryEnvelope<T>;
         try {
             envelope = await run(engine, project);
         } catch (err) {
@@ -319,6 +319,10 @@ export function mountPreview(
         return runQuery((it, snapshot) => it.queryKin(snapshot, query));
     }
 
+    function queryResolve(xId: string, yId: string) {
+        return runQuery((it, snapshot) => it.queryResolve(snapshot, xId, yId));
+    }
+
     function applySyncHighlight(ref: EntityRef | null): void {
         cancelInFlightPan();
         inFlightPan = highlightEntity(root, panZoomForReader(), ref);
@@ -337,6 +341,7 @@ export function mountPreview(
         highlightEntity: querySurface.syncHighlight,
         queryDetail,
         queryKin,
+        queryResolve,
         locale,
         dispose,
     };

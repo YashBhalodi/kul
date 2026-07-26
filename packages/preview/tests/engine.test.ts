@@ -41,6 +41,9 @@ function fakeModule() {
         queryKin() {
             return { ok: true, result: { kind: "count", count: 0 } };
         },
+        queryResolve() {
+            return { ok: true, result: { relationships: [] } };
+        },
     };
     return { module, calls };
 }
