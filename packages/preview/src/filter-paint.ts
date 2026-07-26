@@ -15,7 +15,7 @@
 //     published to the registry as a standing exemption, not merely left out of
 //     this source's dim, because a kin set painted underneath would otherwise
 //     recede it. An unjudgeable person at 30% behind an amber ring is exactly
-//     the silent drop the disclosure exists to prevent (PRD-0006 story 23,
+//     the silent drop the disclosure exists to prevent (#296 story 23,
 //     ADR-0045).
 //   - **dimmed** — answered `false`. The shared dim, and no colour of its own.
 //
@@ -23,8 +23,11 @@
 // asks the registry to recompute, so the class keeps one owner and one alpha
 // whatever else is painting (ADR-0043). The set is *republished* on every
 // paint rather than left standing, which is that module's rule for a source
-// whose ids are derived from the cards the picture holds — a swapped-out SVG
-// can change who is in it.
+// whose ids are derived from the cards the picture holds. That rule no longer
+// has a post-render path to serve — an edit ends query mode and this paint
+// comes off with it (ADR-0046) — but it is still what keeps two sources from
+// disagreeing about the dim within one answer, and withdrawing by publishing
+// nothing is how this source lets go.
 // The match glow is this module's **own** class rather than kin paint's: the
 // two co-exist whenever a filter runs inside a painted kin set, and two owners
 // stripping one class is precisely the failure the dim registry exists to

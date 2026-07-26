@@ -29,7 +29,7 @@ export const KIN_LIST_TITLE = "Explore kin";
  * What the list knows right now. Counts arrive per set as the engine answers,
  * so a set with no entry has simply not been answered yet — which the row
  * renders as a placeholder rather than as a zero. A zero is an answer and must
- * never be faked (PRD-0006's honesty stance).
+ * never be faked (the epic's honesty stance — #296).
  */
 export interface KinListState {
     /** The person the questions are about. */

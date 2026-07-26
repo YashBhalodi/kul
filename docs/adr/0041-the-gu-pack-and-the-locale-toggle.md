@@ -75,8 +75,7 @@ slightly bookish register is what a genitive chain already is in Gujarati, and i
 two considerations point the same way rather than trading off.
 
 **The cost, taken knowingly: the composed *māmā* and *foī* cousin lines now render
-*māmā-no putra* / *foī-no putra*, where [`docs/kinship-term-inventory.md`](../kinship-term-inventory.md)
-§5 writes *māmā-no dīkro*.** Those two rows are grammatical either way — *māmā* is an `-ā`
+*māmā-no putra* / *foī-no putra*, where the term inventory's §5 wrote *māmā-no dīkro*.** Those two rows are grammatical either way — *māmā* is an `-ā`
 stem, so *dīkro* is the possessed there and never takes the oblique — so the swap buys
 nothing on the rows it costs fidelity on. It was taken anyway because the register split has
 to be decided once, for all 218,370 composed phrases, not row by row against the two the

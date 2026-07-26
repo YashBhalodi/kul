@@ -4,7 +4,7 @@
 // nothing says so in words, once, and goes away. Deliberately **not modal and
 // not an error** — an empty kin set is an answer, so it must not borrow the
 // error popover's chrome or block the reader from asking the next question
-// (PRD-0006's honesty stance, #276 point 8).
+// (the epic's honesty stance — #296, #276 point 8).
 //
 // One toast at a time. A second message replaces the first rather than stacking:
 // the reader clicked another row, and two contradictory absences on screen would

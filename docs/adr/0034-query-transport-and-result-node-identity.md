@@ -71,7 +71,25 @@ Single operations sit inside ADR-0029's no-spinner target on the arithmetic abov
 1. **The WASM-over-native multiplier** on `check` + query. For parse- and allocation-heavy work 1.5–2× is typical, which would put a single query at the 10k ceiling near the top of the 50 ms budget.
 2. **The eager kin-list fetch** at a realistic kin-set size.
 
-> **Measured ([#292](https://github.com/YashBhalodi/kul/issues/292), 2026-07-26)** — see [`docs/query-path-measurements.md`](../query-path-measurements.md). The multiplier is **1.0–1.14× at the ceiling**, not 1.5–2×, so every single operation stays inside the budget (worst: `queryResolve` at 32 ms). The eager kin-list fetch does **not** survive: cost is `N × 1.37 µs × persons`, so any list of 4+ rows misses the budget at 10k persons. The fix is one of the two outs recorded below, and needs no new decision.
+> **Measured ([#292](https://github.com/YashBhalodi/kul/issues/292), 2026-07-26.)** The multiplier is **1.0–1.14× at the ceiling**, not 1.5–2×, so every single operation stays inside the budget. The eager kin-list fetch does **not** survive: cost is `N × 1.37 µs × persons`, so any list of 4+ rows misses the budget at 10k persons. The fix is one of the two outs recorded below, and needs no new decision.
+>
+> At the 10,000-person ceiling, native → WASM, milliseconds:
+>
+> | op | native | WASM | × |
+> | --- | ---: | ---: | ---: |
+> | `check` | 13.49 | 13.72 | 1.02 |
+> | `queryPerson` | 13.69 | 13.70 | 1.00 |
+> | `queryResolve` | 28.30 | **32.37** | 1.14 |
+> | `runQuery` (filter) | 14.40 | 14.67 | 1.02 |
+> | `queryKin` | 15.90 | 16.64 | 1.05 |
+>
+> The multiplier is *largest* on the smallest corpus (2.08× on `check` at 266 persons), where the fixed JS↔WASM bridge cost is a visible fraction of a sub-millisecond call and irrelevant in absolute terms; it shrinks as the corpus grows. `check` is **42–100% of every call** at ≈1.35 µs per declared person, linear to within 2% across 266…10,000 — one constant that predicts every number above. `queryResolve` crosses 50 ms at roughly 15,600 persons. Module load (`require` + compile + instantiate of the 593 KB build) is **3.6 ms**, so the lazy first-query load needs no affordance of its own.
+>
+> **Method.** `perf.rs`'s deterministic synthetic dynasty, parameterised by person count (18 KB–725 KB of source, ~12-generation spine, with the polygamy / adoption-into-relatives / divorce hazards and a second component). Native: `cargo nextest -p kul-core --release`, best of 7 after a warm-up. WASM: `wasm-pack --target nodejs`, driven from Node v22.18.0, best of 7 after a warm-up. Apple M3, macOS 14.5, rustc 1.95.0, `lto = "thin"`, `codegen-units = 1`. Every measurement is a **full stateless call** — check plus query — because that is what the webview pays; and every figure is a **floor, not a p95**, matching the convention of the existing perf gates.
+>
+> **Caveats.** Node's V8, not VS Code's Chromium webview, which additionally pays a module fetch over `vscode-webview:` and contends with rendering on the same thread. One dense file per corpus; a sparser tree of the same person count checks slightly faster. `persons` is the parameter that matters, so the model extrapolates only within the shapes the synthetic corpus covers.
+>
+> The measurement asset that produced this was transient and is deleted with the epic ([ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md)); its one standing constraint became a test, `crates/kul-core/tests/perf.rs::batched_detail_cost_is_flat_in_the_number_of_targets`.
 
 Queries are gated on a clean project — [ADR-0009](./0009-export-strict-on-diagnostics.md) strict-on-diagnostics means a failing check yields the envelope's error arm, never a partial answer — and the preview's existing error popover is where that surfaces.
 

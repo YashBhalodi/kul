@@ -1,10 +1,12 @@
 // Kin paint — an answered kin-set query, drawn on the tree.
 //
-// The tree *is* the result (#276's resolution, PRD-0006): there is no list of
+// The tree *is* the result (#276's resolution, ADR-0043): there is no list of
 // matched people beside the canvas, so this paint is the whole readout. It is
-// stateless — prior paint is stripped before anything is applied, so calling
-// `paintKinResults` after a render re-applies the same answer onto the fresh
-// SVG.
+// stateless — prior paint is stripped before anything is applied, and nothing
+// about an answer survives in the DOM between calls. Nothing re-applies it
+// after a render: an edit ends query mode, so the answer goes with the
+// selection it was asked about (ADR-0046). The statelessness is what makes
+// that cheap in both directions.
 //
 // **Every card a matched person owns lights**, canonical and ghost alike. That
 // is ADR-0034's binding rule — a result is about a *person*, not about a card —

@@ -6,7 +6,7 @@
 
 ## Context
 
-[PRD-0006](../prd/0006-preview-kinship-query-ux.md) calls the hover lens "the affordance that made
+The epic ([#296](https://github.com/YashBhalodi/kul/issues/296)) calls the hover lens "the affordance that made
 the whole model click", and [#302](https://github.com/YashBhalodi/kul/issues/302) says why: it is the
 interaction the architecture was arranged around. A zero-click affordance firing on pointer movement
 cannot afford a webview→extension→LSP round-trip, so the engine came to the webview
@@ -30,7 +30,7 @@ was explicitly deferred to this slice by name.
    says "trailing-edge, not a spinner" and gives the measurement that forces one. It gives no number.
 3. **What does the pill say when there is no tie?** #302 gives one string and simultaneously forbids
    flattening two engine states into one.
-4. **What paints the hovered card?** #276's paint vocabulary, as PRD-0006 restates it, lists
+4. **What paints the hovered card?** #276's paint vocabulary, as the epic restates it, lists
    "hover-target amber". ADR-0036 reserves four hues, and the amber one is spelled
    `--kul-hue-query-uncertain`: the can't-say paint [#303](https://github.com/YashBhalodi/kul/issues/303)
    is being built to use.
@@ -39,7 +39,7 @@ was explicitly deferred to this slice by name.
 6. **What happens to a lens reading when a render swaps the picture?** ADR-0042 pins
    `repaintQueryChrome()` as the one post-render hook and says the selection *repaints*. It says
    nothing about chrome whose whole meaning is "where the pointer is right now".
-7. **Whose is the "docked-tag grammar"?** PRD-0006:149 says the filter's can't-say reason whispers
+7. **Whose is the "docked-tag grammar"?** #277's resolution says the filter's can't-say reason whispers
    *"in the lens's docked-tag grammar"* — under a card, with **no selection anywhere**, on a trigger
    that is not a hover resolution. Calling something a shared grammar and building it as one widget's
    private chrome are different acts, and only the first was written down.
@@ -71,8 +71,9 @@ is noise on every hover. `gu` opts in for all seventy entries, its one affix rul
 its genitive.
 
 **Where those Latin forms came from, precisely**, because "from the inventory" would be false in both
-directions. [`docs/kinship-term-inventory.md`](../kinship-term-inventory.md) supplies the romanization
-wherever it has a row for the term. It does not have one for everything the `gu` pack ships: #299 added
+directions. The term inventory ([#278](https://github.com/YashBhalodi/kul/issues/278), a transient
+research asset since retired — see [ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md))
+supplied the romanization wherever it had a row for the term. It does not have one for everything the `gu` pack ships: #299 added
 entries the inventory does not list (*pote*, *jīvansāthī*, *vālī*, *santān*, *sahodar*, the *savko
 dīkro* / *savkī dīkrī* pair), four of the nine hop nouns (*mātā*, *vālī*, *santān*, *jīvansāthī* — the
 other five, *pitā*, *putra*, *putrī*, *pati* and *patnī*, are in it verbatim), and four gendered
@@ -152,7 +153,7 @@ the epic's own stance about the neighbouring surface.
 The lens adds **one** paint to the tree: the dashed sky resolution path. The hovered card keeps the
 `.kul-card:hover` stroke bump the diagram already ships and gains nothing else.
 
-PRD-0006's paint-vocabulary line lists "hover-target amber". The decisive fact is simply that
+#276's paint-vocabulary line, as the epic restates it, lists "hover-target amber". The decisive fact is simply that
 **ADR-0036 reserved four hues and none of them is a hover target**: it names them "selection violet,
 result teal, can't-say amber, resolution-path sky", `preview-themes.css` documents each in place, and
 the amber is spelled `--kul-hue-query-uncertain` — "a three-valued predicate that answered `unknown`".
@@ -161,9 +162,9 @@ There is no fifth reserved hue and no unspent one to promote, because ADR-0036 r
 hover-target paint would therefore have to take a hue that already means something else, which is the
 collision the whole reservation exists to prevent.
 
-The PRD line is a leftover rather than a decision, and its provenance is checkable. It restates #276's
-point 7, whose amber comes from **round 7, card B ("Genitive")**, where the pill floated between the
-pair and "the amber ring shows who it lands on" was that card's direction chrome. **Card A ("Docked
+That vocabulary line is a leftover rather than a decision, and its provenance is checkable. It
+restates #276's point 7, whose amber comes from **round 7, card B ("Genitive")**, where the pill
+floated between the pair and "the amber ring shows who it lands on" was that card's direction chrome. **Card A ("Docked
 tag") won**, and it disambiguates by *position* plus the violet viewpoint dot — the design this slice
 built. Point 7's vocabulary line was never rewritten afterwards. Taking a hue on the strength of an
 un-rewritten summary of a discarded card, against the ADR that allocates hues, is the wrong way round.
@@ -209,7 +210,11 @@ every term: the engine found several ways and the surface shows several ways.
 
 ### A render dismisses the lens; it does not repaint it
 
-`repaintQueryChrome()` re-applies the selection outline and takes the lens **down**.
+`repaintQueryChrome()` re-applies the selection outline and takes the lens **down**. (**Amended by
+[ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md) (#304):** the hook is `endQueryMode()` and a render takes
+the *selection* down too. The lens's half of this is unchanged and is now the whole rule — and it
+needs no call inside the boundary, because dismissing on a selection change is what this section
+decided.)
 
 The asymmetry with the selection is the decision. A selection is a standing choice the reader made and
 has not unmade, so repainting it onto the fresh SVG is restoring something that is still true
@@ -316,14 +321,18 @@ tag stays findable once something else docks one.
 - **A pack now has two readings and one source of truth for each.** Adding a language is still one
   additive module of records; the module is a little wider. ADR-0033's "zero lines of logic" survives
   — `translit` is matched by nothing and keys nothing, it only travels.
-- **`docs/kinship-term-inventory.md` is *not* exhausted, and #304 should know that before deleting
-  it.** Its script column became the `gu` terms in #299 and its Latin column becomes their glosses
-  here, but the pack deliberately did not take everything it lists: *bā*, *mummy*, *bāpuji*, *var*,
-  *dhaṇī*, *śokya*, *putravadhū*, *apar-mā*, *dattak*, *fai*, *der* and *bhāṇejo* are variants and
-  registers the pack chose one of, and they never became entries. Deleting the file discards them. That is a
+- **The term inventory is *not* exhausted, and #304 should know that before deleting it.** Its
+  script column became the `gu` terms in #299 and its Latin column becomes their glosses here, but
+  the pack deliberately did not take everything it lists: *bā*, *mummy*, *bāpuji*, *var*, *dhaṇī*,
+  *śokya*, *putravadhū*, *apar-mā*, *dattak*, *fai*, *der* and *bhāṇejo* are variants and registers
+  the pack chose one of, and they never became entries. Deleting the file discards them. That is a
   legitimate call — a lexicon of alternates is not something a one-term-per-cell pack can hold, and
   the epic decided the shipped pack *becomes* the record (ADR-0041) — but it is a decision, not a
   clean-up, and this ADR states it rather than letting the deletion imply it.
+  **[ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md)
+  made the call and carries the list of record**: it verified all twelve above against the pack,
+  found four more (*nānā-bāpā*, *nānī-mā*, *moṭā kākā*, *ben*), and lifted the sixteen into an
+  appendix with the term each one lost to.
 - **`--kul-hue-query-path` leaves `RESERVED_PENDING_CONSUMERS`** and `--kul-query-path-*` joins tier 2.
   **One** reserved name remains — the can't-say amber, #303's. Everything else ADR-0036 reserved has
   been spent: the selection violet by #300, the result teal and the filter alpha by #301, the sky
@@ -397,11 +406,11 @@ tag stays findable once something else docks one.
   calls the distinction the product. One string discards it in one direction or the other.
 - **"Show nothing when two people are unrelated."** Then a working lens looks like a broken one, and
   the reader cannot tell "no tie" from "the lens did not fire".
-- **"Paint the hover target amber; the PRD's vocabulary says so."** ADR-0036 reserved four hues and
-  none of them is a hover target; the only amber is `--kul-hue-query-uncertain`, and the charts family
-  is fully spent, so there is nothing to promote. The PRD line restates #276 point 7, whose amber is
-  round 7's discarded card B. There is also nothing to disambiguate — the reader's pointer is on the
-  card.
+- **"Paint the hover target amber; #276's paint vocabulary says so."** ADR-0036 reserved four hues
+  and none of them is a hover target; the only amber is `--kul-hue-query-uncertain`, and the charts
+  family is fully spent, so there is nothing to promote. That vocabulary line is #276 point 7, whose
+  amber is round 7's discarded card B. There is also nothing to disambiguate — the reader's pointer
+  is on the card.
 - **"Trace the endpoints too; the path runs from ego to alter."** It does, and both ends already carry
   a paint that says which they are. A third meaning on the two least ambiguous cards buys nothing and
   collides with the selection outline on one of them.
@@ -422,7 +431,7 @@ tag stays findable once something else docks one.
   that because it decides who to dim by walking the *cards*; the lens reads `path[].to` off the
   answer. And a render dismisses the lens, so there is nothing left to republish.
 - **"Fold the docked tag back into `hover-lens.ts` — it has one consumer."** It has two by
-  specification: PRD-0006 gives #303's can't-say reason the same grammar, with no selection and its
+  specification: #277 gives #303's can't-say reason the same grammar, with no selection and its
   own trigger, and the lens's entry point refuses to serve that. The alternative to the split is a
   second copy of the placement arithmetic and two grammars that drift.
 - **"Give the docked tag a `note` / `reason` slot so #303 does not have to build one."** That is

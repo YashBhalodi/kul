@@ -7,7 +7,7 @@
 ## Context
 
 [#277](https://github.com/YashBhalodi/kul/issues/277) decided the attribute filter's UX across
-eleven prototype rounds, and [PRD-0006](../prd/0006-preview-kinship-query-ux.md) restates it: a chip
+eleven prototype rounds, and the epic ([#296](https://github.com/YashBhalodi/kul/issues/296)) restates it: a chip
 sentence in stage chrome, conjunction-only with the `and` spelled out, certainty as a chip rather
 than a toggle, three paint states on the tree, a disclosing tally, and composition with a painted
 kin set. [ADR-0025](./0025-kinship-query-engine-contract-and-traversal.md) pinned the engine
@@ -25,7 +25,7 @@ it is written down.
 1. **Where does a can't-say *reason* come from?** #277 requires the whisper — *"can't say — family
    not recorded"*, *"~1942 is approximate (±5y) — straddles born < 1945"* — and the engine has no
    operation that produces one. `runQuery` answers in **sets**.
-2. **What do the tally's numbers mean?** #277's illustrative string — carried into PRD-0006 —
+2. **What do the tally's numbers mean?** #277's illustrative string — carried into the epic —
    is *"3 of 10 · 7 dimmed · 1 can't say"*, whose three numbers do not add to ten under any reading
    where all three name disjoint groups. #277's own point 6 says the unjudgeable are a paint
    distinct from the dimmed, which the illustration then contradicts by counting them inside it.
@@ -66,7 +66,8 @@ snapshot, and a release — for a string. The epic's Rust critical path was the 
 operation and it is spent.
 
 **Rejected: re-implementing the three-valued predicates in TypeScript.** `kul-core`'s
-`filter__*.snap` suites own predicate correctness and PRD-0006 says so in as many words. A second
+`filter__*.snap` suites own predicate correctness and the epic's testing decisions say so in as
+many words. A second
 evaluator is a second answer that can disagree with the paint beside it, and the disagreement would
 surface as a card painted amber above a whisper explaining why it is teal.
 
@@ -78,19 +79,19 @@ never a count. So certain mode reads *"3 of 10 · 6 dimmed · 1 can't say"* and 
 the other mode reads *"4 of 10 · 6 dimmed · 1 can't say, included"*: the disclosure is the same
 number whichever way the reader is looking, which is the whole point of disclosing it.
 
-This is a deliberate correction to the illustrative *"7 dimmed"* in **#277's point 7 and
-[PRD-0006](../prd/0006-preview-kinship-query-ux.md)'s attribute-filtering section**, both of which
-counted the unjudgeable person inside the dimmed group — while #277's point 6 and the PRD's own
-bullet above it call can't-say a paint *distinct* from non-match. Keeping the wording would have
-required either a second reading of "dimmed" (not-shown, rather than receded) or dimming the amber
-card, which the next section refuses. The numbers now describe exactly what is on screen, and the
-PRD's line is amended to match rather than left to contradict the surface built from it.
+This is a deliberate correction to the illustrative *"7 dimmed"* in **#277's point 7 and the
+epic's attribute-filtering section**, both of which counted the unjudgeable person inside the dimmed
+group — while #277's point 6 and the epic's own bullet above it call can't-say a paint *distinct*
+from non-match. Keeping the wording would have required either a second reading of "dimmed"
+(not-shown, rather than receded) or dimming the amber card, which the next section refuses. The
+numbers now describe exactly what is on screen, and the illustration is superseded rather than left
+to contradict the surface built from it.
 
 ### An unjudgeable person is not dimmed — by anyone, which makes the exemption a key
 
 Amber, dashed, with a `?` riding every card they own, at full opacity. The reason is the honesty
 stance, not the aesthetics: an unjudgeable person receding like a non-match is precisely the silent
-drop the disclosure exists to prevent (PRD-0006 story 23), and a card at 30% opacity does not read
+drop the disclosure exists to prevent (#296 story 23), and a card at 30% opacity does not read
 as something to hover for an explanation.
 
 The third state is distinguished on **two** dimensions rather than one — a different reserved hue
@@ -127,7 +128,10 @@ it and left clicking ✕ on every chip as the only way out.
 Esc therefore clears whatever query state is suspending sync — the selection, the filter, or both.
 It is a keyboard exit rather than a render, so it decides nothing about
 [#304](https://github.com/YashBhalodi/kul/issues/304)'s mode boundary; it keeps a promise this
-chrome already prints.
+chrome already prints. (**And #304 then arrived at the same pair**: `endQueryMode()` is
+`clearSelection()` plus `clearFilter()`, so Esc and an edit are one function. Deciding nothing about
+the boundary turned out to mean deciding it correctly by accident —
+[ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md).)
 
 ### Each painter owns its own match class; only the dim is shared
 
@@ -195,6 +199,12 @@ wherever it appears.
 
 ### A render re-asks; it does not replay
 
+> **Superseded by [ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md) (#304).** A render now ends query
+> mode, so the filter is *reset* from the hook rather than re-asked, and `FilterBar.repaint()` is
+> deleted with the re-ask that was its only caller. The reasoning below is why a re-ask beat a
+> replay, and it is why the answer could never be *replayed*; #304 answered the question this
+> section left open by dropping the answer instead.
+
 `repaintQueryChrome` is the single post-render hook, and the filter re-evaluates from inside it
 rather than re-applying its last answer. A render carries a new project snapshot, so replaying would
 paint a verdict about source that is no longer on screen. Whether a render should instead *end* query
@@ -222,14 +232,13 @@ selection are independent — either can exist without the other.
 - **The reason can name more than one candidate.** On a two-condition filter where both conditions
   are unjudgeable-shaped for one person, the whisper names both. That is less crisp than the
   prototype's single clause and is the honest reading of what the surface actually knows.
-- **The tally's wording differs from the example string in #277 and PRD-0006.** Deliberately; the
-  arithmetic is asserted at the module seam, and the PRD's line is corrected in the same change.
-- **One thing this slice does *not* settle: PRD-0006 also says a render clears the filter.** It does
-  not here — `repaintQueryChrome` re-*asks*, because a slice that only builds the filter has no
-  standing to decide when query mode ends. Ending it on an edit is
-  [#304](https://github.com/YashBhalodi/kul/issues/304)'s decision, and `clearFilter()` is the call
-  it composes that from. The PRD notes the divergence as deferred rather than reading as though it
-  were already true.
+- **The tally's wording differs from the example string in #277 and the epic.** Deliberately; the
+  arithmetic is asserted at the module seam.
+- **One thing this slice does *not* settle: the epic also says a render clears the filter.** It did
+  not here — the post-render hook re-*asked*, because a slice that only builds the filter has no
+  standing to decide when query mode ends. **Settled by
+  [ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md) (#304):** it clears. `endQueryMode()` is composed of
+  `clearSelection()` and `clearFilter()`, and `FilterBar.repaint()` went with the re-ask.
 - **Filter paint and kin paint can both be on screen, in the same teal.** By decision — #277 says
   matches take *the existing* result glow — and the tally is what distinguishes "3 of 4 in
   Giuseppe's descendants" from a bare kin set.
@@ -259,7 +268,7 @@ selection are independent — either can exist without the other.
   the derived attribution is observed to be wrong, which would mean a route to `unknown` that is not
   a missing field or a wide interval.
 - **"Port `filter.rs` to TypeScript so the preview can explain itself."** Two evaluators, one of
-  which is not the one that painted the tree. PRD-0006 rules this out by name.
+  which is not the one that painted the tree. #277 rules this out by name.
 - **"Reuse kin paint's result class so there is one teal."** There is one *hue*; two owners of one
   class is the failure the dim registry was built to prevent, and both surfaces are on screen
   together by design.
@@ -272,7 +281,7 @@ selection are independent — either can exist without the other.
   There is no node in the filter's own model that could represent one, which is deliberate: the
   surface must not imply the engine can do something it never will.
 - **"Add `sort` to the bar."** The tree keeps its canonical layout order and only a list can express
-  an order. PRD-0006 puts a results list out of scope; adding sort means adding the list first.
+  an order. The epic puts a results list out of scope; adding sort means adding the list first.
 - **"Hide non-matching people."** Filtering never hides a node or an edge. It punches holes in the
   canonical layout and leaves marriage stubs and birth edges running into empty space — the standing
   rule #277 generalised past this feature, asserted here across every filter state.

@@ -9,7 +9,7 @@
 [#276](https://github.com/YashBhalodi/kul/issues/276)'s resolution settled the *interaction*: "Explore
 kin" opens one flat scrollable vertical list of all kin queries (Parents … Step-children) with
 counts; clicking a row paints results on the tree; zero-count rows toast honest absence; the list
-stays open as the selection walks. [PRD-0006](../prd/0006-preview-kinship-query-ux.md) restates it and
+stays open as the selection walks. The epic ([#296](https://github.com/YashBhalodi/kul/issues/296)) restates it and
 [ADR-0034](./0034-query-transport-and-result-node-identity.md) pins the binding — a result is about a
 *person*, so every card that person owns lights. [ADR-0042](./0042-the-selection-seam-and-occlusion-aware-centring.md)
 built the seam this hangs off and named the one thing it deliberately left owed: a `LanguagePack`
@@ -21,8 +21,9 @@ What none of them settled is the part that turns out to decide the shape of the 
    thirteen named sugars and a `Query` value; the WASM surface exposes only the value.
 2. **Where does a count come from?** [#301](https://github.com/YashBhalodi/kul/issues/301) requires the
    engine's `count` projection rather than a client-side length. The engine answers one Query per
-   call, and [#292](../query-path-measurements.md) Finding 4 says that *any eager list of four or more
-   rows misses ADR-0029's 50 ms budget at the 10,000-person ceiling.* Those two facts pull in
+   call, and [#292](https://github.com/YashBhalodi/kul/issues/292) measured that *any eager list of four
+   or more rows misses ADR-0029's 50 ms budget at the 10,000-person ceiling*
+   ([ADR-0034](./0034-query-transport-and-result-node-identity.md)'s measured note). Those two facts pull in
    opposite directions and something has to give.
 3. **What is phrased?** #301 requires row labels that re-phrase on the locale toggle, and says the
    phrasing comes from data already in hand. A kin *set* is not a relationship, so it has no
@@ -226,7 +227,10 @@ while keeping the person they are reading had nothing else. Neither gesture asks
 and closing keeps the counts, so reopening is free.
 
 The paint repaints from inside `repaintQueryChrome()` — ADR-0042 widened that hook for exactly this —
-and **not** from a second call in `mount.ts`.
+and **not** from a second call in `mount.ts`. (**Amended by
+[ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md) (#304):** the hook is now `endQueryMode()` and a render
+*drops* the paint rather than re-applying it, through the selection it is anchored to. The paint's
+statelessness is what makes both readings cheap, and the one-hook rule is unchanged.)
 
 **Kin paint registers no sync-suspension reason of its own.** It cannot exist without a person
 selection, and the selection already registers `"selection"`; a second reason keyed to the same
@@ -258,9 +262,11 @@ ids* to it rather than touching the class. A person is dimmed iff **any** active
 Building this with one consumer is the point. Two hazards were already live in the two-source future
 [#303](https://github.com/YashBhalodi/kul/issues/303) makes concrete:
 
-- **Silent un-filtering.** `repaintQueryChrome()` runs the kin repaint on every render. A kin paint
+- **Silent un-filtering.** The post-render hook runs the kin repaint on every render. A kin paint
   that stripped `.kul-query-dim` outright would clear the filter's dim on every keystroke-driven
-  render, and nothing would say so.
+  render, and nothing would say so. (ADR-0046 later made a render clear *both*, deliberately and
+  visibly — which is a different act from one paint silently clobbering another's class, and the
+  registry is still what keeps the two from doing that inside a single render.)
 - **Multiplied alpha.** A filter that avoided that by taking a *second* class would put two `opacity`
   values on nested nodes: 0.3 × 0.3 = 0.09, a card three times fainter than either source asked for.
 
@@ -333,13 +339,14 @@ show one it has not been given.
   scrollable list … **no category grouping**". The list scrolls; the taxonomy was the thing readers
   had to learn first.
 - **"Show the matched people in a list beside the tree — the paint is hard to scan."** The tree *is*
-  the result (#276, PRD-0006). A list would compete for the place where answers are read, and it is
+  the result (#276, and the epic's Out of Scope). A list would compete for the place where answers
+  are read, and it is
   also why `sort` has no surface in the preview at all.
 - **"Dim the edges too — 'non-matches dim' should mean everything."** The edges are how a reader sees
   why a set has the shape it has. Paint recedes the non-answer; it does not recede the picture.
 - **"Make the empty-set notice an error-popover row — the popover already exists."** An absence the
   engine reported is an answer. Putting it in the diagnostics surface says the query failed, which is
-  precisely the reading PRD-0006's honesty stance is written to prevent.
+  precisely the reading the epic's honesty stance is written to prevent.
 - **"Show `0` until the count arrives; it is almost always right."** A zero is an answer. Showing one
   the engine has not given is the surface asserting a fact it does not have, in the one list whose
   whole point is that absence stays absence.

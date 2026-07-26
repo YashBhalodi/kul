@@ -760,7 +760,7 @@ describe("the traced path shows why the answer is what it is", () => {
 });
 
 describe("a render takes the lens down rather than re-asserting it", () => {
-    it("dismisses on the post-render repaint", async () => {
+    it("dismisses when a render ends query mode", async () => {
         const h = harness();
         const { stage, root, surface } = h;
         answer = { relationships: [uncleOf("giulia", "marco")] };
@@ -769,9 +769,12 @@ describe("a render takes the lens down rather than re-asserting it", () => {
         await settle();
         expect(pill(stage)).not.toBeNull();
 
-        // A render replaced the picture the tie was computed against.
-        surface.repaintQueryChrome();
+        // A render replaced the picture the tie was computed against. The lens
+        // is not a third call inside the boundary — it subscribes to the
+        // selection seam, so clearing the selection is what takes it down.
+        surface.endQueryMode();
         expect(pill(stage)).toBeNull();
+        expect(surface.selection.current).toBeNull();
     });
 
     it("abandons a query still in flight when the surface is disposed", async () => {

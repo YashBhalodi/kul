@@ -2,7 +2,8 @@ import type { LanguagePack } from "../pack.js";
 
 /**
  * The **English language pack** — pure data over the phrasing key (ADR-0033).
- * Source: the `en` baseline in `docs/kinship-term-inventory.md` §9.
+ * Source: the `en` baseline of the kinship-term inventory (#278) §9 — a transient
+ * research asset, retired with the epic (ADR-0046).
  *
  * English is the deliberately coarse case. It merges whole descriptor regions
  * — no `side` ("grandmother" covers both), no `seniority` in any lexeme, blood
