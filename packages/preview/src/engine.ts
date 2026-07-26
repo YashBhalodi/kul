@@ -18,6 +18,7 @@ import type {
     Query,
     QueryEnvelope,
     QueryResult,
+    ResolveResult,
     WasmInputFile,
 } from "./engine-wire.js";
 
@@ -55,6 +56,21 @@ export interface EngineModule {
         manifest: Manifest,
         query: Query,
     ): QueryEnvelope<QueryResult>;
+    /**
+     * Two-anchor relationship resolution (ADR-0028). The shipped function takes
+     * a trailing optional `ResolveConfig`; this declaration omits it, which
+     * still accepts the real module structurally and keeps the **default
+     * generation budget of 5** as the preview's only setting. Five reaches
+     * through fourth cousins — a strict superset of every lexicalized kinship
+     * term — so the hover lens has nothing to tune, and widening it later is
+     * additive.
+     */
+    queryResolve(
+        files: WasmInputFile[],
+        manifest: Manifest,
+        xId: string,
+        yId: string,
+    ): QueryEnvelope<ResolveResult>;
 }
 
 /**
@@ -114,6 +130,20 @@ export interface QueryEngine {
         project: ProjectSnapshot,
         query: Query,
     ): Promise<QueryEnvelope<QueryResult>>;
+    /**
+     * How `xId` and `yId` are related — **every** way, never a primary one
+     * (ADR-0028). `xId` is the ego the descriptors are relative to; the hover
+     * lens passes the selected person there and the hovered one as `yId`, which
+     * is what makes the pill read "as the selected person sees it".
+     *
+     * An empty list carries an {@link ResolveResult.emptyReason}, so "no tie"
+     * and "no tie as far as the engine looked" stay distinguishable.
+     */
+    queryResolve(
+        project: ProjectSnapshot,
+        xId: string,
+        yId: string,
+    ): Promise<QueryEnvelope<ResolveResult>>;
     /** True once the module has finished loading. Never triggers a load. */
     readonly isLoaded: boolean;
 }
@@ -151,6 +181,10 @@ export function createQueryEngine(
         async queryKin(project, query) {
             const mod = await moduleOnce();
             return mod.queryKin(project.files, project.manifest, query);
+        },
+        async queryResolve(project, xId, yId) {
+            const mod = await moduleOnce();
+            return mod.queryResolve(project.files, project.manifest, xId, yId);
         },
         get isLoaded() {
             return loaded !== null;

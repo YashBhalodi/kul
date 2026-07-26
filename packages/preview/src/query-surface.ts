@@ -2,20 +2,21 @@
 //
 // It owns the {@link SelectionStore} every later slice needs, the paint that
 // shows it, the details panel it feeds, the panel-driven walk, the Explore-kin
-// list and the paint an answered kin set puts on the tree, and the editor-sync
-// suspension that keeps the two meanings of "highlighted" from co-painting
-// (#276 point 9).
+// list and the paint an answered kin set puts on the tree, the hover lens that
+// reads ties off the selection, and the editor-sync suspension that keeps the
+// two meanings of "highlighted" from co-painting (#276 point 9).
 //
-// `mount.ts` reaches for six members and no more: `handleCanvasClick` (a click
-// inside the rendered SVG), `repaintQueryChrome` (a render swapped the SVG),
-// `syncHighlight` (an inbound editor highlight, which becomes the handle's
-// `highlightEntity`), `refresh` (the locale toggle changed language),
-// `occupiedBox` (the ghost badge's jump must steer around the panel) and
-// `dispose`. Everything else about the selection is this module's business,
-// which is what keeps the chrome's composition in one readable place rather
-// than spread across the mount. The remaining members are for the slices that
-// compose *inside* the surface — `selection`, `clearSelection`,
-// `setSyncSuspended` and `setDimExemption` — and `mount.ts` calls none of them.
+// `mount.ts` reaches for seven members and no more: `handleCanvasClick` (a
+// click inside the rendered SVG), `handleCanvasHover` (the pointer moved over
+// it), `repaintQueryChrome` (a render swapped the SVG), `syncHighlight` (an
+// inbound editor highlight, which becomes the handle's `highlightEntity`),
+// `refresh` (the locale toggle changed language), `occupiedBox` (the ghost
+// badge's jump must steer around the panel) and `dispose`. Everything else
+// about the selection is this module's business, which is what keeps the
+// chrome's composition in one readable place rather than spread across the
+// mount. The remaining members are for the slices that compose *inside* the
+// surface — `selection`, `clearSelection`, `setSyncSuspended` and
+// `setDimExemption` — and `mount.ts` calls none of them.
 
 import type {
     DetailLookupResult,
@@ -25,10 +26,12 @@ import type {
     Query,
     QueryEnvelope,
     QueryResult,
+    ResolveResult,
 } from "./engine-wire.js";
 import { isQueryOk } from "./engine-wire.js";
 import { type DetailPanel, createDetailPanel } from "./detail-panel.js";
 import { createDimRegistry } from "./dim.js";
+import { type HoverLens, createHoverLens } from "./hover-lens.js";
 import {
     type HighlightPanZoom,
     type ScreenBox,
@@ -70,6 +73,12 @@ export interface QuerySurfaceOptions {
      * panel's home (ADR-0038, ADR-0042). The dock owns the edge and the inset.
      */
     floatDock: HTMLElement;
+    /**
+     * The float layer itself (`#kul-region-float`) — the *other* placement the
+     * layer carries (ADR-0042), for chrome anchored to a card's screen box
+     * rather than to a stage edge. The hover lens's pill lives here.
+     */
+    floatLayer: HTMLElement;
     /** Transient-notification region — the sync hint's home. */
     notifyRegion: HTMLElement | null;
     adapter: HostAdapter;
@@ -83,6 +92,11 @@ export interface QuerySurfaceOptions {
      * evaluates it; nothing here decides membership.
      */
     runKinQuery(query: Query): Promise<QueryEnvelope<QueryResult> | null>;
+    /** Two-anchor relationship resolution, ego first — what the lens asks (ADR-0028). */
+    resolve(
+        egoId: string,
+        alterId: string,
+    ): Promise<QueryEnvelope<ResolveResult> | null>;
     /**
      * The reader's language, as **one** source of truth for every phrased word
      * in the query chrome (ADR-0043).
@@ -110,6 +124,15 @@ export interface QuerySurface {
     /** A click landed inside the rendered SVG: an entity moves it, the canvas clears it. */
     handleCanvasClick(target: Element | null): void;
     /**
+     * The pointer moved over the rendered SVG — the hover lens's whole input.
+     * Cheap on every call; only a settled pointer costs a query (#302).
+     *
+     * For a pointer *leaving* the canvas, pass the element it moved onto: the
+     * lens keeps reading when that element is its own pill, so hovering a term
+     * for its gloss does not dismiss the pill being hovered.
+     */
+    handleCanvasHover(target: Element | null): void;
+    /**
      * An inbound editor-sync highlight. Painted only while sync is live; while
      * it is suspended the ref is *held* and replayed the moment the last
      * suspension reason lifts, so resuming does not wait for the reader to
@@ -118,9 +141,15 @@ export interface QuerySurface {
     syncHighlight(ref: EntityRef | null): void;
     /**
      * Re-apply **every** piece of query paint after a render swapped the SVG
-     * out: the selection outline and the painted kin set's result glow and dim.
-     * #303's filter dim lands on the same replaced picture and repaints from
-     * inside here too.
+     * out: the selection outline, the painted kin set's result glow and dim,
+     * and the hover lens — which comes *down* rather than back. #303's filter
+     * dim lands on the same replaced picture and repaints from inside here too.
+     *
+     * The lens's asymmetry is the point: a selection and a kin answer are
+     * standing choices the reader made, while a lens reading is about where the
+     * pointer is and which picture was under it. Re-asserting a tie against a
+     * project that has just changed would be asserting something nobody
+     * checked. The next pointer move re-arms it.
      *
      * Deliberately not `repaintSelection()`: `mount.ts` gives query chrome one
      * post-render hook, and a name scoped to the selection would force the next
@@ -185,10 +214,12 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
     const {
         root,
         floatDock,
+        floatLayer,
         notifyRegion,
         adapter,
         lookup,
         runKinQuery,
+        resolve,
         locale,
         getPanZoom,
         applySyncHighlight,
@@ -259,6 +290,29 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
             activeSetId: kinActiveSetId,
             activeMembers: kinActiveMembers,
         };
+    }
+
+    // The lens subscribes to the selection itself, so it needs no help from
+    // here to know its ego moved. `locale.bind` rather than `locale.pack()` is
+    // the idiom for a persistent element that must re-phrase in place, which is
+    // the split ADR-0043 named: the panel redraws wholesale, the pill does not.
+    const lens: HoverLens = createHoverLens({
+        root,
+        layer: floatLayer,
+        selection,
+        resolve,
+        bindPhrase: (element, descriptor) => locale.bind(element, descriptor),
+        onTrace: setDimExemption,
+    });
+
+    /**
+     * The persons a live read is tracing, lifted from every dim source
+     * (ADR-0043). The lens is the only caller — the exemption is one slot, not
+     * a set keyed by holder, because a pointer is in one place.
+     */
+    function setDimExemption(personIds: Iterable<string> | null): void {
+        dim.exempt(personIds);
+        dim.apply(root);
     }
 
     function closePanel(): void {
@@ -622,6 +676,7 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
                 selection.clear();
             }
         },
+        handleCanvasHover: lens.handleHover,
         syncHighlight(ref) {
             heldSyncRef = ref;
             if (suspensions.size > 0) {
@@ -633,6 +688,7 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
         },
         repaintQueryChrome() {
             paintSelection(root, selection.current);
+            lens.dismiss();
             paintKin();
         },
         clearSelection() {
@@ -640,13 +696,11 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
         },
         setSyncSuspended,
         refresh: redrawPanel,
-        setDimExemption(personIds) {
-            dim.exempt(personIds);
-            dim.apply(root);
-        },
+        setDimExemption,
         occupiedBox,
         dispose() {
             window.removeEventListener("keydown", onKeyDown);
+            lens.dispose();
             // Drop the held ref before clearing, so lifting the selection's
             // suspension replays nothing onto chrome being torn down.
             heldSyncRef = null;

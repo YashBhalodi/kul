@@ -11,6 +11,17 @@ import type { FacetMatch, NumericFacet } from "./key.js";
 export interface PackEntry {
     when: FacetMatch;
     term: string;
+    /**
+     * The term in Latin script, for a pack whose `term` is not already Latin.
+     * The reading surface for it is the hover gloss on the lens pill (#302).
+     *
+     * **Never derived.** There is no romanization algorithm anywhere in this
+     * layer: an entry that omits this yields a phrase with no transliteration
+     * at all, exactly as `seniority: unknown` yields the unmarked term rather
+     * than a guessed one (ADR-0033's never-guess rule, ADR-0044). `en` omits it
+     * throughout, because a term already in Latin script has nothing to gloss.
+     */
+    translit?: string;
 }
 
 /** A numeric floor on one facet, carried inside an affix rule's `when`. */
@@ -38,6 +49,8 @@ export interface AffixRule {
     /** Facet match, plus an optional numeric floor on one numeric facet. */
     when: FacetMatch & { atLeast?: NumericBound };
     affix: string;
+    /** The affix in Latin script. Same never-derived rule as {@link PackEntry.translit}. */
+    translit?: string;
     position: "prefix" | "suffix";
     /**
      * Repeat the affix once per unit of this facet at and above the floor:
@@ -88,4 +101,18 @@ export interface LanguagePack {
     affixes: ReadonlyArray<AffixRule>;
     hops: HopLexicon;
     genitive: GenitivePattern;
+    /**
+     * The Latin-script twins of `hops` and `genitive` — the two token sources a
+     * *composed* phrase draws on that are not entries. A pack supplies them iff
+     * it supplies `translit` on its records, which
+     * `tests/phrasing/pack-invariants.test.ts` checks: a pack romanizes
+     * completely or not at all, because a gloss that appears on some terms and
+     * not others reads as breakage rather than as an absence (ADR-0044).
+     *
+     * A phrase is transliterated only when **every** token it is built from has
+     * a Latin form; one missing token means no transliteration, never a mixed-
+     * script string.
+     */
+    hopsTranslit?: HopLexicon;
+    genitiveTranslit?: GenitivePattern;
 }

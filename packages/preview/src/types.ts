@@ -4,6 +4,7 @@ import type {
     Query,
     QueryEnvelope,
     QueryResult,
+    ResolveResult,
 } from "./engine-wire.js";
 import type { ProjectSnapshot } from "./engine.js";
 import type { LocaleController } from "./locale.js";
@@ -83,6 +84,21 @@ export interface PreviewHandle {
      * the one place they are evaluated.
      */
     queryKin(query: Query): Promise<QueryEnvelope<QueryResult> | null>;
+    /**
+     * Every way `xId` and `yId` are related, as terminology-neutral descriptors
+     * relative to `xId` (ADR-0028). Same transport policy as
+     * {@link PreviewHandle.queryDetail}: `null` when there is nothing to ask,
+     * an error arm when the project fails its checks.
+     *
+     * The hover lens is this call's reason for existing, and it is why the
+     * engine runs in the webview at all (ADR-0034) — but the verb is on the
+     * handle rather than hidden inside the chrome, because a host with a
+     * rendered project can legitimately ask it.
+     */
+    queryResolve(
+        xId: string,
+        yId: string,
+    ): Promise<QueryEnvelope<ResolveResult> | null>;
     /**
      * The reader's language choice and everything phrased against it. Read it
      * to know which pack the chrome is phrasing in; bind an element to a

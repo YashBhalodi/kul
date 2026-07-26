@@ -246,6 +246,11 @@ function fakeEngine(
                 await behaviour.members.wait(setId);
                 return { ok: true, result: { kind: "members", members } };
             },
+            async queryResolve() {
+                // The hover lens is not what these suites drive; a tie-free
+                // answer keeps the engine double complete without adding one.
+                return { ok: true, result: { relationships: [] } };
+            },
             get isLoaded() {
                 return true;
             },
@@ -875,12 +880,16 @@ function surface(options: {
     const built = createQuerySurface({
         root,
         floatDock: stage.querySelector("#kul-region-float-dock") as HTMLElement,
+        floatLayer: stage.querySelector("#kul-region-float") as HTMLElement,
         notifyRegion: stage.querySelector("#kul-region-notify") as HTMLElement,
         adapter: { onRevealRequest: () => {} },
         async lookup(targets) {
             return { ok: true, result: targets.map(detailFor) };
         },
         runKinQuery: options.runKinQuery,
+        async resolve() {
+            return { ok: true, result: { relationships: [] } };
+        },
         locale: createLocaleController(null),
         getPanZoom: () => null,
         applySyncHighlight: () => {},

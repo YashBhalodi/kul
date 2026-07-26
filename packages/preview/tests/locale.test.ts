@@ -125,6 +125,36 @@ describe("the locale toggle", () => {
         }
     });
 
+    it("hands chrome the whole phrasing result, not only its text", () => {
+        const element = host();
+        const locale = createLocaleController(element, createMemoryLocaleStore());
+        const slot = document.createElement("span");
+        locale.bind(slot, GRANDDAUGHTER);
+
+        // English: a lexical term, no chain, and no gloss — the word is
+        // already the reading.
+        expect(slot.dataset.phraseKind).toBe("lexical");
+        expect(slot.style.getPropertyValue("--kul-phrase-hops")).toBe("0");
+        expect(slot.hasAttribute("title")).toBe(false);
+
+        locale.next();
+
+        // Gujarati: the same cell is lexical too, and now hovering it reads.
+        expect(slot.dataset.phraseKind).toBe("lexical");
+        expect(slot.title).toBe("dohitrī");
+    });
+
+    it("withdraws the gloss when the language flipped to has none", () => {
+        const locale = createLocaleController(host(), createMemoryLocaleStore());
+        const slot = document.createElement("span");
+        locale.select("gu");
+        locale.bind(slot, GRANDDAUGHTER);
+        expect(slot.title).toBe("dohitrī");
+        locale.select("en");
+        // Removed, not emptied: an empty `title` is still a tooltip.
+        expect(slot.hasAttribute("title")).toBe(false);
+    });
+
     it("stops re-phrasing an unbound element", () => {
         const locale = createLocaleController(host(), createMemoryLocaleStore());
         const slot = document.createElement("span");

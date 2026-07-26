@@ -133,6 +133,9 @@ function fakeEngine(): { engine: QueryEngine; targets: DetailTarget[][] } {
             async queryKin() {
                 return { ok: true, result: { kind: "count" as const, count: 0 } };
             },
+            async queryResolve() {
+                return { ok: true, result: { relationships: [] } };
+            },
             get isLoaded() {
                 return true;
             },
@@ -362,6 +365,7 @@ function surfaceHarness(): {
     const surface = createQuerySurface({
         root,
         floatDock: stage.querySelector("#kul-region-float-dock") as HTMLElement,
+        floatLayer: stage.querySelector("#kul-region-float") as HTMLElement,
         notifyRegion: stage.querySelector("#kul-region-notify") as HTMLElement,
         adapter: { onRevealRequest: () => {} },
         async lookup(asked) {
@@ -373,6 +377,9 @@ function surfaceHarness(): {
         },
         async runKinQuery() {
             return { ok: true, result: { kind: "count" as const, count: 0 } };
+        },
+        async resolve() {
+            return { ok: true, result: { relationships: [] } };
         },
         locale: createLocaleController(null),
         getPanZoom: () => null,

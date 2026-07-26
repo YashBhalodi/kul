@@ -183,9 +183,9 @@ lifetime:
   [#302](https://github.com/YashBhalodi/kul/issues/302)'s lens pill is an element that is *already up*
   when the reader flips language, and `bind` owns its `textContent`, its `lang`, its phrase metadata
   and its title for as long as it lives — five writes per phrase site that a draw-time caller would
-  have to replicate. It also cannot ride `refresh()`: #302 is expected to dismiss the lens on repaint,
-  so a `refresh()` widened to "redraw every phrased surface" would name a behaviour one of its
-  surfaces deliberately does not have.
+  have to replicate. It also cannot ride `refresh()`: [ADR-0044](./0044-the-hover-lens-transliteration-as-data-and-the-unspent-hue.md)
+  dismisses the lens on repaint rather than repainting it, so a `refresh()` widened to "redraw every
+  phrased surface" would name a behaviour one of its surfaces deliberately does not have.
 
 Handing the panel a `pack()` getter *only*, and leaving the controller at the mount, was the shape
 this ADR first took. It is rejected because it makes the seam express less than the rule: the lens

@@ -72,11 +72,21 @@ function okModule(): {
         manifest: Manifest;
         targets: DetailTarget[];
     }[];
+    resolveCalls: {
+        files: WasmInputFile[];
+        manifest: Manifest;
+        anchors: [string, string];
+    }[];
 } {
     const calls: {
         files: WasmInputFile[];
         manifest: Manifest;
         targets: DetailTarget[];
+    }[] = [];
+    const resolveCalls: {
+        files: WasmInputFile[];
+        manifest: Manifest;
+        anchors: [string, string];
     }[] = [];
     return {
         module: {
@@ -90,8 +100,13 @@ function okModule(): {
             queryKin() {
                 return { ok: true, result: { kind: "count", count: 0 } };
             },
+            queryResolve(files, manifest, xId, yId) {
+                resolveCalls.push({ files, manifest, anchors: [xId, yId] });
+                return { ok: true, result: { relationships: [] } };
+            },
         },
         calls,
+        resolveCalls,
     };
 }
 
@@ -102,6 +117,9 @@ function failingModule(): EngineModule {
             return failure();
         },
         queryDetail() {
+            return failure();
+        },
+        queryResolve() {
             return failure();
         },
     };
@@ -185,6 +203,24 @@ describe("a query runs end to end against the rendered project", () => {
         handle.render(SVG, second);
         await handle.queryDetail([{ kind: "person", id: "giuseppe" }]);
         expect(calls[0].files).toEqual(second.files);
+    });
+
+    it("resolves two anchors against the same project, ego first", async () => {
+        const { module, resolveCalls } = okModule();
+        const { handle } = mount(async () => module);
+        handle.render(SVG, PROJECT);
+        const envelope = await handle.queryResolve("giuseppe", "maria");
+        expect(envelope).not.toBeNull();
+        expect(isQueryOk(envelope!)).toBe(true);
+        // Ego first: the descriptors come back relative to the first anchor,
+        // which is what makes the lens read "as the selected person sees it".
+        expect(resolveCalls).toEqual([
+            {
+                files: PROJECT.files,
+                manifest: PROJECT.manifest,
+                anchors: ["giuseppe", "maria"],
+            },
+        ]);
     });
 
     it("answers null — never a stale answer — when no project has been rendered", async () => {

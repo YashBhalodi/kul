@@ -144,6 +144,37 @@ describe.each(PACKS.map((pack) => [pack.code, pack] as const))("pack %s", (_code
         expect(phrase(selfDescriptor!, pack)).toMatchObject({ kind: "lexical", hopCount: 0 });
     });
 
+    it("romanizes every record or none of them", () => {
+        // A gloss that appears on some terms and not others reads as breakage
+        // rather than as an absence, so the choice is per pack, not per record
+        // (ADR-0044). `en` opts out entirely — a Latin term has nothing to
+        // gloss; `gu` opts in for every token a phrase can be built from.
+        const romanizes = pack.entries.some((entry) => entry.translit !== undefined);
+        const supplied = {
+            entries: pack.entries.every((entry) => entry.translit !== undefined),
+            affixes: pack.affixes.every((rule) => rule.translit !== undefined),
+            hops: pack.hopsTranslit !== undefined,
+            genitive: pack.genitiveTranslit !== undefined,
+        };
+        expect(Object.values(supplied).every((ok) => ok === romanizes)).toBe(true);
+    });
+
+    it("gives one transliteration per term, wherever that term is written", () => {
+        // Two entries may legitimately yield one term (ADR-0039's *savkā*
+        // collapse); two spellings of its Latin form would make the gloss
+        // depend on which entry won.
+        const byTerm = new Map<string, Set<string>>();
+        for (const entry of pack.entries) {
+            const seen = byTerm.get(entry.term) ?? new Set<string>();
+            seen.add(entry.translit ?? "");
+            byTerm.set(entry.term, seen);
+        }
+        const split = [...byTerm.entries()]
+            .filter(([, forms]) => forms.size > 1)
+            .map(([term, forms]) => `${term}: ${[...forms].sort().join(" | ")}`);
+        expect(split).toEqual([]);
+    });
+
     it("covers every hop of the backbone in its hop lexicon", () => {
         for (const step of ["up", "down", "across"] as const) {
             for (const gender of ["male", "female", "other"] as const) {

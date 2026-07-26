@@ -9,10 +9,11 @@
 // never as an npm module specifier, so its *types* have to arrive some other
 // way. A text-checked mirror is that way.
 //
-// Two closures are mirrored: the one `queryDetail` needs (ADR-0037) and the
-// one `queryKin` needs — the `Query` value and the `QueryResult` it produces
-// (ADR-0043). The descriptor family is **not** re-declared here: the phrasing
-// layer already mirrors it (ADR-0033) and owns those words, so `Member` imports
+// Three closures are mirrored: the one `queryDetail` needs (ADR-0037), the one
+// `queryKin` needs — the `Query` value and the `QueryResult` it produces
+// (ADR-0043) — and the one `queryResolve` needs (ADR-0028). The descriptor
+// family is **not** re-declared here: the phrasing layer already mirrors it
+// (ADR-0033) and owns those words, so `Member` and `ResolveResult` import
 // `RelationshipDescriptor` from there rather than restating it. Restating it
 // would give the descriptor two provenance paths, which ADR-0024 and ADR-0034
 // both refuse.
@@ -186,6 +187,20 @@ export interface Member {
 }
 
 export type QueryResult = { kind: "members"; members: Member[] } | { kind: "personIds"; personIds: string[] } | { kind: "count"; count: number };
+
+/**
+ * Why a resolution answered with no relationship. Present **iff** the list is
+ * empty, and the distinction is the product (ADR-0028): `disconnected` means a
+ * bigger budget can never help, `noneWithinBounds` means it might. A surface
+ * that renders one word for both claims more than the engine said.
+ */
+export type EmptyReason = "disconnected" | "noneWithinBounds";
+
+/** Every way two persons are related, plus the honest reason when there are none. */
+export interface ResolveResult {
+    relationships: RelationshipDescriptor[];
+    emptyReason?: EmptyReason;
+}
 
 /**
  * True iff `envelope` is the ok arm. The shipped surface discriminates on an
