@@ -936,23 +936,39 @@ body {
     background-color: var(--kul-lens-viewpoint-color);
 }
 
-/* The pill sizes for its content from the phrasing result rather than from the
- * string: `--kul-phrase-hops` is the chain length the phrasing layer reported,
- * so a crisp one-word term gets a tight slot and a five-hop chain gets room
- * for five links — no measuring, no string-sniffing (ADR-0033, ADR-0039). */
+/* No term may paint outside the pill, whatever its length.
+ *
+ * A flex item's automatic minimum size is its min-content width, and for text
+ * that may not wrap the min-content width is the *whole string* — so a
+ * non-wrapping phrase silently refuses every `max-width` and prints straight
+ * through the border. `min-width: 0` plus wrapping is what makes the cap below
+ * actually bind, and it applies to both kinds. */
 .kul-lens-term {
-    max-width: calc(
-        var(--kul-lens-term-width) + var(--kul-phrase-hops) *
-            var(--kul-lens-term-hop-width)
-    );
-}
-
-.kul-lens-term[data-phrase-kind="lexical"] {
-    white-space: nowrap;
-}
-
-.kul-lens-term[data-phrase-kind="composed"] {
+    min-width: 0;
+    max-width: 100%;
     overflow-wrap: break-word;
+}
+
+/* Only a *composed* phrase has a length the phrasing result reports:
+ * `hopCount` counts the genitive links it spells out, so its slot takes a base
+ * plus one link's worth per hop — sized from the result, never by measuring or
+ * inspecting the text (ADR-0033, ADR-0039), and bounded by the pill above.
+ *
+ * A **lexical** term is deliberately not sized this way, and the reason is a
+ * property of the phrasing layer rather than a style preference: `hopCount` is
+ * `0` for every lexical phrase by construction, so it says nothing at all
+ * about how wide one is. *kākā* is four characters and English's *second
+ * cousin twice removed* is twenty-seven; both are lexical, both report zero
+ * hops. A lexical term therefore takes the pill's full width and wraps inside
+ * it. `tests/hover-lens.test.ts` pins both halves of that. */
+.kul-lens-term[data-phrase-kind="composed"] {
+    max-width: min(
+        100%,
+        calc(
+            var(--kul-lens-chain-width) + var(--kul-phrase-hops) *
+                var(--kul-lens-chain-hop-width)
+        )
+    );
 }
 
 /* Multi-tie stacks inline — *māmā · sasro*. Every way the engine found is
@@ -964,6 +980,6 @@ body {
 /* Honest emptiness: two answers, two wordings, and never a bare "not
  * related" for either (ADR-0028). */
 .kul-lens-empty {
+    min-width: 0;
     color: var(--kul-lens-empty-fg);
-    white-space: nowrap;
 }

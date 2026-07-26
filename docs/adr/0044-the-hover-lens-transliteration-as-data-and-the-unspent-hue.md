@@ -64,7 +64,16 @@ obvious alternative and is worse in practice: a gloss that appears on *kākā* a
 as breakage, and a reader cannot tell a missing record from a term with nothing to say. `en` opts out
 entirely — an English term is already its own reading, and a tooltip repeating the word underneath it
 is noise on every hover. `gu` opts in for all seventy entries, its one affix rule, its hop lexicon and
-its genitive, from the Latin column of [`docs/kinship-term-inventory.md`](../kinship-term-inventory.md).
+its genitive.
+
+**Where those Latin forms came from, precisely**, because "from the inventory" would be false in both
+directions. [`docs/kinship-term-inventory.md`](../kinship-term-inventory.md) supplies the romanization
+wherever it has a row for the term. It does not have one for everything the `gu` pack ships: #299 added
+entries the inventory does not list (*pote*, *jīvansāthī*, *vālī*, *santān*, *sahodar*, the *savko
+dīkro* / *savkī dīkrī* pair) and a hop lexicon it never had (*mātā* among them), and four gendered
+sibling forms are normalised to the pack's own *bahen* where the inventory writes the *ben* variant
+(*moṭī bahen*, *nānī bahen*, *pitrāī bahen*, *masiyāī bahen*). So: **the inventory's Latin column where
+it has one, extended by hand for what #299 added beyond it**, following the same conventions.
 
 Covering the **composed** forms rather than entries alone is the part worth defending, because
 entries alone would have satisfied ADR-0041's literal description. A genitive chain is precisely where
@@ -96,11 +105,19 @@ card they care about gets an answer about the card they crossed first. The trail
 the pointer stopped, which is what "settle" means.
 
 Hover is deduplicated against **the card element**, so a pointer resting on one card re-arms nothing
-and the pill appears even for a reader whose hand is not perfectly still. Deduplicating on the
-*person* id was considered and rejected for a smaller cost than it looks: a person owns a canonical
-card and any number of ghosts, and moving between two of them would keep an old anchor, leaving the
-pill docked under a card the pointer had left — which breaks the one thing the pill's position is
-carrying. The extra resolution that costs is one query, in a gesture that is rare.
+and the pill appears even for a reader whose hand is not perfectly still.
+
+Deduplicating on the *person* id was considered and rejected, and the failure it causes is narrower
+than it first looks — narrow enough to be worth stating exactly, because a vague warning invites the
+"simplification" it warns against. A person owns a canonical card and any number of ghosts, and the
+answer for two cards of one person is genuinely the same answer, so **once the pill is up**, keeping
+it is correct and re-querying is waste. The break is in the **in-flight window**: the pending timeout
+captured the card it was armed for, so a person-keyed dedupe lets the first timer survive the crossing
+and dock the pill under the card the pointer has already left. That window is 120 ms wide and it is
+where a moving pointer spends most of its time, and the failure destroys the one thing the pill's
+position carries. Re-anchoring on a person-keyed dedupe instead of re-arming would fix the symptom and
+cost a comparison per pointer move to save one query in a rare gesture; card-keyed dedupe is the same
+outcome with less machinery. `tests/hover-lens.test.ts` pins the crossing directly.
 
 The same call re-anchors a pill that is already up, so the pill stays docked while the reader drags
 the canvas underneath it.
@@ -128,16 +145,30 @@ the epic's own stance about the neighbouring surface.
 The lens adds **one** paint to the tree: the dashed sky resolution path. The hovered card keeps the
 `.kul-card:hover` stroke bump the diagram already ships and gains nothing else.
 
-PRD-0006's paint-vocabulary line lists "hover-target amber", and ADR-0036 — which is the authority on
-the token layer — allocates the only reserved amber to *can't say*, the three-valued filter verdict
-#303 is being built around. Painting a hover target with it would make one hue mean two things on one
-canvas at one time, since a filter can be active while the lens reads, and it would force #303 either
-to distinguish itself by dash pattern alone or to invent a fifth hue — the exact "invent it per slice"
-practice ADR-0038's carve-out exists to prevent.
+PRD-0006's paint-vocabulary line lists "hover-target amber". The decisive fact is simply that
+**ADR-0036 reserved four hues and none of them is a hover target**: it names them "selection violet,
+result teal, can't-say amber, resolution-path sky", `preview-themes.css` documents each in place, and
+the amber is spelled `--kul-hue-query-uncertain` — "a three-valued predicate that answered `unknown`".
+There is no fifth reserved hue and no unspent one to promote, because ADR-0036 records that
+`--vscode-charts-*` is fully spent on document meaning — three genders and three edge kinds. A
+hover-target paint would therefore have to take a hue that already means something else, which is the
+collision the whole reservation exists to prevent.
 
-There is also nothing for the paint to disambiguate. The reader's pointer is on the card; a pill is
-docked under it; the card under one's own cursor is not a thing that needs a colour to be located.
-The hues are spent where a reader cannot otherwise tell — which is what the sky path is for.
+The PRD line is a leftover rather than a decision, and its provenance is checkable. It restates #276's
+point 7, whose amber comes from **round 7, card B ("Genitive")**, where the pill floated between the
+pair and "the amber ring shows who it lands on" was that card's direction chrome. **Card A ("Docked
+tag") won**, and it disambiguates by *position* plus the violet viewpoint dot — the design this slice
+built. Point 7's vocabulary line was never rewritten afterwards. Taking a hue on the strength of an
+un-rewritten summary of a discarded card, against the ADR that allocates hues, is the wrong way round.
+
+Two supporting arguments, weaker than the one above and offered as such. **The amber has a consumer
+waiting**: #303's can't-say verdict, which would then have to distinguish itself by dash pattern alone
+or invent a fifth hue — and a filter verdict and a lens reading can be on screen together, though note
+that what the epic states explicitly is that the lens keeps reading while a *kin-set* paint is active,
+not a filter. And **there is nothing for the paint to disambiguate**: the reader's pointer is on the
+card and a pill is docked under it, so the card under one's own cursor is not a thing that needs a
+colour to be located. The hues are spent where a reader cannot otherwise tell — which is what the sky
+path is for.
 
 So `--kul-hue-query-uncertain` and `--kul-hue-query-result` stay in ADR-0038's
 `RESERVED_PENDING_CONSUMERS`, and `--kul-hue-query-path` leaves it — the converse assertion that
@@ -178,8 +209,16 @@ has not unmade, so repainting it onto the fresh SVG is restoring something that 
 [#304](https://github.com/YashBhalodi/kul/issues/304)). A lens reading is a claim about a project that
 has just been replaced, computed for a pointer position that may no longer be over anything. Re-asking
 would answer a question nobody posed against a picture the reader has not looked at yet; re-painting
-without re-asking would assert a tie nothing checked. The next pointer move re-arms it, which costs
-the reader nothing they would notice.
+without re-asking would assert a tie nothing checked. The next pointer move re-arms it.
+
+**The case that is actually felt**, named so it is read as a consequence rather than found as a bug:
+the reader is typing in the editor with the pointer resting on the tree. Each edit re-renders the
+preview, and each render takes the pill down — and because the pointer is not moving, nothing re-arms
+it. The lens stays dark until the reader moves the mouse. That is the right trade in both directions:
+a pill that survived the render would be showing a tie computed against source that no longer exists,
+and a pill that silently re-queried on every render would put a resolution on the 300 ms-debounced
+render path for a reader who is not looking at the tree at all. It is also the shape #304 will meet
+from the other side, since its rule is that an edit *ends* query mode.
 
 A selection change dismisses it for the narrower version of the same reason: the ego moved, so the tie
 on screen is about the person who *was* selected.
@@ -205,15 +244,26 @@ pill that drifted upward to stay visible would be saying "this person" about not
 - **A pack now has two readings and one source of truth for each.** Adding a language is still one
   additive module of records; the module is a little wider. ADR-0033's "zero lines of logic" survives
   — `translit` is matched by nothing and keys nothing, it only travels.
-- **`docs/kinship-term-inventory.md` has now fully graduated.** Its script column became the `gu`
-  terms in #299 and its Latin column becomes their glosses here, so no column of it is still waiting
-  to reach code; #304 deletes it with the PRD.
+- **`docs/kinship-term-inventory.md` is *not* exhausted, and #304 should know that before deleting
+  it.** Its script column became the `gu` terms in #299 and its Latin column becomes their glosses
+  here, but the pack deliberately did not take everything it lists: *bā*, *bāpuji*, *var*, *dhaṇī*,
+  *śokya*, *putravadhū*, *apar-mā*, *dattak*, *fai*, *der* and *bhāṇejo* are variants and registers
+  the pack chose one of, and they never became entries. Deleting the file discards them. That is a
+  legitimate call — a lexicon of alternates is not something a one-term-per-cell pack can hold, and
+  the epic decided the shipped pack *becomes* the record (ADR-0041) — but it is a decision, not a
+  clean-up, and this ADR states it rather than letting the deletion imply it.
 - **`--kul-hue-query-path` leaves `RESERVED_PENDING_CONSUMERS`** and `--kul-query-path-*` joins tier 2.
   Two reserved paints and the filter alpha remain: the result teal is #301's, the can't-say amber and the dim alpha are #303's.
 - **`--kul-phrase-hops` is a declared token that JS writes per element.** It is how a slot sizes for a
   five-hop chain without measuring or parsing text, and it is declared in the tier-2 layer with a
   default so the structural lint has no dangling name to report. It is not a theming knob; the value
   belongs to the phrase.
+- **It governs *composed* slots only, and that bound is load-bearing.** `hopCount` is `0` for every
+  lexical phrase by construction, so it reports nothing about a lexical term's width — and lexical
+  terms are not uniformly short: *kākā* is four characters and `en`'s *second cousin twice removed* is
+  twenty-seven. A lexical term is therefore capped by the pill and wraps inside it. Both halves are
+  under test; the overflow itself is not reachable from jsdom, which is why the assertions are on the
+  two facts rather than on a rendered box.
 - **`queryResolve` joins `PreviewHandle`** on the same transport policy as `queryDetail`, with no
   `ResolveConfig`: the default generation budget of 5 reaches through fourth cousins, a strict
   superset of every lexicalized term (ADR-0028), so the lens has nothing to tune and widening it later
@@ -252,16 +302,20 @@ pill that drifted upward to stay visible would be saying "this person" about not
 - **"Add a spinner — 32 ms is visible."** #292 measured it and said the opposite: single operations at
   13–32 ms are under the threshold where a spinner helps rather than flickers. The problem is work per
   pointer move, and a debounce is the fix for that.
-- **"Deduplicate hover on the person id — two cards of one person are one answer."** They are, and the
-  pill would stay docked under the card the pointer left, which destroys the one thing its position
-  carries. One extra query in a rare gesture is the cheaper side.
+- **"Deduplicate hover on the person id — two cards of one person are one answer."** They are, and it
+  is still wrong in the in-flight window: the pending timeout holds the card it was armed for, so a
+  crossing during the 120 ms wait docks the pill under the card the pointer left, destroying the one
+  thing its position carries. Fixing *that* needs a re-anchor on the dedupe path, which is more
+  machinery than the one query it saves in a rare gesture. A test pins the crossing.
 - **"Say 'not related' and be done."** The engine distinguishes two states on purpose and ADR-0028
   calls the distinction the product. One string discards it in one direction or the other.
 - **"Show nothing when two people are unrelated."** Then a working lens looks like a broken one, and
   the reader cannot tell "no tie" from "the lens did not fire".
-- **"Paint the hover target amber; the PRD's vocabulary says so."** The only reserved amber is
-  `--kul-hue-query-uncertain`, which #303 needs for a verdict that can be on screen at the same time.
-  There is also nothing to disambiguate — the reader's pointer is on the card.
+- **"Paint the hover target amber; the PRD's vocabulary says so."** ADR-0036 reserved four hues and
+  none of them is a hover target; the only amber is `--kul-hue-query-uncertain`, and the charts family
+  is fully spent, so there is nothing to promote. The PRD line restates #276 point 7, whose amber is
+  round 7's discarded card B. There is also nothing to disambiguate — the reader's pointer is on the
+  card.
 - **"Trace the endpoints too; the path runs from ego to alter."** It does, and both ends already carry
   a paint that says which they are. A third meaning on the two least ambiguous cards buys nothing and
   collides with the selection outline on one of them.
@@ -272,6 +326,13 @@ pill that drifted upward to stay visible would be saying "this person" about not
   and "hovering a term gives the fuller gloss" is the sentence this slice exists to satisfy.
 - **"Clamp the pill vertically so it is never off-screen."** Position *is* the direction chrome. A
   pill that has drifted off its card is a sentence about nobody.
+- **"Give a lexical term `white-space: nowrap` — a crisp term should stay on one line."** A crisp one
+  does anyway; the rule only bites on the long ones. And a flex item that may not wrap has a
+  min-content width equal to the whole string, which is its automatic minimum size, so it refuses
+  every cap and paints through the pill's border. This shipped as a blocker.
+- **"Size the lexical slot from `hopCount` with a bigger base."** There is no base that works:
+  `hopCount` is zero for every lexical phrase, so the slot is a constant, and the constant has to
+  cover *second cousin twice removed*. At that point it is the pill's width, spelled indirectly.
 - **"Add `role="tooltip"` / `aria-live` to the pill — it is announcing something."** ADR-0036 makes
   accessibility a stated non-goal for new query chrome, and partial accessibility advertises a path
   that dead-ends at the tree, where every query begins. The surviving chrome keeps everything it has.

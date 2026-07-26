@@ -191,6 +191,12 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
     let generation = 0;
     let pill: HTMLElement | null = null;
     let unbindPhrases: Array<() => void> = [];
+    // The pill's half-width, measured once when it opens. `place` runs at
+    // pointer-move frequency, and reading a second box there would be a second
+    // forced layout per move for a number that only the viewport clamp uses —
+    // and that the CSS `translateX(-50%)` does not need at all, so a re-phrase
+    // that changes the pill's width stays centred without re-measuring.
+    let pillHalfWidth = 0;
 
     function cancelPending(): void {
         if (timer !== null) {
@@ -210,6 +216,7 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
             unbind();
         }
         unbindPhrases = [];
+        pillHalfWidth = 0;
         if (pill) {
             pill.remove();
             pill = null;
@@ -226,24 +233,30 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
      * into the viewport: vertically the pill stays with its card, because
      * position is what says which person the tie is about, and a pill that
      * drifted to stay visible would be saying it about nothing.
+     *
+     * One box read per call, and the styles are only written when they change:
+     * this runs on every pointer move that keeps the pointer on the armed card,
+     * which is how the pill stays docked while the reader drags the canvas.
      */
     function place(card: Element): void {
         if (!pill || typeof card.getBoundingClientRect !== "function") {
             return;
         }
         const box = card.getBoundingClientRect();
-        pill.style.top = box.bottom + "px";
-        let left = box.left + box.width / 2;
-        const own = pill.getBoundingClientRect?.();
-        if (own && own.width > 0) {
-            const half = own.width / 2;
-            const min = half;
-            const max = window.innerWidth - half;
-            if (max > min) {
-                left = Math.min(Math.max(left, min), max);
-            }
+        const top = box.bottom + "px";
+        if (pill.style.top !== top) {
+            pill.style.top = top;
         }
-        pill.style.left = left + "px";
+        let x = box.left + box.width / 2;
+        const min = pillHalfWidth;
+        const max = window.innerWidth - pillHalfWidth;
+        if (max > min) {
+            x = Math.min(Math.max(x, min), max);
+        }
+        const left = x + "px";
+        if (pill.style.left !== left) {
+            pill.style.left = left;
+        }
     }
 
     function paintPath(relationships: ReadonlyArray<RelationshipDescriptor>): void {
@@ -309,6 +322,7 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
         pill = built.el;
         unbindPhrases = built.unbinds;
         layer.appendChild(pill);
+        pillHalfWidth = (pill.getBoundingClientRect?.().width ?? 0) / 2;
         place(card);
         paintPath(result.relationships);
     }

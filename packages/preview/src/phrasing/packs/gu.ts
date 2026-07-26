@@ -47,9 +47,25 @@ import type { LanguagePack } from "../pack.js";
  * so a reader who does not read the script yet can hover a term and read it
  * (#302). It is data like everything else here: no romanization is computed
  * from the script anywhere, and a term whose Latin form were omitted would
- * simply carry no gloss rather than an invented one (ADR-0044). Source for the
- * romanizations: `docs/kinship-term-inventory.md`, the same document the terms
- * came from.
+ * simply carry no gloss rather than an invented one (ADR-0044).
+ *
+ * **Where the Latin forms come from**, stated exactly because "from the
+ * inventory" is not true of all of them: `docs/kinship-term-inventory.md`
+ * supplies the romanization wherever it has a row for the term, and the rest is
+ * written by hand to the same conventions for what #299 added beyond it — the
+ * entries it never listed (પોતે, જીવનસાથી, વાલી, સંતાન, સહોદર, the સાવકો દીકરો /
+ * સાવકી દીકરી pair), the whole hop lexicon, and the four gendered sibling forms
+ * normalised onto this pack's *bahen* where the inventory writes the *ben*
+ * variant.
+ *
+ * One inconsistency is **reproduced deliberately**: the inventory marks the long
+ * ā in *sāsu* and *sāḷo* but not in the *savk-* family, whose સા is the same
+ * vowel. The spellings here follow the inventory rather than correcting it,
+ * because ADR-0033, ADR-0039 and ADR-0041 all discuss *savkā* in prose — a pack
+ * that spelled a term differently from the ADRs describing it would be the worse
+ * inconsistency, and the shipped pack becomes the record when the inventory is
+ * deleted. Correcting all six is a one-line data change if a native reviewer
+ * prefers it.
  *
  * Nothing keys `edgeNature`, so an adoptive mother is *mā* — *dattak* is
  * formal/legal register. Nothing keys `endedMarriage` either: Gujarati does

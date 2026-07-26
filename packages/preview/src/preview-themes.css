@@ -377,11 +377,13 @@ body {
     --kul-lens-viewpoint-color: var(--kul-hue-query-selection);
     --kul-lens-sep-fg: var(--kul-muted);
     --kul-lens-empty-fg: var(--kul-muted);
-    /* A term's slot: room for a crisp word, plus one link's worth per hop the
-     * phrasing layer said it had to spell out. Character units, because what
-     * is being sized for is text. */
-    --kul-lens-term-width: 14ch;
-    --kul-lens-term-hop-width: 10ch;
+    /* A *composed* term's slot: a base plus one link's worth per genitive hop
+     * the phrasing layer said it had to spell out. Character units, because
+     * what is being sized for is text. These govern chains only — a lexical
+     * term reports zero hops whatever its length, so it is capped by the pill
+     * instead; see the rule in `preview.css`. */
+    --kul-lens-chain-width: 14ch;
+    --kul-lens-chain-hop-width: 10ch;
     /* Written per element by `LocaleController.bind` from the phrasing
      * result's `hopCount`; declared here so the name is defined document-wide
      * and a slot that has not been phrased yet still computes. Not a theming

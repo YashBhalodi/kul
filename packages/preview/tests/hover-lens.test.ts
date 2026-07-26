@@ -8,6 +8,10 @@
 // is that a sweep coalesces into one query per settle, and that is a statement
 // about the module's seam, not about how fast a machine happens to be.
 
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("svg-pan-zoom", () => {
@@ -41,6 +45,7 @@ import {
     NOT_RELATED_DISCONNECTED,
     NOT_RELATED_WITHIN_BOUNDS,
     VIEWPOINT_TITLE,
+    emptinessWhisper,
     resolutionPathBindings,
 } from "../src/hover-lens.js";
 import type { ProjectSnapshot, QueryEngine } from "../src/engine.js";
@@ -48,16 +53,19 @@ import { createLocaleController } from "../src/locale.js";
 import { createMemoryLocaleStore } from "../src/locale-store.js";
 import { mountPreview } from "../src/mount.js";
 import type { RelationshipDescriptor } from "../src/phrasing/descriptor.js";
+import { PACKS } from "../src/phrasing/packs/index.js";
 import { createQuerySurface } from "../src/query-surface.js";
 import type { QuerySurface } from "../src/query-surface.js";
 import type { LocaleController } from "../src/locale.js";
 import type { PreviewHandle } from "../src/types.js";
 
 // Three generations plus a spouse, with the edges the lens traces: one
-// marriage, two birth edges and one adoption edge. Ghost and canonical cards
-// for `marco`, because a tie is about a person and every card of theirs binds.
+// marriage, two birth edges and one adoption edge. `marco` and `giulia` each
+// own a canonical card *and* a ghost, because a tie is about a person and every
+// card of theirs binds — which the id gate and the re-anchor rule both turn on.
 const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
     <g class="kul-card" data-person-id="giulia" data-kind="canonical" data-gender="female"><rect/></g>
+    <g class="kul-card" data-person-id="giulia" data-kind="ghost" data-gender="female"><rect/></g>
     <g class="kul-card" data-person-id="marco" data-kind="canonical" data-gender="male"><rect/></g>
     <g class="kul-card" data-person-id="marco" data-kind="ghost" data-gender="male"><rect/></g>
     <g class="kul-card" data-person-id="luca" data-kind="canonical" data-gender="male"><rect/></g>
@@ -204,6 +212,26 @@ function hover(h: Harness, id: string, kind = "canonical"): void {
     h.surface.handleCanvasHover(cardOf(h.root, id, kind).querySelector("rect"));
 }
 
+/**
+ * Give one card a definite screen box. jsdom lays nothing out, so the pill's
+ * anchoring is only observable if the cards it anchors to have boxes that
+ * differ — which is exactly what distinguishes two cards of one person.
+ */
+function stubBox(card: Element, box: { left: number; bottom: number }): void {
+    card.getBoundingClientRect = () =>
+        ({
+            left: box.left,
+            right: box.left,
+            top: box.bottom,
+            bottom: box.bottom,
+            width: 0,
+            height: 0,
+            x: box.left,
+            y: box.bottom,
+            toJSON: () => ({}),
+        }) as DOMRect;
+}
+
 /** Let the trailing edge fire and the resolution promise resolve. */
 async function settle(): Promise<void> {
     await vi.advanceTimersByTimeAsync(LENS_DEBOUNCE_MS);
@@ -272,6 +300,18 @@ describe("the lens reads only where a question was asked", () => {
         expect(pill(stage)).toBeNull();
     });
 
+    it("never resolves a *ghost* of the selected person either", async () => {
+        // The gate is on the person id, not on the card, so a selected
+        // person's ghost is as much themselves as their canonical card is.
+        const h = harness();
+        const { stage, surface, asked } = h;
+        surface.selection.select({ kind: "person", id: "giulia" });
+        hover(h, "giulia", "ghost");
+        await settle();
+        expect(asked).toEqual([]);
+        expect(pill(stage)).toBeNull();
+    });
+
     it("stays silent for an edge selection, which has no person ego", async () => {
         const h = harness();
         const { root, surface, asked } = h;
@@ -326,6 +366,30 @@ describe("a fast sweep costs one query, not one per pixel", () => {
 
         await settle();
         expect(asked).toEqual([["giulia", "luca"]]);
+    });
+
+    it("re-arms when the pointer crosses to another card of the same person", async () => {
+        // The dedupe key is the **card**, not the person id. The pending
+        // timeout captured the card it was armed for, so a person-keyed dedupe
+        // would let the first timer survive the crossing and dock the pill
+        // under the canonical card the pointer had already left. Only the
+        // in-flight window is affected — which is precisely the window a
+        // 120 ms debounce spends most of its life in.
+        const h = harness();
+        const { stage, surface } = h;
+        answer = { relationships: [uncleOf("giulia", "marco")] };
+        stubBox(cardOf(h.root, "marco", "canonical"), { left: 100, bottom: 60 });
+        stubBox(cardOf(h.root, "marco", "ghost"), { left: 300, bottom: 200 });
+        surface.selection.select({ kind: "person", id: "giulia" });
+
+        hover(h, "marco", "canonical");
+        await vi.advanceTimersByTimeAsync(LENS_DEBOUNCE_MS / 2);
+        hover(h, "marco", "ghost");
+        await settle();
+
+        const el = pill(stage) as HTMLElement;
+        expect(el.style.top).toBe("200px");
+        expect(el.style.left).toBe("300px");
     });
 
     it("asks again only once the pointer settles somewhere new", async () => {
@@ -452,6 +516,76 @@ describe("the pill whispers every tie, in the reader's language", () => {
     });
 });
 
+describe("the pill contains every phrase it can be handed", () => {
+    // jsdom resolves neither custom-property substitution nor layout, so the
+    // overflow itself is not reachable from this stack — the same limit
+    // `tokens.test.ts` records. What *is* reachable is the pair of facts the
+    // sizing model rests on: one about the phrasing result, one about the
+    // stylesheet. Both are asserted, because getting either wrong is what put
+    // 145px of English through an 85px box.
+    const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
+    const appSheet = readFileSync(join(SRC, "preview.css"), "utf8");
+
+    /** Every rule body whose selector mentions the lens, comments stripped. */
+    const lensRules = [
+        ...appSheet
+            .replace(/\/\*[\s\S]*?\*\//g, "")
+            .matchAll(/(\.kul-lens[^{]*)\{([^}]*)\}/g),
+    ].map((m) => ({ selector: m[1].trim(), body: m[2] }));
+
+    it("has lexical terms far too long for a hop-derived slot", () => {
+        // `hopCount` is `0` for every lexical phrase by construction, so it
+        // reports nothing about how wide one is — and lexical terms are not
+        // uniformly short. *kākā* is four characters; English lexicalizes
+        // *second cousin twice removed*. A slot sized from the hop count
+        // therefore cannot govern a lexical term, whatever base it starts from.
+        const longest = PACKS.flatMap((pack) => pack.entries)
+            .map((entry) => entry.term)
+            .reduce((a, b) => (b.length > a.length ? b : a));
+        expect(longest.length).toBeGreaterThan(20);
+        expect(PACKS.length).toBeGreaterThan(0);
+    });
+
+    it("lets every phrase wrap inside the pill instead of pinning it to a line", () => {
+        // A flex item's automatic minimum size is its min-content width, and
+        // for text that may not wrap that is the *whole string* — so a
+        // `white-space: nowrap` phrase silently refuses every `max-width` and
+        // paints through the pill's border. `min-width: 0` is what makes a cap
+        // bind at all.
+        expect(lensRules.length).toBeGreaterThan(0);
+        for (const rule of lensRules) {
+            expect(`${rule.selector} { ${rule.body} }`).not.toMatch(
+                /white-space:\s*nowrap/,
+            );
+        }
+        const relaxed = lensRules
+            .filter((rule) => /min-width:\s*0/.test(rule.body))
+            .map((rule) => rule.selector);
+        expect(relaxed).toContain(".kul-lens-term");
+        expect(relaxed).toContain(".kul-lens-empty");
+    });
+
+    it("caps a term by the pill, and only scales a slot for a composed chain", () => {
+        const term = lensRules.find((rule) => rule.selector === ".kul-lens-term");
+        const composed = lensRules.find((rule) =>
+            rule.selector.includes('data-phrase-kind="composed"'),
+        );
+        // The unqualified rule governs both kinds, so its cap is the pill.
+        expect(term?.body).toMatch(/max-width:\s*100%/);
+        expect(term?.body).not.toMatch(/--kul-phrase-hops/);
+        // The hop count widens a chain's slot and nothing else's, still bounded
+        // by the pill — which is the whole of "size from the result, never from
+        // the string" that survives contact with a 27-character lexical term.
+        expect(composed?.body).toMatch(/--kul-phrase-hops/);
+        expect(composed?.body).toMatch(/min\(\s*100%/);
+        expect(
+            lensRules.some((rule) =>
+                rule.selector.includes('data-phrase-kind="lexical"'),
+            ),
+        ).toBe(false);
+    });
+});
+
 describe("emptiness stays two answers, never one", () => {
     it("whispers the bounded form when the engine ran out of budget", async () => {
         const h = harness();
@@ -472,6 +606,32 @@ describe("emptiness stays two answers, never one", () => {
         await settle();
         expect(pill(stage)?.textContent).toBe(NOT_RELATED_DISCONNECTED);
         expect(NOT_RELATED_DISCONNECTED).not.toBe(NOT_RELATED_WITHIN_BOUNDS);
+    });
+
+    it("falls through to the bounded wording when no reason arrived", () => {
+        // The engine sets a reason iff the list is empty, so this cannot occur
+        // — but the fallthrough has a *direction*, and only one of the two is
+        // safe. Claiming "no connection" for an answer that merely ran out of
+        // budget asserts more than the engine did, which is the exact failure
+        // the `disconnected` / `noneWithinBounds` split exists to prevent
+        // (ADR-0028). `kul query rel`'s human output falls the same way.
+        expect(emptinessWhisper({ relationships: [] })).toBe(
+            NOT_RELATED_WITHIN_BOUNDS,
+        );
+    });
+
+    it("whispers nothing at all when there is a tie to show", () => {
+        expect(
+            emptinessWhisper({ relationships: [uncleOf("giulia", "marco")] }),
+        ).toBeNull();
+        // A reason alongside relationships is not the engine's shape, and the
+        // relationships still win: the pill shows terms, never both.
+        expect(
+            emptinessWhisper({
+                relationships: [uncleOf("giulia", "marco")],
+                emptyReason: "disconnected",
+            }),
+        ).toBeNull();
     });
 
     it("shows no viewpoint dot and no terms when there is no tie", async () => {
