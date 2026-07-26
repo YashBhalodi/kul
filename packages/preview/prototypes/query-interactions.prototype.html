@@ -12,14 +12,18 @@
   PROTOTYPE — THROWAWAY. Wayfinder map #275.
   Rounds 1–9.2 answered #276 (resolved): single on-tree selection →
   fixed right-edge details widget → flat kin-set list → hover lens.
-  ROUND 10 answers #277: the ATTRIBUTE-FILTER UX. Three variants,
+  ROUND 10 answered #277: the ATTRIBUTE-FILTER UX. Three variants,
   switchable via ?variant=1|2|3, the bottom bar, or ← → keys:
-    1 — Widget stack : predicate rows inside the details widget;
-                       non-matching people DIMMED
-    2 — Filter bar   : a chip sentence in stage chrome above the tree;
-                       non-matching people HIDDEN
+    1 — Widget stack : predicate rows inside the details widget
+    2 — Filter bar   : a chip sentence in stage chrome above the tree
     3 — Facet rail   : click attribute values (no operators);
-                       tree UNTOUCHED + a results list
+                       tree untouched + a results list
+
+  ROUND 11 (final): variant 2 WINS — the filter bar. Its round-10 tree
+  stance does not: non-matching people are DIMMED, never hidden.
+  Filtering is a reading of the canonical tree, not an edit of it, so
+  no node and no edge is ever removed by a filter. Variants 1 and 3
+  stay in the file as the rejected alternatives they are.
   The kinship engine below is a mock good only for examples/05.
   The FILTER engine, by contrast, mirrors crates/kul-core/src/query/
   filter.rs faithfully: 9 predicates, three-valued Bool3, interval
@@ -284,7 +288,7 @@
 
 <div id="proto-root" class="v1">
   <div class="proto-head">
-    <span class="proto-badge" id="protoBadge">PROTOTYPE · ROUND 10 · FILTER UX</span>
+    <span class="proto-badge" id="protoBadge">PROTOTYPE · ROUND 11 · FILTER UX</span>
     <span class="proto-title">Attribute filtering on the canonical tree <span>— #277 · three variants</span></span>
     <span class="spacer"></span>
     <span class="sim-wrap">
@@ -991,16 +995,15 @@ svg {
         if (GHOSTS[id]) addClass(id, "q-maybe-ghost", "ghost");
       });
     }
+    /* DECIDED (round 11): non-matching people are **dimmed**, never hidden.
+       Filtering must never remove a node or an edge from the canonical tree —
+       a filter is a reading of the tree, not an edit of it. Round 10's
+       hide stance is gone; `q-hide` survives in PAINT only so any stale
+       mark still gets cleared. */
     var shown = res.yes.concat((F.mode === "includeUncertain" || F.revealUncertain) ? res.maybe : []);
-    if (VARIANT === "1") {                                    // stance A: dim the rest
-      allCards().forEach(function (c) {
-        if (shown.indexOf(c.getAttribute("data-person-id")) < 0) c.classList.add("q-dim");
-      });
-    } else {                                                  // stance B: hide the rest
-      allCards().forEach(function (c) {
-        if (shown.indexOf(c.getAttribute("data-person-id")) < 0) c.classList.add("q-hide");
-      });
-    }
+    allCards().forEach(function (c) {
+      if (shown.indexOf(c.getAttribute("data-person-id")) < 0) c.classList.add("q-dim");
+    });
     /* the ? mark rides every card the data can't judge */
     if (F.mode === "includeUncertain" || F.revealUncertain) {
       res.maybe.forEach(function (id) {
@@ -1240,8 +1243,8 @@ svg {
       (F.mode === "certain" ? "certain" : "certain + can’t say") + " ▾</span>" +
       '<span class="fbar-tally"><span class="num">' + res.shown.length + " of " + res.cands.length + "</span>";
     if (res.preds.length) {
-      var hidden = res.cands.length - res.shown.length;
-      html += '<span class="hidden-note">' + hidden + " hidden" +
+      var dimmed = res.cands.length - res.shown.length;
+      html += '<span class="hidden-note">' + dimmed + " dimmed" +
         (F.mode === "certain" && res.maybe.length ? " · " + res.maybe.length + " can’t say" : "") +
         ' · <u data-clear="1">clear</u></span>';
     }
@@ -1598,9 +1601,9 @@ svg {
     var res = runFilter();
     var tally = bar.querySelector(".fbar-tally");
     if (!tally) return;
-    var hidden = res.cands.length - res.shown.length;
+    var dimmed = res.cands.length - res.shown.length;
     tally.innerHTML = '<span class="num">' + res.shown.length + " of " + res.cands.length + "</span>" +
-      (res.preds.length ? '<span class="hidden-note">' + hidden + " hidden" +
+      (res.preds.length ? '<span class="hidden-note">' + dimmed + " dimmed" +
         (F.mode === "certain" && res.maybe.length ? " · " + res.maybe.length + " can’t say" : "") +
         ' · <u data-clear="1">clear</u></span>' : "");
   }
@@ -1655,9 +1658,9 @@ svg {
 
   /* =============== variants + chrome =============== */
   var VARIANTS = [
-    { key: "1", name: "Widget stack", sub: "predicate rows in the details widget · non-matches DIMMED" },
-    { key: "2", name: "Filter bar", sub: "a chip sentence above the tree · non-matches HIDDEN" },
-    { key: "3", name: "Facet rail", sub: "click values, no operators · tree UNTOUCHED + results list" }
+    { key: "1", name: "Widget stack", sub: "rejected — predicate rows in the details widget" },
+    { key: "2", name: "Filter bar ✓ DECIDED", sub: "a chip sentence above the tree · non-matches dimmed" },
+    { key: "3", name: "Facet rail", sub: "rejected — click values, no operators, tree untouched" }
   ];
   var EXPLAIN = {
     "1": [["Where it lives", "Inside the <b>right-edge details widget</b> — the surface #276 designated as growable. The widget now stands even with nobody selected (“Everyone · 10 people”)."],
@@ -1667,7 +1670,7 @@ svg {
     "2": [["Where it lives", "<b>Stage chrome</b>, above the tree — independent of selection, always visible, reads left-to-right as a sentence."],
           ["Input shape", "A <b>chip sentence</b>: <i>Showing Everyone where family = Rossi and born &lt; 1950</i>. Each chip opens a small editor; <b>+</b> picks a field. The <b>and</b> keywords are literal text."],
           ["Certainty", "A <b>chip inside the sentence</b> (“certain” / “certain + can’t say”) — the third truth value is part of the query, not a view option."],
-          ["The tree", "Non-matches are <b>hidden outright</b> — watch the holes it punches in the canonical layout, and the edges that now lead nowhere."]],
+          ["The tree", "Non-matches are <b>dimmed, never hidden</b> — filtering is a reading of the canonical tree, not an edit of it, so no node and no edge ever leaves. (Round 10 hid them; the holes and the edges running into empty space settled it.)"]],
     "3": [["Where it lives", "A <b>left facet rail</b>, mirroring the right-edge widget — browse, don’t build."],
           ["Input shape", "<b>No operators at all.</b> Click values; counts are faceted and live. Multi-select inside a text facet becomes <b>∈</b> (the engine’s one any-of); date ranges stay <b>single-select</b>, because two ranges would need OR. The plain-words <i>where</i> line shows what you built."],
           ["Certainty", "Every facet carries a <b>“not recorded”</b> row (the <i>absent</i> predicate) and a <b>?n</b> superscript counting who can’t be judged. Excluded people are named with reasons, not silently dropped."],
@@ -1682,7 +1685,7 @@ svg {
     VARIANT = v;
     root.className = "v" + v;
     var meta = VARIANTS.filter(function (x) { return x.key === v; })[0];
-    document.getElementById("protoBadge").textContent = "PROTOTYPE · ROUND 10 · VARIANT " + v;
+    document.getElementById("protoBadge").textContent = (v === "2" ? "PROTOTYPE · ROUND 11 · DECIDED" : "PROTOTYPE · ROUND 10 · REJECTED " + v);
     document.getElementById("exSummary").innerHTML = "Variant " + v + " — <b>" + meta.name + "</b>";
     document.getElementById("exBody").innerHTML = "<dl>" + EXPLAIN[v].map(function (r) {
       return "<dt>" + r[0] + "</dt><dd>" + r[1] + "</dd>";
