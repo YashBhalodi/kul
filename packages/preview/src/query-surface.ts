@@ -190,9 +190,10 @@ export interface QuerySurface {
      *
      * **Why a render is the trigger.** The rule is about *edits*, and a render
      * is how an edit reaches the webview: the preview re-renders from
-     * `onDidChangeTextDocument`, debounced at 300 ms. Two other render paths
-     * exist and neither can surprise a reader — see ADR-0046, which checked
-     * them rather than trusting the claim.
+     * `onDidChangeTextDocument`, debounced at 300 ms. Three other render paths
+     * exist and none of them can surprise a reader — two cannot reach live
+     * query state at all, and the third is a command the reader ran by name.
+     * See ADR-0046, which checked them rather than trusting the claim.
      *
      * **The accepted cost** is that a one-character typo fix costs the reader
      * their selection, their painted kin set and their filter. Refetching the

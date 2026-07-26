@@ -39,7 +39,7 @@ choice unless it is written down.
 
 ## Decision
 
-### Three render paths exist; one is an edit, and neither of the others can surprise a reader
+### Four render paths exist; one is an edit, and none of the other three can surprise a reader
 
 The claim was checked rather than trusted, and it is **not literally true**. `refreshPreview` — the
 only producer of a `render` message — has four callers in `extension.ts`:
@@ -62,6 +62,14 @@ a violation.
 The fourth row is a reader **invoking a command by name**. *Kul: Show Preview* re-rendering the
 preview is the gesture's whole meaning; a reader who runs it is not surprised that the picture is
 rebuilt.
+
+It is the one row with a cost worth naming, and it is accepted rather than unnoticed: on the same
+document with the panel already visible, the reader may be running the command only to focus the
+preview, the picture does not change — and query mode ends anyway, silently, because the boundary
+keys on the render and not on whether the SVG differs. Diffing the two SVGs to decide would make the
+rule depend on a string comparison the reader cannot see, which is a worse property than the one it
+fixes. The honest mitigation is that the command is the coarsest instrument in the preview's
+vocabulary and the reader reached for it deliberately.
 
 **So the rule stands, and its justification is narrower than ADR-0035's phrasing.** The honest
 statement is not "renders only ever come from document changes" but **"every render that can reach
@@ -107,8 +115,12 @@ sentence instead, which is the only way a reader can, and one suite goes with it
 render's re-ask that a chip edit has already superseded"* tested a race that no longer exists. The
 generation guard it shared is still held by the suite beside it.
 
-`FilterBar.reset()` absorbs the docstring: three callers — Esc, the reader clearing the last chip,
-and a render — with **one** meaning between them.
+`FilterBar.reset()` absorbs the docstring, and the docstring says what is true: **one** production
+call site, `QuerySurface.clearFilter`, which both ways out of query mode route through. Removing the
+last condition chip is deliberately not routed through it and does not mean the same thing —
+`removeCondition` commits a state that keeps the reader's scope and certainty chips, while `reset`
+restores `EMPTY_FILTER`. A sentence with no conditions left is still the reader's sentence; an ended
+query mode is not.
 
 ### Deleting the term inventory discards sixteen register variants, and here they are
 
@@ -163,8 +175,9 @@ carries the vocabulary. Nothing further is lifted.
   cost — querying and authoring are separate activities, and no query artefact outlives the source
   it was computed from.
 - **Sync is self-completing.** Both suspension reasons lift inside the boundary, so the held
-  editor-sync highlight replays with no gesture. That is the whole content of PRD story 31, and it
-  falls out of the reason set rather than needing a rule of its own.
+  editor-sync highlight replays with no gesture. That is the whole content of
+  [#296](https://github.com/YashBhalodi/kul/issues/296) story 31, and it falls out of the reason set
+  rather than needing a rule of its own.
 - **The Explore-kin list's open/closed state survives**, exactly as it does on Esc and on a canvas
   click. Ending query mode is not a reset of the preview: the list is a property of the reader
   (ADR-0043) and the panel it lives in is gone anyway, so the next selection opens straight back
@@ -174,7 +187,7 @@ carries the vocabulary. Nothing further is lifted.
   comments and five preview test comments; each is repointed at the ADR, the issue or the
   `CONTEXT.md` entry that now carries the claim. Where the pointer was to the *epic's* restatement
   of something #276 or #277 decided, it now names the ticket that decided it — which is a better
-  citation than the PRD ever was, since the PRD only ever summarised them.
+  citation than PRD-0006 ever was, since it only ever summarised them.
 - **`docs/prd/` is left holding only its `README.md`**, which is the lifecycle itself and not a PRD.
   That is the directory's steady state between epics, and `AGENTS.md` needs no change.
 - **The `gu` pack is now the sole record of Gujarati kinship terminology in this repo**, with this
@@ -234,9 +247,13 @@ Three things the inventory lists that are **not** in this table, because the pac
 - ***savkā*** as a prefix (§8) — expressed as six explicit entries rather than a rule, because
   Gujarati conflates `affinity: step` with `sharing: half` under it and a rule cannot key two
   dimensions onto one form.
-- ***māmā-no dīkro* / *foī-no dīkro*** (§5) — deliberately left to the genitive fallback, because a
-  chain *is* the actual usage on those two cousin lines. Writing a coarse `cousinDegree: 1` entry
-  would have swallowed all four lines into *bhāī*.
+- **The *māmā* and *foī* cousin lines** (§5) — deliberately left to the genitive fallback, because a
+  chain *is* the actual usage there. Writing a coarse `cousinDegree: 1` entry would have swallowed
+  all four lines into *bhāī*. The pack does **not** reproduce the inventory's spelling of them: it
+  composes *māmā-no putra* / *foī-no putra* where §5 wrote *māmā-no dīkro*, because
+  [ADR-0041](./0041-the-gu-pack-and-the-locale-toggle.md) put the hop lexicon in the formal register
+  for oblique-invariance and took the fidelity cost on these two rows knowingly. Recorded here so the
+  divergence survives the file that would otherwise have shown it.
 
 One narrower loss, recorded for completeness: §7 lists *vahu* (વહુ) as a variant for "wife" as well
 as for "son's wife". The **word** is in the pack; that second **sense** is not, and *patnī* is the

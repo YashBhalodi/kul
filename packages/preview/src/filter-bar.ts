@@ -135,13 +135,18 @@ export interface FilterBar {
      * Drop the filter entirely: sentence, paint, dim, can't-say exemption and
      * sync suspension. Synchronous and idempotent.
      *
-     * **The bar's only exit, and it has three callers with one meaning
-     * between them**: Esc, the reader clearing the last chip, and a render —
-     * which is an edit, and an edit ends query mode (ADR-0046). There is
+     * **The bar's only exit**, and it has exactly one production call site —
+     * `QuerySurface.clearFilter` — which both ways out of query mode route
+     * through: Esc, and a render, which is an edit (ADR-0046). There is
      * deliberately no post-render *re-ask*: a filter never outlives the source
      * it was computed against, so re-evaluating against a new project snapshot
-     * is a question nobody asked. `QuerySurface.clearFilter` is how the
-     * composition reaches this.
+     * is a question nobody asked.
+     *
+     * Removing the last condition chip is **not** this and must not be
+     * confused with it: `removeCondition` commits a state that keeps the
+     * reader's scope and certainty chips, while this restores `EMPTY_FILTER`.
+     * A sentence with no conditions left is still the reader's sentence; an
+     * ended query mode is not.
      */
     reset(): void;
     dispose(): void;
