@@ -1,0 +1,60 @@
+---
+source: crates/kul-core/tests/detail.rs
+expression: "detail_json(&check, &[DetailTarget::person(\"mateo\")])"
+---
+{
+  "ok": true,
+  "result": [
+    {
+      "kind": "person",
+      "person": {
+        "id": "mateo",
+        "name": "Mateo Mendoza",
+        "gender": "male",
+        "born": {
+          "value": "2003-05-10",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      "parents": [
+        {
+          "person": {
+            "id": "carlos",
+            "name": "Carlos Mendoza",
+            "gender": "male",
+            "born": {
+              "value": "1973-02-18",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "link": {
+            "marriageId": "m_carlos_rosa",
+            "childId": "mateo",
+            "kind": "biological"
+          }
+        },
+        {
+          "person": {
+            "id": "rosa",
+            "name": "Rosa Mendoza",
+            "gender": "female",
+            "born": {
+              "value": "1975-09-24",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "link": {
+            "marriageId": "m_carlos_rosa",
+            "childId": "mateo",
+            "kind": "biological"
+          }
+        }
+      ],
+      "marriages": [],
+      "children": []
+    }
+  ]
+}

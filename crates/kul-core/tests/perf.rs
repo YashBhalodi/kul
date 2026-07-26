@@ -32,11 +32,11 @@ use std::time::{Duration, Instant};
 
 use kul_core::ast::InputFile;
 use kul_core::manifest::Manifest;
-use kul_core::query::{PersonField, SortDirection};
 use kul_core::query::{
-    Predicate, Query, ResolveConfig, SortSpec, ancestors_of, cousins_of, descendants_of, resolve,
-    run_query,
+    DetailTarget, Predicate, Query, ResolveConfig, SortSpec, ancestors_of, cousins_of,
+    descendants_of, details, resolve, run_query,
 };
+use kul_core::query::{PersonField, SortDirection};
 
 /// The landmark ids `generate_corpus` pins so the budget operations run at
 /// realistic depths — a deep leaf, a fertile root, a mid-tree person, an
@@ -420,6 +420,11 @@ fn ten_thousand_person_query_operations_under_budget() {
         measure("person(id) lookup", || {
             usize::from(kul_core::query::person(resolved, &marks.detail).is_some())
         }),
+        measure("detail(40 targets)", || {
+            // One batched detail lookup the size of a plausible kin list: the
+            // whole widget's data for one selection (ADR-0035).
+            details(resolved, &person_targets(&check, 40)).len()
+        }),
     ];
 
     // Real target 50 ms; the ceiling sits ~5× that so CI/debug variance never
@@ -435,5 +440,75 @@ fn ten_thousand_person_query_operations_under_budget() {
     assert!(
         worst < ceiling,
         "a query operation exceeded the interactive budget: worst {worst:?} >= ceiling {ceiling:?}"
+    );
+}
+
+/// The first `n` declared persons as person detail targets. Declaration order
+/// on the breadth-first corpus means these are early-generation persons with
+/// real neighbourhoods (spouses and children), not childless leaves.
+fn person_targets(check: &kul_core::CheckResult, n: usize) -> Vec<DetailTarget> {
+    check
+        .resolved()
+        .persons()
+        .take(n)
+        .map(|p| DetailTarget::person(p.id.name.as_str()))
+        .collect()
+}
+
+/// Time one full stateless detail call — check the project, then answer
+/// `targets` — the way a consumer pays for it. Best of three, matching the
+/// floors-not-p95s convention of `docs/query-path-measurements.md`.
+fn time_stateless_detail(inputs: &[InputFile], targets: &[DetailTarget]) -> Duration {
+    (0..3)
+        .map(|_| {
+            let start = Instant::now();
+            let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), inputs);
+            let answers = details(check.resolved(), targets);
+            let elapsed = start.elapsed();
+            assert_eq!(answers.len(), targets.len(), "one answer per target");
+            elapsed
+        })
+        .min()
+        .expect("three samples")
+}
+
+/// The batched detail lookup's cost is **flat in the number of targets** —
+/// the property the whole detail surface rests on (ADR-0035, ADR-0037).
+///
+/// Both timings are of the whole stateless call, check included, because that
+/// is what a consumer pays: the WASM surface takes files and re-checks every
+/// time, and the check is the dominant cost
+/// (`docs/query-path-measurements.md`, Findings 3 and 5). The claim under test
+/// is that forty targets ride on the one check rather than each paying their
+/// own — the difference between ≈13 ms and ≈545 ms at the 10k ceiling.
+#[test]
+fn batched_detail_cost_is_flat_in_the_number_of_targets() {
+    let (source, _marks) = generate_corpus();
+    let inputs = vec![InputFile::new("large.kul", source.as_str())];
+    let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
+    assert!(
+        check.diagnostics.is_empty(),
+        "generated fixture must validate cleanly"
+    );
+
+    let many = person_targets(&check, 40);
+    let one = many[..1].to_vec();
+    drop(check);
+
+    let t_one = time_stateless_detail(&inputs, &one);
+    let t_many = time_stateless_detail(&inputs, &many);
+    let ratio = t_many.as_secs_f64() / t_one.as_secs_f64();
+    eprintln!(
+        "batched detail flatness: 1 target {t_one:>10.2?}, 40 targets {t_many:>10.2?} ({ratio:.2}×)"
+    );
+
+    // Real target: 1.0× — the lookups are free, the check is everything. The
+    // ceiling sits at 2× so runner variance never flakes the gate, while every
+    // way of losing the property trips it: a per-target check would be ~40×,
+    // and rebuilding the per-invocation adjacency per target would be several×.
+    assert!(
+        ratio < 2.0,
+        "batched detail lost its flatness in N: 40 targets cost {ratio:.2}× one target \
+         ({t_many:?} vs {t_one:?})"
     );
 }

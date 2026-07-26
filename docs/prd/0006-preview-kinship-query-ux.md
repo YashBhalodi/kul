@@ -102,6 +102,7 @@ Per **[ADR-0035](../adr/0035-detail-surface-one-selection-one-batched-lookup.md)
 - **This is forced, not preferred.** `queryMarriage` returns `ExportedMarriage` with no children, and no parenthood-link operation exists at all, so [ADR-0024](../adr/0024-query-seam-and-envelope.md)'s pinned surface cannot answer the marriage panel. The alternative was reading the panel off SVG `data-*` attributes, rejected twice on provenance.
 - **Batched rather than fine-grained, on measurement.** Composing `queryPerson` + three `queryKin` calls costs ≈63 ms at the 10k ceiling, over [ADR-0029](../adr/0029-query-engine-performance-posture.md)'s 50 ms budget for one click. One batched call is **flat at ≈13 ms** regardless of N: a 20-row kin list goes 276 ms → 13 ms, and list size stops mattering.
 - **This puts a `kul-wasm` change, a version bump and a release inside the epic.** The detail panel cannot ship before it does.
+- **The operation is `queryDetail`**, shaped by **[ADR-0037](../adr/0037-batched-detail-lookup-shape.md)**: a list of targets in — `{kind:"person", id}`, `{kind:"marriage", id}`, or `{kind:"adoption", childId, marriageId}` — and a list of `EntityDetail` unions out, in the order asked, `null` in the position of a target that names no entity. `kul query` deliberately gains no matching verb (an adoption pair and a mixed batch have no CLI spelling that isn't CLI-only semantics).
 
 ### Result ↔ node identity
 

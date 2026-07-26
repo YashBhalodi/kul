@@ -23,6 +23,13 @@
 //! an *input anchor* to a relationship question rather than the subject of
 //! the question.)
 //!
+//! [`detail_lookup`] is the **batched** member of the same family: one
+//! check, any number of [`DetailTarget`]s, each answered with the entity's
+//! own fields *plus* its relational neighbourhood. It exists because the
+//! single-entity lookups cannot answer a detail panel and because composing
+//! them re-pays the check per call (ADR-0035, ADR-0037); [`EntityDetail`]
+//! carries the shape.
+//!
 //! The [`QueryEnvelope`] type is the adapter-facing contract: the WASM and
 //! CLI surfaces both wrap a lookup in it, gated on the project passing
 //! checks (strict-on-errors, ADR-0009). Single-sourcing the envelope here
@@ -41,6 +48,7 @@ use crate::export::{
 use crate::semantic::ResolvedDocument;
 
 mod descriptor;
+mod detail;
 mod engine;
 mod filter;
 mod junction;
@@ -52,6 +60,7 @@ pub use descriptor::{
     Affinity, Classification, EdgeNature, Gender, HopEdge, LinealRole, MarriageStatus, PathHop,
     RelationshipDescriptor, Seniority, Sharing, Side,
 };
+pub use detail::{DetailTarget, EntityDetail, LinkedPerson, MarriageTie, details};
 pub use engine::{KinMember, QueryEvalError, evaluate, resolve, run_query};
 pub use filter::{FilterMode, PersonField, Predicate, SortDirection, SortSpec};
 pub use pattern::{
@@ -93,6 +102,11 @@ pub type PersonLookupResult = Option<ExportedPerson>;
 /// Payload of a marriage lookup: the marriage in the export shape, or
 /// `null` when the id names no marriage.
 pub type MarriageLookupResult = Option<ExportedMarriage>;
+
+/// Payload of a [batched detail lookup](detail_lookup): one entry per
+/// requested [`DetailTarget`], in the order asked — the entity's detail, or
+/// `null` when that target names no entity.
+pub type DetailLookupResult = Vec<Option<EntityDetail>>;
 
 /// Adapter-facing result of a query operation. Mirrors the existing
 /// check/export/render surface: an untagged union discriminated by an `ok`
@@ -188,6 +202,36 @@ pub fn marriage_lookup(check: &CheckResult, id: &str) -> QueryEnvelope<MarriageL
     QueryEnvelope::Ok(QueryOk {
         ok: true,
         result: marriage(check.resolved(), id),
+    })
+}
+
+/// Answer a batch of [`DetailTarget`]s and wrap the answer in a
+/// [`QueryEnvelope`], gated on the project passing its checks
+/// (strict-on-errors, ADR-0009). The single source of the batched-detail
+/// contract serialization the WASM `queryDetail` surface returns.
+///
+/// **One call, one check, any number of targets.** Every target is answered
+/// off the same checked project, so the batch's cost is flat in the number of
+/// targets — the property the detail surface rests on (ADR-0035, ADR-0037).
+///
+/// Two outcomes, both non-throwing:
+/// - project failed its checks → the error arm carries the check diagnostics;
+/// - otherwise → the ok arm carries one entry per target, in the order asked,
+///   `null` where a target names no entity (absence is the answer).
+#[must_use]
+pub fn detail_lookup(
+    check: &CheckResult,
+    targets: &[DetailTarget],
+) -> QueryEnvelope<DetailLookupResult> {
+    if check.has_errors() {
+        return QueryEnvelope::Error(QueryError {
+            ok: false,
+            diagnostics: export_diagnostics(check),
+        });
+    }
+    QueryEnvelope::Ok(QueryOk {
+        ok: true,
+        result: details(check.resolved(), targets),
     })
 }
 

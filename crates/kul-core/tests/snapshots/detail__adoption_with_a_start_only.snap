@@ -1,0 +1,54 @@
+---
+source: crates/kul-core/tests/detail.rs
+expression: "detail_json(&check, &[DetailTarget::adoption(\"bayani\", \"m_carlos_rosa\")])"
+---
+{
+  "ok": true,
+  "result": [
+    {
+      "kind": "adoption",
+      "adoption": {
+        "marriageId": "m_carlos_rosa",
+        "childId": "bayani",
+        "kind": "adoptive",
+        "start": {
+          "value": "2007-06-01",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      "child": {
+        "id": "bayani",
+        "name": "Bayani Mendoza",
+        "gender": "other",
+        "born": {
+          "value": "1995",
+          "precision": "year",
+          "circa": true
+        }
+      },
+      "parents": [
+        {
+          "id": "carlos",
+          "name": "Carlos Mendoza",
+          "gender": "male",
+          "born": {
+            "value": "1973-02-18",
+            "precision": "day",
+            "circa": false
+          }
+        },
+        {
+          "id": "rosa",
+          "name": "Rosa Mendoza",
+          "gender": "female",
+          "born": {
+            "value": "1975-09-24",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      ]
+    }
+  ]
+}

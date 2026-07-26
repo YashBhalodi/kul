@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
 use crate::CheckResult;
-use crate::ast::{Document, MarriageStmt, PersonStmt};
+use crate::ast::{AdoptionSub, BirthSub, Document, MarriageStmt, PersonStmt};
 use crate::date::DateLit;
 use crate::diagnostic::{Diagnostic, Severity};
 use crate::semantic::ResolvedDocument;
@@ -343,27 +343,50 @@ fn build_parenthood_links(
     let mut out: Vec<ExportedParenthoodLink> = Vec::with_capacity(capacity);
     for p in resolved.persons() {
         if let Some(birth) = &p.birth {
-            out.push(ExportedParenthoodLink {
-                marriage_id: birth.marriage_ref.name.clone(),
-                child_id: p.id.name.clone(),
-                kind: ParenthoodLinkKind::Biological,
-                start: None,
-                end: None,
-                span: span_if(options, birth.span),
-            });
+            out.push(build_one_birth_link(p, birth, options));
         }
         for adoption in &p.adoptions {
-            out.push(ExportedParenthoodLink {
-                marriage_id: adoption.marriage_ref.name.clone(),
-                child_id: p.id.name.clone(),
-                kind: ParenthoodLinkKind::Adoptive,
-                start: adoption.start().map(exported_date),
-                end: adoption.end().map(exported_date),
-                span: span_if(options, adoption.span),
-            });
+            out.push(build_one_adoption_link(p, adoption, options));
         }
     }
     out
+}
+
+/// Build the [`ExportedParenthoodLink`] for `child`'s `birth` sub-statement.
+/// The single source of a biological link's serialized shape: the graph
+/// export loop and the `query` module's batched detail lookup both call this,
+/// so the two can never drift (same discipline as [`build_one_person`]).
+pub(crate) fn build_one_birth_link(
+    child: &PersonStmt,
+    birth: &BirthSub,
+    options: &ExportOptions,
+) -> ExportedParenthoodLink {
+    ExportedParenthoodLink {
+        marriage_id: birth.marriage_ref.name.clone(),
+        child_id: child.id.name.clone(),
+        kind: ParenthoodLinkKind::Biological,
+        start: None,
+        end: None,
+        span: span_if(options, birth.span),
+    }
+}
+
+/// Build the [`ExportedParenthoodLink`] for one of `child`'s `adoption`
+/// sub-statements. Adoptive counterpart to [`build_one_birth_link`]; carries
+/// the adoption's own `start:` / `end:` dates.
+pub(crate) fn build_one_adoption_link(
+    child: &PersonStmt,
+    adoption: &AdoptionSub,
+    options: &ExportOptions,
+) -> ExportedParenthoodLink {
+    ExportedParenthoodLink {
+        marriage_id: adoption.marriage_ref.name.clone(),
+        child_id: child.id.name.clone(),
+        kind: ParenthoodLinkKind::Adoptive,
+        start: adoption.start().map(exported_date),
+        end: adoption.end().map(exported_date),
+        span: span_if(options, adoption.span),
+    }
 }
 
 /// Build one [`ExportedPerson`] from a resolved [`PersonStmt`]. The single

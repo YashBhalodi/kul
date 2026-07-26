@@ -1,0 +1,59 @@
+---
+source: crates/kul-core/tests/detail.rs
+expression: "detail_json(&check, &[DetailTarget::adoption(\"dalisay\", \"m_tomas_elena\")])"
+---
+{
+  "ok": true,
+  "result": [
+    {
+      "kind": "adoption",
+      "adoption": {
+        "marriageId": "m_tomas_elena",
+        "childId": "dalisay",
+        "kind": "adoptive",
+        "start": {
+          "value": "1994-04-20",
+          "precision": "day",
+          "circa": false
+        },
+        "end": {
+          "value": "1999-02-10",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      "child": {
+        "id": "dalisay",
+        "name": "Dalisay Mendoza",
+        "gender": "female",
+        "born": {
+          "value": "1990-08-03",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      "parents": [
+        {
+          "id": "tomas",
+          "name": "Tomas Garcia",
+          "gender": "male",
+          "born": {
+            "value": "1958-06-25",
+            "precision": "day",
+            "circa": false
+          }
+        },
+        {
+          "id": "elena",
+          "name": "Elena Garcia",
+          "gender": "female",
+          "born": {
+            "value": "1960-10-14",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      ]
+    }
+  ]
+}
