@@ -73,6 +73,13 @@ export const FILTER_BAR_ID = "kul-filter-bar";
 /** How the scope chip's default entry reads. */
 export const EVERYONE_LABEL = "Everyone";
 
+/**
+ * This whisper's variant class on its docked tag. Like the lens's `kul-lens`
+ * it carries no rules of its own — the chrome is `.kul-docked-tag`'s — and
+ * exists so the two things that dock a tag into one layer stay tellable apart.
+ */
+export const FILTER_REASON_CLASS = "kul-filter-reason-tag";
+
 /** Which chip an open editor belongs to. `number` indexes the conditions. */
 type EditorKey = number | "scope" | "mode";
 
@@ -316,6 +323,7 @@ export function createFilterBar(options: FilterBarOptions): FilterBar {
             layer: floatLayer,
             anchor: card,
             content: [element("span", "kul-filter-reason", reason)],
+            variant: FILTER_REASON_CLASS,
         });
     }
 

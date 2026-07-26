@@ -122,7 +122,12 @@ export {
     paintFilterResults,
     uncertainPersonAt,
 } from "./filter-paint.js";
-export { EVERYONE_LABEL, FILTER_BAR_ID, createFilterBar } from "./filter-bar.js";
+export {
+    EVERYONE_LABEL,
+    FILTER_BAR_ID,
+    FILTER_REASON_CLASS,
+    createFilterBar,
+} from "./filter-bar.js";
 export type { FilterBar, FilterBarOptions } from "./filter-bar.js";
 
 // The selection seam (ADR-0035, ADR-0042) — one selection over three entity

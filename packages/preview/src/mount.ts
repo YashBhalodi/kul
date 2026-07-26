@@ -283,11 +283,12 @@ export function mountPreview(
             panZoom.pan(savedPan);
         }
         // The SVG every piece of query paint was on has just been replaced.
-        // This is the *only* post-render hook query chrome gets, so a slice
-        // that paints (kin results, the filter dim) repaints from inside it
-        // rather than bolting a second call in here. Whether a render should
-        // instead *end* query mode is #304's decision, and
-        // `querySurface.clearSelection()` is the part it composes that from.
+        // This is the *only* post-render hook query chrome gets, so everything
+        // that paints — the selection, the kin results, the filter — repaints
+        // from inside it rather than bolting a second call in here. Whether a
+        // render should instead *end* query mode is #304's decision, and
+        // `clearSelection()` plus `clearFilter()` are the parts it composes
+        // that from.
         querySurface.repaintQueryChrome();
         hasRender = true;
         reconcileControlsVisibility();

@@ -16,8 +16,12 @@
 //     exists to prevent (PRD-0006 story 23).
 //   - **dimmed** — answered `false`. The shared dim, and no colour of its own.
 //
-// The dim is published to the shared registry rather than applied here, so the
-// class keeps one owner and one alpha whatever else is painting (ADR-0043).
+// The dim class is never touched here: this publishes a set of person ids and
+// asks the registry to recompute, so the class keeps one owner and one alpha
+// whatever else is painting (ADR-0043). The set is *republished* on every
+// paint rather than left standing, which is that module's rule for a source
+// whose ids are derived from the cards the picture holds — a swapped-out SVG
+// can change who is in it.
 // The match glow is this module's **own** class rather than kin paint's: the
 // two co-exist whenever a filter runs inside a painted kin set, and two owners
 // stripping one class is precisely the failure the dim registry exists to

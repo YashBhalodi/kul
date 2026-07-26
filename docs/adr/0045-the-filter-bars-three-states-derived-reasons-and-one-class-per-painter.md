@@ -190,11 +190,13 @@ selection are independent — either can exist without the other.
   chip a second entry; dropping it takes the chip back to `Everyone`. A host that supplies no flow
   region gets no filter bar at all, and one that paints no kin sets gets a chip with one entry and a
   note saying why.
-- **The last reserved hue is spent, and the carve-out is closed.** `--kul-hue-query-uncertain` leaves
-  `RESERVED_PENDING_CONSUMERS`, which is now empty. ADR-0038's converse assertion — a reserved token
-  that gains a consumer must leave the list — fires for the fourth and final time, and the ledger it
-  asked the lint to keep has nothing left to track. A name added back is a claim that a *new*
-  reservation was decided, which is an ADR-0036 amendment rather than a slice's business.
+- **The last reserved name is spent, and the carve-out is closed.** All five names ADR-0036 reserved
+  now have consumers — the selection violet (#300), the result teal and the dim alpha (#301), the
+  resolution-path sky (#302), and the can't-say amber here — so `RESERVED_PENDING_CONSUMERS` is
+  empty and the ledger ADR-0038 asked the lint to keep has nothing left to track. Its converse
+  assertion, which forces a reserved token out of the list the day it gains a consumer, is what
+  emptied it. A name added back is a claim that a *new* reservation was decided, which is an
+  ADR-0036 amendment rather than a slice's business.
 - **Nothing in this slice touches `crates/`.** `runQuery` has been on the WASM surface since
   PRD-0005 and its wire types were mirrored by #301; only the verb on `QueryEngine`, the
   `PreviewHandle` and the mount's existing shared transport policy are new.
