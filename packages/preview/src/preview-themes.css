@@ -98,8 +98,11 @@ body {
     --kul-preview-padding: var(--kul-space-6);
     --kul-region-overlay-inset: var(--kul-space-5);
     /* Clear air between stacked overlay panels — their borders and shadows
-     * would otherwise read as one stroke. */
-    --kul-region-overlay-gap: var(--kul-space-3);
+     * would otherwise read as one stroke. 4px is not a free choice: it is
+     * exactly the air the shipped hand-computed inset produced
+     * (`calc(12px + 28px + 14px)` against a 38px-tall control cluster
+     * sitting at 12px), and this slice promises pixel-identity. */
+    --kul-region-overlay-gap: var(--kul-space-2);
     --kul-region-overlay-z: 10;
     --kul-region-float-z: 20;
     --kul-region-notify-inset: var(--kul-space-5);

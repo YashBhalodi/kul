@@ -1,4 +1,4 @@
-# ADR 0037 — The tier-1 register's real size, the overlay stack, and the lint's reserved carve-out
+# ADR 0038 — The tier-1 register's real size, the overlay stack, and the lint's reserved carve-out
 
 **Status:** Accepted
 **Date:** 2026-07-26
@@ -45,14 +45,31 @@ value the eight cannot reproduce: **`--kul-on-raised`** (`icon.foreground` is a 
 `editor.foreground` in Light+ and Dark+), and **`--kul-hover`** / **`--kul-active`** (the toolbar's
 two interaction states — the eight roles name no state colour at all).
 
-Two collapses were taken deliberately, and they are the only value changes in the rebuild. The whole
-`editorHoverWidget-*` family folds onto `raised` / `on-surface` / `border`, which is a no-op under
-VSCode's own colour registry — it defaults each hover-widget colour to its `editorWidget` sibling —
-and diverges only for a theme that overrides the hover widget *alone*. `editorHoverWidget-statusBarBackground`,
-the tooltip's separator, has no such default and genuinely shifts to `--kul-border`. Both land on
-`tooltip.ts`, which #300 deletes. Separately, `--kul-card-stroke` — the un-gendered card fallback —
-becomes `--kul-on-surface` instead of tracking the male hue; R03 makes gender required, so it paints
-no card in the preview and no swatch in the baked legend.
+Four value changes were taken deliberately, and they are the only ones in the rebuild. Three land on
+the `editorHoverWidget-*` family, which folds onto `raised` / `on-surface` / `border`:
+
+- **`background` and `border` are true no-ops.** VSCode's colour registry defaults each to its
+  `editorWidget` sibling, which is what those two tier-1 roles already bridge to. They diverge only
+  for a theme that overrides the hover widget *alone*.
+- **`foreground` genuinely shifts.** It defaults to `editorWidget.foreground`, which defaults to the
+  *workbench* `foreground` — not to `editor.foreground`, which is what `--kul-on-surface` carries.
+  The two differ in the stock themes (Dark+ `#CCCCCC` vs `#D4D4D4`; Light+ `#616161` vs `#000000`),
+  so the tooltip's text colour moves under Light+ and Dark+, not merely under an override.
+- **`statusBarBackground` — the tooltip's separator — shifts to `--kul-border`.** It *does* carry a
+  registry default (a lightened/darkened hover background, or `editorWidget.background` in
+  high-contrast); that default is simply not reproducible from the eight roles.
+
+All three land on `tooltip.ts`, which #300 deletes, which is why they are accepted rather than
+chased. The fourth is `--kul-card-stroke` — the un-gendered card fallback — becoming
+`--kul-on-surface` instead of tracking the male hue. R03 makes `gender:` a required field, so no
+diagram card can reach the fallback; the one un-gendered card in the emitted SVG is the legend's
+ghost swatch, and the more specific `[data-kind="ghost"]` rule paints that. Unobservable on both
+surfaces.
+
+One fallback *chain* also shortened without changing any rendered value:
+`--kul-jump-target-glow-color` loses its `--vscode-charts-blue` middle rung, because the
+`--vscode-focusBorder` ahead of it is a registry base colour with a non-null default for all four
+theme kinds and is therefore always injected. The rung was dead.
 
 The load-bearing property ADR-0036 was reaching for is **that the register does not grow per
 feature**, and that survives intact: chrome growth lands in tier 2, which costs a theme nothing. A
@@ -70,7 +87,10 @@ appended.
 The overlay, float and notify regions are viewport-fixed layers rather than stage-relative boxes.
 This preserves today's geometry to the pixel (the chrome has always been `position: fixed` outside
 the body's padding) while leaving the flow region free to take the filter bar without moving
-anything.
+anything. The stack's gap is 4px rather than a rounder step for exactly that reason: it is the air
+the shipped `calc(12px + 28px + 14px)` produced against a 38px control cluster, and a 6px gap would
+have moved the legend and error popover up two pixels — a small drift, but the kind this slice
+exists to make impossible rather than to introduce.
 
 Three of the five regions ship empty. Declaring them empty is the point: a later slice joins one by
 appending an element, not by inventing an inset. The hover tooltip moves into the float region on the
