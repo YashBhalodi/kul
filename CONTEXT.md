@@ -369,6 +369,22 @@ The two layers of the preview's `--kul-*` custom properties ([ADR-0036](./docs/a
 
 How the preview stage assigns space to chrome ([ADR-0036](./docs/adr/0036-two-tier-theming-and-the-accessibility-non-goal.md), mechanism in [ADR-0038](./docs/adr/0038-tier-1-register-overlay-stack-and-the-reserved-carve-out.md)). The stage declares five **regions** — `flow` (persistent chrome in the document flow), `canvas` (the diagram surface), `overlay` (a bottom-left stack: pan/zoom controls, error popover, legend), `float` (entity-anchored floats positioned against a screen box) and `notify` (transient notifications) — and every piece of chrome belongs to exactly one. The region owns placement and stacking; the chrome inside it declares neither. Two widgets therefore cannot be pinned to one inset by two independent rules, which is what makes overlap unrepresentable rather than merely fixed. Joining a region is appending an element.
 
+### Query transport
+
+How a query gets from the preview to the engine ([ADR-0034](./docs/adr/0034-query-transport-and-result-node-identity.md)). The answer is **a local function call, not a request**: the engine runs *inside* the webview, `kul-lsp` gains no `kul/query` method, and no query crosses the webview→extension→LSP boundary. That is what makes a zero-click hover lens viable. Its two costs are recorded rather than hidden — the webview CSP gains `'wasm-unsafe-eval'` in `script-src` plus a `connect-src` allowance (never the broad `'unsafe-eval'`), and every call re-checks the project because the WASM surface is stateless. Implemented in `packages/preview/src/engine.ts`.
+
+### Engine source
+
+The pair of URIs — the `wasm-pack --target web` glue module and its `.wasm` — that tells the webview where the host put the [query transport](#query-transport)'s engine ([ADR-0040](./docs/adr/0040-engine-provenance-a-build-asset-not-a-registry-dependency.md)). The engine is a **build asset, not an npm dependency**: `just wasm` produces `crates/kul-wasm/pkg-web/`, the extension stages it into `media/preview/wasm/` at package time, and the HTML shell stamps the two resulting URIs onto the mount point. `@kullang/preview` therefore receives a URL rather than importing a host-specific module, and its wire types are mirrored by hand from the committed `crates/kul-wasm/types/kul_wasm.d.ts` under a text conformance test. The module is fetched on the **first query** and never at preview-open.
+
+### Project snapshot
+
+The `{files, manifest}` value the host posts with every render so the webview has something to query. Because every WASM query operation is stateless — it takes `files + manifest` and re-checks — the source the webview queries has to *travel with the picture it came from* ([ADR-0034](./docs/adr/0034-query-transport-and-result-node-identity.md)). The VSCode host collects it per render from the project directory (flat, `*.kul` only, lexicographic — the same discovery rule as [`kul-loader`](#kulfile)), preferring an open editor buffer over the file on disk so the queried text is the rendered text. Collected in `editor/vscode/src/project-snapshot.ts`.
+
+### Result binding
+
+Which nodes in the rendered SVG an engine answer paints ([ADR-0034](./docs/adr/0034-query-transport-and-result-node-identity.md)). A result is about a **person, not a card**: `data-person-id` selects the canonical card *and every ghost*, and they light together, so an answer is never invisible in the past family whose edges its [ghost slot](#ghost-slot) anchors. Edges bind from what the [relationship descriptor](#relationship-descriptor) already carries — an `across` hop names its marriage (`data-link-kind="marriage"` plus `data-marriage-id`), a vertical hop names the child it lands on (birth *and* adoption edges with that `data-child-id`, because [path identity](#path-identity) does not collapse two ties). **Ghost cards stay individually unaddressable**; no decided interaction distinguishes one ghost from another. Implemented in `packages/preview/src/result-binding.ts`.
+
 ## When this glossary is incomplete
 
 If you're naming a concept that isn't here:
