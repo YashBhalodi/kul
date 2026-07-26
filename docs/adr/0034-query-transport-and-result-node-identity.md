@@ -43,6 +43,8 @@ The LSP renders the SVG; the bundled WASM answers the queries. Both are thin ada
 
 ### Detail is engine-backed per entity; the kin list hydrates eagerly
 
+> **Superseded by [ADR-0035](./0035-detail-surface-one-selection-one-batched-lookup.md) (#281)** — on #292's measurements, the per-entity shape is replaced by the **batched detail operation** named as the first out below. Engine-backed detail is unchanged; only its granularity is. The eager kin list survives, served by the same batched call.
+
 Person and marriage details come from `queryPerson` / `queryMarriage` — one call per entity, on demand — so the detail surface flows through ADR-0024's pinned envelope and its single-sourced export shapes. A field added to `ExportedPerson` reaches the panel without anyone touching the SVG attribute vocabulary. The kin list fetches **every row on open**, so the panel opens fully populated with no per-row loading states.
 
 **This is the most expensive combination available here, and the cost is recorded rather than discovered.** Per-entity lookups against a stateless surface means an N-row list is N re-checks — roughly a quarter-second at the 10k ceiling for a 20-row list, native, before any WASM multiplier, and paid on every selection. Two cheap outs exist and neither needs a new decision, only a measurement:
@@ -80,7 +82,7 @@ Running WASM under the preview's `default-src 'none'; style-src …; script-src 
 - **`kul-lsp` is untouched by this epic's query work.** Its five custom methods stay as they are; the preview's query path does not widen the LSP contract.
 - **The preview package gains a runtime dependency on `@kullang/wasm`** and a lazy module loader, and the extension gains a wire message carrying `files + manifest`. `@kullang/preview` is host-agnostic chrome today; the WASM dependency is the first thing in it that is not.
 - **Phrasing gets what ADR-0033 needs for free.** Descriptors never cross a wire, so the backbone constraint that ADR decision placed on this one is satisfied by construction.
-- **A re-render no longer destroys query state.** Query results live in the webview rather than arriving with each render, so an SVG swap repaints from state the chrome already holds — which is what makes [#276](https://github.com/YashBhalodi/kul/issues/276)'s sync-suspension and [#277](https://github.com/YashBhalodi/kul/issues/277)'s filter paint survivable across live edits.
+- ~~**A re-render no longer destroys query state.**~~ **Reversed by [ADR-0035](./0035-detail-surface-one-selection-one-batched-lookup.md) (#281):** a render means a document change, and an edit now deliberately clears selection, panel, kin paint and filter alike — querying and authoring are separate modes. The transport property still holds (query state does live in the webview); the epic simply chose not to preserve it across edits.
 - **Two measurements are owed to [#282](https://github.com/YashBhalodi/kul/issues/282)** before it can scope loading affordances: the WASM multiplier, and the eager kin-list fetch. The map's **Not yet specified** entry on latency affordances can now be judged, since the transport is known.
 - **The per-call re-check is the epic's main latency lever.** If it bites, the ordered fixes are: batch the detail lookups, take list labels off the cards, then add a stateful WASM handle. None requires revisiting this ADR.
 
