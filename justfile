@@ -8,8 +8,15 @@ check: fmt-check lint test check-ts
 # Run the TypeScript workspace gates (Vitest in packages/preview and
 # editor/vscode) — the same suites .github/workflows/vscode-extension.yml
 # runs per PR. Requires Node 22 and a prior `npm ci` at the repo root.
+#
+# The extension build runs too, and is not redundant with the tests: Vitest
+# resolves `packages/preview/src`, while the extension bundles `dist`. Only
+# the bundle catches a module that never reached `dist` — the failure mode a
+# `src/` subdirectory introduces, invisible to every test.
 check-ts:
     npm test --workspaces --if-present
+    npm run build:preview --workspace kul
+    npm run bundle --workspace kul
 
 # Run the full test suite via cargo-nextest.
 test:
