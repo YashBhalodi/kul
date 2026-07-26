@@ -21,8 +21,9 @@ What none of them settled is the part that turns out to decide the shape of the 
    thirteen named sugars and a `Query` value; the WASM surface exposes only the value.
 2. **Where does a count come from?** [#301](https://github.com/YashBhalodi/kul/issues/301) requires the
    engine's `count` projection rather than a client-side length. The engine answers one Query per
-   call, and [#292](../query-path-measurements.md) Finding 4 says that *any eager list of four or more
-   rows misses ADR-0029's 50 ms budget at the 10,000-person ceiling.* Those two facts pull in
+   call, and [#292](https://github.com/YashBhalodi/kul/issues/292) measured that *any eager list of four
+   or more rows misses ADR-0029's 50 ms budget at the 10,000-person ceiling*
+   ([ADR-0034](./0034-query-transport-and-result-node-identity.md)'s measured note). Those two facts pull in
    opposite directions and something has to give.
 3. **What is phrased?** #301 requires row labels that re-phrase on the locale toggle, and says the
    phrasing comes from data already in hand. A kin *set* is not a relationship, so it has no

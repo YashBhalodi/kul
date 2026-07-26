@@ -71,8 +71,9 @@ is noise on every hover. `gu` opts in for all seventy entries, its one affix rul
 its genitive.
 
 **Where those Latin forms came from, precisely**, because "from the inventory" would be false in both
-directions. [`docs/kinship-term-inventory.md`](../kinship-term-inventory.md) supplies the romanization
-wherever it has a row for the term. It does not have one for everything the `gu` pack ships: #299 added
+directions. The term inventory ([#278](https://github.com/YashBhalodi/kul/issues/278), a transient
+research asset since retired — see [ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md))
+supplied the romanization wherever it had a row for the term. It does not have one for everything the `gu` pack ships: #299 added
 entries the inventory does not list (*pote*, *jīvansāthī*, *vālī*, *santān*, *sahodar*, the *savko
 dīkro* / *savkī dīkrī* pair), four of the nine hop nouns (*mātā*, *vālī*, *santān*, *jīvansāthī* — the
 other five, *pitā*, *putra*, *putrī*, *pati* and *patnī*, are in it verbatim), and four gendered
@@ -316,14 +317,18 @@ tag stays findable once something else docks one.
 - **A pack now has two readings and one source of truth for each.** Adding a language is still one
   additive module of records; the module is a little wider. ADR-0033's "zero lines of logic" survives
   — `translit` is matched by nothing and keys nothing, it only travels.
-- **`docs/kinship-term-inventory.md` is *not* exhausted, and #304 should know that before deleting
-  it.** Its script column became the `gu` terms in #299 and its Latin column becomes their glosses
-  here, but the pack deliberately did not take everything it lists: *bā*, *mummy*, *bāpuji*, *var*,
-  *dhaṇī*, *śokya*, *putravadhū*, *apar-mā*, *dattak*, *fai*, *der* and *bhāṇejo* are variants and
-  registers the pack chose one of, and they never became entries. Deleting the file discards them. That is a
+- **The term inventory is *not* exhausted, and #304 should know that before deleting it.** Its
+  script column became the `gu` terms in #299 and its Latin column becomes their glosses here, but
+  the pack deliberately did not take everything it lists: *bā*, *mummy*, *bāpuji*, *var*, *dhaṇī*,
+  *śokya*, *putravadhū*, *apar-mā*, *dattak*, *fai*, *der* and *bhāṇejo* are variants and registers
+  the pack chose one of, and they never became entries. Deleting the file discards them. That is a
   legitimate call — a lexicon of alternates is not something a one-term-per-cell pack can hold, and
   the epic decided the shipped pack *becomes* the record (ADR-0041) — but it is a decision, not a
   clean-up, and this ADR states it rather than letting the deletion imply it.
+  **[ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md)
+  made the call and carries the list of record**: it verified all twelve above against the pack,
+  found four more (*nānā-bāpā*, *nānī-mā*, *moṭā kākā*, *ben*), and lifted the sixteen into an
+  appendix with the term each one lost to.
 - **`--kul-hue-query-path` leaves `RESERVED_PENDING_CONSUMERS`** and `--kul-query-path-*` joins tier 2.
   **One** reserved name remains — the can't-say amber, #303's. Everything else ADR-0036 reserved has
   been spent: the selection violet by #300, the result teal and the filter alpha by #301, the sky

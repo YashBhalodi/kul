@@ -457,7 +457,8 @@ fn person_targets(check: &kul_core::CheckResult, n: usize) -> Vec<DetailTarget> 
 
 /// Time one full stateless detail call — check the project, then answer
 /// `targets` — the way a consumer pays for it. Best of three, matching the
-/// floors-not-p95s convention of `docs/query-path-measurements.md`.
+/// floors-not-p95s convention every query-path figure in ADR-0034 was
+/// measured under.
 fn time_stateless_detail(inputs: &[InputFile], targets: &[DetailTarget]) -> Duration {
     (0..3)
         .map(|_| {
@@ -477,10 +478,10 @@ fn time_stateless_detail(inputs: &[InputFile], targets: &[DetailTarget]) -> Dura
 ///
 /// Both timings are of the whole stateless call, check included, because that
 /// is what a consumer pays: the WASM surface takes files and re-checks every
-/// time, and the check is the dominant cost
-/// (`docs/query-path-measurements.md`, Findings 3 and 5). The claim under test
-/// is that forty targets ride on the one check rather than each paying their
-/// own — the difference between ≈13 ms and ≈545 ms at the 10k ceiling.
+/// time, and the check is the dominant cost — 42–100% of every operation, at
+/// ≈1.35 µs per declared person (ADR-0034's measured note). The claim under
+/// test is that forty targets ride on the one check rather than each paying
+/// their own — the difference between ≈13 ms and ≈545 ms at the 10k ceiling.
 #[test]
 fn batched_detail_cost_is_flat_in_the_number_of_targets() {
     let (source, _marks) = generate_corpus();

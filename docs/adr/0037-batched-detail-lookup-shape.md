@@ -12,8 +12,8 @@ one batched engine call, and why: the pinned [ADR-0024](./0024-query-seam-and-en
 cannot answer a marriage panel (`ExportedMarriage` has no children, and no parenthood-link operation
 exists at all), and composing `queryPerson` with three `queryKin` calls costs ≈63 ms at the 10k
 ceiling because every stateless call re-pays the ≈13 ms check
-([#292](https://github.com/YashBhalodi/kul/issues/292),
-[`query-path-measurements.md`](../query-path-measurements.md)). It did **not** decide the
+([#292](https://github.com/YashBhalodi/kul/issues/292); the figures are in
+[ADR-0034](./0034-query-transport-and-result-node-identity.md)'s measured note). It did **not** decide the
 operation's shape. This ADR does, as the implementation slice
 ([#306](https://github.com/YashBhalodi/kul/issues/306)).
 
