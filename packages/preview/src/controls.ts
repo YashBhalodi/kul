@@ -49,9 +49,26 @@ export interface KeyboardPanZoom {
 const PAN_SPEED = 12;
 
 /**
+ * Text-entry hosts whose keystrokes belong to the field, not to the canvas.
+ * `closest` covers a keystroke that surfaces from a descendant of an editable
+ * host rather than from the host itself.
+ */
+const TEXT_ENTRY_SELECTOR =
+    'input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]';
+
+function isTextEntry(target: EventTarget | null): boolean {
+    const el = target as Element | null;
+    return typeof el?.closest === "function" && el.closest(TEXT_ENTRY_SELECTOR) !== null;
+}
+
+/**
  * Held arrows drive a rAF loop instead of one-shot per keydown, avoiding OS
  * key-repeat stutter. Modifier (ctrl/meta/alt) bails without preventDefault so
  * VSCode shortcuts like Cmd+0 still pass through. blur clears the held set.
+ *
+ * Keys bind on `window`, so a keystroke originating in a text field would
+ * otherwise pan the canvas and swallow its own character. The target guard
+ * keeps arrows and `+` / `-` / `0` out of any editable host.
  *
  * Returns a teardown that removes the listeners — the consumer rarely needs
  * it because pan/zoom is window-scoped, but `dispose()` calls it for hygiene.
@@ -86,6 +103,9 @@ export function mountKeyboardPan(getPanZoom: () => KeyboardPanZoom | null): () =
     }
     function onKeyDown(event: KeyboardEvent): void {
         if (event.ctrlKey || event.metaKey || event.altKey) {
+            return;
+        }
+        if (isTextEntry(event.target)) {
             return;
         }
         const pz = getPanZoom();
