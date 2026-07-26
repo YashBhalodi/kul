@@ -46,8 +46,16 @@ export const LEGEND_HTML = `<div id="kul-legend" class="kul-preview-legend" role
  * pushes the ones above it up instead of landing on top of them.
  *
  * The locale toggle joins the **flow** region, which is what ADR-0038 said
- * later chrome would do: append an element, never invent an inset. `float`
- * and `notify` stay declared and empty.
+ * later chrome would do: append an element, never invent an inset. The details
+ * panel joined the float region and the sync hint the notify region the same
+ * way; none of the three ships empty any more.
+ *
+ * The float region carries **two placements**, because its members do not all
+ * want the same one (ADR-0042). Edge-docked chrome — the details panel — joins
+ * the `float-dock` slot, which owns the edge and the inset. Entity-anchored
+ * chrome, positioned by JS against a card's screen box, is appended to the
+ * region itself and is unaffected by the dock. Both are declared here so a
+ * later slice picks one rather than inventing an inset.
  */
 export const PREVIEW_BODY_HTML = `<div class="kul-stage">
 <div id="kul-region-flow" class="kul-region-flow">${LOCALE_TOGGLE_HTML}</div>
@@ -57,7 +65,7 @@ ${CONTROLS_HTML}
 ${ERROR_POPOVER_HTML}
 ${LEGEND_HTML}
 </div>
-<div id="kul-region-float" class="kul-region-float"></div>
+<div id="kul-region-float" class="kul-region-float"><div id="kul-region-float-dock" class="kul-region-float-dock"></div></div>
 <div id="kul-region-notify" class="kul-region-notify"></div>
 </div>`;
 

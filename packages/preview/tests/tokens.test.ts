@@ -32,7 +32,6 @@ const appSheet = readSheet("preview.css");
  * rule that forced `--kul-tooltip-*` out with `tooltip.ts` (#300).
  */
 const RESERVED_PENDING_CONSUMERS = [
-    "--kul-hue-query-selection",
     "--kul-hue-query-result",
     "--kul-hue-query-uncertain",
     "--kul-hue-query-path",
@@ -42,11 +41,17 @@ const RESERVED_PENDING_CONSUMERS = [
 /**
  * Tier-1 tokens whose values are literal hues rather than palette bridges,
  * each documented in place in the theme sheet. This is the *whole* list of
- * places a raw colour may appear in the preview.
+ * places a raw colour may appear in the preview. It is spelled out rather than
+ * derived from the list above, because a reserved hue leaves that list the day
+ * it gains a consumer — the query selection violet did so in #300 — while
+ * staying a literal forever.
  */
 const RESERVED_HUES = [
     "--kul-hue-sync-selection",
-    ...RESERVED_PENDING_CONSUMERS.filter((name) => name !== "--kul-dim-alpha"),
+    "--kul-hue-query-selection",
+    "--kul-hue-query-result",
+    "--kul-hue-query-uncertain",
+    "--kul-hue-query-path",
 ];
 
 /**

@@ -78,10 +78,31 @@ body {
     pointer-events: none;
 }
 
+/* The float layer. `pointer-events: none` keeps the canvas draggable
+ * everywhere a float is not. Entity-anchored members — chrome positioned by
+ * JS against a card's screen box — are appended here directly and set their
+ * own fixed left/top after measuring; they are the case ADR-0038 named. */
 .kul-region-float {
     position: fixed;
     inset: 0;
     z-index: var(--kul-region-float-z);
+    pointer-events: none;
+}
+
+/* The float layer's second placement: a dock for members that hug a stage
+ * edge rather than an entity (ADR-0042). The dock — never the chrome inside
+ * it — decides which edge and how far in, so the details panel can move
+ * without a widget rule changing, and an anchored float above is unaffected
+ * either way. Filling the layer rather than pinning to a corner is what keeps
+ * this from being one more inset to get wrong. */
+.kul-region-float-dock {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--kul-region-float-dock-gap);
+    padding: var(--kul-region-float-dock-inset);
     pointer-events: none;
 }
 
@@ -479,6 +500,185 @@ body {
 .kul-edge[data-link-kind="marriage"].kul-selected {
     outline: var(--kul-selected-outline-width) solid var(--kul-selected-outline-color);
     outline-offset: var(--kul-selected-outline-offset);
+}
+
+/* Query selection (ADR-0035 / ADR-0036): the entity a query is anchored on,
+ * in the reserved violet. An outline rather than a stroke, so the card keeps
+ * its gender tint and the marriage bar its colour. A person lights their
+ * canonical card and every ghost; an adoption lights its own edge only.
+ *
+ * This paint and the magenta sync outline above never co-paint. A selection
+ * registers a sync suspension, and entering suspension strips whatever sync
+ * outline was already on screen rather than merely refusing the next one —
+ * the editor cursor is usually on some entity when the reader clicks
+ * (#276 point 9, ADR-0042). */
+.kul-card.kul-query-selected > rect,
+.kul-edge.kul-query-selected {
+    outline: var(--kul-query-selection-outline-width) solid
+        var(--kul-query-selection-outline-color);
+    outline-offset: var(--kul-query-selection-outline-offset);
+}
+
+/* The details panel — a float-region member (ADR-0038). It declares no
+ * position, no inset and no z-index: the region owns all three, so the panel
+ * cannot collide with other chrome by arithmetic. It overlays the canvas and
+ * never reflows it (ADR-0036); the accepted cost is that an opening panel can
+ * cover a card, which is why pan-to-centre targets the visible region.
+ *
+ * ADR-0036 makes accessibility a stated non-goal for new query chrome: no
+ * `role`, no `aria-*`, no `:focus-visible` anywhere below. The controls,
+ * legend and error popover above keep every attribute they have. */
+.kul-query-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kul-query-panel-gap);
+    box-sizing: border-box;
+    width: var(--kul-query-panel-width);
+    max-height: var(--kul-query-panel-max-height);
+    overflow-y: auto;
+    padding: var(--kul-query-panel-padding);
+    background-color: var(--kul-query-panel-bg);
+    color: var(--kul-query-panel-fg);
+    border: 1px solid var(--kul-query-panel-border-color);
+    border-radius: var(--kul-query-panel-radius);
+    box-shadow: 0 2px 8px var(--kul-query-panel-shadow-color);
+    font-family: var(--kul-query-panel-font-family);
+    font-size: var(--kul-query-panel-font-size);
+    pointer-events: auto;
+}
+
+.kul-query-panel-header {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--kul-query-panel-col-gap);
+}
+
+.kul-query-panel-heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kul-query-panel-heading-line-gap);
+    min-width: 0;
+}
+
+.kul-query-panel-kicker {
+    font-size: var(--kul-query-panel-kicker-font-size);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--kul-query-panel-kicker-fg);
+}
+
+.kul-query-panel-title {
+    font-weight: var(--kul-query-panel-title-weight);
+    color: var(--kul-query-panel-title-fg);
+    word-break: break-word;
+}
+
+/* Reveal-in-editor moved off the tree and onto this control (ADR-0035), which
+ * is why revealing is now deliberate rather than a side effect of every click. */
+.kul-query-panel-reveal {
+    flex-shrink: 0;
+    padding: var(--kul-query-panel-reveal-padding);
+    border: 1px solid var(--kul-query-panel-reveal-border-color);
+    border-radius: var(--kul-query-panel-reveal-radius);
+    background-color: transparent;
+    color: var(--kul-query-panel-reveal-fg);
+    font-family: inherit;
+    font-size: var(--kul-query-panel-reveal-font-size);
+    white-space: nowrap;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.kul-query-panel-reveal:hover {
+    background-color: var(--kul-query-panel-reveal-hover-bg);
+}
+
+/* Two-column grid (label | value) so the entity's own fields line up
+ * regardless of width. Absent fields never reach here — the wire omits them
+ * and so does the panel (ADR-0035). */
+.kul-query-panel-fields {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: var(--kul-query-panel-col-gap);
+    row-gap: var(--kul-query-panel-row-gap);
+}
+
+.kul-query-panel-label {
+    color: var(--kul-query-panel-label-fg);
+}
+
+.kul-query-panel-value {
+    word-break: break-word;
+}
+
+.kul-query-panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kul-query-panel-row-gap);
+}
+
+.kul-query-panel-section-title {
+    font-size: var(--kul-query-panel-section-font-size);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--kul-query-panel-section-fg);
+}
+
+/* One row per marriage, per parent link, per child link — never a comma-joined
+ * list. The per-row span and end reason is what explains why a person appears
+ * on more than one card (ADR-0035). */
+.kul-query-panel-row {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--kul-query-panel-label-gap);
+}
+
+/* Every person named in the panel walks the selection there and centres their
+ * canonical card. Unstyled button: the panel is mouse-driven by decision. */
+.kul-query-panel-person {
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    text-align: left;
+    color: var(--kul-query-panel-person-fg);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.kul-query-panel-person:hover {
+    color: var(--kul-query-panel-person-hover-fg);
+    text-decoration: underline;
+}
+
+.kul-query-panel-note {
+    color: var(--kul-query-panel-note-fg);
+    font-size: var(--kul-query-panel-note-font-size);
+}
+
+.kul-query-panel-row-text {
+    color: var(--kul-query-panel-label-fg);
+}
+
+/* Transient-notification-region member: editor ⇄ preview sync is suspended
+ * while any reason holds it down — a selection today, an active filter later
+ * — and this says so for as long as one does. Esc lifts the selection's. */
+.kul-sync-hint {
+    padding: var(--kul-sync-hint-padding);
+    background-color: var(--kul-sync-hint-bg);
+    color: var(--kul-sync-hint-fg);
+    border: 1px solid var(--kul-sync-hint-border-color);
+    border-radius: var(--kul-sync-hint-radius);
+    box-shadow: 0 2px 8px var(--kul-sync-hint-shadow-color);
+    font-family: var(--kul-sync-hint-font-family);
+    font-size: var(--kul-sync-hint-font-size);
+    pointer-events: none;
 }
 
 /* Chrome legend (ADR-0022): compact overlay-region member listing the

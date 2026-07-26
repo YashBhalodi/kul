@@ -105,6 +105,8 @@ body {
     --kul-region-overlay-gap: var(--kul-space-2);
     --kul-region-overlay-z: 10;
     --kul-region-float-z: 20;
+    --kul-region-float-dock-inset: var(--kul-space-5);
+    --kul-region-float-dock-gap: var(--kul-space-2);
     --kul-region-notify-inset: var(--kul-space-5);
     --kul-region-notify-gap: var(--kul-space-4);
     --kul-region-notify-z: 30;
@@ -193,6 +195,61 @@ body {
     --kul-control-padding: var(--kul-space-2);
     --kul-control-divider-color: var(--kul-border);
     --kul-control-divider-height: 18px;
+
+    /* ── Tier 2 · query selection (ADR-0035) ───────────────────────────── */
+    /* The reserved violet, never the sync magenta: the two never co-paint,
+     * because a selection registers a sync suspension — one reason among the
+     * set that holds sync down — and entering suspension strips the magenta. */
+    --kul-query-selection-outline-color: var(--kul-hue-query-selection);
+    --kul-query-selection-outline-width: 3px;
+    --kul-query-selection-outline-offset: 2px;
+
+    /* ── Tier 2 · details panel (ADR-0035) ─────────────────────────────── */
+    /* A fixed width, deliberately: the panel is what pan-to-centre steers
+     * around, and a width that changed with content would move the visible
+     * region under every selection. */
+    --kul-query-panel-bg: var(--kul-raised);
+    --kul-query-panel-fg: var(--kul-on-surface);
+    --kul-query-panel-border-color: var(--kul-border);
+    --kul-query-panel-shadow-color: var(--kul-shadow);
+    --kul-query-panel-font-family: var(--kul-font-chrome);
+    --kul-query-panel-font-size: 12px;
+    --kul-query-panel-width: 300px;
+    --kul-query-panel-max-height: 70vh;
+    --kul-query-panel-radius: var(--kul-radius-md);
+    --kul-query-panel-padding: var(--kul-space-4) calc(var(--kul-space-4) + var(--kul-space-1));
+    --kul-query-panel-gap: var(--kul-space-5);
+    --kul-query-panel-row-gap: var(--kul-space-1);
+    --kul-query-panel-col-gap: var(--kul-space-5);
+    --kul-query-panel-label-gap: var(--kul-space-3);
+    --kul-query-panel-heading-line-gap: 1px;
+    --kul-query-panel-kicker-fg: var(--kul-muted);
+    --kul-query-panel-kicker-font-size: 0.85em;
+    --kul-query-panel-title-fg: var(--kul-on-surface);
+    --kul-query-panel-title-weight: 600;
+    --kul-query-panel-label-fg: var(--kul-muted);
+    --kul-query-panel-section-fg: var(--kul-muted);
+    --kul-query-panel-section-font-size: 0.85em;
+    --kul-query-panel-person-fg: var(--kul-on-surface);
+    --kul-query-panel-person-hover-fg: var(--kul-accent);
+    --kul-query-panel-note-fg: var(--kul-muted);
+    --kul-query-panel-note-font-size: 0.9em;
+    --kul-query-panel-reveal-fg: var(--kul-on-raised);
+    --kul-query-panel-reveal-border-color: var(--kul-border);
+    --kul-query-panel-reveal-hover-bg: var(--kul-hover);
+    --kul-query-panel-reveal-radius: var(--kul-radius-sm);
+    --kul-query-panel-reveal-padding: var(--kul-space-1) var(--kul-space-3);
+    --kul-query-panel-reveal-font-size: 0.9em;
+
+    /* ── Tier 2 · editor-sync suspension hint (#276 point 9) ───────────── */
+    --kul-sync-hint-bg: var(--kul-raised);
+    --kul-sync-hint-fg: var(--kul-muted);
+    --kul-sync-hint-border-color: var(--kul-border);
+    --kul-sync-hint-shadow-color: var(--kul-shadow);
+    --kul-sync-hint-font-family: var(--kul-font-chrome);
+    --kul-sync-hint-font-size: 11px;
+    --kul-sync-hint-radius: var(--kul-radius-sm);
+    --kul-sync-hint-padding: var(--kul-space-2) var(--kul-space-4);
 
     /* ── Tier 2 · chrome legend (ADR-0022) ─────────────────────────────── */
     --kul-legend-bg: var(--kul-raised);

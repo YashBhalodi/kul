@@ -1,4 +1,10 @@
-import { type HighlightPanZoom, PAN_ANIM_MS, panToElement } from "./highlight.js";
+import {
+    type HighlightPanZoom,
+    PAN_ANIM_MS,
+    type ScreenBox,
+    canonicalCardFor,
+    panToElement,
+} from "./highlight.js";
 
 /**
  * ADR-0016: CSS cannot generate an SVG element, so the surface draws the
@@ -12,8 +18,10 @@ export function injectGhostBadges(args: {
     svgRoot: SVGElement;
     root: HTMLElement;
     getPanZoom(): HighlightPanZoom | null;
+    /** Chrome floating over the canvas the jump must not park the card behind. */
+    getOccluder?(): ScreenBox | null;
 }): void {
-    const { svgRoot, root, getPanZoom } = args;
+    const { svgRoot, root, getPanZoom, getOccluder } = args;
     const SVG_NS = "http://www.w3.org/2000/svg";
     const ghosts = svgRoot.querySelectorAll('.kul-card[data-kind="ghost"]');
     ghosts.forEach((card) => {
@@ -48,21 +56,23 @@ export function injectGhostBadges(args: {
         title.textContent = "Jump to canonical card";
         badge.appendChild(title);
         // Per-render listener; `stopPropagation` keeps the click from bubbling
-        // to #root's click-to-source handler — jumping is viewport navigation
-        // only, the editor cursor stays put.
+        // to #root's selection handler — jumping is viewport navigation only,
+        // and it neither moves the selection nor the editor cursor.
         badge.addEventListener("click", (event) => {
             event.stopPropagation();
             if (!personId) {
                 return;
             }
-            const canonicalEl = root.querySelector(
-                '[data-person-id="' + personId + '"][data-kind="canonical"]',
-            );
+            const canonicalEl = canonicalCardFor(root, personId);
             if (!canonicalEl) {
                 return;
             }
             const canonical: Element = canonicalEl;
-            panToElement(getPanZoom(), canonical);
+            panToElement(
+                getPanZoom(),
+                canonical,
+                getOccluder ? getOccluder() : null,
+            );
             // Apply the pulse class after the pan tween settles so the glow
             // lands on the centred card, not on a sliding one.
             setTimeout(() => {
