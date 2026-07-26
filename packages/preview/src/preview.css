@@ -183,6 +183,154 @@ body {
     background-color: var(--kul-locale-active-bg);
 }
 
+/* ── The filter bar (#277, ADR-0045) ──────────────────────────────────────
+ *
+ * The flow region's second member (ADR-0038): it declares no inset and no
+ * z-index, and it sits above the canvas in the document flow rather than over
+ * it, because a filter is a project-scoped question that is live with nothing
+ * selected.
+ *
+ * ADR-0036 makes accessibility a stated non-goal for new query chrome: no
+ * `role`, no `aria-*`, no `:focus-visible` anywhere below. The controls,
+ * legend and error popover keep every attribute they have.
+ *
+ * The sentence **wraps**; it never scrolls sideways. `flex-wrap` plus a
+ * per-chip cap is what keeps a long value from printing through the bar: a
+ * flex item's automatic minimum size is its min-content width, so a chip whose
+ * text may not wrap would silently refuse every `max-width`. */
+.kul-filter-bar {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--kul-filter-bar-gap);
+    padding: var(--kul-filter-bar-padding);
+    color: var(--kul-filter-bar-fg);
+    font-family: var(--kul-filter-bar-font-family);
+    font-size: var(--kul-filter-bar-font-size);
+}
+
+/* "Showing", "where", "and" — literal text, so conjunction-only is visible in
+ * the grammar rather than documented somewhere the reader will not look. */
+.kul-filter-keyword {
+    color: var(--kul-filter-keyword-fg);
+}
+
+.kul-filter-chip {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    position: relative;
+    gap: var(--kul-filter-bar-gap);
+    max-width: var(--kul-filter-chip-max-width);
+    padding: var(--kul-filter-chip-padding);
+    color: var(--kul-filter-chip-fg);
+    background-color: var(--kul-filter-chip-bg);
+    border: 1px solid var(--kul-filter-chip-border-color);
+    border-radius: var(--kul-filter-chip-radius);
+}
+
+.kul-filter-chip-label {
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    overflow-wrap: break-word;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.kul-filter-chip:hover {
+    background-color: var(--kul-filter-chip-hover-bg);
+}
+
+/* The chip whose editor is open. */
+.kul-filter-chip-open {
+    background-color: var(--kul-filter-chip-active-bg);
+}
+
+.kul-filter-chip-remove {
+    flex: 0 0 auto;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--kul-filter-chip-remove-fg);
+    font: inherit;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+/* The tally. Its own line's worth of width when the sentence wraps, and never
+ * a fixed one: the numbers are the disclosure, and a truncated disclosure is
+ * worse than none. */
+.kul-filter-tally {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: var(--kul-filter-tally-fg);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: break-word;
+}
+
+/* The chip editor: field, op, value. Anchored to its own chip — the chip is
+ * `position: relative` above — rather than to the bar, so it opens under the
+ * thing it edits and needs no measurement.
+ *
+ * Its controls are real `<select>` and `<input>` elements, which is what makes
+ * the keyboard-pan target guard bind: arrows and `+` / `-` / `0` typed into a
+ * value belong to the field, not to the canvas. */
+.kul-filter-editor {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: var(--kul-filter-editor-z);
+    display: flex;
+    flex-direction: column;
+    gap: var(--kul-filter-editor-gap);
+    box-sizing: border-box;
+    width: var(--kul-filter-editor-width);
+    max-width: 100%;
+    padding: var(--kul-filter-editor-padding);
+    background-color: var(--kul-filter-editor-bg);
+    border: 1px solid var(--kul-filter-editor-border-color);
+    border-radius: var(--kul-filter-editor-radius);
+    box-shadow: 0 2px 8px var(--kul-filter-editor-shadow-color);
+}
+
+.kul-filter-editor select,
+.kul-filter-editor input {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    font: inherit;
+}
+
+/* The presence disclosure, and the no-kin-set note. Copy that exists so the
+ * surface does not assert a fact the data does not carry. */
+.kul-filter-note {
+    color: var(--kul-filter-note-fg);
+    font-size: var(--kul-filter-note-font-size);
+    overflow-wrap: break-word;
+}
+
+/* The can't-say whisper's content — the docked-tag grammar supplies the box,
+ * the placement and the pointer posture (ADR-0044), and this supplies only the
+ * reason, in the same amber the card wears, so the words and the paint read as
+ * one answer.
+ *
+ * `min-width: 0` and wrapping again, for the same reason `.kul-lens-term` needs
+ * them: a flex item's automatic minimum size is its min-content width, and the
+ * reason is a sentence with a person's own dates in it. */
+.kul-filter-reason {
+    min-width: 0;
+    color: var(--kul-filter-reason-fg);
+    overflow-wrap: break-word;
+}
+
 /* Floating cluster in the overlay region, above the SVG. Outside #root so the
  * per-render SVG swap never clears it. */
 .kul-preview-controls {

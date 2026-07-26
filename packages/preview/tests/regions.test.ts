@@ -101,6 +101,22 @@ describe("the stage's regions", () => {
         ]);
     });
 
+    it("puts the filter bar in flow, beside the locale toggle", () => {
+        // ADR-0038: joining a region is appending an element, never inventing
+        // an inset. The filter bar is project-scoped chrome, so it stands in
+        // the document flow above the canvas rather than floating over it —
+        // and it is live before the first render, with nothing selected.
+        const { container } = mount();
+        const flow = container.querySelector(".kul-region-flow") as HTMLElement;
+        const bar = container.querySelector("#kul-filter-bar") as HTMLElement;
+        expect(bar.parentElement).toBe(flow);
+        expect([...flow.children].map((el) => el.id)).toEqual([
+            "kul-locale",
+            "kul-filter-bar",
+        ]);
+        expect(bar.textContent).toContain("Showing");
+    });
+
     it("declares both float placements, so a later float picks one", () => {
         // ADR-0042: edge-docked chrome joins the dock; entity-anchored chrome
         // (#302's lens pill, positioned by JS against a hovered card) is
@@ -127,6 +143,9 @@ describe("the stage's regions", () => {
             ".kul-query-panel",
             ".kul-sync-hint",
             ".kul-toast",
+            // …and the filter bar the flow region, which is why it needs no
+            // inset of its own to sit above the canvas.
+            ".kul-filter-bar",
         ]) {
             expect(ruleBody(selector)).not.toMatch(placement);
         }

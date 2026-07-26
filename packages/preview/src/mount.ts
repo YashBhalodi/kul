@@ -82,6 +82,9 @@ export function mountPreview(
         "#kul-error-popover",
     ) as HTMLElement | null;
     const legend = container.querySelector("#kul-legend") as HTMLElement | null;
+    const flowRegion = container.querySelector(
+        "#kul-region-flow",
+    ) as HTMLElement | null;
     const notifyRegion = container.querySelector(
         "#kul-region-notify",
     ) as HTMLElement | null;
@@ -136,17 +139,20 @@ export function mountPreview(
         }
     }
 
-    // Everything selection-shaped lives behind this one surface: the store
+    // Every piece of query chrome lives behind this one surface: the store
     // later slices build on, the paint, the details panel, the panel-driven
-    // walk, and the editor-sync suspension.
+    // walk, the Explore-kin list, the hover lens, the filter bar, and the
+    // editor-sync suspension.
     const querySurface = createQuerySurface({
         root,
         floatDock,
         floatLayer,
+        flowRegion,
         notifyRegion,
         adapter,
         lookup: queryDetail,
         runKinQuery: queryKin,
+        runQuery: runFilterQuery,
         resolve: queryResolve,
         locale,
         getPanZoom: panZoomForReader,

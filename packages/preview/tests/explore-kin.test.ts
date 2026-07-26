@@ -891,6 +891,13 @@ function surface(options: {
         async lookup(targets) {
             return { ok: true, result: targets.map(detailFor) };
         },
+        // The filter bar is #303's surface, not this one's. A host without a
+        // flow region gets no bar, which keeps these suites driving exactly
+        // what they are about.
+        flowRegion: null,
+        async runQuery() {
+            return { ok: true, result: { kind: "personIds" as const, personIds: [] } };
+        },
         runKinQuery: options.runKinQuery,
         async resolve() {
             return { ok: true, result: { relationships: [] } };

@@ -416,6 +416,40 @@ body {
     --kul-filter-uncertain-badge-fill: var(--kul-hue-query-uncertain);
     --kul-filter-uncertain-badge-font-size: 18px;
 
+    /* ── Tier 2 · the filter bar (#277, ADR-0045) ─────────────────────── */
+    /* Flow-region chrome, so it reads as UI rather than as diagram. The chip
+     * sentence wraps rather than scrolls: it is a sentence, and a sentence
+     * that has to be scrolled sideways to be finished is not readable. */
+    --kul-filter-bar-fg: var(--kul-on-surface);
+    --kul-filter-bar-font-family: var(--kul-font-chrome);
+    --kul-filter-bar-font-size: 11px;
+    --kul-filter-bar-padding: var(--kul-space-2);
+    --kul-filter-bar-gap: var(--kul-space-2);
+    --kul-filter-keyword-fg: var(--kul-muted);
+    --kul-filter-chip-bg: var(--kul-raised);
+    --kul-filter-chip-fg: var(--kul-on-surface);
+    --kul-filter-chip-border-color: var(--kul-border);
+    --kul-filter-chip-hover-bg: var(--kul-hover);
+    --kul-filter-chip-active-bg: var(--kul-active);
+    --kul-filter-chip-radius: var(--kul-radius-sm);
+    --kul-filter-chip-padding: var(--kul-space-1) var(--kul-space-3);
+    --kul-filter-chip-max-width: 260px;
+    --kul-filter-chip-remove-fg: var(--kul-muted);
+    --kul-filter-tally-fg: var(--kul-muted);
+    --kul-filter-editor-bg: var(--kul-raised);
+    --kul-filter-editor-border-color: var(--kul-border);
+    --kul-filter-editor-shadow-color: var(--kul-shadow);
+    --kul-filter-editor-radius: var(--kul-radius-md);
+    --kul-filter-editor-padding: var(--kul-space-3);
+    --kul-filter-editor-gap: var(--kul-space-2);
+    --kul-filter-editor-width: 260px;
+    --kul-filter-editor-z: 1;
+    --kul-filter-note-fg: var(--kul-muted);
+    --kul-filter-note-font-size: 0.9em;
+    /* The can't-say whisper's own content inside the shared docked-tag box:
+     * the reason wears the same amber as the card it is about. */
+    --kul-filter-reason-fg: var(--kul-hue-query-uncertain);
+
     /* ── Tier 2 · stale overlay on the last-good SVG (#203) ────────────── */
     --kul-render-stale-opacity: 0.5;
     --kul-render-stale-filter: grayscale(0.4);
