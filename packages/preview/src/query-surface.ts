@@ -417,7 +417,7 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
     // live before any selection. It is composed here rather than in the mount
     // because everything it needs is here — the dim registry it publishes into,
     // the sync-suspension reason set, the painted kin set it can scope to, and
-    // the one post-render hook (ADR-0045).
+    // the mode boundary that ends it (ADR-0045, ADR-0046).
     const filterBar: FilterBar | null = flowRegion
         ? createFilterBar({
               host: flowRegion,
