@@ -26,15 +26,15 @@ const appSheet = readSheet("preview.css");
 
 /**
  * Tier-1 tokens with no consumer yet. The query paints and the filter alpha
- * are reserved by ADR-0036 for the chrome later slices of epic #296 build;
- * they are defined here so the paint vocabulary is decided once, in one place,
- * rather than invented per slice. Every other name must earn its keep — the
- * rule that forced `--kul-tooltip-*` out with `tooltip.ts` (#300).
+ * were reserved by ADR-0036 for the chrome later slices of epic #296 build, so
+ * the paint vocabulary was decided once, in one place, rather than invented per
+ * slice. Four of the five have since been spent — the selection violet by #300,
+ * the result teal and the dim alpha by #301, the resolution-path sky by #302 —
+ * and the can't-say amber is the last one standing, waiting on #303. Every
+ * other name must earn its keep: the rule that forced `--kul-tooltip-*` out
+ * with `tooltip.ts` (#300).
  */
-const RESERVED_PENDING_CONSUMERS = [
-    "--kul-hue-query-uncertain",
-    "--kul-hue-query-path",
-];
+const RESERVED_PENDING_CONSUMERS = ["--kul-hue-query-uncertain"];
 
 /**
  * Tier-1 tokens whose values are literal hues rather than palette bridges,

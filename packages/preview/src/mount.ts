@@ -51,10 +51,11 @@ function diagnosticsToErrorRows(diagnostics: ExportedDiagnostic[]): ErrorRow[] {
  * Mount the chrome inside `container`. The container is rewritten with the
  * stage and its regions (ADR-0036) — `#root` in the canvas region, the locale
  * toggle in the flow region, controls / error popover / legend in the overlay
- * stack, the details panel in the float layer's dock and the sync hint in the
- * notify region — then the runtime wires click / pan-zoom / keyboard /
- * selection / selection-sync / error-popover against `adapter`. Returns the
- * imperative {@link PreviewHandle}.
+ * stack, the details panel in the float layer's dock, the hover lens's pill
+ * anchored on the float layer itself and the sync hint in the notify region —
+ * then the runtime wires click / hover / pan-zoom / keyboard / selection /
+ * selection-sync / error-popover against `adapter`. Returns the imperative
+ * {@link PreviewHandle}.
  */
 export function mountPreview(
     container: HTMLElement,
@@ -66,6 +67,9 @@ export function mountPreview(
     const root = container.querySelector("#root") as HTMLElement;
     const floatDock = container.querySelector(
         "#kul-region-float-dock",
+    ) as HTMLElement;
+    const floatLayer = container.querySelector(
+        "#kul-region-float",
     ) as HTMLElement;
     const controls = container.querySelector("#kul-controls") as HTMLElement | null;
     const controlsGroup = container.querySelector(
@@ -138,10 +142,12 @@ export function mountPreview(
     const querySurface = createQuerySurface({
         root,
         floatDock,
+        floatLayer,
         notifyRegion,
         adapter,
         lookup: queryDetail,
         runKinQuery: queryKin,
+        resolve: queryResolve,
         locale,
         getPanZoom: panZoomForReader,
         applySyncHighlight,
@@ -162,6 +168,18 @@ export function mountPreview(
         // arrows/+/-/0.
         root.focus();
         querySurface.handleCanvasClick(event.target as Element | null);
+    });
+
+    // The hover lens (#302). Pointer *movement* is its whole input — no click,
+    // no mode — and the surface debounces, so this handler stays a cheap
+    // hit-test at pointer-move frequency.
+    root.addEventListener("pointermove", (event) => {
+        querySurface.handleCanvasHover(event.target as Element | null);
+    });
+    // Leaving the canvas passes what the pointer moved *onto*, so moving onto
+    // the lens's own pill to read a term does not dismiss the pill.
+    root.addEventListener("pointerleave", (event) => {
+        querySurface.handleCanvasHover(event.relatedTarget as Element | null);
     });
 
     if (controls) {

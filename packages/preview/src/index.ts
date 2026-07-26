@@ -103,6 +103,18 @@ export type {
     PanelRow,
     PanelSection,
 } from "./detail-panel.js";
+// The hover lens (#302, ADR-0044) — relationship resolution with no click.
+export {
+    LENS_DEBOUNCE_MS,
+    LENS_PATH_CLASS,
+    NOT_RELATED_DISCONNECTED,
+    NOT_RELATED_WITHIN_BOUNDS,
+    VIEWPOINT_TITLE,
+    createHoverLens,
+    emptinessWhisper,
+    resolutionPathBindings,
+} from "./hover-lens.js";
+export type { HoverLens, HoverLensOptions } from "./hover-lens.js";
 export { SYNC_SUSPENDED_HINT, createQuerySurface } from "./query-surface.js";
 export type {
     QuerySurface,

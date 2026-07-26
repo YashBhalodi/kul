@@ -868,3 +868,102 @@ body {
 .kul-legend-swatch .kul-edge[data-link-kind="marriage"] {
     stroke-width: var(--kul-legend-marriage-stroke-width);
 }
+
+/* ── The hover lens (#302, ADR-0044) ──────────────────────────────────────
+ *
+ * The resolution path, traced across the picture in the reserved sky: every
+ * marriage an `across` hop ran through, every birth / adoption edge a vertical
+ * hop was drawn as, and every person the path passes through. The two
+ * endpoints are absent by construction — the ego wears the selection violet
+ * and the alter is the card under the pointer — so what is painted here is
+ * exactly the part of the answer the reader could not otherwise see.
+ *
+ * Cards take an outline, as both selection paints do, so a traced person keeps
+ * their gender tint. Edges take the colour, because a traced edge *is* the
+ * line being explained. */
+.kul-card.kul-query-path > rect {
+    outline: var(--kul-query-path-outline-width) dashed var(--kul-query-path-color);
+    outline-offset: var(--kul-query-path-outline-offset);
+}
+
+.kul-edge.kul-query-path {
+    stroke: var(--kul-query-path-color);
+    stroke-dasharray: var(--kul-query-path-dash);
+    stroke-opacity: var(--kul-query-path-opacity);
+}
+
+/* The relation pill — a docked-tag whisper, terms only.
+ *
+ * An entity-anchored member of the float layer (ADR-0042): it declares no
+ * inset and no z-index, and JS sets `left` / `top` from the hovered card's
+ * screen box. Docking under the *target* is what makes direction readable
+ * without an arrow or a label, so the transform below offsets it downward and
+ * never re-parks it elsewhere.
+ *
+ * `pointer-events: auto` is load-bearing: hovering a term is how the fuller
+ * gloss is read, and the lens keeps reading while the pointer is on the pill.
+ *
+ * ADR-0036 makes accessibility a stated non-goal for new query chrome: no
+ * `role`, no `aria-*`, no `:focus-visible` anywhere below. */
+.kul-lens {
+    position: absolute;
+    transform: translate(-50%, var(--kul-lens-offset));
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--kul-lens-gap);
+    box-sizing: border-box;
+    max-width: var(--kul-lens-max-width);
+    padding: var(--kul-lens-padding);
+    background-color: var(--kul-lens-bg);
+    color: var(--kul-lens-fg);
+    border: 1px solid var(--kul-lens-border-color);
+    border-radius: var(--kul-lens-radius);
+    box-shadow: 0 2px 8px var(--kul-lens-shadow-color);
+    font-family: var(--kul-lens-font-family);
+    font-size: var(--kul-lens-font-size);
+    pointer-events: auto;
+}
+
+/* "As the selected person sees it", in the selection's own violet. The whole
+ * of the direction chrome, because position carries the rest. */
+.kul-lens-viewpoint {
+    flex: 0 0 auto;
+    width: var(--kul-lens-viewpoint-size);
+    height: var(--kul-lens-viewpoint-size);
+    border-radius: 50%;
+    background-color: var(--kul-lens-viewpoint-color);
+}
+
+/* The pill sizes for its content from the phrasing result rather than from the
+ * string: `--kul-phrase-hops` is the chain length the phrasing layer reported,
+ * so a crisp one-word term gets a tight slot and a five-hop chain gets room
+ * for five links — no measuring, no string-sniffing (ADR-0033, ADR-0039). */
+.kul-lens-term {
+    max-width: calc(
+        var(--kul-lens-term-width) + var(--kul-phrase-hops) *
+            var(--kul-lens-term-hop-width)
+    );
+}
+
+.kul-lens-term[data-phrase-kind="lexical"] {
+    white-space: nowrap;
+}
+
+.kul-lens-term[data-phrase-kind="composed"] {
+    overflow-wrap: break-word;
+}
+
+/* Multi-tie stacks inline — *māmā · sasro*. Every way the engine found is
+ * shown; nothing is collapsed to a primary relationship. */
+.kul-lens-sep {
+    color: var(--kul-lens-sep-fg);
+}
+
+/* Honest emptiness: two answers, two wordings, and never a bare "not
+ * related" for either (ADR-0028). */
+.kul-lens-empty {
+    color: var(--kul-lens-empty-fg);
+    white-space: nowrap;
+}

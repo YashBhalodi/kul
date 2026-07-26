@@ -346,6 +346,48 @@ body {
     --kul-error-location-fg: var(--kul-muted);
     --kul-error-location-font-size: 11px;
 
+    /* ── Tier 2 · the hover lens (#302, ADR-0044) ──────────────────────── */
+    /* The traced resolution path takes the fourth reserved hue, which is what
+     * it was reserved for. Dashed rather than solid, and lighter than full
+     * opacity: it explains an answer that is already on screen, and must not
+     * out-shout the two paints that *are* the answer. */
+    --kul-query-path-color: var(--kul-hue-query-path);
+    --kul-query-path-dash: 4 3;
+    --kul-query-path-opacity: 0.85;
+    --kul-query-path-outline-width: 2px;
+    --kul-query-path-outline-offset: 1px;
+    /* The pill is chrome, so it reads like the panel and the hint beside it.
+     * Its one coloured element is the viewpoint dot, which borrows the
+     * selection's violet on purpose: it means "as *that* entity sees it", and
+     * that entity is the one wearing the violet outline. */
+    --kul-lens-bg: var(--kul-raised);
+    --kul-lens-fg: var(--kul-on-surface);
+    --kul-lens-border-color: var(--kul-border);
+    --kul-lens-shadow-color: var(--kul-shadow);
+    --kul-lens-font-family: var(--kul-font-chrome);
+    --kul-lens-font-size: 11px;
+    --kul-lens-radius: var(--kul-radius-sm);
+    --kul-lens-padding: var(--kul-space-1) var(--kul-space-3);
+    --kul-lens-gap: var(--kul-space-2);
+    /* Clear air under the hovered card, so the pill reads as docked to it
+     * rather than drawn on it. */
+    --kul-lens-offset: var(--kul-space-3);
+    --kul-lens-max-width: 320px;
+    --kul-lens-viewpoint-size: 6px;
+    --kul-lens-viewpoint-color: var(--kul-hue-query-selection);
+    --kul-lens-sep-fg: var(--kul-muted);
+    --kul-lens-empty-fg: var(--kul-muted);
+    /* A term's slot: room for a crisp word, plus one link's worth per hop the
+     * phrasing layer said it had to spell out. Character units, because what
+     * is being sized for is text. */
+    --kul-lens-term-width: 14ch;
+    --kul-lens-term-hop-width: 10ch;
+    /* Written per element by `LocaleController.bind` from the phrasing
+     * result's `hopCount`; declared here so the name is defined document-wide
+     * and a slot that has not been phrased yet still computes. Not a theming
+     * knob — the value belongs to the phrase, not to the theme. */
+    --kul-phrase-hops: 0;
+
     /* ── Tier 2 · stale overlay on the last-good SVG (#203) ────────────── */
     --kul-render-stale-opacity: 0.5;
     --kul-render-stale-filter: grayscale(0.4);
