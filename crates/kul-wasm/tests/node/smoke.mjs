@@ -20,6 +20,7 @@ import {
     format,
     queryPerson,
     queryMarriage,
+    queryDetail,
 } from '../../pkg/kul_wasm.js';
 
 const fixture = new URL('../../../../examples/02-three-generations/three-generations.kul', import.meta.url);
@@ -162,9 +163,33 @@ if (brokenLookup?.ok !== false || !Array.isArray(brokenLookup.diagnostics) || br
     process.exit(1);
 }
 
+// `queryDetail` — the batched variant. Its argument is an array of tagged
+// target objects, a JS glue shape no other entry point exercises, so drive it
+// through the real WASM boundary: several targets in, one answer per target
+// out, in the order asked, with `null` where a target names no entity.
+const detailEnvelope = queryDetail(singleFile, manifest, [
+    { kind: 'person', id: firstPersonId },
+    { kind: 'person', id: 'no_such_id' },
+    ...(typeof firstMarriageId === 'string' ? [{ kind: 'marriage', id: firstMarriageId }] : []),
+]);
+const detailExpected = typeof firstMarriageId === 'string' ? 3 : 2;
+if (detailEnvelope?.ok !== true || detailEnvelope.result?.length !== detailExpected) {
+    console.error(`queryDetail did not answer one entry per target: ${JSON.stringify(detailEnvelope)}`);
+    process.exit(1);
+}
+if (detailEnvelope.result[0]?.kind !== 'person' || detailEnvelope.result[0]?.person?.id !== firstPersonId) {
+    console.error(`queryDetail first answer is not the requested person: ${JSON.stringify(detailEnvelope.result[0])}`);
+    process.exit(1);
+}
+if (detailEnvelope.result[1] !== null) {
+    console.error(`queryDetail unknown target should be null in position: ${JSON.stringify(detailEnvelope.result[1])}`);
+    process.exit(1);
+}
+
 console.log(`smoke OK — kul-core ${coreVersion}, language ${langVersion}, schema ${schemaVersion}`);
 console.log(`format produced ${formatted.length} bytes for 02-three-generations/three-generations.kul`);
 console.log(`check clean → 0 diagnostics; check broken → ${brokenResult.diagnostics.length} diagnostic(s), first ${diag.code}`);
 console.log(`exportGraph clean → ${persons.length} person(s), first "${persons[0].name}"`);
 console.log(`multi-file check → 0 diagnostics across ${multiFiles.length} files; exportGraph → ${multiPersons.length} person(s)`);
 console.log(`queryPerson "${firstPersonId}" → found; queryPerson "no_such_id" → null; failing project → error arm`);
+console.log(`queryDetail ${detailExpected} target(s) → ${detailEnvelope.result.length} answer(s), unknown target null in position`);

@@ -18,6 +18,7 @@ import {
     queryKin,
     runQuery,
     queryResolve,
+    queryDetail,
     type ExportedGraph,
     type CytoscapeGraph,
     type ExportedPerson,
@@ -28,6 +29,10 @@ import {
     type RelationshipDescriptor,
     type ResolveResult,
     type EmptyReason,
+    type DetailTarget,
+    type LinkedPerson,
+    type MarriageTie,
+    type ParenthoodLinkKind,
 } from '../../pkg/kul_wasm.js';
 
 // `format` accepts a string and returns a string unconditionally
@@ -403,6 +408,61 @@ queryResolve(multiFile, manifest, 'alice', 'bob', { maxApexGenerations: 3 });
 // @ts-expect-error queryResolve requires two anchor ids
 queryResolve(multiFile, manifest, 'alice');
 
+// `queryDetail` is the batched variant of the fourth shape: any number of
+// `DetailTarget`s answered in one project check, each with the entity's own
+// fields plus its relational neighbourhood. The ok arm's `result` is one
+// entry per target, in the order asked, `null` where a target names no
+// entity. Narrow the entry on `kind` to reach the per-entity-kind fields.
+let detailChildCount = 0;
+let detailSpouseName = '';
+let detailAdoptedChildName = '';
+let detailErrorCode = '';
+const detailTargets: DetailTarget[] = [
+    { kind: 'person', id: 'alice' },
+    { kind: 'marriage', id: 'm' },
+    { kind: 'adoption', childId: 'carol', marriageId: 'm' },
+];
+const detailEnvelope = queryDetail(multiFile, manifest, detailTargets);
+if ('result' in detailEnvelope) {
+    for (const entry of detailEnvelope.result) {
+        if (entry === null) {
+            continue;
+        }
+        switch (entry.kind) {
+            case 'person': {
+                // Every marriage is its own row; the other spouse is optional
+                // because the wire omits absent fields.
+                const tie: MarriageTie | undefined = entry.marriages[0];
+                detailSpouseName = tie?.spouse?.name ?? detailSpouseName;
+                // Children carry their `biological` / `adoptive` link kind.
+                const kinds: ParenthoodLinkKind[] = entry.children.map(
+                    (child: LinkedPerson) => child.link.kind,
+                );
+                detailChildCount += kinds.length;
+                break;
+            }
+            case 'marriage': {
+                detailChildCount += entry.children.length;
+                break;
+            }
+            case 'adoption': {
+                detailAdoptedChildName = entry.child.name;
+                break;
+            }
+        }
+    }
+} else {
+    detailErrorCode = detailEnvelope.diagnostics[0]?.code ?? '';
+}
+
+// Type system must reject a target that omits its `kind` discriminator, and
+// an adoption target addressed by a single id (it has none — it is addressed
+// by the `(childId, marriageId)` pair).
+// @ts-expect-error a DetailTarget needs its kind discriminator
+queryDetail(multiFile, manifest, [{ id: 'alice' }]);
+// @ts-expect-error an adoption target is addressed by childId + marriageId
+queryDetail(multiFile, manifest, [{ kind: 'adoption', id: 'alice' }]);
+
 // Suppress "unused binding" diagnostics in --noUnusedLocals mode.
 export const _exports = {
     formatted,
@@ -432,4 +492,8 @@ export const _exports = {
     firstRelationshipKind,
     resolveEmptyReason,
     resolveErrorCode,
+    detailChildCount,
+    detailSpouseName,
+    detailAdoptedChildName,
+    detailErrorCode,
 };

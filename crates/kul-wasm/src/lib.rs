@@ -19,8 +19,9 @@ use kul_core::ast::InputFile;
 use kul_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic};
 use kul_core::manifest::Manifest;
 use kul_core::query::{
-    MarriageLookupResult, PersonLookupResult, Query, QueryEnvelope, QueryResult, ResolveConfig,
-    ResolveResult, kin_query, marriage_lookup, person_lookup, query_envelope, resolve_relationship,
+    DetailLookupResult, DetailTarget, MarriageLookupResult, PersonLookupResult, Query,
+    QueryEnvelope, QueryResult, ResolveConfig, ResolveResult, detail_lookup, kin_query,
+    marriage_lookup, person_lookup, query_envelope, resolve_relationship,
 };
 use kul_visual::{ThemeConfig, render_from_check};
 use serde::{Deserialize, Serialize};
@@ -180,6 +181,7 @@ pub fn render_svg_with(inputs: &[InputFile], manifest: &Manifest) -> RenderEnvel
 const QUERY_LOOKUP_TYPES: &'static str = r#"
 export type PersonLookupResult = ExportedPerson | null;
 export type MarriageLookupResult = ExportedMarriage | null;
+export type DetailLookupResult = (EntityDetail | null)[];
 "#;
 
 /// The fourth WASM shape (ADR-0011): the kinship query surface. Looks up a
@@ -237,6 +239,42 @@ pub fn query_marriage_with(
 ) -> QueryEnvelope<MarriageLookupResult> {
     let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
     marriage_lookup(&result, id)
+}
+
+/// The **batched detail lookup** on the fourth WASM shape: given any number of
+/// targets — a person id, a marriage id, or an adoption's `(childId,
+/// marriageId)` pair — return each entity's own fields plus its relational
+/// neighbourhood (parents, spouses and children carrying their `biological` /
+/// `adoptive` link kinds) in **one** project check.
+///
+/// This is the operation a detail panel and a kin list are both fed from: one
+/// call, one check, one provenance path. Answers come back in the order asked,
+/// with `null` in the position of a target that names no entity — absence is
+/// the answer, not an error. Same load-and-check gate as the other query
+/// shapes; a failing project yields the envelope's error arm, never a throw.
+#[wasm_bindgen(
+    js_name = "queryDetail",
+    unchecked_return_type = "QueryEnvelope<DetailLookupResult>"
+)]
+pub fn query_detail(
+    files: Vec<WasmInputFile>,
+    manifest: Manifest,
+    targets: Vec<DetailTarget>,
+) -> QueryEnvelope<DetailLookupResult> {
+    console_error_panic_hook::set_once();
+    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
+    query_detail_with(&inputs, &manifest, &targets)
+}
+
+/// Native-callable variant of [`query_detail`]; lets non-wasm tests call in
+/// without round-tripping through `JsValue`.
+pub fn query_detail_with(
+    inputs: &[InputFile],
+    manifest: &Manifest,
+    targets: &[DetailTarget],
+) -> QueryEnvelope<DetailLookupResult> {
+    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+    detail_lookup(&result, targets)
 }
 
 /// Kin-set queries on the fourth WASM shape: evaluate a declarative

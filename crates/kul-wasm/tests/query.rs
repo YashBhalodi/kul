@@ -11,11 +11,12 @@ use std::path::{Path, PathBuf};
 use kul_core::ast::InputFile;
 use kul_core::manifest::Manifest;
 use kul_core::query::{
-    IntRange, Query, ResolveConfig, kin_query, marriage_lookup, person_lookup, resolve_relationship,
+    DetailTarget, IntRange, Query, ResolveConfig, detail_lookup, kin_query, marriage_lookup,
+    person_lookup, resolve_relationship,
 };
 use kul_wasm::{
-    WasmInputFile, query_kin, query_kin_with, query_marriage_with, query_person, query_person_with,
-    query_resolve, query_resolve_with, run_query, run_query_with,
+    WasmInputFile, query_detail, query_detail_with, query_kin, query_kin_with, query_marriage_with,
+    query_person, query_person_with, query_resolve, query_resolve_with, run_query, run_query_with,
 };
 
 fn workspace_root() -> PathBuf {
@@ -386,5 +387,107 @@ fn resolve_unknown_id_yields_error_arm() {
             .iter()
             .any(|d| d["message"].as_str().unwrap().contains("nobody")),
         "expected a diagnostic naming the bad id: {json}"
+    );
+}
+
+// ---- Batched detail lookup (fourth shape, detail variant) ----
+
+fn adoption_inputs() -> Vec<InputFile> {
+    let path = workspace_root()
+        .join("examples")
+        .join("04-adoption-and-belonging")
+        .join("adoption-and-belonging.kul");
+    let source = std::fs::read_to_string(&path).expect("read adoption-and-belonging.kul");
+    vec![InputFile::new("adoption-and-belonging.kul", source)]
+}
+
+/// The bridge's batched detail lookup is byte-identical to the core
+/// `detail_lookup` it wraps. The relational neighbourhood's correctness is
+/// proven at the core seam, not re-tested here.
+#[test]
+fn detail_lookup_json_matches_core() {
+    let inputs = adoption_inputs();
+    let manifest = Manifest::default();
+    let targets = [
+        DetailTarget::person("dalisay"),
+        DetailTarget::marriage("m_carlos_rosa"),
+        DetailTarget::adoption("dalisay", "m_tomas_elena"),
+    ];
+    let via_wasm = query_detail_with(&inputs, &manifest, &targets);
+    let check = kul_core::check_with_manifest("kul.yml", "", &manifest, &inputs);
+    let via_core = detail_lookup(&check, &targets);
+    assert_eq!(
+        serde_json::to_string_pretty(&via_wasm).unwrap(),
+        serde_json::to_string_pretty(&via_core).unwrap(),
+    );
+}
+
+/// Drives the public wasm-ABI signature (`Vec<WasmInputFile>` +
+/// `Vec<DetailTarget>`) to confirm the target values round-trip, that all
+/// three entity kinds cross the boundary, and that answers come back in the
+/// order asked.
+#[test]
+fn detail_abi_answers_all_three_entity_kinds_in_order() {
+    let inputs = adoption_inputs();
+    let files = vec![WasmInputFile {
+        name: "adoption-and-belonging.kul".into(),
+        source: inputs[0].source.clone(),
+    }];
+    let envelope = query_detail(
+        files,
+        Manifest::default(),
+        vec![
+            DetailTarget::person("dalisay"),
+            DetailTarget::marriage("m_carlos_rosa"),
+            DetailTarget::adoption("bayani", "m_carlos_rosa"),
+        ],
+    );
+    let json = serde_json::to_value(&envelope).unwrap();
+    assert_eq!(json["ok"], true);
+    let result = json["result"].as_array().unwrap();
+    assert_eq!(result.len(), 3);
+    assert_eq!(result[0]["kind"], "person");
+    assert_eq!(result[1]["kind"], "marriage");
+    assert_eq!(result[2]["kind"], "adoption");
+}
+
+/// A target that names no entity is `null` **in its own position** — absence
+/// is the answer, and the rest of the batch still answers.
+#[test]
+fn detail_unknown_target_is_null_in_position() {
+    let inputs = adoption_inputs();
+    let envelope = query_detail_with(
+        &inputs,
+        &Manifest::default(),
+        &[
+            DetailTarget::person("nobody"),
+            DetailTarget::person("mateo"),
+        ],
+    );
+    let json = serde_json::to_value(&envelope).unwrap();
+    assert_eq!(json["ok"], true);
+    assert!(json["result"][0].is_null(), "expected null: {json}");
+    assert_eq!(json["result"][1]["person"]["id"], "mateo");
+}
+
+/// A project that fails its checks yields the error arm — never a partial
+/// batch.
+#[test]
+fn detail_failing_project_yields_error_arm() {
+    let inputs = vec![InputFile::new("input.kul", "person alice gender:female\n")];
+    let envelope = query_detail_with(
+        &inputs,
+        &Manifest::default(),
+        &[DetailTarget::person("alice")],
+    );
+    let json = serde_json::to_value(&envelope).unwrap();
+    assert_eq!(json["ok"], false);
+    assert!(
+        json["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["code"] == "KUL-R03"),
+        "expected KUL-R03 in error arm: {json}"
     );
 }

@@ -3,6 +3,7 @@
 
 export type PersonLookupResult = ExportedPerson | null;
 export type MarriageLookupResult = ExportedMarriage | null;
+export type DetailLookupResult = (EntityDetail | null)[];
 
 
 /**
@@ -64,6 +65,26 @@ export interface KinPattern {
  * a downstream terminology decision).
  */
 export type MarriageStatus = "ongoing" | "ended";
+
+/**
+ * A neighbouring person plus the parenthood link that reaches them.
+ *
+ * One row per **link**, not per person: a person reached both by birth and by
+ * a later adoption appears twice, with a different `link` each time. That is
+ * the same path-identity discipline the kin-set results carry (ADR-0026) —
+ * the engine does not collapse two distinct ties into one row.
+ */
+export interface LinkedPerson {
+    /**
+     * The neighbour, in the export shape.
+     */
+    person: ExportedPerson;
+    /**
+     * The `birth` / `adoption` link connecting them to the subject, carrying
+     * its `biological` / `adoptive` kind and an adoption\'s own dates.
+     */
+    link: ExportedParenthoodLink;
+}
 
 /**
  * A person field a predicate or sort key names. `born` / `died` are date
@@ -218,6 +239,17 @@ export interface WasmInputFile {
 export type Predicate = { op: "eq"; field: PersonField; value: string } | { op: "neq"; field: PersonField; value: string } | { op: "lt"; field: PersonField; value: string } | { op: "lte"; field: PersonField; value: string } | { op: "gt"; field: PersonField; value: string } | { op: "gte"; field: PersonField; value: string } | { op: "in"; field: PersonField; values: string[] } | { op: "present"; field: PersonField } | { op: "absent"; field: PersonField };
 
 /**
+ * One entity\'s own fields plus its relational neighbourhood — the answer to
+ * a single [`DetailTarget`].
+ *
+ * A tagged union over the three selectable entity kinds, so a consumer\'s
+ * panel variant maps 1:1 onto a variant here. Absent fields are **omitted**
+ * from the wire (the export shapes\' `skip_serializing_if`), never sent as an
+ * empty placeholder.
+ */
+export type EntityDetail = { kind: "person"; person: ExportedPerson; parents: LinkedPerson[]; marriages: MarriageTie[]; children: LinkedPerson[] } | { kind: "marriage"; marriage: ExportedMarriage; spouses: ExportedPerson[]; children: LinkedPerson[] } | { kind: "adoption"; adoption: ExportedParenthoodLink; child: ExportedPerson; parents: ExportedPerson[] };
+
+/**
  * One hop of the lossless path backbone. Internally tagged on `step`.
  * Vertical hops (`up` / `down`) carry the person landed on, that person\'s
  * gender, and the edge kind. The `across` variant (a marriage hop) carries
@@ -225,6 +257,26 @@ export type Predicate = { op: "eq"; field: PersonField; value: string } | { op: 
  * present.
  */
 export type PathHop = { step: "up"; to: string; gender: Gender; edge: HopEdge } | { step: "down"; to: string; gender: Gender; edge: HopEdge } | { step: "across"; to: string; gender: Gender; marriage: string; status: MarriageStatus; endReason?: string };
+
+/**
+ * One marriage a person is a spouse in, with the person on the other side.
+ *
+ * Each marriage is its own row rather than a joined spouse list, because the
+ * marriage\'s `start` / `end` / `endReason` are what explain a person\'s
+ * history (ADR-0035).
+ */
+export interface MarriageTie {
+    /**
+     * The marriage, in the export shape.
+     */
+    marriage: ExportedMarriage;
+    /**
+     * The other spouse. Absent only when the marriage names no second
+     * person — which a project that passes its checks cannot do (R02, R04) —
+     * so consumers omit the field rather than rendering a placeholder.
+     */
+    spouse?: ExportedPerson;
+}
 
 /**
  * One member of a `members` result on the wire: the person id plus the
@@ -463,6 +515,18 @@ export interface Manifest {
 }
 
 /**
+ * What one entry of a batched detail lookup addresses.
+ *
+ * Three entity kinds, because three things on a rendered tree are selectable:
+ * a person card, a marriage edge, and an adoption edge. An **adoption link
+ * has no id of its own** — it is a sub-statement of the child — so it is
+ * addressed by the `(childId, marriageId)` pair, the same pair the rendered
+ * adoption edge carries. Variants stay additive: a `birth` target would be a
+ * new variant, never a reshape.
+ */
+export type DetailTarget = { kind: "person"; id: string } | { kind: "marriage"; id: string } | { kind: "adoption"; childId: string; marriageId: string };
+
+/**
  * What the query produces: the matching set (`members` for `kinOf`, the
  * `personIds` shape for `allPersons`) or its `count`.
  */
@@ -694,6 +758,21 @@ export function check(files: WasmInputFile[], manifest: Manifest): CheckEnvelope
 export function exportGraph(files: WasmInputFile[], manifest: Manifest, options?: ExportOptions | null): ExportEnvelope;
 
 export function format(source: string): string;
+
+/**
+ * The **batched detail lookup** on the fourth WASM shape: given any number of
+ * targets — a person id, a marriage id, or an adoption's `(childId,
+ * marriageId)` pair — return each entity's own fields plus its relational
+ * neighbourhood (parents, spouses and children carrying their `biological` /
+ * `adoptive` link kinds) in **one** project check.
+ *
+ * This is the operation a detail panel and a kin list are both fed from: one
+ * call, one check, one provenance path. Answers come back in the order asked,
+ * with `null` in the position of a target that names no entity — absence is
+ * the answer, not an error. Same load-and-check gate as the other query
+ * shapes; a failing project yields the envelope's error arm, never a throw.
+ */
+export function queryDetail(files: WasmInputFile[], manifest: Manifest, targets: DetailTarget[]): QueryEnvelope<DetailLookupResult>;
 
 /**
  * Kin-set queries on the fourth WASM shape: evaluate a declarative
