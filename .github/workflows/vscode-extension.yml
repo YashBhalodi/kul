@@ -8,12 +8,19 @@ name: VSCode Extension
 # `@kullang/preview` (`packages/preview/`). Changes in either trigger the
 # job, and the install is workspace-root so npm understands `workspace:*`.
 
+#
+# Packaging also needs `wasm-pack`: the preview's query engine is a build
+# asset built from `crates/kul-wasm` and staged into media/preview/wasm/
+# (ADR-0040), not an npm dependency. `npm ci` is unaffected — the wasm build
+# runs only before `vsce package`.
+
 on:
   push:
     branches: [main]
     paths:
       - 'editor/vscode/**'
       - 'packages/preview/**'
+      - 'crates/kul-wasm/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/vscode-extension.yml'
@@ -21,6 +28,7 @@ on:
     paths:
       - 'editor/vscode/**'
       - 'packages/preview/**'
+      - 'crates/kul-wasm/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/vscode-extension.yml'
@@ -54,11 +62,27 @@ jobs:
             echo "validating $f"
             python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
           done
-      # `npm run package` builds @kullang/preview, copies dist/ into
-      # editor/vscode/media/preview/, and runs `vsce package --no-dependencies`
-      # (the workspace: protocol is not a real npm registry resolution, so the
-      # vsce dependency walker would reject it — the bundled out/extension.js
-      # already inlines every runtime symbol the extension needs).
+      # The preview's query engine (ADR-0034) runs in the webview and ships as
+      # a build asset rather than an npm dependency (ADR-0040), so packaging —
+      # and only packaging — needs a wasm toolchain.
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable branch
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          key: vscode-extension-wasm
+      - uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3 # v2
+        with:
+          tool: wasm-pack@0.13.1
+      - name: Build the webview query engine (wasm-pack --target web)
+        run: wasm-pack build crates/kul-wasm --target web --out-dir pkg-web --out-name kul_wasm
+      # `npm run package` builds @kullang/preview, copies dist/ and the engine
+      # asset into editor/vscode/media/preview/, and runs
+      # `vsce package --no-dependencies` (the workspace: protocol is not a real
+      # npm registry resolution, so the vsce dependency walker would reject it —
+      # the bundled out/extension.js already inlines every runtime symbol the
+      # extension needs).
       - name: Validate manifest with vsce package
         working-directory: editor/vscode
         run: npm run package -- --out /tmp/kul-test.vsix

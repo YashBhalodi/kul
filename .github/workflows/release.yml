@@ -369,9 +369,27 @@ jobs:
       # EUNSUPPORTEDPROTOCOL because the workspace context is missing.
       - name: Install workspace dependencies
         run: npm ci
-      # Build the preview package and stage its dist/ artefacts into
-      # editor/vscode/media/preview/ before packaging. The extension's
-      # `build:preview` script is the single source of truth for this step.
+      # The preview's query engine runs in the webview (ADR-0034) and ships as
+      # a build asset rather than an npm dependency (ADR-0040), so the .vsix
+      # needs a wasm toolchain. This is the `--target web` build; the npm
+      # publish path in `wasm-publish` above is the `--target bundler` one and
+      # is untouched.
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable branch
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          key: extension-publish-wasm
+      - uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3 # v2
+        with:
+          tool: wasm-pack@0.13.1
+      - name: Build the webview query engine (wasm-pack --target web)
+        run: wasm-pack build crates/kul-wasm --target web --out-dir pkg-web --out-name kul_wasm
+      # Build the preview package and stage its dist/ artefacts — plus the
+      # engine asset above — into editor/vscode/media/preview/ before
+      # packaging. The extension's `build:preview` script is the single source
+      # of truth for this step.
       - name: Build @kullang/preview and stage assets
         working-directory: editor/vscode
         run: npm run build:preview
