@@ -128,7 +128,10 @@ it and left clicking ✕ on every chip as the only way out.
 Esc therefore clears whatever query state is suspending sync — the selection, the filter, or both.
 It is a keyboard exit rather than a render, so it decides nothing about
 [#304](https://github.com/YashBhalodi/kul/issues/304)'s mode boundary; it keeps a promise this
-chrome already prints.
+chrome already prints. (**And #304 then arrived at the same pair**: `endQueryMode()` is
+`clearSelection()` plus `clearFilter()`, so Esc and an edit are one function. Deciding nothing about
+the boundary turned out to mean deciding it correctly by accident —
+[ADR-0046](./0046-the-mode-boundarys-render-paths-and-what-the-retired-documents-leave-behind.md).)
 
 ### Each painter owns its own match class; only the dim is shared
 
