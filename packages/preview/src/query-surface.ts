@@ -79,16 +79,6 @@ export interface QuerySurfaceOptions {
      * rather than to a stage edge. The hover lens's pill lives here.
      */
     floatLayer: HTMLElement;
-    /**
-     * The reader's language, as the mounted preview owns it.
-     *
-     * THREADING SEAM. This is the one place a locale reaches the query surface;
-     * everything phrased inside it goes through `locale.bind`. #301 threads a
-     * pack the same way for the detail panel's kin rows — on rebase its version
-     * of this option wins and this one goes, so there is one locale path
-     * through the chrome rather than two.
-     */
-    locale: LocaleController;
     /** Transient-notification region — the sync hint's home. */
     notifyRegion: HTMLElement | null;
     adapter: HostAdapter;
@@ -225,7 +215,6 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
         root,
         floatDock,
         floatLayer,
-        locale,
         notifyRegion,
         adapter,
         lookup,
@@ -313,7 +302,18 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
         selection,
         resolve,
         bindPhrase: (element, descriptor) => locale.bind(element, descriptor),
+        onTrace: setDimExemption,
     });
+
+    /**
+     * The persons a live read is tracing, lifted from every dim source
+     * (ADR-0043). The lens is the only caller — the exemption is one slot, not
+     * a set keyed by holder, because a pointer is in one place.
+     */
+    function setDimExemption(personIds: Iterable<string> | null): void {
+        dim.exempt(personIds);
+        dim.apply(root);
+    }
 
     function closePanel(): void {
         shownDetail = null;
@@ -696,10 +696,7 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
         },
         setSyncSuspended,
         refresh: redrawPanel,
-        setDimExemption(personIds) {
-            dim.exempt(personIds);
-            dim.apply(root);
-        },
+        setDimExemption,
         occupiedBox,
         dispose() {
             window.removeEventListener("keydown", onKeyDown);

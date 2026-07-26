@@ -106,6 +106,20 @@ export interface HoverLensOptions {
      * the lens never has to know that packs exist.
      */
     bindPhrase(element: HTMLElement, descriptor: RelationshipDescriptor): () => void;
+    /**
+     * Publish the persons this reading names, so the ambient dim lifts off
+     * them; `null` withdraws. `QuerySurface.setDimExemption` is the wiring and
+     * ADR-0043 is the rule: the lens is what the reader is doing *now* and the
+     * dim is what they did a moment ago, so the lens wins. With a kin set
+     * painted, the persons a trace runs through are almost always outside the
+     * answer — and an explanation rendered at the dim's alpha explains nothing.
+     *
+     * The set comes from the descriptors' own backbones, not from the picture,
+     * so it owes no republish after a render (`dim.ts` obliges only sources
+     * that read the DOM to decide) — and a render dismisses the lens anyway,
+     * which withdraws it.
+     */
+    onTrace?(personIds: Iterable<string> | null): void;
     /** Trailing-edge delay. Defaults to {@link LENS_DEBOUNCE_MS}. */
     delayMs?: number;
 }
@@ -175,6 +189,28 @@ export function resolutionPathBindings(
 }
 
 /**
+ * Every person the reading names besides the ego: the intermediates a trace
+ * runs through, and the alter it lands on. Deduplicated across a multi-tie,
+ * because two ways of being related routinely share a person.
+ *
+ * Read off the backbones rather than off the painted DOM, which is what makes
+ * it safe to publish as a dim exemption without owing a republish after a
+ * render. The ego is absent because kin paint already refuses to dim an anchor
+ * — naming it here would imply a need that does not exist.
+ */
+export function tracedPersonIds(
+    relationships: ReadonlyArray<RelationshipDescriptor>,
+): string[] {
+    const ids = new Set<string>();
+    for (const descriptor of relationships) {
+        for (const hop of descriptor.path) {
+            ids.add(hop.to);
+        }
+    }
+    return [...ids];
+}
+
+/**
  * The whisper for an answer with no relationships in it, or `null` when there
  * are relationships to show instead.
  *
@@ -192,7 +228,7 @@ export function emptinessWhisper(result: ResolveResult): string | null {
 }
 
 export function createHoverLens(options: HoverLensOptions): HoverLens {
-    const { root, layer, selection, resolve, bindPhrase } = options;
+    const { root, layer, selection, resolve, bindPhrase, onTrace } = options;
     const delayMs = options.delayMs ?? LENS_DEBOUNCE_MS;
 
     // The card the lens is currently about: pending a query, or showing one.
@@ -230,9 +266,27 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
         tag = null;
     }
 
+    // Whether an exemption is currently published. Withdrawing walks every card
+    // in the picture, so a pointer that never opened a pill must not pay for it.
+    let tracing = false;
+
+    function publishTrace(personIds: string[] | null): void {
+        if (personIds === null) {
+            if (!tracing) {
+                return;
+            }
+            tracing = false;
+            onTrace?.(null);
+            return;
+        }
+        tracing = true;
+        onTrace?.(personIds);
+    }
+
     function clear(): void {
         closePill();
         clearPaint();
+        publishTrace(null);
     }
 
     function paintPath(relationships: ReadonlyArray<RelationshipDescriptor>): void {
@@ -297,7 +351,11 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
     }
 
     function show(card: Element, result: ResolveResult): void {
-        clear();
+        // Deliberately not `clear()`: withdrawing the exemption here and
+        // republishing four lines later would walk every card twice for one
+        // settle. The paint is torn down; the exemption is *replaced*.
+        closePill();
+        clearPaint();
         const built = buildContent(result);
         unbindPhrases = built.unbinds;
         tag = openDockedTag({
@@ -307,6 +365,7 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
             variant: LENS_CLASS,
         });
         paintPath(result.relationships);
+        publishTrace(tracedPersonIds(result.relationships));
     }
 
     async function ask(card: Element, egoId: string, alterId: string): Promise<void> {

@@ -45,9 +45,14 @@ import {
     NOT_RELATED_DISCONNECTED,
     NOT_RELATED_WITHIN_BOUNDS,
     VIEWPOINT_TITLE,
+    createHoverLens,
     emptinessWhisper,
     resolutionPathBindings,
+    tracedPersonIds,
 } from "../src/hover-lens.js";
+import { DIM_CLASS } from "../src/dim.js";
+import { KIN_SETS } from "../src/kin-sets.js";
+import { createSelectionStore } from "../src/selection.js";
 import type { ProjectSnapshot, QueryEngine } from "../src/engine.js";
 import { createLocaleController } from "../src/locale.js";
 import { createMemoryLocaleStore } from "../src/locale-store.js";
@@ -55,7 +60,7 @@ import { mountPreview } from "../src/mount.js";
 import type { RelationshipDescriptor } from "../src/phrasing/descriptor.js";
 import { PACKS } from "../src/phrasing/packs/index.js";
 import { createQuerySurface } from "../src/query-surface.js";
-import type { QuerySurface } from "../src/query-surface.js";
+import type { QuerySurface, QuerySurfaceOptions } from "../src/query-surface.js";
 import type { LocaleController } from "../src/locale.js";
 import type { PreviewHandle } from "../src/types.js";
 
@@ -165,7 +170,7 @@ interface Harness {
 
 let answer: ResolveResult = { relationships: [] };
 
-function harness(): Harness {
+function harness(options: Partial<QuerySurfaceOptions> = {}): Harness {
     const stage = document.createElement("div");
     stage.innerHTML = PREVIEW_BODY_HTML;
     document.body.appendChild(stage);
@@ -186,6 +191,13 @@ function harness(): Harness {
                 result: targets.map(() => PERSON_DETAIL),
             } as QueryEnvelope<DetailLookupResult>;
         },
+        // Explore kin is #301's surface, not this one's; an empty count keeps
+        // the surface complete without painting anything. The one suite that
+        // *does* need a kin paint — where the trace has to outrank its dim —
+        // overrides it.
+        async runKinQuery() {
+            return { ok: true, result: { kind: "count" as const, count: 0 } };
+        },
         async resolve(egoId, alterId) {
             asked.push([egoId, alterId]);
             return { ok: true, result: answer };
@@ -194,6 +206,7 @@ function harness(): Harness {
         applySyncHighlight: (ref) => {
             highlightEntity(root, null, ref);
         },
+        ...options,
     });
     return { stage, root, surface, locale, asked };
 }
@@ -782,6 +795,9 @@ describe("the mounted preview feeds the lens pointer movement", () => {
                     result: targets.map(() => PERSON_DETAIL),
                 } as QueryEnvelope<DetailLookupResult>;
             },
+            async queryKin() {
+                return { ok: true, result: { kind: "count" as const, count: 0 } };
+            },
             async queryResolve() {
                 return {
                     ok: true,
@@ -839,5 +855,112 @@ describe("the mounted preview feeds the lens pointer movement", () => {
         root.dispatchEvent(new MouseEvent("pointerleave", { relatedTarget: null }));
         expect(container.querySelector(".kul-lens")).toBeNull();
         handle.dispose();
+    });
+});
+
+describe("a live read outranks the paint the reader left behind", () => {
+    it("names the intermediates and the alter, deduplicated, never the ego", () => {
+        // Read at the pure seam: the exemption comes from the backbones, which
+        // is what lets it be published without owing a republish after a render
+        // (`dim.ts` obliges only sources that read the picture to decide).
+        expect(tracedPersonIds([fatherInLawOf("giulia", "sergio")])).toEqual([
+            "marco",
+            "sergio",
+        ]);
+        // Two ways of being related routinely share a person; the exemption is
+        // a set, not a concatenation.
+        const both = tracedPersonIds([
+            fatherInLawOf("giulia", "luca"),
+            fatherInLawOf("giulia", "luca"),
+        ]);
+        expect(both).toEqual(["marco", "luca"]);
+        expect(both).not.toContain("giulia");
+    });
+
+    it("publishes on the settle and withdraws on dismiss", () => {
+        const published: Array<ReadonlyArray<string> | null> = [];
+        const selection = createSelectionStore();
+        const stage = document.createElement("div");
+        stage.innerHTML = PREVIEW_BODY_HTML;
+        document.body.appendChild(stage);
+        const root = stage.querySelector("#root") as HTMLElement;
+        root.innerHTML = SVG;
+        const lens = createHoverLens({
+            root,
+            layer: stage.querySelector("#kul-region-float") as HTMLElement,
+            selection,
+            async resolve() {
+                return {
+                    ok: true,
+                    result: { relationships: [fatherInLawOf("giulia", "luca")] },
+                };
+            },
+            bindPhrase: () => () => {},
+            onTrace: (ids) => published.push(ids === null ? null : [...ids]),
+        });
+
+        selection.select({ kind: "person", id: "giulia" });
+        // A selection change dismisses, but nothing was ever traced — and
+        // withdrawing walks every card, so it must not fire on an empty slot.
+        expect(published).toEqual([]);
+
+        lens.handleHover(cardOf(root, "luca").querySelector("rect"));
+        expect(published).toEqual([]);
+
+        return settle().then(() => {
+            expect(published).toEqual([["marco", "luca"]]);
+            lens.dismiss();
+            expect(published).toEqual([["marco", "luca"], null]);
+            // Idempotent: a second dismiss has nothing to withdraw.
+            lens.dismiss();
+            expect(published).toHaveLength(2);
+            lens.dispose();
+        });
+    });
+
+    it("lifts the kin dim off the persons the trace runs through", async () => {
+        // The end-to-end shape of ADR-0043's rule, through the real surface:
+        // paint a kin set that excludes `marco`, then hover a card whose answer
+        // runs through him. He is outside the answer and would render at the
+        // dim's alpha, which would leave the explanation fainter than the thing
+        // it explains.
+        const h = harness({
+            async runKinQuery(query) {
+                return query.projection === "count"
+                    ? { ok: true, result: { kind: "count" as const, count: 1 } }
+                    : {
+                          ok: true,
+                          result: {
+                              kind: "members" as const,
+                              members: [
+                                  {
+                                      personId: "dalisay",
+                                      descriptor: uncleOf("giulia", "dalisay"),
+                                  },
+                              ],
+                          },
+                      };
+            },
+        });
+        answer = { relationships: [fatherInLawOf("giulia", "luca")] };
+        h.surface.selection.select({ kind: "person", id: "giulia" });
+        await settle();
+        (h.stage.querySelector(".kul-kin-header") as HTMLElement).click();
+        await settle();
+        (h.stage.querySelector(".kul-kin-row") as HTMLElement).click();
+        await settle();
+
+        const marco = cardOf(h.root, "marco");
+        expect(marco.classList.contains(DIM_CLASS)).toBe(true);
+
+        hover(h, "luca");
+        await settle();
+        expect(marco.classList.contains(DIM_CLASS)).toBe(false);
+
+        // And it comes back the moment the read ends: the dim is what the
+        // reader did a moment ago, and it is still true.
+        h.surface.handleCanvasHover(null);
+        expect(marco.classList.contains(DIM_CLASS)).toBe(true);
+        expect(KIN_SETS.length).toBeGreaterThan(0);
     });
 });

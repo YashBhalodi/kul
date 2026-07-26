@@ -243,6 +243,35 @@ Only the **horizontal** position is clamped into the viewport. Vertically the pi
 even when the card is near the bottom edge, because position is the whole of the direction chrome: a
 pill that drifted upward to stay visible would be saying "this person" about nothing.
 
+### The trace outranks the dim, and the exemption is read off the backbone
+
+With a kin set painted, every person outside the answer wears the ambient dim
+([ADR-0043](./0043-explore-kin-thirteen-query-values-and-what-a-row-costs.md)) — and the persons a
+resolution runs through are *almost always* outside it, because "how are these two related" and "who
+are Giuseppe's cousins" are different questions. Left alone, the sky trace would render at the dim's
+alpha: an explanation fainter than the thing it explains.
+
+So the lens publishes the persons it names through `QuerySurface.setDimExemption`, and they are
+lifted from **every** dim source for as long as the pill is up. ADR-0043 states the rule — the lens is
+what the reader is doing *now*, the dim is what they did a moment ago — and puts the mechanism on the
+dim registry so #303's filter inherits it rather than re-deciding it. This slice is its first caller.
+
+Two properties of the published set are worth pinning, because both are easy to get subtly wrong.
+
+**It is read off the descriptors' backbones, not off the picture.** `dim.ts` obliges a source whose id
+set is DOM-derived to *republish* after a render rather than merely re-apply, since a swapped-out SVG
+can change what that source would dim. The exemption is a set of `path[].to` ids, so it carries no
+such obligation — and the question is doubly moot here, because a render dismisses the lens, which
+withdraws it.
+
+**The ego is not in it.** Kin paint already refuses to dim an anchor, so naming the ego would imply a
+need that does not exist and would quietly couple this set to a rule that belongs to the other module.
+The alter *is* in it: it is the card under the pointer with the pill docked to it, and the reader
+should not be pointing at something at 30%.
+
+The withdraw is guarded on whether anything was ever published, because withdrawing walks every card
+in the picture. A pointer sweeping a tree with no pill open must not pay for a paint it never caused.
+
 ### The docked tag is the grammar; the lens is one consumer of it
 
 The whisper splits in two. **`docked-tag.ts` owns the mechanism**: the float-layer placement, the
@@ -313,6 +342,9 @@ tag stays findable once something else docks one.
 - **The `locale` option is a marked threading seam.** #301 threads a pack through the same
   constructor for the panel's kin rows; on rebase its version wins and this one goes, so there is one
   locale path through the chrome rather than two.
+- **The lens is `setDimExemption`'s first caller**, and the only one. The exemption is a single slot
+  rather than a map keyed by holder, because a pointer is in one place; a second concurrent holder
+  would clobber the first, and keying it is the fix if one ever exists (ADR-0043).
 - **#303 gets a placement primitive instead of a file to edit.** `openDockedTag` is importable from
   the package root, works with no selection present, and needs nothing from `hover-lens.ts`. The
   chrome already receives `floatLayer` on `QuerySurfaceOptions`, so there is no new plumbing either.
@@ -366,6 +398,15 @@ tag stays findable once something else docks one.
   and "hovering a term gives the fuller gloss" is the sentence this slice exists to satisfy.
 - **"Clamp the pill vertically so it is never off-screen."** Position *is* the direction chrome. A
   pill that has drifted off its card is a sentence about nobody.
+- **"Let the kin dim win — it is the standing state and the lens is transient."** Backwards: the
+  transient thing is the one the reader is doing, and it is the one that has to be legible. A trace
+  at the dim's alpha explains nothing, which is the whole reason ADR-0043 put an exemption on the
+  registry.
+- **"Exempt the ego too, for symmetry."** Kin paint never dims an anchor, so it would be a no-op that
+  reads as a requirement — and it would couple this set to another module's rule.
+- **"Have the lens republish its exemption after a render, like kin paint does."** Kin paint owes
+  that because it decides who to dim by walking the *cards*; the lens reads `path[].to` off the
+  answer. And a render dismisses the lens, so there is nothing left to republish.
 - **"Fold the docked tag back into `hover-lens.ts` — it has one consumer."** It has two by
   specification: PRD-0006 gives #303's can't-say reason the same grammar, with no selection and its
   own trigger, and the lens's entry point refuses to serve that. The alternative to the split is a
