@@ -320,6 +320,12 @@ export const EN: LanguagePack = {
         // tie, because they agree. The shape that is neither
         // (`down·across·up`, a child's parent-in-law) has no English term and
         // composes, which is the whole reason this is not one wildcard entry.
+        //
+        // Neither pair keys `acrossCount` — unlike the child-in-law block
+        // above, which needs it to keep `across·down·across` out. Keying it on
+        // one side only would break the tie by specificity and silently retire
+        // the agreement case (ADR-0039); `tests/phrasing/en-terms.test.ts`
+        // asserts the tie is real.
         {
             when: {
                 classification: "collateral",
@@ -337,7 +343,6 @@ export const EN: LanguagePack = {
                 cousinDegree: 0,
                 removed: 0,
                 affinity: "inLaw",
-                acrossCount: 1,
                 acrossAtEnd: true,
                 alterGender: "male",
             },
@@ -360,7 +365,6 @@ export const EN: LanguagePack = {
                 cousinDegree: 0,
                 removed: 0,
                 affinity: "inLaw",
-                acrossCount: 1,
                 acrossAtEnd: true,
                 alterGender: "female",
             },
@@ -383,7 +387,6 @@ export const EN: LanguagePack = {
                 cousinDegree: 0,
                 removed: 0,
                 affinity: "inLaw",
-                acrossCount: 1,
                 acrossAtEnd: true,
                 alterGender: "other",
             },
@@ -406,9 +409,15 @@ export const EN: LanguagePack = {
         // "niece" to a nephew's wife — that one composes.
         //
         // `acrossAtStart: false` keeps a spouse's uncle out; that composes as
-        // English does. No `other`-gender entry: English has no gender-neutral
-        // term for a parent's sibling, and the fallback says so rather than
-        // inventing one.
+        // English does.
+        //
+        // English has no *lexeme* for a parent's sibling of `other` gender, but
+        // leaving the cell empty is worse than naming it: the fallback
+        // lexicalizes the `up·up` prefix and answers "grandfather's child",
+        // which a speaker uses for their **parent**. The fallback spells hops,
+        // it does not re-read them as relationships, so a descriptive term is
+        // the honest fix and it is pure data. Only the generation-2 cell is
+        // filled — past that the composed form is no longer misreadable.
         {
             when: { classification: "collateral", up: 2, down: 1, acrossAtStart: false, alterGender: "male" },
             term: "uncle",
@@ -416,6 +425,10 @@ export const EN: LanguagePack = {
         {
             when: { classification: "collateral", up: 2, down: 1, acrossAtStart: false, alterGender: "female" },
             term: "aunt",
+        },
+        {
+            when: { classification: "collateral", up: 2, down: 1, acrossAtStart: false, alterGender: "other" },
+            term: "parent's sibling",
         },
         {
             when: { classification: "collateral", up: 3, down: 1, acrossAtStart: false, alterGender: "male" },

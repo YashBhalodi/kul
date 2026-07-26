@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { phrasingKeyOf } from "../../src/phrasing/key.js";
+import { specificityOf, winningEntries } from "../../src/phrasing/lexicalize.js";
 import { EN } from "../../src/phrasing/packs/en.js";
 import { phrase } from "../../src/phrasing/phrase.js";
 import type { Phrase } from "../../src/phrasing/phrase.js";
@@ -115,6 +117,25 @@ const CASES: ReadonlyArray<[string, RelationshipDescriptor, Partial<Phrase>]> = 
             path: [up("male"), up("male"), up("male"), down("female")],
         }),
         { text: "great-aunt", kind: "lexical" },
+    ],
+    [
+        "a parent's sibling of `other` gender — English has no lexeme, but the composed form would read as a *parent*",
+        descriptorOf({
+            classification: collateral(2, 1),
+            side: "paternal",
+            path: [up("male"), up("female"), down("other")],
+        }),
+        { text: "parent's sibling", kind: "lexical" },
+    ],
+    [
+        "an `other`-gender parent's sibling by marriage is named the same way",
+        descriptorOf({
+            classification: collateral(2, 1),
+            affinity: "inLaw",
+            side: "paternal",
+            path: [up("male"), up("female"), down("male"), across("other")],
+        }),
+        { text: "parent's sibling", kind: "lexical" },
     ],
     [
         "a spouse's uncle has no English term and composes",
@@ -364,6 +385,23 @@ const CASES: ReadonlyArray<[string, RelationshipDescriptor, Partial<Phrase>]> = 
 describe("the `en` pack", () => {
     it.each(CASES.map((c) => [c[0], c[1], c[2]] as const))("phrases %s", (_name, descriptor, expected) => {
         expect(phrase(descriptor, EN)).toMatchObject(expected);
+    });
+
+    it("ties two entries on the spouse's sibling's spouse, and they agree", () => {
+        // The relaxation ADR-0039 makes to ADR-0033's tie rule, exercised
+        // rather than asserted: this key matches the `acrossAtStart` entry and
+        // the `acrossAtEnd` entry at equal specificity, and they say the same
+        // word. Breaking the tie (by keying `acrossCount` on one side) would
+        // retire the case silently, so it is pinned here.
+        const spousesSiblingsSpouse = descriptorOf({
+            classification: collateral(1, 1),
+            affinity: "inLaw",
+            path: [across("female"), up("male"), down("female"), across("male")],
+        });
+        const winners = winningEntries(phrasingKeyOf(spousesSiblingsSpouse), EN.entries);
+        expect(winners).toHaveLength(2);
+        expect(new Set(winners.map((entry) => entry.term))).toEqual(new Set(["brother-in-law"]));
+        expect(new Set(winners.map((entry) => specificityOf(entry.when)))).toHaveLength(1);
     });
 
     it("phrases bare — no ego-relative framing", () => {
