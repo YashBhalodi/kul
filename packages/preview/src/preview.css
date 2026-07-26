@@ -127,6 +127,41 @@ body {
     cursor: pointer;
 }
 
+/* Flow-region member: the locale toggle (ADR-0033). Standing chrome that sits
+ * above the canvas in the document flow rather than over it — it is a reading
+ * preference, live before the first render, not a view control.
+ *
+ * The region owns placement; this rule owns only how the widget itself reads.
+ * Per ADR-0036 the toggle carries no `role`, no `aria-*` and no
+ * `:focus-visible` — accessibility is a stated non-goal for the query chrome
+ * this epic builds, deliberately unlike the pan/zoom cluster, which keeps
+ * every attribute it has. */
+.kul-locale {
+    display: flex;
+    justify-content: flex-end;
+    padding: var(--kul-locale-bar-padding);
+}
+
+.kul-locale-btn {
+    padding: var(--kul-locale-padding);
+    color: var(--kul-locale-fg);
+    background-color: var(--kul-locale-bg);
+    border: 1px solid var(--kul-locale-border-color);
+    border-radius: var(--kul-locale-radius);
+    font-family: var(--kul-locale-font-family);
+    font-size: var(--kul-locale-font-size);
+    cursor: pointer;
+    transition: background-color var(--kul-locale-transition-duration) ease-in-out;
+}
+
+.kul-locale-btn:hover {
+    background-color: var(--kul-locale-hover-bg);
+}
+
+.kul-locale-btn:active {
+    background-color: var(--kul-locale-active-bg);
+}
+
 /* Floating cluster in the overlay region, above the SVG. Outside #root so the
  * per-render SVG swap never clears it. */
 .kul-preview-controls {

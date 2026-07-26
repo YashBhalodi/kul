@@ -2,7 +2,11 @@
 // the VSCode extension's HTML shell loads via <script src>. Mounts the chrome
 // inside `#kul-preview-mount` and wires the VSCode message bridge.
 
-import { createVscodeAdapter, installVscodeInboundBridge } from "./adapter-vscode.js";
+import {
+    createVscodeAdapter,
+    createVscodeLocaleStore,
+    installVscodeInboundBridge,
+} from "./adapter-vscode.js";
 import { createQueryEngine } from "./engine.js";
 import { ENGINE_MODULE_ATTR, ENGINE_WASM_ATTR, MOUNT_POINT_ID } from "./html.js";
 import { mountPreview } from "./mount.js";
@@ -19,6 +23,11 @@ if (mount) {
             ? createQueryEngine({ moduleUri, wasmUri })
             : undefined;
     const adapter = createVscodeAdapter();
-    const handle = mountPreview(mount, adapter, { engine });
+    // The locale store is webview-local state, so the reader's language
+    // survives a reopen.
+    const handle = mountPreview(mount, adapter, {
+        engine,
+        localeStore: createVscodeLocaleStore(),
+    });
     installVscodeInboundBridge(handle);
 }

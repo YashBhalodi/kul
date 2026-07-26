@@ -32,6 +32,21 @@ export function getNonce(): string {
 export const MOUNT_POINT_ID = "kul-preview-mount";
 
 /**
+ * The **chrome's** language, stamped on `<html>`.
+ *
+ * It stays `en` whatever the reader picks in the locale toggle: UI chrome
+ * labels are English and chrome i18n is a separate question (ADR-0022's
+ * stance). What changes language is the kinship phrasing, and each phrase
+ * carries its **own** `lang` — per-element, not per-document (ADR-0033).
+ *
+ * That split is a correctness item rather than a styling preference: a
+ * Gujarati phrase needs `lang="gu"` for the browser to select a font that can
+ * render the script, while the English chrome around it must not be tagged
+ * `gu`. Retagging the document instead would get both wrong at once.
+ */
+export const CHROME_LANG = "en";
+
+/**
  * Data attributes the shell stamps on the mount point to tell the webview
  * entry where the host put the engine (ADR-0040). The entry reads them rather
  * than importing a module, which is what keeps this package host-agnostic.
@@ -112,7 +127,7 @@ export function previewHtml(opts: PreviewHtmlOptions): string {
         ? ` ${ENGINE_MODULE_ATTR}="${escapeAttribute(engineSource.moduleUri)}" ${ENGINE_WASM_ATTR}="${escapeAttribute(engineSource.wasmUri)}"`
         : "";
     return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${CHROME_LANG}">
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">

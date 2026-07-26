@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { installVscodeInboundBridge } from "../src/adapter-vscode.js";
 import type { ProjectSnapshot } from "../src/engine.js";
+import { createLocaleController } from "../src/locale.js";
 import type { EntityRef, ErrorRow, PreviewHandle } from "../src/types.js";
 
 function fakeHandle() {
@@ -15,6 +16,9 @@ function fakeHandle() {
         showErrors,
         highlightEntity,
         queryDetail,
+        // The inbound bridge never touches the locale; a detached controller
+        // satisfies the handle without pretending to be one of its channels.
+        locale: createLocaleController(null),
         dispose,
     };
     return { handle, render, showErrors, highlightEntity, dispose };

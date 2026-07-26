@@ -1,6 +1,7 @@
 export {
     previewHtml,
     getNonce,
+    CHROME_LANG,
     MOUNT_POINT_ID,
     ENGINE_MODULE_ATTR,
     ENGINE_WASM_ATTR,
@@ -10,7 +11,17 @@ export type { PreviewHtmlOptions } from "./html.js";
 export { mountPreview } from "./mount.js";
 export type { MountOptions } from "./mount.js";
 
-export { createVscodeAdapter, installVscodeInboundBridge } from "./adapter-vscode.js";
+export {
+    createVscodeAdapter,
+    createVscodeLocaleStore,
+    installVscodeInboundBridge,
+} from "./adapter-vscode.js";
+
+// The locale toggle and the store its choice persists in (ADR-0033).
+export { createLocaleController, LOCALE_TOGGLE_HTML } from "./locale.js";
+export type { LocaleController } from "./locale.js";
+export { createMemoryLocaleStore } from "./locale-store.js";
+export type { LocaleStore } from "./locale-store.js";
 
 export { isEntityKind, isProjectSnapshot, isRevealTarget } from "./wire-guards.js";
 

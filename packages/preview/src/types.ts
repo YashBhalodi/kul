@@ -4,6 +4,7 @@ import type {
     QueryEnvelope,
 } from "./engine-wire.js";
 import type { ProjectSnapshot } from "./engine.js";
+import type { LocaleController } from "./locale.js";
 
 /** LSP-style position; 0-based line + character. */
 export interface LspPosition {
@@ -73,6 +74,12 @@ export interface PreviewHandle {
     queryDetail(
         targets: DetailTarget[],
     ): Promise<QueryEnvelope<DetailLookupResult> | null>;
+    /**
+     * The reader's language choice and everything phrased against it. Read it
+     * to know which pack the chrome is phrasing in; bind an element to a
+     * relationship and it re-phrases whenever the toggle flips (ADR-0033).
+     */
+    locale: LocaleController;
     dispose(): void;
 }
 
