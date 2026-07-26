@@ -113,6 +113,8 @@ they would have to stay in step with `kul-layout` forever; sourcing it from the 
 re-open the second provenance path this ADR just closed. The ended marriage on the panel is the
 underlying truth, and being drawn twice is a rendering consequence of it.
 
+> **Refined by [ADR-0036](./0036-two-tier-theming-and-the-accessibility-non-goal.md) (#284)** — the panel floats over the canvas rather than docking, so the centring below targets the **visible** region rather than the raw viewport. A panel-driven walk therefore never parks a card behind the panel.
+
 **Every person named anywhere in the widget is clickable.** Clicking moves the selection *and* pans
 the canvas to centre that person's canonical card. The pan is not a flourish: the panel is precisely
 how off-screen ancestors get discovered, and a selection the user cannot see is a dead end. This is
@@ -164,9 +166,11 @@ one-character typo fix costs the user their selection, their painted kin set, an
   the cards; the batched operation serves them from the contract instead, so the widget keeps **one**
   provenance path rather than the two ADR-0034 priced.
 - **The widget is now a navigation surface, not just a readout.** Panel-driven selection plus canvas
-  centring is new behaviour over `svg-pan-zoom`, and it needs a keyboard equivalent — which belongs
-  to [#284](https://github.com/YashBhalodi/kul/issues/284), along with the focus order of a panel
-  whose every name is now a control.
+  centring is new behaviour over `svg-pan-zoom`. ~~It needs a keyboard equivalent — which belongs to
+  [#284](https://github.com/YashBhalodi/kul/issues/284), along with the focus order of a panel whose
+  every name is now a control.~~ **Answered by [ADR-0036](./0036-two-tier-theming-and-the-accessibility-non-goal.md) (#284):**
+  there is no keyboard equivalent and no focus order — accessibility is a stated non-goal, and the
+  panel's name controls are mouse-driven.
 - **Three panel variants must be designed and themed**, not one. #284's `--kul-*` token coverage
   applies to all three.
 
