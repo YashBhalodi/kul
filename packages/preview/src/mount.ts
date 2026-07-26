@@ -141,6 +141,8 @@ export function mountPreview(
         notifyRegion,
         adapter,
         lookup: queryDetail,
+        runKinQuery: queryKin,
+        locale,
         getPanZoom: panZoomForReader,
         applySyncHighlight,
     });

@@ -122,9 +122,11 @@ describe("the stage's regions", () => {
             ".kul-error-popover",
             ".kul-preview-legend",
             // The details panel joins the float region and the sync hint the
-            // notify region by being appended — neither invents an inset.
+            // notify region by being appended — neither invents an inset. The
+            // quiet toast joins the notify region the same way (ADR-0043).
             ".kul-query-panel",
             ".kul-sync-hint",
+            ".kul-toast",
         ]) {
             expect(ruleBody(selector)).not.toMatch(placement);
         }

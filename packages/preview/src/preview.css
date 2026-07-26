@@ -519,6 +519,41 @@ body {
     outline-offset: var(--kul-query-selection-outline-offset);
 }
 
+/* Kin paint (ADR-0043): an answered kin-set query, drawn on the tree, because
+ * the tree *is* the result — there is no results list anywhere.
+ *
+ * An outline again, so a matched card keeps its gender tint. Every card a
+ * matched person owns takes it, canonical and ghost alike (ADR-0034): a result
+ * is about a person, and a result that vanished in the past family whose edges
+ * its ghost anchors would be a result the reader cannot see.
+ *
+ * This paint and the query selection violet coexist by design — the anchor of
+ * a kin set is a selected person, and both say something true about it. The
+ * violet rule above is declared first, so a card that is both takes the teal;
+ * the anchor is never in its own answer, so that combination only arises for a
+ * result the reader then clicks. */
+.kul-card.kul-query-result > rect,
+.kul-edge.kul-query-result {
+    outline: var(--kul-query-result-outline-width) solid
+        var(--kul-query-result-outline-color);
+    outline-offset: var(--kul-query-result-outline-offset);
+}
+
+/* A matched ghost keeps the glow and takes it dashed: it is still a past
+ * record, and a solid ring would make it read as canonical. */
+.kul-card[data-kind="ghost"].kul-query-result > rect {
+    outline-style: dashed;
+    stroke-dasharray: var(--kul-query-result-ghost-dash);
+}
+
+/* Non-matching cards dim. **Only cards** — dimming the edges would gut the
+ * picture the answer is drawn on, and #277's standing rule is that paint never
+ * hides, only recedes. */
+.kul-card.kul-query-dim {
+    opacity: var(--kul-query-dim-opacity);
+    transition: opacity var(--kul-query-dim-transition-duration);
+}
+
 /* The details panel — a float-region member (ADR-0038). It declares no
  * position, no inset and no z-index: the region owns all three, so the panel
  * cannot collide with other chrome by arithmetic. It overlays the canvas and
@@ -664,6 +699,115 @@ body {
 
 .kul-query-panel-row-text {
     color: var(--kul-query-panel-label-fg);
+}
+
+/* The Explore-kin list (ADR-0043): one flat scrollable list of every kin set
+ * with the engine's count beside it. No grouping — #276's resolution rejected
+ * the taxonomy — and no results list: clicking a row paints the tree.
+ *
+ * It scrolls in its own box rather than in the panel's, so thirteen rows do not
+ * decide the panel's height and a redraw resets only its own scroll position.
+ *
+ * The rows are `<button>` elements because that is the honest element for a
+ * mouse-driven command. Per ADR-0036 they carry no `role`, no `aria-*` and no
+ * `:focus-visible`. */
+.kul-kin-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: var(--kul-kin-header-font-size);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: left;
+    color: var(--kul-kin-header-fg);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.kul-kin-arrow {
+    font-size: var(--kul-kin-header-font-size);
+}
+
+.kul-kin-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kul-kin-row-gap);
+    max-height: var(--kul-kin-max-height);
+    overflow-y: auto;
+}
+
+.kul-kin-row {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--kul-kin-row-col-gap);
+    padding: var(--kul-kin-row-padding);
+    border: none;
+    border-radius: var(--kul-kin-row-radius);
+    background: none;
+    font: inherit;
+    text-align: left;
+    color: var(--kul-kin-label-fg);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.kul-kin-row:hover {
+    background-color: var(--kul-kin-row-hover-bg);
+}
+
+/* The painted row. It is the only row whose answer is on the tree, so it is
+ * the only one that reads as held. */
+.kul-kin-row-active {
+    background-color: var(--kul-kin-row-active-bg);
+}
+
+/* The gloss: the distinct terms of the painted row's members, phrased in the
+ * active pack. It carries its own `lang`, set per element, because the chrome
+ * around it stays English (ADR-0033). */
+.kul-kin-terms {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: var(--kul-kin-terms-fg);
+    font-size: var(--kul-kin-terms-font-size);
+    word-break: break-word;
+}
+
+.kul-kin-count {
+    margin-left: auto;
+    flex-shrink: 0;
+    color: var(--kul-kin-count-fg);
+    font-variant-numeric: tabular-nums;
+}
+
+/* A zero recedes; it never alarms. "No cousins" is an answer. */
+.kul-kin-count-zero {
+    opacity: var(--kul-kin-count-zero-opacity);
+    color: var(--kul-kin-count-zero-fg);
+}
+
+/* Transient-notification-region member: an empty kin set says so, quietly,
+ * once, and then leaves. Not modal and not an error — it shares the region
+ * with the sync hint rather than the popover with the diagnostics, because an
+ * absence the engine reported is an answer (ADR-0043). */
+.kul-toast {
+    max-width: var(--kul-toast-max-width);
+    padding: var(--kul-toast-padding);
+    background-color: var(--kul-toast-bg);
+    color: var(--kul-toast-fg);
+    border: 1px solid var(--kul-toast-border-color);
+    border-radius: var(--kul-toast-radius);
+    box-shadow: 0 2px 8px var(--kul-toast-shadow-color);
+    font-family: var(--kul-toast-font-family);
+    font-size: var(--kul-toast-font-size);
+    pointer-events: none;
 }
 
 /* Transient-notification-region member: editor ⇄ preview sync is suspended

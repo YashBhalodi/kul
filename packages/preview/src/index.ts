@@ -42,14 +42,38 @@ export type {
     ExportedDiagnostic,
     ExportedMarriage,
     ExportedPerson,
+    KinPattern,
     LinkedPerson,
     Manifest,
     MarriageTie,
+    Member,
+    Projection,
+    Query,
     QueryEnvelope,
+    QueryResult,
     WasmInputFile,
 } from "./engine-wire.js";
 export { selectBoundNodes } from "./result-binding.js";
 export type { ResultBinding } from "./result-binding.js";
+
+// Explore kin (ADR-0043) — the kin-set catalogue, the list it renders and the
+// paint an answered set puts on the tree.
+export { KIN_SETS, kinQuery, kinSetById } from "./kin-sets.js";
+export type { KinSet } from "./kin-sets.js";
+export { KIN_LIST_TITLE, buildKinList, emptyKinMessage } from "./kin-list.js";
+export type { KinListModel, KinListState, KinRowModel } from "./kin-list.js";
+export {
+    KIN_DIM_SOURCE,
+    RESULT_CLASS,
+    clearKinPaint,
+    paintKinResults,
+} from "./kin-paint.js";
+export type { KinAnswer } from "./kin-paint.js";
+// The dim: one class, one owner, union over every paint source (ADR-0043).
+export { DIM_CLASS, createDimRegistry } from "./dim.js";
+export type { DimRegistry, DimSource } from "./dim.js";
+export { TOAST_DURATION_MS, createToaster } from "./toast.js";
+export type { Toaster } from "./toast.js";
 
 // The selection seam (ADR-0035, ADR-0042) — one selection over three entity
 // kinds, and the surface every later piece of query chrome hangs off.
@@ -72,6 +96,7 @@ export { REVEAL_LABEL, buildDetailPanel, createDetailPanel } from "./detail-pane
 export type {
     DetailPanel,
     DetailPanelModel,
+    DetailPanelView,
     PanelField,
     PanelRow,
     PanelSection,

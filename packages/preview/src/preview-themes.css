@@ -68,9 +68,11 @@ body[data-theme="vscode"] {
     --kul-hue-query-uncertain: #ffab00;
     /* Resolution path — sky. The traversal that justified a relationship. */
     --kul-hue-query-path: #40c4ff;
-    /* Filter dim — one alpha, not a per-theme colour: `opacity` composites
-     * against whatever background the theme supplies, so a single value is
-     * theme-symmetric by construction. */
+    /* Dim — one alpha, not a per-theme colour: `opacity` composites against
+     * whatever background the theme supplies, so a single value is
+     * theme-symmetric by construction. Shared by every paint that answers a
+     * question by pushing the non-answer back: kin results today, #303's
+     * filter next. */
     --kul-dim-alpha: 0.3;
 
     /* ── Tier 1 · spacing scale ────────────────────────────────────────── */
@@ -240,6 +242,51 @@ body {
     --kul-query-panel-reveal-radius: var(--kul-radius-sm);
     --kul-query-panel-reveal-padding: var(--kul-space-1) var(--kul-space-3);
     --kul-query-panel-reveal-font-size: 0.9em;
+
+    /* ── Tier 2 · kin paint (ADR-0043) ─────────────────────────────────── */
+    /* The reserved teal, on every card a matched person owns. A ghost keeps
+     * the glow but takes it dashed, because a ghost is still a past record
+     * and the answer must not make it look canonical. Non-matching cards take
+     * the shared dim alpha rather than a colour of their own. */
+    --kul-query-result-outline-color: var(--kul-hue-query-result);
+    --kul-query-result-outline-width: 3px;
+    --kul-query-result-outline-offset: 2px;
+    --kul-query-result-ghost-dash: 4 3;
+    --kul-query-dim-opacity: var(--kul-dim-alpha);
+    --kul-query-dim-transition-duration: var(--kul-motion-slow);
+
+    /* ── Tier 2 · the Explore-kin list (ADR-0043) ──────────────────────── */
+    /* It scrolls inside its own box: the panel's height already varies with
+     * the selection, and thirteen rows would make it the tallest thing on
+     * screen. */
+    --kul-kin-max-height: 220px;
+    --kul-kin-row-gap: var(--kul-space-1);
+    --kul-kin-row-padding: var(--kul-space-2) var(--kul-space-3);
+    --kul-kin-row-radius: var(--kul-radius-sm);
+    --kul-kin-row-col-gap: var(--kul-space-3);
+    --kul-kin-row-hover-bg: var(--kul-hover);
+    --kul-kin-row-active-bg: var(--kul-active);
+    --kul-kin-header-fg: var(--kul-muted);
+    --kul-kin-header-font-size: 0.85em;
+    --kul-kin-label-fg: var(--kul-on-surface);
+    --kul-kin-terms-fg: var(--kul-muted);
+    --kul-kin-terms-font-size: 0.9em;
+    --kul-kin-count-fg: var(--kul-muted);
+    /* A zero is an answer, not a fault: it reads quieter than a real count,
+     * never louder, so it borrows the muted role and not the danger one. */
+    --kul-kin-count-zero-fg: var(--kul-muted);
+    --kul-kin-count-zero-opacity: 0.7;
+
+    /* ── Tier 2 · the quiet toast (ADR-0043) ───────────────────────────── */
+    --kul-toast-bg: var(--kul-raised);
+    --kul-toast-fg: var(--kul-on-surface);
+    --kul-toast-border-color: var(--kul-border);
+    --kul-toast-shadow-color: var(--kul-shadow);
+    --kul-toast-font-family: var(--kul-font-chrome);
+    --kul-toast-font-size: 11px;
+    --kul-toast-radius: var(--kul-radius-sm);
+    --kul-toast-padding: var(--kul-space-3) var(--kul-space-4);
+    --kul-toast-max-width: 320px;
 
     /* ── Tier 2 · editor-sync suspension hint (#276 point 9) ───────────── */
     --kul-sync-hint-bg: var(--kul-raised);

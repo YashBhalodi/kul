@@ -10,6 +10,11 @@ import { describe, expect, it } from "vitest";
 
 import type { EntityDetail } from "../src/engine-wire.js";
 import { buildDetailPanel } from "../src/detail-panel.js";
+import type { DetailPanelView } from "../src/detail-panel.js";
+import { EN } from "../src/phrasing/index.js";
+
+/** No Explore-kin list: the variants below are about the entity, not the list. */
+const NO_KIN: DetailPanelView = { pack: EN, kin: null };
 
 const GIULIA = {
     id: "giulia",
@@ -60,14 +65,14 @@ describe("the person variant", () => {
     };
 
     it("titles on the engine's name and reveals the person", () => {
-        const model = buildDetailPanel(detail);
+        const model = buildDetailPanel(detail, NO_KIN);
         expect(model.kicker).toBe("Person");
         expect(model.title).toBe("Giulia Rossi");
         expect(model.revealId).toBe("giulia");
     });
 
     it("omits absent fields rather than rendering 'not recorded'", () => {
-        const model = buildDetailPanel(detail);
+        const model = buildDetailPanel(detail, NO_KIN);
         const labels = model.fields.map((field) => field.label);
         expect(labels).toEqual(["Gender", "Family name", "Born"]);
         // No `died`, no `given` on the wire, so neither appears at all.
@@ -76,7 +81,7 @@ describe("the person variant", () => {
     });
 
     it("gives each marriage its own line with its span and end reason", () => {
-        const model = buildDetailPanel(detail);
+        const model = buildDetailPanel(detail, NO_KIN);
         const marriages = model.sections.find((s) => s.title === "Marriages");
         expect(marriages?.rows).toEqual([
             {
@@ -89,14 +94,14 @@ describe("the person variant", () => {
     });
 
     it("carries no ghost note — the ended marriage is the underlying truth", () => {
-        const model = buildDetailPanel(detail);
+        const model = buildDetailPanel(detail, NO_KIN);
         const text = JSON.stringify(model).toLowerCase();
         expect(text).not.toContain("ghost");
         expect(text).not.toContain("past-record");
     });
 
     it("notes each child's link kind in the document's own vocabulary", () => {
-        const model = buildDetailPanel(detail);
+        const model = buildDetailPanel(detail, NO_KIN);
         const children = model.sections.find((s) => s.title === "Children");
         expect(children?.rows).toEqual([
             { person: { id: "lucia", name: "Lucia Rossi" }, note: "birth" },
@@ -108,7 +113,7 @@ describe("the person variant", () => {
     });
 
     it("omits a section with no rows rather than emptying it", () => {
-        const model = buildDetailPanel(detail);
+        const model = buildDetailPanel(detail, NO_KIN);
         expect(model.sections.map((s) => s.title)).toEqual([
             "Marriages",
             "Children",
@@ -128,7 +133,7 @@ describe("the person variant", () => {
             ],
             marriages: [],
             children: [],
-        });
+        }, NO_KIN);
         const parents = model.sections.find((s) => s.title === "Parents");
         expect(parents?.rows).toHaveLength(2);
         expect(parents?.rows.map((row) => row.note)).toEqual([
@@ -147,14 +152,14 @@ describe("the marriage variant", () => {
     };
 
     it("titles on both spouses and reveals the marriage — the seam now works for edges", () => {
-        const model = buildDetailPanel(detail);
+        const model = buildDetailPanel(detail, NO_KIN);
         expect(model.kicker).toBe("Marriage");
         expect(model.title).toBe("Giulia Rossi & Marco Rossi");
         expect(model.revealId).toBe("m1");
     });
 
     it("lists its own fields and its spouses and children as clickable rows", () => {
-        const model = buildDetailPanel(detail);
+        const model = buildDetailPanel(detail, NO_KIN);
         expect(model.fields).toEqual([
             { label: "Started", value: "1948-03-02" },
             { label: "Ended", value: "1970" },
@@ -173,7 +178,7 @@ describe("the marriage variant", () => {
             marriage: M2,
             spouses: [GIULIA, ALDO],
             children: [],
-        });
+        }, NO_KIN);
         expect(model.fields).toEqual([]);
     });
 });
@@ -187,14 +192,14 @@ describe("the adoption variant", () => {
     };
 
     it("reveals the child, because an adoption link has no entity id", () => {
-        const model = buildDetailPanel(detail);
+        const model = buildDetailPanel(detail, NO_KIN);
         expect(model.kicker).toBe("Adoption");
         expect(model.title).toBe("Dalisay Reyes");
         expect(model.revealId).toBe("dalisay");
     });
 
     it("names the child and the adopting parents as clickable rows", () => {
-        const model = buildDetailPanel(detail);
+        const model = buildDetailPanel(detail, NO_KIN);
         expect(model.sections.map((s) => s.title)).toEqual([
             "Child",
             "Adoptive parents",

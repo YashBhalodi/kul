@@ -36,6 +36,7 @@ import type {
     QueryEnvelope,
 } from "../src/engine-wire.js";
 import { highlightEntity } from "../src/highlight.js";
+import { createLocaleController } from "../src/locale.js";
 import type { ProjectSnapshot, QueryEngine } from "../src/engine.js";
 import { SYNC_SUSPENDED_HINT, createQuerySurface } from "../src/query-surface.js";
 import type { QuerySurface } from "../src/query-surface.js";
@@ -370,6 +371,10 @@ function surfaceHarness(): {
                 result: asked.map(detailFor),
             } as QueryEnvelope<DetailLookupResult>;
         },
+        async runKinQuery() {
+            return { ok: true, result: { kind: "count" as const, count: 0 } };
+        },
+        locale: createLocaleController(null),
         getPanZoom: () => null,
         applySyncHighlight: (ref) => {
             highlightEntity(root, null, ref);

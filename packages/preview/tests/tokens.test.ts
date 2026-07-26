@@ -32,10 +32,8 @@ const appSheet = readSheet("preview.css");
  * rule that forced `--kul-tooltip-*` out with `tooltip.ts` (#300).
  */
 const RESERVED_PENDING_CONSUMERS = [
-    "--kul-hue-query-result",
     "--kul-hue-query-uncertain",
     "--kul-hue-query-path",
-    "--kul-dim-alpha",
 ];
 
 /**
