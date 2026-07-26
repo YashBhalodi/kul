@@ -103,8 +103,16 @@ export type {
     PanelRow,
     PanelSection,
 } from "./detail-panel.js";
+// The docked tag (ADR-0044) — the whisper grammar itself: a tag positioned
+// against an entity's screen box on the float layer. Decides nothing about when
+// one appears or what it says, so a second consumer supplies its own content and
+// its own trigger without touching the hover lens.
+export { DOCKED_TAG_CLASS, openDockedTag } from "./docked-tag.js";
+export type { DockedTag, DockedTagOptions } from "./docked-tag.js";
+
 // The hover lens (#302, ADR-0044) — relationship resolution with no click.
 export {
+    LENS_CLASS,
     LENS_DEBOUNCE_MS,
     LENS_PATH_CLASS,
     NOT_RELATED_DISCONNECTED,

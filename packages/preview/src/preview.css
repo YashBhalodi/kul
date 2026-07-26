@@ -892,37 +892,43 @@ body {
     stroke-opacity: var(--kul-query-path-opacity);
 }
 
-/* The relation pill — a docked-tag whisper, terms only.
+/* The docked tag — the whisper grammar itself, shared by everything that
+ * whispers under a card (ADR-0044). The hover lens's relation pill is its first
+ * consumer; #303's can't-say reason is the second, and gets the box, the
+ * placement and the pointer posture from here rather than from a second copy.
  *
  * An entity-anchored member of the float layer (ADR-0042): it declares no
- * inset and no z-index, and JS sets `left` / `top` from the hovered card's
+ * inset and no z-index, and JS sets `left` / `top` from the anchor card's
  * screen box. Docking under the *target* is what makes direction readable
  * without an arrow or a label, so the transform below offsets it downward and
  * never re-parks it elsewhere.
  *
- * `pointer-events: auto` is load-bearing: hovering a term is how the fuller
- * gloss is read, and the lens keeps reading while the pointer is on the pill.
+ * `pointer-events: auto` is load-bearing: hovering the content is how a fuller
+ * gloss is read, and a consumer keeps its whisper up while the pointer is on it.
+ *
+ * A consumer adds its own variant class for its own content rules. The lens's
+ * `.kul-lens` needs none, which is why no rule for it appears below.
  *
  * ADR-0036 makes accessibility a stated non-goal for new query chrome: no
  * `role`, no `aria-*`, no `:focus-visible` anywhere below. */
-.kul-lens {
+.kul-docked-tag {
     position: absolute;
-    transform: translate(-50%, var(--kul-lens-offset));
+    transform: translate(-50%, var(--kul-docked-tag-offset));
     display: flex;
     flex-direction: row;
     align-items: center;
     flex-wrap: wrap;
-    gap: var(--kul-lens-gap);
+    gap: var(--kul-docked-tag-gap);
     box-sizing: border-box;
-    max-width: var(--kul-lens-max-width);
-    padding: var(--kul-lens-padding);
-    background-color: var(--kul-lens-bg);
-    color: var(--kul-lens-fg);
-    border: 1px solid var(--kul-lens-border-color);
-    border-radius: var(--kul-lens-radius);
-    box-shadow: 0 2px 8px var(--kul-lens-shadow-color);
-    font-family: var(--kul-lens-font-family);
-    font-size: var(--kul-lens-font-size);
+    max-width: var(--kul-docked-tag-max-width);
+    padding: var(--kul-docked-tag-padding);
+    background-color: var(--kul-docked-tag-bg);
+    color: var(--kul-docked-tag-fg);
+    border: 1px solid var(--kul-docked-tag-border-color);
+    border-radius: var(--kul-docked-tag-radius);
+    box-shadow: 0 2px 8px var(--kul-docked-tag-shadow-color);
+    font-family: var(--kul-docked-tag-font-family);
+    font-size: var(--kul-docked-tag-font-size);
     pointer-events: auto;
 }
 
@@ -936,7 +942,11 @@ body {
     background-color: var(--kul-lens-viewpoint-color);
 }
 
-/* No term may paint outside the pill, whatever its length.
+/* No content may paint outside the tag, whatever its length. The rule is the
+ * docked-tag grammar's, not the lens's — any consumer that puts text in a tag
+ * inherits the same hazard, and the same fix.
+ *
+ * No term may paint outside the pill, whatever its length.
  *
  * A flex item's automatic minimum size is its min-content width, and for text
  * that may not wrap the min-content width is the *whole string* — so a

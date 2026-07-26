@@ -526,11 +526,16 @@ describe("the pill contains every phrase it can be handed", () => {
     const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
     const appSheet = readFileSync(join(SRC, "preview.css"), "utf8");
 
-    /** Every rule body whose selector mentions the lens, comments stripped. */
+    /**
+     * Every rule body whose selector mentions the docked tag or the lens's
+     * content inside it, comments stripped. Both prefixes, because the
+     * containment hazard belongs to the *grammar*: any consumer that puts text
+     * in a tag inherits it (ADR-0044).
+     */
     const lensRules = [
         ...appSheet
             .replace(/\/\*[\s\S]*?\*\//g, "")
-            .matchAll(/(\.kul-lens[^{]*)\{([^}]*)\}/g),
+            .matchAll(/((?:\.kul-docked-tag|\.kul-lens)[^{]*)\{([^}]*)\}/g),
     ].map((m) => ({ selector: m[1].trim(), body: m[2] }));
 
     it("has lexical terms far too long for a hop-derived slot", () => {
@@ -563,6 +568,15 @@ describe("the pill contains every phrase it can be handed", () => {
             .map((rule) => rule.selector);
         expect(relaxed).toContain(".kul-lens-term");
         expect(relaxed).toContain(".kul-lens-empty");
+    });
+
+    it("keeps the tag reachable by the pointer, so a gloss can be hovered", () => {
+        // `pointer-events: auto` on the tag is what makes "hovering a term
+        // gives the fuller gloss" possible at all — the float layer around it
+        // is `none`. Losing it would silently break every consumer's gloss,
+        // and jsdom cannot see it any other way.
+        const tag = lensRules.find((rule) => rule.selector === ".kul-docked-tag");
+        expect(tag?.body).toMatch(/pointer-events:\s*auto/);
     });
 
     it("caps a term by the pill, and only scales a slot for a composed chain", () => {

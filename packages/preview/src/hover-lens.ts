@@ -22,10 +22,17 @@
 // - **Emptiness stays honest.** `disconnected` and `noneWithinBounds` are two
 //   different answers and the pill says two different things.
 //
+// The pill's *box* is not this module's: `docked-tag.ts` owns the whisper
+// grammar — placement against a card's screen box, the clamp, the chrome — and
+// this file owns only when one opens and what goes in it. #303 whispers a
+// can't-say reason in the same grammar without touching anything here
+// (ADR-0044).
+//
 // ACCESSIBILITY. Per ADR-0036 this chrome carries no `role`, no `aria-*` and no
 // `:focus-visible`. The lens is mouse-driven by decision; the neighbouring
 // controls, legend and error popover keep everything they have.
 
+import { type DockedTag, openDockedTag } from "./docked-tag.js";
 import type { QueryEnvelope, ResolveResult } from "./engine-wire.js";
 import { isQueryOk } from "./engine-wire.js";
 import type { RelationshipDescriptor } from "./phrasing/descriptor.js";
@@ -46,6 +53,13 @@ export const LENS_DEBOUNCE_MS = 120;
 
 /** Class every node on a traced resolution path wears. Painted the reserved sky. */
 export const LENS_PATH_CLASS = "kul-query-path";
+
+/**
+ * The lens's variant class on its docked tag. It carries no rules of its own —
+ * the chrome is `.kul-docked-tag`'s — and exists so the lens's pill is findable
+ * among whatever else docks a tag (#303 will add its own).
+ */
+export const LENS_CLASS = "kul-lens";
 
 /**
  * What the pill says when the two lie in different components of the relation
@@ -72,10 +86,10 @@ export interface HoverLensOptions {
     /** The rendered-SVG host (`#root`). Hit-testing and path paint land inside it. */
     root: HTMLElement;
     /**
-     * The float layer itself (`#kul-region-float`), **not** its edge dock. The
-     * layer is the placement ADR-0042 carved for entity-anchored chrome: a bare
-     * fixed layer whose members position themselves against a card's screen
-     * box, unaffected by the dock's flow and painting above it in DOM order.
+     * The float layer itself (`#kul-region-float`), **not** its edge dock —
+     * ADR-0042's placement for entity-anchored chrome. Passed straight through
+     * to {@link openDockedTag}, which owns everything about how the pill sits
+     * in it; the lens only decides that one should be there.
      */
     layer: HTMLElement;
     /** The selection seam. The lens reads its person anchor and follows changes. */
@@ -189,14 +203,10 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
     // Every re-arm invalidates any answer still in flight, so a slow resolution
     // can never whisper about a card the pointer has already left.
     let generation = 0;
-    let pill: HTMLElement | null = null;
+    // The open pill, as the docked-tag mechanism hands it back. The lens owns
+    // *when* one is up and *what* is in it; where it sits is not its business.
+    let tag: DockedTag | null = null;
     let unbindPhrases: Array<() => void> = [];
-    // The pill's half-width, measured once when it opens. `place` runs at
-    // pointer-move frequency, and reading a second box there would be a second
-    // forced layout per move for a number that only the viewport clamp uses —
-    // and that the CSS `translateX(-50%)` does not need at all, so a re-phrase
-    // that changes the pill's width stays centred without re-measuring.
-    let pillHalfWidth = 0;
 
     function cancelPending(): void {
         if (timer !== null) {
@@ -216,47 +226,13 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
             unbind();
         }
         unbindPhrases = [];
-        pillHalfWidth = 0;
-        if (pill) {
-            pill.remove();
-            pill = null;
-        }
+        tag?.close();
+        tag = null;
     }
 
     function clear(): void {
         closePill();
         clearPaint();
-    }
-
-    /**
-     * Dock the pill under the card. Only the horizontal position is clamped
-     * into the viewport: vertically the pill stays with its card, because
-     * position is what says which person the tie is about, and a pill that
-     * drifted to stay visible would be saying it about nothing.
-     *
-     * One box read per call, and the styles are only written when they change:
-     * this runs on every pointer move that keeps the pointer on the armed card,
-     * which is how the pill stays docked while the reader drags the canvas.
-     */
-    function place(card: Element): void {
-        if (!pill || typeof card.getBoundingClientRect !== "function") {
-            return;
-        }
-        const box = card.getBoundingClientRect();
-        const top = box.bottom + "px";
-        if (pill.style.top !== top) {
-            pill.style.top = top;
-        }
-        let x = box.left + box.width / 2;
-        const min = pillHalfWidth;
-        const max = window.innerWidth - pillHalfWidth;
-        if (max > min) {
-            x = Math.min(Math.max(x, min), max);
-        }
-        const left = x + "px";
-        if (pill.style.left !== left) {
-            pill.style.left = left;
-        }
     }
 
     function paintPath(relationships: ReadonlyArray<RelationshipDescriptor>): void {
@@ -270,24 +246,28 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
     }
 
     /**
-     * The pill, plus the unbinds its phrase sites own — returned rather than
-     * pushed onto the module's list, so the element and the teardown for it can
-     * never be adopted separately.
+     * What goes *inside* the tag, plus the unbinds its phrase sites own —
+     * returned together so the nodes and the teardown for them can never be
+     * adopted separately.
+     *
+     * This is the lens's whole contribution to the pill. The box around it, and
+     * where that box sits, belong to {@link openDockedTag} — which is what lets
+     * #303 whisper a can't-say reason in the same grammar without touching this
+     * file (ADR-0044).
      */
-    function buildPill(result: ResolveResult): {
-        el: HTMLElement;
+    function buildContent(result: ResolveResult): {
+        nodes: Node[];
         unbinds: Array<() => void>;
     } {
-        const el = document.createElement("div");
-        el.className = "kul-lens";
+        const nodes: Node[] = [];
         const unbinds: Array<() => void> = [];
         const empty = emptinessWhisper(result);
         if (empty !== null) {
             const note = document.createElement("span");
             note.className = "kul-lens-empty";
             note.textContent = empty;
-            el.appendChild(note);
-            return { el, unbinds };
+            nodes.push(note);
+            return { nodes, unbinds };
         }
         // The violet dot is the whole of the direction chrome: it says the
         // terms read from the selected person outward. Terms only otherwise —
@@ -295,13 +275,13 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
         const dot = document.createElement("span");
         dot.className = "kul-lens-viewpoint";
         dot.title = VIEWPOINT_TITLE;
-        el.appendChild(dot);
+        nodes.push(dot);
         result.relationships.forEach((descriptor, index) => {
             if (index > 0) {
                 const separator = document.createElement("span");
                 separator.className = "kul-lens-sep";
                 separator.textContent = TERM_SEPARATOR;
-                el.appendChild(separator);
+                nodes.push(separator);
             }
             const term = document.createElement("span");
             term.className = "kul-lens-term";
@@ -311,19 +291,21 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
             // kind and the hop count and never reads the string itself
             // (ADR-0033, ADR-0039).
             unbinds.push(bindPhrase(term, descriptor));
-            el.appendChild(term);
+            nodes.push(term);
         });
-        return { el, unbinds };
+        return { nodes, unbinds };
     }
 
     function show(card: Element, result: ResolveResult): void {
         clear();
-        const built = buildPill(result);
-        pill = built.el;
+        const built = buildContent(result);
         unbindPhrases = built.unbinds;
-        layer.appendChild(pill);
-        pillHalfWidth = (pill.getBoundingClientRect?.().width ?? 0) / 2;
-        place(card);
+        tag = openDockedTag({
+            layer,
+            anchor: card,
+            content: built.nodes,
+            variant: LENS_CLASS,
+        });
         paintPath(result.relationships);
     }
 
@@ -342,7 +324,7 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
     }
 
     function handleHover(target: Element | null): void {
-        if (pill && target && pill.contains(target)) {
+        if (tag?.contains(target)) {
             // The pointer moved onto the pill to read a term. Leaving the
             // canvas is not leaving the lens.
             return;
@@ -358,7 +340,7 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
             // Same card: no new query. Re-anchor anyway, so the pill stays
             // docked while the reader drags the canvas underneath it.
             if (live) {
-                place(live);
+                tag?.reanchor();
             }
             return;
         }

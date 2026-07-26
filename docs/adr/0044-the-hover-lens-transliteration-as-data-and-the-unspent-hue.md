@@ -39,6 +39,10 @@ was explicitly deferred to this slice by name.
 6. **What happens to a lens reading when a render swaps the picture?** ADR-0042 pins
    `repaintQueryChrome()` as the one post-render hook and says the selection *repaints*. It says
    nothing about chrome whose whole meaning is "where the pointer is right now".
+7. **Whose is the "docked-tag grammar"?** PRD-0006:149 says the filter's can't-say reason whispers
+   *"in the lens's docked-tag grammar"* — under a card, with **no selection anywhere**, on a trigger
+   that is not a hover resolution. Calling something a shared grammar and building it as one widget's
+   private chrome are different acts, and only the first was written down.
 
 ## Decision
 
@@ -239,6 +243,39 @@ Only the **horizontal** position is clamped into the viewport. Vertically the pi
 even when the card is near the bottom edge, because position is the whole of the direction chrome: a
 pill that drifted upward to stay visible would be saying "this person" about nothing.
 
+### The docked tag is the grammar; the lens is one consumer of it
+
+The whisper splits in two. **`docked-tag.ts` owns the mechanism**: the float-layer placement, the
+measurement against an anchor's screen box, the horizontal clamp, the pill chrome and the
+pointer posture. **`hover-lens.ts` owns the policy**: when to resolve, what the tag says, the trace,
+the selection gate, the debounce and the dismiss rules. The seam between them is a list of nodes.
+
+```ts
+openDockedTag({ layer, anchor, content, variant? }) -> DockedTag
+                                    // { element, anchor, reanchor(), contains(node), close() }
+```
+
+This is not speculative generality — it has a named second consumer before it ships.
+[#303](https://github.com/YashBhalodi/kul/issues/303)'s can't-say reason is specified to whisper in
+this grammar, and it cannot reach it through the lens: `HoverLens` exposes `handleHover` / `dismiss` /
+`dispose`, its content builder takes a `ResolveResult`, and `handleHover` **hard-gates on a person
+selection existing** — while a filter verdict must whisper with no selection at all. Left private, the
+lens's file would have had to grow a second trigger and a second content model for a feature that has
+nothing to do with relationship resolution, or #303 would have copied the placement arithmetic. The
+copy is the worse outcome by some distance: two docked-tag grammars, drifting, in a design whose whole
+claim is that there is one.
+
+**The content model is a list of nodes, deliberately.** The mechanism supplies the box and never a
+word; the lens appends a viewpoint dot and phrased terms, #303 appends whatever a reason string wants.
+Generalising the *content* — a `note` slot, a `reason` variant, a `severity` — would be inventing
+#303's chrome from here, which is exactly the speculative half. The socket is shared; the plug is not.
+
+The split cost the lens nothing behavioural: the selection gate, the debounce, the trace and
+dismiss-on-repaint are untouched, and every test pinning them passes unchanged. The tag chrome's
+tokens move `--kul-lens-*` → `--kul-docked-tag-*`, which is the rename that makes the ownership
+readable, and `.kul-lens` survives as a **variant class with no rules** — a marker so the lens's own
+tag stays findable once something else docks one.
+
 ## Consequences
 
 - **A pack now has two readings and one source of truth for each.** Adding a language is still one
@@ -276,6 +313,9 @@ pill that drifted upward to stay visible would be saying "this person" about not
 - **The `locale` option is a marked threading seam.** #301 threads a pack through the same
   constructor for the panel's kin rows; on rebase its version wins and this one goes, so there is one
   locale path through the chrome rather than two.
+- **#303 gets a placement primitive instead of a file to edit.** `openDockedTag` is importable from
+  the package root, works with no selection present, and needs nothing from `hover-lens.ts`. The
+  chrome already receives `floatLayer` on `QuerySurfaceOptions`, so there is no new plumbing either.
 - **A third paint now shares the canvas** and the `.kul-selected` / `.kul-query-selected` invariant is
   untouched: the lens paints neither endpoint and reads only while a person is selected — which
   suspends editor sync and strips its highlight — so its class never lands on a node wearing either.
@@ -326,6 +366,16 @@ pill that drifted upward to stay visible would be saying "this person" about not
   and "hovering a term gives the fuller gloss" is the sentence this slice exists to satisfy.
 - **"Clamp the pill vertically so it is never off-screen."** Position *is* the direction chrome. A
   pill that has drifted off its card is a sentence about nobody.
+- **"Fold the docked tag back into `hover-lens.ts` — it has one consumer."** It has two by
+  specification: PRD-0006 gives #303's can't-say reason the same grammar, with no selection and its
+  own trigger, and the lens's entry point refuses to serve that. The alternative to the split is a
+  second copy of the placement arithmetic and two grammars that drift.
+- **"Give the docked tag a `note` / `reason` slot so #303 does not have to build one."** That is
+  inventing #303's chrome from here, and the shared thing would then have opinions about content it
+  cannot see. The node list is the socket; the plug is the consumer's.
+- **"Let the lens keep `place()` and have #303 call `HoverLens`."** `handleHover` gates on a person
+  selection and takes a hover target, which a filter verdict has neither of. Widening it would put
+  filter policy inside the lens.
 - **"Give a lexical term `white-space: nowrap` — a crisp term should stay on one line."** A crisp one
   does anyway; the rule only bites on the long ones. And a flex item that may not wrap has a
   min-content width equal to the whole string, which is its automatic minimum size, so it refuses

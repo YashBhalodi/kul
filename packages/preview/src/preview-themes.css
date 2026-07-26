@@ -346,7 +346,7 @@ body {
     --kul-error-location-fg: var(--kul-muted);
     --kul-error-location-font-size: 11px;
 
-    /* ── Tier 2 · the hover lens (#302, ADR-0044) ──────────────────────── */
+    /* ── Tier 2 · the docked tag and the hover lens (#302, ADR-0044) ───── */
     /* The traced resolution path takes the fourth reserved hue, which is what
      * it was reserved for. Dashed rather than solid, and lighter than full
      * opacity: it explains an answer that is already on screen, and must not
@@ -356,23 +356,26 @@ body {
     --kul-query-path-opacity: 0.85;
     --kul-query-path-outline-width: 2px;
     --kul-query-path-outline-offset: 1px;
-    /* The pill is chrome, so it reads like the panel and the hint beside it.
-     * Its one coloured element is the viewpoint dot, which borrows the
-     * selection's violet on purpose: it means "as *that* entity sees it", and
-     * that entity is the one wearing the violet outline. */
-    --kul-lens-bg: var(--kul-raised);
-    --kul-lens-fg: var(--kul-on-surface);
-    --kul-lens-border-color: var(--kul-border);
-    --kul-lens-shadow-color: var(--kul-shadow);
-    --kul-lens-font-family: var(--kul-font-chrome);
-    --kul-lens-font-size: 11px;
-    --kul-lens-radius: var(--kul-radius-sm);
-    --kul-lens-padding: var(--kul-space-1) var(--kul-space-3);
-    --kul-lens-gap: var(--kul-space-2);
-    /* Clear air under the hovered card, so the pill reads as docked to it
-     * rather than drawn on it. */
-    --kul-lens-offset: var(--kul-space-3);
-    --kul-lens-max-width: 320px;
+    /* The tag itself is chrome, so it reads like the panel and the hint beside
+     * it. These govern the *grammar* — every consumer that whispers under a
+     * card gets the same box, which is what makes it one grammar. */
+    --kul-docked-tag-bg: var(--kul-raised);
+    --kul-docked-tag-fg: var(--kul-on-surface);
+    --kul-docked-tag-border-color: var(--kul-border);
+    --kul-docked-tag-shadow-color: var(--kul-shadow);
+    --kul-docked-tag-font-family: var(--kul-font-chrome);
+    --kul-docked-tag-font-size: 11px;
+    --kul-docked-tag-radius: var(--kul-radius-sm);
+    --kul-docked-tag-padding: var(--kul-space-1) var(--kul-space-3);
+    --kul-docked-tag-gap: var(--kul-space-2);
+    /* Clear air under the anchor card, so the tag reads as docked to it rather
+     * than drawn on it. */
+    --kul-docked-tag-offset: var(--kul-space-3);
+    --kul-docked-tag-max-width: 320px;
+    /* The lens's own content inside that box. Its one coloured element is the
+     * viewpoint dot, which borrows the selection's violet on purpose: it means
+     * "as *that* entity sees it", and that entity is the one wearing the violet
+     * outline. */
     --kul-lens-viewpoint-size: 6px;
     --kul-lens-viewpoint-color: var(--kul-hue-query-selection);
     --kul-lens-sep-fg: var(--kul-muted);
