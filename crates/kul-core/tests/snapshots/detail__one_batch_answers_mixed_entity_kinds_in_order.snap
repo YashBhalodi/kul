@@ -1,0 +1,213 @@
+---
+source: crates/kul-core/tests/detail.rs
+expression: "detail_json(&check,\n&[DetailTarget::person(\"rosa\"), DetailTarget::marriage(\"m_eduardo_luz\"),\nDetailTarget::adoption(\"dalisay\", \"m_carlos_rosa\"),])"
+---
+{
+  "ok": true,
+  "result": [
+    {
+      "kind": "person",
+      "person": {
+        "id": "rosa",
+        "name": "Rosa Mendoza",
+        "gender": "female",
+        "born": {
+          "value": "1975-09-24",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      "parents": [],
+      "marriages": [
+        {
+          "marriage": {
+            "id": "m_carlos_rosa",
+            "spouses": [
+              "carlos",
+              "rosa"
+            ],
+            "start": {
+              "value": "2000-01-15",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "spouse": {
+            "id": "carlos",
+            "name": "Carlos Mendoza",
+            "gender": "male",
+            "born": {
+              "value": "1973-02-18",
+              "precision": "day",
+              "circa": false
+            }
+          }
+        }
+      ],
+      "children": [
+        {
+          "person": {
+            "id": "mateo",
+            "name": "Mateo Mendoza",
+            "gender": "male",
+            "born": {
+              "value": "2003-05-10",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "link": {
+            "marriageId": "m_carlos_rosa",
+            "childId": "mateo",
+            "kind": "biological"
+          }
+        },
+        {
+          "person": {
+            "id": "bayani",
+            "name": "Bayani Mendoza",
+            "gender": "other",
+            "born": {
+              "value": "1995",
+              "precision": "year",
+              "circa": true
+            }
+          },
+          "link": {
+            "marriageId": "m_carlos_rosa",
+            "childId": "bayani",
+            "kind": "adoptive",
+            "start": {
+              "value": "2007-06-01",
+              "precision": "day",
+              "circa": false
+            }
+          }
+        },
+        {
+          "person": {
+            "id": "dalisay",
+            "name": "Dalisay Mendoza",
+            "gender": "female",
+            "born": {
+              "value": "1990-08-03",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "link": {
+            "marriageId": "m_carlos_rosa",
+            "childId": "dalisay",
+            "kind": "adoptive",
+            "start": {
+              "value": "2002-11-30",
+              "precision": "day",
+              "circa": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "kind": "marriage",
+      "marriage": {
+        "id": "m_eduardo_luz",
+        "spouses": [
+          "eduardo",
+          "luz"
+        ],
+        "start": {
+          "value": "1988-07-09",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      "spouses": [
+        {
+          "id": "eduardo",
+          "name": "Eduardo Reyes",
+          "gender": "male",
+          "born": {
+            "value": "1962-03-11",
+            "precision": "day",
+            "circa": false
+          }
+        },
+        {
+          "id": "luz",
+          "name": "Luz Reyes",
+          "gender": "female",
+          "born": {
+            "value": "1965-12-02",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      ],
+      "children": [
+        {
+          "person": {
+            "id": "dalisay",
+            "name": "Dalisay Mendoza",
+            "gender": "female",
+            "born": {
+              "value": "1990-08-03",
+              "precision": "day",
+              "circa": false
+            }
+          },
+          "link": {
+            "marriageId": "m_eduardo_luz",
+            "childId": "dalisay",
+            "kind": "biological"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "adoption",
+      "adoption": {
+        "marriageId": "m_carlos_rosa",
+        "childId": "dalisay",
+        "kind": "adoptive",
+        "start": {
+          "value": "2002-11-30",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      "child": {
+        "id": "dalisay",
+        "name": "Dalisay Mendoza",
+        "gender": "female",
+        "born": {
+          "value": "1990-08-03",
+          "precision": "day",
+          "circa": false
+        }
+      },
+      "parents": [
+        {
+          "id": "carlos",
+          "name": "Carlos Mendoza",
+          "gender": "male",
+          "born": {
+            "value": "1973-02-18",
+            "precision": "day",
+            "circa": false
+          }
+        },
+        {
+          "id": "rosa",
+          "name": "Rosa Mendoza",
+          "gender": "female",
+          "born": {
+            "value": "1975-09-24",
+            "precision": "day",
+            "circa": false
+          }
+        }
+      ]
+    }
+  ]
+}
