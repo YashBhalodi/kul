@@ -423,7 +423,7 @@ Relationship resolution as a **zero-click affordance**: while a person is select
 
 ### Resolution path
 
-The trace the [hover lens](#hover-lens) paints across the tree while it reads: every edge the relationship's [path backbone](#path-backbone) ran through — an [affinal hop](#affinal-hop)'s marriage, a vertical hop's birth or adoption edge — **plus every person the path passes through**, in the reserved dashed sky. It answers *why* the term is the term. Both endpoints are deliberately absent: the ego already wears the selection violet and the alter is the card under the pointer. Direction is load-bearing in the derivation — a `down` hop lands on the child, an `up` hop leaves from one — so the walk carries the person it came from rather than reading each hop alone. For a multi-tie the paint is the union over every relationship returned.
+The trace the [hover lens](#hover-lens) paints across the tree while it reads: every edge the relationship's [path backbone](#path-backbone) ran through — an [affinal hop](#affinal-hop)'s marriage, a vertical hop's birth or adoption edge — **plus every person the path passes through**, in the reserved dashed sky. It answers *why* the term is the term. Neither endpoint's **card** is painted: the ego already wears the selection violet and the alter is the card under the pointer. An endpoint's own birth edge can still light, where a leading `up` hop was drawn as it. Direction is load-bearing in the derivation — a `down` hop lands on the child, an `up` hop leaves from one — so the walk carries the person it came from rather than reading each hop alone. For a multi-tie the paint is the union over every relationship returned.
 
 ### Occlusion-aware centring
 

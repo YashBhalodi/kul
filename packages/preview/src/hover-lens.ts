@@ -48,9 +48,9 @@ export const LENS_DEBOUNCE_MS = 120;
 export const LENS_PATH_CLASS = "kul-query-path";
 
 /**
- * What the pill says when the two are in different components of the relation
- * graph: no budget can ever find a tie, so the claim is unqualified in *that*
- * direction and qualified about why.
+ * What the pill says when the two lie in different components of the relation
+ * graph. No budget could ever find a tie, so the parenthesis says *why* there
+ * is none rather than how far the engine looked.
  */
 export const NOT_RELATED_DISCONNECTED = "not related (no connection)";
 
@@ -132,9 +132,11 @@ function cardAt(target: Element | null): Element | null {
  * backwards paints a plausible but wrong edge, which is why the walk carries
  * the person it came from rather than reading the hop alone.
  *
- * The two endpoints are deliberately absent: the ego already wears the
+ * Neither endpoint's **card** is on the list: the ego already wears the
  * selection violet and the alter is the card under the pointer. What the trace
- * adds is the part the reader cannot see — who stands between them.
+ * adds is the part the reader cannot see — who stands between them. An
+ * endpoint's own birth edge *can* light, because a leading `up` hop was drawn
+ * as it, and that edge is genuinely part of the answer.
  */
 export function resolutionPathBindings(
     descriptor: RelationshipDescriptor,
@@ -254,16 +256,25 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
         }
     }
 
-    function buildPill(result: ResolveResult): HTMLElement {
+    /**
+     * The pill, plus the unbinds its phrase sites own — returned rather than
+     * pushed onto the module's list, so the element and the teardown for it can
+     * never be adopted separately.
+     */
+    function buildPill(result: ResolveResult): {
+        el: HTMLElement;
+        unbinds: Array<() => void>;
+    } {
         const el = document.createElement("div");
         el.className = "kul-lens";
+        const unbinds: Array<() => void> = [];
         const empty = emptinessWhisper(result);
         if (empty !== null) {
             const note = document.createElement("span");
             note.className = "kul-lens-empty";
             note.textContent = empty;
             el.appendChild(note);
-            return el;
+            return { el, unbinds };
         }
         // The violet dot is the whole of the direction chrome: it says the
         // terms read from the selected person outward. Terms only otherwise —
@@ -282,18 +293,21 @@ export function createHoverLens(options: HoverLensOptions): HoverLens {
             const term = document.createElement("span");
             term.className = "kul-lens-term";
             // `bindPhrase` writes the text, the element's own `lang`, the
-            // phrase kind and the hop count, and keeps all four current across
-            // a locale flip. The pill sizes from the last two and never reads
-            // the string (ADR-0033, ADR-0039).
-            unbindPhrases.push(bindPhrase(term, descriptor));
+            // phrase kind, the hop count and the Latin gloss, and keeps every
+            // one of them current across a locale flip. The pill sizes from the
+            // kind and the hop count and never reads the string itself
+            // (ADR-0033, ADR-0039).
+            unbinds.push(bindPhrase(term, descriptor));
             el.appendChild(term);
         });
-        return el;
+        return { el, unbinds };
     }
 
     function show(card: Element, result: ResolveResult): void {
         clear();
-        pill = buildPill(result);
+        const built = buildPill(result);
+        pill = built.el;
+        unbindPhrases = built.unbinds;
         layer.appendChild(pill);
         place(card);
         paintPath(result.relationships);

@@ -146,7 +146,7 @@ carve-out was written to force, firing for the second time.
 ### The trace shows the middle, because the ends are already shown
 
 For each relationship, the path paints every hop's edge — an `across` hop's marriage, a vertical hop's
-birth or adoption edge — **plus every person the path passes through**, and **neither endpoint**.
+birth or adoption edge — **plus every person the path passes through**, and **neither endpoint's card**.
 
 The persons are what makes it an explanation rather than a highlight: #302's own words are "traces the
 connecting *persons*", and a reader looking at three lit edges without the cards between them has to
@@ -154,10 +154,12 @@ reconstruct who they belong to. Every card a traced person owns lights, canonica
 per [ADR-0034](./0034-query-transport-and-result-node-identity.md)'s rule that a result is about a
 person.
 
-Excluding the two endpoints is not an optimisation. The ego already wears the reserved violet and the
-alter is under the pointer with the pill docked to it; painting either sky would put a third and
-fourth meaning on the two cards whose meaning is least in doubt, and on the ego it would sit directly
-on top of the selection outline. What the trace adds is the part the reader cannot see.
+Excluding the two endpoints' cards is not an optimisation. The ego already wears the reserved violet
+and the alter is under the pointer with the pill docked to it; painting either sky would put a third
+and fourth meaning on the two cards whose meaning is least in doubt, and on the ego it would sit
+directly on top of the selection outline. What the trace adds is the part the reader cannot see. An
+endpoint's own birth *edge* does light where a leading `up` hop was drawn as it — that edge is part
+of the answer, and an edge carries no claim about which endpoint is which.
 
 The direction bookkeeping is worth stating because getting it wrong is silent: a `down` hop lands on
 the child, an `up` hop leaves *from* one, so the walk carries the person it came from rather than
