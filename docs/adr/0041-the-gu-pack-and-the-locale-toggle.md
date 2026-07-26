@@ -19,8 +19,8 @@ the pack suites passed over `gu` without an assertion changing. The seven-way af
 collision class, the `par-` cap, seniority-as-entries, the gender-agreeing genitive and the
 *savkā* many-to-one collapse all expressed themselves in the vocabulary already there.
 
-Three things it did **not** buy fell out of building it. Each is small; each would
-otherwise be re-litigated, or worse, "fixed" by a change that ends the promise.
+What building it *decided*, and what it did **not** buy, is below. Each is small; each
+would otherwise be re-litigated, or worse, "fixed" by a change that ends the promise.
 
 ## Decision
 
@@ -30,7 +30,7 @@ otherwise be re-litigated, or worse, "fixed" by a change that ends the promise.
 gender, which is the agreement Gujarati actually has and the reason ADR-0033 gave the field
 a record form at all. What it cannot express is the *other* half of the morphology: a
 masculine `-o` possessor takes an oblique `-ā` before the particle, so careful Gujarati
-writes *dīkrā-no dīkro* where this pack renders *dīkro-no dīkro*.
+writes *sasrā-no putra* where this pack renders *sasro-no putra*.
 
 **This is accepted, not deferred to a fix.** The possessor's stem change is a function of
 the possessor's own shape, so expressing it means either a second gendered lexicon of
@@ -38,10 +38,54 @@ oblique forms (doubling every hop noun and every term that can head a chain) or 
 per-language morphology hook — which is exactly ADR-0033's "let a language pack export a
 function for the awkward cases" anti-suggestion, the one whose arrival ends additivity.
 
-The damage is bounded and the pack is written to bound it further: the hop lexicon uses the
-formal register (*pitā* / *mātā*, not *bāp* / *mā*), whose stems are oblique-invariant, so
-the artefact appears only where a `-o` noun is a possessor mid-chain. The canonical case
-the inventory records — *māmā-no dīkro* — is unaffected, because *māmā* is invariant too.
+**What the pack can do about it is choose nouns the rule does not touch, and it does.** The
+hop lexicon is oblique-invariant throughout: consonant-final and `-ā`-final stems (*pitā*,
+*mātā*, *putra*, *putrī*, *pati*, *patnī*, *santān*) do not change before a postposition,
+where a `-o` noun would. Measured over the coverage enumeration's 218,370 composed phrases,
+that takes the artefact from **43.8% of phrases (194,364 occurrences) to 9.6% (21,042)** —
+an 89% reduction, entirely from the `down` hop, which was the lone colloquial survivor
+(*dīkro* alone accounted for 175,236 of the occurrences).
+
+The **residual 9.6% is not reachable by any lexicon choice**, and naming it is the point:
+it comes from `-o` **entry** terms that can head a chain. All 21,042 residual occurrences
+are three words — *bhatrījo* (10,908), *sasro* (8,220) and *dīkro* as the generation-1
+descendant (1,914); *sāḷo* and *savko dīkro* are the same shape and are simply not reached
+by this enumeration's canonical gender sample. Those are the words the language uses for
+those relatives, and picking a different one to make a postposition scan would be
+mis-naming a relative to fix a suffix — the wrong trade, and the opposite of the one the
+hop lexicon makes, where no relative is being named at all.
+
+One further artefact is inherent to the one-template join rather than to any noun choice: a
+chain of two or more links should re-agree its *inner* postposition with the outer head
+(*sasrā-nā putra-nī patnī*, not *sasro-no putra-nī patnī*). 99.6% of composed phrases have
+two or more links, so this is the common case, and it is a second reason the honest position
+is "the join is a template, and templates do not do case".
+
+### The pack writes two registers, and which one goes where is a decision
+
+**Lexical entries are colloquial; hop nouns are formal.** A reader's own son is *dīkro*,
+their mother *mā*, their father *pappā* — the words a speaker actually uses for a relative.
+Inside a composed genitive chain the same relations are spelled *putra*, *mātā*, *pitā*.
+
+This is deliberate and not a slip, because the two are doing different jobs. A lexical entry
+**names** a relative and should read the way that relative is addressed. A hop noun is a
+step in a description the language reaches for precisely when it has no name — a formal,
+slightly bookish register is what a genitive chain already is in Gujarati, and it is where
+*putra* sits comfortably. The oblique-invariance above then comes free, which is why the
+two considerations point the same way rather than trading off.
+
+**The cost, taken knowingly: the composed *māmā* and *foī* cousin lines now render
+*māmā-no putra* / *foī-no putra*, where [`docs/kinship-term-inventory.md`](../kinship-term-inventory.md)
+§5 writes *māmā-no dīkro*.** Those two rows are grammatical either way — *māmā* is an `-ā`
+stem, so *dīkro* is the possessed there and never takes the oblique — so the swap buys
+nothing on the rows it costs fidelity on. It was taken anyway because the register split has
+to be decided once, for all 218,370 composed phrases, not row by row against the two the
+inventory happens to spell out; and because the inventory is deleted when the epic ships
+(#304), so whichever form ships **becomes** the record.
+
+A native speaker may reasonably find *putra* bookish. The reply is that they will never see
+it where a word exists: it appears only in chains, and every chain is a place the language
+declined to supply a term.
 
 ### Term-level transliteration needs a field the pack type does not have, so it was not built
 
@@ -75,8 +119,8 @@ than only a comment.
 
 Its converse is also a pack decision worth naming: **no coarse `cousinDegree: 1` entry**.
 One would collapse all four cousin lines into *bhāī* and swallow the two the language
-genuinely leaves compositional — and the fallback already answers those exactly as the
-inventory records them (*māmā-no dīkro*), off the *māmā* and *foī* entries it has.
+genuinely leaves compositional — and the fallback already answers those, off the *māmā* and
+*foī* entries it has, as the genitive chain the inventory records that usage as.
 
 ### The enumeration widens itself for free; its wall clock does not
 
@@ -115,6 +159,13 @@ that fails only in a real webview, so it is under test.
   takes the son's-spouse term whatever their gender — the ADR-0033 policy, followed exactly.
   It is coarse where the language has no word, and it is never *jamāī*, which is the
   outcome that policy exists to prevent.
+- **Four derived facets in the affinal class are load-bearing, and a test proves it by
+  removing them.** `acrossCount` is what keeps two-marriage chains out of the one-marriage
+  terms; `acrossAtEnd` separates *bhābhī* / *banevī* from *vevāī*, and together with
+  `acrossCount` keeps *jeṭhāṇī*'s path off *naṇand* when `apexSeniority` is `unknown` — a
+  wrong relationship, not a coarse one, surfacing exactly when a birth date is missing.
+  `tests/phrasing/gu-facets.test.ts` drops each and pins the wrong word that appears, because
+  a pack exercised only as written cannot show which key produced the right answer.
 - **The husband's brother composes when `apexSeniority` is `unknown`.** Gujarati has no
   unmarked lexeme between *jeṭh* and *diyar*, so the never-guess rule hands the key to the
   fallback and it answers "father-in-law's son". Honest, and a place where the fallback is
@@ -130,8 +181,12 @@ that fails only in a real webview, so it is under test.
 
 - **"Add an `oblique` form to the hop lexicon so *dīkrā-no* comes out right."** That is a
   second lexicon inside the pack for one language's case morphology, and the next language
-  wants a different one. The join stays a template; the register the pack writes in is what
-  keeps the artefact rare.
+  wants a different one. The join stays a template; oblique-invariant nouns are what hold
+  the artefact to 9.6%, and the rest is entry terms no lexicon choice can reach.
+- **"Put *dīkro* back in the hop lexicon — it is the word people actually say."** It is, and
+  it is still the entry term for a son, which is where a reader meets it. As a *hop* noun it
+  puts an ungrammatical oblique in 43.8% of composed phrases to match two rows of a document
+  that is deleted when the epic ships, and it is grammatically irrelevant on both of them.
 - **"Give `PackEntry` a `roman` field so terms transliterate on hover."** Three logic
   changes to the module whose whole point is having none. Decide whether a romanized
   reading surface is worth the field first — on its own ticket, with the chrome that would

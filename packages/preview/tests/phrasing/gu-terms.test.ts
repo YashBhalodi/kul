@@ -132,7 +132,7 @@ const CASES: ReadonlyArray<[string, RelationshipDescriptor, Partial<Phrase>]> = 
             classification: lineal("descendant", 3),
             path: [down("female"), down("male"), down("male")],
         }),
-        { text: "દોહિત્રનો દીકરો", kind: "composed", hopCount: 1 },
+        { text: "દોહિત્રનો પુત્ર", kind: "composed", hopCount: 1 },
     ],
 
     // === §3 siblings — seniority as entries, savkā as a many-to-one ======
@@ -301,24 +301,24 @@ const CASES: ReadonlyArray<[string, RelationshipDescriptor, Partial<Phrase>]> = 
         { text: "મસિયાઈ બહેન", kind: "lexical" },
     ],
     [
-        "⚠ māmā-no dīkro — the line with no adjective is the genitive chain itself",
+        "⚠ the māmā line — no adjective, so the genitive chain is itself the term",
         descriptorOf({
             classification: collateral(2, 2),
             sharing: "full",
             side: "maternal",
             path: [up("female"), up("male"), down("male"), down("male")],
         }),
-        { text: "મામાનો દીકરો", kind: "composed", hopCount: 1 },
+        { text: "મામાનો પુત્ર", kind: "composed", hopCount: 1 },
     ],
     [
-        "⚠ foī-no dīkro — likewise on the father's side",
+        "⚠ the foī line — likewise on the father's side",
         descriptorOf({
             classification: collateral(2, 2),
             sharing: "full",
             side: "paternal",
             path: [up("male"), up("female"), down("female"), down("male")],
         }),
-        { text: "ફોઈનો દીકરો", kind: "composed", hopCount: 1 },
+        { text: "ફોઈનો પુત્ર", kind: "composed", hopCount: 1 },
     ],
 
     // === §6 nephews and nieces — ⚠ the linking sibling's gender ==========
@@ -487,7 +487,7 @@ const CASES: ReadonlyArray<[string, RelationshipDescriptor, Partial<Phrase>]> = 
             apexSeniority: "unknown",
             path: [across("male"), up("male"), down("male")],
         }),
-        { text: "સસરોનો દીકરો", kind: "composed", hopCount: 1 },
+        { text: "સસરોનો પુત્ર", kind: "composed", hopCount: 1 },
     ],
     [
         "⚠ naṇand — the husband's sister",

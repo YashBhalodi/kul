@@ -35,13 +35,12 @@ import type { LanguagePack } from "../pack.js";
  *   legitimate (ADR-0039).
  *
  * Three regions are deliberately left to compose, because that is what the
- * language does: the *māmā* and *foī* cousin lines (*māmā-no dīkro* is the
- * genitive chain the inventory records as the actual usage, so no coarse
- * `cousinDegree: 1` entry is written — one would swallow all four lines into
- * *bhāī*), a husband's brother whose `apexSeniority` is `unknown` (no unmarked
- * lexeme exists between *jeṭh* and *diyar*), and every `other`-gender or
- * `side: other` region past the immediate family, where no lexicon anywhere
- * has a word to offer.
+ * language does: the *māmā* and *foī* cousin lines (a genitive chain is the
+ * actual usage there, so no coarse `cousinDegree: 1` entry is written — one
+ * would swallow all four lines into *bhāī*), a husband's brother whose
+ * `apexSeniority` is `unknown` (no unmarked lexeme exists between *jeṭh* and
+ * *diyar*), and every `other`-gender or `side: other` region past the
+ * immediate family, where no lexicon anywhere has a word to offer.
  *
  * Nothing keys `edgeNature`, so an adoptive mother is *mā* — *dattak* is
  * formal/legal register. Nothing keys `endedMarriage` either: Gujarati does
@@ -366,10 +365,27 @@ export const GU: LanguagePack = {
         //
         // then `spouseGender` (whose spouse the path ran through),
         // `linkGender` (whose spouse the alter is) and `apexSeniority` (elder or
-        // younger than the spouse) pick the word. All four coordinates are
-        // keyed on every entry, so a shape none of them names — a wife's
-        // brother's wife, a spouse's child's spouse's parent — matches nothing
-        // and composes, rather than being swept into a neighbouring term.
+        // younger than the spouse) pick the word.
+        //
+        // All four coordinates are keyed on every entry, and each is
+        // load-bearing somewhere — `tests/phrasing/gu-facets.test.ts` drops
+        // them one at a time and pins the wrong term that appears:
+        //
+        // - `acrossCount` keeps the two-marriage chains out of the
+        //   one-marriage terms. Without it a co-spouse's brother
+        //   (`across·across·up·down`) renders *sāḷo*, and a child's spouse's
+        //   spouse's parent renders *vevāī*.
+        // - `acrossAtEnd: false` keeps *vevāī*'s shape out of *bhābhī* and
+        //   *banevī* — the two differ only in where the single `across` sits.
+        //   On the across-initial entries it guards nothing on its own, but
+        //   with `acrossCount` it is what keeps *jeṭhāṇī*'s path off *naṇand*
+        //   when `apexSeniority` is `unknown`: exactly the case a missing
+        //   birth date produces, where a husband's brother's **wife** would
+        //   otherwise be called a husband's **sister**.
+        //
+        // A shape none of the four names — a wife's brother's wife, a spouse's
+        // child's spouse's parent — matches nothing and composes, rather than
+        // being swept into a neighbouring term.
         {
             when: { classification: "collateral", cousinDegree: 0, removed: 0, affinity: "inLaw", acrossCount: 1, acrossAtStart: true, acrossAtEnd: false, spouseGender: "female", alterGender: "male" },
             term: "સાળો",
@@ -454,19 +470,33 @@ export const GU: LanguagePack = {
         },
     ],
 
-    // The fallback's per-hop nouns. The formal register is deliberate: these
-    // words appear inside genitive chains, where the colloquial forms would
-    // read oddly next to a lexical head.
+    // The fallback's per-hop nouns, in the **formal register throughout** —
+    // પિતા / પુત્ર / પતિ, not પપ્પા / દીકરો / વર. Two reasons, and the second
+    // is measurable (ADR-0041):
+    //
+    // 1. A hop noun is not what a speaker calls a relative; it is how a chain
+    //    spells one out. The lexical entries above keep the colloquial words a
+    //    reader wants for their own kin (દીકરો, મા, પપ્પા) — the formal
+    //    register lives only inside a composed genitive, which is already a
+    //    descriptive construction rather than a name.
+    // 2. Every noun here is **oblique-invariant**. A masculine `-ો` noun takes
+    //    an oblique `-ા` stem before a postposition (દીકરો → દીકરાનો), and the
+    //    genitive pattern below agrees with the *following* noun, so it cannot
+    //    produce that. Consonant- and `-ા`-final stems do not change, so
+    //    choosing them removes the artefact rather than papering over it: it
+    //    drops from 43.8% of composed phrases to 9.6%, the residual being the
+    //    `-ો` **entry** terms (સસરો, ભત્રીજો, સાળો, દીકરો) that can head a
+    //    chain, which no lexicon choice can reach.
     hops: {
         up: { male: "પિતા", female: "માતા", other: "વાલી" },
-        down: { male: "દીકરો", female: "દીકરી", other: "સંતાન" },
+        down: { male: "પુત્ર", female: "પુત્રી", other: "સંતાન" },
         across: { male: "પતિ", female: "પત્ની", other: "જીવનસાથી" },
     },
     // The possessive particle agrees with the noun that **follows** it, not
     // with the possessor — so the pattern is a record keyed by the possessed
     // noun's gender, which is the case ADR-0033 gave `GenitivePattern` its
     // record form for. It attaches to the possessor without a space, as
-    // Gujarati orthography writes it: મામાનો દીકરો.
+    // Gujarati orthography writes it: મામાનો પુત્ર.
     genitive: {
         male: "{possessor}નો {possessed}",
         female: "{possessor}ની {possessed}",
