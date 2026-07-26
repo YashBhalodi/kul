@@ -337,6 +337,14 @@ The token-stream-first context detector in `features/completion.rs`. Identifies 
 
 Byte-offset ↔ LSP-position converter in `crates/kul-lsp/src/convert.rs`. Handles UTF-16 code-unit positions (LSP spec) ↔ UTF-8 byte offsets (kul-core), with CRLF round-trip safety.
 
+### Tier-1 token / Tier-2 token
+
+The two layers of the preview's `--kul-*` custom properties ([ADR-0036](./docs/adr/0036-two-tier-theming-and-the-accessibility-non-goal.md), sized in [ADR-0037](./docs/adr/0037-tier-1-register-overlay-stack-and-the-reserved-carve-out.md)). A **tier-1 token** is part of the theme contract: a colour role, a typography choice, a diagram hue, a step on the spacing / radius / motion scales, or one of the reserved query paints. Tier 1 is the only layer that may bridge to a `--vscode-*` palette variable, and it is a closed register — chrome growth does not enlarge it. A **tier-2 token** is the per-site semantic layer (`--kul-legend-border-color`, `--kul-error-row-hover-bg`): exactly one per application site, aliasing a tier-1 primitive rather than a `--vscode-*` variable. Both live in `packages/preview/src/preview-themes.css` — tier 1 inside a per-theme `body[data-theme="…"]` block, tier 2 on `body` — while the application rules that consume tier 2 live in `preview.css`. A theme re-maps tier 1 and may override any single tier-2 alias. `crates/kul-svg` bakes tier 1 plus the diagram half of tier 2 into self-contained SVG export; `packages/preview/tests/tokens.test.ts` holds the split as a structural lint.
+
+### Region model
+
+How the preview stage assigns space to chrome ([ADR-0036](./docs/adr/0036-two-tier-theming-and-the-accessibility-non-goal.md), mechanism in [ADR-0037](./docs/adr/0037-tier-1-register-overlay-stack-and-the-reserved-carve-out.md)). The stage declares five **regions** — `flow` (persistent chrome in the document flow), `canvas` (the diagram surface), `overlay` (a bottom-left stack: pan/zoom controls, error popover, legend), `float` (entity-anchored floats positioned against a screen box) and `notify` (transient notifications) — and every piece of chrome belongs to exactly one. The region owns placement and stacking; the chrome inside it declares neither. Two widgets therefore cannot be pinned to one inset by two independent rules, which is what makes overlap unrepresentable rather than merely fixed. Joining a region is appending an element.
+
 ## When this glossary is incomplete
 
 If you're naming a concept that isn't here:
