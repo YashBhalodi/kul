@@ -282,14 +282,14 @@ export function mountPreview(
             panZoom.zoom(savedZoom);
             panZoom.pan(savedPan);
         }
-        // The SVG every piece of query paint was on has just been replaced.
-        // This is the *only* post-render hook query chrome gets, so everything
-        // that paints — the selection, the kin results, the filter — repaints
-        // from inside it rather than bolting a second call in here. Whether a
-        // render should instead *end* query mode is #304's decision, and
-        // `clearSelection()` plus `clearFilter()` are the parts it composes
-        // that from.
-        querySurface.repaintQueryChrome();
+        // The SVG every piece of query paint was on has just been replaced —
+        // and a render is how an edit reaches this webview. **An edit ends
+        // query mode** (ADR-0035, ADR-0046): the selection, its panel, any kin
+        // paint, the lens and the filter all let go here, the tree returns to
+        // plain, and editor sync resumes on its own. This is the *only*
+        // post-render hook query chrome gets, so the whole rule lives behind
+        // this one call rather than as a second call bolted in here.
+        querySurface.endQueryMode();
         hasRender = true;
         reconcileControlsVisibility();
     }

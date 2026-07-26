@@ -279,12 +279,16 @@ describe("selecting an entity opens its panel", () => {
         expect(panel(container)).toBeNull();
     });
 
-    it("survives a render — the mode boundary is #304's, not this slice's", async () => {
+    it("lets go on a render, because an edit ends query mode (ADR-0046)", async () => {
         const { container, handle } = mount();
         click(container.querySelector('[data-person-id="giulia"] rect'));
         await settle();
+        expect(panel(container)).not.toBeNull();
+
         handle.render(SVG, PROJECT);
-        expect(container.querySelectorAll(".kul-query-selected")).toHaveLength(1);
+        await settle();
+        expect(container.querySelectorAll(".kul-query-selected")).toHaveLength(0);
+        expect(panel(container)).toBeNull();
     });
 });
 

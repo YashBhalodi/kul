@@ -556,9 +556,12 @@ describe("composition with a painted kin set", () => {
         ]);
         expect(editor(h).textContent).toContain("Paint a kin set");
 
-        // The editor is still open, and a redraw re-renders it in place.
+        // The scope is *asked for* on every draw rather than handed over once,
+        // so a set painted while the bar is up needs no notification to appear:
+        // the next draw picks it up.
         h.kin.current = DESCENDANTS;
-        h.bar.repaint();
+        click(h.bar.element.querySelector(".kul-filter-chip-scope .kul-filter-chip-label"));
+        click(h.bar.element.querySelector(".kul-filter-chip-scope .kul-filter-chip-label"));
         await settle();
         expect(Array.from(selects(h)[0].options).map((o) => o.value)).toEqual([
             "everyone",
@@ -601,8 +604,10 @@ describe("composition with a painted kin set", () => {
         await settle();
         expect(chipLabels(h)[0]).toBe("Giuseppe's descendants 3 ▾");
 
+        // Dropping the paint notifies the bar of nothing — the scope is asked
+        // for on every draw — so the next draw is what takes the chip back.
         h.kin.current = null;
-        h.bar.repaint();
+        click(h.bar.element.querySelector(".kul-filter-chip-scope .kul-filter-chip-label"));
         await settle();
         expect(chipLabels(h)[0]).toBe(`${EVERYONE_LABEL} 4 ▾`);
         expect(h.bar.state().scopeId).toBe("everyone");
@@ -758,9 +763,11 @@ describe("the can't-say whisper", () => {
         await settle();
         expect(h.lookups).toHaveLength(1);
 
-        // A repaint is a new answer about a possibly-new project, so the
-        // record it explained is no longer known to be the record.
-        h.bar.repaint();
+        // The cache belongs to the answer that produced it. Flipping the
+        // certainty chip re-asks, so the record it explained is no longer
+        // known to be the record.
+        click(h.bar.element.querySelector(".kul-filter-chip-mode .kul-filter-chip-label"));
+        change(selects(h)[0], "includeUncertain");
         await settle();
         h.bar.handleHover(aldo);
         await settle();
@@ -813,42 +820,6 @@ describe("concurrent gestures", () => {
         ).toContain(DIM_CLASS);
     });
 
-    it("discards a render's re-ask that a chip edit has already superseded", async () => {
-        const h = harness({ certain: ["giulia"], unknown: [] });
-        h.answers.set(familyIs("Bianchi"), {
-            certain: ["nina", "marco"],
-            unknown: [],
-        });
-        await addCondition(h, "family", "eq", "Rossi");
-        await settle();
-
-        h.holding.value = true;
-        h.bar.repaint();
-        await settle();
-        const fromRender = h.gates.splice(0);
-        expect(fromRender).toHaveLength(2);
-
-        change(editor(h).querySelector("input"), "Bianchi");
-        await settle();
-        const fromEdit = h.gates.splice(0);
-        expect(fromEdit).toHaveLength(2);
-
-        for (const release of [...fromEdit, ...fromRender]) {
-            release();
-        }
-        await settle();
-        await settle();
-
-        // The edit's answer, not the render's re-ask of the old question.
-        expect(tally(h)).toBe("2 of 4 · 2 dimmed");
-        expect(
-            h.root.querySelector('[data-person-id="nina"]')?.getAttribute("class"),
-        ).toContain(FILTER_MATCH_CLASS);
-        expect(
-            h.root.querySelector('[data-person-id="giulia"]')?.getAttribute("class"),
-        ).toContain(DIM_CLASS);
-    });
-
     it("drops a reason whose filter moved on under it", async () => {
         const h = harness({ certain: ["giulia"], unknown: ["aldo"] });
         await addCondition(h, "family", "eq", "Rossi");
@@ -856,7 +827,8 @@ describe("concurrent gestures", () => {
         const aldo = h.root.querySelector('[data-person-id="aldo"] rect');
         h.bar.handleHover(aldo);
         // The filter changes before the record comes back.
-        h.bar.repaint();
+        click(h.bar.element.querySelector(".kul-filter-chip-mode .kul-filter-chip-label"));
+        change(selects(h)[0], "includeUncertain");
         await settle();
         expect(h.floatLayer.querySelector(".kul-filter-reason")).toBeNull();
     });
@@ -880,7 +852,8 @@ describe("a project that fails its checks", () => {
         expect(h.root.querySelectorAll("." + FILTER_MATCH_CLASS).length).toBe(1);
 
         h.failing.value = true;
-        h.bar.repaint();
+        click(h.bar.element.querySelector(".kul-filter-chip-mode .kul-filter-chip-label"));
+        change(selects(h)[0], "includeUncertain");
         await settle();
         // The popover carries the diagnostics (ADR-0009); a stale verdict on
         // the tree would be worse than no verdict.
@@ -1243,7 +1216,7 @@ describe("filtering inside a painted kin set, through the real chrome", () => {
     });
 });
 
-describe("the post-render hook, and coexistence with kin paint", () => {
+describe("the mode boundary, and coexistence with kin paint", () => {
     afterEach(() => {
         document.body.innerHTML = "";
     });
@@ -1268,28 +1241,30 @@ describe("the post-render hook, and coexistence with kin paint", () => {
         return root.querySelector(`[data-person-id="${id}"]`)?.getAttribute("class") ?? "";
     }
 
-    it("puts the paint back on the SVG a render replaced", async () => {
+    it("takes the filter down on a render rather than re-asking it", async () => {
         const h = surfaceHarness();
         await filter(h);
         expect(classOf(h.root, "giulia")).toContain(FILTER_MATCH_CLASS);
-        expect(h.root.querySelectorAll(".kul-filter-uncertain-badge")).toHaveLength(1);
-
-        // A render swaps the SVG out from under every piece of query paint.
-        // The new picture carries none of it, and the id-keyed dim is the only
-        // thing `apply` alone would restore — the classes and the `?` are not.
-        h.root.innerHTML = SURFACE_SVG;
-        expect(classOf(h.root, "giulia")).not.toContain(FILTER_MATCH_CLASS);
-
-        h.surface.repaintQueryChrome();
-        await settle();
-
-        expect(classOf(h.root, "giulia")).toContain(FILTER_MATCH_CLASS);
         expect(classOf(h.root, "aldo")).toContain(FILTER_UNCERTAIN_CLASS);
         expect(h.root.querySelectorAll(".kul-filter-uncertain-badge")).toHaveLength(1);
-        expect(classOf(h.root, "nina")).toContain(DIM_CLASS);
-        expect(bar(h).querySelector(".kul-filter-tally")?.textContent).toBe(
-            "1 of 5 · 3 dimmed · 1 can't say",
-        );
+        expect(bar(h).querySelector(".kul-filter-tally")).not.toBeNull();
+
+        // A render swaps the SVG out from under every piece of query paint —
+        // and a render means the document changed, which ends query mode
+        // (ADR-0046). The sentence goes back to empty rather than being asked
+        // again about a project it was not written against.
+        h.root.innerHTML = SURFACE_SVG;
+        h.surface.endQueryMode();
+        await settle();
+
+        expect(classOf(h.root, "giulia")).not.toContain(FILTER_MATCH_CLASS);
+        expect(classOf(h.root, "aldo")).not.toContain(FILTER_UNCERTAIN_CLASS);
+        expect(h.root.querySelectorAll(".kul-filter-uncertain-badge")).toHaveLength(0);
+        expect(h.root.querySelectorAll("." + DIM_CLASS)).toHaveLength(0);
+        expect(bar(h).querySelector(".kul-filter-tally")).toBeNull();
+        expect(h.surface.selection.current).toBeNull();
+        // Sync is not held by anything any more, so the hint is gone with it.
+        expect(h.stage.querySelector(".kul-sync-hint")).toBeNull();
     });
 
     it("never lets a kin set recede an unjudgeable card", async () => {

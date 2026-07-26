@@ -470,17 +470,20 @@ describe("clicking a row paints the answer on the tree", () => {
         expect(anchor.classList.contains(SELECTION_CLASS)).toBe(true);
     });
 
-    it("survives a render, because the SVG every paint was on has been replaced", async () => {
+    it("comes off on a render, because an edit ends query mode (ADR-0046)", async () => {
         const { container, handle } = mount({
             siblings: [siblingOf("elena", "female")],
         });
         await explore(container);
         click(rowFor(container, "Siblings"));
         await settle();
-        handle.render(SVG, PROJECT);
         expect(container.querySelectorAll("." + RESULT_CLASS)).toHaveLength(3);
-        expect(container.querySelectorAll("." + DIM_CLASS)).toHaveLength(1);
-        expect(container.querySelectorAll("." + SELECTION_CLASS)).toHaveLength(1);
+
+        handle.render(SVG, PROJECT);
+        await settle();
+        expect(container.querySelectorAll("." + RESULT_CLASS)).toHaveLength(0);
+        expect(container.querySelectorAll("." + DIM_CLASS)).toHaveLength(0);
+        expect(container.querySelectorAll("." + SELECTION_CLASS)).toHaveLength(0);
     });
 
     it("drops the paint when the selection moves — an answer is about one anchor", async () => {

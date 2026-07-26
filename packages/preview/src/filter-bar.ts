@@ -127,23 +127,21 @@ export interface FilterBar {
     /** The sentence as it currently reads. */
     state(): FilterState;
     /**
-     * Re-evaluate and repaint against the picture now on screen.
-     *
-     * Called after a render swapped the SVG out. It re-*asks* rather than
-     * re-applying the last answer, because a render carries a new project
-     * snapshot: replaying the old answer would paint a verdict about source
-     * that is no longer on screen.
-     */
-    repaint(): void;
-    /**
      * The pointer moved over the canvas. An unjudgeable card under it opens
      * its reason; anything else takes the whisper down.
      */
     handleHover(target: Element | null): void;
     /**
      * Drop the filter entirely: sentence, paint, dim, can't-say exemption and
-     * sync suspension. What Esc runs, and what `QuerySurface.clearFilter`
-     * exposes to the slice that ends query mode.
+     * sync suspension. Synchronous and idempotent.
+     *
+     * **The bar's only exit, and it has three callers with one meaning
+     * between them**: Esc, the reader clearing the last chip, and a render —
+     * which is an edit, and an edit ends query mode (ADR-0046). There is
+     * deliberately no post-render *re-ask*: a filter never outlives the source
+     * it was computed against, so re-evaluating against a new project snapshot
+     * is a question nobody asked. `QuerySurface.clearFilter` is how the
+     * composition reaches this.
      */
     reset(): void;
     dispose(): void;
@@ -628,9 +626,6 @@ export function createFilterBar(options: FilterBarOptions): FilterBar {
     return {
         element: bar,
         state: () => state,
-        repaint() {
-            void evaluate();
-        },
         handleHover,
         reset() {
             openEditor = null;

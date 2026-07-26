@@ -3,21 +3,23 @@
 // It owns the {@link SelectionStore} every later slice needs, the paint that
 // shows it, the details panel it feeds, the panel-driven walk, the Explore-kin
 // list and the paint an answered kin set puts on the tree, the hover lens that
-// reads ties off the selection, the attribute filter bar, and the editor-sync
+// reads ties off the selection, the attribute filter bar, the editor-sync
 // suspension that keeps the two meanings of "highlighted" from co-painting
-// (#276 point 9).
+// (#276 point 9), and the mode boundary that ends all of it on a render
+// (ADR-0035, ADR-0046).
 //
 // `mount.ts` reaches for seven members and no more: `handleCanvasClick` (a
 // click inside the rendered SVG), `handleCanvasHover` (the pointer moved over
-// it), `repaintQueryChrome` (a render swapped the SVG), `syncHighlight` (an
-// inbound editor highlight, which becomes the handle's `highlightEntity`),
-// `refresh` (the locale toggle changed language), `occupiedBox` (the ghost
-// badge's jump must steer around the panel) and `dispose`. Everything else
-// about the selection is this module's business, which is what keeps the
-// chrome's composition in one readable place rather than spread across the
-// mount. The remaining members are for the slices that compose *inside* the
-// surface — `selection`, `clearSelection`, `clearFilter`, `setSyncSuspended`
-// and `setDimExemption` — and `mount.ts` calls none of them.
+// it), `endQueryMode` (a render swapped the SVG, which means the document
+// changed), `syncHighlight` (an inbound editor highlight, which becomes the
+// handle's `highlightEntity`), `refresh` (the locale toggle changed language),
+// `occupiedBox` (the ghost badge's jump must steer around the panel) and
+// `dispose`. Everything else about the selection is this module's business,
+// which is what keeps the chrome's composition in one readable place rather
+// than spread across the mount. The remaining members are the two independent
+// exits `endQueryMode` composes — `clearSelection` and `clearFilter` — plus
+// `selection`, `setSyncSuspended` and `setDimExemption`; `mount.ts` calls none
+// of them.
 
 import type {
     DetailLookupResult,
@@ -174,47 +176,54 @@ export interface QuerySurface {
      */
     syncHighlight(ref: EntityRef | null): void;
     /**
-     * Re-apply **every** piece of query paint after a render swapped the SVG
-     * out: the selection outline, the painted kin set's result glow and dim,
-     * the hover lens — which comes *down* rather than back — and the filter,
-     * which re-**asks** rather than replaying its last answer.
+     * **An edit ends query mode.** The one post-render hook `mount.ts` gives
+     * query chrome, and what it does is let go: the selection, its panel, any
+     * kin paint, the hover lens and the filter all come down, the tree returns
+     * to its plain state, and editor sync resumes on its own because the last
+     * suspension reason lifts with them (ADR-0035, ADR-0046).
      *
-     * The filter's asymmetry is `dim.ts`'s republish rule: its dimmed set is
-     * derived from the cards the picture holds, so a swapped-out SVG can change
-     * it and `apply` alone would not. Re-asking also covers the other thing a
-     * render brings — a new project snapshot, about which the previous verdict
-     * says nothing.
+     * It is composed from exactly the two independent exits —
+     * {@link QuerySurface.clearSelection} and {@link QuerySurface.clearFilter}
+     * — and nothing else. The lens is not a third: it subscribes to the
+     * selection seam itself, so it comes down when the selection does, on the
+     * same path Esc and a canvas click already take.
      *
-     * The lens's asymmetry is the point: a selection and a kin answer are
-     * standing choices the reader made, while a lens reading is about where the
-     * pointer is and which picture was under it. Re-asserting a tie against a
-     * project that has just changed would be asserting something nobody
-     * checked. The next pointer move re-arms it.
+     * **Why a render is the trigger.** The rule is about *edits*, and a render
+     * is how an edit reaches the webview: the preview re-renders from
+     * `onDidChangeTextDocument`, debounced at 300 ms. Two other render paths
+     * exist and neither can surprise a reader — see ADR-0046, which checked
+     * them rather than trusting the claim.
      *
-     * Deliberately not `repaintSelection()`: `mount.ts` gives query chrome one
-     * post-render hook, and a name scoped to the selection would force the next
-     * slices to either contradict this docstring or add a second call to the
-     * mount.
+     * **The accepted cost** is that a one-character typo fix costs the reader
+     * their selection, their painted kin set and their filter. Refetching the
+     * bundle per render was measured as affordable (≈13 ms per debounced
+     * render) and rejected in favour of this: querying and authoring are
+     * separate activities, and no query artefact outlives the source it was
+     * computed from.
+     *
+     * Deliberately not `repaintSelection()` and no longer `repaintQueryChrome`:
+     * there is one hook, and its name states the rule rather than the gesture
+     * that used to be underneath it.
      */
-    repaintQueryChrome(): void;
+    endQueryMode(): void;
     /**
-     * Drop the selection, its panel and its paint. Esc and a canvas click call
-     * it, and it is what #304's render-ends-query-mode rule will call first.
+     * Drop the selection, its panel and its paint. Esc, a canvas click and
+     * {@link QuerySurface.endQueryMode} all call it.
      *
      * It is deliberately **not** named `clear()`: it clears one surface, and
      * `selection.clear()` is a documented no-op when nothing is selected, so a
      * general-sounding name would silently encode "query mode == a selection
      * exists", which the filter makes false: it can be active on its own, and
-     * {@link QuerySurface.clearFilter} is its own separate exit. #304 composes
-     * the real mode boundary from both (ADR-0042).
+     * {@link QuerySurface.clearFilter} is its own separate exit (ADR-0042).
      */
     clearSelection(): void;
     /**
      * Drop the filter: its sentence, its paint, its dim, its can't-say
-     * exemption and its sync suspension. The other half of what ending query mode is composed from,
-     * and separate from {@link QuerySurface.clearSelection} because a filter
-     * and a selection are independent — either can exist without the other.
-     * A no-op when the host supplied no flow region.
+     * exemption and its sync suspension. The other half of what
+     * {@link QuerySurface.endQueryMode} is composed from, and separate from
+     * {@link QuerySurface.clearSelection} because a filter and a selection are
+     * independent — either can exist without the other. A no-op when the host
+     * supplied no flow region.
      */
     clearFilter(): void;
     /**
@@ -768,24 +777,43 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
         }
     });
 
+    function clearSelection(): void {
+        selection.clear();
+    }
+
+    function clearFilter(): void {
+        filterBar?.reset();
+    }
+
     /**
-     * Esc lifts **whatever query state is holding editor sync down** — the
-     * selection, the filter, or both.
+     * The mode boundary, as two calls. Both are idempotent and neither depends
+     * on the other having run, so the order below is readability rather than
+     * sequencing: `clearSelection` lifts the `"selection"` reason and
+     * `clearFilter` the `"filter"` one, and whichever goes last is the one that
+     * resumes editor sync.
+     */
+    function endQueryMode(): void {
+        clearSelection();
+        clearFilter();
+    }
+
+    /**
+     * **Query mode has two exits, and they do the same thing.** An edit is one
+     * (ADR-0046); Esc is the other, and it lifts whatever query state is
+     * holding editor sync down — the selection, the filter, or both.
      *
-     * It is not scoped to the selection, and the hint is why: the notify region
+     * Esc is not scoped to the selection, and the hint is why: the notify region
      * says "Editor sync paused · Esc to resume" for as long as *any* reason
      * holds, so a filter with no selection would otherwise put that sentence on
-     * screen with no key behind it, leaving the reader to click ✕ on every chip.
-     * Esc is a keyboard exit rather than a render, so it decides nothing about
-     * #304's mode boundary; it only keeps the promise this chrome already makes
-     * (ADR-0045).
+     * screen with no key behind it, leaving the reader to click ✕ on every chip
+     * (ADR-0045). The guard is what keeps Esc from being swallowed when there is
+     * no query state to end.
      */
     function onKeyDown(event: KeyboardEvent): void {
         if (event.key !== "Escape" || suspensions.size === 0) {
             return;
         }
-        selection.clear();
-        filterBar?.reset();
+        endQueryMode();
     }
     window.addEventListener("keydown", onKeyDown);
 
@@ -819,22 +847,9 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
             }
             applySyncHighlight(ref);
         },
-        repaintQueryChrome() {
-            paintSelection(root, selection.current);
-            lens.dismiss();
-            paintKin();
-            // Republish, not `apply`: the filter's dimmed set is derived from
-            // the cards the picture holds, and the picture has just been
-            // replaced (`dim.ts`). Re-asking covers the new project snapshot
-            // that came with it too.
-            filterBar?.repaint();
-        },
-        clearSelection() {
-            selection.clear();
-        },
-        clearFilter() {
-            filterBar?.reset();
-        },
+        endQueryMode,
+        clearSelection,
+        clearFilter,
         setSyncSuspended,
         refresh: redrawPanel,
         setDimExemption,
