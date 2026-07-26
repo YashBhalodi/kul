@@ -71,8 +71,9 @@ surface ever needs one — additive, never a reshape.
 `EntityDetail` is tagged on `kind` with three variants, so a consumer's three panel variants map 1:1
 onto it:
 
-- `person` — the person, `parents` (one row per link), `marriages` (one row per marriage, with the
-  other spouse), `children` (one row per link across those marriages);
+- `person` — the person, `parents` (one row per parent per link — a link naming a marriage yields a
+  row per spouse), `marriages` (one row per marriage, with the other spouse), `children` (one row per
+  link across those marriages);
 - `marriage` — the marriage, its `spouses`, its `children` (one row per link);
 - `adoption` — the adoption link, the `child`, and the adopting `parents`.
 

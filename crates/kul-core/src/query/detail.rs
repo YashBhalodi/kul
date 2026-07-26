@@ -145,7 +145,9 @@ pub enum EntityDetail {
         /// The person's own recorded fields.
         person: ExportedPerson,
         /// Every parent, in declaration order: the birth family's spouses
-        /// first, then each adoption's, one row per link.
+        /// first, then each adoption's. One row per parent per link — a
+        /// link naming a marriage yields a row for each of its spouses,
+        /// so three links can produce six rows.
         parents: Vec<LinkedPerson>,
         /// Every marriage this person is a spouse in, in declaration order.
         marriages: Vec<MarriageTie>,
