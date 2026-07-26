@@ -28,12 +28,17 @@ import type {
     Member,
     Query,
 } from "../src/engine-wire.js";
+import type { QueryEnvelope, QueryResult } from "../src/engine-wire.js";
 import type { ProjectSnapshot, QueryEngine } from "../src/engine.js";
+import { PREVIEW_BODY_HTML } from "../src/controls.js";
 import { KIN_SETS } from "../src/kin-sets.js";
 import { DIM_CLASS } from "../src/dim.js";
 import { RESULT_CLASS } from "../src/kin-paint.js";
 import { SELECTION_CLASS } from "../src/selection.js";
+import { createLocaleController } from "../src/locale.js";
 import { mountPreview } from "../src/mount.js";
+import { createQuerySurface } from "../src/query-surface.js";
+import type { QuerySurface } from "../src/query-surface.js";
 import type { HostAdapter, PreviewHandle } from "../src/types.js";
 
 const PROJECT: ProjectSnapshot = {
@@ -117,16 +122,23 @@ function detailFor(target: DetailTarget): EntityDetail | null {
 }
 
 /**
- * A latch the test opens by hand. Holding the count sweep is the only way to
- * exercise the window ADR-0043 designs for — rows are clickable before their
- * counts land — which is the window the sweep must survive.
+ * A latch the test opens by hand. Holding an answer is the only way to exercise
+ * the windows ADR-0043 designs for — rows are clickable before counts land, and
+ * a second row is clickable before the first one's members do — and those
+ * windows are what the guards exist to survive.
  */
-function gate(): { wait(): Promise<void>; open(): void; held: boolean } {
+interface Gate {
+    wait(): Promise<void>;
+    open(): void;
+    held: boolean;
+}
+
+function gate(): Gate {
     let release: () => void = () => {};
     const opened = new Promise<void>((resolve) => {
         release = resolve;
     });
-    const self = {
+    const self: Gate = {
         held: true,
         wait: () => (self.held ? opened : Promise.resolve()),
         open() {
@@ -138,14 +150,62 @@ function gate(): { wait(): Promise<void>; open(): void; held: boolean } {
 }
 
 /**
+ * Latches keyed by something the test names — the sweep's anchor, or the set a
+ * row asked about. Keyed rather than shared because "released out of order" is
+ * the case the guards are for, and one shared latch resolves everything in the
+ * order the calls were made, which is exactly the order that cannot fail.
+ */
+interface Gates {
+    /** Wait on `key`'s latch. Opens on demand when the test is not holding. */
+    wait(key: string): Promise<void>;
+    /** Release `key`'s latch. */
+    open(key: string): void;
+    /** Hold everything until released by key. */
+    holdAll: boolean;
+}
+
+function gates(holdAll: boolean): Gates {
+    const held = new Map<string, Gate>();
+    function latch(key: string): Gate {
+        let existing = held.get(key);
+        if (!existing) {
+            existing = gate();
+            held.set(key, existing);
+        }
+        return existing;
+    }
+    return {
+        holdAll,
+        wait(key) {
+            return this.holdAll ? latch(key).wait() : Promise.resolve();
+        },
+        open(key) {
+            latch(key).open();
+        },
+    };
+}
+
+export interface EngineBehaviour {
+    /** Latches for the per-anchor count sweep, keyed by anchor id. */
+    counts: Gates;
+    /** Latches for a row's members answer, keyed by kin-set id. */
+    members: Gates;
+    /** When true, every `count` query answers the error arm (ADR-0009). */
+    failCounts: boolean;
+    /** Per-anchor count override, so two anchors can disagree. */
+    countFor?: (anchor: string, setId: string) => number;
+}
+
+/**
  * Engine double. `members` answers come from `membersBySet`; any set without an
  * entry is genuinely empty, which is what the honest-emptiness case needs. The
- * `count` projection answers the same set's size, so a count and a paint can
- * never disagree in these tests for the wrong reason.
+ * `count` projection answers the same set's size unless `countFor` says
+ * otherwise, so a count and a paint can never disagree in these tests for the
+ * wrong reason.
  */
 function fakeEngine(
     membersBySet: Record<string, Member[]>,
-    counts: ReturnType<typeof gate>,
+    behaviour: EngineBehaviour,
 ): {
     engine: QueryEngine;
     asked: Asked;
@@ -160,13 +220,31 @@ function fakeEngine(
             },
             async queryKin(_project, query) {
                 asked.kin.push(query);
-                if (query.projection === "count") {
-                    await counts.wait();
-                }
+                const anchor = query.source.kind === "kinOf" ? query.source.anchor : "";
+                const setId = setIdOf(query) ?? "";
                 const members = membersFor(query, membersBySet);
-                return query.projection === "count"
-                    ? { ok: true, result: { kind: "count", count: members.length } }
-                    : { ok: true, result: { kind: "members", members } };
+                if (query.projection === "count") {
+                    await behaviour.counts.wait(anchor);
+                    if (behaviour.failCounts) {
+                        return {
+                            ok: false,
+                            diagnostics: [
+                                {
+                                    code: "KUL-R03",
+                                    severity: "error",
+                                    message: "person `x` is missing required field `gender`",
+                                    related: [],
+                                },
+                            ],
+                        };
+                    }
+                    const count = behaviour.countFor
+                        ? behaviour.countFor(anchor, setId)
+                        : members.length;
+                    return { ok: true, result: { kind: "count", count } };
+                }
+                await behaviour.members.wait(setId);
+                return { ok: true, result: { kind: "members", members } };
             },
             get isLoaded() {
                 return true;
@@ -191,24 +269,31 @@ function membersFor(query: Query, table: Record<string, Member[]>): Member[] {
 
 function mount(
     membersBySet: Record<string, Member[]> = {},
-    options: { holdCounts?: boolean } = {},
+    options: {
+        holdCounts?: boolean;
+        holdMembers?: boolean;
+        failCounts?: boolean;
+        countFor?: (anchor: string, setId: string) => number;
+    } = {},
 ): {
     container: HTMLElement;
     handle: PreviewHandle;
     asked: Asked;
-    counts: ReturnType<typeof gate>;
+    engine: EngineBehaviour;
 } {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const adapter: HostAdapter = { onRevealRequest: () => {} };
-    const counts = gate();
-    if (!options.holdCounts) {
-        counts.open();
-    }
-    const { engine, asked } = fakeEngine(membersBySet, counts);
+    const behaviour: EngineBehaviour = {
+        counts: gates(options.holdCounts ?? false),
+        members: gates(options.holdMembers ?? false),
+        failCounts: options.failCounts ?? false,
+        countFor: options.countFor,
+    };
+    const { engine, asked } = fakeEngine(membersBySet, behaviour);
     const handle = mountPreview(container, adapter, { engine });
     handle.render(SVG, PROJECT);
-    return { container, handle, asked, counts };
+    return { container, handle, asked, engine: behaviour };
 }
 
 function click(el: Element | null): void {
@@ -226,6 +311,20 @@ function kinRows(container: HTMLElement): HTMLElement[] {
 
 function counts(container: HTMLElement): string[] {
     return kinRows(container).map((row) => rowText(row).count);
+}
+
+/** Distinct person ids wearing the result glow, in document order. */
+function litPersonIds(container: HTMLElement): string[] {
+    const ids = Array.from(container.querySelectorAll("." + RESULT_CLASS)).map(
+        (node) => node.getAttribute("data-person-id") ?? "",
+    );
+    return [...new Set(ids)];
+}
+
+function activeRowLabels(container: HTMLElement): string[] {
+    return Array.from(container.querySelectorAll(".kul-kin-row-active")).map(
+        (row) => rowText(row as HTMLElement).label,
+    );
 }
 
 function rowText(row: HTMLElement): { label: string; terms: string; count: string } {
@@ -432,7 +531,7 @@ describe("the count sweep survives whatever the reader does while it is in fligh
         // sweep at ≈215 ms, so this window is the designed path, not an edge
         // case. Sharing one generation counter between the sweep and the paint
         // threw the whole list away here.
-        const { container, counts: gated } = mount(
+        const { container, engine } = mount(
             { siblings: [siblingOf("elena", "female")] },
             { holdCounts: true },
         );
@@ -443,7 +542,7 @@ describe("the count sweep survives whatever the reader does while it is in fligh
         await settle();
         expect(container.querySelectorAll("." + RESULT_CLASS)).toHaveLength(3);
 
-        gated.open();
+        engine.counts.open("giuseppe");
         await settle();
         expect(counts(container)).not.toContain("·");
         expect(rowText(rowFor(container, "Siblings")).count).toBe("1");
@@ -451,19 +550,126 @@ describe("the count sweep survives whatever the reader does while it is in fligh
         expect(container.querySelectorAll("." + RESULT_CLASS)).toHaveLength(3);
     });
 
-    it("is discarded when the anchor moved out from under it", async () => {
-        const { container, counts: gated, asked } = mount({}, { holdCounts: true });
+    it("does not paint the outgoing anchor's numbers onto the new one's list", async () => {
+        // The two anchors must *disagree*, or a stale sweep landing is
+        // indistinguishable from the right one landing. Giuseppe answers 1
+        // everywhere, Marco answers 7, and Giuseppe's sweep is released last.
+        const { container, engine } = mount(
+            {},
+            {
+                holdCounts: true,
+                countFor: (anchor) => (anchor === "giuseppe" ? 1 : 7),
+            },
+        );
         await explore(container);
         click(container.querySelector('[data-person-id="marco"] rect'));
         await settle();
-        gated.open();
+
+        engine.counts.open("marco");
         await settle();
-        // Two sweeps were issued and both resolved; the counts on screen are
-        // the second anchor's, and the first anchor's answers were dropped.
-        const anchors = asked.kin
-            .filter((query) => query.projection === "count")
-            .map((query) => (query.source.kind === "kinOf" ? query.source.anchor : ""));
-        expect(new Set(anchors)).toEqual(new Set(["giuseppe", "marco"]));
+        expect(counts(container)).toEqual(KIN_SETS.map(() => "7"));
+
+        engine.counts.open("giuseppe");
+        await settle();
+        // Giuseppe's answers arrived after Marco's and are about somebody the
+        // reader is no longer looking at.
+        expect(counts(container)).toEqual(KIN_SETS.map(() => "7"));
+    });
+});
+
+describe("a row's answer is discarded when a later row overtakes it", () => {
+    it("keeps the second row's members when the first row's arrive last", async () => {
+        // Two rows in flight, released in the order that can go wrong: the
+        // reader clicked Siblings, changed their mind and clicked Children, and
+        // the abandoned answer comes back afterwards.
+        const { container, engine } = mount(
+            {
+                siblings: [siblingOf("elena", "female")],
+                children: [siblingOf("marco", "male")],
+            },
+            { holdMembers: true },
+        );
+        await explore(container);
+        click(rowFor(container, "Siblings"));
+        click(rowFor(container, "Children"));
+        await settle();
+        expect(container.querySelectorAll("." + RESULT_CLASS)).toHaveLength(0);
+
+        engine.members.open("children");
+        await settle();
+        expect(litPersonIds(container)).toEqual(["marco"]);
+        expect(activeRowLabels(container)).toEqual(["Children"]);
+
+        engine.members.open("siblings");
+        await settle();
+        // Siblings' answer arrived last and must lose: it is about a question
+        // the reader let go of, and Elena owns three cards that would light.
+        expect(litPersonIds(container)).toEqual(["marco"]);
+        expect(activeRowLabels(container)).toEqual(["Children"]);
+    });
+});
+
+describe("a sweep that could not answer is retried, not remembered", () => {
+    it("re-issues after a failing project is fixed", async () => {
+        // ADR-0009's error arm is what a document with a validation error
+        // yields, which is the ordinary state mid-edit. A memo held across that
+        // failure left every row reading `·` for as long as the person stayed
+        // selected — surviving the fix and the re-render after it.
+        const { container, engine, asked } = mount(
+            { siblings: [siblingOf("elena", "female")] },
+            { failCounts: true },
+        );
+        await explore(container);
+        expect(counts(container)).toEqual(KIN_SETS.map(() => "·"));
+        const failed = asked.kin.filter((q) => q.projection === "count").length;
+        expect(failed).toBe(KIN_SETS.length);
+
+        engine.failCounts = false;
+        // Close and reopen — the same gesture a reader makes, with no change of
+        // selection, which was the only escape before.
+        click(container.querySelector(".kul-kin-header"));
+        await settle();
+        click(container.querySelector(".kul-kin-header"));
+        await settle();
+
+        expect(asked.kin.filter((q) => q.projection === "count")).toHaveLength(
+            failed + KIN_SETS.length,
+        );
+        expect(rowText(rowFor(container, "Siblings")).count).toBe("1");
+        expect(counts(container)).not.toContain("·");
+    });
+
+    it("shows whatever did answer, and keeps asking for the rest", async () => {
+        // A partial sweep is not a failed one: the numbers that landed are the
+        // engine's, and the rows that did not show the same placeholder they
+        // show before any answer lands.
+        let allow = true;
+        const { container, asked } = mount(
+            {},
+            {
+                countFor: (_anchor, setId) => {
+                    if (setId !== "siblings" && allow) {
+                        throw new Error("not this one");
+                    }
+                    return 4;
+                },
+            },
+        );
+        // The double throws rather than returning an error arm, which
+        // `mount.ts` turns into the popover and a `null` answer.
+        await explore(container);
+        expect(rowText(rowFor(container, "Siblings")).count).toBe("4");
+        expect(counts(container)).toContain("·");
+
+        allow = false;
+        const partial = asked.kin.filter((q) => q.projection === "count").length;
+        click(container.querySelector(".kul-kin-header"));
+        await settle();
+        click(container.querySelector(".kul-kin-header"));
+        await settle();
+        expect(
+            asked.kin.filter((q) => q.projection === "count").length,
+        ).toBeGreaterThan(partial);
         expect(counts(container)).not.toContain("·");
     });
 });
@@ -650,5 +856,108 @@ describe("kin paint and the editor-sync highlight never co-paint", () => {
         await settle();
         expect(container.querySelectorAll("." + RESULT_CLASS)).toHaveLength(0);
         expect(container.querySelectorAll(".kul-selected")).toHaveLength(1);
+    });
+});
+
+// The two members `mount.ts` never calls. `createQuerySurface` is the seam the
+// slices that compose *inside* the surface use, so they are driven here rather
+// than through the mounted chrome — and an injected `runKinQuery` is the only
+// way to make one reject, which the mount deliberately never lets happen.
+
+function surface(options: {
+    runKinQuery(query: Query): Promise<QueryEnvelope<QueryResult> | null>;
+}): { root: HTMLElement; surface: QuerySurface; stage: HTMLElement } {
+    const stage = document.createElement("div");
+    stage.innerHTML = PREVIEW_BODY_HTML;
+    document.body.appendChild(stage);
+    const root = stage.querySelector("#root") as HTMLElement;
+    root.innerHTML = SVG;
+    const built = createQuerySurface({
+        root,
+        floatDock: stage.querySelector("#kul-region-float-dock") as HTMLElement,
+        notifyRegion: stage.querySelector("#kul-region-notify") as HTMLElement,
+        adapter: { onRevealRequest: () => {} },
+        async lookup(targets) {
+            return { ok: true, result: targets.map(detailFor) };
+        },
+        runKinQuery: options.runKinQuery,
+        locale: createLocaleController(null),
+        getPanZoom: () => null,
+        applySyncHighlight: () => {},
+    });
+    return { root, surface: built, stage };
+}
+
+describe("a rejecting kin query leaves no claim behind", () => {
+    it("lets the sweep be re-issued after the throw stops", async () => {
+        // `mount.ts` turns a throw into the error popover and a `null` answer,
+        // so this path is unreachable through the mounted chrome — but the
+        // surface takes `runKinQuery` as an option and must not strand the memo
+        // for a host that hands it one which rejects.
+        let throwing = true;
+        const asked: Query[] = [];
+        const { stage, surface: built } = surface({
+            async runKinQuery(query) {
+                asked.push(query);
+                if (throwing) {
+                    throw new Error("engine module went away");
+                }
+                return { ok: true, result: { kind: "count", count: 2 } };
+            },
+        });
+        built.selection.select({ kind: "person", id: "giuseppe" });
+        await settle();
+        click(stage.querySelector(".kul-kin-header"));
+        await settle();
+        expect(asked).toHaveLength(KIN_SETS.length);
+        expect(counts(stage)).toEqual(KIN_SETS.map(() => "·"));
+
+        throwing = false;
+        click(stage.querySelector(".kul-kin-header"));
+        await settle();
+        click(stage.querySelector(".kul-kin-header"));
+        await settle();
+        expect(asked).toHaveLength(KIN_SETS.length * 2);
+        expect(counts(stage)).toEqual(KIN_SETS.map(() => "2"));
+        built.dispose();
+    });
+});
+
+describe("setDimExemption lifts the dim for a live read", () => {
+    it("un-dims the traced persons and puts them back when it is withdrawn", async () => {
+        const { root, stage, surface: built } = surface({
+            async runKinQuery(query) {
+                return query.projection === "count"
+                    ? { ok: true, result: { kind: "count", count: 1 } }
+                    : {
+                          ok: true,
+                          result: {
+                              kind: "members",
+                              members: [siblingOf("elena", "female")],
+                          },
+                      };
+            },
+        });
+        built.selection.select({ kind: "person", id: "giuseppe" });
+        await settle();
+        click(stage.querySelector(".kul-kin-header"));
+        await settle();
+        click(rowFor(stage, "Siblings"));
+        await settle();
+        const dimmed = () =>
+            Array.from(root.querySelectorAll("." + DIM_CLASS)).map((node) =>
+                node.getAttribute("data-person-id"),
+            );
+        expect(dimmed()).toEqual(["marco"]);
+
+        built.setDimExemption(["marco"]);
+        expect(dimmed()).toEqual([]);
+        // The answer itself is untouched — an exemption lifts the dim, it does
+        // not change who the engine said was kin.
+        expect(litPersonIds(stage)).toEqual(["elena"]);
+
+        built.setDimExemption(null);
+        expect(dimmed()).toEqual(["marco"]);
+        built.dispose();
     });
 });

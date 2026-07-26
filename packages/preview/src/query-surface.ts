@@ -13,9 +13,9 @@
 // `occupiedBox` (the ghost badge's jump must steer around the panel) and
 // `dispose`. Everything else about the selection is this module's business,
 // which is what keeps the chrome's composition in one readable place rather
-// than spread across the mount. The surface exposes two further members for the
-// slices that compose inside it rather than at the mount — `clearSelection` and
-// `setDimExemption` — and `mount.ts` calls neither.
+// than spread across the mount. The remaining members are for the slices that
+// compose *inside* the surface — `selection`, `clearSelection`,
+// `setSyncSuspended` and `setDimExemption` — and `mount.ts` calls none of them.
 
 import type {
     DetailLookupResult,
@@ -169,6 +169,11 @@ export interface QuerySurface {
      * reader is doing now and the dim is what they did a moment ago, so the lens
      * wins (ADR-0043). The rule lives on the dim registry rather than in kin
      * paint, so #303's filter inherits it instead of re-deciding it.
+     *
+     * **One live read at a time.** The exemption is a single slot, not a set
+     * keyed by holder, because a pointer is in one place: the lens is the only
+     * caller and each hover replaces the last. A second concurrent holder would
+     * clobber the first, and keying it is the fix if one ever appears.
      */
     setDimExemption(personIds: Iterable<string> | null): void;
     /** The panel's viewport box while it is open — the region a pan must avoid. */
@@ -341,6 +346,15 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
      * answers are guarded on the anchor rather than on a counter, so anything
      * the reader does in the ≈13-rows-worth of latency — clicking a row, above
      * all — leaves the sweep intact.
+     *
+     * **The claim is released the moment the sweep does not fully answer.** A
+     * project that fails its checks yields the envelope's error arm (ADR-0009),
+     * which is the ordinary state of a document mid-edit, and a claim held
+     * across that failure would leave every row reading `·` for as long as the
+     * person stayed selected — surviving the fix and the re-render that follows
+     * it. Whatever *did* answer is still shown: those numbers are the engine's,
+     * and a row the sweep could not answer shows the same placeholder it shows
+     * before any answer lands.
      */
     async function loadKinCounts(): Promise<void> {
         const anchorId = kinAnchorId;
@@ -348,12 +362,32 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
             return;
         }
         kinCountsFor = anchorId;
-        const answers = await Promise.all(
-            KIN_SETS.map(async (set) => ({
-                id: set.id,
-                envelope: await runKinQuery(kinQuery(set, anchorId, "count")),
-            })),
-        );
+        /**
+         * Give the claim back, unless a newer sweep has already taken it. The
+         * anchor moving runs `resetKin`, which nulls it — releasing then would
+         * clobber the sweep that moved in behind us.
+         */
+        function releaseClaim(): void {
+            if (kinCountsFor === anchorId) {
+                kinCountsFor = null;
+            }
+        }
+        let answers;
+        try {
+            answers = await Promise.all(
+                KIN_SETS.map(async (set) => ({
+                    id: set.id,
+                    envelope: await runKinQuery(kinQuery(set, anchorId, "count")),
+                })),
+            );
+        } catch {
+            // A rejecting `runKinQuery` is not the mounted path — `mount.ts`
+            // turns a throw into the error popover and a `null` answer — but
+            // the surface must not leave a claim behind for an injected one,
+            // and must not raise out of a `void`-ed call either.
+            releaseClaim();
+            return;
+        }
         if (kinAnchorId !== anchorId) {
             return;
         }
@@ -366,6 +400,9 @@ export function createQuerySurface(options: QuerySurfaceOptions): QuerySurface {
             if (result.kind === "count") {
                 counts.set(id, result.count);
             }
+        }
+        if (counts.size < KIN_SETS.length) {
+            releaseClaim();
         }
         kinCounts = counts;
         redrawPanel();
