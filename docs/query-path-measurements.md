@@ -176,6 +176,12 @@ first query, as ADR-0034 specifies, costs the first query a few milliseconds and
    descriptors that phrase each row already arrive with the kin-set answer. A batched detail
    operation (Finding 5) is the alternative if the PRD would rather not have two provenance paths
    for person data; it costs new WASM-surface work and a shape ADR-0024 did not pin.
+
+   > **Settled by [ADR-0035](./adr/0035-detail-surface-one-selection-one-batched-lookup.md) (#281)**:
+   > the **batched operation** was chosen over this recommendation. The detail panel turned out to
+   > need new engine work anyway — `queryMarriage` cannot return a marriage's children — so batching
+   > came almost free with it, and buying one provenance path for the whole widget was judged worth
+   > the Rust release. Finding 5's flat-in-N number is what makes it work.
 5. **The stateful WASM document handle stays unnecessary.** It is the largest win available
    (Finding 3) and it is still not needed: with hydration fixed, nothing else is close to the
    budget.
