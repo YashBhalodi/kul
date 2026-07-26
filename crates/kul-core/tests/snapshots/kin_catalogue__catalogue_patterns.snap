@@ -1,0 +1,151 @@
+---
+source: crates/kul-core/tests/kin_catalogue.rs
+expression: patterns
+---
+{
+  "ancestors_of": {
+    "classification": {
+      "kind": "lineal",
+      "role": "ancestor",
+      "generations": {
+        "min": 1
+      }
+    }
+  },
+  "aunts_uncles_of": {
+    "classification": {
+      "kind": "collateral",
+      "up": {
+        "min": 2,
+        "max": 2
+      },
+      "down": {
+        "min": 1,
+        "max": 1
+      }
+    }
+  },
+  "children_of": {
+    "classification": {
+      "kind": "lineal",
+      "role": "descendant",
+      "generations": {
+        "min": 1,
+        "max": 1
+      }
+    }
+  },
+  "cousins_of": {
+    "classification": {
+      "kind": "collateralByDegree",
+      "degree": {
+        "min": 1,
+        "max": 1
+      },
+      "removed": {
+        "min": 0,
+        "max": 0
+      }
+    }
+  },
+  "descendants_of": {
+    "classification": {
+      "kind": "lineal",
+      "role": "descendant",
+      "generations": {
+        "min": 1
+      }
+    }
+  },
+  "in_laws_of": {
+    "classification": {
+      "kind": "any",
+      "maxUp": 2,
+      "maxDown": 2
+    },
+    "affinity": "inLaw"
+  },
+  "nieces_nephews_of": {
+    "classification": {
+      "kind": "collateral",
+      "up": {
+        "min": 1,
+        "max": 1
+      },
+      "down": {
+        "min": 2,
+        "max": 2
+      }
+    }
+  },
+  "parents_of": {
+    "classification": {
+      "kind": "lineal",
+      "role": "ancestor",
+      "generations": {
+        "min": 1,
+        "max": 1
+      }
+    }
+  },
+  "siblings_of": {
+    "classification": {
+      "kind": "collateral",
+      "up": {
+        "min": 1,
+        "max": 1
+      },
+      "down": {
+        "min": 1,
+        "max": 1
+      }
+    }
+  },
+  "spouses_of": {
+    "classification": {
+      "kind": "any",
+      "maxUp": 0,
+      "maxDown": 0
+    },
+    "affinalHops": {
+      "min": 1,
+      "max": 1
+    }
+  },
+  "step_children_of": {
+    "classification": {
+      "kind": "lineal",
+      "role": "descendant",
+      "generations": {
+        "min": 1,
+        "max": 1
+      }
+    },
+    "affinity": "step"
+  },
+  "step_parents_of": {
+    "classification": {
+      "kind": "lineal",
+      "role": "ancestor",
+      "generations": {
+        "min": 1,
+        "max": 1
+      }
+    },
+    "affinity": "step"
+  },
+  "step_siblings_of": {
+    "classification": {
+      "kind": "collateral",
+      "up": {
+        "min": 1,
+        "max": 1
+      },
+      "down": {
+        "min": 1,
+        "max": 1
+      }
+    },
+    "affinity": "step"
+  }
+}
