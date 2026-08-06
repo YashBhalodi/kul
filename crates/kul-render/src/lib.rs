@@ -78,10 +78,10 @@ pub fn transform(envelope: &ExportEnvelope) -> RenderShape {
                     components,
                     edges,
                 }),
-                // A lineage past the depth cap downgrades to a failure
-                // shape rather than overflowing the stack downstream
-                // (ADR-0032). Layout only ever runs on the success arm, so
-                // this single guard bounds every recursive pass.
+                // Depth-cap (ADR-0032) and layout-root invariant failures
+                // (KUL-V03) both downgrade here. Layout only ever runs on
+                // the success arm, so this single guard bounds every
+                // recursive pass — and malformed graphs no longer panic.
                 Err(diagnostic) => RenderShape::Failure(FailureRender {
                     ok: false,
                     diagnostics: vec![*diagnostic],

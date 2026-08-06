@@ -29,10 +29,17 @@ pub(crate) const MAX_LINEAGE_DEPTH: u32 = 512;
 /// Diagnostic code for a lineage past [`MAX_LINEAGE_DEPTH`] (ADR-0032).
 const KUL_V01: &str = "KUL-V01";
 
+/// Diagnostic code when the kinship-native graph violates a layout-root
+/// invariant that used to panic (empty component, missing floating root,
+/// undeclared spouse). Same `V` visualization family as [`KUL_V01`];
+/// distinct from the language-level validation codes.
+const KUL_V03: &str = "KUL-V03";
+
 /// Entry point for [`crate::transform`]. Returns `(components, edges)` in
 /// source order by each component's first-relevant-declaration position, or
-/// a [`KUL_V01`] diagnostic when the deepest lineage exceeds
-/// [`MAX_LINEAGE_DEPTH`] — the depth cap is enforced here, before any
+/// a visualization diagnostic when the deepest lineage exceeds
+/// [`MAX_LINEAGE_DEPTH`] ([`KUL_V01`]) or the graph is malformed for
+/// layout ([`KUL_V03`]). The depth cap is enforced here, before any
 /// recursive build descends the tree.
 pub(crate) fn build(
     graph: &ExportedGraph,
@@ -42,7 +49,7 @@ pub(crate) fn build(
         return Err(Box::new(lineage_too_deep_diagnostic(depth)));
     }
     let edges = build_edges(graph);
-    let components = build_components(&index);
+    let components = build_components(&index)?;
     Ok((components, edges))
 }
 
@@ -60,6 +67,18 @@ fn lineage_too_deep_diagnostic(depth: u32) -> ExportedDiagnostic {
         ),
         // Whole-document property, not a single declaration — unanchored,
         // like KUL-M01.
+        primary: None,
+        related: Vec::new(),
+    }
+}
+
+fn malformed_graph_diagnostic(message: impl Into<String>) -> ExportedDiagnostic {
+    ExportedDiagnostic {
+        code: KUL_V03.to_string(),
+        severity: "error",
+        message: message.into(),
+        // Graph-wide invariant, not a single declaration — unanchored,
+        // like KUL-V01.
         primary: None,
         related: Vec::new(),
     }
@@ -388,7 +407,7 @@ impl UnionFind {
     }
 }
 
-fn build_components(index: &Index<'_>) -> Vec<Component> {
+fn build_components(index: &Index<'_>) -> Result<Vec<Component>, Box<ExportedDiagnostic>> {
     let n_persons = index.persons.len();
     let n_marriages = index.graph.marriages.len();
     let mut uf = UnionFind::new(n_persons + n_marriages);
@@ -445,12 +464,12 @@ fn build_components(index: &Index<'_>) -> Vec<Component> {
     let mut components: Vec<Component> = groups
         .into_values()
         .map(|members| build_one_component(index, &members))
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
     components.sort_by_key(|c| c.source_order);
     for (idx, comp) in components.iter_mut().enumerate() {
         comp.id = format!("comp-{}", idx + 1);
     }
-    components
+    Ok(components)
 }
 
 #[derive(Default)]
@@ -459,7 +478,10 @@ struct ComponentMembers {
     marriages: Vec<usize>,
 }
 
-fn build_one_component(index: &Index<'_>, members: &ComponentMembers) -> Component {
+fn build_one_component(
+    index: &Index<'_>,
+    members: &ComponentMembers,
+) -> Result<Component, Box<ExportedDiagnostic>> {
     // Source-order anchor: earliest marriage, else earliest person.
     let earliest_marriage = members
         .marriages
@@ -477,23 +499,30 @@ fn build_one_component(index: &Index<'_>, members: &ComponentMembers) -> Compone
         .unwrap_or(0);
 
     if members.marriages.is_empty() {
-        let &person_idx = members
-            .persons
-            .first()
-            .expect("union-find produced an empty component");
+        // Every union-find group is seeded by at least one person or
+        // marriage; an empty-persons orphan arm is unreachable for typed
+        // native graphs but must not panic if the invariant ever breaks.
+        let Some(&person_idx) = members.persons.first() else {
+            debug_assert!(false, "union-find produced an empty component");
+            return Err(Box::new(malformed_graph_diagnostic(
+                "layout root failed: union-find produced an empty component",
+            )));
+        };
         let facts = &index.persons[person_idx];
         let card = Box::new(canonical_card_slot(facts));
-        return Component {
+        return Ok(Component {
             id: String::new(),
             source_order,
             kind: ComponentKind::OrphanPerson { card },
-        };
+        });
     }
 
     // Each component is one host-lineage tree: pick its outermost floating
     // marriage (no bar-anchor) as the root. Polygamy's multiple roots
     // collapse via union-find; pick the earliest-declared.
-    let root_marriage_idx = members
+    // Reachable when every marriage claims a bar-anchor that is missing
+    // from the graph (dangling canonical-family id) — previously panicked.
+    let Some(root_marriage_idx) = members
         .marriages
         .iter()
         .copied()
@@ -505,16 +534,20 @@ fn build_one_component(index: &Index<'_>, members: &ComponentMembers) -> Compone
                 .map(|s| s[0])
                 .unwrap_or(usize::MAX)
         })
-        .expect("non-orphan component must contain at least one floating marriage");
+    else {
+        return Err(Box::new(malformed_graph_diagnostic(
+            "layout root failed: component has marriages but no floating root marriage",
+        )));
+    };
 
     let mut visited = HashSet::new();
-    let root = Box::new(build_person_root(index, root_marriage_idx, &mut visited));
+    let root = Box::new(build_person_root(index, root_marriage_idx, &mut visited)?);
 
-    Component {
+    Ok(Component {
         id: String::new(),
         source_order,
         kind: ComponentKind::FamilyTree { root },
-    }
+    })
 }
 
 /// Build the root `PersonCard` of a `FamilyTree`. Either a canonical
@@ -525,11 +558,16 @@ fn build_person_root(
     index: &Index<'_>,
     root_marriage_idx: usize,
     visited: &mut HashSet<usize>,
-) -> PersonCard {
+) -> Result<PersonCard, Box<ExportedDiagnostic>> {
     let host_id = index.graph.marriages[root_marriage_idx].spouses[0].as_str();
-    let host_facts = index
-        .person(host_id)
-        .expect("root marriage's host must be a declared person");
+    // Reachable when a fabricated (or otherwise non-validator) graph
+    // references an undeclared host — typed export from a checked project
+    // never emits this.
+    let Some(host_facts) = index.person(host_id) else {
+        return Err(Box::new(malformed_graph_diagnostic(format!(
+            "layout root failed: root marriage host `{host_id}` is not a declared person"
+        ))));
+    };
 
     // Root canonical iff the host's canonical card sits at this floating
     // bar; otherwise the host has moved on and the root is a ghost.
@@ -555,29 +593,29 @@ fn build_person_root(
 
     let hosted_marriages = if host_is_canonical_here {
         // Polygamy collapses onto one canonical card (ADR-0017).
-        build_hosted_marriages(index, host_facts, visited)
+        build_hosted_marriages(index, host_facts, visited)?
     } else {
         // Ghost-rooted: only the past-ended root bar surfaces here.
-        vec![build_marriage_branch(index, root_marriage_idx, visited)]
+        vec![build_marriage_branch(index, root_marriage_idx, visited)?]
     };
 
-    PersonCard {
+    Ok(PersonCard {
         slot,
         hosted_marriages,
-    }
+    })
 }
 
 fn build_marriage_branch(
     index: &Index<'_>,
     marriage_idx: usize,
     visited: &mut HashSet<usize>,
-) -> MarriageBranch {
+) -> Result<MarriageBranch, Box<ExportedDiagnostic>> {
     visited.insert(marriage_idx);
     let marriage = &index.graph.marriages[marriage_idx];
     let host_id = &marriage.spouses[0];
     let joining_id = &marriage.spouses[1];
 
-    let joining_slot = bar_joining_slot(index, joining_id, marriage);
+    let joining_slot = bar_joining_slot(index, joining_id, marriage)?;
 
     let bar = MarriageBar {
         marriage_id: marriage.id.clone(),
@@ -591,16 +629,16 @@ fn build_marriage_branch(
         ended: marriage.end.is_some(),
     };
 
-    let children = build_children(index, &marriage.id, visited);
+    let children = build_children(index, &marriage.id, visited)?;
 
-    MarriageBranch { bar, children }
+    Ok(MarriageBranch { bar, children })
 }
 
 fn build_children(
     index: &Index<'_>,
     marriage_id: &str,
     visited: &mut HashSet<usize>,
-) -> Vec<PersonCard> {
+) -> Result<Vec<PersonCard>, Box<ExportedDiagnostic>> {
     let mut out = Vec::new();
     // Declaration order so canonical children and past ghosts interleave.
     // Per-person roles (canonical / past-adoption / past-bio) are mutually
@@ -614,7 +652,7 @@ fn build_children(
         if canonical_here {
             out.push(PersonCard {
                 slot: canonical_card_slot(facts),
-                hosted_marriages: build_hosted_marriages(index, facts, visited),
+                hosted_marriages: build_hosted_marriages(index, facts, visited)?,
             });
             continue;
         }
@@ -642,14 +680,14 @@ fn build_children(
             });
         }
     }
-    out
+    Ok(out)
 }
 
 fn build_hosted_marriages(
     index: &Index<'_>,
     host: &PersonFacts<'_>,
     visited: &mut HashSet<usize>,
-) -> Vec<MarriageBranch> {
+) -> Result<Vec<MarriageBranch>, Box<ExportedDiagnostic>> {
     let mut out = Vec::new();
     for &m in &host.hosted_marriages {
         if visited.contains(&m) {
@@ -660,9 +698,9 @@ fn build_hosted_marriages(
         if !host_anchors_bar_here(index, host, m) {
             continue;
         }
-        out.push(build_marriage_branch(index, m, visited));
+        out.push(build_marriage_branch(index, m, visited)?);
     }
-    out
+    Ok(out)
 }
 
 /// True iff this canonical card for `host` should carry the bar.
@@ -690,10 +728,18 @@ fn host_anchors_bar_here(index: &Index<'_>, host: &PersonFacts<'_>, marriage_idx
 
 /// Joining-slot for a bar. Canonical iff `canonical_location` resolves
 /// to `JoiningOf(this marriage)`; otherwise a `PastMarriage` ghost.
-fn bar_joining_slot(index: &Index<'_>, joining_id: &str, marriage: &ExportedMarriage) -> CardSlot {
-    let facts = index
-        .person(joining_id)
-        .expect("spouse must be a declared person");
+fn bar_joining_slot(
+    index: &Index<'_>,
+    joining_id: &str,
+    marriage: &ExportedMarriage,
+) -> Result<CardSlot, Box<ExportedDiagnostic>> {
+    // Reachable when a fabricated graph references an undeclared joining
+    // spouse — typed export from a checked project never emits this.
+    let Some(facts) = index.person(joining_id) else {
+        return Err(Box::new(malformed_graph_diagnostic(format!(
+            "layout root failed: spouse `{joining_id}` is not a declared person"
+        ))));
+    };
     let canonical = matches!(
         index.canonical_location(facts),
         CanonicalLocation::JoiningOf(ref m) if m == &marriage.id,
@@ -706,7 +752,7 @@ fn bar_joining_slot(index: &Index<'_>, joining_id: &str, marriage: &ExportedMarr
         }
     };
     let generation = bar_generation(index, marriage);
-    card_slot(facts, kind, generation)
+    Ok(card_slot(facts, kind, generation))
 }
 
 fn canonical_card_slot(facts: &PersonFacts<'_>) -> CardSlot {
