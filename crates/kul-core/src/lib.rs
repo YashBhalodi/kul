@@ -23,7 +23,7 @@
 //! See `docs/architecture.md` and `CONTEXT.md`.
 
 pub mod ast;
-pub mod cycles;
+mod cycles;
 pub mod date;
 pub mod diagnostic;
 pub mod export;
