@@ -174,8 +174,11 @@ pub fn run_query(
 ) -> Result<QueryResult, QueryEvalError> {
     // Compile (and validate) the predicates once, before any traversal, so a
     // malformed predicate errors even against an empty project.
-    let compiled = filter::compile_predicates(&query.predicates)
-        .map_err(|message| QueryEvalError::BadPredicate { message })?;
+    let compiled = filter::compile_predicates(&query.predicates).map_err(|err| {
+        QueryEvalError::BadPredicate {
+            message: err.to_string(),
+        }
+    })?;
 
     // Gather candidates in the source's default order. `member` is `Some` only
     // for `kinOf` (it carries the descriptor the `members` projection needs).

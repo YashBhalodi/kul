@@ -264,21 +264,46 @@ pub(crate) enum OrderOp {
     Gte,
 }
 
+/// A malformed `where` predicate caught at compile time: an invalid date
+/// literal, an ordering comparison on a non-date field, or `in` on a date
+/// field. Display text is the surface contract — CLI/WASM/query envelopes map
+/// this through [`super::QueryEvalError::BadPredicate`] without rewriting it.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub(crate) enum FilterCompileError {
+    /// A date predicate's literal failed [`parse_date`].
+    #[error("invalid date literal `{value}`: {reason}")]
+    InvalidDateLiteral { value: String, reason: String },
+    /// An ordering op (`</<=/>/>=`) named a non-date field.
+    #[error(
+        "ordering comparison requires a date field (`born`/`died`), got `{}`",
+        .field.as_str()
+    )]
+    OrderingOnNonDate { field: PersonField },
+    /// `in` set membership named a date field.
+    #[error(
+        "`in` set membership is not valid for the date field `{}` (use </<=/>/>= or eq/neq)",
+        .field.as_str()
+    )]
+    MembershipOnDate { field: PersonField },
+}
+
 /// Compile every predicate once: parse date literals, and reject the two
 /// op/field mismatches the type cannot (ordering on a non-date field, `in` on
-/// a date field). Returns the offending message on the first bad predicate —
-/// the caller wraps it in a typed error so the surfaces (CLI diagnostic, WASM
-/// envelope) report *which* predicate is malformed.
+/// a date field). Returns the first bad predicate — the caller wraps it in
+/// [`super::QueryEvalError::BadPredicate`] so the surfaces (CLI diagnostic,
+/// WASM envelope) report *which* predicate is malformed.
 ///
 /// # Errors
 ///
-/// A human-readable message when a date literal is malformed, an ordering
+/// [`FilterCompileError`] when a date literal is malformed, an ordering
 /// operator names a non-date field, or `in` names a date field.
-pub(crate) fn compile_predicates(predicates: &[Predicate]) -> Result<Vec<Compiled>, String> {
+pub(crate) fn compile_predicates(
+    predicates: &[Predicate],
+) -> Result<Vec<Compiled>, FilterCompileError> {
     predicates.iter().map(compile_one).collect()
 }
 
-fn compile_one(pred: &Predicate) -> Result<Compiled, String> {
+fn compile_one(pred: &Predicate) -> Result<Compiled, FilterCompileError> {
     match pred {
         Predicate::Eq { field, value } => Ok(if field.is_date() {
             Compiled::DateContains {
@@ -312,11 +337,7 @@ fn compile_one(pred: &Predicate) -> Result<Compiled, String> {
         Predicate::Gte { field, value } => compile_order(*field, value, OrderOp::Gte),
         Predicate::In { field, values } => {
             if field.is_date() {
-                return Err(format!(
-                    "`in` set membership is not valid for the date field `{}` \
-                     (use </<=/>/>= or eq/neq)",
-                    field.as_str()
-                ));
+                return Err(FilterCompileError::MembershipOnDate { field: *field });
             }
             Ok(Compiled::StrIn {
                 field: *field,
@@ -334,12 +355,13 @@ fn compile_one(pred: &Predicate) -> Result<Compiled, String> {
     }
 }
 
-fn compile_order(field: PersonField, value: &str, op: OrderOp) -> Result<Compiled, String> {
+fn compile_order(
+    field: PersonField,
+    value: &str,
+    op: OrderOp,
+) -> Result<Compiled, FilterCompileError> {
     if !field.is_date() {
-        return Err(format!(
-            "ordering comparison requires a date field (`born`/`died`), got `{}`",
-            field.as_str()
-        ));
+        return Err(FilterCompileError::OrderingOnNonDate { field });
     }
     Ok(Compiled::DateOrder {
         field,
@@ -348,12 +370,16 @@ fn compile_order(field: PersonField, value: &str, op: OrderOp) -> Result<Compile
     })
 }
 
-/// Parse a predicate's date literal, mapping a parse failure to a diagnostic
-/// message. The span is synthetic (the literal came from the query, not
+/// Parse a predicate's date literal, mapping a parse failure to a typed
+/// compile error. The span is synthetic (the literal came from the query, not
 /// source), so only the message survives.
-fn parse_literal(value: &str) -> Result<DateLit, String> {
-    parse_date(value, ByteSpan::new(0, value.len()))
-        .map_err(|e| format!("invalid date literal `{value}`: {}", e.message()))
+fn parse_literal(value: &str) -> Result<DateLit, FilterCompileError> {
+    parse_date(value, ByteSpan::new(0, value.len())).map_err(|e| {
+        FilterCompileError::InvalidDateLiteral {
+            value: value.to_string(),
+            reason: e.message().to_string(),
+        }
+    })
 }
 
 /// Whether `person` survives the compiled predicate conjunction under `mode`.
