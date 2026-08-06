@@ -330,9 +330,9 @@ pub fn resolve<'a>(
             segment_cap: Some(config.max_apex_generations),
             across_max: AFFINAL_CEILING,
             emit_gate: |_u, _d| true,
-            emit: |node: &'a PersonStmt, path: Vec<PathHop>| {
+            emit: |node: &'a PersonStmt, path: &[PathHop]| {
                 if node.id.name == target {
-                    raw.push(path);
+                    raw.push(path.to_vec());
                 }
             },
         };
@@ -357,9 +357,9 @@ pub fn resolve<'a>(
             adjacency: &adjacency,
             role,
             generations: IntRange::from_one(None),
-            emit: |node: &'a PersonStmt, path: Vec<PathHop>| {
+            emit: |node: &'a PersonStmt, path: &[PathHop]| {
                 if node.id.name == target {
-                    raw.push(path);
+                    raw.push(path.to_vec());
                 }
             },
         };
@@ -591,7 +591,7 @@ fn eval_kin<'a>(
             segment_cap: None,
             across_max: across_budget,
             emit_gate: |u, d| ud_matches(&pattern.classification, u, d),
-            emit: |alter, path| raw.push((alter, path)),
+            emit: |alter, path: &[PathHop]| raw.push((alter, path.to_vec())),
         };
         walk.walk(
             ego,
@@ -611,7 +611,7 @@ fn eval_kin<'a>(
                     adjacency: &adjacency,
                     role,
                     generations,
-                    emit: |alter, path| raw.push((alter, path)),
+                    emit: |alter, path: &[PathHop]| raw.push((alter, path.to_vec())),
                 };
                 walk.descend(ego, &mut vec![ego.id.name.as_str()], &mut Vec::new());
             }
@@ -621,7 +621,7 @@ fn eval_kin<'a>(
                     up_max: up.max,
                     down_max: down.max,
                     matches: |u, d| up.contains(u) && down.contains(d),
-                    emit: |alter, path| raw.push((alter, path)),
+                    emit: |alter, path: &[PathHop]| raw.push((alter, path.to_vec())),
                 };
                 walk.ascend(ego, &mut vec![ego.id.name.as_str()], &mut Vec::new());
             }
@@ -642,7 +642,7 @@ fn eval_kin<'a>(
                         degree.contains(u.min(d).saturating_sub(1))
                             && removed.contains(u.abs_diff(d))
                     },
-                    emit: |alter, path| raw.push((alter, path)),
+                    emit: |alter, path: &[PathHop]| raw.push((alter, path.to_vec())),
                 };
                 walk.ascend(ego, &mut vec![ego.id.name.as_str()], &mut Vec::new());
             }
@@ -837,7 +837,7 @@ struct LinealWalk<'a, 'adj, F> {
     emit: F,
 }
 
-impl<'a, 'adj, F: FnMut(&'a PersonStmt, Vec<PathHop>)> LinealWalk<'a, 'adj, F> {
+impl<'a, 'adj, F: FnMut(&'a PersonStmt, &[PathHop])> LinealWalk<'a, 'adj, F> {
     /// Visit every neighbour of `node` in the traversal direction. `visited`
     /// holds the ids on the current path (anchor included) — the
     /// unconditional cycle guard; `backbone` is the hop sequence built so
@@ -860,7 +860,7 @@ impl<'a, 'adj, F: FnMut(&'a PersonStmt, Vec<PathHop>)> LinealWalk<'a, 'adj, F> {
 
             let depth = backbone.len() as u32;
             if self.generations.contains(depth) {
-                (self.emit)(edge.person, backbone.clone());
+                (self.emit)(edge.person, backbone);
             }
             // Descend further only while the range's upper bound allows it;
             // an unbounded range recurses until the simple-path guard stops
@@ -889,7 +889,7 @@ struct CollateralWalk<'a, 'adj, M, F> {
     emit: F,
 }
 
-impl<'a, 'adj, M: Fn(u32, u32) -> bool, F: FnMut(&'a PersonStmt, Vec<PathHop>)>
+impl<'a, 'adj, M: Fn(u32, u32) -> bool, F: FnMut(&'a PersonStmt, &[PathHop])>
     CollateralWalk<'a, 'adj, M, F>
 {
     /// Ascend from `node`. `path` holds the ascent hops so far (`u = path.len`
@@ -948,7 +948,7 @@ impl<'a, 'adj, M: Fn(u32, u32) -> bool, F: FnMut(&'a PersonStmt, Vec<PathHop>)>
 
             let d = path.len() as u32 - u;
             if (self.matches)(u, d) {
-                (self.emit)(edge.person, path.clone());
+                (self.emit)(edge.person, path);
             }
             if self.down_max.is_none_or(|max| d < max) {
                 self.descend(edge.person, visited, path, u);
@@ -1039,7 +1039,7 @@ struct AffinalWalk<'a, 'adj, G, F> {
     emit: F,
 }
 
-impl<'a, 'adj, G: Fn(u32, u32) -> bool, F: FnMut(&'a PersonStmt, Vec<PathHop>)>
+impl<'a, 'adj, G: Fn(u32, u32) -> bool, F: FnMut(&'a PersonStmt, &[PathHop])>
     AffinalWalk<'a, 'adj, G, F>
 {
     /// Walk from `node`. `visited` is the cycle guard (ids on the current
@@ -1150,7 +1150,7 @@ impl<'a, 'adj, G: Fn(u32, u32) -> bool, F: FnMut(&'a PersonStmt, Vec<PathHop>)>
         backbone.push(hop);
         visited.push(next_id);
         if (self.emit_gate)(u, d) {
-            (self.emit)(next, backbone.clone());
+            (self.emit)(next, backbone);
         }
         self.walk(
             next, visited, backbone, u, d, seg_u, seg_d, across, descending,
