@@ -18,8 +18,8 @@
 //!
 //! Every entity in the answer carries the **export shapes** —
 //! [`ExportedPerson`], [`ExportedMarriage`], [`ExportedParenthoodLink`] —
-//! single-sourced through the export's `build_one_*` builders. There is no
-//! second, leaner person shape; a consumer that needs a display name reads
+//! single-sourced through `projection::build_one_*`. There is no second,
+//! leaner person shape; a consumer that needs a display name reads
 //! `person.name`, which is why this one operation also supplies a kin list's
 //! row labels.
 
@@ -30,8 +30,8 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
 use crate::ast::{AdoptionSub, BirthSub, MarriageStmt, PersonStmt};
-use crate::export::{
-    ExportOptions, ExportedMarriage, ExportedParenthoodLink, ExportedPerson,
+use crate::export::{ExportOptions, ExportedMarriage, ExportedParenthoodLink, ExportedPerson};
+use crate::projection::{
     build_one_adoption_link, build_one_birth_link, build_one_marriage, build_one_person,
 };
 use crate::semantic::{ChildLink, ParentLinkKind, ResolvedDocument};

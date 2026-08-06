@@ -11,8 +11,8 @@
 //! This first slice carries the two simplest operations — the id → detail
 //! lookups [`person`] and [`marriage`]. They return the **same serialized
 //! shapes the export produces** ([`ExportedPerson`] / [`ExportedMarriage`]),
-//! single-sourced through `export::build_one_person` /
-//! `export::build_one_marriage` so a lookup and a whole-graph export can
+//! single-sourced through `projection::build_one_person` /
+//! `projection::build_one_marriage` so a lookup and a whole-graph export can
 //! never disagree about a person's shape.
 //!
 //! **Lookup semantics: absence is the answer.** An unknown id, or an id
@@ -42,9 +42,9 @@ use tsify::Tsify;
 
 use crate::CheckResult;
 use crate::export::{
-    ExportOptions, ExportedDiagnostic, ExportedMarriage, ExportedPerson, build_one_marriage,
-    build_one_person, export_diagnostics,
+    ExportOptions, ExportedDiagnostic, ExportedMarriage, ExportedPerson, export_diagnostics,
 };
+use crate::projection::{build_one_marriage, build_one_person};
 use crate::semantic::ResolvedDocument;
 
 mod descriptor;
@@ -62,7 +62,7 @@ pub use descriptor::{
 };
 pub use detail::{DetailTarget, EntityDetail, LinkedPerson, MarriageTie, details};
 pub use engine::{KinMember, QueryEvalError, evaluate, resolve, run_query};
-pub use filter::{FilterMode, PersonField, Predicate, SortDirection, SortSpec};
+pub use filter::{FilterCompileError, FilterMode, PersonField, Predicate, SortDirection, SortSpec};
 pub use pattern::{
     IntRange, KinPattern, Member, PatternClassification, Projection, Query, QueryResult,
     QuerySource,

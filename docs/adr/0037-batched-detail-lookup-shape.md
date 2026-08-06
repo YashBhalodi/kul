@@ -83,7 +83,7 @@ child "children", and it makes every consumer learn which lists are meaningful f
 union says what is true.
 
 Every entity in the answer is an **export shape** — `ExportedPerson`, `ExportedMarriage`,
-`ExportedParenthoodLink` — built through the export's `build_one_*` builders, which this slice
+`ExportedParenthoodLink` — built through `projection::build_one_*`, which this slice
 extends with `build_one_birth_link` / `build_one_adoption_link` so the whole-graph export loop and
 the lookup can never drift. ADR-0024 already refused a second, leaner person shape for query
 results; that refusal is what makes this operation able to serve a display name at all. The two row

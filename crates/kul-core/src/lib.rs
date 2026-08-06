@@ -33,6 +33,7 @@ pub mod lexer;
 pub mod manifest;
 pub mod node_at;
 pub mod parser;
+mod projection;
 pub mod query;
 pub mod semantic;
 pub mod span;
