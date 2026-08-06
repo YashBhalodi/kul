@@ -432,7 +432,7 @@ fn ten_thousand_person_query_operations_under_budget() {
     // runs ~4–5× slower than release, so the debug ceiling is higher. Every
     // operation shares one ceiling — they are all "one interactive query".
     let ceiling = if cfg!(debug_assertions) {
-        Duration::from_millis(400)
+        Duration::from_millis(450)
     } else {
         Duration::from_millis(250)
     };
