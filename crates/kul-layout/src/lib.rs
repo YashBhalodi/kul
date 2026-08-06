@@ -16,7 +16,7 @@
 //! success arm, but the invariant is a compile-time guarantee, not a
 //! convention to remember.
 
-pub mod adapter;
+mod adapter;
 pub(crate) mod walker;
 
 mod metrics;
