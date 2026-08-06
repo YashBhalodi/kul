@@ -57,7 +57,13 @@ fn run_envelope(opts: Options) -> ExitCode {
             with_positions: opts.with_positions,
         },
     );
-    let json = serde_json::to_string(&envelope).expect("serialize export envelope");
+    let json = match serde_json::to_string(&envelope) {
+        Ok(json) => json,
+        Err(err) => {
+            eprintln!("kul: failed to serialize export envelope: {err}");
+            return ExitCode::from(1);
+        }
+    };
     let stdout = io::stdout();
     let mut out = stdout.lock();
     if let Err(err) = writeln!(out, "{json}") {

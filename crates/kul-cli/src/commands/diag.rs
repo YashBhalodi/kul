@@ -73,7 +73,8 @@ pub fn render_json(result: &CheckResult) -> io::Result<()> {
     let mut maps: HashMap<FileId, SourceMap> = HashMap::new();
     for diag in &result.diagnostics {
         let record = JsonDiagnostic::new(document, &mut maps, diag);
-        let line = serde_json::to_string(&record).expect("serialize diagnostic");
+        let line = serde_json::to_string(&record)
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
         writeln!(out, "{line}")?;
     }
     Ok(())
