@@ -170,7 +170,9 @@ pub struct PersonStmt {
     pub span: ByteSpan,
     pub keyword_span: ByteSpan,
     pub id: Ident,
-    pub fields: Vec<PersonField>,
+    /// Parsed header fields. Storage shape is crate-private; walk via
+    /// [`Self::fields`] / typed accessors.
+    pub(crate) fields: Vec<PersonField>,
     /// At most one biological-birth sub-statement (spec 5.1).
     pub birth: Option<BirthSub>,
     pub adoptions: Vec<AdoptionSub>,
@@ -181,6 +183,25 @@ pub struct PersonStmt {
 }
 
 impl PersonStmt {
+    /// Parsed header fields in source order.
+    pub fn fields(&self) -> impl Iterator<Item = &PersonField> + '_ {
+        self.fields.iter()
+    }
+
+    /// `(FieldName, name_span)` for every parsed field, in source order.
+    /// Used by R15 duplicate-field checks.
+    pub fn field_name_spans(&self) -> impl Iterator<Item = (FieldName, ByteSpan)> + '_ {
+        self.fields
+            .iter()
+            .map(|f| (f.kind.field_name(), f.name_span))
+    }
+
+    /// End offset of the last header field, if any.
+    #[must_use]
+    pub fn last_field_end(&self) -> Option<usize> {
+        self.fields.last().map(|f| f.span.end)
+    }
+
     /// First `name:` field, or `None` (R03 fires when absent).
     #[must_use]
     pub fn name(&self) -> Option<&StringValue> {
@@ -285,10 +306,25 @@ pub struct AdoptionSub {
     pub span: ByteSpan,
     pub keyword_span: ByteSpan,
     pub marriage_ref: Ident,
-    pub fields: Vec<AdoptionField>,
+    /// Parsed fields. Storage shape is crate-private; walk via
+    /// [`Self::fields`] / typed accessors.
+    pub(crate) fields: Vec<AdoptionField>,
 }
 
 impl AdoptionSub {
+    /// Parsed fields in source order.
+    pub fn fields(&self) -> impl Iterator<Item = &AdoptionField> + '_ {
+        self.fields.iter()
+    }
+
+    /// `(FieldName, name_span)` for every parsed field, in source order.
+    /// Used by R15 duplicate-field checks.
+    pub fn field_name_spans(&self) -> impl Iterator<Item = (FieldName, ByteSpan)> + '_ {
+        self.fields
+            .iter()
+            .map(|f| (f.kind.field_name(), f.name_span))
+    }
+
     /// First `start:` date, or `None` (R03 fires when absent).
     #[must_use]
     pub fn start(&self) -> Option<&DateLit> {
@@ -433,10 +469,40 @@ pub struct MarriageStmt {
     pub id: Ident,
     pub spouse_a: Ident,
     pub spouse_b: Ident,
-    pub fields: Vec<MarriageField>,
+    /// Parsed fields. Storage shape is crate-private; walk via
+    /// [`Self::fields`] / typed accessors.
+    pub(crate) fields: Vec<MarriageField>,
 }
 
 impl MarriageStmt {
+    /// Parsed fields in source order.
+    pub fn fields(&self) -> impl Iterator<Item = &MarriageField> + '_ {
+        self.fields.iter()
+    }
+
+    /// `(FieldName, name_span)` for every parsed field, in source order.
+    /// Used by R15 duplicate-field checks.
+    pub fn field_name_spans(&self) -> impl Iterator<Item = (FieldName, ByteSpan)> + '_ {
+        self.fields
+            .iter()
+            .map(|f| (f.kind.field_name(), f.name_span))
+    }
+
+    /// End offset of the last field, if any.
+    #[must_use]
+    pub fn last_field_end(&self) -> Option<usize> {
+        self.fields.last().map(|f| f.span.end)
+    }
+
+    /// Full span of the first `end_reason:` field, if present.
+    #[must_use]
+    pub fn end_reason_field_span(&self) -> Option<ByteSpan> {
+        self.fields
+            .iter()
+            .find(|f| matches!(f.kind, MarriageFieldKind::EndReason(_)))
+            .map(|f| f.span)
+    }
+
     /// First `start:` date, or `None` (R03 fires when absent).
     #[must_use]
     pub fn start(&self) -> Option<&DateLit> {

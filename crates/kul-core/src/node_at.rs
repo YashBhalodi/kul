@@ -180,7 +180,7 @@ impl ResolvedDocument {
         if contains(p.id.span, offset) {
             return Some(Node::PersonDeclId(p));
         }
-        for f in &p.fields {
+        for f in p.fields() {
             if contains(f.span, offset) {
                 return Some(if contains(f.name_span, offset) {
                     Node::PersonFieldName(f)
@@ -235,7 +235,7 @@ impl ResolvedDocument {
                 target: self.marriage_with_file(&a.marriage_ref.name),
             });
         }
-        for f in &a.fields {
+        for f in a.fields() {
             if contains(f.span, offset) {
                 return Some(if contains(f.name_span, offset) {
                     Node::AdoptionFieldName(f)
@@ -271,7 +271,7 @@ impl ResolvedDocument {
                 target: self.person_with_file(&m.spouse_b.name),
             });
         }
-        for f in &m.fields {
+        for f in m.fields() {
             if contains(f.span, offset) {
                 return Some(if contains(f.name_span, offset) {
                     Node::MarriageFieldName(f)

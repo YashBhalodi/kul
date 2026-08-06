@@ -62,7 +62,7 @@ pub use descriptor::{
 };
 pub use detail::{DetailTarget, EntityDetail, LinkedPerson, MarriageTie, details};
 pub use engine::{KinMember, QueryEvalError, evaluate, resolve, run_query};
-pub use filter::{FilterCompileError, FilterMode, PersonField, Predicate, SortDirection, SortSpec};
+pub use filter::{FilterMode, PersonField, Predicate, SortDirection, SortSpec};
 pub use pattern::{
     IntRange, KinPattern, Member, PatternClassification, Projection, Query, QueryResult,
     QuerySource,

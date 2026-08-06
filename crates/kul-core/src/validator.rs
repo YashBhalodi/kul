@@ -236,12 +236,7 @@ fn rule_05_end_consistency(resolved: &ResolvedDocument, file: FileId) -> Vec<Dia
                 );
             }
             (None, Some(reason)) => {
-                let field_span = m
-                    .fields
-                    .iter()
-                    .find(|f| matches!(f.kind, crate::ast::MarriageFieldKind::EndReason(_)))
-                    .map(|f| f.span)
-                    .unwrap_or(reason.span);
+                let field_span = m.end_reason_field_span().unwrap_or(reason.span);
                 out.push(
                     Diagnostic::error(
                         "KUL-R05",
@@ -606,28 +601,13 @@ fn rule_15_duplicate_field(resolved: &ResolvedDocument, file: FileId) -> Vec<Dia
     for stmt in resolved.statements_in(file) {
         match stmt {
             Statement::Person(p) => {
-                duplicate_fields(
-                    file,
-                    p.fields.iter().map(|f| (f.kind.field_name(), f.name_span)),
-                    &mut out,
-                );
+                duplicate_fields(file, p.field_name_spans(), &mut out);
                 for adoption in &p.adoptions {
-                    duplicate_fields(
-                        file,
-                        adoption
-                            .fields
-                            .iter()
-                            .map(|f| (f.kind.field_name(), f.name_span)),
-                        &mut out,
-                    );
+                    duplicate_fields(file, adoption.field_name_spans(), &mut out);
                 }
             }
             Statement::Marriage(m) => {
-                duplicate_fields(
-                    file,
-                    m.fields.iter().map(|f| (f.kind.field_name(), f.name_span)),
-                    &mut out,
-                );
+                duplicate_fields(file, m.field_name_spans(), &mut out);
             }
         }
     }
