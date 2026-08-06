@@ -469,7 +469,7 @@ struct SpouseEdge<'a> {
     person: &'a PersonStmt,
     marriage: &'a str,
     status: MarriageStatus,
-    end_reason: Option<String>,
+    end_reason: Option<&'a str>,
 }
 
 /// The engine's own in-memory adjacency, built once per [`evaluate`] call
@@ -518,9 +518,7 @@ impl<'a> Adjacency<'a> {
             } else {
                 MarriageStatus::Ongoing
             };
-            let end_reason = marriage
-                .end_reason()
-                .map(|er| er.value.as_str().to_string());
+            let end_reason = marriage.end_reason().map(|er| er.value.as_str());
             let a = resolved.person(&marriage.spouse_a.name);
             let b = resolved.person(&marriage.spouse_b.name);
             // Both spouses must resolve, and a self-marriage (R04) crosses to
@@ -536,7 +534,7 @@ impl<'a> Adjacency<'a> {
                         person: b,
                         marriage: id,
                         status,
-                        end_reason: end_reason.clone(),
+                        end_reason,
                     });
                 across
                     .entry(b.id.name.as_str())
@@ -994,7 +992,7 @@ fn make_across_hop(edge: &SpouseEdge<'_>) -> PathHop {
         gender: gender_of(edge.person),
         marriage: edge.marriage.to_string(),
         status: edge.status,
-        end_reason: edge.end_reason.clone(),
+        end_reason: edge.end_reason.map(str::to_string),
     }
 }
 
