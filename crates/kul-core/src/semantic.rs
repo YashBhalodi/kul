@@ -66,6 +66,12 @@ pub struct ResolvedDocument {
     /// Project-wide id index; R01 fires on collision so every entry is
     /// uniquely owned.
     entities: HashMap<String, ResolvedEntity>,
+    /// Parent person id → children linked through a resolved marriage they
+    /// spouse, in child-declaration order. Built once in [`resolve`].
+    children_by_parent: HashMap<String, Vec<ChildRecord>>,
+    /// Marriage id → children with a birth/adoption link to it, in
+    /// child-declaration order. Built once in [`resolve`].
+    children_by_marriage: HashMap<String, Vec<ChildRecord>>,
 }
 
 /// Directed edge `child → parent`. `link_span`/`link_file` point to the
@@ -79,10 +85,51 @@ pub struct ParentLink<'a> {
     pub kind: ParentLinkKind,
 }
 
+/// Directed edge `parent/marriage → child`. The inverse of [`ParentLink`],
+/// rebuilt on demand from the resolver-owned child indexes.
+#[derive(Debug, Clone)]
+pub struct ChildLink<'a> {
+    pub child: &'a PersonStmt,
+    pub link_span: ByteSpan,
+    pub link_file: FileId,
+    pub kind: ParentLinkKind,
+    /// Index into [`PersonStmt::adoptions`] when `kind` is
+    /// [`ParentLinkKind::Adoption`]; unused for bio links.
+    adoption_idx: Option<usize>,
+}
+
+impl<'a> ChildLink<'a> {
+    /// The child's `birth` sub-statement when this link is biological.
+    #[must_use]
+    pub fn birth(&self) -> Option<&'a crate::ast::BirthSub> {
+        match self.kind {
+            ParentLinkKind::Bio => self.child.birth.as_ref(),
+            ParentLinkKind::Adoption => None,
+        }
+    }
+
+    /// The child's matching `adoption` sub-statement when this link is adoptive.
+    #[must_use]
+    pub fn adoption(&self) -> Option<&'a crate::ast::AdoptionSub> {
+        self.adoption_idx
+            .and_then(|idx| self.child.adoptions.get(idx))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParentLinkKind {
     Bio,
     Adoption,
+}
+
+/// Owned child-index row. Statement pointers are recovered via the id index.
+#[derive(Debug, Clone)]
+struct ChildRecord {
+    child_id: String,
+    kind: ParentLinkKind,
+    adoption_idx: Option<usize>,
+    link_span: ByteSpan,
+    link_file: FileId,
 }
 
 impl ResolvedDocument {
@@ -326,6 +373,44 @@ impl ResolvedDocument {
         out
     }
 
+    /// Biological + adoptive children of `person`, in child-declaration
+    /// order. Inverse of [`Self::parents_of`] for this parent. Unresolved
+    /// marriage refs never appear (they never entered the index).
+    #[must_use]
+    pub fn children_of<'a>(&'a self, person: &PersonStmt) -> Vec<ChildLink<'a>> {
+        self.links_from_records(
+            self.children_by_parent
+                .get(person.id.name.as_str())
+                .map_or(&[][..], Vec::as_slice),
+        )
+    }
+
+    /// Children born or adopted into `marriage`, in child-declaration order.
+    #[must_use]
+    pub fn children_of_marriage<'a>(&'a self, marriage: &MarriageStmt) -> Vec<ChildLink<'a>> {
+        self.links_from_records(
+            self.children_by_marriage
+                .get(marriage.id.name.as_str())
+                .map_or(&[][..], Vec::as_slice),
+        )
+    }
+
+    fn links_from_records<'a>(&'a self, records: &[ChildRecord]) -> Vec<ChildLink<'a>> {
+        records
+            .iter()
+            .filter_map(|record| {
+                let child = self.person(&record.child_id)?;
+                Some(ChildLink {
+                    child,
+                    link_span: record.link_span,
+                    link_file: record.link_file,
+                    kind: record.kind,
+                    adoption_idx: record.adoption_idx,
+                })
+            })
+            .collect()
+    }
+
     /// File containing a person's declaration; falls back to
     /// [`FileId::MANIFEST`] only to keep the type total.
     fn file_of_person(&self, person: &PersonStmt) -> FileId {
@@ -392,8 +477,114 @@ pub fn resolve(document: Arc<Document>) -> (ResolvedDocument, Vec<Diagnostic>) {
         }
     }
 
-    let resolved = ResolvedDocument { document, entities };
+    let (children_by_parent, children_by_marriage) = build_children_indexes(&document, &entities);
+    let resolved = ResolvedDocument {
+        document,
+        entities,
+        children_by_parent,
+        children_by_marriage,
+    };
     (resolved, diagnostics)
+}
+
+/// Walk every person once and record inverse parenthood edges keyed by
+/// parent id and by marriage id. Unresolved marriage refs are skipped
+/// (R02 reports them); spouse positions that do not resolve are skipped
+/// the same way [`ResolvedDocument::parents_of`] skips them.
+fn build_children_indexes(
+    document: &Document,
+    entities: &HashMap<String, ResolvedEntity>,
+) -> (
+    HashMap<String, Vec<ChildRecord>>,
+    HashMap<String, Vec<ChildRecord>>,
+) {
+    let mut children_by_parent: HashMap<String, Vec<ChildRecord>> = HashMap::new();
+    let mut children_by_marriage: HashMap<String, Vec<ChildRecord>> = HashMap::new();
+
+    for (file, kf) in document.kul_files() {
+        for stmt in &kf.statements {
+            let Statement::Person(person) = stmt else {
+                continue;
+            };
+            if let Some(birth) = &person.birth {
+                let record = ChildRecord {
+                    child_id: person.id.name.clone(),
+                    kind: ParentLinkKind::Bio,
+                    adoption_idx: None,
+                    link_span: birth.marriage_ref.span,
+                    link_file: file,
+                };
+                push_child_records(
+                    document,
+                    entities,
+                    &birth.marriage_ref.name,
+                    record,
+                    &mut children_by_parent,
+                    &mut children_by_marriage,
+                );
+            }
+            for (adoption_idx, adoption) in person.adoptions.iter().enumerate() {
+                let record = ChildRecord {
+                    child_id: person.id.name.clone(),
+                    kind: ParentLinkKind::Adoption,
+                    adoption_idx: Some(adoption_idx),
+                    link_span: adoption.marriage_ref.span,
+                    link_file: file,
+                };
+                push_child_records(
+                    document,
+                    entities,
+                    &adoption.marriage_ref.name,
+                    record,
+                    &mut children_by_parent,
+                    &mut children_by_marriage,
+                );
+            }
+        }
+    }
+
+    (children_by_parent, children_by_marriage)
+}
+
+fn push_child_records(
+    document: &Document,
+    entities: &HashMap<String, ResolvedEntity>,
+    marriage_id: &str,
+    record: ChildRecord,
+    children_by_parent: &mut HashMap<String, Vec<ChildRecord>>,
+    children_by_marriage: &mut HashMap<String, Vec<ChildRecord>>,
+) {
+    let Some(marriage_entity) = entities.get(marriage_id) else {
+        return;
+    };
+    if marriage_entity.kind != EntityKind::Marriage {
+        return;
+    }
+    let Some(kf) = document.kul_file(marriage_entity.file) else {
+        return;
+    };
+    let Statement::Marriage(marriage) = &kf.statements[marriage_entity.statement_idx] else {
+        return;
+    };
+
+    children_by_marriage
+        .entry(marriage_id.to_string())
+        .or_default()
+        .push(record.clone());
+
+    // Mirror `spouses_of`: collapse self-marriage (R04) to one parent slot.
+    let second = (marriage.spouse_b.name != marriage.spouse_a.name).then_some(&marriage.spouse_b);
+    for spouse_ident in [Some(&marriage.spouse_a), second].into_iter().flatten() {
+        if entities
+            .get(spouse_ident.name.as_str())
+            .is_some_and(|e| e.kind == EntityKind::Person)
+        {
+            children_by_parent
+                .entry(spouse_ident.name.clone())
+                .or_default()
+                .push(record.clone());
+        }
+    }
 }
 
 #[cfg(test)]
@@ -720,5 +911,95 @@ mod tests {
             .map(|p| p.id.name.clone())
             .collect();
         assert_eq!(in_b, vec!["bob".to_string()]);
+    }
+
+    #[test]
+    fn children_of_is_inverse_of_parents_of() {
+        let (resolved, _) = resolve_source(
+            "person alice name:\"A\" gender:female\n\
+             person bob name:\"B\" gender:male\n\
+             marriage m alice bob start:1972\n\
+             person kid1 name:\"K1\" gender:other\n  birth m\n\
+             person kid2 name:\"K2\" gender:other\n  birth m\n\
+             person outsider name:\"O\" gender:other\n  adoption m start:2000\n",
+        );
+        let alice = resolved.person("alice").unwrap();
+        let kids: Vec<_> = resolved
+            .children_of(alice)
+            .into_iter()
+            .map(|l| (l.child.id.name.clone(), l.kind))
+            .collect();
+        assert_eq!(
+            kids,
+            vec![
+                ("kid1".to_string(), ParentLinkKind::Bio),
+                ("kid2".to_string(), ParentLinkKind::Bio),
+                ("outsider".to_string(), ParentLinkKind::Adoption),
+            ]
+        );
+        for link in resolved.children_of(alice) {
+            assert!(
+                resolved
+                    .parents_of(link.child)
+                    .iter()
+                    .any(|p| p.parent.id.name == "alice" && p.kind == link.kind)
+            );
+        }
+    }
+
+    #[test]
+    fn children_of_marriage_lists_one_link_per_birth_or_adoption() {
+        let (resolved, _) = resolve_source(
+            "person alice name:\"A\" gender:female\n\
+             person bob name:\"B\" gender:male\n\
+             marriage m alice bob start:1972\n\
+             person kid name:\"K\" gender:other\n  birth m\n\
+             person adoptee name:\"Ad\" gender:other\n  adoption m start:2000\n",
+        );
+        let marriage = resolved.marriage("m").unwrap();
+        let kids: Vec<_> = resolved
+            .children_of_marriage(marriage)
+            .into_iter()
+            .map(|l| (l.child.id.name.clone(), l.kind))
+            .collect();
+        assert_eq!(
+            kids,
+            vec![
+                ("kid".to_string(), ParentLinkKind::Bio),
+                ("adoptee".to_string(), ParentLinkKind::Adoption),
+            ]
+        );
+        assert!(
+            resolved.children_of_marriage(marriage)[1]
+                .adoption()
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn children_of_skips_unresolved_marriage_refs() {
+        let (resolved, _) = resolve_source(
+            "person alice name:\"A\" gender:female\n\
+             person orphan name:\"O\" gender:other\n  birth ghost\n",
+        );
+        let alice = resolved.person("alice").unwrap();
+        assert!(resolved.children_of(alice).is_empty());
+        assert!(resolved.children_by_marriage.is_empty());
+    }
+
+    #[test]
+    fn children_of_self_marriage_lists_child_once() {
+        let (resolved, _) = resolve_source(
+            "person alice name:\"A\" gender:female\n\
+             marriage m alice alice start:2000\n\
+             person kid name:\"K\" gender:other\n  birth m\n",
+        );
+        let alice = resolved.person("alice").unwrap();
+        let kids: Vec<_> = resolved
+            .children_of(alice)
+            .into_iter()
+            .map(|l| l.child.id.name.clone())
+            .collect();
+        assert_eq!(kids, vec!["kid".to_string()]);
     }
 }

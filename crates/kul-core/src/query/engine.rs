@@ -7,9 +7,9 @@
 //! (spouse, step, in-law) shapes.
 //!
 //! **Traversal invariants** (these ARE the product, PRD 0005 / ADR-0027):
-//! - The engine builds its own in-memory adjacency per invocation — a parent /
-//!   child index (inverse of the resolved parent links) plus a co-spouse index
-//!   over the marriages — and never caches across queries.
+//! - The engine builds its own in-memory adjacency per invocation from
+//!   [`ResolvedDocument`]'s one-hop APIs (`parents_of`, `children_of`, plus a
+//!   co-spouse index over the marriages) and never caches across queries.
 //! - **The affinal ceiling is fixed at two `across` hops.** No culture
 //!   lexicalizes three affinal hops, so this is semantics, not a knob — never
 //!   configurable (ADR-0027).
@@ -463,10 +463,10 @@ struct SpouseEdge<'a> {
 }
 
 /// The engine's own in-memory adjacency, built once per [`evaluate`] call
-/// and thrown away after. `up` maps a person id to its parents (the
-/// resolved parent links); `down` is the inverse — a person id to its
-/// children; `across` maps a person id to their co-spouses (both directions
-/// of every marriage).
+/// and thrown away after. `up` / `down` come from
+/// [`ResolvedDocument::parents_of`] / [`ResolvedDocument::children_of`];
+/// `across` maps a person id to their co-spouses (both directions of every
+/// marriage). No parallel inverse-parenthood index — the resolver owns that.
 struct Adjacency<'a> {
     up: HashMap<&'a str, Vec<Edge<'a>>>,
     down: HashMap<&'a str, Vec<Edge<'a>>>,
@@ -486,12 +486,16 @@ impl<'a> Adjacency<'a> {
                     person: link.parent,
                     kind: link.kind,
                 });
-                down.entry(link.parent.id.name.as_str())
-                    .or_default()
-                    .push(Edge {
-                        person: child,
-                        kind: link.kind,
-                    });
+            }
+        }
+        // Inverse edges come from the resolver-owned children index so this
+        // pass does not re-derive parenthood by scanning every child again.
+        for parent in resolved.persons() {
+            for link in resolved.children_of(parent) {
+                down.entry(parent.id.name.as_str()).or_default().push(Edge {
+                    person: link.child,
+                    kind: link.kind,
+                });
             }
         }
 
