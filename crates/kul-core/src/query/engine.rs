@@ -22,6 +22,7 @@
 //!   members with distinct backbones. The anchor is never a member —
 //!   self-exclusion is engine-owned.
 
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::PersonStmt;
@@ -370,10 +371,11 @@ pub fn resolve<'a>(
     // facts, derive a descriptor per surviving path, and suppress step paths
     // shadowed by a real edge — identical to the kin-set Phase 2.
     let mut relationships: Vec<RelationshipDescriptor> = Vec::new();
-    let mut seen: HashSet<String> = HashSet::new();
+    let mut intern = IdInterner::default();
+    let mut seen: HashSet<Box<[BackboneHopKey]>> = HashSet::new();
     for path in raw {
         let path = canonicalize_apex(resolved, ego, path);
-        if !seen.insert(backbone_key(&path)) {
+        if !seen.insert(backbone_dedup_key(&path, &mut intern)) {
             continue;
         }
         let descriptor = RelationshipDescriptor::derive(resolved, ego, alter, path);
@@ -405,7 +407,12 @@ pub fn resolve<'a>(
 /// first. Every descriptor shares the same alter (`y`), so — unlike
 /// [`sort_members`] — there is no alter-id key.
 fn sort_relationships(relationships: &mut [RelationshipDescriptor]) {
-    relationships.sort_by_cached_key(|r| (r.path.len(), backbone_key(&r.path)));
+    relationships.sort_by(|a, b| {
+        a.path
+            .len()
+            .cmp(&b.path.len())
+            .then_with(|| cmp_backbone(&a.path, &b.path))
+    });
 }
 
 /// Whether `x` and `y` lie in the same connected component of the **full
@@ -658,12 +665,13 @@ fn eval_kin<'a>(
     // path shadowed by a real parent / child / shared-parent edge is a derived
     // stand-in for that fact, so it is suppressed here.
     let mut members = Vec::new();
-    let mut seen: HashSet<String> = HashSet::new();
+    let mut intern = IdInterner::default();
+    let mut seen: HashSet<Box<[BackboneHopKey]>> = HashSet::new();
     for (alter, path) in raw {
         let path = canonicalize_apex(resolved, ego, path);
         // Paths that canonicalize identically are one fact (father-route and
         // mother-route through the same couple apex); keep the first.
-        if !seen.insert(backbone_key(&path)) {
+        if !seen.insert(backbone_dedup_key(&path, &mut intern)) {
             continue;
         }
         let descriptor = RelationshipDescriptor::derive(resolved, ego, alter, path);
@@ -771,8 +779,8 @@ fn step_subsumed(
 
 /// Rewrite a collateral path's apex hop to route through the couple apex's
 /// smaller-id co-parent, so that the two co-parent routes collapse to one
-/// backbone under [`backbone_key`]. A no-op for lineal paths (no junction)
-/// and for single-parent junctions (nothing to canonicalize).
+/// backbone under [`backbone_dedup_key`]. A no-op for lineal paths (no
+/// junction) and for single-parent junctions (nothing to canonicalize).
 fn canonicalize_apex<'a>(
     resolved: &'a ResolvedDocument,
     ego: &'a PersonStmt,
@@ -1164,50 +1172,134 @@ impl<'a, 'adj, G: Fn(u32, u32) -> bool, F: FnMut(&'a PersonStmt, &[PathHop])>
 /// (alter person id, codepoint ascending) → (path hop count ascending) →
 /// (serialized backbone, codepoint ascending).
 fn sort_members(members: &mut [KinMember<'_>]) {
-    members.sort_by_cached_key(|m| {
-        (
-            m.descriptor.alter_id.clone(),
-            m.descriptor.path.len(),
-            backbone_key(&m.descriptor.path),
-        )
+    members.sort_by(|a, b| {
+        a.descriptor
+            .alter_id
+            .cmp(&b.descriptor.alter_id)
+            .then_with(|| a.descriptor.path.len().cmp(&b.descriptor.path.len()))
+            .then_with(|| cmp_backbone(&a.descriptor.path, &b.descriptor.path))
     });
 }
 
-/// A total, codepoint-comparable serialization of a path backbone, used only
-/// as the final tie-breaker in [`sort_members`]. Not a wire format — the
-/// committed serialization is the descriptor's `path`; this is a stable key.
-fn backbone_key(path: &[PathHop]) -> String {
-    let mut key = String::new();
-    for hop in path {
-        match hop {
-            PathHop::Up { to, edge, .. } => {
-                key.push('u');
-                push_edge(&mut key, *edge);
-                key.push(':');
-                key.push_str(to);
-            }
-            PathHop::Down { to, edge, .. } => {
-                key.push('d');
-                push_edge(&mut key, *edge);
-                key.push(':');
-                key.push_str(to);
-            }
-            PathHop::Across { to, marriage, .. } => {
-                key.push('a');
-                key.push(':');
-                key.push_str(marriage);
-                key.push(':');
-                key.push_str(to);
-            }
+/// Interns person / marriage ids so backbone de-dup keys can be a compact
+/// slice of handles instead of a joined [`String`] per path.
+#[derive(Default)]
+struct IdInterner {
+    to_id: HashMap<String, u32>,
+}
+
+impl IdInterner {
+    fn intern(&mut self, s: &str) -> u32 {
+        if let Some(&id) = self.to_id.get(s) {
+            return id;
         }
-        key.push('|');
+        let id = self.to_id.len() as u32;
+        self.to_id.insert(s.to_owned(), id);
+        id
     }
-    key
 }
 
-fn push_edge(key: &mut String, edge: HopEdge) {
-    key.push(match edge {
-        HopEdge::Bio => 'b',
-        HopEdge::Adoptive => 'a',
-    });
+/// One hop's contribution to backbone identity for de-duplication. Carries the
+/// same fields the old joined-string key used: direction, vertical edge tag,
+/// landing id, and marriage id for across hops. Gender / status / end_reason
+/// are intentionally excluded. `edge` is the serialization tag (`b`/`a`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum BackboneHopKey {
+    Up { edge: u8, to: u32 },
+    Down { edge: u8, to: u32 },
+    Across { marriage: u32, to: u32 },
+}
+
+/// Compact de-dup key for a path. Equality matches the old `backbone_key`
+/// string's uniqueness notion (identifiers never contain `:` / `|`, so the
+/// structured form is unambiguous).
+fn backbone_dedup_key(path: &[PathHop], intern: &mut IdInterner) -> Box<[BackboneHopKey]> {
+    path.iter()
+        .map(|hop| match hop {
+            PathHop::Up { to, edge, .. } => BackboneHopKey::Up {
+                edge: edge_tag(*edge),
+                to: intern.intern(to),
+            },
+            PathHop::Down { to, edge, .. } => BackboneHopKey::Down {
+                edge: edge_tag(*edge),
+                to: intern.intern(to),
+            },
+            PathHop::Across { to, marriage, .. } => BackboneHopKey::Across {
+                marriage: intern.intern(marriage),
+                to: intern.intern(to),
+            },
+        })
+        .collect()
+}
+
+/// Lexicographic order matching the old joined-string backbone key
+/// (`u`/`d`/`a` + edge tag + ids, hops separated by `|`). Used as the final
+/// sort tie-breaker — not a wire format.
+fn cmp_backbone(a: &[PathHop], b: &[PathHop]) -> Ordering {
+    let mut ai = a.iter();
+    let mut bi = b.iter();
+    loop {
+        match (ai.next(), bi.next()) {
+            (None, None) => return Ordering::Equal,
+            (None, Some(_)) => return Ordering::Less,
+            (Some(_), None) => return Ordering::Greater,
+            (Some(ha), Some(hb)) => match cmp_backbone_hop(ha, hb) {
+                Ordering::Equal => {}
+                ord => return ord,
+            },
+        }
+    }
+}
+
+fn cmp_backbone_hop(a: &PathHop, b: &PathHop) -> Ordering {
+    // First char of the old serialization: Across 'a' < Down 'd' < Up 'u'.
+    hop_dir_tag(a)
+        .cmp(&hop_dir_tag(b))
+        .then_with(|| match (a, b) {
+            (
+                PathHop::Up {
+                    to: ta, edge: ea, ..
+                },
+                PathHop::Up {
+                    to: tb, edge: eb, ..
+                },
+            )
+            | (
+                PathHop::Down {
+                    to: ta, edge: ea, ..
+                },
+                PathHop::Down {
+                    to: tb, edge: eb, ..
+                },
+            ) => edge_tag(*ea).cmp(&edge_tag(*eb)).then_with(|| ta.cmp(tb)),
+            (
+                PathHop::Across {
+                    to: ta,
+                    marriage: ma,
+                    ..
+                },
+                PathHop::Across {
+                    to: tb,
+                    marriage: mb,
+                    ..
+                },
+            ) => ma.cmp(mb).then_with(|| ta.cmp(tb)),
+            // Direction tags already differed.
+            _ => Ordering::Equal,
+        })
+}
+
+fn hop_dir_tag(hop: &PathHop) -> u8 {
+    match hop {
+        PathHop::Across { .. } => b'a',
+        PathHop::Down { .. } => b'd',
+        PathHop::Up { .. } => b'u',
+    }
+}
+
+fn edge_tag(edge: HopEdge) -> u8 {
+    match edge {
+        HopEdge::Adoptive => b'a',
+        HopEdge::Bio => b'b',
+    }
 }
