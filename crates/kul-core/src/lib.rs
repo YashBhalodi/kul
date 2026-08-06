@@ -181,7 +181,7 @@ fn build_document(
         diagnostics.extend(parse_diags);
         kul_files.push(Arc::new(KulFile::new(
             input.name.clone(),
-            input.source.clone(),
+            Arc::clone(&input.source),
             statements,
         )));
     }

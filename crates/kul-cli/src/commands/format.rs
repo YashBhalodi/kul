@@ -30,7 +30,7 @@ pub fn run(opts: Options) -> ExitCode {
         // Flat directory per ADR-0015.
         let path: PathBuf = project.root.join(&input.name);
         let formatted = kul_core::format::format_source(&input.source);
-        if formatted == input.source {
+        if formatted.as_str() == input.source.as_ref() {
             continue;
         }
         if opts.check {

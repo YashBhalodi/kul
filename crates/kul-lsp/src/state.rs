@@ -474,7 +474,7 @@ fn build_entry(root: ProjectRoot, overlay: HashMap<Url, Option<Arc<str>>>) -> Pr
         .collect();
     let inputs: Vec<InputFile> = disk_files
         .iter()
-        .map(|(u, src)| InputFile::new(url_label(u), src.as_ref()))
+        .map(|(u, src)| InputFile::new(url_label(u), Arc::clone(src)))
         .collect();
 
     let check = kul_core::check(manifest_label, &manifest_yaml, &inputs);

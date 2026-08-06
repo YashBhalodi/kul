@@ -15,10 +15,12 @@ use crate::span::{ByteSpan, FileId};
 ///
 /// `name` is the opaque label the consumer passed in at the toolchain edge
 /// (path / URI / JS host label). `kul-core` does not interpret it.
+/// `source` is [`Arc<str>`] so toolchain stages can share the buffer
+/// without deep-copying (ADR-0007's shared-immutable-data idiom).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KulFile {
     pub name: String,
-    pub source: String,
+    pub source: Arc<str>,
     pub statements: Vec<Statement>,
 }
 
@@ -27,7 +29,7 @@ impl KulFile {
     #[must_use]
     pub fn new(
         name: impl Into<String>,
-        source: impl Into<String>,
+        source: impl Into<Arc<str>>,
         statements: Vec<Statement>,
     ) -> Self {
         Self {
@@ -40,15 +42,18 @@ impl KulFile {
 
 /// One input file at the toolchain edge — name plus raw source bytes.
 /// Public input shape for [`crate::check`].
+///
+/// `source` is [`Arc<str>`] so an LSP overlay (already `Arc<str>`) and the
+/// parsed [`KulFile`] can share one buffer via a refcount bump.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InputFile {
     pub name: String,
-    pub source: String,
+    pub source: Arc<str>,
 }
 
 impl InputFile {
     #[must_use]
-    pub fn new(name: impl Into<String>, source: impl Into<String>) -> Self {
+    pub fn new(name: impl Into<String>, source: impl Into<Arc<str>>) -> Self {
         Self {
             name: name.into(),
             source: source.into(),
@@ -68,8 +73,9 @@ pub struct Document {
     /// when the YAML body failed to parse.
     pub manifest_name: String,
     /// Raw `kul.yml` source bytes. Empty when the manifest was missing on
-    /// disk (KUL-M01 covers that case).
-    pub manifest_source: String,
+    /// disk (KUL-M01 covers that case). Held as [`Arc<str>`] to match
+    /// `.kul` source ownership.
+    pub manifest_source: Arc<str>,
     /// Parsed `.kul` files in input order. `kul_files[i]` lives at
     /// `FileId(i + 1)`.
     pub kul_files: Vec<Arc<KulFile>>,
@@ -82,14 +88,14 @@ impl Document {
     /// have bytes to render against.
     #[must_use]
     pub fn new(manifest_name: impl Into<String>, kul_files: Vec<Arc<KulFile>>) -> Self {
-        Self::with_manifest_source(manifest_name, String::new(), kul_files)
+        Self::with_manifest_source(manifest_name, "", kul_files)
     }
 
     /// Build a [`Document`] with explicit `kul.yml` source bytes.
     #[must_use]
     pub fn with_manifest_source(
         manifest_name: impl Into<String>,
-        manifest_source: impl Into<String>,
+        manifest_source: impl Into<Arc<str>>,
         kul_files: Vec<Arc<KulFile>>,
     ) -> Self {
         Self {
@@ -103,9 +109,9 @@ impl Document {
     #[must_use]
     pub fn source_of(&self, file: FileId) -> Option<&str> {
         if file == FileId::MANIFEST {
-            return Some(self.manifest_source.as_str());
+            return Some(self.manifest_source.as_ref());
         }
-        self.kul_file(file).map(|k| k.source.as_str())
+        self.kul_file(file).map(|k| k.source.as_ref())
     }
 
     /// Resolve a [`FileId`] to its canonical name, or `None` if out of range.

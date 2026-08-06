@@ -33,6 +33,8 @@ mod cells;
 mod emit;
 mod source;
 
+use std::sync::Arc;
+
 use crate::ast::KulFile;
 
 use emit::Emitter;
@@ -61,7 +63,7 @@ pub fn format_source(source: &str) -> String {
     let (statements, _) = crate::parser::parse(&tokens, FileId(1));
     let file = KulFile {
         name: String::new(),
-        source: source.to_string(),
+        source: Arc::from(source),
         statements,
     };
     SourceFormatter::new(source, &file).run()
@@ -75,7 +77,7 @@ mod tests {
     fn format_empty_doc_is_empty_string() {
         let file = KulFile {
             name: String::new(),
-            source: String::new(),
+            source: Arc::from(""),
             statements: Vec::new(),
         };
         assert_eq!(format(&file), "");
