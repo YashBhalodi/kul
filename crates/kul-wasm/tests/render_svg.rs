@@ -1,13 +1,11 @@
 //! Snapshot + cross-surface tests for the WASM `renderSvg` bridge:
-//! per-example snapshot, byte-identical JSON against the direct
-//! `compute → layout → render` pipeline, and a failure round-trip.
+//! per-example snapshot, byte-identical JSON against the
+//! `kul_visual::render_from_check` oracle, and a failure round-trip.
 
 use std::path::{Path, PathBuf};
 
 use kul_core::ast::InputFile;
-use kul_layout::{LayoutConfig, layout};
-use kul_render::{RenderShape, compute};
-use kul_svg::{ThemeConfig, render};
+use kul_visual::{ThemeConfig, render_from_check};
 use kul_wasm::{RenderEnvelope, RenderFailure, RenderSuccess, WasmInputFile};
 
 fn workspace_root() -> PathBuf {
@@ -51,8 +49,10 @@ fn render_svg_json(inputs: &[InputFile]) -> String {
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 
-/// Cross-surface oracle: reconstruct the envelope by driving the deep
-/// modules directly. The wasm bridge must produce byte-identical JSON.
+/// Cross-surface oracle: reconstruct the envelope via the same
+/// `render_from_check` facade the WASM bridge uses (ADR-0031), then wrap
+/// success/failure the same way. The wasm bridge must produce
+/// byte-identical JSON.
 fn direct_pipeline_json(inputs: &[InputFile]) -> String {
     let check = kul_core::check_with_manifest(
         "kul.yml",
@@ -60,17 +60,12 @@ fn direct_pipeline_json(inputs: &[InputFile]) -> String {
         &kul_core::manifest::Manifest::default(),
         inputs,
     );
-    let shape = compute(&check);
-    let envelope = match shape {
-        RenderShape::Failure(f) => RenderEnvelope::Failure(RenderFailure {
+    let envelope = match render_from_check(&check, &ThemeConfig::default()) {
+        Ok(svg) => RenderEnvelope::Success(RenderSuccess { ok: true, svg }),
+        Err(diagnostics) => RenderEnvelope::Failure(RenderFailure {
             ok: false,
-            diagnostics: f.diagnostics,
+            diagnostics,
         }),
-        RenderShape::Success(s) => {
-            let positioned = layout(&s, &LayoutConfig::default());
-            let svg = render(&positioned, &ThemeConfig::default());
-            RenderEnvelope::Success(RenderSuccess { ok: true, svg })
-        }
     };
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }

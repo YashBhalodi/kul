@@ -36,7 +36,5 @@ tsify = { workspace = true, features = ["js"] }
 [dev-dependencies]
 insta = { workspace = true }
 kul-core = { workspace = true }
-kul-render = { workspace = true }
-kul-layout = { workspace = true }
-kul-svg = { workspace = true }
+kul-visual = { workspace = true }
 serde_json = { workspace = true }
