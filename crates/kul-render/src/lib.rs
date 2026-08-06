@@ -20,7 +20,7 @@ pub mod shape;
 mod build;
 
 use kul_core::CheckResult;
-use kul_core::export::{ExportEnvelope, ExportOptions, export};
+use kul_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic, export};
 
 pub use shape::{
     CardSlot, Component, ComponentKind, Edge, EdgeKind, FailureRender, GhostReason, MarriageBar,
@@ -31,6 +31,11 @@ pub use shape::{
 /// would silently mis-represent data for older consumers (ADR-0010 / ADR-0017);
 /// new optional fields, ghost reasons, or component kinds do not bump.
 pub const RENDER_SCHEMA_VERSION: u32 = 3;
+
+/// Diagnostic code when [`transform`] receives a non-native (e.g. Cytoscape)
+/// success envelope — caller misuse of the kinship-native contract (ADR-0016),
+/// projected as a failure envelope like the ADR-0032 depth-cap path.
+const KUL_V02: &str = "KUL-V02";
 
 /// Export-then-project. Exports with `with_positions: true` so a surface
 /// renderer can map clicks back to source declarations.
@@ -55,10 +60,16 @@ pub fn transform(envelope: &ExportEnvelope) -> RenderShape {
             diagnostics: f.diagnostics.clone(),
         }),
         ExportEnvelope::Success(s) => {
-            let native = s
-                .graph
-                .as_native()
-                .expect("kul-render::transform requires the kinship-native graph shape");
+            let Some(native) = s.graph.as_native() else {
+                // Programming misuse: a Cytoscape (or other non-native)
+                // success envelope is not an input to this projection.
+                // Recover with a stable diagnostic rather than panicking,
+                // matching the ADR-0032 depth-cap failure shape.
+                return RenderShape::Failure(FailureRender {
+                    ok: false,
+                    diagnostics: vec![non_native_graph_diagnostic()],
+                });
+            };
             match build::build(native) {
                 Ok((components, edges)) => RenderShape::Success(SuccessRender {
                     ok: true,
@@ -77,5 +88,18 @@ pub fn transform(envelope: &ExportEnvelope) -> RenderShape {
                 }),
             }
         }
+    }
+}
+
+fn non_native_graph_diagnostic() -> ExportedDiagnostic {
+    ExportedDiagnostic {
+        code: KUL_V02.to_string(),
+        severity: "error",
+        message: "render transform requires the kinship-native graph shape; \
+                  cytoscape envelopes are a sibling projection, not an input"
+            .to_string(),
+        // Caller misuse of the transform contract — unanchored, like KUL-V01.
+        primary: None,
+        related: Vec::new(),
     }
 }

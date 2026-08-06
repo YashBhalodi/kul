@@ -1,6 +1,7 @@
 //! Fabricated-envelope unit snapshots covering edge cases the
 //! `examples/` corpus doesn't naturally surface.
 
+use kul_core::export::cytoscape::CytoscapeGraph;
 use kul_core::export::{
     ExportEnvelope, ExportedDate, ExportedDiagnostic, ExportedGraph, ExportedMarriage,
     ExportedParenthoodLink, ExportedPerson, FailureEnvelope, GraphPayload, ParenthoodLinkKind,
@@ -401,6 +402,31 @@ fn in_budget_deep_lineage_still_projects_to_success() {
     assert!(
         shape.as_success().is_some(),
         "an in-budget lineage must still project to a success shape"
+    );
+}
+
+/// Cytoscape is a sibling projection of the kinship-native graph, not an
+/// input to `transform` (ADR-0016). A success envelope carrying that shape
+/// must downgrade to a `KUL-V02` failure rather than panic on `.expect`.
+#[test]
+fn cytoscape_success_envelope_downgrades_to_failure() {
+    let envelope = ExportEnvelope::Success(SuccessEnvelope {
+        ok: true,
+        schema: SCHEMA,
+        kul: KUL.to_string(),
+        graph: GraphPayload::Cytoscape(CytoscapeGraph {
+            nodes: vec![],
+            edges: vec![],
+        }),
+    });
+    let shape = transform(&envelope);
+    let failure = shape
+        .as_failure()
+        .expect("a cytoscape success envelope must downgrade to a failure shape");
+    assert!(
+        failure.diagnostics.iter().any(|d| d.code == "KUL-V02"),
+        "expected a KUL-V02 non-native-graph diagnostic, got {:?}",
+        failure.diagnostics
     );
 }
 
