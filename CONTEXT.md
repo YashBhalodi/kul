@@ -60,7 +60,11 @@ A resolved Person derived from either a `birth` link (biological) or an `adoptio
 
 ### Child
 
-The inverse of parent. There is no `child` declaration in the language — children are **derived**, not declared on parents. (This is what makes the additivity principle hold: adding a new child to a family does not require editing the parents' declarations.)
+The inverse of parent. There is no `child` declaration in the language — children are **derived**, not declared on parents. (This is what makes the additivity principle hold: adding a new child to a family does not require editing the parents' declarations.) `ResolvedDocument::children_of(&PersonStmt)` yields every child of a person (the inverse of `parents_of`, one link per spouse of each resolved birth/adoption marriage); `ResolvedDocument::children_of_marriage(&MarriageStmt)` yields every child born or adopted into a marriage (one link per `birth`/`adoption` ref, not expanded per spouse). Both return [`ChildLink`](#childlink) views reconstructed from resolver-owned indexes built during `semantic::resolve`.
+
+### ChildLink
+
+A directed edge `parent/marriage → child` returned by `ResolvedDocument::children_of` / `children_of_marriage`. Mirrors `ParentLink` (the view `parents_of` returns): child person, link span/file, bio/adoptive kind, plus accessors for the underlying `birth` / `adoption` sub-statement. Transient borrowed view — the owned indexes store child id plus link metadata and reconstruct `&PersonStmt` via the entity index (ADR-0007).
 
 ### Validator rule
 
@@ -104,7 +108,7 @@ The `query` module in `crates/kul-core/src/query.rs` (introduced by [ADR-0024](.
 
 ### Detail lookup
 
-An id → detail lookup on the [query seam](#query-seam): `query::person(id)` returns `Option<ExportedPerson>` and `query::marriage(id)` returns `Option<ExportedMarriage>` — the **same serialized shapes the export produces** (single-sourced through the export's `build_one_person` / `build_one_marriage` builders, so a lookup and a whole-graph export can never drift). Lookup semantics are **absence-is-the-answer**: an unknown id, or an id of the wrong kind (a marriage id asked for as a person, or vice versa), yields `None`. There is no error type here — "no such entity" is a complete, honest answer. (Typed unknown-id errors arrive in later slices, where an id is an *input anchor* to a relationship question rather than the subject of the question.) The [batched detail lookup](#batched-detail-lookup) is the many-entities-at-once member of the same family.
+An id → detail lookup on the [query seam](#query-seam): `query::person(id)` returns `Option<ExportedPerson>` and `query::marriage(id)` returns `Option<ExportedMarriage>` — the **same serialized shapes the export produces** (single-sourced through `projection::build_one_person` / `projection::build_one_marriage`, so a lookup and a whole-graph export can never drift). Lookup semantics are **absence-is-the-answer**: an unknown id, or an id of the wrong kind (a marriage id asked for as a person, or vice versa), yields `None`. There is no error type here — "no such entity" is a complete, honest answer. (Typed unknown-id errors arrive in later slices, where an id is an *input anchor* to a relationship question rather than the subject of the question.) The [batched detail lookup](#batched-detail-lookup) is the many-entities-at-once member of the same family.
 
 ### Batched detail lookup
 
@@ -315,13 +319,13 @@ Two passes in `crates/kul-core/src/`. The lexer produces a flat token stream (`T
 
 ### Resolver
 
-The function `kul_core::semantic::resolve(Arc<Document>) -> (ResolvedDocument, Vec<Diagnostic>)`. Walks every [`KulFile`](#kulfile) in the [`Document`](#document), builds the project-wide id-to-statement index, and reports duplicate ids (R01) inline as the index is populated. Lives at `crates/kul-core/src/semantic.rs`.
+The function `kul_core::semantic::resolve(Arc<Document>) -> (ResolvedDocument, Vec<Diagnostic>)`. Walks every [`KulFile`](#kulfile) in the [`Document`](#document), builds the project-wide id-to-statement index, reports duplicate ids (R01) inline as the index is populated, then builds the inverse parenthood indexes (`children_of` / `children_of_marriage`). Lives at `crates/kul-core/src/semantic.rs`.
 
 ### ResolvedDocument
 
-The **kinship-query seam** (per [ADR-0001](./docs/adr/0001-resolved-document-as-query-seam.md)). All cross-reference questions ("who are this person's parents?", "is this id declared?", "who are the spouses of this marriage?") are answered by methods on this type. Validator rules and LSP features query through it; raw AST traversal is reserved for the seam's implementation, not its callers.
+The **kinship-query seam** (per [ADR-0001](./docs/adr/0001-resolved-document-as-query-seam.md)). All cross-reference questions ("who are this person's parents?", "who are this person's children?", "is this id declared?", "who are the spouses of this marriage?") are answered by methods on this type. Validator rules and LSP features query through it; raw AST traversal is reserved for the seam's implementation, not its callers.
 
-Owns its [`Document`](#document) via `Arc<Document>` (per [ADR-0007](./docs/adr/0007-resolved-document-owns-document.md)) so the resolved view can be cached alongside other artifacts. The id index is **project-wide** (per [ADR-0015](./docs/adr/0015-global-project-namespace.md)): `resolved.person(id)`, `resolved.marriage(id)`, `resolved.entity(id)` take only the bare id and return the unique declaration regardless of which file owns it. Iteration queries (`persons()`, `marriages()`, `statements()`) walk every `.kul` file; `_in(file)` variants restrict to one file (the LSP uses them for per-URI symbol listings). `references_to(id, kind)` is project-wide too and returns `FileSpan`s; per-URI LSP consumers (find-references, rename) filter to the active file at the call site. `node_at(file, offset)` and `statement_at(file, offset)` keep their file parameter because byte offsets are inherently per-file. R01 fires across files; cross-file references resolve cleanly.
+Owns its [`Document`](#document) via `Arc<Document>` (per [ADR-0007](./docs/adr/0007-resolved-document-owns-document.md)) so the resolved view can be cached alongside other artifacts. The id index is **project-wide** (per [ADR-0015](./docs/adr/0015-global-project-namespace.md)): `resolved.person(id)`, `resolved.marriage(id)`, `resolved.entity(id)` take only the bare id and return the unique declaration regardless of which file owns it. Iteration queries (`persons()`, `marriages()`, `statements()`) walk every `.kul` file; `_in(file)` variants restrict to one file (the LSP uses them for per-URI symbol listings). One-hop parenthood queries: `parents_of(person)`, `children_of(person)`, `children_of_marriage(marriage)` — the children indexes are owned on the document (statement-idx style, no borrowed lifetimes) so callers do not rebuild inverse adjacency. `references_to(id, kind)` is project-wide too and returns `FileSpan`s; per-URI LSP consumers (find-references, rename) filter to the active file at the call site. `node_at(file, offset)` and `statement_at(file, offset)` keep their file parameter because byte offsets are inherently per-file. R01 fires across files; cross-file references resolve cleanly.
 
 ### Validator
 
@@ -367,7 +371,7 @@ One per LSP feature — `crates/kul-lsp/src/features/{hover,definition,completio
 
 ### Completion classifier
 
-The token-stream-first context detector in `features/completion.rs`. Identifies which of seven contexts the cursor is in (TopLevelStart, IndentedUnderPerson, PersonFieldList, MarriageFieldList, AdoptionFieldList, AfterGenderColon, AfterEndReasonColon). Token-stream-first because partial / mid-typed input doesn't always parse cleanly. See [ADR-0002](./docs/adr/0002-token-stream-first-completion-classifier.md).
+The token-stream-first context detector in `features/completion/classify.rs`. Identifies which of seven contexts the cursor is in (TopLevelStart, IndentedUnderPerson, PersonFieldList, MarriageFieldList, AdoptionFieldList, AfterGenderColon, AfterEndReasonColon). Token-stream-first because partial / mid-typed input doesn't always parse cleanly. See [ADR-0002](./docs/adr/0002-token-stream-first-completion-classifier.md).
 
 ### LineIndex
 

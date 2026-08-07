@@ -208,7 +208,7 @@ fn remove_marriage_field(
     title: &str,
     source: &Diagnostic,
 ) -> Option<CodeAction> {
-    let field = m.fields.iter().find(|f| {
+    let field = m.fields().find(|f| {
         matches!(
             (&f.kind, &kind_to_remove),
             (
@@ -278,14 +278,11 @@ fn text_insertion_action(
 /// End of a person's header line — after the last header field, or after
 /// the id if no fields. Sub-statements (`birth`, `adoption`) come after.
 fn person_header_end(p: &PersonStmt) -> usize {
-    p.fields.last().map(|f| f.span.end).unwrap_or(p.id.span.end)
+    p.last_field_end().unwrap_or(p.id.span.end)
 }
 
 fn marriage_header_end(m: &MarriageStmt) -> usize {
-    m.fields
-        .last()
-        .map(|f| f.span.end)
-        .unwrap_or(m.spouse_b.span.end)
+    m.last_field_end().unwrap_or(m.spouse_b.span.end)
 }
 
 fn span_contains(outer: ByteSpan, inner: ByteSpan) -> bool {

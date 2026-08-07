@@ -24,7 +24,7 @@ The query engine is a **deep module in `crates/kul-core/src/query.rs`** — the 
 
 ### Detail lookups return the export shapes, single-sourced; absence is the answer
 
-`query::person(id)` returns `Option<ExportedPerson>` and `query::marriage(id)` returns `Option<ExportedMarriage>` — **the same serialized shapes the export produces.** There is no second person/marriage shape. To make single-sourcing structural rather than aspirational, the export's per-entity construction is prefactored into `build_one_person` / `build_one_marriage`, which both the whole-graph export loop and the lookups call. A shape drift is now impossible without breaking both call sites at once.
+`query::person(id)` returns `Option<ExportedPerson>` and `query::marriage(id)` returns `Option<ExportedMarriage>` — **the same serialized shapes the export produces.** There is no second person/marriage shape. To make single-sourcing structural rather than aspirational, per-entity construction lives in `projection::build_one_person` / `projection::build_one_marriage`, which both the whole-graph export loop and the lookups call. A shape drift is now impossible without breaking both call sites at once.
 
 **For a lookup, absence is the answer.** An unknown id, or an id that names a marriage when a person was asked for (and vice versa), yields `None`. There is no error type at the lookup layer: a lookup asks "is there a person with this id?", and "no" is a complete, honest answer. This is deliberately *different* from later slices, where an id is an *input anchor* to a relationship question — passing an unknown id there is a caller bug and will be a typed error. The distinction (subject-of-the-question vs anchor-of-the-question) is what makes `Option` right here and an error right there.
 

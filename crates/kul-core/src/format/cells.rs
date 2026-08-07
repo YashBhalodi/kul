@@ -8,10 +8,7 @@
 
 use std::sync::LazyLock;
 
-use crate::ast::{
-    AdoptionFieldKind, AdoptionSub, BirthSub, MarriageFieldKind, MarriageStmt, PersonFieldKind,
-    PersonStmt,
-};
+use crate::ast::{AdoptionSub, BirthSub, MarriageStmt, PersonStmt};
 use crate::field_meta::{self, StatementKind};
 use crate::lexer::FieldName;
 
@@ -145,40 +142,22 @@ pub(super) fn build_person_cells(p: &PersonStmt, inline_comment: Option<&str>) -
         text: p.id.name.clone(),
         col: 1,
     });
-    if let Some(s) = p.fields.iter().find_map(|f| match &f.kind {
-        PersonFieldKind::Name(s) => Some(s),
-        _ => None,
-    }) {
+    if let Some(s) = p.name() {
         cells.push(field_cell(kind, FieldName::Name, &quote_string(&s.value)));
     }
-    if let Some(g) = p.fields.iter().find_map(|f| match &f.kind {
-        PersonFieldKind::Gender(g) => Some(g),
-        _ => None,
-    }) {
+    if let Some(g) = p.gender() {
         cells.push(field_cell(kind, FieldName::Gender, g.value.as_token()));
     }
-    if let Some(s) = p.fields.iter().find_map(|f| match &f.kind {
-        PersonFieldKind::Family(s) => Some(s),
-        _ => None,
-    }) {
+    if let Some(s) = p.family() {
         cells.push(field_cell(kind, FieldName::Family, &quote_string(&s.value)));
     }
-    if let Some(s) = p.fields.iter().find_map(|f| match &f.kind {
-        PersonFieldKind::Given(s) => Some(s),
-        _ => None,
-    }) {
+    if let Some(s) = p.given() {
         cells.push(field_cell(kind, FieldName::Given, &quote_string(&s.value)));
     }
-    if let Some(d) = p.fields.iter().find_map(|f| match &f.kind {
-        PersonFieldKind::Born(d) => Some(d),
-        _ => None,
-    }) {
+    if let Some(d) = p.born() {
         cells.push(field_cell(kind, FieldName::Born, &d.format_canonical()));
     }
-    if let Some(d) = p.fields.iter().find_map(|f| match &f.kind {
-        PersonFieldKind::Died(d) => Some(d),
-        _ => None,
-    }) {
+    if let Some(d) = p.died() {
         cells.push(field_cell(kind, FieldName::Died, &d.format_canonical()));
     }
     if let Some(text) = inline_comment {
@@ -209,22 +188,13 @@ pub(super) fn build_marriage_cells(m: &MarriageStmt, inline_comment: Option<&str
         text: m.spouse_b.name.clone(),
         col: 3,
     });
-    if let Some(d) = m.fields.iter().find_map(|f| match &f.kind {
-        MarriageFieldKind::Start(d) => Some(d),
-        _ => None,
-    }) {
+    if let Some(d) = m.start() {
         cells.push(field_cell(kind, FieldName::Start, &d.format_canonical()));
     }
-    if let Some(d) = m.fields.iter().find_map(|f| match &f.kind {
-        MarriageFieldKind::End(d) => Some(d),
-        _ => None,
-    }) {
+    if let Some(d) = m.end() {
         cells.push(field_cell(kind, FieldName::End, &d.format_canonical()));
     }
-    if let Some(er) = m.fields.iter().find_map(|f| match &f.kind {
-        MarriageFieldKind::EndReason(v) => Some(v),
-        _ => None,
-    }) {
+    if let Some(er) = m.end_reason() {
         cells.push(field_cell(kind, FieldName::EndReason, er.value.as_str()));
     }
     if let Some(text) = inline_comment {
@@ -299,16 +269,10 @@ pub(super) fn build_sub_cells(
                     col: 1,
                 },
             ];
-            if let Some(d) = a.fields.iter().find_map(|f| match &f.kind {
-                AdoptionFieldKind::Start(d) => Some(d),
-                _ => None,
-            }) {
+            if let Some(d) = a.start() {
                 cells.push(field_cell(kind, FieldName::Start, &d.format_canonical()));
             }
-            if let Some(d) = a.fields.iter().find_map(|f| match &f.kind {
-                AdoptionFieldKind::End(d) => Some(d),
-                _ => None,
-            }) {
+            if let Some(d) = a.end() {
                 cells.push(field_cell(kind, FieldName::End, &d.format_canonical()));
             }
             if let Some(text) = inline_comment {

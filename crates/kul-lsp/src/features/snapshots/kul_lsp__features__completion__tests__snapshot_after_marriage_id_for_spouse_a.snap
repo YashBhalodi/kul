@@ -1,5 +1,5 @@
 ---
-source: crates/kul-lsp/src/features/completion.rs
+source: crates/kul-lsp/src/features/completion/mod.rs
 expression: items
 ---
 [

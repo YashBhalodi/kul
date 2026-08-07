@@ -15,7 +15,7 @@ struct Document {
 
 fn render(source: &str) -> String {
     let tokens = tokenize(source);
-    let (statements, diags) = parse(&tokens, FileId::MANIFEST);
+    let (statements, diags) = parse(tokens, FileId::MANIFEST);
     let doc = Document { statements };
     let mut out = String::new();
     out.push_str(&format!("ast: {doc:#?}\n"));
@@ -114,7 +114,7 @@ fn parse_person_with_two_birth_diagnoses() {
 fn unterminated_string_does_not_swallow_next_statement() {
     let source = "person alice name:\"Alice\nperson bob name:\"Bob\" gender:male\n";
     let tokens = tokenize(source);
-    let (statements, diags) = parse(&tokens, FileId::MANIFEST);
+    let (statements, diags) = parse(tokens, FileId::MANIFEST);
     assert_eq!(
         statements.len(),
         2,
@@ -136,7 +136,7 @@ fn unterminated_string_does_not_swallow_next_statement() {
 #[test]
 fn unquoted_string_value_message_hints_at_quotes() {
     let tokens = tokenize("person alice name:Alice gender:female\n");
-    let (_, diags) = parse(&tokens, FileId::MANIFEST);
+    let (_, diags) = parse(tokens, FileId::MANIFEST);
     let p07: Vec<_> = diags.iter().filter(|d| d.code == "KUL-P07").collect();
     assert_eq!(p07.len(), 1, "expected one KUL-P07, got: {diags:#?}");
     let msg = &p07[0].message;

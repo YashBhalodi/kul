@@ -23,7 +23,7 @@
 //! See `docs/architecture.md` and `CONTEXT.md`.
 
 pub mod ast;
-pub mod cycles;
+mod cycles;
 pub mod date;
 pub mod diagnostic;
 pub mod export;
@@ -33,6 +33,7 @@ pub mod lexer;
 pub mod manifest;
 pub mod node_at;
 pub mod parser;
+mod projection;
 pub mod query;
 pub mod semantic;
 pub mod span;
@@ -176,11 +177,11 @@ fn build_document(
     for (i, input) in inputs.iter().enumerate() {
         let file = FileId((i + 1) as u32);
         let tokens = lexer::tokenize(&input.source);
-        let (statements, parse_diags) = parser::parse(&tokens, file);
+        let (statements, parse_diags) = parser::parse(tokens, file);
         diagnostics.extend(parse_diags);
         kul_files.push(Arc::new(KulFile::new(
             input.name.clone(),
-            input.source.clone(),
+            Arc::clone(&input.source),
             statements,
         )));
     }

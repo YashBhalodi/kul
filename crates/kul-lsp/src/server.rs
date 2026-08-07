@@ -22,10 +22,10 @@ use tower_lsp::{Client, LanguageServer};
 
 use crate::features::entity_at::{EntityAtParams, EntityAtResponse, entity_at};
 use crate::features::export::{ExportParams, ExportRequestError, export_for};
-use crate::features::export_svg::{ExportSvgParams, export_svg_for};
 use crate::features::locate::{LocateParams, LocateResponse, locate};
-use crate::features::render::{RenderParams, render_for};
-use crate::features::svg_envelope::RenderResponse;
+use crate::features::svg_envelope::{
+    ExportSvgParams, RenderParams, RenderResponse, export_svg_for, render_for,
+};
 use crate::features::{
     code_action, completion, definition, diagnostics, document_symbol, formatting, hover,
     references, rename, semantic_tokens,

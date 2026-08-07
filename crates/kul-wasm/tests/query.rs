@@ -72,7 +72,7 @@ fn wasm_abi_signature_returns_ok_arm_for_known_id() {
     let inputs = nuclear_inputs();
     let files = vec![WasmInputFile {
         name: "nuclear-family.kul".into(),
-        source: inputs[0].source.clone(),
+        source: inputs[0].source.to_string(),
     }];
     let envelope = query_person(files, Manifest::default(), "hiroshi".to_string());
     let json = serde_json::to_value(&envelope).unwrap();
@@ -136,7 +136,7 @@ fn kin_query_abi_returns_members() {
     let inputs = nuclear_inputs();
     let files = vec![WasmInputFile {
         name: "nuclear-family.kul".into(),
-        source: inputs[0].source.clone(),
+        source: inputs[0].source.to_string(),
     }];
     let query = Query::kin_descendants("hiroshi", IntRange::exactly(1), None);
     let envelope = query_kin(files, Manifest::default(), query);
@@ -181,7 +181,7 @@ fn run_query_abi_returns_person_ids() {
     let inputs = nuclear_inputs();
     let files = vec![WasmInputFile {
         name: "nuclear-family.kul".into(),
-        source: inputs[0].source.clone(),
+        source: inputs[0].source.to_string(),
     }];
     let envelope = run_query(files, Manifest::default(), Query::all_persons());
     let json = serde_json::to_value(&envelope).unwrap();
@@ -199,7 +199,7 @@ fn run_query_abi_returns_count() {
     let inputs = nuclear_inputs();
     let files = vec![WasmInputFile {
         name: "nuclear-family.kul".into(),
-        source: inputs[0].source.clone(),
+        source: inputs[0].source.to_string(),
     }];
     let envelope = run_query(files, Manifest::default(), Query::all_persons().counting());
     let json = serde_json::to_value(&envelope).unwrap();
@@ -232,7 +232,7 @@ fn kin_query_collateral_round_trips() {
     let inputs = nuclear_inputs();
     let files = vec![WasmInputFile {
         name: "nuclear-family.kul".into(),
-        source: inputs[0].source.clone(),
+        source: inputs[0].source.to_string(),
     }];
     // akiko & kenji are siblings (both children of hiroshi/yuki).
     let query = Query::kin_collateral("akiko", IntRange::exactly(1), IntRange::exactly(1), None);
@@ -257,7 +257,7 @@ fn kin_query_affinal_round_trips() {
     let inputs = nuclear_inputs();
     let files = vec![WasmInputFile {
         name: "nuclear-family.kul".into(),
-        source: inputs[0].source.clone(),
+        source: inputs[0].source.to_string(),
     }];
     // hiroshi's spouse is yuki, reached by a single `across` marriage hop.
     let query = Query::kin_spouses("hiroshi");
@@ -319,7 +319,7 @@ fn resolve_abi_returns_relationships() {
     let inputs = nuclear_inputs();
     let files = vec![WasmInputFile {
         name: "nuclear-family.kul".into(),
-        source: inputs[0].source.clone(),
+        source: inputs[0].source.to_string(),
     }];
     let envelope = query_resolve(
         files,
@@ -347,7 +347,7 @@ fn resolve_config_over_the_abi() {
     let inputs = nuclear_inputs();
     let files = vec![WasmInputFile {
         name: "nuclear-family.kul".into(),
-        source: inputs[0].source.clone(),
+        source: inputs[0].source.to_string(),
     }];
     // Two unrelated persons in one component would need a real fixture; here we
     // simply confirm a provided config round-trips and the empty-reason surfaces
@@ -431,7 +431,7 @@ fn detail_abi_answers_all_three_entity_kinds_in_order() {
     let inputs = adoption_inputs();
     let files = vec![WasmInputFile {
         name: "adoption-and-belonging.kul".into(),
-        source: inputs[0].source.clone(),
+        source: inputs[0].source.to_string(),
     }];
     let envelope = query_detail(
         files,

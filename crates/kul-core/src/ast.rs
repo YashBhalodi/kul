@@ -15,10 +15,12 @@ use crate::span::{ByteSpan, FileId};
 ///
 /// `name` is the opaque label the consumer passed in at the toolchain edge
 /// (path / URI / JS host label). `kul-core` does not interpret it.
+/// `source` is [`Arc<str>`] so toolchain stages can share the buffer
+/// without deep-copying (ADR-0007's shared-immutable-data idiom).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KulFile {
     pub name: String,
-    pub source: String,
+    pub source: Arc<str>,
     pub statements: Vec<Statement>,
 }
 
@@ -27,7 +29,7 @@ impl KulFile {
     #[must_use]
     pub fn new(
         name: impl Into<String>,
-        source: impl Into<String>,
+        source: impl Into<Arc<str>>,
         statements: Vec<Statement>,
     ) -> Self {
         Self {
@@ -40,15 +42,18 @@ impl KulFile {
 
 /// One input file at the toolchain edge — name plus raw source bytes.
 /// Public input shape for [`crate::check`].
+///
+/// `source` is [`Arc<str>`] so an LSP overlay (already `Arc<str>`) and the
+/// parsed [`KulFile`] can share one buffer via a refcount bump.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InputFile {
     pub name: String,
-    pub source: String,
+    pub source: Arc<str>,
 }
 
 impl InputFile {
     #[must_use]
-    pub fn new(name: impl Into<String>, source: impl Into<String>) -> Self {
+    pub fn new(name: impl Into<String>, source: impl Into<Arc<str>>) -> Self {
         Self {
             name: name.into(),
             source: source.into(),
@@ -68,8 +73,9 @@ pub struct Document {
     /// when the YAML body failed to parse.
     pub manifest_name: String,
     /// Raw `kul.yml` source bytes. Empty when the manifest was missing on
-    /// disk (KUL-M01 covers that case).
-    pub manifest_source: String,
+    /// disk (KUL-M01 covers that case). Held as [`Arc<str>`] to match
+    /// `.kul` source ownership.
+    pub manifest_source: Arc<str>,
     /// Parsed `.kul` files in input order. `kul_files[i]` lives at
     /// `FileId(i + 1)`.
     pub kul_files: Vec<Arc<KulFile>>,
@@ -82,14 +88,14 @@ impl Document {
     /// have bytes to render against.
     #[must_use]
     pub fn new(manifest_name: impl Into<String>, kul_files: Vec<Arc<KulFile>>) -> Self {
-        Self::with_manifest_source(manifest_name, String::new(), kul_files)
+        Self::with_manifest_source(manifest_name, "", kul_files)
     }
 
     /// Build a [`Document`] with explicit `kul.yml` source bytes.
     #[must_use]
     pub fn with_manifest_source(
         manifest_name: impl Into<String>,
-        manifest_source: impl Into<String>,
+        manifest_source: impl Into<Arc<str>>,
         kul_files: Vec<Arc<KulFile>>,
     ) -> Self {
         Self {
@@ -103,9 +109,9 @@ impl Document {
     #[must_use]
     pub fn source_of(&self, file: FileId) -> Option<&str> {
         if file == FileId::MANIFEST {
-            return Some(self.manifest_source.as_str());
+            return Some(self.manifest_source.as_ref());
         }
-        self.kul_file(file).map(|k| k.source.as_str())
+        self.kul_file(file).map(|k| k.source.as_ref())
     }
 
     /// Resolve a [`FileId`] to its canonical name, or `None` if out of range.
@@ -170,7 +176,9 @@ pub struct PersonStmt {
     pub span: ByteSpan,
     pub keyword_span: ByteSpan,
     pub id: Ident,
-    pub fields: Vec<PersonField>,
+    /// Parsed header fields. Storage shape is crate-private; walk via
+    /// [`Self::fields`] / typed accessors.
+    pub(crate) fields: Vec<PersonField>,
     /// At most one biological-birth sub-statement (spec 5.1).
     pub birth: Option<BirthSub>,
     pub adoptions: Vec<AdoptionSub>,
@@ -181,6 +189,25 @@ pub struct PersonStmt {
 }
 
 impl PersonStmt {
+    /// Parsed header fields in source order.
+    pub fn fields(&self) -> impl Iterator<Item = &PersonField> + '_ {
+        self.fields.iter()
+    }
+
+    /// `(FieldName, name_span)` for every parsed field, in source order.
+    /// Used by R15 duplicate-field checks.
+    pub fn field_name_spans(&self) -> impl Iterator<Item = (FieldName, ByteSpan)> + '_ {
+        self.fields
+            .iter()
+            .map(|f| (f.kind.field_name(), f.name_span))
+    }
+
+    /// End offset of the last header field, if any.
+    #[must_use]
+    pub fn last_field_end(&self) -> Option<usize> {
+        self.fields.last().map(|f| f.span.end)
+    }
+
     /// First `name:` field, or `None` (R03 fires when absent).
     #[must_use]
     pub fn name(&self) -> Option<&StringValue> {
@@ -285,10 +312,25 @@ pub struct AdoptionSub {
     pub span: ByteSpan,
     pub keyword_span: ByteSpan,
     pub marriage_ref: Ident,
-    pub fields: Vec<AdoptionField>,
+    /// Parsed fields. Storage shape is crate-private; walk via
+    /// [`Self::fields`] / typed accessors.
+    pub(crate) fields: Vec<AdoptionField>,
 }
 
 impl AdoptionSub {
+    /// Parsed fields in source order.
+    pub fn fields(&self) -> impl Iterator<Item = &AdoptionField> + '_ {
+        self.fields.iter()
+    }
+
+    /// `(FieldName, name_span)` for every parsed field, in source order.
+    /// Used by R15 duplicate-field checks.
+    pub fn field_name_spans(&self) -> impl Iterator<Item = (FieldName, ByteSpan)> + '_ {
+        self.fields
+            .iter()
+            .map(|f| (f.kind.field_name(), f.name_span))
+    }
+
     /// First `start:` date, or `None` (R03 fires when absent).
     #[must_use]
     pub fn start(&self) -> Option<&DateLit> {
@@ -433,10 +475,40 @@ pub struct MarriageStmt {
     pub id: Ident,
     pub spouse_a: Ident,
     pub spouse_b: Ident,
-    pub fields: Vec<MarriageField>,
+    /// Parsed fields. Storage shape is crate-private; walk via
+    /// [`Self::fields`] / typed accessors.
+    pub(crate) fields: Vec<MarriageField>,
 }
 
 impl MarriageStmt {
+    /// Parsed fields in source order.
+    pub fn fields(&self) -> impl Iterator<Item = &MarriageField> + '_ {
+        self.fields.iter()
+    }
+
+    /// `(FieldName, name_span)` for every parsed field, in source order.
+    /// Used by R15 duplicate-field checks.
+    pub fn field_name_spans(&self) -> impl Iterator<Item = (FieldName, ByteSpan)> + '_ {
+        self.fields
+            .iter()
+            .map(|f| (f.kind.field_name(), f.name_span))
+    }
+
+    /// End offset of the last field, if any.
+    #[must_use]
+    pub fn last_field_end(&self) -> Option<usize> {
+        self.fields.last().map(|f| f.span.end)
+    }
+
+    /// Full span of the first `end_reason:` field, if present.
+    #[must_use]
+    pub fn end_reason_field_span(&self) -> Option<ByteSpan> {
+        self.fields
+            .iter()
+            .find(|f| matches!(f.kind, MarriageFieldKind::EndReason(_)))
+            .map(|f| f.span)
+    }
+
     /// First `start:` date, or `None` (R03 fires when absent).
     #[must_use]
     pub fn start(&self) -> Option<&DateLit> {

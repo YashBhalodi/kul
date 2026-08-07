@@ -21,7 +21,7 @@ The completion-classifier implementation hit several cases where the AST-first d
 
 ## Decision
 
-The completion classifier in `crates/kul-lsp/src/features/completion.rs` walks the token stream first. The AST (specifically `ResolvedDocument` and `node_at`) is consulted only as a secondary signal — for "what is the enclosing person?" or "what marriages are declared so far?" type questions, where the AST is authoritative.
+The completion classifier in `crates/kul-lsp/src/features/completion/classify.rs` walks the token stream first. The AST (specifically `ResolvedDocument` and `node_at`) is consulted only as a secondary signal — for "what is the enclosing person?" or "what marriages are declared so far?" type questions, where the AST is authoritative.
 
 The classifier expresses its rules as cursor-adjacency on tokens: for example, "the cursor is in a field-value context only if the previous token is a `:` *or* a value-shaped token whose span ends exactly at the cursor". This is what handles whitespace correctly: `field: ` (whitespace after colon) stays in value context because the colon was the last *content* token; `field :` (whitespace before colon) does not yet have a value position.
 

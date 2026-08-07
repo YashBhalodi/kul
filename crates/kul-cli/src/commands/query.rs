@@ -94,7 +94,13 @@ fn finish<E: Serialize>(
 /// failure exit code; on success return `Ok(())` so the caller can layer its
 /// outcome-specific exit code on top.
 fn write_json_line<T: Serialize>(value: &T) -> Result<(), ExitCode> {
-    let json = serde_json::to_string(value).expect("serialize query envelope");
+    let json = match serde_json::to_string(value) {
+        Ok(json) => json,
+        Err(err) => {
+            eprintln!("kul: failed to serialize query envelope: {err}");
+            return Err(ExitCode::from(1));
+        }
+    };
     let stdout = io::stdout();
     let mut out = stdout.lock();
     match writeln!(out, "{json}") {

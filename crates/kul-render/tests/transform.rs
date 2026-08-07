@@ -1,6 +1,7 @@
 //! Fabricated-envelope unit snapshots covering edge cases the
 //! `examples/` corpus doesn't naturally surface.
 
+use kul_core::export::cytoscape::CytoscapeGraph;
 use kul_core::export::{
     ExportEnvelope, ExportedDate, ExportedDiagnostic, ExportedGraph, ExportedMarriage,
     ExportedParenthoodLink, ExportedPerson, FailureEnvelope, GraphPayload, ParenthoodLinkKind,
@@ -401,6 +402,101 @@ fn in_budget_deep_lineage_still_projects_to_success() {
     assert!(
         shape.as_success().is_some(),
         "an in-budget lineage must still project to a success shape"
+    );
+}
+
+/// Cytoscape is a sibling projection of the kinship-native graph, not an
+/// input to `transform` (ADR-0016). A success envelope carrying that shape
+/// must downgrade to a `KUL-V02` failure rather than panic on `.expect`.
+#[test]
+fn cytoscape_success_envelope_downgrades_to_failure() {
+    let envelope = ExportEnvelope::Success(SuccessEnvelope {
+        ok: true,
+        schema: SCHEMA,
+        kul: KUL.to_string(),
+        graph: GraphPayload::Cytoscape(CytoscapeGraph {
+            nodes: vec![],
+            edges: vec![],
+        }),
+    });
+    let shape = transform(&envelope);
+    let failure = shape
+        .as_failure()
+        .expect("a cytoscape success envelope must downgrade to a failure shape");
+    assert!(
+        failure.diagnostics.iter().any(|d| d.code == "KUL-V02"),
+        "expected a KUL-V02 non-native-graph diagnostic, got {:?}",
+        failure.diagnostics
+    );
+}
+
+/// A marriage whose host is not among `persons` used to panic on
+/// `.expect("root marriage's host must be a declared person")`. Fabricated
+/// envelopes can still hit this; typed export from a checked project does
+/// not. Recover with `KUL-V03` instead of aborting.
+#[test]
+fn undeclared_root_host_downgrades_to_failure() {
+    let envelope = success(ExportedGraph {
+        persons: vec![person("alice", "Alice", "female")],
+        marriages: vec![marriage("m1", "ghost_host", "alice", 1990)],
+        parenthood_links: vec![],
+    });
+    let shape = transform(&envelope);
+    let failure = shape
+        .as_failure()
+        .expect("an undeclared root host must downgrade to a failure shape");
+    assert!(
+        failure.diagnostics.iter().any(|d| d.code == "KUL-V03"),
+        "expected a KUL-V03 malformed-graph diagnostic, got {:?}",
+        failure.diagnostics
+    );
+}
+
+/// A marriage whose joining spouse is undeclared used to panic in
+/// `bar_joining_slot`. Same recovery path as the undeclared-host case.
+#[test]
+fn undeclared_joining_spouse_downgrades_to_failure() {
+    let envelope = success(ExportedGraph {
+        persons: vec![person("alice", "Alice", "female")],
+        marriages: vec![marriage("m1", "alice", "ghost_join", 1990)],
+        parenthood_links: vec![],
+    });
+    let shape = transform(&envelope);
+    let failure = shape
+        .as_failure()
+        .expect("an undeclared joining spouse must downgrade to a failure shape");
+    assert!(
+        failure.diagnostics.iter().any(|d| d.code == "KUL-V03"),
+        "expected a KUL-V03 malformed-graph diagnostic, got {:?}",
+        failure.diagnostics
+    );
+}
+
+/// When every marriage in a component claims a bar-anchor that is missing
+/// from the graph, there is no floating root — previously
+/// `.expect("non-orphan component must contain at least one floating
+/// marriage")`. Downgrade instead of panicking.
+#[test]
+fn dangling_bar_anchor_downgrades_to_failure() {
+    let envelope = success(ExportedGraph {
+        persons: vec![
+            person("alice", "Alice", "female"),
+            person("bob", "Bob", "male"),
+        ],
+        marriages: vec![marriage("m1", "alice", "bob", 1990)],
+        // Host's canonical family points at a marriage id that does not
+        // exist, so `bar_anchor` is `Some` but never unions to a floating
+        // root.
+        parenthood_links: vec![bio("alice", "m_missing")],
+    });
+    let shape = transform(&envelope);
+    let failure = shape
+        .as_failure()
+        .expect("a dangling bar-anchor graph must downgrade to a failure shape");
+    assert!(
+        failure.diagnostics.iter().any(|d| d.code == "KUL-V03"),
+        "expected a KUL-V03 malformed-graph diagnostic, got {:?}",
+        failure.diagnostics
     );
 }
 

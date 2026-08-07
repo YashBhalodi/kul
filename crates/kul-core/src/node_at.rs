@@ -143,7 +143,7 @@ impl ResolvedDocument {
     /// let source = "person alice name:\"Alice\" gender:female\n";
     /// let kul_file = FileId::from_raw(1);
     /// let tokens = tokenize(source);
-    /// let (statements, _) = parse(&tokens, kul_file);
+    /// let (statements, _) = parse(tokens, kul_file);
     /// let kf = Arc::new(KulFile::new("test.kul", source, statements));
     /// let document = Arc::new(Document::new("kul.yml", vec![kf]));
     /// let (resolved, _) = resolve(document);
@@ -180,7 +180,7 @@ impl ResolvedDocument {
         if contains(p.id.span, offset) {
             return Some(Node::PersonDeclId(p));
         }
-        for f in &p.fields {
+        for f in p.fields() {
             if contains(f.span, offset) {
                 return Some(if contains(f.name_span, offset) {
                     Node::PersonFieldName(f)
@@ -235,7 +235,7 @@ impl ResolvedDocument {
                 target: self.marriage_with_file(&a.marriage_ref.name),
             });
         }
-        for f in &a.fields {
+        for f in a.fields() {
             if contains(f.span, offset) {
                 return Some(if contains(f.name_span, offset) {
                     Node::AdoptionFieldName(f)
@@ -271,7 +271,7 @@ impl ResolvedDocument {
                 target: self.person_with_file(&m.spouse_b.name),
             });
         }
-        for f in &m.fields {
+        for f in m.fields() {
             if contains(f.span, offset) {
                 return Some(if contains(f.name_span, offset) {
                     Node::MarriageFieldName(f)
@@ -396,7 +396,7 @@ mod tests {
     fn build(source: &str) -> (ResolvedDocument, FileId) {
         let file = FileId(1);
         let tokens = crate::lexer::tokenize(source);
-        let (statements, _) = crate::parser::parse(&tokens, file);
+        let (statements, _) = crate::parser::parse(tokens, file);
         let kf = Arc::new(KulFile::new("test.kul", source, statements));
         let document = Arc::new(Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);

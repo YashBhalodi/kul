@@ -76,7 +76,7 @@ fn emit_person(out: &mut Vec<RawToken>, p: &PersonStmt) {
         span: p.id.span,
         token_type: TT_FUNCTION,
     });
-    for f in &p.fields {
+    for f in p.fields() {
         emit_field(out, f.name_span, f.kind.value_span(), f.kind.field_name());
     }
     if let Some(birth) = &p.birth {
@@ -107,7 +107,7 @@ fn emit_adoption(out: &mut Vec<RawToken>, a: &AdoptionSub) {
         span: a.marriage_ref.span,
         token_type: TT_PARAMETER,
     });
-    for f in &a.fields {
+    for f in a.fields() {
         emit_field(out, f.name_span, f.kind.value_span(), f.kind.field_name());
     }
 }
@@ -129,7 +129,7 @@ fn emit_marriage(out: &mut Vec<RawToken>, m: &MarriageStmt) {
         span: m.spouse_b.span,
         token_type: TT_PARAMETER,
     });
-    for f in &m.fields {
+    for f in m.fields() {
         emit_field(out, f.name_span, f.kind.value_span(), f.kind.field_name());
     }
 }

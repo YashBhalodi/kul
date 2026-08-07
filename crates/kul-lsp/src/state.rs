@@ -92,6 +92,10 @@ pub struct ProjectEntry {
     /// `Some(_)` is an open editor buffer; `None` is a URI known to the
     /// project but read from disk.
     pub overlay: HashMap<Url, Option<Arc<str>>>,
+    /// Overlay/rebuild epoch this entry was built from. Compared against
+    /// [`DocumentsInner::epochs`] so a stale unlocked rebuild cannot
+    /// clobber a newer overlay.
+    generation: u64,
 }
 
 impl ProjectEntry {
@@ -176,6 +180,7 @@ impl ProjectEntry {
             check,
             files,
             overlay,
+            generation: 0,
         }
     }
 
@@ -233,10 +238,28 @@ impl<'a> Cursor<'a> {
     }
 }
 
+/// Interior of [`Documents`]: project cache plus rebuild-epoch bookkeeping.
+///
+/// Rebuilds (`discover` + `kul_core::check`) run **outside** the write lock.
+/// `epochs` / `pending_overlays` exist so a slow rebuild cannot install over
+/// a newer overlay mutation (or revive an evicted project).
+#[derive(Debug, Default)]
+struct DocumentsInner {
+    projects: HashMap<ProjectRoot, ProjectEntry>,
+    /// Highest rebuild generation issued for each root. Bumped on every
+    /// overlay mutation and on eviction; a finished rebuild installs only
+    /// when its generation still matches.
+    epochs: HashMap<ProjectRoot, u64>,
+    /// Overlay for a root whose first build is in flight (no
+    /// [`ProjectEntry`] yet). Concurrent opens/closes consult this so they
+    /// see the latest buffers.
+    pending_overlays: HashMap<ProjectRoot, HashMap<Url, Option<Arc<str>>>>,
+}
+
 /// Thread-safe handle to the project cache. Cheap to clone.
 #[derive(Debug, Clone, Default)]
 pub struct Documents {
-    inner: Arc<RwLock<HashMap<ProjectRoot, ProjectEntry>>>,
+    inner: Arc<RwLock<DocumentsInner>>,
 }
 
 impl Documents {
@@ -248,17 +271,13 @@ impl Documents {
     /// in the project; the caller broadcasts diagnostics.
     pub async fn open(&self, uri: Url, source: String) -> Vec<Url> {
         let root = ProjectRoot::for_uri(&uri);
-        let mut map = self.inner.write().await;
-        let overlay = match map.remove(&root) {
-            Some(entry) => entry.overlay,
-            None => HashMap::new(),
+        let (overlay, generation) = {
+            let mut inner = self.inner.write().await;
+            begin_rebuild(&mut inner, &root, |overlay| {
+                overlay.insert(uri, Some(Arc::from(source)));
+            })
         };
-        let mut overlay = overlay;
-        overlay.insert(uri, Some(Arc::from(source)));
-        let entry = build_entry(root.clone(), overlay);
-        let urls: Vec<Url> = entry.project_urls().cloned().collect();
-        map.insert(root, entry);
-        urls
+        rebuild_and_install(&self.inner, root, overlay, generation).await
     }
 
     /// Apply a `did_change`. Same shape as [`Self::open`].
@@ -271,22 +290,54 @@ impl Documents {
     /// - `evicted=true`: project removed; caller clears every URL.
     pub async fn close(&self, uri: &Url) -> (Vec<Url>, bool) {
         let root = ProjectRoot::for_uri(uri);
-        let mut map = self.inner.write().await;
-        let Some(entry) = map.remove(&root) else {
-            return (vec![uri.clone()], true);
-        };
-        let mut overlay = entry.overlay;
-        overlay.insert(uri.clone(), None);
-        let still_open = overlay.values().any(|s| s.is_some());
-        if !still_open {
-            let mut urls: Vec<Url> = overlay.into_keys().collect();
-            urls.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-            return (urls, true);
+
+        enum ClosePrep {
+            Missing,
+            Evict {
+                cleared: Vec<Url>,
+            },
+            Rebuild {
+                overlay: HashMap<Url, Option<Arc<str>>>,
+                generation: u64,
+            },
         }
-        let new_entry = build_entry(root.clone(), overlay);
-        let urls: Vec<Url> = new_entry.project_urls().cloned().collect();
-        map.insert(root, new_entry);
-        (urls, false)
+
+        let prep = {
+            let mut inner = self.inner.write().await;
+            let has_state =
+                inner.projects.contains_key(&root) || inner.pending_overlays.contains_key(&root);
+            if !has_state {
+                ClosePrep::Missing
+            } else {
+                let (overlay, generation) = begin_rebuild(&mut inner, &root, |overlay| {
+                    overlay.insert(uri.clone(), None);
+                });
+                let still_open = overlay.values().any(|s| s.is_some());
+                if still_open {
+                    ClosePrep::Rebuild {
+                        overlay,
+                        generation,
+                    }
+                } else {
+                    let mut cleared: Vec<Url> = overlay.into_keys().collect();
+                    cleared.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+                    evict_root(&mut inner, &root);
+                    ClosePrep::Evict { cleared }
+                }
+            }
+        };
+
+        match prep {
+            ClosePrep::Missing => (vec![uri.clone()], true),
+            ClosePrep::Evict { cleared } => (cleared, true),
+            ClosePrep::Rebuild {
+                overlay,
+                generation,
+            } => {
+                let urls = rebuild_and_install(&self.inner, root, overlay, generation).await;
+                (urls, false)
+            }
+        }
     }
 
     /// Run `f` against the project entry that owns `uri` — the seam
@@ -297,8 +348,8 @@ impl Documents {
         f: impl FnOnce(&ProjectEntry) -> R,
     ) -> Option<R> {
         let root = ProjectRoot::for_uri(uri);
-        let map = self.inner.read().await;
-        map.get(&root).map(f)
+        let inner = self.inner.read().await;
+        inner.projects.get(&root).map(f)
     }
 
     /// Apply one `workspace/didChangeWatchedFiles` event. Rules:
@@ -313,17 +364,101 @@ impl Documents {
             };
         };
 
-        let mut map = self.inner.write().await;
-        match classified {
-            WatchedUri::Manifest { root } => apply_manifest_event(&mut map, root, kind),
-            WatchedUri::Kul { root, uri } => apply_kul_event(&mut map, root, uri, kind),
+        let prep = {
+            let mut inner = self.inner.write().await;
+            match classified {
+                WatchedUri::Manifest { root } => prep_manifest_event(&mut inner, root, kind),
+                WatchedUri::Kul { root, uri } => prep_kul_event(&mut inner, root, uri, kind),
+            }
+        };
+
+        match prep {
+            WatchPrep::Ignored { reason } => WatchAction::Ignored { reason },
+            WatchPrep::Evicted { cleared } => WatchAction::Evicted { cleared },
+            WatchPrep::Rebuild {
+                root,
+                overlay,
+                generation,
+                cleared,
+            } => {
+                let _ = rebuild_and_install(&self.inner, root, overlay, generation).await;
+                WatchAction::Reloaded { cleared }
+            }
         }
     }
 
     #[cfg(test)]
     async fn project_count(&self) -> usize {
-        self.inner.read().await.len()
+        self.inner.read().await.projects.len()
     }
+}
+
+/// Snapshot overlay under the write lock, bump the rebuild epoch, then
+/// return the inputs needed to run [`build_entry`] without the lock.
+///
+/// When a [`ProjectEntry`] already exists it is kept (overlay updated in
+/// place) so concurrent feature reads still see the project; only the
+/// first build for a root uses [`DocumentsInner::pending_overlays`].
+fn begin_rebuild(
+    inner: &mut DocumentsInner,
+    root: &ProjectRoot,
+    mutate: impl FnOnce(&mut HashMap<Url, Option<Arc<str>>>),
+) -> (HashMap<Url, Option<Arc<str>>>, u64) {
+    let generation = inner.epochs.get(root).copied().unwrap_or(0).wrapping_add(1);
+    inner.epochs.insert(root.clone(), generation);
+
+    if let Some(entry) = inner.projects.get_mut(root) {
+        mutate(&mut entry.overlay);
+        entry.generation = generation;
+        return (entry.overlay.clone(), generation);
+    }
+
+    let mut overlay = inner.pending_overlays.remove(root).unwrap_or_default();
+    mutate(&mut overlay);
+    inner.pending_overlays.insert(root.clone(), overlay.clone());
+    (overlay, generation)
+}
+
+fn evict_root(inner: &mut DocumentsInner, root: &ProjectRoot) {
+    let generation = inner.epochs.get(root).copied().unwrap_or(0).wrapping_add(1);
+    inner.epochs.insert(root.clone(), generation);
+    inner.projects.remove(root);
+    inner.pending_overlays.remove(root);
+}
+
+/// Run disk discover + check without holding the documents lock, then
+/// install only if this rebuild is still the latest for `root`.
+async fn rebuild_and_install(
+    inner: &RwLock<DocumentsInner>,
+    root: ProjectRoot,
+    overlay: HashMap<Url, Option<Arc<str>>>,
+    generation: u64,
+) -> Vec<Url> {
+    let entry = build_entry(root.clone(), overlay);
+
+    let mut guard = inner.write().await;
+    if guard.epochs.get(&root).copied() != Some(generation) {
+        // A newer open/close/change/evict won. Prefer URLs from the live
+        // entry when present so callers still have a project-shaped list.
+        return match guard.projects.get(&root) {
+            Some(live) => live.project_urls().cloned().collect(),
+            None => entry.project_urls().cloned().collect(),
+        };
+    }
+
+    let urls: Vec<Url> = entry.project_urls().cloned().collect();
+    let mut entry = entry;
+    // Prefer the live/pending overlay (authoritative under the lock) over
+    // the snapshot baked into the rebuilt entry.
+    if let Some(live) = guard.projects.get(&root) {
+        entry.overlay = live.overlay.clone();
+    } else if let Some(pending) = guard.pending_overlays.get(&root) {
+        entry.overlay = pending.clone();
+    }
+    entry.generation = generation;
+    guard.pending_overlays.remove(&root);
+    guard.projects.insert(root, entry);
+    urls
 }
 
 /// Classification of a watched-files URI. Malformed input returns `None`
@@ -352,37 +487,64 @@ fn classify_watched_uri(uri: &Url) -> Option<WatchedUri<'_>> {
     None
 }
 
-fn apply_kul_event(
-    map: &mut HashMap<ProjectRoot, ProjectEntry>,
+/// Decision under the write lock for a watched-files event — rebuild IO
+/// happens after the lock is dropped.
+enum WatchPrep {
+    Ignored {
+        reason: &'static str,
+    },
+    Evicted {
+        cleared: Vec<Url>,
+    },
+    Rebuild {
+        root: ProjectRoot,
+        overlay: HashMap<Url, Option<Arc<str>>>,
+        generation: u64,
+        cleared: Vec<Url>,
+    },
+}
+
+fn prep_kul_event(
+    inner: &mut DocumentsInner,
     root: ProjectRoot,
     uri: &Url,
     kind: FileChangeType,
-) -> WatchAction {
+) -> WatchPrep {
     // Project must already be cached — discovery stays lazy.
-    let Some(entry) = map.get(&root) else {
-        return WatchAction::Ignored {
+    if !inner.projects.contains_key(&root) {
+        return WatchPrep::Ignored {
             reason: "unknown-project",
         };
-    };
+    }
+
+    let overlaid = matches!(
+        inner
+            .projects
+            .get(&root)
+            .and_then(|entry| entry.overlay.get(uri)),
+        Some(Some(_))
+    );
 
     match kind {
         FileChangeType::CREATED => {
-            let overlay = entry.overlay.clone();
-            let new_entry = build_entry(root.clone(), overlay);
-            map.insert(root, new_entry);
-            WatchAction::Reloaded {
+            let (overlay, generation) = begin_rebuild(inner, &root, |_| {});
+            WatchPrep::Rebuild {
+                root,
+                overlay,
+                generation,
                 cleared: Vec::new(),
             }
         }
         FileChangeType::CHANGED => {
             // Overlay wins: editor buffer is authoritative.
-            if matches!(entry.overlay.get(uri), Some(Some(_))) {
-                return WatchAction::Ignored { reason: "overlaid" };
+            if overlaid {
+                return WatchPrep::Ignored { reason: "overlaid" };
             }
-            let overlay = entry.overlay.clone();
-            let new_entry = build_entry(root.clone(), overlay);
-            map.insert(root, new_entry);
-            WatchAction::Reloaded {
+            let (overlay, generation) = begin_rebuild(inner, &root, |_| {});
+            WatchPrep::Rebuild {
+                root,
+                overlay,
+                generation,
                 cleared: Vec::new(),
             }
         }
@@ -391,56 +553,67 @@ fn apply_kul_event(
             // file (atomic-save and `git checkout`/`stash`/`rebase` both
             // delete-then-recreate under an open buffer). Keep serving the
             // buffer; only closed (`None`) URIs are dropped from the project.
-            if matches!(entry.overlay.get(uri), Some(Some(_))) {
-                return WatchAction::Ignored { reason: "overlaid" };
+            if overlaid {
+                return WatchPrep::Ignored { reason: "overlaid" };
             }
             // Drop from overlay so build_entry doesn't resurrect it.
-            let mut overlay = entry.overlay.clone();
-            overlay.remove(uri);
-            let new_entry = build_entry(root.clone(), overlay);
-            map.insert(root, new_entry);
-            WatchAction::Reloaded {
-                cleared: vec![uri.clone()],
+            let cleared = vec![uri.clone()];
+            let (overlay, generation) = begin_rebuild(inner, &root, |overlay| {
+                overlay.remove(uri);
+            });
+            WatchPrep::Rebuild {
+                root,
+                overlay,
+                generation,
+                cleared,
             }
         }
-        _ => WatchAction::Ignored {
+        _ => WatchPrep::Ignored {
             reason: "unknown-change-type",
         },
     }
 }
 
-fn apply_manifest_event(
-    map: &mut HashMap<ProjectRoot, ProjectEntry>,
+fn prep_manifest_event(
+    inner: &mut DocumentsInner,
     root: ProjectRoot,
     kind: FileChangeType,
-) -> WatchAction {
-    let Some(entry) = map.get(&root) else {
-        return WatchAction::Ignored {
+) -> WatchPrep {
+    if !inner.projects.contains_key(&root) {
+        return WatchPrep::Ignored {
             reason: "unknown-project",
         };
-    };
+    }
     match kind {
         FileChangeType::DELETED => {
             // Directory ceases to be a project. Clear every URI it ever covered.
-            let mut cleared: Vec<Url> = entry.project_urls().cloned().collect();
-            for url in entry.overlay.keys() {
-                if !cleared.contains(url) {
-                    cleared.push(url.clone());
+            let mut cleared: Vec<Url> = {
+                let entry = inner
+                    .projects
+                    .get(&root)
+                    .expect("contains_key just checked");
+                let mut cleared: Vec<Url> = entry.project_urls().cloned().collect();
+                for url in entry.overlay.keys() {
+                    if !cleared.contains(url) {
+                        cleared.push(url.clone());
+                    }
                 }
-            }
+                cleared
+            };
             cleared.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-            map.remove(&root);
-            WatchAction::Evicted { cleared }
+            evict_root(inner, &root);
+            WatchPrep::Evicted { cleared }
         }
         FileChangeType::CREATED | FileChangeType::CHANGED => {
-            let overlay = entry.overlay.clone();
-            let new_entry = build_entry(root.clone(), overlay);
-            map.insert(root, new_entry);
-            WatchAction::Reloaded {
+            let (overlay, generation) = begin_rebuild(inner, &root, |_| {});
+            WatchPrep::Rebuild {
+                root,
+                overlay,
+                generation,
                 cleared: Vec::new(),
             }
         }
-        _ => WatchAction::Ignored {
+        _ => WatchPrep::Ignored {
             reason: "unknown-change-type",
         },
     }
@@ -474,7 +647,7 @@ fn build_entry(root: ProjectRoot, overlay: HashMap<Url, Option<Arc<str>>>) -> Pr
         .collect();
     let inputs: Vec<InputFile> = disk_files
         .iter()
-        .map(|(u, src)| InputFile::new(url_label(u), src.as_ref()))
+        .map(|(u, src)| InputFile::new(url_label(u), Arc::clone(src)))
         .collect();
 
     let check = kul_core::check(manifest_label, &manifest_yaml, &inputs);
@@ -484,6 +657,7 @@ fn build_entry(root: ProjectRoot, overlay: HashMap<Url, Option<Arc<str>>>) -> Pr
         check,
         files,
         overlay,
+        generation: 0,
     }
 }
 
@@ -543,6 +717,7 @@ pub(crate) fn test_project_entry(files: &[(&str, &str)]) -> ProjectEntry {
         check,
         files: file_metas,
         overlay,
+        generation: 0,
     }
 }
 
@@ -703,5 +878,51 @@ mod tests {
             .with_project(&uri, |entry| entry.file_id_for(&uri).is_some())
             .await;
         assert_eq!(still_present, Some(true));
+    }
+
+    #[tokio::test]
+    async fn concurrent_updates_leave_overlay_consistent_with_check() {
+        // Unlocked rebuilds must not let a slower, older open clobber a
+        // newer overlay: whatever buffer wins, the installed CheckResult
+        // has to be the one built from that same overlay.
+        let docs = Documents::default();
+        let uri = temp_file_url("kul-test-concurrent-overlay/foo.kul");
+        docs.open(
+            uri.clone(),
+            "person a name:\"Seed\" gender:female\n".to_owned(),
+        )
+        .await;
+
+        let sources: Vec<String> = (0..8)
+            .map(|i| format!("person a name:\"V{i}\" gender:female\n"))
+            .collect();
+
+        let mut handles = Vec::new();
+        for source in sources {
+            let docs = docs.clone();
+            let uri = uri.clone();
+            handles.push(tokio::spawn(async move { docs.open(uri, source).await }));
+        }
+        for handle in handles {
+            handle.await.expect("open task");
+        }
+
+        let consistent = docs
+            .with_project(&uri, |entry| {
+                let file = entry.file_id_for(&uri).expect("uri in project");
+                let checked = entry
+                    .check
+                    .document()
+                    .source_of(file)
+                    .expect("source in check");
+                let overlay = entry
+                    .overlay
+                    .get(&uri)
+                    .and_then(|slot| slot.as_ref())
+                    .expect("open overlay");
+                checked == overlay.as_ref()
+            })
+            .await;
+        assert_eq!(consistent, Some(true));
     }
 }

@@ -18,8 +18,8 @@
 //!
 //! Every entity in the answer carries the **export shapes** —
 //! [`ExportedPerson`], [`ExportedMarriage`], [`ExportedParenthoodLink`] —
-//! single-sourced through the export's `build_one_*` builders. There is no
-//! second, leaner person shape; a consumer that needs a display name reads
+//! single-sourced through `projection::build_one_*`. There is no second,
+//! leaner person shape; a consumer that needs a display name reads
 //! `person.name`, which is why this one operation also supplies a kin list's
 //! row labels.
 
@@ -30,11 +30,11 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
 use crate::ast::{AdoptionSub, BirthSub, MarriageStmt, PersonStmt};
-use crate::export::{
-    ExportOptions, ExportedMarriage, ExportedParenthoodLink, ExportedPerson,
+use crate::export::{ExportOptions, ExportedMarriage, ExportedParenthoodLink, ExportedPerson};
+use crate::projection::{
     build_one_adoption_link, build_one_birth_link, build_one_marriage, build_one_person,
 };
-use crate::semantic::ResolvedDocument;
+use crate::semantic::{ChildLink, ParentLinkKind, ResolvedDocument};
 
 /// What one entry of a batched detail lookup addresses.
 ///
@@ -181,11 +181,12 @@ pub enum EntityDetail {
 /// Answer every `target` off one [`ResolvedDocument`], in the order asked.
 ///
 /// Position `i` of the answer is the detail for `targets[i]`, or `None` when
-/// that target names no entity. The per-invocation adjacency (a children index
-/// that is the inverse of the resolved parent links, plus a spouse index) is
-/// built **once** and shared by every target, so the marginal cost of a target
-/// is its own neighbourhood — the batch is flat in the number of targets
-/// relative to the check that precedes it (ADR-0037).
+/// that target names no entity. The per-invocation spouse index is built
+/// **once** and shared by every target; children come from
+/// [`ResolvedDocument::children_of_marriage`] (the resolver-owned inverse
+/// index). The marginal cost of a target is its own neighbourhood — the batch
+/// is flat in the number of targets relative to the check that precedes it
+/// (ADR-0037).
 #[must_use]
 pub fn details(resolved: &ResolvedDocument, targets: &[DetailTarget]) -> Vec<Option<EntityDetail>> {
     let index = Adjacency::build(resolved);
@@ -254,34 +255,16 @@ fn parent_rows(
         .collect()
 }
 
-/// Per-invocation adjacency over the resolved project. Built once per batch;
-/// no cross-call cache (ADR-0029).
+/// Per-invocation spouse index over the resolved project. Built once per
+/// batch; no cross-call cache (ADR-0029). Children come from
+/// [`ResolvedDocument::children_of_marriage`].
 struct Adjacency<'a> {
-    /// Marriage id → every child born or adopted into it, in declaration
-    /// order. The inverse of the resolved parent links.
-    children_of_marriage: HashMap<&'a str, Vec<LinkRef<'a>>>,
     /// Person id → every marriage they are a spouse in, in declaration order.
     marriages_of_spouse: HashMap<&'a str, Vec<&'a MarriageStmt>>,
 }
 
 impl<'a> Adjacency<'a> {
     fn build(resolved: &'a ResolvedDocument) -> Self {
-        let mut children_of_marriage: HashMap<&str, Vec<LinkRef<'_>>> = HashMap::new();
-        for person in resolved.persons() {
-            if let Some(birth) = &person.birth {
-                children_of_marriage
-                    .entry(birth.marriage_ref.name.as_str())
-                    .or_default()
-                    .push(LinkRef::Birth(person, birth));
-            }
-            for adoption in &person.adoptions {
-                children_of_marriage
-                    .entry(adoption.marriage_ref.name.as_str())
-                    .or_default()
-                    .push(LinkRef::Adoption(person, adoption));
-            }
-        }
-
         let mut marriages_of_spouse: HashMap<&str, Vec<&MarriageStmt>> = HashMap::new();
         for marriage in resolved.marriages() {
             for spouse in resolved.spouses_of(marriage) {
@@ -293,7 +276,6 @@ impl<'a> Adjacency<'a> {
         }
 
         Adjacency {
-            children_of_marriage,
             marriages_of_spouse,
         }
     }
@@ -353,11 +335,14 @@ impl<'a> Adjacency<'a> {
             })
             .collect();
 
-        let children = own_marriages
-            .iter()
-            .flat_map(|marriage| self.children_links(&marriage.id.name))
-            .map(|link| link.child_row(&options))
-            .collect();
+        let mut children = Vec::new();
+        for marriage in own_marriages {
+            for link in resolved.children_of_marriage(marriage) {
+                if let Some(link_ref) = link_ref_from_child_link(&link) {
+                    children.push(link_ref.child_row(&options));
+                }
+            }
+        }
 
         Some(EntityDetail::Person {
             person: build_one_person(person, &options),
@@ -370,16 +355,19 @@ impl<'a> Adjacency<'a> {
     fn marriage_detail(&self, resolved: &'a ResolvedDocument, id: &str) -> Option<EntityDetail> {
         let options = ExportOptions::default();
         let marriage = resolved.marriage(id)?;
+        let mut children = Vec::new();
+        for link in resolved.children_of_marriage(marriage) {
+            if let Some(link_ref) = link_ref_from_child_link(&link) {
+                children.push(link_ref.child_row(&options));
+            }
+        }
         Some(EntityDetail::Marriage {
             marriage: build_one_marriage(marriage, &options),
             spouses: resolved
                 .spouses_of(marriage)
                 .map(|s| build_one_person(s, &options))
                 .collect(),
-            children: self
-                .children_links(id)
-                .map(|link| link.child_row(&options))
-                .collect(),
+            children,
         })
     }
 
@@ -407,12 +395,14 @@ impl<'a> Adjacency<'a> {
             parents,
         })
     }
+}
 
-    /// The links into `marriage_id`, in declaration order.
-    fn children_links(&self, marriage_id: &str) -> impl Iterator<Item = &LinkRef<'a>> {
-        self.children_of_marriage
-            .get(marriage_id)
-            .map_or(&[][..], Vec::as_slice)
-            .iter()
+/// Project a resolver [`ChildLink`] to the export-facing [`LinkRef`].
+fn link_ref_from_child_link<'a>(link: &ChildLink<'a>) -> Option<LinkRef<'a>> {
+    match link.kind {
+        ParentLinkKind::Bio => link.birth().map(|birth| LinkRef::Birth(link.child, birth)),
+        ParentLinkKind::Adoption => link
+            .adoption()
+            .map(|adoption| LinkRef::Adoption(link.child, adoption)),
     }
 }

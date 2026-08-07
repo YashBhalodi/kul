@@ -14,8 +14,19 @@ use crate::diagnostic::{Diagnostic, fspan};
 use crate::lexer::{EnumKw, FieldName, Token, TokenKind};
 use crate::span::{ByteSpan, FileId};
 
+/// Placeholder left behind after a token is moved out by [`Parser::advance`].
+/// Peek never looks backward, and the stream always ends in `Eof`, so a cheap
+/// unit `Eof` is enough.
+const TAKEN: Token = Token {
+    kind: TokenKind::Eof,
+    span: ByteSpan::new(0, 0),
+};
+
 /// Parse a token stream into top-level statements plus diagnostics.
-pub fn parse(tokens: &[Token], file: FileId) -> (Vec<Statement>, Vec<Diagnostic>) {
+///
+/// Takes ownership of `tokens` so identifier / string / bare payloads can be
+/// moved into the AST instead of deep-cloned on each consume.
+pub fn parse(tokens: Vec<Token>, file: FileId) -> (Vec<Statement>, Vec<Diagnostic>) {
     Parser::new(tokens, file).run()
 }
 
@@ -30,15 +41,15 @@ enum FieldOutcome<T> {
     Fatal,
 }
 
-struct Parser<'a> {
-    tokens: &'a [Token],
+struct Parser {
+    tokens: Vec<Token>,
     pos: usize,
     file: FileId,
     diagnostics: Vec<Diagnostic>,
 }
 
-impl<'a> Parser<'a> {
-    fn new(tokens: &'a [Token], file: FileId) -> Self {
+impl Parser {
+    fn new(tokens: Vec<Token>, file: FileId) -> Self {
         Self {
             tokens,
             pos: 0,
@@ -54,7 +65,7 @@ impl<'a> Parser<'a> {
     fn run(mut self) -> (Vec<Statement>, Vec<Diagnostic>) {
         let mut statements: Vec<Statement> = Vec::new();
 
-        for tok in self.tokens {
+        for tok in &self.tokens {
             if let TokenKind::Error(msg) = &tok.kind {
                 self.diagnostics.push(Diagnostic::error(
                     "KUL-L01",
@@ -84,7 +95,7 @@ impl<'a> Parser<'a> {
                 }
                 _ => {
                     let span = self.peek().span;
-                    let description = describe_token(&self.peek().kind);
+                    let description = describe_token(self.peek_kind());
                     self.diagnostics.push(Diagnostic::error(
                         "KUL-P01",
                         format!(
@@ -101,21 +112,24 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_person_stmt(&mut self) -> Option<PersonStmt> {
-        let person_tok = self.advance().clone();
+        let person_tok = self.advance();
         let keyword_span = person_tok.span;
         let mut span = keyword_span;
 
-        let id_tok = self.peek().clone();
-        let id = match &id_tok.kind {
-            TokenKind::Ident(name) => {
-                self.advance();
+        let id = match self.peek_kind() {
+            TokenKind::Ident(_) => {
+                let id_tok = self.advance();
+                let TokenKind::Ident(name) = id_tok.kind else {
+                    unreachable!("peeked Ident");
+                };
                 span = span.merge(id_tok.span);
                 Ident {
-                    name: name.clone(),
+                    name,
                     span: id_tok.span,
                 }
             }
             _ => {
+                let id_tok = self.peek();
                 self.diagnostics.push(Diagnostic::error(
                     "KUL-P03",
                     format!(
@@ -146,7 +160,7 @@ impl<'a> Parser<'a> {
                 },
                 _ => {
                     let span = self.peek().span;
-                    let description = describe_token(&self.peek().kind);
+                    let description = describe_token(self.peek_kind());
                     self.diagnostics.push(Diagnostic::error(
                         "KUL-P04",
                         format!(
@@ -240,7 +254,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_birth_sub(&mut self) -> Option<BirthSub> {
-        let kw_tok = self.advance().clone();
+        let kw_tok = self.advance();
         let keyword_span = kw_tok.span;
         let mut span = keyword_span;
         let marriage_ref = self.expect_ident("the marriage id", "after `birth`")?;
@@ -254,7 +268,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_adoption_sub(&mut self) -> Option<AdoptionSub> {
-        let kw_tok = self.advance().clone();
+        let kw_tok = self.advance();
         let keyword_span = kw_tok.span;
         let mut span = keyword_span;
         let marriage_ref = self.expect_ident("the marriage id", "after `adoption`")?;
@@ -274,7 +288,7 @@ impl<'a> Parser<'a> {
                 },
                 _ => {
                     let span = self.peek().span;
-                    let description = describe_token(&self.peek().kind);
+                    let description = describe_token(self.peek_kind());
                     self.diagnostics.push(Diagnostic::error(
                         "KUL-P04",
                         format!("expected `start:` or `end:` on adoption, found {description}"),
@@ -295,29 +309,29 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_adoption_field(&mut self) -> FieldOutcome<AdoptionField> {
-        let name_tok = self.advance().clone();
+        let name_tok = self.advance();
         let TokenKind::FieldKw(field_name) = name_tok.kind else {
             unreachable!("parse_adoption_field called with non-field token");
         };
         let name_span = name_tok.span;
         let mut span = name_span;
 
-        let colon_tok = self.peek().clone();
-        if !matches!(colon_tok.kind, TokenKind::Colon) {
+        let colon_span = self.peek().span;
+        if !matches!(self.peek_kind(), TokenKind::Colon) {
             self.diagnostics.push(Diagnostic::error(
                 "KUL-P05",
                 format!(
                     "expected `:` after `{}`, found {}",
                     field_name.as_str(),
-                    describe_token(&colon_tok.kind)
+                    describe_token(self.peek_kind())
                 ),
-                self.fspan(colon_tok.span),
+                self.fspan(colon_span),
             ));
             self.recover_to_newline();
             return FieldOutcome::Fatal;
         }
         self.advance();
-        span = span.merge(colon_tok.span);
+        span = span.merge(colon_span);
 
         let kind = match field_name {
             FieldName::Start => match self.parse_date_value(field_name) {
@@ -355,7 +369,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_marriage_stmt(&mut self) -> Option<MarriageStmt> {
-        let kw_tok = self.advance().clone();
+        let kw_tok = self.advance();
         let keyword_span = kw_tok.span;
         let mut span = keyword_span;
 
@@ -380,7 +394,7 @@ impl<'a> Parser<'a> {
                 },
                 _ => {
                     let span = self.peek().span;
-                    let description = describe_token(&self.peek().kind);
+                    let description = describe_token(self.peek_kind());
                     self.diagnostics.push(Diagnostic::error(
                         "KUL-P04",
                         format!(
@@ -406,16 +420,19 @@ impl<'a> Parser<'a> {
     }
 
     fn expect_ident(&mut self, role: &str, ctx: &str) -> Option<Ident> {
-        let tok = self.peek().clone();
-        match &tok.kind {
-            TokenKind::Ident(name) => {
-                self.advance();
+        match self.peek_kind() {
+            TokenKind::Ident(_) => {
+                let tok = self.advance();
+                let TokenKind::Ident(name) = tok.kind else {
+                    unreachable!("peeked Ident");
+                };
                 Some(Ident {
-                    name: name.clone(),
+                    name,
                     span: tok.span,
                 })
             }
             _ => {
+                let tok = self.peek();
                 self.diagnostics.push(Diagnostic::error(
                     "KUL-P03",
                     format!(
@@ -431,29 +448,29 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_marriage_field(&mut self) -> FieldOutcome<MarriageField> {
-        let name_tok = self.advance().clone();
+        let name_tok = self.advance();
         let TokenKind::FieldKw(field_name) = name_tok.kind else {
             unreachable!("parse_marriage_field called with non-field token");
         };
         let name_span = name_tok.span;
         let mut span = name_span;
 
-        let colon_tok = self.peek().clone();
-        if !matches!(colon_tok.kind, TokenKind::Colon) {
+        let colon_span = self.peek().span;
+        if !matches!(self.peek_kind(), TokenKind::Colon) {
             self.diagnostics.push(Diagnostic::error(
                 "KUL-P05",
                 format!(
                     "expected `:` after `{}`, found {}",
                     field_name.as_str(),
-                    describe_token(&colon_tok.kind)
+                    describe_token(self.peek_kind())
                 ),
-                self.fspan(colon_tok.span),
+                self.fspan(colon_span),
             ));
             self.recover_to_newline();
             return FieldOutcome::Fatal;
         }
         self.advance();
-        span = span.merge(colon_tok.span);
+        span = span.merge(colon_span);
 
         let kind = match field_name {
             FieldName::Start => match self.parse_date_value(field_name) {
@@ -504,9 +521,10 @@ impl<'a> Parser<'a> {
         let (raw, span) = self.expect_value(
             "KUL-P11",
             || format!("expected a date for `{}:`", field.as_str()),
-            |tok| match &tok.kind {
-                TokenKind::Bare(text) | TokenKind::Ident(text) => Some((text.clone(), tok.span)),
-                _ => None,
+            |kind| matches!(kind, TokenKind::Bare(_) | TokenKind::Ident(_)),
+            |tok| match tok.kind {
+                TokenKind::Bare(text) | TokenKind::Ident(text) => (text, tok.span),
+                _ => unreachable!("guarded by matches"),
             },
         )?;
         match parse_date(&raw, span) {
@@ -533,46 +551,53 @@ impl<'a> Parser<'a> {
         self.expect_value(
             "KUL-P12",
             || "expected an `end_reason:` value".into(),
+            |kind| {
+                matches!(
+                    kind,
+                    TokenKind::EnumKw(EnumKw::Divorce)
+                        | TokenKind::Ident(_)
+                        | TokenKind::Bare(_)
+                        | TokenKind::String(_)
+                )
+            },
             |tok| {
-                let value = match &tok.kind {
+                let span = tok.span;
+                let value = match tok.kind {
                     TokenKind::EnumKw(EnumKw::Divorce) => EndReason::Divorce,
                     TokenKind::Ident(text) | TokenKind::Bare(text) | TokenKind::String(text) => {
-                        EndReason::Unknown(text.clone())
+                        EndReason::Unknown(text)
                     }
-                    _ => return None,
+                    _ => unreachable!("guarded by matches"),
                 };
-                Some(EndReasonValue {
-                    value,
-                    span: tok.span,
-                })
+                EndReasonValue { value, span }
             },
         )
     }
 
     fn parse_person_field(&mut self) -> FieldOutcome<PersonField> {
-        let name_tok = self.advance().clone();
+        let name_tok = self.advance();
         let TokenKind::FieldKw(field_name) = name_tok.kind else {
             unreachable!("parse_person_field called with non-field token");
         };
         let name_span = name_tok.span;
         let mut span = name_span;
 
-        let colon_tok = self.peek().clone();
-        if !matches!(colon_tok.kind, TokenKind::Colon) {
+        let colon_span = self.peek().span;
+        if !matches!(self.peek_kind(), TokenKind::Colon) {
             self.diagnostics.push(Diagnostic::error(
                 "KUL-P05",
                 format!(
                     "expected `:` after `{}`, found {}",
                     field_name.as_str(),
-                    describe_token(&colon_tok.kind)
+                    describe_token(self.peek_kind())
                 ),
-                self.fspan(colon_tok.span),
+                self.fspan(colon_span),
             ));
             self.recover_to_newline();
             return FieldOutcome::Fatal;
         }
         self.advance();
-        span = span.merge(colon_tok.span);
+        span = span.merge(colon_span);
 
         let kind = match field_name {
             FieldName::Name => match self.parse_string_value(field_name) {
@@ -630,14 +655,17 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_string_value(&mut self, field: FieldName) -> Option<StringValue> {
-        let tok = self.peek().clone();
-        if let TokenKind::String(value) = &tok.kind {
-            self.advance();
+        if matches!(self.peek_kind(), TokenKind::String(_)) {
+            let tok = self.advance();
+            let TokenKind::String(value) = tok.kind else {
+                unreachable!("peeked String");
+            };
             return Some(StringValue {
-                value: value.clone(),
+                value,
                 span: tok.span,
             });
         }
+        let tok = self.peek();
         self.diagnostics.push(Diagnostic::error(
             "KUL-P07",
             format!(
@@ -654,12 +682,12 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_gender_value(&mut self) -> Option<GenderValue> {
-        let tok = self.peek().clone();
-        let value = match &tok.kind {
+        let value = match self.peek_kind() {
             TokenKind::EnumKw(EnumKw::Male) => Gender::Male,
             TokenKind::EnumKw(EnumKw::Female) => Gender::Female,
             TokenKind::EnumKw(EnumKw::Other) => Gender::Other,
             _ => {
+                let tok = self.peek();
                 self.diagnostics.push(Diagnostic::error(
                     "KUL-P08",
                     format!(
@@ -676,26 +704,28 @@ impl<'a> Parser<'a> {
                 return None;
             }
         };
-        self.advance();
+        let tok = self.advance();
         Some(GenderValue {
             value,
             span: tok.span,
         })
     }
 
-    /// Peek the next token via `accept`; on match, advance. On miss, push
-    /// `"<expected>, found <token>"` with `code` and recover to newline.
+    /// Peek via `matches`; on hit, advance and `extract` (moving string
+    /// payloads). On miss, push `"<expected>, found <token>"` with `code`
+    /// and recover to newline without consuming first — so a missing value
+    /// that is already a newline stays the recovery anchor.
     fn expect_value<T>(
         &mut self,
         code: &'static str,
         expected: impl FnOnce() -> String,
-        accept: impl FnOnce(&Token) -> Option<T>,
+        matches: impl FnOnce(&TokenKind) -> bool,
+        extract: impl FnOnce(Token) -> T,
     ) -> Option<T> {
-        let tok = self.peek().clone();
-        if let Some(value) = accept(&tok) {
-            self.advance();
-            return Some(value);
+        if matches(self.peek_kind()) {
+            return Some(extract(self.advance()));
         }
+        let tok = self.peek();
         self.diagnostics.push(Diagnostic::error(
             code,
             format!("{}, found {}", expected(), describe_token(&tok.kind)),
@@ -752,12 +782,13 @@ impl<'a> Parser<'a> {
         &self.tokens[idx].kind
     }
 
-    fn advance(&mut self) -> &Token {
+    /// Move the current token out of the stream (replacing it with [`TAKEN`]).
+    fn advance(&mut self) -> Token {
         let idx = self.pos.min(self.tokens.len() - 1);
         if self.pos < self.tokens.len() - 1 {
             self.pos += 1;
         }
-        &self.tokens[idx]
+        std::mem::replace(&mut self.tokens[idx], TAKEN)
     }
 }
 

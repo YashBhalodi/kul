@@ -41,7 +41,7 @@ pub fn validate(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
 
 /// R02 — every spouse / `birth` ref / `adoption` ref must resolve to a
 /// declared id of the correct kind. Project-wide (ADR-0015).
-pub fn rule_02_unresolved_references(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
+fn rule_02_unresolved_references(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for stmt in resolved.statements_in(file) {
         match stmt {
@@ -160,7 +160,7 @@ fn check_marriage_ref(
 /// R03 — required fields. `person` needs `name` + `gender`. Marriages
 /// have no required fields beyond the positional spouses enforced by the
 /// grammar; `start:` is optional (genealogical records may not know it).
-pub fn rule_03_required_fields(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
+fn rule_03_required_fields(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for p in resolved.persons_in(file) {
         if !p.has_field(FieldName::Name) {
@@ -194,7 +194,7 @@ pub fn rule_03_required_fields(resolved: &ResolvedDocument, file: FileId) -> Vec
 }
 
 /// R04 — spouses must be distinct.
-pub fn rule_04_self_marriage(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
+fn rule_04_self_marriage(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for m in resolved.marriages_in(file) {
         if m.spouse_a.name == m.spouse_b.name {
@@ -218,7 +218,7 @@ fn self_marriage_diagnostic(file: FileId, m: &MarriageStmt) -> Diagnostic {
 
 /// R05 — `end` and `end_reason` are both present or both absent.
 /// R05b — `end_reason` value must be in vocabulary (`divorce` in v1).
-pub fn rule_05_end_consistency(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
+fn rule_05_end_consistency(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for m in resolved.marriages_in(file) {
         match (m.end(), m.end_reason()) {
@@ -236,12 +236,7 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument, file: FileId) -> Vec
                 );
             }
             (None, Some(reason)) => {
-                let field_span = m
-                    .fields
-                    .iter()
-                    .find(|f| matches!(f.kind, crate::ast::MarriageFieldKind::EndReason(_)))
-                    .map(|f| f.span)
-                    .unwrap_or(reason.span);
+                let field_span = m.end_reason_field_span().unwrap_or(reason.span);
                 out.push(
                     Diagnostic::error(
                         "KUL-R05",
@@ -270,7 +265,7 @@ pub fn rule_05_end_consistency(resolved: &ResolvedDocument, file: FileId) -> Vec
 }
 
 /// R06 — `person.died < person.born`.
-pub fn rule_06_died_before_born(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
+fn rule_06_died_before_born(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     resolved
         .persons_in(file)
         .filter_map(|p| {
@@ -289,10 +284,7 @@ pub fn rule_06_died_before_born(resolved: &ResolvedDocument, file: FileId) -> Ve
 }
 
 /// R07 — `marriage.end < marriage.start`.
-pub fn rule_07_marriage_end_before_start(
-    resolved: &ResolvedDocument,
-    file: FileId,
-) -> Vec<Diagnostic> {
+fn rule_07_marriage_end_before_start(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     resolved
         .marriages_in(file)
         .filter_map(|m| {
@@ -311,10 +303,7 @@ pub fn rule_07_marriage_end_before_start(
 }
 
 /// R08 — `adoption.end < adoption.start`.
-pub fn rule_08_adoption_end_before_start(
-    resolved: &ResolvedDocument,
-    file: FileId,
-) -> Vec<Diagnostic> {
+fn rule_08_adoption_end_before_start(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for p in resolved.persons_in(file) {
         for adoption in &p.adoptions {
@@ -341,7 +330,7 @@ pub fn rule_08_adoption_end_before_start(
 }
 
 /// R09 — `marriage.start < S.born` for either spouse `S`.
-pub fn rule_09_marriage_before_spouse_born(
+fn rule_09_marriage_before_spouse_born(
     resolved: &ResolvedDocument,
     file: FileId,
 ) -> Vec<Diagnostic> {
@@ -372,7 +361,7 @@ pub fn rule_09_marriage_before_spouse_born(
 }
 
 /// R10 — `marriage.start > S.died` for either spouse `S`.
-pub fn rule_10_spouse_died_before_marriage(
+fn rule_10_spouse_died_before_marriage(
     resolved: &ResolvedDocument,
     file: FileId,
 ) -> Vec<Diagnostic> {
@@ -403,7 +392,7 @@ pub fn rule_10_spouse_died_before_marriage(
 }
 
 /// R11 — bio child born before either bio parent.
-pub fn rule_11_bio_child_born_before_parent(
+fn rule_11_bio_child_born_before_parent(
     resolved: &ResolvedDocument,
     file: FileId,
 ) -> Vec<Diagnostic> {
@@ -438,7 +427,7 @@ pub fn rule_11_bio_child_born_before_parent(
 }
 
 /// R12 — `adoption.start < P.born` for either adoptive parent `P`.
-pub fn rule_12_adoption_before_adopter_born(
+fn rule_12_adoption_before_adopter_born(
     resolved: &ResolvedDocument,
     file: FileId,
 ) -> Vec<Diagnostic> {
@@ -523,7 +512,7 @@ fn temporal_violation(
 /// R14 — a polygamy hub (≥2 un-ended marriages) must be the host
 /// (first-listed spouse) in every one of those marriages. Fires once per
 /// offending marriage where the hub is the joining spouse. ADR-0020.
-pub fn rule_14_polygamy_hub_must_host(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+fn rule_14_polygamy_hub_must_host(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut un_ended_count: std::collections::HashMap<&str, usize> =
         std::collections::HashMap::new();
     for m in resolved.marriages() {
@@ -607,33 +596,18 @@ fn polygamy_hub_diagnostic(
 /// repeated field silently discards later values; each repeat is an
 /// error. Anchors at the duplicate occurrence's field name; a
 /// related-span points to the first occurrence.
-pub fn rule_15_duplicate_field(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
+fn rule_15_duplicate_field(resolved: &ResolvedDocument, file: FileId) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for stmt in resolved.statements_in(file) {
         match stmt {
             Statement::Person(p) => {
-                duplicate_fields(
-                    file,
-                    p.fields.iter().map(|f| (f.kind.field_name(), f.name_span)),
-                    &mut out,
-                );
+                duplicate_fields(file, p.field_name_spans(), &mut out);
                 for adoption in &p.adoptions {
-                    duplicate_fields(
-                        file,
-                        adoption
-                            .fields
-                            .iter()
-                            .map(|f| (f.kind.field_name(), f.name_span)),
-                        &mut out,
-                    );
+                    duplicate_fields(file, adoption.field_name_spans(), &mut out);
                 }
             }
             Statement::Marriage(m) => {
-                duplicate_fields(
-                    file,
-                    m.fields.iter().map(|f| (f.kind.field_name(), f.name_span)),
-                    &mut out,
-                );
+                duplicate_fields(file, m.field_name_spans(), &mut out);
             }
         }
     }
@@ -674,7 +648,7 @@ fn duplicate_fields(
 /// R13 — no person may appear as their own ancestor in the parent graph
 /// (bio ∪ adoptive). Cross-file cycles report as a single cycle with
 /// per-link related-spans (ADR-0015).
-pub fn rule_13_parenthood_cycles(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
+fn rule_13_parenthood_cycles(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for cycle in crate::cycles::find_cycles(resolved) {
         let head = *cycle
