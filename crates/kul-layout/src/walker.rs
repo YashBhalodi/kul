@@ -14,12 +14,12 @@
 
 /// One node in the layout tree. Flat-indexed representation: child
 /// indices reference positions in the same `Vec<InputNode>`.
-#[derive(Debug, Clone)]
-pub struct InputNode {
+#[derive(Debug, Clone, Copy)]
+pub struct InputNode<'a> {
     /// Walker positions the node's *center*; width contributes the
     /// left and right contour points.
     pub width: f64,
-    pub children: Vec<usize>,
+    pub children: &'a [usize],
 }
 
 /// Per-node result after [`run`]. The caller derives the cluster's
@@ -32,7 +32,7 @@ pub struct LaidOut {
 /// Run Walker's algorithm over `nodes` rooted at `roots`, separated by
 /// `sibling_gap`. Multiple roots are treated as siblings under a virtual
 /// super-root.
-pub fn run(nodes: &[InputNode], roots: &[usize], sibling_gap: f64) -> Vec<LaidOut> {
+pub fn run(nodes: &[InputNode<'_>], roots: &[usize], sibling_gap: f64) -> Vec<LaidOut> {
     let n = nodes.len();
     if n == 0 || roots.is_empty() {
         return Vec::new();
@@ -42,7 +42,7 @@ pub fn run(nodes: &[InputNode], roots: &[usize], sibling_gap: f64) -> Vec<LaidOu
             parent: None,
             number: 0,
             width: nodes[i].width,
-            children: nodes[i].children.as_slice(),
+            children: nodes[i].children,
             prelim: 0.0,
             modifier: 0.0,
             thread: None,
@@ -306,14 +306,14 @@ mod tests {
     //! example corpus doesn't exercise sibling-subtree overlap.
     use super::*;
 
-    fn leaf(width: f64) -> InputNode {
+    fn leaf(width: f64) -> InputNode<'static> {
         InputNode {
             width,
-            children: Vec::new(),
+            children: &[],
         }
     }
 
-    fn branch(width: f64, children: Vec<usize>) -> InputNode {
+    fn branch<'a>(width: f64, children: &'a [usize]) -> InputNode<'a> {
         InputNode { width, children }
     }
 
@@ -329,7 +329,8 @@ mod tests {
         //     0 (parent, w 30)
         //    / \
         //   1   2 (leaves, w 40)
-        let nodes = vec![branch(30.0, vec![1, 2]), leaf(40.0), leaf(40.0)];
+        let kids = [1usize, 2];
+        let nodes = vec![branch(30.0, &kids), leaf(40.0), leaf(40.0)];
         let positions = run(&nodes, &[0], 20.0);
         assert_eq!(positions[0].x, 50.0);
         assert_eq!(positions[1].x, 20.0);
@@ -346,10 +347,13 @@ mod tests {
         //       1   2 (w 30 each)
         //      /|   |\
         //     3 4   5 6 (w 40 each)
+        let root_kids = [1usize, 2];
+        let left_kids = [3usize, 4];
+        let right_kids = [5usize, 6];
         let nodes = vec![
-            branch(30.0, vec![1, 2]),
-            branch(30.0, vec![3, 4]),
-            branch(30.0, vec![5, 6]),
+            branch(30.0, &root_kids),
+            branch(30.0, &left_kids),
+            branch(30.0, &right_kids),
             leaf(40.0),
             leaf(40.0),
             leaf(40.0),
@@ -369,10 +373,13 @@ mod tests {
     /// sole child.
     #[test]
     fn single_child_path_aligns_centers() {
+        let c0 = [1usize];
+        let c1 = [2usize];
+        let c2 = [3usize];
         let nodes = vec![
-            branch(40.0, vec![1]),
-            branch(40.0, vec![2]),
-            branch(40.0, vec![3]),
+            branch(40.0, &c0),
+            branch(40.0, &c1),
+            branch(40.0, &c2),
             leaf(40.0),
         ];
         let positions = run(&nodes, &[0], 16.0);

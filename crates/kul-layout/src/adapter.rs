@@ -38,8 +38,8 @@ pub(crate) fn lay_out(success: &SuccessRender, config: &LayoutConfig) -> Positio
 }
 
 /// A virtual layout node Walker positions. Each `Node` is one cluster.
-struct Node {
-    kind: NodeKind,
+struct Node<'a> {
+    kind: NodeKind<'a>,
     width: f64,
     /// Canvas row (0.0 = top). A direct function of data-level
     /// generation per ADR-0018: a card sits at `row_top(generation)`, a
@@ -54,50 +54,42 @@ struct Node {
     children: Vec<usize>,
 }
 
-enum NodeKind {
+enum NodeKind<'a> {
     /// Monogamy host: card + marriage edge + joining card on a single
     /// row (`hosted_marriages.len() == 1`).
     PersonHost {
-        card: Box<PersonCard>,
-        hosted: Vec<HostedMarriage>,
+        card: &'a PersonCard,
+        hosted: Vec<HostedMarriage<'a>>,
     },
     /// Polygamy fan hub (ADR-0020). A single walker leaf whose width
     /// reserves the full wing-to-wing extent. Co-spouses and children
     /// forests are positioned by [`Builder::finish`] from the precomputed
     /// hub-local geometry in `marriages`.
     PolygamyHub {
-        card: Box<PersonCard>,
+        card: &'a PersonCard,
         /// Hub centre in the fan's local x frame; positions project via
         /// `global_hub_x - hub_cx`.
         hub_cx: f64,
-        marriages: Vec<FanMarriage>,
+        marriages: Vec<FanMarriage<'a>>,
     },
     PersonLeaf {
-        card: Box<PersonCard>,
+        card: &'a PersonCard,
     },
     Orphan {
-        card: Box<CardSlot>,
+        card: &'a CardSlot,
     },
 }
 
-struct HostedMarriage {
-    bar: MarriageBar,
-    joining_slot: CardSlot,
+struct HostedMarriage<'a> {
+    bar: &'a MarriageBar,
 }
 
 /// One marriage of a polygamy hub, fan geometry precomputed in the
 /// hub-local x frame (ADR-0020). R14 guarantees every polygamy marriage
-/// is un-ended, but `end` / `end_reason` / `is_ended` are carried so the
-/// marriage edge plumbs every declared property uniformly (ADR-0021).
-struct FanMarriage {
-    marriage_id: String,
-    host_id: String,
-    joining_id: String,
-    joining_slot: CardSlot,
-    start: Option<String>,
-    end: Option<String>,
-    end_reason: Option<String>,
-    is_ended: bool,
+/// is un-ended; marriage-edge properties are read from `bar` at emit
+/// time so every declared property is plumbed uniformly (ADR-0021).
+struct FanMarriage<'a> {
+    bar: &'a MarriageBar,
     /// Co-spouse card centre, hub-local x.
     cospouse_cx: f64,
     /// Marriage-edge midpoint, hub-local x: `(hub_cx + cospouse_cx)/2`.
@@ -110,19 +102,19 @@ struct FanMarriage {
     child_roots: Vec<usize>,
 }
 
-struct Builder<'a> {
-    config: &'a LayoutConfig,
-    nodes: Vec<Node>,
+struct Builder<'cfg, 'src> {
+    config: &'cfg LayoutConfig,
+    nodes: Vec<Node<'src>>,
     roots: Vec<usize>,
     /// node_index → marriage_id for every past-intimacy child-ghost.
     /// Routes the parent-child edge to the local ghost instead of the
     /// distant canonical card (the ghost's load-bearing role as a local
     /// anchor).
-    child_ghost_marriage: std::collections::HashMap<usize, String>,
+    child_ghost_marriage: std::collections::HashMap<usize, &'src str>,
 }
 
-impl<'a> Builder<'a> {
-    fn new(config: &'a LayoutConfig) -> Self {
+impl<'cfg, 'src> Builder<'cfg, 'src> {
+    fn new(config: &'cfg LayoutConfig) -> Self {
         Self {
             config,
             nodes: Vec::new(),
@@ -131,26 +123,24 @@ impl<'a> Builder<'a> {
         }
     }
 
-    fn add_component(&mut self, component: &Component) {
+    fn add_component(&mut self, component: &'src Component) {
         match &component.kind {
             ComponentKind::FamilyTree { root } => {
                 let root_idx = self.build_person_root(root);
                 self.roots.push(root_idx);
             }
             ComponentKind::OrphanPerson { card } => {
-                let orphan = self.push_orphan((**card).clone());
+                let orphan = self.push_orphan(card);
                 self.roots.push(orphan);
             }
         }
     }
 
-    fn push_orphan(&mut self, card: CardSlot) -> usize {
+    fn push_orphan(&mut self, card: &'src CardSlot) -> usize {
         let row = f64::from(card.generation);
         let width = self.config.card_width;
         self.nodes.push(Node {
-            kind: NodeKind::Orphan {
-                card: Box::new(card),
-            },
+            kind: NodeKind::Orphan { card },
             width,
             row,
             children: Vec::new(),
@@ -158,7 +148,7 @@ impl<'a> Builder<'a> {
         self.nodes.len() - 1
     }
 
-    fn build_person_root(&mut self, card: &PersonCard) -> usize {
+    fn build_person_root(&mut self, card: &'src PersonCard) -> usize {
         self.build_person(card, 0.0)
     }
 
@@ -169,14 +159,12 @@ impl<'a> Builder<'a> {
     /// between the hub and its children, so children sit at
     /// `hub.gen + 2` (ADR-0020). The shift propagates rigidly down a
     /// subtree.
-    fn build_person(&mut self, card: &PersonCard, row_shift: f64) -> usize {
+    fn build_person(&mut self, card: &'src PersonCard, row_shift: f64) -> usize {
         let host_row = f64::from(card.slot.generation) + row_shift;
         if card.hosted_marriages.is_empty() {
             let idx = self.nodes.len();
             self.nodes.push(Node {
-                kind: NodeKind::PersonLeaf {
-                    card: Box::new(card.clone()),
-                },
+                kind: NodeKind::PersonLeaf { card },
                 width: self.config.card_width,
                 row: host_row,
                 children: Vec::new(),
@@ -191,27 +179,21 @@ impl<'a> Builder<'a> {
         // Monogamy (N=1): host card, marriage edge, and joining card on
         // a single row at `max(spouses.generation)` (ADR-0018). Children
         // sit at `bar.row + 1`.
-        let hosted: Vec<HostedMarriage> = card
+        let hosted: Vec<HostedMarriage<'src>> = card
             .hosted_marriages
             .iter()
-            .map(|m| HostedMarriage {
-                bar: m.bar.clone(),
-                joining_slot: m.bar.joining_slot.clone(),
-            })
+            .map(|m| HostedMarriage { bar: &m.bar })
             .collect();
         let bar_row = hosted
             .iter()
-            .map(|h| f64::from(h.joining_slot.generation) + row_shift)
+            .map(|h| f64::from(h.bar.joining_slot.generation) + row_shift)
             .fold(host_row, f64::max);
         let per_marriage_extension =
             self.config.bar_gap * 2.0 + self.config.bar_width + self.config.card_width;
         let width = self.config.card_width + per_marriage_extension * hosted.len() as f64;
         let idx = self.nodes.len();
         self.nodes.push(Node {
-            kind: NodeKind::PersonHost {
-                card: Box::new(card.clone()),
-                hosted,
-            },
+            kind: NodeKind::PersonHost { card, hosted },
             width,
             row: bar_row,
             children: Vec::new(),
@@ -228,7 +210,7 @@ impl<'a> Builder<'a> {
                     },
                 ) {
                     self.child_ghost_marriage
-                        .insert(child_idx, marriage.bar.marriage_id.clone());
+                        .insert(child_idx, marriage.bar.marriage_id.as_str());
                 }
                 children.push(child_idx);
             }
@@ -247,11 +229,11 @@ impl<'a> Builder<'a> {
     /// 2. `cospouse_cx_i = 2 * C_i - hub_cx`.
     /// 3. Translate marriage `i`'s forest so its block centre lands on
     ///    `C_i`.
-    fn build_polygamy_fan(&mut self, card: &PersonCard, host_row: f64) -> usize {
+    fn build_polygamy_fan(&mut self, card: &'src PersonCard, host_row: f64) -> usize {
         let hub_idx = self.nodes.len();
         self.nodes.push(Node {
             kind: NodeKind::PolygamyHub {
-                card: Box::new(card.clone()),
+                card,
                 hub_cx: 0.0,
                 marriages: Vec::new(),
             },
@@ -267,19 +249,12 @@ impl<'a> Builder<'a> {
         // is `hub.gen + 1`, so the row_shift is `+1` on top of that.
         let fan_child_shift = 1.0;
 
-        struct PendingMarriage {
-            marriage_id: String,
-            host_id: String,
-            joining_id: String,
-            joining_slot: CardSlot,
-            start: Option<String>,
-            end: Option<String>,
-            end_reason: Option<String>,
-            is_ended: bool,
+        struct PendingMarriage<'b> {
+            bar: &'b MarriageBar,
             child_roots: Vec<usize>,
             children_width: f64,
         }
-        let mut pending: Vec<PendingMarriage> = Vec::new();
+        let mut pending: Vec<PendingMarriage<'src>> = Vec::new();
         for marriage in &card.hosted_marriages {
             let mut child_roots: Vec<usize> = Vec::new();
             for child in &marriage.children {
@@ -291,20 +266,13 @@ impl<'a> Builder<'a> {
                     },
                 ) {
                     self.child_ghost_marriage
-                        .insert(child_idx, marriage.bar.marriage_id.clone());
+                        .insert(child_idx, marriage.bar.marriage_id.as_str());
                 }
                 child_roots.push(child_idx);
             }
             let children_width = self.measure_forest_width(&child_roots);
             pending.push(PendingMarriage {
-                marriage_id: marriage.bar.marriage_id.clone(),
-                host_id: marriage.bar.host_id.clone(),
-                joining_id: marriage.bar.joining_id.clone(),
-                joining_slot: marriage.bar.joining_slot.clone(),
-                start: marriage.bar.start.as_ref().map(fmt_date),
-                end: marriage.bar.end.as_ref().map(fmt_date),
-                end_reason: marriage.bar.end_reason.clone(),
-                is_ended: marriage.bar.ended,
+                bar: &marriage.bar,
                 child_roots,
                 children_width,
             });
@@ -317,10 +285,10 @@ impl<'a> Builder<'a> {
 
         let hub_cx = 0.0_f64;
 
-        let mut marriages: Vec<FanMarriage> = Vec::with_capacity(pending.len());
+        let mut marriages: Vec<FanMarriage<'src>> = Vec::with_capacity(pending.len());
         let mut min_wing = hub_cx;
         let mut max_wing = hub_cx;
-        for (m, &children_center) in pending.iter().zip(&relative) {
+        for (m, children_center) in pending.into_iter().zip(relative) {
             let cospouse_cx = 2.0 * children_center - hub_cx;
             min_wing = min_wing.min(cospouse_cx - cw / 2.0);
             max_wing = max_wing.max(cospouse_cx + cw / 2.0);
@@ -329,17 +297,10 @@ impl<'a> Builder<'a> {
                 max_wing = max_wing.max(children_center + m.children_width / 2.0);
             }
             marriages.push(FanMarriage {
-                marriage_id: m.marriage_id.clone(),
-                host_id: m.host_id.clone(),
-                joining_id: m.joining_id.clone(),
-                joining_slot: m.joining_slot.clone(),
-                start: m.start.clone(),
-                end: m.end.clone(),
-                end_reason: m.end_reason.clone(),
-                is_ended: m.is_ended,
+                bar: m.bar,
                 cospouse_cx,
                 children_center,
-                child_roots: m.child_roots.clone(),
+                child_roots: m.child_roots,
             });
         }
 
@@ -391,11 +352,11 @@ impl<'a> Builder<'a> {
             child_ghost_marriage,
         } = self;
 
-        let walker_input: Vec<InputNode> = nodes
+        let walker_input: Vec<InputNode<'_>> = nodes
             .iter()
             .map(|n| InputNode {
                 width: n.width,
-                children: n.children.clone(),
+                children: n.children.as_slice(),
             })
             .collect();
         let mut positions = walker::run(&walker_input, &roots, config.sibling_gap);
@@ -449,7 +410,7 @@ impl<'a> Builder<'a> {
                         cluster_left,
                         row_top,
                         card,
-                        child_ghost_marriage.get(&i),
+                        child_ghost_marriage.get(&i).copied(),
                     );
                 }
                 NodeKind::Orphan { card, .. } => {
@@ -511,7 +472,7 @@ fn emit_person_host(
     cluster_left: f64,
     row_top: f64,
     card: &PersonCard,
-    hosted: &[HostedMarriage],
+    hosted: &[HostedMarriage<'_>],
 ) {
     let host_x = cluster_left;
     push_card(
@@ -551,7 +512,7 @@ fn emit_person_host(
             &mut emit.card_tops,
             joining_x,
             row_top,
-            &entry.joining_slot,
+            &entry.bar.joining_slot,
             config,
         );
         cursor = joining_x + config.card_width;
@@ -569,7 +530,7 @@ fn emit_polygamy_hub(
     row_top: f64,
     card: &PersonCard,
     hub_cx: f64,
-    marriages: &[FanMarriage],
+    marriages: &[FanMarriage<'_>],
 ) {
     let hub_left = hub_center_abs - config.card_width / 2.0;
     push_card(
@@ -595,21 +556,21 @@ fn emit_polygamy_hub(
             &mut emit.card_tops,
             cospouse_left,
             cospouse_row_top,
-            &marriage.joining_slot,
+            &marriage.bar.joining_slot,
             config,
         );
 
         // hub-bottom → bus → co-spouse top-centre.
         emit.marriage_edges.push(PositionedEdge {
             kind: EdgeKind::Marriage {
-                host_id: marriage.host_id.clone(),
-                joining_id: marriage.joining_id.clone(),
-                start: marriage.start.clone(),
-                end: marriage.end.clone(),
-                end_reason: marriage.end_reason.clone(),
-                is_ended: marriage.is_ended,
+                host_id: marriage.bar.host_id.clone(),
+                joining_id: marriage.bar.joining_id.clone(),
+                start: marriage.bar.start.as_ref().map(fmt_date),
+                end: marriage.bar.end.as_ref().map(fmt_date),
+                end_reason: marriage.bar.end_reason.clone(),
+                is_ended: marriage.bar.ended,
             },
-            marriage_id: marriage.marriage_id.clone(),
+            marriage_id: marriage.bar.marriage_id.clone(),
             points: vec![
                 (hub_center_abs, hub_bottom_y),
                 (hub_center_abs, bus_y),
@@ -623,8 +584,10 @@ fn emit_polygamy_hub(
         // `child_roots` is empty (e.g. an adoption-only child whose
         // canonical_location resolves elsewhere), and `route_edges`
         // requires the anchor for every render edge.
-        emit.bar_centers
-            .insert(marriage.marriage_id.clone(), (children_center_abs, bus_y));
+        emit.bar_centers.insert(
+            marriage.bar.marriage_id.clone(),
+            (children_center_abs, bus_y),
+        );
     }
 }
 
@@ -637,7 +600,7 @@ fn emit_person_leaf(
     cluster_left: f64,
     row_top: f64,
     card: &PersonCard,
-    child_ghost: Option<&String>,
+    child_ghost: Option<&str>,
 ) {
     push_card(
         &mut emit.cards,
@@ -649,7 +612,7 @@ fn emit_person_leaf(
     );
     if let Some(marriage_id) = child_ghost {
         emit.ghost_card_tops.insert(
-            (card.slot.person_id.clone(), marriage_id.clone()),
+            (card.slot.person_id.clone(), marriage_id.to_owned()),
             (cluster_left + config.card_width / 2.0, row_top),
         );
     }
@@ -678,7 +641,7 @@ fn emit_orphan(
 /// positions so each marriage's block centre lands on its prescribed
 /// `children_center`. The hub's reserved width already cleared siblings
 /// of the widest wing.
-fn reposition_polygamy_fans(nodes: &[Node], positions: &mut [walker::LaidOut]) {
+fn reposition_polygamy_fans(nodes: &[Node<'_>], positions: &mut [walker::LaidOut]) {
     for (hub_idx, node) in nodes.iter().enumerate() {
         let NodeKind::PolygamyHub {
             hub_cx, marriages, ..
@@ -705,7 +668,7 @@ fn reposition_polygamy_fans(nodes: &[Node], positions: &mut [walker::LaidOut]) {
 /// Canvas extent `(min_x, max_x, max_gen)` over all positioned nodes.
 /// Co-spouse cards aren't walker nodes — their wing extent is already
 /// covered by the hub's reserved width.
-fn shape_extent(nodes: &[Node], positions: &[walker::LaidOut]) -> (f64, f64, f64) {
+fn shape_extent(nodes: &[Node<'_>], positions: &[walker::LaidOut]) -> (f64, f64, f64) {
     let mut min_x = f64::INFINITY;
     let mut max_x = f64::NEG_INFINITY;
     let mut max_gen: f64 = 0.0;
@@ -736,18 +699,18 @@ fn shape_extent(nodes: &[Node], positions: &[walker::LaidOut]) -> (f64, f64, f64
     (min_x, max_x, max_gen)
 }
 
-fn walker_input(nodes: &[Node]) -> Vec<InputNode> {
+fn walker_input<'a>(nodes: &'a [Node<'_>]) -> Vec<InputNode<'a>> {
     nodes
         .iter()
         .map(|n| InputNode {
             width: n.width,
-            children: n.children.clone(),
+            children: n.children.as_slice(),
         })
         .collect()
 }
 
 /// Bounding x-extent of a forest given a position table.
-fn forest_extent(nodes: &[Node], roots: &[usize], positions: &[walker::LaidOut]) -> (f64, f64) {
+fn forest_extent(nodes: &[Node<'_>], roots: &[usize], positions: &[walker::LaidOut]) -> (f64, f64) {
     let mut min_x = f64::INFINITY;
     let mut max_x = f64::NEG_INFINITY;
     let mut stack: Vec<usize> = roots.to_vec();
@@ -762,7 +725,7 @@ fn forest_extent(nodes: &[Node], roots: &[usize], positions: &[walker::LaidOut])
 
 /// Rigidly shift a forest by `delta` in `positions`.
 fn translate_forest(
-    nodes: &[Node],
+    nodes: &[Node<'_>],
     roots: &[usize],
     positions: &mut [walker::LaidOut],
     delta: f64,
