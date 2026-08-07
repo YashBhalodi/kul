@@ -60,7 +60,7 @@ pub fn format(file: &KulFile) -> String {
 pub fn format_source(source: &str) -> String {
     use crate::span::FileId;
     let tokens = crate::lexer::tokenize(source);
-    let (statements, _) = crate::parser::parse(&tokens, FileId(1));
+    let (statements, _) = crate::parser::parse(tokens, FileId(1));
     let file = KulFile {
         name: String::new(),
         source: Arc::from(source),

@@ -177,7 +177,7 @@ fn build_document(
     for (i, input) in inputs.iter().enumerate() {
         let file = FileId((i + 1) as u32);
         let tokens = lexer::tokenize(&input.source);
-        let (statements, parse_diags) = parser::parse(&tokens, file);
+        let (statements, parse_diags) = parser::parse(tokens, file);
         diagnostics.extend(parse_diags);
         kul_files.push(Arc::new(KulFile::new(
             input.name.clone(),

@@ -597,7 +597,7 @@ mod tests {
     fn resolve_source(source: &str) -> (ResolvedDocument, FileId) {
         let file = FileId(1);
         let tokens = tokenize(source);
-        let (statements, _) = parse(&tokens, file);
+        let (statements, _) = parse(tokens, file);
         let kf = Arc::new(KulFile::new("test.kul", source, statements));
         let document = Arc::new(Document::new("kul.yml", vec![kf]));
         let (resolved, _) = resolve(document);
@@ -690,8 +690,8 @@ mod tests {
         let tokens_b = tokenize(src_b);
         let file_a = FileId(1);
         let file_b = FileId(2);
-        let (stmts_a, _) = parse(&tokens_a, file_a);
-        let (stmts_b, _) = parse(&tokens_b, file_b);
+        let (stmts_a, _) = parse(tokens_a, file_a);
+        let (stmts_b, _) = parse(tokens_b, file_b);
         let document = Arc::new(Document::new(
             "kul.yml",
             vec![
@@ -807,12 +807,12 @@ mod tests {
         let kf1 = Arc::new(KulFile::new(
             "a.kul",
             src1,
-            parse(&tokenize(src1), FileId(1)).0,
+            parse(tokenize(src1), FileId(1)).0,
         ));
         let kf2 = Arc::new(KulFile::new(
             "b.kul",
             src2,
-            parse(&tokenize(src2), FileId(2)).0,
+            parse(tokenize(src2), FileId(2)).0,
         ));
         let doc = Arc::new(Document::new("kul.yml", vec![kf1, kf2]));
         let (_resolved, diags) = resolve(doc);
@@ -832,7 +832,7 @@ mod tests {
         let kf = Arc::new(KulFile::new(
             "a.kul",
             src,
-            parse(&tokenize(src), FileId(1)).0,
+            parse(tokenize(src), FileId(1)).0,
         ));
         let doc = Arc::new(Document::new("kul.yml", vec![kf]));
         let (_resolved, diags) = resolve(doc);
@@ -850,12 +850,12 @@ mod tests {
         let kf1 = Arc::new(KulFile::new(
             "a.kul",
             src1,
-            parse(&tokenize(src1), FileId(1)).0,
+            parse(tokenize(src1), FileId(1)).0,
         ));
         let kf2 = Arc::new(KulFile::new(
             "b.kul",
             src2,
-            parse(&tokenize(src2), FileId(2)).0,
+            parse(tokenize(src2), FileId(2)).0,
         ));
         let doc = Arc::new(Document::new("kul.yml", vec![kf1, kf2]));
         let (resolved, diags) = resolve(doc);
@@ -890,12 +890,12 @@ mod tests {
         let kf1 = Arc::new(KulFile::new(
             "a.kul",
             src1,
-            parse(&tokenize(src1), FileId(1)).0,
+            parse(tokenize(src1), FileId(1)).0,
         ));
         let kf2 = Arc::new(KulFile::new(
             "b.kul",
             src2,
-            parse(&tokenize(src2), FileId(2)).0,
+            parse(tokenize(src2), FileId(2)).0,
         ));
         let doc = Arc::new(Document::new("kul.yml", vec![kf1, kf2]));
         let (resolved, _) = resolve(doc);
