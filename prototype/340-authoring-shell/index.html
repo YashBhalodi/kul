@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype 340 — authoring shell</title>
+  <!--
+    Three variants of the browser authoring shell (shelf + file tree + editor/tree),
+    switchable via ?variant=, throwaway route at /prototype/340-authoring-shell/.
+    PROTOTYPE — not production. In-memory vault only.
+  -->
+  <style>
+    :root { color-scheme: light dark; }
+    html, body { margin: 0; height: 100%; overflow: hidden; }
+    body { font-family: system-ui, sans-serif; }
+    #app { height: 100%; }
+    .proto-banner {
+      position: fixed; top: 8px; left: 8px; z-index: 40; pointer-events: none;
+      font: 11px/1.2 ui-monospace, monospace;
+      background: #111; color: #f5d76e; padding: 4px 8px; letter-spacing: .04em;
+    }
+    #state-dump {
+      position: fixed; left: 8px; bottom: 64px; z-index: 40;
+      max-width: 22rem; max-height: 22vh; overflow: auto;
+      background: #111; color: #9fefac; font: 11px/1.35 ui-monospace, monospace;
+      padding: 8px 10px; white-space: pre; pointer-events: none;
+    }
+    #switcher {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      z-index: 50; display: flex; align-items: center; gap: 10px;
+      background: #111; color: #fff; border-radius: 999px;
+      padding: 8px 14px; box-shadow: 0 8px 24px rgba(0,0,0,.35);
+      font: 13px/1 system-ui, sans-serif;
+    }
+    #switcher button {
+      background: #fff; color: #111; border: 0; width: 28px; height: 28px;
+      border-radius: 50%; cursor: pointer; font-size: 16px;
+    }
+    #switcher strong { min-width: 16rem; text-align: center; font-weight: 600; }
+
+    /* ── A Workbench ── */
+    [data-shell="A"] { display: flex; height: 100%; background: #1c1f24; color: #e8eaed; }
+    [data-shell="A"] .rail {
+      width: 232px; flex: none; display: flex; flex-direction: column;
+      background: #14161a; border-right: 1px solid #2c3138;
+    }
+    [data-shell="A"] .rail h2 {
+      margin: 0; padding: 28px 14px 8px;
+      font: 11px/1.2 ui-monospace, monospace; letter-spacing: .12em;
+      text-transform: uppercase; color: #8b939e;
+    }
+    [data-shell="A"] .rail button, [data-shell="A"] .rail .row {
+      display: block; width: 100%; text-align: left; border: 0; background: transparent;
+      color: inherit; padding: 7px 14px; font: 13px/1.3 system-ui; cursor: pointer;
+    }
+    [data-shell="A"] .rail .row.on, [data-shell="A"] .rail button.on { background: #2a313c; color: #fff; }
+    [data-shell="A"] .rail .new {
+      margin: 8px 14px; width: calc(100% - 28px); border: 1px dashed #4a5462;
+      padding: 6px; color: #c5cdd6;
+    }
+    [data-shell="A"] .stage { flex: 1; display: flex; min-width: 0; }
+    [data-shell="A"] .editor, [data-shell="A"] .tree { min-width: 0; display: flex; flex-direction: column; }
+    [data-shell="A"] .editor { flex: var(--split, 0.52) 1 0; }
+    [data-shell="A"] .tree { flex: calc(1 - var(--split, 0.52)) 1 0; background: #0f1114; }
+    [data-shell="A"] .tab {
+      padding: 8px 12px; font: 12px/1 ui-monospace, monospace; color: #9aa3ad;
+      border-bottom: 1px solid #2c3138;
+    }
+    [data-shell="A"] textarea {
+      flex: 1; resize: none; border: 0; background: #1c1f24; color: #e8eaed;
+      padding: 12px; font: 13px/1.5 ui-monospace, monospace; outline: none;
+    }
+    [data-shell="A"] .gutter { width: 6px; cursor: col-resize; background: #2c3138; }
+    [data-shell="A"] .gutter:hover { background: #5b8def; }
+    [data-shell="A"] .tree-frame { flex: 1; overflow: auto; padding: 16px; }
+    [data-shell="A"] .tree-frame img { display: block; margin: 0 auto; background: #fff; }
+
+    /* ── B Tree stage ── */
+    [data-shell="B"] { height: 100%; display: flex; flex-direction: column; background: #f3eadc; color: #2a2118; }
+    [data-shell="B"] header {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+      padding: 28px 20px 10px; border-bottom: 1px solid #d8cbb8;
+    }
+    [data-shell="B"] header .brand {
+      font: italic 18px/1 Georgia, serif; margin-right: auto;
+    }
+    [data-shell="B"] header button {
+      border: 1px solid #c4b49a; background: #fffaf2; color: inherit;
+      padding: 6px 12px; border-radius: 999px; cursor: pointer; font: 13px/1 Georgia, serif;
+    }
+    [data-shell="B"] header button.on { background: #2a2118; color: #f3eadc; border-color: #2a2118; }
+    [data-shell="B"] .canvas { flex: 1; overflow: auto; padding: 24px; }
+    [data-shell="B"] .canvas img { display: block; margin: 0 auto; background: #fff; box-shadow: 0 8px 30px rgba(60,40,10,.12); }
+    [data-shell="B"] .sheet {
+      height: var(--sheet, 38vh); background: #fffaf2; border-top: 2px solid #2a2118;
+      display: flex; min-height: 120px;
+    }
+    [data-shell="B"] .sheet-gutter { height: 8px; cursor: row-resize; background: #2a2118; }
+    [data-shell="B"] .files {
+      width: 200px; border-right: 1px solid #d8cbb8; overflow: auto; padding: 10px;
+    }
+    [data-shell="B"] .files button {
+      display: block; width: 100%; text-align: left; border: 0; background: transparent;
+      padding: 6px 4px; font: 13px/1.3 Georgia, serif; cursor: pointer; color: inherit;
+    }
+    [data-shell="B"] .files button.on { text-decoration: underline; }
+    [data-shell="B"] .sheet textarea {
+      flex: 1; border: 0; resize: none; padding: 14px;
+      font: 14px/1.5 ui-monospace, monospace; background: transparent; outline: none;
+    }
+
+    /* ── C Gallery then studio ── */
+    [data-shell="C"] { height: 100%; background: #fafafa; color: #111; }
+    [data-shell="C"] .gallery { height: 100%; overflow: auto; padding: 48px 56px 96px; }
+    [data-shell="C"] .gallery h1 { font: 600 42px/1.1 system-ui; margin: 0 0 8px; letter-spacing: -.03em; }
+    [data-shell="C"] .gallery p { color: #555; margin: 0 0 32px; }
+    [data-shell="C"] .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+    [data-shell="C"] .card, [data-shell="C"] .card-new {
+      border: 1px solid #111; background: #fff; color: #111; min-height: 140px;
+      padding: 20px; cursor: pointer; text-align: left; font: inherit;
+    }
+    [data-shell="C"] .card:hover, [data-shell="C"] .card-new:hover { background: #111; color: #fff; }
+    [data-shell="C"] .card b { display: block; font-size: 22px; margin-bottom: 10px; font-weight: 600; }
+    [data-shell="C"] .card small { display: block; font-size: 13px; opacity: .7; }
+    [data-shell="C"] .card-new { border-style: dashed; color: #555; }
+    [data-shell="C"] .studio { height: 100%; display: flex; flex-direction: column; }
+    [data-shell="C"] .studio-bar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 36px 16px 10px; border-bottom: 1px solid #111;
+    }
+    [data-shell="C"] .studio-bar .back { border: 0; background: none; cursor: pointer; font: 13px/1 system-ui; text-decoration: underline; }
+    [data-shell="C"] .studio-bar h1 { font: 600 16px/1 system-ui; margin: 0 auto 0 0; }
+    [data-shell="C"] .tabs { display: flex; gap: 0; border-bottom: 1px solid #ddd; padding: 0 16px; }
+    [data-shell="C"] .tabs button {
+      border: 0; background: none; padding: 10px 14px; cursor: pointer; font: 13px/1 system-ui;
+      border-bottom: 2px solid transparent;
+    }
+    [data-shell="C"] .tabs button.on { border-bottom-color: #111; font-weight: 600; }
+    [data-shell="C"] .studio-split { flex: 1; display: flex; min-height: 0; }
+    [data-shell="C"] .studio-split .editor { flex: var(--split, 0.52) 1 0; display: flex; flex-direction: column; min-width: 0; }
+    [data-shell="C"] .studio-split textarea {
+      flex: 1; border: 0; resize: none; padding: 16px;
+      font: 13px/1.5 ui-monospace, monospace; outline: none;
+    }
+    [data-shell="C"] .studio-gutter { width: 5px; cursor: col-resize; background: #111; }
+    [data-shell="C"] .studio-split .tree { flex: calc(1 - var(--split, 0.52)) 1 0; overflow: auto; background: #fff; min-width: 0; }
+    [data-shell="C"] .studio-split .tree img { display: block; margin: 24px auto; }
+
+    .empty { padding: 24px; color: #888; font: 13px/1.4 system-ui; }
+  </style>
+</head>
+<body>
+  <div class="proto-banner">PROTOTYPE 340 — throwaway</div>
+  <pre id="state-dump"></pre>
+  <div id="app"></div>
+  <div id="switcher">
+    <button type="button" data-dir="-1" aria-label="Previous variant">←</button>
+    <strong id="switcher-label"></strong>
+    <button type="button" data-dir="1" aria-label="Next variant">→</button>
+  </div>
+  <script>
+    const VARIANTS = {
+      A: "A — Workbench",
+      B: "B — Tree stage",
+      C: "C — Gallery then studio",
+    };
+
+    const BLANK_KUL = `person someone name:"Someone" gender:other\n`;
+    const BLANK_YML = `kul: "0.1"\n`;
+
+    const SEEDS = [
+      {
+        id: "tanaka",
+        name: "Tanaka",
+        dir: "/examples/01-nuclear-family",
+        files: ["kul.yml", "nuclear-family.kul"],
+        tree: "/examples/01-nuclear-family/tree.svg",
+      },
+      {
+        id: "fernandez",
+        name: "Fernández",
+        dir: "/examples/08-multi-file-project",
+        files: ["kul.yml", "01-founders.kul", "02-children.kul", "03-grandchildren.kul"],
+        tree: "/examples/08-multi-file-project/tree.svg",
+      },
+    ];
+
+    const state = {
+      projects: [],
+      openProjectId: null,
+      openFile: null,
+      split: 0.52,
+      sheet: 0.36,
+      screen: "gallery",
+    };
+
+    function variant() {
+      const v = new URLSearchParams(location.search).get("variant") || "A";
+      return VARIANTS[v] ? v : "A";
+    }
+
+    function setVariant(next) {
+      const url = new URL(location.href);
+      url.searchParams.set("variant", next);
+      history.replaceState(null, "", url);
+      render();
+    }
+
+    function dump() {
+      const open = state.projects.find((p) => p.id === state.openProjectId);
+      document.getElementById("state-dump").textContent = JSON.stringify({
+        variant: variant(),
+        shelf: state.projects.map((p) => p.id),
+        openProjectId: state.openProjectId,
+        openFile: state.openFile,
+        files: open ? Object.keys(open.files) : [],
+        split: Number(state.split.toFixed(2)),
+        sheet: Number(state.sheet.toFixed(2)),
+        screen: state.screen,
+      }, null, 2);
+    }
+
+    function openProject(id) {
+      const p = state.projects.find((x) => x.id === id);
+      if (!p) return;
+      state.openProjectId = id;
+      state.screen = "studio";
+      const names = Object.keys(p.files);
+      state.openFile = names.find((n) => n.endsWith(".kul")) || names[0] || null;
+      render();
+    }
+
+    function openFile(name) {
+      state.openFile = name;
+      render();
+    }
+
+    function createProject() {
+      const n = state.projects.filter((p) => p.id.startsWith("untitled")).length + 1;
+      const id = `untitled-${n}`;
+      state.projects.push({
+        id,
+        name: `Untitled ${n}`,
+        files: { "kul.yml": BLANK_YML, "family.kul": BLANK_KUL },
+        tree: null,
+      });
+      openProject(id);
+    }
+
+    function writeFile(value) {
+      const p = state.projects.find((x) => x.id === state.openProjectId);
+      if (!p || !state.openFile) return;
+      p.files[state.openFile] = value;
+      dump();
+    }
+
+    function fileNames(p) {
+      return Object.keys(p.files).sort((a, b) => {
+        if (a === "kul.yml") return -1;
+        if (b === "kul.yml") return 1;
+        return a.localeCompare(b);
+      });
+    }
+
+    function treeHtml(p) {
+      if (!p || !p.tree) return `<div class="empty">No tree in this prototype — new Kul projects have no committed SVG.</div>`;
+      return `<img alt="Kinship tree for ${p.name}" src="${p.tree}" />`;
+    }
+
+    function editorValue(p) {
+      if (!p || !state.openFile) return "";
+      return p.files[state.openFile] ?? "";
+    }
+
+    function bindEditor(root) {
+      const ta = root.querySelector("textarea");
+      if (ta) ta.addEventListener("input", (e) => writeFile(e.target.value));
+    }
+
+    function bindColSplit(gutter, getPane) {
+      gutter.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        const pane = getPane();
+        const startX = e.clientX;
+        const start = state.split;
+        const width = pane.getBoundingClientRect().width;
+        const move = (ev) => {
+          state.split = Math.min(0.8, Math.max(0.2, start + (ev.clientX - startX) / width));
+          pane.style.setProperty("--split", String(state.split));
+          dump();
+        };
+        const up = () => {
+          window.removeEventListener("mousemove", move);
+          window.removeEventListener("mouseup", up);
+          render();
+        };
+        window.addEventListener("mousemove", move);
+        window.addEventListener("mouseup", up);
+      });
+    }
+
+    function renderA() {
+      const p = state.projects.find((x) => x.id === state.openProjectId);
+      const app = document.getElementById("app");
+      app.innerHTML = `
+        <div data-shell="A" style="--split:${state.split}">
+          <aside class="rail">
+            <h2>Shelf</h2>
+            ${state.projects.map((proj) =>
+              `<button type="button" class="row ${proj.id === state.openProjectId ? "on" : ""}" data-open="${proj.id}">${proj.name}</button>`
+            ).join("")}
+            <button type="button" class="new" data-create>New Kul project</button>
+            <h2>Files</h2>
+            ${p ? fileNames(p).map((f) =>
+              `<button type="button" class="row ${f === state.openFile ? "on" : ""}" data-file="${f}">${f}</button>`
+            ).join("") : `<div class="empty">Open a Kul project.</div>`}
+          </aside>
+          <div class="stage">
+            <section class="editor">
+              <div class="tab">${state.openFile ?? "—"}</div>
+              <textarea spellcheck="false">${escapeHtml(editorValue(p))}</textarea>
+            </section>
+            <div class="gutter" data-gutter></div>
+            <section class="tree">
+              <div class="tab">tree</div>
+              <div class="tree-frame">${treeHtml(p)}</div>
+            </section>
+          </div>
+        </div>`;
+      bindEditor(app);
+      app.querySelectorAll("[data-open]").forEach((el) => el.addEventListener("click", () => openProject(el.dataset.open)));
+      app.querySelectorAll("[data-file]").forEach((el) => el.addEventListener("click", () => openFile(el.dataset.file)));
+      app.querySelector("[data-create]").addEventListener("click", createProject);
+      bindColSplit(app.querySelector("[data-gutter]"), () => app.querySelector(".stage"));
+    }
+
+    function renderB() {
+      const p = state.projects.find((x) => x.id === state.openProjectId);
+      const app = document.getElementById("app");
+      app.innerHTML = `
+        <div data-shell="B" style="--sheet:${Math.round(state.sheet * 100)}vh">
+          <header>
+            <div class="brand">Kul</div>
+            ${state.projects.map((proj) =>
+              `<button type="button" class="${proj.id === state.openProjectId ? "on" : ""}" data-open="${proj.id}">${proj.name}</button>`
+            ).join("")}
+            <button type="button" data-create>New</button>
+          </header>
+          <div class="canvas">${treeHtml(p)}</div>
+          <div class="sheet-gutter" data-sheet-gutter></div>
+          <div class="sheet">
+            <div class="files">
+              ${p ? fileNames(p).map((f) =>
+                `<button type="button" class="${f === state.openFile ? "on" : ""}" data-file="${f}">${f}</button>`
+              ).join("") : ""}
+            </div>
+            <textarea spellcheck="false">${escapeHtml(editorValue(p))}</textarea>
+          </div>
+        </div>`;
+      bindEditor(app);
+      app.querySelectorAll("[data-open]").forEach((el) => el.addEventListener("click", () => openProject(el.dataset.open)));
+      app.querySelectorAll("[data-file]").forEach((el) => el.addEventListener("click", () => openFile(el.dataset.file)));
+      app.querySelector("[data-create]").addEventListener("click", createProject);
+      app.querySelector("[data-sheet-gutter]").addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        const startY = e.clientY;
+        const start = state.sheet;
+        const h = window.innerHeight;
+        const move = (ev) => {
+          state.sheet = Math.min(0.7, Math.max(0.18, start + (startY - ev.clientY) / h));
+          app.querySelector("[data-shell]").style.setProperty("--sheet", `${Math.round(state.sheet * 100)}vh`);
+          dump();
+        };
+        const up = () => {
+          window.removeEventListener("mousemove", move);
+          window.removeEventListener("mouseup", up);
+        };
+        window.addEventListener("mousemove", move);
+        window.addEventListener("mouseup", up);
+      });
+    }
+
+    function renderC() {
+      const p = state.projects.find((x) => x.id === state.openProjectId);
+      const app = document.getElementById("app");
+      if (state.screen !== "studio") {
+        app.innerHTML = `
+          <div data-shell="C">
+            <div class="gallery">
+              <h1>Shelf</h1>
+              <p>One Kul project at a time. The vault is fake — in memory only.</p>
+              <div class="cards">
+                ${state.projects.map((proj) =>
+                  `<button type="button" class="card" data-open="${proj.id}"><b>${proj.name}</b><small>${Object.keys(proj.files).length} files</small></button>`
+                ).join("")}
+                <button type="button" class="card-new" data-create>New Kul project</button>
+              </div>
+            </div>
+          </div>`;
+        app.querySelectorAll("[data-open]").forEach((el) => el.addEventListener("click", () => openProject(el.dataset.open)));
+        app.querySelector("[data-create]").addEventListener("click", createProject);
+        return;
+      }
+      app.innerHTML = `
+        <div data-shell="C">
+          <div class="studio">
+            <div class="studio-bar">
+              <button type="button" class="back" data-back>← Shelf</button>
+              <h1>${p ? p.name : ""}</h1>
+            </div>
+            <div class="tabs">
+              ${p ? fileNames(p).map((f) =>
+                `<button type="button" class="${f === state.openFile ? "on" : ""}" data-file="${f}">${f}</button>`
+              ).join("") : ""}
+            </div>
+            <div class="studio-split" style="--split:${state.split}">
+              <section class="editor">
+                <textarea spellcheck="false">${escapeHtml(editorValue(p))}</textarea>
+              </section>
+              <div class="studio-gutter" data-gutter></div>
+              <section class="tree">${treeHtml(p)}</section>
+            </div>
+          </div>
+        </div>`;
+      bindEditor(app);
+      app.querySelector("[data-back]").addEventListener("click", () => { state.screen = "gallery"; render(); });
+      app.querySelectorAll("[data-file]").forEach((el) => el.addEventListener("click", () => openFile(el.dataset.file)));
+      bindColSplit(app.querySelector("[data-gutter]"), () => app.querySelector(".studio-split"));
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    function render() {
+      const v = variant();
+      document.getElementById("switcher-label").textContent = VARIANTS[v];
+      if (v === "A") renderA();
+      else if (v === "B") renderB();
+      else renderC();
+      dump();
+    }
+
+    async function loadSeeds() {
+      const projects = [];
+      for (const seed of SEEDS) {
+        const files = {};
+        for (const name of seed.files) {
+          const res = await fetch(`${seed.dir}/${name}`);
+          files[name] = res.ok ? await res.text() : `# missing ${name}\n`;
+        }
+        projects.push({ id: seed.id, name: seed.name, files, tree: seed.tree });
+      }
+      state.projects = projects;
+      const first = projects[0];
+      state.openProjectId = first.id;
+      state.openFile = Object.keys(first.files).find((n) => n.endsWith(".kul")) || "kul.yml";
+      state.screen = "gallery";
+      render();
+    }
+
+    document.getElementById("switcher").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-dir]");
+      if (!btn) return;
+      const keys = Object.keys(VARIANTS);
+      const i = keys.indexOf(variant());
+      const next = keys[(i + Number(btn.dataset.dir) + keys.length) % keys.length];
+      setVariant(next);
+    });
+
+    window.addEventListener("keydown", (e) => {
+      const t = e.target;
+      if (t && (t.tagName === "TEXTAREA" || t.tagName === "INPUT" || t.isContentEditable)) return;
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const keys = Object.keys(VARIANTS);
+      const i = keys.indexOf(variant());
+      setVariant(keys[(i + (e.key === "ArrowRight" ? 1 : -1) + keys.length) % keys.length]);
+    });
+
+    loadSeeds();
+  </script>
+</body>
+</html>

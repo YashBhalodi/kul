@@ -81,3 +81,9 @@ wasm:
 # optimized LSP build; defaults to debug.
 vscode mode="debug":
     editor/vscode/scripts/dev-install.sh {{mode}}
+
+# Throwaway — prototype 340 authoring-shell variants. Do not merge to main.
+# Serves the repo root so the prototype can fetch examples/*/tree.svg.
+prototype-340:
+    @echo "http://localhost:3400/prototype/340-authoring-shell/?variant=A"
+    python3 -m http.server 3400
