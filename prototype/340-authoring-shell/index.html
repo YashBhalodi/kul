@@ -6,8 +6,9 @@
   <title>Prototype 340 — authoring shell</title>
   <!--
     Two variants of the browser authoring shell, switchable via ?variant=.
-    B (tree stage) was discarded. Workbench has two independently collapsible
-    left rails: Shelf and Files.
+    B (tree stage) was discarded. Right pane is always the kinship tree.
+    Left pane is file explorer + editor, each independently collapsible.
+    Workbench adds a Shelf rail beside that left pane.
     PROTOTYPE — not production. In-memory vault only.
   -->
   <style>
@@ -52,6 +53,7 @@
 
     /* ── A Workbench ── */
     [data-shell="A"] { display: flex; height: 100%; background: var(--surface); }
+    [data-shell="A"] .work-cols { flex: 1; display: flex; min-width: 0; min-height: 0; }
     .rail {
       flex: none; width: 220px; display: flex; flex-direction: column;
       background: var(--raised); border-right: 1px solid var(--line); min-width: 0;
@@ -81,22 +83,30 @@
       margin: 8px; width: calc(100% - 16px); border: 1px dashed var(--line-strong); color: var(--muted);
     }
     .rail .new:hover { border-color: var(--accent); color: var(--accent); }
-    [data-shell="A"] .stage { flex: 1; display: flex; min-width: 0; }
-    [data-shell="A"] .editor, [data-shell="A"] .tree { min-width: 0; display: flex; flex-direction: column; }
-    [data-shell="A"] .editor { flex: var(--split, 0.52) 1 0; background: var(--raised); }
-    [data-shell="A"] .tree { flex: calc(1 - var(--split, 0.52)) 1 0; background: var(--raised); }
-    .tab {
-      padding: 10px 14px; font: 12px/1 var(--mono); color: var(--muted);
-      border-bottom: 1px solid var(--line); background: var(--surface);
+    .left-pane {
+      display: flex; min-width: 0; min-height: 0;
+      flex: 0 0 calc(var(--split, 0.52) * 100%);
     }
-    [data-shell="A"] textarea {
+    .left-pane.no-editor { flex: none; width: auto; }
+    .tree-pane {
+      flex: 1 1 0; min-width: 0; overflow: auto; background: var(--raised);
+    }
+    .tree-pane img { display: block; margin: 24px auto; }
+    .editor-pane {
+      flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
+      background: var(--raised); border-right: 1px solid var(--line);
+    }
+    .editor-pane.collapsed { flex: 0 0 40px; width: 40px; }
+    .editor-pane.collapsed .body { display: none; }
+    .editor-pane.collapsed .rail-title { display: none; }
+    .editor-pane.collapsed .rail-head { justify-content: center; padding: 10px 0; }
+    .editor-pane .body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .editor-pane textarea {
       flex: 1; resize: none; border: 0; background: var(--raised); color: var(--ink);
       padding: 14px 16px; font: 13px/1.55 var(--mono); outline: none;
     }
-    [data-shell="A"] .gutter { width: 5px; cursor: col-resize; background: var(--line); }
-    [data-shell="A"] .gutter:hover { background: var(--accent); }
-    [data-shell="A"] .tree-frame { flex: 1; overflow: auto; padding: 20px; background: var(--raised); }
-    [data-shell="A"] .tree-frame img { display: block; margin: 0 auto; }
+    .gutter { width: 5px; cursor: col-resize; background: var(--line); flex: none; }
+    .gutter:hover { background: var(--accent); }
 
     /* ── C Gallery then studio ── */
     [data-shell="C"] { height: 100%; background: var(--surface); color: var(--ink); }
@@ -128,16 +138,6 @@
     [data-shell="C"] .studio-bar h1 { font: 600 16px/1 var(--font); margin: 0 12px 0 0; font-style: normal; }
     [data-shell="C"] .studio-bar .count { color: var(--muted); font: 12px/1 var(--mono); margin-right: auto; }
     [data-shell="C"] .studio-body { flex: 1; display: flex; min-height: 0; }
-    [data-shell="C"] .studio-split { flex: 1; display: flex; min-height: 0; }
-    [data-shell="C"] .studio-split .editor { flex: var(--split, 0.52) 1 0; display: flex; flex-direction: column; min-width: 0; background: var(--raised); }
-    [data-shell="C"] .studio-split textarea {
-      flex: 1; border: 0; resize: none; padding: 16px;
-      font: 13px/1.55 var(--mono); outline: none; background: var(--raised); color: var(--ink);
-    }
-    [data-shell="C"] .studio-gutter { width: 5px; cursor: col-resize; background: var(--line); }
-    [data-shell="C"] .studio-gutter:hover { background: var(--accent); }
-    [data-shell="C"] .studio-split .tree { flex: calc(1 - var(--split, 0.52)) 1 0; overflow: auto; background: var(--raised); min-width: 0; }
-    [data-shell="C"] .studio-split .tree img { display: block; margin: 24px auto; }
 
     .empty { padding: 16px; color: var(--muted); font: 13px/1.4 var(--font); }
   </style>
@@ -226,6 +226,7 @@
       screen: "gallery",
       shelfOpen: true,
       filesOpen: true,
+      editorOpen: true,
     };
 
     function variant() {
@@ -253,6 +254,7 @@
         screen: state.screen,
         shelfOpen: state.shelfOpen,
         filesOpen: state.filesOpen,
+        editorOpen: state.editorOpen,
       }, null, 2);
     }
 
@@ -350,6 +352,42 @@
         </aside>`;
     }
 
+    function editorPane(p) {
+      const open = state.editorOpen;
+      const title = state.openFile ?? "Editor";
+      const action = open ? "Collapse" : "Expand";
+      return `
+        <section class="editor-pane ${open ? "" : "collapsed"}">
+          <button type="button" class="rail-head" data-toggle="editor" aria-expanded="${open}" aria-label="${action} editor">
+            <span class="rail-title">${title}</span>
+            ${SIDEBAR_ICON}
+          </button>
+          <div class="body">
+            <textarea spellcheck="false">${escapeHtml(editorValue(p))}</textarea>
+          </div>
+        </section>`;
+    }
+
+    function bindToggles(root) {
+      root.querySelectorAll("[data-toggle]").forEach((el) => {
+        el.addEventListener("click", () => {
+          const key = el.dataset.toggle;
+          if (key === "shelf") state.shelfOpen = !state.shelfOpen;
+          else if (key === "files") state.filesOpen = !state.filesOpen;
+          else if (key === "editor") state.editorOpen = !state.editorOpen;
+          render();
+        });
+      });
+    }
+
+    function filesBody(p) {
+      return p
+        ? fileNames(p).map((f) =>
+            `<button type="button" class="row ${f === state.openFile ? "on" : ""}" data-file="${f}">${f}</button>`
+          ).join("")
+        : `<div class="empty">Open a Kul project.</div>`;
+    }
+
     function renderA() {
       const p = state.projects.find((x) => x.id === state.openProjectId);
       const app = document.getElementById("app");
@@ -358,25 +396,16 @@
           `<button type="button" class="row ${proj.id === state.openProjectId ? "on" : ""}" data-open="${proj.id}">${proj.name}</button>`
         ).join("")}
         <button type="button" class="new" data-create>New Kul project</button>`;
-      const filesBody = p
-        ? fileNames(p).map((f) =>
-            `<button type="button" class="row ${f === state.openFile ? "on" : ""}" data-file="${f}">${f}</button>`
-          ).join("")
-        : `<div class="empty">Open a Kul project.</div>`;
       app.innerHTML = `
         <div data-shell="A">
           ${rail("shelf", "Shelf", shelfBody)}
-          ${rail("files", "Files", filesBody)}
-          <div class="stage" style="--split:${state.split}">
-            <section class="editor">
-              <div class="tab">${state.openFile ?? "—"}</div>
-              <textarea spellcheck="false">${escapeHtml(editorValue(p))}</textarea>
-            </section>
+          <div class="work-cols" style="--split:${state.split}">
+            <div class="left-pane ${state.editorOpen ? "" : "no-editor"}">
+              ${rail("files", "Files", filesBody(p))}
+              ${editorPane(p)}
+            </div>
             <div class="gutter" data-gutter></div>
-            <section class="tree">
-              <div class="tab">tree</div>
-              <div class="tree-frame">${treeHtml(p)}</div>
-            </section>
+            <section class="tree-pane">${treeHtml(p)}</section>
           </div>
         </div>`;
       bindEditor(app);
@@ -384,14 +413,8 @@
       app.querySelectorAll("[data-file]").forEach((el) => el.addEventListener("click", () => openFile(el.dataset.file)));
       const create = app.querySelector("[data-create]");
       if (create) create.addEventListener("click", createProject);
-      app.querySelectorAll("[data-toggle]").forEach((el) => {
-        el.addEventListener("click", () => {
-          if (el.dataset.toggle === "shelf") state.shelfOpen = !state.shelfOpen;
-          else state.filesOpen = !state.filesOpen;
-          render();
-        });
-      });
-      bindColSplit(app.querySelector("[data-gutter]"), () => app.querySelector(".stage"));
+      bindToggles(app);
+      bindColSplit(app.querySelector("[data-gutter]"), () => app.querySelector(".work-cols"));
     }
 
     function renderC() {
@@ -423,31 +446,21 @@
               <h1>${p ? p.name : ""}</h1>
               <span class="count">${p ? kulLabel(p) : ""}</span>
             </div>
-            <div class="studio-body">
-              ${rail("files", "Files", p
-                ? fileNames(p).map((f) =>
-                    `<button type="button" class="row ${f === state.openFile ? "on" : ""}" data-file="${f}">${f}</button>`
-                  ).join("")
-                : `<div class="empty">No files.</div>`)}
-              <div class="studio-split" style="--split:${state.split}">
-                <section class="editor">
-                  <div class="tab">${state.openFile ?? "—"}</div>
-                  <textarea spellcheck="false">${escapeHtml(editorValue(p))}</textarea>
-                </section>
-                <div class="studio-gutter" data-gutter></div>
-                <section class="tree">${treeHtml(p)}</section>
+            <div class="studio-body" style="--split:${state.split}">
+              <div class="left-pane ${state.editorOpen ? "" : "no-editor"}">
+                ${rail("files", "Files", filesBody(p))}
+                ${editorPane(p)}
               </div>
+              <div class="gutter" data-gutter></div>
+              <section class="tree-pane">${treeHtml(p)}</section>
             </div>
           </div>
         </div>`;
       bindEditor(app);
       app.querySelector("[data-back]").addEventListener("click", () => { state.screen = "gallery"; render(); });
       app.querySelectorAll("[data-file]").forEach((el) => el.addEventListener("click", () => openFile(el.dataset.file)));
-      app.querySelector("[data-toggle='files']").addEventListener("click", () => {
-        state.filesOpen = !state.filesOpen;
-        render();
-      });
-      bindColSplit(app.querySelector("[data-gutter]"), () => app.querySelector(".studio-split"));
+      bindToggles(app);
+      bindColSplit(app.querySelector("[data-gutter]"), () => app.querySelector(".studio-body"));
     }
 
     function escapeHtml(s) {
