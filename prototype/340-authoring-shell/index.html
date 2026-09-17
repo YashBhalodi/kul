@@ -5,11 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Prototype 340 — authoring shell</title>
   <!--
-    Two variants of the browser authoring shell, switchable via ?variant=.
-    B (tree stage) was discarded.     Right pane is always the kinship tree, with drag-to-pan and wheel-to-zoom.
-    Left pane is file explorer + editor, each independently collapsible.
-    Workbench adds a Shelf rail beside that left pane.
-    PROTOTYPE — not production. In-memory vault only.
+    Gallery-then-studio authoring shell. A (workbench) and B (tree stage)
+    were discarded. Right pane is always the kinship tree, with drag-to-pan
+    and wheel-to-zoom. Left pane is file explorer + editor, each independently
+    collapsible. PROTOTYPE — not production. In-memory vault only.
   -->
   <style>
     :root {
@@ -33,27 +32,11 @@
       padding: 4px 8px; letter-spacing: .04em;
     }
     #state-dump {
-      position: fixed; left: 8px; bottom: 64px; z-index: 40;
+      position: fixed; left: 8px; bottom: 16px; z-index: 40;
       max-width: 20rem; max-height: 18vh; overflow: auto;
       background: var(--ink); color: #c8e6c9; font: 11px/1.35 var(--mono);
       padding: 8px 10px; white-space: pre; pointer-events: none; opacity: .88;
     }
-    #switcher {
-      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-      z-index: 50; display: flex; align-items: center; gap: 10px;
-      background: var(--ink); color: var(--raised); border-radius: 999px;
-      padding: 8px 14px; box-shadow: 0 8px 24px rgba(26,26,26,.18);
-      font: 13px/1 var(--font);
-    }
-    #switcher button {
-      background: var(--raised); color: var(--ink); border: 0; width: 28px; height: 28px;
-      border-radius: 50%; cursor: pointer; font-size: 16px;
-    }
-    #switcher strong { min-width: 14rem; text-align: center; font-weight: 600; }
-
-    /* ── A Workbench ── */
-    [data-shell="A"] { display: flex; height: 100%; background: var(--surface); }
-    [data-shell="A"] .work-cols { flex: 1; display: flex; min-width: 0; min-height: 0; }
     .rail {
       flex: none; width: 220px; display: flex; flex-direction: column;
       background: var(--raised); border-right: 1px solid var(--line); min-width: 0;
@@ -79,10 +62,6 @@
     }
     .rail .row.on { background: #e3f2fd; color: var(--accent); }
     .rail .row:hover { background: #eceff1; }
-    .rail .new {
-      margin: 8px; width: calc(100% - 16px); border: 1px dashed var(--line-strong); color: var(--muted);
-    }
-    .rail .new:hover { border-color: var(--accent); color: var(--accent); }
     .left-pane {
       display: flex; min-width: 0; min-height: 0;
       flex: 0 0 calc(var(--split, 0.52) * 100%);
@@ -133,7 +112,7 @@
 
     /* ── C Gallery then studio ── */
     [data-shell="C"] { height: 100%; background: var(--surface); color: var(--ink); }
-    [data-shell="C"] .gallery { height: 100%; overflow: auto; padding: 56px 56px 96px; }
+    [data-shell="C"] .gallery { height: 100%; overflow: auto; padding: 56px; }
     [data-shell="C"] .gallery h1 {
       font: 600 40px/1.1 var(--font); margin: 0 0 8px; letter-spacing: -.03em; font-style: normal;
     }
@@ -169,17 +148,7 @@
   <div class="proto-banner">PROTOTYPE 340 — throwaway</div>
   <pre id="state-dump"></pre>
   <div id="app"></div>
-  <div id="switcher">
-    <button type="button" data-dir="-1" aria-label="Previous variant">←</button>
-    <strong id="switcher-label"></strong>
-    <button type="button" data-dir="1" aria-label="Next variant">→</button>
-  </div>
   <script>
-    const VARIANTS = {
-      A: "A — Workbench",
-      C: "C — Gallery then studio",
-    };
-
     const BLANK_KUL = `person someone name:"Someone" gender:other\n`;
     const BLANK_YML = `kul: "0.1"\n`;
 
@@ -247,36 +216,20 @@
       openFile: null,
       split: 0.52,
       screen: "gallery",
-      shelfOpen: true,
       filesOpen: true,
       editorOpen: true,
       view: { x: 0, y: 0, zoom: 1, fittedFor: null },
     };
 
-    function variant() {
-      const raw = new URLSearchParams(location.search).get("variant") || "A";
-      if (raw === "B") return "A";
-      return VARIANTS[raw] ? raw : "A";
-    }
-
-    function setVariant(next) {
-      const url = new URL(location.href);
-      url.searchParams.set("variant", next);
-      history.replaceState(null, "", url);
-      render();
-    }
-
     function dump() {
       const open = state.projects.find((p) => p.id === state.openProjectId);
       document.getElementById("state-dump").textContent = JSON.stringify({
-        variant: variant(),
         shelf: state.projects.map((p) => p.id),
         openProjectId: state.openProjectId,
         openFile: state.openFile,
         files: open ? Object.keys(open.files) : [],
         split: Number(state.split.toFixed(2)),
         screen: state.screen,
-        shelfOpen: state.shelfOpen,
         filesOpen: state.filesOpen,
         editorOpen: state.editorOpen,
         view: {
@@ -469,7 +422,7 @@
     const SIDEBAR_ICON = `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M9 4.5v15" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>`;
 
     function rail(kind, title, body) {
-      const open = kind === "shelf" ? state.shelfOpen : state.filesOpen;
+      const open = state.filesOpen;
       const action = open ? "Collapse" : "Expand";
       return `
         <aside class="rail ${open ? "" : "collapsed"}" data-rail="${kind}">
@@ -501,8 +454,7 @@
       root.querySelectorAll("[data-toggle]").forEach((el) => {
         el.addEventListener("click", () => {
           const key = el.dataset.toggle;
-          if (key === "shelf") state.shelfOpen = !state.shelfOpen;
-          else if (key === "files") state.filesOpen = !state.filesOpen;
+          if (key === "files") state.filesOpen = !state.filesOpen;
           else if (key === "editor") state.editorOpen = !state.editorOpen;
           render();
         });
@@ -515,36 +467,6 @@
             `<button type="button" class="row ${f === state.openFile ? "on" : ""}" data-file="${f}">${f}</button>`
           ).join("")
         : `<div class="empty">Open a Kul project.</div>`;
-    }
-
-    function renderA() {
-      const p = state.projects.find((x) => x.id === state.openProjectId);
-      const app = document.getElementById("app");
-      const shelfBody = `
-        ${state.projects.map((proj) =>
-          `<button type="button" class="row ${proj.id === state.openProjectId ? "on" : ""}" data-open="${proj.id}">${proj.name}</button>`
-        ).join("")}
-        <button type="button" class="new" data-create>New Kul project</button>`;
-      app.innerHTML = `
-        <div data-shell="A">
-          ${rail("shelf", "Shelf", shelfBody)}
-          <div class="work-cols" style="--split:${state.split}">
-            <div class="left-pane ${state.editorOpen ? "" : "no-editor"}">
-              ${rail("files", "Files", filesBody(p))}
-              ${editorPane(p)}
-            </div>
-            <div class="gutter" data-gutter></div>
-            <section class="tree-pane">${treeHtml(p)}</section>
-          </div>
-        </div>`;
-      bindEditor(app);
-      app.querySelectorAll("[data-open]").forEach((el) => el.addEventListener("click", () => openProject(el.dataset.open)));
-      app.querySelectorAll("[data-file]").forEach((el) => el.addEventListener("click", () => openFile(el.dataset.file)));
-      const create = app.querySelector("[data-create]");
-      if (create) create.addEventListener("click", createProject);
-      bindToggles(app);
-      bindColSplit(app.querySelector("[data-gutter]"), () => app.querySelector(".work-cols"));
-      bindTreeView(app);
     }
 
     function renderC() {
@@ -599,10 +521,7 @@
     }
 
     function render() {
-      const v = variant();
-      document.getElementById("switcher-label").textContent = VARIANTS[v];
-      if (v === "C") renderC();
-      else renderA();
+      renderC();
       dump();
     }
 
@@ -623,24 +542,6 @@
       state.screen = "gallery";
       render();
     }
-
-    document.getElementById("switcher").addEventListener("click", (e) => {
-      const btn = e.target.closest("button[data-dir]");
-      if (!btn) return;
-      const keys = Object.keys(VARIANTS);
-      const i = keys.indexOf(variant());
-      const next = keys[(i + Number(btn.dataset.dir) + keys.length) % keys.length];
-      setVariant(next);
-    });
-
-    window.addEventListener("keydown", (e) => {
-      const t = e.target;
-      if (t && (t.tagName === "TEXTAREA" || t.tagName === "INPUT" || t.isContentEditable)) return;
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-      const keys = Object.keys(VARIANTS);
-      const i = keys.indexOf(variant());
-      setVariant(keys[(i + (e.key === "ArrowRight" ? 1 : -1) + keys.length) % keys.length]);
-    });
 
     loadSeeds();
   </script>
