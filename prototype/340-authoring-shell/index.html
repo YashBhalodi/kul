@@ -52,42 +52,42 @@
 
     /* ── A Workbench ── */
     [data-shell="A"] { display: flex; height: 100%; background: var(--surface); }
-    [data-shell="A"] .rail {
-      flex: none; width: 200px; display: flex; flex-direction: column;
+    .rail {
+      flex: none; width: 220px; display: flex; flex-direction: column;
       background: var(--raised); border-right: 1px solid var(--line); min-width: 0;
     }
-    [data-shell="A"] .rail.collapsed { width: 32px; }
-    [data-shell="A"] .rail-head {
+    .rail.collapsed { width: 32px; }
+    .rail-head {
       display: flex; align-items: center; justify-content: space-between;
       gap: 8px; width: 100%; border: 0; background: transparent; color: var(--muted);
       padding: 28px 12px 8px; font: 11px/1.2 var(--mono); letter-spacing: .12em;
       text-transform: uppercase; cursor: pointer; text-align: left;
     }
-    [data-shell="A"] .rail.collapsed .rail-head {
+    .rail.collapsed .rail-head {
       writing-mode: vertical-rl; transform: rotate(180deg);
       padding: 12px 8px; height: 100%; justify-content: flex-start; letter-spacing: .16em;
     }
-    [data-shell="A"] .rail-head:hover { color: var(--ink); }
-    [data-shell="A"] .rail-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-    [data-shell="A"] .rail-head .chev { font-size: 10px; }
-    [data-shell="A"] .rail.collapsed .body { display: none; }
-    [data-shell="A"] .rail .body { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow: auto; }
-    [data-shell="A"] .rail .row, [data-shell="A"] .rail .new {
+    .rail-head:hover { color: var(--ink); }
+    .rail-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .rail-head .chev { font-size: 10px; }
+    .rail.collapsed .body { display: none; }
+    .rail .body { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow: auto; }
+    .rail .row, .rail .new {
       display: block; width: calc(100% - 16px); margin: 0 8px; text-align: left;
       border: 0; background: transparent; color: var(--ink); padding: 7px 8px;
-      font: 13px/1.3 var(--font); cursor: pointer; border-radius: 4px;
+      font: 13px/1.3 var(--mono); cursor: pointer; border-radius: 4px;
     }
-    [data-shell="A"] .rail .row.on { background: #e3f2fd; color: var(--accent); }
-    [data-shell="A"] .rail .row:hover { background: #eceff1; }
-    [data-shell="A"] .rail .new {
+    .rail .row.on { background: #e3f2fd; color: var(--accent); }
+    .rail .row:hover { background: #eceff1; }
+    .rail .new {
       margin: 8px; width: calc(100% - 16px); border: 1px dashed var(--line-strong); color: var(--muted);
     }
-    [data-shell="A"] .rail .new:hover { border-color: var(--accent); color: var(--accent); }
+    .rail .new:hover { border-color: var(--accent); color: var(--accent); }
     [data-shell="A"] .stage { flex: 1; display: flex; min-width: 0; }
     [data-shell="A"] .editor, [data-shell="A"] .tree { min-width: 0; display: flex; flex-direction: column; }
     [data-shell="A"] .editor { flex: var(--split, 0.52) 1 0; background: var(--raised); }
     [data-shell="A"] .tree { flex: calc(1 - var(--split, 0.52)) 1 0; background: var(--raised); }
-    [data-shell="A"] .tab {
+    .tab {
       padding: 10px 14px; font: 12px/1 var(--mono); color: var(--muted);
       border-bottom: 1px solid var(--line); background: var(--surface);
     }
@@ -129,17 +129,7 @@
     }
     [data-shell="C"] .studio-bar h1 { font: 600 16px/1 var(--font); margin: 0 12px 0 0; font-style: normal; }
     [data-shell="C"] .studio-bar .count { color: var(--muted); font: 12px/1 var(--mono); margin-right: auto; }
-    [data-shell="C"] .tabs {
-      display: flex; gap: 0; border-bottom: 1px solid var(--line);
-      padding: 0 8px; background: var(--surface);
-      overflow-x: auto; flex-wrap: nowrap;
-    }
-    [data-shell="C"] .tabs button {
-      border: 0; background: none; padding: 10px 12px; cursor: pointer;
-      font: 12px/1 var(--mono); color: var(--muted); border-bottom: 2px solid transparent;
-      white-space: nowrap; flex: none;
-    }
-    [data-shell="C"] .tabs button.on { border-bottom-color: var(--accent); color: var(--ink); font-weight: 600; }
+    [data-shell="C"] .studio-body { flex: 1; display: flex; min-height: 0; }
     [data-shell="C"] .studio-split { flex: 1; display: flex; min-height: 0; }
     [data-shell="C"] .studio-split .editor { flex: var(--split, 0.52) 1 0; display: flex; flex-direction: column; min-width: 0; background: var(--raised); }
     [data-shell="C"] .studio-split textarea {
@@ -432,26 +422,31 @@
               <h1>${p ? p.name : ""}</h1>
               <span class="count">${p ? kulLabel(p) : ""}</span>
             </div>
-            <div class="tabs">
-              ${p ? fileNames(p).map((f) =>
-                `<button type="button" class="${f === state.openFile ? "on" : ""}" data-file="${f}">${f}</button>`
-              ).join("") : ""}
-            </div>
-            <div class="studio-split" style="--split:${state.split}">
-              <section class="editor">
-                <textarea spellcheck="false">${escapeHtml(editorValue(p))}</textarea>
-              </section>
-              <div class="studio-gutter" data-gutter></div>
-              <section class="tree">${treeHtml(p)}</section>
+            <div class="studio-body">
+              ${rail("files", "Files", p
+                ? fileNames(p).map((f) =>
+                    `<button type="button" class="row ${f === state.openFile ? "on" : ""}" data-file="${f}">${f}</button>`
+                  ).join("")
+                : `<div class="empty">No files.</div>`)}
+              <div class="studio-split" style="--split:${state.split}">
+                <section class="editor">
+                  <div class="tab">${state.openFile ?? "—"}</div>
+                  <textarea spellcheck="false">${escapeHtml(editorValue(p))}</textarea>
+                </section>
+                <div class="studio-gutter" data-gutter></div>
+                <section class="tree">${treeHtml(p)}</section>
+              </div>
             </div>
           </div>
         </div>`;
       bindEditor(app);
       app.querySelector("[data-back]").addEventListener("click", () => { state.screen = "gallery"; render(); });
       app.querySelectorAll("[data-file]").forEach((el) => el.addEventListener("click", () => openFile(el.dataset.file)));
+      app.querySelector("[data-toggle='files']").addEventListener("click", () => {
+        state.filesOpen = !state.filesOpen;
+        render();
+      });
       bindColSplit(app.querySelector("[data-gutter]"), () => app.querySelector(".studio-split"));
-      const on = app.querySelector(".tabs button.on");
-      if (on) on.scrollIntoView({ inline: "nearest", block: "nearest" });
     }
 
     function escapeHtml(s) {
