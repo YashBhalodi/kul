@@ -127,11 +127,17 @@
       border: 0; background: none; cursor: pointer; font: 13px/1 var(--font);
       color: var(--accent);
     }
-    [data-shell="C"] .studio-bar h1 { font: 600 16px/1 var(--font); margin: 0 auto 0 0; font-style: normal; }
-    [data-shell="C"] .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); padding: 0 16px; background: var(--surface); }
+    [data-shell="C"] .studio-bar h1 { font: 600 16px/1 var(--font); margin: 0 12px 0 0; font-style: normal; }
+    [data-shell="C"] .studio-bar .count { color: var(--muted); font: 12px/1 var(--mono); margin-right: auto; }
+    [data-shell="C"] .tabs {
+      display: flex; gap: 0; border-bottom: 1px solid var(--line);
+      padding: 0 8px; background: var(--surface);
+      overflow-x: auto; flex-wrap: nowrap;
+    }
     [data-shell="C"] .tabs button {
-      border: 0; background: none; padding: 10px 14px; cursor: pointer; font: 13px/1 var(--font);
-      color: var(--muted); border-bottom: 2px solid transparent;
+      border: 0; background: none; padding: 10px 12px; cursor: pointer;
+      font: 12px/1 var(--mono); color: var(--muted); border-bottom: 2px solid transparent;
+      white-space: nowrap; flex: none;
     }
     [data-shell="C"] .tabs button.on { border-bottom-color: var(--accent); color: var(--ink); font-weight: 600; }
     [data-shell="C"] .studio-split { flex: 1; display: flex; min-height: 0; }
@@ -182,6 +188,47 @@
         tree: "/examples/08-multi-file-project/tree.svg",
       },
     ];
+
+    const ARCHIVE_FILES = [
+      "01-founders", "02-ahmedabad-house", "03-surat-house", "04-first-cousins",
+      "05-second-cousins", "06-marriages-1950s", "07-marriages-1970s", "08-adoptions",
+      "09-ended-marriages", "10-nairobi-branch", "11-london-branch", "12-toronto-branch",
+      "13-children-gen3", "14-children-gen4", "15-in-laws", "16-step-kin",
+      "17-notes-dates", "18-notes-names", "19-unplaced", "20-widows",
+      "21-polygamy-hub", "22-ghosts", "23-far-cousins", "24-living",
+    ];
+
+    function buildArchive() {
+      const files = { "kul.yml": BLANK_YML };
+      ARCHIVE_FILES.forEach((slug, i) => {
+        const n = i + 1;
+        const a = `p${n}a`;
+        const b = `p${n}b`;
+        const m = `m_${n}`;
+        files[`${slug}.kul`] = [
+          `# ${slug}.kul — Patel archive (synthetic; prototype chrome only)`,
+          `person ${a} name:"Person ${n}a" gender:male born:${1910 + n}`,
+          `person ${b} name:"Person ${n}b" gender:female born:${1912 + n}`,
+          `marriage ${m} ${a} ${b} start:${1935 + n}`,
+          "",
+        ].join("\n");
+      });
+      return {
+        id: "patel",
+        name: "Patel archive",
+        files,
+        tree: "/examples/09-family-across-a-century/tree.svg",
+      };
+    }
+
+    function kulCount(p) {
+      return Object.keys(p.files).filter((n) => n.endsWith(".kul")).length;
+    }
+
+    function kulLabel(p) {
+      const n = kulCount(p);
+      return n === 1 ? "1 .kul file" : `${n} .kul files`;
+    }
 
     const state = {
       projects: [],
@@ -367,7 +414,7 @@
               <p>One Kul project at a time. The vault is fake — in memory only.</p>
               <div class="cards">
                 ${state.projects.map((proj) =>
-                  `<button type="button" class="card" data-open="${proj.id}"><b>${proj.name}</b><small>${Object.keys(proj.files).length} files</small></button>`
+                  `<button type="button" class="card" data-open="${proj.id}"><b>${proj.name}</b><small>${kulLabel(proj)}</small></button>`
                 ).join("")}
                 <button type="button" class="card-new" data-create>New Kul project</button>
               </div>
@@ -383,6 +430,7 @@
             <div class="studio-bar">
               <button type="button" class="back" data-back>← Shelf</button>
               <h1>${p ? p.name : ""}</h1>
+              <span class="count">${p ? kulLabel(p) : ""}</span>
             </div>
             <div class="tabs">
               ${p ? fileNames(p).map((f) =>
@@ -402,6 +450,8 @@
       app.querySelector("[data-back]").addEventListener("click", () => { state.screen = "gallery"; render(); });
       app.querySelectorAll("[data-file]").forEach((el) => el.addEventListener("click", () => openFile(el.dataset.file)));
       bindColSplit(app.querySelector("[data-gutter]"), () => app.querySelector(".studio-split"));
+      const on = app.querySelector(".tabs button.on");
+      if (on) on.scrollIntoView({ inline: "nearest", block: "nearest" });
     }
 
     function escapeHtml(s) {
@@ -426,7 +476,7 @@
         }
         projects.push({ id: seed.id, name: seed.name, files, tree: seed.tree });
       }
-      state.projects = projects;
+      state.projects = [...projects, buildArchive()];
       const first = projects[0];
       state.openProjectId = first.id;
       state.openFile = Object.keys(first.files).find((n) => n.endsWith(".kul")) || "kul.yml";
