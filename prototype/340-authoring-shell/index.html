@@ -5,148 +5,147 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Prototype 340 — authoring shell</title>
   <!--
-    Three variants of the browser authoring shell (shelf + file tree + editor/tree),
-    switchable via ?variant=, throwaway route at /prototype/340-authoring-shell/.
+    Two variants of the browser authoring shell, switchable via ?variant=.
+    B (tree stage) was discarded. Workbench has two independently collapsible
+    left rails: Shelf and Files.
     PROTOTYPE — not production. In-memory vault only.
   -->
   <style>
-    :root { color-scheme: light dark; }
-    html, body { margin: 0; height: 100%; overflow: hidden; }
-    body { font-family: system-ui, sans-serif; }
+    :root {
+      --surface: #f7f9fa;
+      --raised: #ffffff;
+      --ink: #1a1a1a;
+      --muted: #5a6b75;
+      --line: #cfd8dc;
+      --line-strong: #90a4ae;
+      --accent: #1565c0;
+      --marriage: #6a1b9a;
+      --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--surface); color: var(--ink); }
+    body { font-family: var(--font); }
     #app { height: 100%; }
     .proto-banner {
-      position: fixed; top: 8px; left: 8px; z-index: 40; pointer-events: none;
-      font: 11px/1.2 ui-monospace, monospace;
-      background: #111; color: #f5d76e; padding: 4px 8px; letter-spacing: .04em;
+      position: fixed; top: 8px; right: 8px; z-index: 40; pointer-events: none;
+      font: 11px/1.2 var(--mono); background: var(--ink); color: #f5d76e;
+      padding: 4px 8px; letter-spacing: .04em;
     }
     #state-dump {
       position: fixed; left: 8px; bottom: 64px; z-index: 40;
-      max-width: 22rem; max-height: 22vh; overflow: auto;
-      background: #111; color: #9fefac; font: 11px/1.35 ui-monospace, monospace;
-      padding: 8px 10px; white-space: pre; pointer-events: none;
+      max-width: 20rem; max-height: 18vh; overflow: auto;
+      background: var(--ink); color: #c8e6c9; font: 11px/1.35 var(--mono);
+      padding: 8px 10px; white-space: pre; pointer-events: none; opacity: .88;
     }
     #switcher {
       position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
       z-index: 50; display: flex; align-items: center; gap: 10px;
-      background: #111; color: #fff; border-radius: 999px;
-      padding: 8px 14px; box-shadow: 0 8px 24px rgba(0,0,0,.35);
-      font: 13px/1 system-ui, sans-serif;
+      background: var(--ink); color: var(--raised); border-radius: 999px;
+      padding: 8px 14px; box-shadow: 0 8px 24px rgba(26,26,26,.18);
+      font: 13px/1 var(--font);
     }
     #switcher button {
-      background: #fff; color: #111; border: 0; width: 28px; height: 28px;
+      background: var(--raised); color: var(--ink); border: 0; width: 28px; height: 28px;
       border-radius: 50%; cursor: pointer; font-size: 16px;
     }
-    #switcher strong { min-width: 16rem; text-align: center; font-weight: 600; }
+    #switcher strong { min-width: 14rem; text-align: center; font-weight: 600; }
 
     /* ── A Workbench ── */
-    [data-shell="A"] { display: flex; height: 100%; background: #1c1f24; color: #e8eaed; }
+    [data-shell="A"] { display: flex; height: 100%; background: var(--surface); }
     [data-shell="A"] .rail {
-      width: 232px; flex: none; display: flex; flex-direction: column;
-      background: #14161a; border-right: 1px solid #2c3138;
+      flex: none; width: 200px; display: flex; flex-direction: column;
+      background: var(--raised); border-right: 1px solid var(--line); min-width: 0;
     }
-    [data-shell="A"] .rail h2 {
-      margin: 0; padding: 28px 14px 8px;
-      font: 11px/1.2 ui-monospace, monospace; letter-spacing: .12em;
-      text-transform: uppercase; color: #8b939e;
+    [data-shell="A"] .rail.collapsed { width: 32px; }
+    [data-shell="A"] .rail-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; width: 100%; border: 0; background: transparent; color: var(--muted);
+      padding: 28px 12px 8px; font: 11px/1.2 var(--mono); letter-spacing: .12em;
+      text-transform: uppercase; cursor: pointer; text-align: left;
     }
-    [data-shell="A"] .rail button, [data-shell="A"] .rail .row {
-      display: block; width: 100%; text-align: left; border: 0; background: transparent;
-      color: inherit; padding: 7px 14px; font: 13px/1.3 system-ui; cursor: pointer;
+    [data-shell="A"] .rail.collapsed .rail-head {
+      writing-mode: vertical-rl; transform: rotate(180deg);
+      padding: 12px 8px; height: 100%; justify-content: flex-start; letter-spacing: .16em;
     }
-    [data-shell="A"] .rail .row.on, [data-shell="A"] .rail button.on { background: #2a313c; color: #fff; }
+    [data-shell="A"] .rail-head:hover { color: var(--ink); }
+    [data-shell="A"] .rail-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    [data-shell="A"] .rail-head .chev { font-size: 10px; }
+    [data-shell="A"] .rail.collapsed .body { display: none; }
+    [data-shell="A"] .rail .body { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow: auto; }
+    [data-shell="A"] .rail .row, [data-shell="A"] .rail .new {
+      display: block; width: calc(100% - 16px); margin: 0 8px; text-align: left;
+      border: 0; background: transparent; color: var(--ink); padding: 7px 8px;
+      font: 13px/1.3 var(--font); cursor: pointer; border-radius: 4px;
+    }
+    [data-shell="A"] .rail .row.on { background: #e3f2fd; color: var(--accent); }
+    [data-shell="A"] .rail .row:hover { background: #eceff1; }
     [data-shell="A"] .rail .new {
-      margin: 8px 14px; width: calc(100% - 28px); border: 1px dashed #4a5462;
-      padding: 6px; color: #c5cdd6;
+      margin: 8px; width: calc(100% - 16px); border: 1px dashed var(--line-strong); color: var(--muted);
     }
+    [data-shell="A"] .rail .new:hover { border-color: var(--accent); color: var(--accent); }
     [data-shell="A"] .stage { flex: 1; display: flex; min-width: 0; }
     [data-shell="A"] .editor, [data-shell="A"] .tree { min-width: 0; display: flex; flex-direction: column; }
-    [data-shell="A"] .editor { flex: var(--split, 0.52) 1 0; }
-    [data-shell="A"] .tree { flex: calc(1 - var(--split, 0.52)) 1 0; background: #0f1114; }
+    [data-shell="A"] .editor { flex: var(--split, 0.52) 1 0; background: var(--raised); }
+    [data-shell="A"] .tree { flex: calc(1 - var(--split, 0.52)) 1 0; background: var(--raised); }
     [data-shell="A"] .tab {
-      padding: 8px 12px; font: 12px/1 ui-monospace, monospace; color: #9aa3ad;
-      border-bottom: 1px solid #2c3138;
+      padding: 10px 14px; font: 12px/1 var(--mono); color: var(--muted);
+      border-bottom: 1px solid var(--line); background: var(--surface);
     }
     [data-shell="A"] textarea {
-      flex: 1; resize: none; border: 0; background: #1c1f24; color: #e8eaed;
-      padding: 12px; font: 13px/1.5 ui-monospace, monospace; outline: none;
+      flex: 1; resize: none; border: 0; background: var(--raised); color: var(--ink);
+      padding: 14px 16px; font: 13px/1.55 var(--mono); outline: none;
     }
-    [data-shell="A"] .gutter { width: 6px; cursor: col-resize; background: #2c3138; }
-    [data-shell="A"] .gutter:hover { background: #5b8def; }
-    [data-shell="A"] .tree-frame { flex: 1; overflow: auto; padding: 16px; }
-    [data-shell="A"] .tree-frame img { display: block; margin: 0 auto; background: #fff; }
-
-    /* ── B Tree stage ── */
-    [data-shell="B"] { height: 100%; display: flex; flex-direction: column; background: #f3eadc; color: #2a2118; }
-    [data-shell="B"] header {
-      display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
-      padding: 28px 20px 10px; border-bottom: 1px solid #d8cbb8;
-    }
-    [data-shell="B"] header .brand {
-      font: italic 18px/1 Georgia, serif; margin-right: auto;
-    }
-    [data-shell="B"] header button {
-      border: 1px solid #c4b49a; background: #fffaf2; color: inherit;
-      padding: 6px 12px; border-radius: 999px; cursor: pointer; font: 13px/1 Georgia, serif;
-    }
-    [data-shell="B"] header button.on { background: #2a2118; color: #f3eadc; border-color: #2a2118; }
-    [data-shell="B"] .canvas { flex: 1; overflow: auto; padding: 24px; }
-    [data-shell="B"] .canvas img { display: block; margin: 0 auto; background: #fff; box-shadow: 0 8px 30px rgba(60,40,10,.12); }
-    [data-shell="B"] .sheet {
-      height: var(--sheet, 38vh); background: #fffaf2; border-top: 2px solid #2a2118;
-      display: flex; min-height: 120px;
-    }
-    [data-shell="B"] .sheet-gutter { height: 8px; cursor: row-resize; background: #2a2118; }
-    [data-shell="B"] .files {
-      width: 200px; border-right: 1px solid #d8cbb8; overflow: auto; padding: 10px;
-    }
-    [data-shell="B"] .files button {
-      display: block; width: 100%; text-align: left; border: 0; background: transparent;
-      padding: 6px 4px; font: 13px/1.3 Georgia, serif; cursor: pointer; color: inherit;
-    }
-    [data-shell="B"] .files button.on { text-decoration: underline; }
-    [data-shell="B"] .sheet textarea {
-      flex: 1; border: 0; resize: none; padding: 14px;
-      font: 14px/1.5 ui-monospace, monospace; background: transparent; outline: none;
-    }
+    [data-shell="A"] .gutter { width: 5px; cursor: col-resize; background: var(--line); }
+    [data-shell="A"] .gutter:hover { background: var(--accent); }
+    [data-shell="A"] .tree-frame { flex: 1; overflow: auto; padding: 20px; background: var(--raised); }
+    [data-shell="A"] .tree-frame img { display: block; margin: 0 auto; }
 
     /* ── C Gallery then studio ── */
-    [data-shell="C"] { height: 100%; background: #fafafa; color: #111; }
-    [data-shell="C"] .gallery { height: 100%; overflow: auto; padding: 48px 56px 96px; }
-    [data-shell="C"] .gallery h1 { font: 600 42px/1.1 system-ui; margin: 0 0 8px; letter-spacing: -.03em; }
-    [data-shell="C"] .gallery p { color: #555; margin: 0 0 32px; }
+    [data-shell="C"] { height: 100%; background: var(--surface); color: var(--ink); }
+    [data-shell="C"] .gallery { height: 100%; overflow: auto; padding: 56px 56px 96px; }
+    [data-shell="C"] .gallery h1 {
+      font: 600 40px/1.1 var(--font); margin: 0 0 8px; letter-spacing: -.03em; font-style: normal;
+    }
+    [data-shell="C"] .gallery p { color: var(--muted); margin: 0 0 32px; }
     [data-shell="C"] .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
     [data-shell="C"] .card, [data-shell="C"] .card-new {
-      border: 1px solid #111; background: #fff; color: #111; min-height: 140px;
-      padding: 20px; cursor: pointer; text-align: left; font: inherit;
+      border: 1px solid var(--line-strong); background: var(--raised); color: var(--ink);
+      min-height: 140px; padding: 20px; cursor: pointer; text-align: left; font: inherit; border-radius: 2px;
     }
-    [data-shell="C"] .card:hover, [data-shell="C"] .card-new:hover { background: #111; color: #fff; }
-    [data-shell="C"] .card b { display: block; font-size: 22px; margin-bottom: 10px; font-weight: 600; }
-    [data-shell="C"] .card small { display: block; font-size: 13px; opacity: .7; }
-    [data-shell="C"] .card-new { border-style: dashed; color: #555; }
+    [data-shell="C"] .card:hover, [data-shell="C"] .card-new:hover {
+      border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent);
+    }
+    [data-shell="C"] .card b { display: block; font-size: 22px; margin-bottom: 10px; font-weight: 600; font-style: normal; }
+    [data-shell="C"] .card small { display: block; font-size: 13px; color: var(--muted); }
+    [data-shell="C"] .card-new { border-style: dashed; color: var(--muted); }
     [data-shell="C"] .studio { height: 100%; display: flex; flex-direction: column; }
     [data-shell="C"] .studio-bar {
       display: flex; align-items: center; gap: 12px;
-      padding: 36px 16px 10px; border-bottom: 1px solid #111;
+      padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--raised);
     }
-    [data-shell="C"] .studio-bar .back { border: 0; background: none; cursor: pointer; font: 13px/1 system-ui; text-decoration: underline; }
-    [data-shell="C"] .studio-bar h1 { font: 600 16px/1 system-ui; margin: 0 auto 0 0; }
-    [data-shell="C"] .tabs { display: flex; gap: 0; border-bottom: 1px solid #ddd; padding: 0 16px; }
+    [data-shell="C"] .studio-bar .back {
+      border: 0; background: none; cursor: pointer; font: 13px/1 var(--font);
+      color: var(--accent);
+    }
+    [data-shell="C"] .studio-bar h1 { font: 600 16px/1 var(--font); margin: 0 auto 0 0; font-style: normal; }
+    [data-shell="C"] .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); padding: 0 16px; background: var(--surface); }
     [data-shell="C"] .tabs button {
-      border: 0; background: none; padding: 10px 14px; cursor: pointer; font: 13px/1 system-ui;
-      border-bottom: 2px solid transparent;
+      border: 0; background: none; padding: 10px 14px; cursor: pointer; font: 13px/1 var(--font);
+      color: var(--muted); border-bottom: 2px solid transparent;
     }
-    [data-shell="C"] .tabs button.on { border-bottom-color: #111; font-weight: 600; }
+    [data-shell="C"] .tabs button.on { border-bottom-color: var(--accent); color: var(--ink); font-weight: 600; }
     [data-shell="C"] .studio-split { flex: 1; display: flex; min-height: 0; }
-    [data-shell="C"] .studio-split .editor { flex: var(--split, 0.52) 1 0; display: flex; flex-direction: column; min-width: 0; }
+    [data-shell="C"] .studio-split .editor { flex: var(--split, 0.52) 1 0; display: flex; flex-direction: column; min-width: 0; background: var(--raised); }
     [data-shell="C"] .studio-split textarea {
       flex: 1; border: 0; resize: none; padding: 16px;
-      font: 13px/1.5 ui-monospace, monospace; outline: none;
+      font: 13px/1.55 var(--mono); outline: none; background: var(--raised); color: var(--ink);
     }
-    [data-shell="C"] .studio-gutter { width: 5px; cursor: col-resize; background: #111; }
-    [data-shell="C"] .studio-split .tree { flex: calc(1 - var(--split, 0.52)) 1 0; overflow: auto; background: #fff; min-width: 0; }
+    [data-shell="C"] .studio-gutter { width: 5px; cursor: col-resize; background: var(--line); }
+    [data-shell="C"] .studio-gutter:hover { background: var(--accent); }
+    [data-shell="C"] .studio-split .tree { flex: calc(1 - var(--split, 0.52)) 1 0; overflow: auto; background: var(--raised); min-width: 0; }
     [data-shell="C"] .studio-split .tree img { display: block; margin: 24px auto; }
 
-    .empty { padding: 24px; color: #888; font: 13px/1.4 system-ui; }
+    .empty { padding: 16px; color: var(--muted); font: 13px/1.4 var(--font); }
   </style>
 </head>
 <body>
@@ -161,7 +160,6 @@
   <script>
     const VARIANTS = {
       A: "A — Workbench",
-      B: "B — Tree stage",
       C: "C — Gallery then studio",
     };
 
@@ -190,13 +188,15 @@
       openProjectId: null,
       openFile: null,
       split: 0.52,
-      sheet: 0.36,
       screen: "gallery",
+      shelfOpen: true,
+      filesOpen: true,
     };
 
     function variant() {
-      const v = new URLSearchParams(location.search).get("variant") || "A";
-      return VARIANTS[v] ? v : "A";
+      const raw = new URLSearchParams(location.search).get("variant") || "A";
+      if (raw === "B") return "A";
+      return VARIANTS[raw] ? raw : "A";
     }
 
     function setVariant(next) {
@@ -215,8 +215,9 @@
         openFile: state.openFile,
         files: open ? Object.keys(open.files) : [],
         split: Number(state.split.toFixed(2)),
-        sheet: Number(state.sheet.toFixed(2)),
         screen: state.screen,
+        shelfOpen: state.shelfOpen,
+        filesOpen: state.filesOpen,
       }, null, 2);
     }
 
@@ -299,23 +300,36 @@
       });
     }
 
+    function rail(kind, title, body) {
+      const open = kind === "shelf" ? state.shelfOpen : state.filesOpen;
+      return `
+        <aside class="rail ${open ? "" : "collapsed"}" data-rail="${kind}">
+          <button type="button" class="rail-head" data-toggle="${kind}" aria-expanded="${open}">
+            <span>${title}</span>
+            <span class="chev">${open ? "▾" : "▸"}</span>
+          </button>
+          <div class="body">${body}</div>
+        </aside>`;
+    }
+
     function renderA() {
       const p = state.projects.find((x) => x.id === state.openProjectId);
       const app = document.getElementById("app");
+      const shelfBody = `
+        ${state.projects.map((proj) =>
+          `<button type="button" class="row ${proj.id === state.openProjectId ? "on" : ""}" data-open="${proj.id}">${proj.name}</button>`
+        ).join("")}
+        <button type="button" class="new" data-create>New Kul project</button>`;
+      const filesBody = p
+        ? fileNames(p).map((f) =>
+            `<button type="button" class="row ${f === state.openFile ? "on" : ""}" data-file="${f}">${f}</button>`
+          ).join("")
+        : `<div class="empty">Open a Kul project.</div>`;
       app.innerHTML = `
-        <div data-shell="A" style="--split:${state.split}">
-          <aside class="rail">
-            <h2>Shelf</h2>
-            ${state.projects.map((proj) =>
-              `<button type="button" class="row ${proj.id === state.openProjectId ? "on" : ""}" data-open="${proj.id}">${proj.name}</button>`
-            ).join("")}
-            <button type="button" class="new" data-create>New Kul project</button>
-            <h2>Files</h2>
-            ${p ? fileNames(p).map((f) =>
-              `<button type="button" class="row ${f === state.openFile ? "on" : ""}" data-file="${f}">${f}</button>`
-            ).join("") : `<div class="empty">Open a Kul project.</div>`}
-          </aside>
-          <div class="stage">
+        <div data-shell="A">
+          ${rail("shelf", "Shelf", shelfBody)}
+          ${rail("files", "Files", filesBody)}
+          <div class="stage" style="--split:${state.split}">
             <section class="editor">
               <div class="tab">${state.openFile ?? "—"}</div>
               <textarea spellcheck="false">${escapeHtml(editorValue(p))}</textarea>
@@ -330,54 +344,16 @@
       bindEditor(app);
       app.querySelectorAll("[data-open]").forEach((el) => el.addEventListener("click", () => openProject(el.dataset.open)));
       app.querySelectorAll("[data-file]").forEach((el) => el.addEventListener("click", () => openFile(el.dataset.file)));
-      app.querySelector("[data-create]").addEventListener("click", createProject);
-      bindColSplit(app.querySelector("[data-gutter]"), () => app.querySelector(".stage"));
-    }
-
-    function renderB() {
-      const p = state.projects.find((x) => x.id === state.openProjectId);
-      const app = document.getElementById("app");
-      app.innerHTML = `
-        <div data-shell="B" style="--sheet:${Math.round(state.sheet * 100)}vh">
-          <header>
-            <div class="brand">Kul</div>
-            ${state.projects.map((proj) =>
-              `<button type="button" class="${proj.id === state.openProjectId ? "on" : ""}" data-open="${proj.id}">${proj.name}</button>`
-            ).join("")}
-            <button type="button" data-create>New</button>
-          </header>
-          <div class="canvas">${treeHtml(p)}</div>
-          <div class="sheet-gutter" data-sheet-gutter></div>
-          <div class="sheet">
-            <div class="files">
-              ${p ? fileNames(p).map((f) =>
-                `<button type="button" class="${f === state.openFile ? "on" : ""}" data-file="${f}">${f}</button>`
-              ).join("") : ""}
-            </div>
-            <textarea spellcheck="false">${escapeHtml(editorValue(p))}</textarea>
-          </div>
-        </div>`;
-      bindEditor(app);
-      app.querySelectorAll("[data-open]").forEach((el) => el.addEventListener("click", () => openProject(el.dataset.open)));
-      app.querySelectorAll("[data-file]").forEach((el) => el.addEventListener("click", () => openFile(el.dataset.file)));
-      app.querySelector("[data-create]").addEventListener("click", createProject);
-      app.querySelector("[data-sheet-gutter]").addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        const startY = e.clientY;
-        const start = state.sheet;
-        const h = window.innerHeight;
-        const move = (ev) => {
-          state.sheet = Math.min(0.7, Math.max(0.18, start + (startY - ev.clientY) / h));
-          app.querySelector("[data-shell]").style.setProperty("--sheet", `${Math.round(state.sheet * 100)}vh`);
-          dump();
-        };
-        const up = () => {
-          window.removeEventListener("mousemove", move);
-          window.removeEventListener("mouseup", up);
-        };
-        window.addEventListener("mousemove", move);
-        window.addEventListener("mouseup", up);
+      const create = app.querySelector("[data-create]");
+      if (create) create.addEventListener("click", createProject);
+      app.querySelectorAll("[data-toggle]").forEach((el) => {
+        el.addEventListener("click", () => {
+          if (el.dataset.toggle === "shelf") state.shelfOpen = !state.shelfOpen;
+          else state.filesOpen = !state.filesOpen;
+          render();
+        });
       });
+      bindColSplit(app.querySelector("[data-gutter]"), () => app.querySelector(".stage"));
     }
 
     function renderC() {
@@ -435,9 +411,8 @@
     function render() {
       const v = variant();
       document.getElementById("switcher-label").textContent = VARIANTS[v];
-      if (v === "A") renderA();
-      else if (v === "B") renderB();
-      else renderC();
+      if (v === "C") renderC();
+      else renderA();
       dump();
     }
 
