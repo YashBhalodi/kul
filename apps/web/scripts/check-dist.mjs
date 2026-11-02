@@ -3,9 +3,10 @@
 // prerendered page, the SPA shell, the llms files, the docs' Markdown
 // variants, the search index, the service worker and the Netlify config sit
 // at their exact paths, nothing that must stay client-only was prerendered,
-// the service worker precaches every file the site serves, the landing page
-// shows what the engine makes of its examples, and the Open Graph image,
-// favicons, robots.txt and sitemap.xml are in place.
+// the service worker precaches every file the site serves, the Netlify rules
+// hold (scripts/deploy-rules.mjs), the landing page shows what the engine
+// makes of its examples, and the Open Graph image, favicons, robots.txt and
+// sitemap.xml are in place.
 //
 //   node scripts/check-dist.mjs [--dir <dir>]
 //
@@ -18,10 +19,15 @@ import { parseArgs } from "node:util"
 
 import { SW_FILE, precachedUrls } from "./build-sw.mjs"
 import { landingProblems, siteFileProblems } from "./check-landing.mjs"
-import { inlineScripts, listFiles, scriptHash } from "./finalize-dist.mjs"
-import { headersFor, parseHeaders, parseRedirects } from "./serve-dist.mjs"
+import {
+  CANONICAL_HOST,
+  headerProblems,
+  redirectProblems,
+} from "./deploy-rules.mjs"
+import { listFiles } from "./finalize-dist.mjs"
+import { parseHeaders, parseRedirects } from "./serve-dist.mjs"
 
-const SITE_ORIGIN = "https://kullang.dev"
+const SITE_ORIGIN = `https://${CANONICAL_HOST}`
 
 /**
  * Every problem with the build at `root`, as human-readable lines. The
@@ -134,66 +140,16 @@ export function checkDist(root, landing) {
     }
   }
 
-  // /app/* rewrites to the shell.
+  // The Netlify rules: canonical host, the /app rewrite, CSP and caching.
   if (files.has("_redirects")) {
-    const rules = parseRedirects(read("_redirects"))
-    const app = rules.find((rule) => rule.segments.join("/") === "app/*")
-    if (!app || app.to !== "/_shell.html" || app.status !== 200) {
-      problems.push("_redirects lacks `/app/* /_shell.html 200`")
-    }
+    problems.push(
+      ...redirectProblems(parseRedirects(read("_redirects")), files)
+    )
   }
-
-  // Every HTML file carries one CSP, which hashes each of its inline scripts.
   if (files.has("_headers")) {
-    const blocks = parseHeaders(read("_headers"))
-    for (const file of files) {
-      if (!file.endsWith(".html")) continue
-      const path =
-        file === "index.html" ? "/" : `/${file.replace(/index\.html$/, "")}`
-      const csp = headersFor(blocks, path).get("content-security-policy")?.value
-      if (!csp) {
-        problems.push(`${path} has no Content-Security-Policy`)
-        continue
-      }
-      if (csp.includes(", "))
-        problems.push(`${path} gets more than one Content-Security-Policy`)
-      for (const body of inlineScripts(read(file))) {
-        if (!csp.includes(scriptHash(body))) {
-          problems.push(`${path}: an inline script is not hashed in its CSP`)
-        }
-      }
-      if (/<script[^>]+src=["']data:/i.test(read(file))) {
-        problems.push(
-          `${path} loads a script from a data: URL, which the CSP blocks`
-        )
-      }
-    }
-  }
-  // The text variants are served as text: llms files as plain text, the
-  // docs' Markdown variants as Markdown.
-  if (files.has("_headers")) {
-    const blocks = parseHeaders(read("_headers"))
-    for (const file of files) {
-      const expected = file.endsWith(".md")
-        ? "text/markdown; charset=utf-8"
-        : file.endsWith(".txt")
-          ? "text/plain; charset=utf-8"
-          : undefined
-      if (!expected) continue
-      const type = headersFor(blocks, `/${file}`).get("content-type")?.value
-      if (type !== expected)
-        problems.push(
-          `/${file} is served as ${type ?? "nothing"}, not ${expected}`
-        )
-    }
-  }
-  // Browsers revalidate the service worker on every check, under the CSP.
-  if (files.has("_headers") && files.has(SW_FILE)) {
-    const headers = headersFor(parseHeaders(read("_headers")), `/${SW_FILE}`)
-    if (headers.get("cache-control")?.value !== "no-cache")
-      problems.push(`/${SW_FILE} is not served with Cache-Control: no-cache`)
-    if (!headers.get("content-security-policy"))
-      problems.push(`/${SW_FILE} has no Content-Security-Policy`)
+    problems.push(
+      ...headerProblems(parseHeaders(read("_headers")), files, read)
+    )
   }
   return problems
 }
