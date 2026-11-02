@@ -11,17 +11,19 @@
 // every request, so a rebuild is served without a restart.
 //
 // Static files
-//   `/a/b.js` serves `a/b.js`. `/docs/` serves `docs/index.html`, and `/docs`
-//   redirects 301 to `/docs/` when that file exists. `/page` serves
-//   `page.html`. `_redirects` and `_headers` themselves are never served. A
-//   miss serves `404.html` with status 404 when it exists.
+//   `/a/b.js` serves `a/b.js`. `/docs/` serves `docs/index.html`, and `/docs`,
+//   `/docs/index` and `/docs/index/` redirect 301 to `/docs/` when that file
+//   exists; these redirects carry none of the `_headers` headers. `/page`
+//   serves `page.html`. `_redirects` and `_headers` themselves are never
+//   served. A miss serves `404.html` with status 404 when it exists.
 //
 // _redirects
 //   `from [to] [status][!]`, first matching rule wins, `#` starts a comment.
 //   - `from` is a path, or an absolute URL whose host must equal the request
 //     host (the scheme is not compared). Paths match with and without a
 //     trailing slash. `:name` matches one segment; a trailing `*` matches the
-//     rest of the path, including nothing, and fills `:splat` in `to`.
+//     rest of the path, including nothing and the request's trailing slash,
+//     and fills `:splat` in `to`.
 //   - status 200 rewrites (the URL stays, the target's content is served),
 //     3xx redirects with `Location`, 404 and 410 serve the target with that
 //     status. The default is 301. The query string carries over to the target
@@ -123,6 +125,23 @@ function trimSlash(path) {
   return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path
 }
 
+/**
+ * The first rule that applies to a request, with its filled-in target, or
+ * null. `shadowed` says a static file answers the path, so only forced rules
+ * apply. The query string carries over unless the target has its own.
+ */
+export function matchRedirect(rules, { hostname, pathname, search, shadowed }) {
+  for (const rule of rules) {
+    if (shadowed && !rule.force) continue
+    const params = matchRule(rule, hostname, pathname)
+    if (!params) continue
+    let target = fillTarget(rule.to, params)
+    if (search && !target.includes("?")) target += search
+    return { rule, target }
+  }
+  return null
+}
+
 /** Placeholder values when `rule` matches, otherwise null. */
 function matchRule(rule, hostname, pathname) {
   if (rule.host !== null && rule.host !== hostname) return null
@@ -131,7 +150,8 @@ function matchRule(rule, hostname, pathname) {
   for (let i = 0; i < rule.segments.length; i++) {
     const seg = rule.segments[i]
     if (seg === "*") {
-      params.splat = parts.slice(i).join("/")
+      const rest = parts.slice(i).join("/")
+      params.splat = rest !== "" && pathname.endsWith("/") ? `${rest}/` : rest
       return params
     }
     if (i >= parts.length) return null
@@ -226,6 +246,10 @@ function resolveStatic(root, pathname) {
   const local = normalize(join(root, decoded))
   if (local !== root && !local.startsWith(root + sep)) return null
   const isFile = (p) => existsSync(p) && statSync(p).isFile()
+  const index = /^(.*\/)index\/?$/.exec(pathname)
+  if (index && !isFile(local) && isFile(join(dirname(local), "index.html"))) {
+    return { redirect: index[1] }
+  }
   if (decoded.endsWith("/")) {
     if (isFile(join(local, "index.html")))
       return { file: join(local, "index.html") }
@@ -274,12 +298,14 @@ function handle(dir, req, res) {
   )
   const found = resolveStatic(dir, url.pathname)
 
-  for (const rule of rules) {
-    if (found && !rule.force) continue
-    const params = matchRule(rule, hostname, url.pathname)
-    if (!params) continue
-    let target = fillTarget(rule.to, params)
-    if (url.search && !target.includes("?")) target += url.search
+  const match = matchRedirect(rules, {
+    hostname,
+    pathname: url.pathname,
+    search: url.search,
+    shadowed: found !== null,
+  })
+  if (match) {
+    const { rule, target } = match
     if (rule.status >= 300 && rule.status < 400) {
       send(req, res, rule.status, { location: target }, null, custom)
       return
@@ -290,13 +316,13 @@ function handle(dir, req, res) {
       sendFile(req, res, rule.status, resolved.file, custom)
       return
     }
-    break
   }
 
   if (found?.file) {
     sendFile(req, res, 200, found.file, custom)
   } else if (found?.redirect) {
-    send(req, res, 301, { location: found.redirect + url.search }, null, custom)
+    const location = found.redirect + url.search
+    send(req, res, 301, { location }, null, new Map())
   } else if (existsSync(join(dir, "404.html"))) {
     sendFile(req, res, 404, join(dir, "404.html"), custom)
   } else {

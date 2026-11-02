@@ -13,6 +13,7 @@ import { gunzipSync } from "node:zlib"
 import {
   createDistServer,
   headersFor,
+  matchRedirect,
   parseHeaders,
   parseRedirects,
 } from "./serve-dist.mjs"
@@ -118,6 +119,24 @@ describe("static files", () => {
     assert.equal(res.headers.location, "/docs/guide/?q=1")
   })
 
+  test("redirects an `index` path to its directory", async () => {
+    for (const [path, location] of [
+      ["/index", "/"],
+      ["/docs/index", "/docs/"],
+      ["/docs/guide/index/?q=1", "/docs/guide/?q=1"],
+    ]) {
+      const res = await get(path)
+      assert.equal(res.status, 301, path)
+      assert.equal(res.headers.location, location, path)
+    }
+  })
+
+  test("a directory redirect carries no _headers headers", async () => {
+    const res = await get("/docs/guide")
+    assert.equal(res.headers["x-content-type-options"], undefined)
+    assert.equal(res.headers["content-security-policy"], undefined)
+  })
+
   test("serves `page.html` at `/page`", async () => {
     const res = await get("/page")
     assert.equal(res.status, 200)
@@ -186,14 +205,41 @@ describe("_redirects", () => {
   })
 
   test("a host rule redirects 301 with the splat", async () => {
-    const res = await get("/docs/guide/?x=1", { host: "www.kullang.dev" })
-    assert.equal(res.status, 301)
-    assert.equal(res.headers.location, "https://kullang.dev/docs/guide?x=1")
+    for (const [path, location] of [
+      ["/", "https://kullang.dev/"],
+      ["/docs/guide/?x=1", "https://kullang.dev/docs/guide/?x=1"],
+      ["/docs/guide", "https://kullang.dev/docs/guide"],
+      ["/llms.txt", "https://kullang.dev/llms.txt"],
+    ]) {
+      const res = await get(path, { host: "www.kullang.dev" })
+      assert.equal(res.status, 301, path)
+      assert.equal(res.headers.location, location, path)
+    }
+  })
+
+  test("a rule's redirect carries the _headers headers", async () => {
+    const res = await get("/old-docs/adoption")
+    assert.equal(res.headers["x-content-type-options"], "nosniff")
   })
 
   test("a host rule leaves other hosts alone", async () => {
-    const res = await get("/docs/guide/", { host: "kullang.dev" })
-    assert.equal(res.status, 200)
+    for (const host of ["kullang.dev", "pr-1--www.kullang.dev"]) {
+      const res = await get("/docs/guide/", { host })
+      assert.equal(res.status, 200, host)
+    }
+  })
+
+  test("matchRedirect returns the first rule that applies", () => {
+    const rules = parseRedirects(REDIRECTS)
+    const at = (pathname, shadowed, hostname = "127.0.0.1") =>
+      matchRedirect(rules, { hostname, pathname, search: "", shadowed })
+    assert.equal(at("/app/x", false)?.target, "/_shell.html")
+    assert.equal(at("/shadowed", true), null)
+    assert.equal(at("/forced", true)?.target, "/target.txt")
+    assert.equal(
+      at("/llms.txt", true, "www.kullang.dev")?.target,
+      "https://kullang.dev/llms.txt"
+    )
   })
 
   test("placeholders fill the target", async () => {
