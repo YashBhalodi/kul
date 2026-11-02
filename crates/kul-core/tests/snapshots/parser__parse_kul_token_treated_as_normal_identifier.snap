@@ -2,70 +2,68 @@
 source: crates/kul-core/tests/parser.rs
 expression: "render(\"person kul name:\\\"K\\\" gender:other\\n\")"
 ---
-ast: Document {
-    statements: [
-        Person(
-            PersonStmt {
-                span: ByteSpan {
-                    start: 0,
-                    end: 32,
-                },
-                keyword_span: ByteSpan {
-                    start: 0,
-                    end: 6,
-                },
-                id: Ident {
-                    name: "kul",
-                    span: ByteSpan {
-                        start: 7,
-                        end: 10,
-                    },
-                },
-                fields: [
-                    PersonField {
-                        span: ByteSpan {
-                            start: 11,
-                            end: 19,
-                        },
-                        name_span: ByteSpan {
-                            start: 11,
-                            end: 15,
-                        },
-                        kind: Name(
-                            StringValue {
-                                value: "K",
-                                span: ByteSpan {
-                                    start: 16,
-                                    end: 19,
-                                },
-                            },
-                        ),
-                    },
-                    PersonField {
-                        span: ByteSpan {
-                            start: 20,
-                            end: 32,
-                        },
-                        name_span: ByteSpan {
-                            start: 20,
-                            end: 26,
-                        },
-                        kind: Gender(
-                            GenderValue {
-                                value: Other,
-                                span: ByteSpan {
-                                    start: 27,
-                                    end: 32,
-                                },
-                            },
-                        ),
-                    },
-                ],
-                birth: None,
-                adoptions: [],
-                malformed_fields: [],
+statements: [
+    Person(
+        PersonStmt {
+            span: ByteSpan {
+                start: 0,
+                end: 32,
             },
-        ),
-    ],
-}
+            keyword_span: ByteSpan {
+                start: 0,
+                end: 6,
+            },
+            id: Ident {
+                name: "kul",
+                span: ByteSpan {
+                    start: 7,
+                    end: 10,
+                },
+            },
+            fields: [
+                PersonField {
+                    span: ByteSpan {
+                        start: 11,
+                        end: 19,
+                    },
+                    name_span: ByteSpan {
+                        start: 11,
+                        end: 15,
+                    },
+                    kind: Name(
+                        StringValue {
+                            value: "K",
+                            span: ByteSpan {
+                                start: 16,
+                                end: 19,
+                            },
+                        },
+                    ),
+                },
+                PersonField {
+                    span: ByteSpan {
+                        start: 20,
+                        end: 32,
+                    },
+                    name_span: ByteSpan {
+                        start: 20,
+                        end: 26,
+                    },
+                    kind: Gender(
+                        GenderValue {
+                            value: Other,
+                            span: ByteSpan {
+                                start: 27,
+                                end: 32,
+                            },
+                        },
+                    ),
+                },
+            ],
+            birth: None,
+            adoptions: [],
+            malformed_fields: [],
+        },
+    ),
+]
 diagnostics: []
