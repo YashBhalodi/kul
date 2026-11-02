@@ -50,23 +50,28 @@ scripts/smoke-deployed.sh http://127.0.0.1:4173
 
 ## Setup steps for the maintainer
 
-The site already exists (see above), so these steps finish the setup. Do step 4 before the first push to `main` with the secrets in place. Until DNS resolves, the production host redirects to a domain that doesn't answer yet. The workflow still passes, because it smoke-checks the deploy permalink.
+The site already exists (see above), so these steps finish the setup. **The order matters: the domain must be live, with its certificate issued, before the secrets go in.** `_redirects` force-redirects (`301!`) every request to `kullang-app.netlify.app` to `https://kullang.dev`, so once the secrets exist, the first push to `main` publishes a production deploy that can only be reached through `kullang.dev`. If the domain does not answer yet, production is unreachable, and nothing in CI notices: the workflow smoke-checks the deploy's permalink (`<id>--kullang-app.netlify.app`), which no rule redirects, so it passes either way.
 
 1. **Buy the domain.** Register `kullang.dev` at Cloudflare Registrar (at cost) or Porkbun, and optionally `kul.page`. `.dev` is on the HSTS preload list, so it only works over HTTPS, which Netlify's automatic certificates provide.
 2. **Keep Netlify builds off.** The site `kullang-app` has no linked repository, so it never builds. If a repository is ever linked, go to *Project configuration → Build & deploy → Continuous deployment → Build settings* and choose **Stop builds**. Deploys come only from the CLI.
-3. **Create the token and the secrets.** In Netlify, go to *User settings → Applications → Personal access tokens* and create a token (an expiry date is fine; renew the secret when it lapses). Then run:
+3. **Point the domain at Netlify, and wait for the certificate.** In the site's *Domain management*, add `kullang.dev` and make it the primary domain. Netlify adds `www.kullang.dev` with it, and the `www` redirect rule needs that host assigned to the site. At the registrar's DNS:
+   - apex (`@`): an `ALIAS`/`ANAME` or flattened `CNAME` record to `apex-loadbalancer.netlify.com` (or, failing those, an `A` record to `75.2.60.5`);
+   - `www`: a `CNAME` record to `kullang-app.netlify.app`.
+
+   Or delegate the domain to Netlify DNS instead. Wait until Netlify shows the certificate as provisioned for both hosts. Before the first production deploy the site answers 404, but the TLS handshake must already succeed:
+
+   ```sh
+   curl -sI https://kullang.dev/ | head -1       # an HTTP status line, not a TLS or DNS error
+   curl -sI https://www.kullang.dev/ | head -1
+   ```
+4. **Create the token and the secrets.** Only now. In Netlify, go to *User settings → Applications → Personal access tokens* and create a token (an expiry date is fine; renew the secret when it lapses). Then run:
 
    ```sh
    gh secret set NETLIFY_AUTH_TOKEN   # paste the token
    gh secret set NETLIFY_SITE_ID --body 25b6d370-f9d0-4e17-8ea4-fd6b411388bb
    ```
 
-   The next pull-request run deploys a preview and comments its URL.
-4. **Point the domain at Netlify.** In the site's *Domain management*, add `kullang.dev` and make it the primary domain. Netlify adds `www.kullang.dev` with it, and the `www` redirect rule needs that host assigned to the site. At the registrar's DNS:
-   - apex (`@`): an `ALIAS`/`ANAME` or flattened `CNAME` record to `apex-loadbalancer.netlify.com` (or, failing those, an `A` record to `75.2.60.5`);
-   - `www`: a `CNAME` record to `kullang-app.netlify.app`.
-
-   Or delegate the domain to Netlify DNS instead. Wait until Netlify shows the certificate as provisioned, then check:
+   The next pull-request run deploys a preview and comments its URL; the next push to `main` deploys production. After that first production deploy, check the domain itself (CI does not):
 
    ```sh
    scripts/smoke-deployed.sh https://kullang.dev
