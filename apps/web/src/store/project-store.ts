@@ -12,6 +12,8 @@
 // run one at a time, in the order they were called.
 
 import type { DirectoryPath, StorageBackend } from "./backend"
+import { parseEditorWindow } from "./editor-window"
+import type { EditorWindowLayout } from "./editor-window"
 import {
   characterCount,
   fileNameProblem,
@@ -48,12 +50,12 @@ export type JsonValue =
   | { [key: string]: JsonValue }
 
 /**
- * A project's window state, restored when it opens again. The editor
- * window's layout and the canvas camera are owned by the editor and the
- * canvas; the store keeps them as they are given.
+ * A project's window state, restored when it opens again. The canvas
+ * camera is owned by the canvas; the store keeps it as it is given.
  */
 export interface ProjectUi {
-  editorWindow: JsonValue
+  /** The editor window's layout; null until it is first moved. */
+  editorWindow: EditorWindowLayout | null
   /** Open files, in tab order. */
   openTabs: Array<string>
   activeFile: string | null
@@ -396,7 +398,7 @@ function parseUi(value: unknown): ProjectUi {
     ? value.openTabs.filter((tab): tab is string => typeof tab === "string")
     : []
   return {
-    editorWindow: (value.editorWindow ?? null) as JsonValue,
+    editorWindow: parseEditorWindow(value.editorWindow),
     openTabs,
     activeFile: typeof value.activeFile === "string" ? value.activeFile : null,
     camera: (value.camera ?? null) as JsonValue,

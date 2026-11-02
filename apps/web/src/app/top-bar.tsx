@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { appStore } from "./app-store"
+import { ProblemsButton } from "./editor/problems-button"
 import { ExportMenu } from "./export-menu"
 import { ProjectSwitcher } from "./project-switcher"
 import { SaveStatus } from "./save-status"
@@ -41,6 +42,7 @@ export function TopBar() {
       </span>
       <ProjectSwitcher />
       <SaveStatus />
+      <ProblemsButton />
 
       <div className="ml-auto flex items-center gap-1.5">
         <ExportMenu />

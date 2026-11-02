@@ -22,7 +22,9 @@ export async function openProject(page: Page, path = "/app/") {
   await page.goto(path)
   await expect(page).toHaveURL(PROJECT_URL)
   await expectAppReady(page)
-  await expect(page.getByTestId("files-panel")).toBeVisible()
+  await expect(
+    page.getByTestId("files-panel").or(page.getByTestId("editor-pill"))
+  ).toBeVisible()
   await expect(
     page.locator("[data-testid=tree] .kul-card").first()
   ).toBeVisible()
@@ -142,4 +144,51 @@ export async function recordThemeTimeline(page: Page) {
           }
         ).__themeTimeline
     )
+}
+
+/**
+ * Press `Mod+<key>` the way the editor (CodeMirror) reads it: Meta on a Mac
+ * platform, Control elsewhere. CodeMirror reads `navigator.platform`, which
+ * Playwright's Desktop Safari profile leaves as the host's.
+ */
+export async function pressEditorMod(page: Page, key: string) {
+  const mac = await page.evaluate(() => /Mac/.test(navigator.platform))
+  await page.keyboard.press(`${mac ? "Meta" : "Control"}+${key}`)
+}
+
+/** The editor's text area. */
+export function editorContent(page: Page) {
+  return page.getByTestId("editor").locator(".cm-content")
+}
+
+/** The whole text of the file the editor shows. */
+export async function editorText(page: Page): Promise<string> {
+  return page.evaluate(() => window.kulTestHooks?.editorText() ?? "")
+}
+
+/** The text selected in the editor. */
+export async function editorSelection(page: Page): Promise<string> {
+  return page.evaluate(() => window.kulTestHooks?.editorSelection() ?? "")
+}
+
+/** Put the cursor at the end of the editor's text. */
+export async function goToEnd(page: Page) {
+  // Click near the start: the content is wider than the editor, and
+  // clicking its middle would scroll the editor sideways first.
+  await editorContent(page).click({ position: { x: 4, y: 4 } })
+  await pressEditorMod(page, "End")
+}
+
+/** A highlighted token in the editor, by its kind's class and exact text. */
+export function editorToken(page: Page, kind: string, text: string) {
+  return editorContent(page)
+    .locator(`.tok-${kind}`, { hasText: new RegExp(`^${text}$`) })
+    .first()
+}
+
+/** Open a new project from an example, by its title. */
+export async function openExample(page: Page, title: string, name = title) {
+  await chooseFromSwitcher(page, ["New from example", title])
+  await expect(page.getByTestId("project-switcher")).toHaveText(name)
+  await expect(editorContent(page)).toBeVisible()
 }

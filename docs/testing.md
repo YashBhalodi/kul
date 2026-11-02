@@ -55,6 +55,10 @@ Runs fmt-check, clippy at deny-level, the full test suite via `cargo nextest`, t
 
 The screenshots are artefacts to look at, not golden images: whoever changes the UI opens the PNGs for the states they touched and checks them against the design checklist (layout, type, contrast, states, canvas chrome, copy).
 
+The language worker's protocol (version tags, the coalescing analysis scheduler, crash restart and replay) and the editor's token mapping are plain modules with Node tests (`src/language/*.test.ts`, `src/editor/*.test.ts`); `engine.browser.test.ts` runs the same client against the real worker. End-to-end tests read the editor through `window.kulTestHooks` (its whole text and selection, since CodeMirror draws only the lines in view) and use it to crash the worker on purpose.
+
+`e2e/editor-latency.spec.ts` times a keystroke to the squiggle on `examples/09-family-across-a-century` (`performance.mark` at the keydown, the measure when the underline is in the page) and prints the median of seven, failing above 500ms. Typing a letter asks for completions, which run the waiting analysis at once; deleting one waits out the 200ms analysis debounce. Observed medians, Chromium on a developer laptop: ≈55ms to show an error, ≈208ms to clear it.
+
 The project store has one contract suite, `src/store/project-store.contract.ts`, that every storage backend must pass: `project-store.test.ts` runs it on the in-memory backend in Node, and `project-store.browser.test.ts` on a real origin private file system in Chromium and WebKit. A change to the store's behaviour goes into the contract, never into one backend's test. Every end-to-end test starts in a fresh browser context, so an empty file system: each one is a first visit, which opens the seeded example project.
 
 ## Snapshots (insta)

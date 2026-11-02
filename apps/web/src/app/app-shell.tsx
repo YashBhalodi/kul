@@ -1,6 +1,6 @@
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys"
 import { useNavigate } from "@tanstack/react-router"
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import type { ReactNode } from "react"
 
 import { Toaster } from "@/components/ui/sonner"
@@ -12,6 +12,7 @@ import { useCommands } from "./commands"
 import type { Command } from "./commands"
 import { DesktopGate } from "./desktop-gate"
 import { ImportCollisionDialog } from "./import-dialog"
+import { installTestHooks } from "./test-hooks"
 import { ImportDropZone } from "./import-drop-zone"
 import { ImportPicker } from "./import-picker"
 import { useProjectCommands } from "./project-commands"
@@ -39,6 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 function AppFrame({ children }: { children: ReactNode }) {
+  useEffect(installTestHooks, [])
   useHotkey(appHotkeys["palette.open"], appStore.actions.togglePalette)
   useHotkey(appHotkeys["shortcuts.open"], showShortcuts)
   useProjectCommands()
@@ -56,7 +58,7 @@ function AppFrame({ children }: { children: ReactNode }) {
       <DeleteProjectDialog />
       <ImportCollisionDialog />
       <ImportPicker />
-      <Toaster position="bottom-right" />
+      <Toaster position="bottom-center" />
     </div>
   )
 }

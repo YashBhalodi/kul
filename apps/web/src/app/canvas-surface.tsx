@@ -61,7 +61,7 @@ function EngineStatusBadge() {
       data-testid="engine-status"
       data-state={status.state}
       data-restarts={status.state === "ready" ? status.restarts : undefined}
-      className="absolute bottom-4 left-4 z-10 flex items-center gap-2 rounded-full border bg-card/95 py-1 pr-3 pl-2.5 text-xs text-muted-foreground shadow-sm"
+      className="absolute right-4 bottom-4 z-10 flex items-center gap-2 rounded-full border bg-card/95 py-1 pr-3 pl-2.5 text-xs text-muted-foreground shadow-sm"
     >
       {status.state === "starting" && (
         <>

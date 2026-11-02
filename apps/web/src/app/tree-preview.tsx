@@ -1,15 +1,18 @@
 import { useSelector } from "@tanstack/react-store"
 import { useLayoutEffect, useRef, useState } from "react"
 
+import { canvasSizeStore, currentLayout } from "./editor/editor-layout"
+import { freeCanvasInsets } from "./editor/window-geometry"
 import { analysisStore } from "./engine-status"
+import { sessionStore } from "./project-session"
 
 // Room kept clear around the fitted tree, in CSS pixels.
 const MARGIN = 48
 
 /**
  * The open project's family tree, drawn whole and fitted to the canvas
- * (never past 100%). It redraws when the files change, keeping the last
- * tree while the project has errors.
+ * beside the editor window (never past 100%). It redraws when the files
+ * change, keeping the last tree while the project has errors.
  */
 export function TreePreview() {
   const lastSvg = useSelector(analysisStore, (state) => state.lastSvg)
@@ -23,6 +26,12 @@ export function TreePreview() {
 
 function FittedSvg({ svg, stale }: { svg: string; stale: boolean }) {
   const frame = useRef<HTMLDivElement>(null)
+  const editorWindow = useSelector(
+    sessionStore,
+    (state) => state.ui.editorWindow
+  )
+  const canvas = useSelector(canvasSizeStore)
+  const insets = freeCanvasInsets(currentLayout(editorWindow, canvas), canvas)
   const [scale, setScale] = useState(1)
 
   useLayoutEffect(() => {
@@ -50,7 +59,8 @@ function FittedSvg({ svg, stale }: { svg: string; stale: boolean }) {
       ref={frame}
       data-testid="tree"
       data-stale={stale || undefined}
-      className="tree-preview absolute inset-0 flex items-center justify-center overflow-hidden transition-opacity data-stale:opacity-40"
+      style={{ left: insets.left, right: insets.right }}
+      className="tree-preview absolute inset-y-0 flex items-center justify-center overflow-hidden transition-opacity data-stale:opacity-40"
     >
       <div
         // The SVG comes from the engine, which escapes every text it draws.

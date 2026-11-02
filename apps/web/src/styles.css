@@ -41,6 +41,19 @@
   --color-code: var(--code);
   --color-code-foreground: var(--code-foreground);
   --color-overlay: var(--overlay);
+  --color-warning: var(--warning);
+
+  --animate-pill-flash: pill-flash 1.2s ease-out;
+  @keyframes pill-flash {
+    0%,
+    40% {
+      background-color: var(--primary);
+      color: var(--primary-foreground);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -111,6 +124,53 @@
   }
   .tree-preview .kul-edge[data-is-ended="true"] {
     stroke-opacity: 0.6;
+  }
+
+  /* Kul code, coloured from the engine's tokens (the editor's `.tok-*`
+     marks; anywhere else Kul code is shown uses the same classes). */
+  .tok-keyword {
+    color: var(--syntax-keyword);
+    font-weight: 600;
+  }
+  .tok-field {
+    color: var(--syntax-field);
+  }
+  .tok-declaration {
+    color: var(--syntax-declaration);
+    font-weight: 600;
+  }
+  .tok-reference {
+    color: var(--syntax-reference);
+  }
+  .tok-enum {
+    color: var(--syntax-enum);
+  }
+  .tok-date {
+    color: var(--syntax-date);
+  }
+  .tok-string {
+    color: var(--syntax-string);
+  }
+  .tok-comment {
+    color: var(--syntax-comment);
+    font-style: italic;
+  }
+
+  /* Hover content in the editor, from the language service's Markdown. */
+  .cm-kul-hover {
+    @apply flex max-w-md flex-col gap-2 px-3 py-2.5 font-sans text-[0.8125rem] leading-relaxed;
+  }
+  .cm-kul-hover code {
+    @apply rounded-sm bg-muted px-1 font-mono text-[0.75rem];
+  }
+  .cm-kul-hover pre {
+    @apply overflow-x-auto rounded-md bg-code p-2 font-mono text-[0.75rem] text-code-foreground;
+  }
+  .cm-kul-hover ul {
+    @apply flex list-disc flex-col gap-0.5 pl-4;
+  }
+  .cm-kul-hover a {
+    @apply text-link underline underline-offset-2;
   }
 
   /* The theme switch highlights the saved preference, which theme-init.js

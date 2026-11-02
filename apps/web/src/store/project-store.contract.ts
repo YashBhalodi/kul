@@ -160,7 +160,14 @@ export function projectStoreContract(
           { name: "b.kul", text: "" },
         ],
         {
-          editorWindow: { x: 10, docked: "left" },
+          editorWindow: {
+            x: 10,
+            y: 20,
+            width: 400,
+            height: 300,
+            dock: "left",
+            minimized: false,
+          },
           openTabs: ["a.kul", "b.kul"],
           activeFile: "a.kul",
           camera: { x: 1, y: 2, zoom: 0.5 },
@@ -168,7 +175,14 @@ export function projectStoreContract(
       )
       await store.renameFile(project.id, "a.kul", "first.kul")
       expect(await store.readUi(project.id)).toEqual({
-        editorWindow: { x: 10, docked: "left" },
+        editorWindow: {
+          x: 10,
+          y: 20,
+          width: 400,
+          height: 300,
+          dock: "left",
+          minimized: false,
+        },
         openTabs: ["first.kul", "b.kul"],
         activeFile: "first.kul",
         camera: { x: 1, y: 2, zoom: 0.5 },

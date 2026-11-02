@@ -3,6 +3,7 @@
 // written through the save queue; only the tab that owns the project
 // writes, and the others reload when it does.
 
+import { Debouncer } from "@tanstack/pacer"
 import { createStore } from "@tanstack/react-store"
 
 import { inFileOrder } from "@/store/file-names"
@@ -55,8 +56,13 @@ interface Session {
   store: ProjectStore
   claim: ProjectClaim
   saves: SaveQueue
+  /** Writes the window state once it stops changing. */
+  uiWriter: Debouncer<() => void>
   disconnect: () => void
 }
+
+/** How long window-state changes (moving the editor, say) wait to be written. */
+const UI_WRITE_WAIT_MS = 300
 
 let session: Session | undefined
 // Opening and closing run one at a time, in order.
@@ -104,7 +110,18 @@ async function open(id: string): Promise<void> {
     onStatus: (save) => update(() => ({ save })),
   })
 
-  const flush = () => void saves.flush()
+  const uiWriter = new Debouncer(
+    () => {
+      if (claim.access !== "owner") return
+      const ui = sessionStore.state.ui
+      void saves.run(() => store.writeUi(id, ui)).catch(() => undefined)
+    },
+    { wait: UI_WRITE_WAIT_MS }
+  )
+  const flush = () => {
+    uiWriter.flush()
+    void saves.flush()
+  }
   const onVisibility = () => {
     if (document.visibilityState === "hidden") flush()
   }
@@ -130,6 +147,7 @@ async function open(id: string): Promise<void> {
     store,
     claim,
     saves,
+    uiWriter,
     disconnect: () => {
       document.removeEventListener("visibilitychange", onVisibility)
       window.removeEventListener("pagehide", flush)
@@ -154,8 +172,13 @@ async function close(): Promise<void> {
   if (!closing) return
   session = undefined
   closing.disconnect()
-  if (closing.claim.access === "owner") await closing.saves.flush()
-  else closing.saves.discard()
+  if (closing.claim.access === "owner") {
+    closing.uiWriter.flush()
+    await closing.saves.flush()
+  } else {
+    closing.uiWriter.cancel()
+    closing.saves.discard()
+  }
   await closing.claim.release()
   sessionStore.setState(() => CLOSED)
 }
@@ -188,6 +211,7 @@ export async function takeOverProject(): Promise<void> {
 
 /** Write everything unsaved now. */
 export async function flushProject(): Promise<void> {
+  session?.uiWriter.flush()
   await session?.saves.flush()
 }
 
@@ -298,12 +322,40 @@ export function writeFiles(files: ReadonlyArray<ProjectFile>): Promise<void> {
 
 /** Make a file the active one, opening its tab. */
 export function selectFile(name: string): Promise<void> {
+  // Window state is this tab's view; a read-only tab keeps it to itself.
+  return writeUiNow(openTab(sessionStore.state.ui, name))
+}
+
+/** Close a file's tab; the next tab along becomes the active one. */
+export function closeTab(name: string): Promise<void> {
+  const { ui } = sessionStore.state
+  const index = ui.openTabs.indexOf(name)
+  if (index === -1) return Promise.resolve()
+  const openTabs = ui.openTabs.filter((tab) => tab !== name)
+  const activeFile =
+    ui.activeFile === name
+      ? (openTabs[Math.min(index, openTabs.length - 1)] ?? null)
+      : ui.activeFile
+  return writeUiNow({ ...ui, openTabs, activeFile })
+}
+
+/**
+ * Change the window state (the editor's layout, say). It shows at once and
+ * is written once it stops changing; a read-only tab keeps it to itself.
+ */
+export function updateUi(change: (ui: ProjectUi) => ProjectUi): void {
+  const current = session
+  if (!current) return
+  update((state) => ({ ui: change(state.ui) }))
+  current.uiWriter.maybeExecute()
+}
+
+function writeUiNow(ui: ProjectUi): Promise<void> {
   const current = session
   if (!current) return Promise.resolve()
-  const ui = openTab(sessionStore.state.ui, name)
   update(() => ({ ui }))
-  // Window state is this tab's view; a read-only tab keeps it to itself.
   if (current.claim.access !== "owner") return Promise.resolve()
+  current.uiWriter.cancel()
   return current.saves.run(() => current.store.writeUi(current.id, ui))
 }
 

@@ -1,5 +1,6 @@
-// The app's UI state: which dialogs are open. The editor window's layout,
-// open tabs, selection and camera join it with the editor and the canvas.
+// The app's UI state: which dialog is open. The editor keeps its own
+// (editor/editor-store.ts), and the project's window state lives in the
+// session.
 
 import { createStore } from "@tanstack/react-store"
 

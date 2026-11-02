@@ -3,7 +3,6 @@ import { useSelector } from "@tanstack/react-store"
 import { cn } from "cn"
 import {
   DownloadIcon,
-  FileIcon,
   FilePlusIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -26,34 +25,43 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { downloadFile } from "./download"
+import { downloadFile } from "../download"
+import { analysisStore } from "../engine-status"
 import {
   askToDeleteFile,
   endFileListAction,
   fileListStore,
   startNewFile,
   startRenamingFile,
-} from "./file-list-state"
+} from "../file-list-state"
 import {
   createFile,
   deleteFile,
-  renameFile,
   selectFile,
   sessionStore,
-} from "./project-session"
-import { appHotkeys } from "./shortcuts"
+} from "../project-session"
+import { appHotkeys } from "../shortcuts"
+import { renameProjectFile } from "./editor-controller"
+import { problemsByFile } from "./problems"
+import type { ProblemCounts } from "./problems"
 
 /**
- * The project's files, in file order: pick the active one, add, rename,
- * download and delete files.
+ * The editor's left rail: the project's files in file order. Pick one to
+ * edit it; add, rename, download and delete files. A dot marks a file
+ * with errors or warnings.
  */
-export function FilesPanel() {
+export function EditorRail() {
   const files = useSelector(sessionStore, (state) => state.files)
   const activeFile = useSelector(sessionStore, (state) => state.ui.activeFile)
   const readOnly = useSelector(
     sessionStore,
     (state) => state.access === "read-only"
   )
+  const diagnostics = useSelector(
+    analysisStore,
+    (state) => state.report?.diagnostics
+  )
+  const problems = problemsByFile(diagnostics ?? [])
   const editing = useSelector(fileListStore)
   const names = files.map((file) => file.name)
 
@@ -62,13 +70,13 @@ export function FilesPanel() {
   })
 
   return (
-    <section
+    <nav
       aria-label="Files"
       data-testid="files-panel"
-      className="absolute top-4 left-4 z-10 flex max-h-[calc(100%-2rem)] w-64 flex-col rounded-xl border bg-card/95 shadow-lg backdrop-blur-sm"
+      className="flex w-56 shrink-0 flex-col bg-muted/30"
     >
-      <header className="flex h-10 shrink-0 items-center gap-2 border-b pr-1.5 pl-3">
-        <h2 className="text-xs font-medium text-muted-foreground">Files</h2>
+      <header className="flex h-9 shrink-0 items-center gap-2 pr-1 pl-3">
+        <h3 className="text-xs font-medium text-muted-foreground">Files</h3>
         <span className="text-xs text-muted-foreground tabular-nums">
           {files.length}
         </span>
@@ -78,7 +86,7 @@ export function FilesPanel() {
               render={
                 <Button
                   variant="ghost"
-                  size="icon-sm"
+                  size="icon-xs"
                   className="ml-auto"
                   aria-label="New file"
                   onClick={startNewFile}
@@ -92,9 +100,9 @@ export function FilesPanel() {
         )}
       </header>
 
-      <div className="min-h-0 overflow-y-auto p-1.5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5">
         {files.length === 0 && !editing.creating && (
-          <p className="px-2 py-3 text-sm text-muted-foreground">
+          <p className="px-2 py-2 text-xs leading-relaxed text-muted-foreground">
             This project has no files yet.
           </p>
         )}
@@ -108,7 +116,7 @@ export function FilesPanel() {
                   renaming={file.name}
                   onSubmit={(name) => {
                     endFileListAction()
-                    void renameFile(file.name, name)
+                    void renameProjectFile(file.name, name)
                   }}
                   onCancel={endFileListAction}
                 />
@@ -119,6 +127,7 @@ export function FilesPanel() {
                 name={file.name}
                 active={file.name === activeFile}
                 readOnly={readOnly}
+                problems={problems.get(file.name)}
               />
             )
           )}
@@ -150,39 +159,67 @@ export function FilesPanel() {
           if (editing.deleting) void deleteFile(editing.deleting)
         }}
       />
-    </section>
+    </nav>
   )
+}
+
+function problemLabel(problems: ProblemCounts | undefined): string | undefined {
+  if (!problems) return undefined
+  if (problems.errors > 0) {
+    return problems.errors === 1 ? "1 error" : `${problems.errors} errors`
+  }
+  if (problems.warnings > 0) {
+    return problems.warnings === 1
+      ? "1 warning"
+      : `${problems.warnings} warnings`
+  }
+  return undefined
 }
 
 function FileRow({
   name,
   active,
   readOnly,
+  problems,
 }: {
   name: string
   active: boolean
   readOnly: boolean
+  problems: ProblemCounts | undefined
 }) {
   const rename = () => startRenamingFile(name)
+  const label = problemLabel(problems)
   return (
     <li
       data-testid="file-row"
       data-name={name}
       data-active={active || undefined}
+      data-problems={
+        problems?.errors ? "error" : problems?.warnings ? "warning" : undefined
+      }
       className="group/file relative flex items-center rounded-md hover:bg-muted data-active:bg-accent"
     >
       <button
         type="button"
         aria-current={active ? "true" : undefined}
+        aria-label={label ? `${name}, ${label}` : undefined}
         onClick={() => void selectFile(name)}
         onDoubleClick={readOnly ? undefined : rename}
         className={cn(
-          "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md pr-8 pl-2 text-left text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+          "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md pr-7 pl-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
           active ? "font-medium text-foreground" : "text-muted-foreground"
         )}
       >
-        <FileIcon className="size-3.5 shrink-0" aria-hidden />
         <span className="truncate font-mono text-[0.8125rem]">{name}</span>
+        {label && (
+          <span
+            aria-hidden
+            className={cn(
+              "size-1.5 shrink-0 rounded-full",
+              problems?.errors ? "bg-destructive" : "bg-warning"
+            )}
+          />
+        )}
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger

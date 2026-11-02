@@ -14,13 +14,26 @@ import type { Page } from "./fixtures"
 import {
   chooseFromSwitcher,
   createFile,
+  editorContent,
+  editorToken,
   fileRows,
+  goToEnd,
   openProject,
   openSwitcher,
   pressMod,
 } from "./support"
 
 const FIXTURES = join(import.meta.dirname, "../test-results/tour-fixtures")
+
+/** Add a person with no gender (an error) at the end of the open file. */
+async function typeError(page: Page) {
+  await goToEnd(page)
+  await page.keyboard.type('\n\nperson zola name:"Zola"', { delay: 5 })
+  await page.keyboard.press("Escape")
+  await expect(
+    editorContent(page).locator(".cm-lintRange-error").first()
+  ).toBeVisible()
+}
 
 /** A .kul file on disk for the tour to import. */
 function fixture(name: string, text: string): string {
@@ -52,6 +65,85 @@ const STATES: ReadonlyArray<State> = [
     fullPage: true,
   },
   { name: "app-shell", path: "/app/", widths: [1440], enter: openProject },
+  {
+    name: "editor-docked-left",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await page.getByRole("button", { name: "Dock to the left" }).click()
+      await expect(page.getByTestId("editor-window")).toHaveAttribute(
+        "data-dock",
+        "left"
+      )
+    },
+  },
+  {
+    name: "editor-minimized",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await typeError(page)
+      await page.getByRole("button", { name: "Minimize the editor" }).click()
+      await expect(page.getByTestId("editor-pill")).toBeVisible()
+    },
+  },
+  {
+    name: "editor-completion",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await goToEnd(page)
+      await page.keyboard.type('\n\nperson zola name:"Zola" ', { delay: 5 })
+      await expect(page.locator(".cm-tooltip-autocomplete")).toBeVisible()
+    },
+  },
+  {
+    name: "editor-hover",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await editorToken(page, "declaration", "adaeze").hover()
+      await expect(page.getByTestId("hover")).toBeVisible()
+    },
+  },
+  {
+    name: "editor-rename",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await editorToken(page, "declaration", "emeka").click()
+      await page.keyboard.press("F2")
+      await expect(page.getByTestId("rename-box")).toBeVisible()
+    },
+  },
+  {
+    name: "editor-quick-fix",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await typeError(page)
+      await editorToken(page, "declaration", "zola").click()
+      await pressMod(page, ".")
+      await expect(page.getByTestId("quick-fix-menu")).toBeVisible()
+    },
+  },
+  {
+    name: "editor-problems",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await typeError(page)
+      await page.getByTestId("problems-count").click()
+      await expect(page.getByTestId("problem")).toHaveCount(1)
+    },
+  },
   {
     name: "project-switcher",
     path: "/app/",
@@ -195,8 +287,18 @@ for (const state of STATES) {
         )
 
         // Let entry animations (dialogs, menus) settle before the capture.
+        // (Endless ones, such as the editor's blinking cursor, are left
+        // running, and one replaced while waiting no longer counts.)
         await page.evaluate(() =>
-          Promise.all(document.getAnimations().map((a) => a.finished))
+          Promise.all(
+            document
+              .getAnimations()
+              .filter(
+                (animation) =>
+                  animation.effect?.getComputedTiming().endTime !== Infinity
+              )
+              .map((animation) => animation.finished.catch(() => undefined))
+          )
         )
 
         const overflow = await page.evaluate(

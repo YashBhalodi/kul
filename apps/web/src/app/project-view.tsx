@@ -5,7 +5,7 @@ import { useEffect } from "react"
 
 import { buttonVariants } from "@/components/ui/button"
 import { CanvasSurface, CanvasMessage } from "./canvas-surface"
-import { FilesPanel } from "./files-panel"
+import { EditorWindow } from "./editor/editor-window"
 import { closeProject, openProject, sessionStore } from "./project-session"
 import { ProjectBanners } from "./project-banners"
 import { startProject } from "./projects"
@@ -42,7 +42,7 @@ export function ProjectView({ projectId }: { projectId: string }) {
       {status === "open" && (
         <>
           <TreePreview />
-          <FilesPanel />
+          <EditorWindow />
         </>
       )}
       {status === "missing" && <MissingProject />}

@@ -377,6 +377,14 @@ The browser tab that may write a project: the one holding the Web Lock `kul-proj
 
 A project made from one of the repository's `examples/`, which the web app bundles at build time. A first visit opens one (`02-three-generations`), named after its family ("The Okeke family"); the rest are offered as "New from example".
 
+### Language worker
+
+The module Web Worker (`apps/web/src/language/worker.ts`) that holds the open project's [`Workspace`](#workspace) behind Comlink. The main thread's **language client** sends every edit as the file's whole text with a new **version**, and keeps the latest text of each file; every answer names the versions it was computed from, and one an edit has overtaken is dropped. Edits answer with lexical tokens at once; analysis waits for edits to pause and is pushed to the main thread. A crashed worker is replaced and given the file set again.
+
+### Editor window
+
+The app's code editor: CodeMirror over the canvas, with the file list, tabs and the **problems strip** (the whole project's errors and warnings). It floats, docks to the left or right side of the canvas, or minimizes to a **pill**; its layout is part of the project's window state. Highlighting comes only from the engine's lexical and semantic tokens — there is no grammar in the app.
+
 ### Tier-1 token / Tier-2 token
 
 The two layers of the preview's `--kul-*` custom properties ([ADR-0036](./docs/adr/0036-two-tier-theming-and-the-accessibility-non-goal.md), sized in [ADR-0038](./docs/adr/0038-tier-1-register-overlay-stack-and-the-reserved-carve-out.md)). A **tier-1 token** is part of the theme contract: a colour role, a typography choice, a diagram hue, a step on the spacing / radius / motion scales, or one of the reserved query paints. Tier 1 is the only layer that may bridge to a `--vscode-*` palette variable, and it is a closed register — chrome growth does not enlarge it. A **tier-2 token** is the per-site semantic layer (`--kul-legend-border-color`, `--kul-error-row-hover-bg`): exactly one per application site, aliasing a tier-1 primitive rather than a `--vscode-*` variable. Both live in `packages/preview/src/preview-themes.css` — tier 1 inside a per-theme `body[data-theme="…"]` block, tier 2 on `body` — while the application rules that consume tier 2 live in `preview.css`. A theme re-maps tier 1 and may override any single tier-2 alias. `crates/kul-svg` bakes tier 1 plus the diagram half of tier 2 into self-contained SVG export; `packages/preview/tests/tokens.test.ts` holds the split as a structural lint.
