@@ -51,7 +51,7 @@ The details panel is a side panel along the canvas's right edge, built from `det
 
 - The tree can be re-drawn on every edit without the reader noticing anything but the change.
 - The canvas never infers kinship from the picture; everything it says comes from the engine.
-- Measured (CI medians): keystroke to canvas swap on `examples/09` is 63–89 ms typing and 161–179 ms deleting across Chromium, Firefox and WebKit (ceiling 300 ms). A 2,000-person tree's DOM swap costs 196–625 ms of main thread on CI; making the swap incremental (keyed by `data-person-id`) or culling off-screen cards is the named follow-up.
+- Measured (CI medians): keystroke to canvas swap on `examples/09` is 63–89 ms typing and 161–179 ms deleting across Chromium, Firefox and WebKit (ceiling 300 ms). A 2,000-person tree's DOM swap costs 196–625 ms of main thread on CI; making the swap incremental (keyed by `data-person-id`) or culling off-screen cards is follow-up [#358](https://github.com/YashBhalodi/kul/issues/358).
 
 ## Anti-suggestions (do not re-propose)
 
