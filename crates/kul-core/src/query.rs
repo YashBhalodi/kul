@@ -3,7 +3,7 @@
 //!
 //! The query engine is a deep module layered over [`ResolvedDocument`]
 //! (ADR-0001) — the same checked-project substrate the validator and the
-//! LSP read. It consumes only `ResolvedDocument`'s public accessors and
+//! language service read. It consumes only `ResolvedDocument`'s public accessors and
 //! never re-walks the AST, and it never consumes the exported graph: the
 //! export is the escape hatch for consumers who don't use the engine, not
 //! the engine's own input.

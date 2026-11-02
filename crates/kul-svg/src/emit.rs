@@ -50,7 +50,7 @@ impl ThemeConfig {
     /// Distinct from [`ThemeConfig::default`] — the preview variant
     /// (theme-agnostic, no legend) per ADR-0016. This constructor is the
     /// single source of truth for the file-export shape (ADR-0022) so the
-    /// CLI's `kul export --format=svg` and the LSP's `kul/exportSvg` can
+    /// CLI's `kul export --format=svg` and the browser's SVG download can
     /// never drift.
     pub fn for_file_export() -> Self {
         Self::with_self_contained(true).with_legend(true)
@@ -627,7 +627,7 @@ mod tests {
     use super::*;
 
     /// Drift catch: the file-export variant must stay self-contained + legend.
-    /// If either bit ever changes, this fires before the CLI/LSP snapshots do.
+    /// If either bit ever changes, this fires before the CLI and workspace snapshots do.
     #[test]
     fn for_file_export_is_self_contained_with_legend() {
         let cfg = ThemeConfig::for_file_export();

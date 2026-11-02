@@ -15,11 +15,11 @@ verify: check e2e shots lighthouse baseline-diff vestige-check lint-workflows
 test:
     cargo nextest run --workspace --no-tests=pass
 
-# The language server's perf gate under a release build: the release
-# wall-clock is the per-edit cost a user feels. `test` covers the debug
-# ceiling.
+# The per-edit perf gates under a release build — the check and diagnostics,
+# the workspace's analyze() and the tree render — because the release
+# wall-clock is the cost a user feels. `test` covers the debug ceilings.
 perf-release:
-    cargo nextest run -p kul-lsp --release -E 'binary(perf)'
+    cargo nextest run -p kul-language-service -p kul-wasm -p kul-visual --release -E 'binary(perf)'
 
 # Auto-format the workspace.
 fmt:
@@ -124,11 +124,3 @@ baseline-diff:
 # Search for the old surfaces' names. Warn-only until the greenfield sweep.
 vestige-check:
     scripts/pivot/vestige-check.sh
-
-# Reinstall the VSCode extension end-to-end: build the LSP, package the
-# `.vsix`, and install via `code --install-extension --force`. Idempotent
-# — re-run after each code change. Reload the VSCode window afterwards
-# (Cmd+Shift+P -> "Developer: Reload Window"). Pass `release` for an
-# optimized LSP build; defaults to debug.
-vscode mode="debug":
-    editor/vscode/scripts/dev-install.sh {{mode}}

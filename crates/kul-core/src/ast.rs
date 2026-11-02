@@ -43,7 +43,8 @@ impl KulFile {
 /// One input file at the toolchain edge — name plus raw source bytes.
 /// Public input shape for [`crate::check`].
 ///
-/// `source` is [`Arc<str>`] so an LSP overlay (already `Arc<str>`) and the
+/// `source` is [`Arc<str>`] so a caller's buffer (the browser `Workspace`
+/// keeps `Arc<str>`s) and the
 /// parsed [`KulFile`] can share one buffer via a refcount bump.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InputFile {

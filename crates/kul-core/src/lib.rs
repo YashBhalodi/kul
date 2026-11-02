@@ -1,9 +1,9 @@
 //! Kul language core: lexer, parser, semantic analyzer, validator,
 //! diagnostics.
 //!
-//! Reusable library powering the `kul` CLI and the `kul-lsp` language
-//! server. Both call [`check`] once per project and read everything off
-//! the resulting [`CheckResult`]. The [`ResolvedDocument`] is the
+//! Reusable library powering the `kul` CLI and the browser's language
+//! service and `Workspace`. Each calls [`check`] once per project and reads
+//! everything off the resulting [`CheckResult`]. The [`ResolvedDocument`] is the
 //! kinship-query seam (ADR-0001); file-identity is the multi-file seam
 //! (ADR-0014).
 //!

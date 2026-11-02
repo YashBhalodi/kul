@@ -1,9 +1,0 @@
----
-source: crates/kul-lsp/src/features/code_action.rs
-expression: titles
----
-[
-  "Add `gender:male`",
-  "Add `gender:female`",
-  "Add `gender:other`"
-]

@@ -866,7 +866,7 @@ fn route_edges(
     for edge in render_edges {
         // Anchor lookup may legitimately fail if the render layer dropped this
         // edge's marriage; skip rather than panic so a render-layer regression
-        // does not kill the LSP host. The debug-assert preserves the test
+        // does not kill the host (the browser's worker). The debug-assert preserves the test
         // signal — snapshot tests still catch any real invariant violation.
         debug_assert!(
             bar_centers.contains_key(&edge.marriage_id),
@@ -933,7 +933,7 @@ mod tests {
 
     /// Release-build contract: a render edge whose marriage has no
     /// positioned anchor is silently skipped instead of panicking, so
-    /// a render-layer regression cannot kill the LSP host.
+    /// a render-layer regression cannot kill the host (the browser's worker).
     #[cfg(not(debug_assertions))]
     #[test]
     fn route_edges_skips_edge_with_missing_anchor() {
