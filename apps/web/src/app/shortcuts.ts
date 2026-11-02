@@ -68,6 +68,21 @@ export const appHotkeys = defineAppHotkeys({
     scope: "editor",
     meta: { name: "Comment or uncomment lines", group: "Editor" },
   },
+  "editor.undo": {
+    hotkey: "Mod+Z",
+    scope: "editor",
+    meta: { name: "Undo", group: "Editor" },
+  },
+  "editor.redo": {
+    hotkey: "Mod+Shift+Z",
+    scope: "editor",
+    meta: { name: "Redo", group: "Editor" },
+  },
+  "editor.redoAgain": {
+    hotkey: "Mod+Y",
+    scope: "editor",
+    meta: { name: "Redo", group: "Editor" },
+  },
   "editor.find": {
     hotkey: "Mod+F",
     scope: "editor",

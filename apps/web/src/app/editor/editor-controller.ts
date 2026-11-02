@@ -39,6 +39,7 @@ import {
   setTokenRanges,
 } from "@/editor/kul-editor"
 import type { KulFeatures } from "@/editor/kul-editor"
+import { codeMirrorKey } from "@/editor/keys"
 import { kulEditorTheme } from "@/editor/theme"
 import { EditTrail, tokenRanges } from "@/editor/tokens"
 import { overlaySemantic } from "@/highlight/tokens"
@@ -780,6 +781,15 @@ const EDITOR_SHORTCUTS: ReadonlyArray<
   ["editor.symbols", showSymbols],
 ]
 
+/** Undo and redo, from the app's table, run by CodeMirror's keymap. */
+const HISTORY_SHORTCUTS: ReadonlyArray<
+  readonly [AppHotkeyId, "undo" | "redo"]
+> = [
+  ["editor.undo", "undo"],
+  ["editor.redo", "redo"],
+  ["editor.redoAgain", "redo"],
+]
+
 /**
  * The editor's commands. Language features match keys the way the app's
  * shortcuts do (by physical key where a layout types a character, as
@@ -801,11 +811,13 @@ const editorCommands: Extension = [
     })
   ),
   Prec.high(
-    keymap.of([
-      { key: "Mod-z", run: linkedHistory("undo"), preventDefault: true },
-      { key: "Mod-y", run: linkedHistory("redo"), preventDefault: true },
-      { key: "Mod-Shift-z", run: linkedHistory("redo"), preventDefault: true },
-    ])
+    keymap.of(
+      HISTORY_SHORTCUTS.map(([id, direction]) => ({
+        key: codeMirrorKey(appHotkeys[id].defaultHotkey),
+        run: linkedHistory(direction),
+        preventDefault: true,
+      }))
+    )
   ),
 ]
 
