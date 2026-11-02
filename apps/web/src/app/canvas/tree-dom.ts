@@ -151,9 +151,19 @@ const GHOST_REASONS: Readonly<Record<string, string>> = {
  * Add the canvas's own elements to a freshly drawn tree: on each ghost
  * card (a past record of a person) a return badge that leads to the
  * person's own card, and along each marriage line a wider, invisible line
- * that is easier to click.
+ * that is easier to click. Each person's own card and each marriage's
+ * line become buttons in the tab order, so the keyboard selects what a
+ * click does. A ghost card does not: its badge is its button, and the
+ * person's own card is reachable.
  */
 export function decorateTree(svg: SVGSVGElement): void {
+  for (const card of svg.querySelectorAll(
+    '.kul-card[data-kind="canonical"][data-person-id]'
+  )) {
+    card.setAttribute("role", "button")
+    card.setAttribute("tabindex", "0")
+    card.setAttribute("aria-label", cardLabel(card))
+  }
   for (const ghost of svg.querySelectorAll(
     '.kul-card[data-kind="ghost"][data-person-id]'
   )) {
@@ -194,8 +204,37 @@ export function decorateTree(svg: SVGSVGElement): void {
       edge.getAttribute("data-marriage-id") ?? ""
     )
     hit.setAttribute("d", edge.getAttribute("d") ?? "")
+    hit.setAttribute("role", "button")
+    hit.setAttribute("tabindex", "0")
+    hit.setAttribute("aria-label", marriageLabel(svg, edge))
     edge.after(hit)
   }
+}
+
+/** A card's accessible name: the text it shows, in order. */
+function cardLabel(card: Element): string {
+  return [...card.querySelectorAll("text")]
+    .map((text) => text.textContent.trim())
+    .filter((text) => text !== "")
+    .join(" ")
+}
+
+/** "Marriage of Chinua Okeke and Adaeze Okeke", from the spouses' cards. */
+function marriageLabel(svg: SVGSVGElement, edge: Element): string {
+  const name = (id: string | null): string => {
+    if (!id) return ""
+    const label = svg.querySelector(
+      `.kul-card[data-person-id="${CSS.escape(id)}"] .kul-label-name`
+    )
+    return label?.textContent.trim() || id
+  }
+  const spouses = [
+    name(edge.getAttribute("data-host-id")),
+    name(edge.getAttribute("data-joining-id")),
+  ].filter((spouse) => spouse !== "")
+  return spouses.length > 0
+    ? `Marriage of ${spouses.join(" and ")}`
+    : "Marriage"
 }
 
 /** What a press on the tree landed on. */

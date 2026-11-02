@@ -44,6 +44,26 @@ export function chooseEntity(entity: EntityRef): void {
     })
 }
 
+/**
+ * Select the entity under the editor's cursor, so the details panel shows
+ * it. The editor keeps its cursor and the keyboard; `false` when the cursor
+ * is on no person or marriage (or the answer is stale).
+ */
+export async function selectEntityAtCursor(): Promise<boolean> {
+  const cursor = editorCursorStore.state
+  if (!cursor) return false
+  const entity = await languageClient()?.query(
+    "entityAt",
+    cursor.file,
+    cursor.offset
+  )
+  if (!entity) return false
+  const ref: EntityRef = { kind: entity.kind, id: entity.id }
+  marksStore.setState((marks) => select(marks, ref))
+  revealEntity(ref)
+  return true
+}
+
 export function clearCanvasSelection(): void {
   marksStore.setState(clearSelection)
 }

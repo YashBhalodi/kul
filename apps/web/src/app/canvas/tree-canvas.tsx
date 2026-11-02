@@ -230,9 +230,12 @@ export function TreeCanvas() {
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const target = event.target as Element
+    // Enter or Space on a focused card, marriage line or ghost badge acts
+    // as a click on it.
     if (
-      target.classList.contains("kul-ghost-badge") &&
-      (event.key === "Enter" || event.key === " ")
+      (event.key === "Enter" || event.key === " ") &&
+      target.getAttribute("role") === "button" &&
+      target.closest("[data-testid=tree]")
     ) {
       event.preventDefault()
       activate(targetOf(target))

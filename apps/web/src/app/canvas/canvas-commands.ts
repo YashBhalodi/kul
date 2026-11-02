@@ -1,11 +1,13 @@
 import { useSelector } from "@tanstack/react-store"
 import { useMemo } from "react"
+import { toast } from "sonner"
 
 import { useCommands } from "../commands"
 import type { Command } from "../commands"
 import { downloadTree } from "../download"
 import { analysisStore } from "../engine-status"
-import { clearCanvasSelection } from "./canvas-linking"
+
+import { clearCanvasSelection, selectEntityAtCursor } from "./canvas-linking"
 import {
   fitTree,
   legendStore,
@@ -64,6 +66,18 @@ export function useCanvasCommands(): void {
         group: "Canvas",
         keywords: ["key", "colours"],
         run: toggleLegend,
+      },
+      {
+        id: "canvas.detailsAtCursor",
+        title: "Show details for the entity at the cursor",
+        group: "Canvas",
+        keywords: ["select", "person", "marriage", "panel", "info"],
+        run: () =>
+          void selectEntityAtCursor().then((found) => {
+            if (!found) {
+              toast("Put the editor's cursor on a person or marriage id first.")
+            }
+          }),
       },
     ]
     if (selected) {

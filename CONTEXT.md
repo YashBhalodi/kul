@@ -370,7 +370,7 @@ The entity under the editor's cursor, marked on the [canvas](#canvas) more softl
 
 ### Entity selection
 
-The one entity the reader has chosen on the [canvas](#canvas) — **the selection**: a person (their card) or a marriage (its line), keyed by its id. Clicking a card or a marriage line selects it, as does a related entity named in the [details panel](#details-panel); Esc or a click on the background clears it. Selecting puts the editor's cursor on the entity's declaration without taking the keyboard. **A selection survives edits**: after every render it is applied again by id, and it ends only when the new tree no longer draws the entity (it was deleted). Implemented in `apps/web/src/canvas/selection.ts`, beside the [linked entity](#linked-entity).
+The one entity the reader has chosen on the [canvas](#canvas) — **the selection**: a person (their card) or a marriage (its line), keyed by its id. Clicking a card or a marriage line selects it — so do Enter and Space on one in keyboard focus, the palette's "Show details for the entity at the cursor", and a related entity named in the [details panel](#details-panel); Esc or a click on the background clears it. Selecting puts the editor's cursor on the entity's declaration without taking the keyboard. **A selection survives edits**: after every render it is applied again by id, and it ends only when the new tree no longer draws the entity (it was deleted). Implemented in `apps/web/src/canvas/selection.ts`, beside the [linked entity](#linked-entity).
 
 ### Details panel
 

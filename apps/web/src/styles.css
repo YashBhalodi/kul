@@ -116,6 +116,19 @@
   [data-testid="tree"] .kul-card:hover rect {
     stroke-width: 2.5;
   }
+  /* The keyboard's place: a focused card or marriage line. */
+  [data-testid="tree"] .kul-card,
+  [data-testid="tree"] .kul-hit {
+    outline: none;
+  }
+  [data-testid="tree"] .kul-card:focus-visible rect {
+    stroke: var(--ring);
+    stroke-width: 3;
+  }
+  [data-testid="tree"] .kul-hit:focus-visible {
+    stroke: var(--ring);
+    stroke-opacity: 0.6;
+  }
 
   /* The linked entity (under the editor's cursor), and the selected one. */
   .kul-tree .kul-card[data-linked] rect {

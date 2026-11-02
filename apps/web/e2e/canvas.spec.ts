@@ -18,6 +18,7 @@ import {
   openExample,
   openFile,
   openProject,
+  pressMod,
   treeCard,
   treeMarriage,
 } from "./support"
@@ -88,8 +89,12 @@ test("clicking a card opens its details and puts the editor on its declaration",
   await expect(panel).toContainText("1930-03")
   await expect(treeCard(page, "adaeze")).toHaveAttribute("data-selected", "")
   await expect.poll(() => editorSelection(page)).toBe("adaeze")
-  // The canvas keeps the keyboard; the editor only moved its cursor.
-  await expect(page.getByTestId("tree-viewport")).toBeFocused()
+  // The canvas keeps the keyboard (the clicked card has it); the editor
+  // only moved its cursor.
+  await expect(
+    page.locator("[data-testid=tree-viewport]:focus-within")
+  ).toHaveCount(1)
+  await expect(editorContent(page)).not.toBeFocused()
 
   // A related person in the panel selects that person.
   await panel.getByRole("button", { name: "Emeka Okeke" }).click()
@@ -143,6 +148,53 @@ test("the cursor on a reference in another file marks and reveals its entity", a
   // Linking leaves the keyboard in the editor.
   await expect(editorContent(page)).toBeFocused()
   await expect(page.getByTestId("details-panel")).toBeHidden()
+})
+
+test("the keyboard selects cards and marriage lines", async ({ page }) => {
+  await openProject(page)
+  // The tree's buttons are in the tab order after the canvas itself.
+  await page.getByTestId("tree-viewport").focus()
+  await page.keyboard.press("Tab")
+  const focused = page.locator("[data-testid=tree] :focus")
+  await expect(focused).toHaveAttribute("role", "button")
+
+  const chinua = treeCard(page, "chinua")
+  await expect(chinua).toHaveAttribute("aria-label", /Chinua Okeke/)
+  await chinua.focus()
+  await page.keyboard.press("Enter")
+  await expect(chinua).toHaveAttribute("data-selected", "")
+  await expect(page.getByTestId("details-title")).toHaveText("Chinua Okeke")
+
+  const line = page.locator(
+    '[data-testid=tree] .kul-hit[data-marriage-id="m_emeka_ngozi"]'
+  )
+  await expect(line).toHaveAttribute(
+    "aria-label",
+    "Marriage of Emeka Okeke and Ngozi Okeke"
+  )
+  await line.focus()
+  await page.keyboard.press(" ")
+  await expect(treeMarriage(page, "m_emeka_ngozi")).toHaveAttribute(
+    "data-selected",
+    ""
+  )
+  await expect(page.getByTestId("details-panel")).toBeVisible()
+})
+
+test("the palette shows the details of the entity at the editor's cursor", async ({
+  page,
+}) => {
+  await openProject(page)
+  await editorToken(page, "declaration", "chinua").click()
+  await pressMod(page, "K")
+  await page
+    .getByRole("option", {
+      name: "Show details for the entity at the cursor",
+      exact: true,
+    })
+    .click()
+  await expect(treeCard(page, "chinua")).toHaveAttribute("data-selected", "")
+  await expect(page.getByTestId("details-title")).toHaveText("Chinua Okeke")
 })
 
 test("editing another person keeps the selection and the camera", async ({
@@ -216,6 +268,9 @@ test("a past record's badge glides to the person's own card", async ({
 test("Fit shows the whole tree, 100% shows it at its own size, and the camera is saved", async ({
   page,
 }) => {
+  // Camera moves are instant with reduced motion, so each read below is
+  // where the control put the camera, not a frame of its glide.
+  await page.emulateMedia({ reducedMotion: "reduce" })
   await openProject(page)
   await openExample(page, "A family across a century", "The Adeyemi family")
   await expect(treeCard(page, "oludare")).toHaveCount(1)
