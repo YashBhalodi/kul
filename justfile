@@ -85,6 +85,9 @@ wasm-check: wasm
 web-check: (_web "typecheck" "lint" "test")
     node --test --test-reporter=spec apps/web/scripts/serve-dist.test.mjs
 
+# The web app's dev server, on a fresh WASM build.
+web: wasm (_web "dev")
+
 # The web app's production build with prerender, into apps/web/dist/client.
 web-build: wasm (_web "build")
 
