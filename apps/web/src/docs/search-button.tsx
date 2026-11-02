@@ -27,7 +27,12 @@ function useShortcutLabel(): string {
   )
 }
 
-/** "Search the docs": the header's button, and Ctrl+K / ⌘K anywhere. */
+/**
+ * "Search the docs": the header's button, and Ctrl+K / ⌘K anywhere on a
+ * docs page. The key is a plain listener, not an entry in the app's
+ * shortcut table, so the docs never load the hotkeys library (see
+ * docs/architecture.md, "The web app").
+ */
 export function SearchButton() {
   const shortcut = useShortcutLabel()
   const [open, setOpen] = useState(false)

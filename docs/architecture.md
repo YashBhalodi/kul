@@ -156,7 +156,7 @@ Inside the app, the pieces and their seams:
 - **Language client and worker** (`src/language/`): below.
 - **Editor window** (`src/app/editor/` over the CodeMirror extensions in `src/editor/`): one `EditorView`, one CodeMirror state per open file.
 - **Canvas** (`src/app/canvas/` over the pure modules in `src/canvas/`): below.
-- **Commands and shortcuts**: every palette command is registered with `useCommands` (`src/app/commands.ts`) while its component is mounted; every shortcut is declared once in `src/app/shortcuts.ts`, so the shortcuts dialog and the docs list them all.
+- **Commands and shortcuts**: every palette command is registered with `useCommands` (`src/app/commands.ts`) while its component is mounted; every shortcut **in `/app`** is declared once in `src/app/shortcuts.ts`, so the shortcuts dialog and the keyboard-shortcuts docs page list them all (a test holds the page to the table). The rule stops at the app: the table is built with TanStack Hotkeys, which ships only in the app's code, and importing it on the landing page or the docs would put that library on every site page's first load (the Lighthouse floor is 0.95). The site's one shortcut, Ctrl/⌘ K to open the docs search, is therefore a plain `keydown` listener in `src/docs/search-button.tsx`, and the keyboard-shortcuts page covers the app.
 - **Tokens**: `src/styles/tokens.css` is the only place a colour is written (light on `:root`, dark on `.dark`), mapped into Tailwind by `src/styles/theme.css`.
 
 ## Language features in the app
