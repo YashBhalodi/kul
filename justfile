@@ -8,9 +8,9 @@ default: check
 # `web.yml` run these same recipes.
 check: fmt-check lint test wasm-check web-check web-build release-test
 
-# Everything `check` runs, plus the browser suites, Lighthouse, the epic #343
-# baseline diff and old-name search, and actionlint over the workflows.
-verify: check e2e shots lighthouse baseline-diff vestige-check lint-workflows
+# Everything `check` runs, plus the browser suites, Lighthouse, the search
+# for retired names, and actionlint over the workflows.
+verify: check e2e shots lighthouse retired-names lint-workflows
 
 # Run the full test suite via cargo-nextest.
 test:
@@ -120,13 +120,7 @@ lint-workflows:
 release-test:
     node --test --test-reporter=spec scripts/release-versions.test.mjs
 
-# Epic #343 harness. scripts/pivot/ and these two recipes are deleted when
-# the epic completes.
-
-# Compare the current tree's behaviour with the pinned pre-pivot baseline.
-baseline-diff:
-    scripts/pivot/baseline.sh diff
-
-# Search for the old surfaces' names; any hit fails.
-vestige-check:
-    scripts/pivot/vestige-check.sh --strict
+# Fail if a name of a retired surface is back (scripts/retired-names.sh lists
+# them and what it skips; ADR-0047).
+retired-names:
+    scripts/retired-names.sh

@@ -40,7 +40,7 @@ docs/
 spec/                   — Kul 0.1 language specification (the normative source of truth)
 examples/               — `.kul` projects used as docs, as the positive test corpus and as the app's example projects
 skills/                 — agentskills.io-compliant skills delivered separately via `npx skills add` (see `skills/kul-authoring/`)
-scripts/                — repository scripts: the release version check, example rendering, the deploy smoke check
+scripts/                — repository scripts: the release version check, example rendering, the deploy smoke check, the retired-names search
 CONTEXT.md              — domain glossary; canonical vocabulary for the project
 ```
 
@@ -89,7 +89,7 @@ Runs, in order: `cargo fmt --check`; `cargo clippy --workspace --all-targets -- 
 just verify
 ```
 
-Runs `just check`, then `just e2e` (Playwright against the built site served by `serve-dist`, on Chromium, Firefox and WebKit), `just shots` (the screenshot tour, with axe on every state), `just lighthouse` (score floors on the landing page and a docs page), `just baseline-diff` and `just vestige-check` (the epic #343 harness in `scripts/pivot/`), and `just lint-workflows` (actionlint).
+Runs `just check`, then `just e2e` (Playwright against the built site served by `serve-dist`, on Chromium, Firefox and WebKit), `just shots` (the screenshot tour, with axe on every state), `just lighthouse` (score floors on the landing page and a docs page), `just retired-names` (fails if a name of a surface Kul retired comes back; `scripts/retired-names.sh`) and `just lint-workflows` (actionlint).
 
 Other recipes:
 

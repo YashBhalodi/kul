@@ -1,36 +1,29 @@
 #!/usr/bin/env bash
-# Old-name search for epic #343 (the web-app pivot): the epic's Definition of
-# Done search over every tracked and untracked, non-ignored file.
+# The names of the surfaces Kul retired when the browser app became its only
+# interactive surface (ADR-0047): the editor extension and its marketplace
+# listings, the language server and its transport, the preview package and
+# its host seam, the project file and its diagnostics, the YAML parser and the
+# directory loader. Any of them showing up again in a tracked or untracked,
+# non-ignored file fails this check.
 #
-#   scripts/pivot/vestige-check.sh            report hits, exit 0 (warn-only)
-#   scripts/pivot/vestige-check.sh --strict   report hits, exit 1 on any
+#   scripts/retired-names.sh   report hits; exit 1 if there are any
 #
 # Each hit prints as `file:line:text` under the term it matched, followed by
 # a per-term count. Not counted:
 #   - CHANGELOG.md (release history);
-#   - scripts/pivot/ itself (this harness);
 #   - ADR status lines (`**Status:** ...` in docs/adr/);
 #   - superseded ADRs: the whole of every docs/adr/ file whose status line
 #     begins `**Status:** Superseded`, and that file's name where another
-#     file links to it. They are records of decisions no longer in force;
+#     file links to it. They are records of decisions no longer in force
+#     (ADR-0047, "The records of the retired surfaces");
 #   - names owned by third-party packages, which this repo cannot rename:
-#     X#     engine package (a transitive dependency in package-lock.json).
+#     workbox-build's two precache-manifest functions and Shiki's TextMate
+#     engine package (a transitive dependency in package-lock.json).
 #
 # Every pattern and exempt name holds one bracketed character or a split
-# literal so this file never spells the names it looks for, and a plain
-# search for a name finds no hit in this file.
+# literal, so this file never spells the names it looks for.
 
 set -euo pipefail
-
-STRICT=0
-case "${1:-}" in
-  --strict) STRICT=1 ;;
-  "") ;;
-  *)
-    echo "usage: scripts/pivot/vestige-check.sh [--strict]" >&2
-    exit 2
-    ;;
-esac
 
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
@@ -57,15 +50,14 @@ TERMS=(
 
 IGNORE_PATHS=(
   ':(exclude)CHANGELOG.md'
-  ':(exclude)scripts/pivot'
 )
 
 STATUS_LINE='^docs/adr/[^:]+:[0-9]+:\*\*Status:\*\*'
 
 # Third-party names, removed from a hit's text before it is counted.
 EXEMPT=(
-  'inject''Manifest'
-  'get''Manifest'
+  'injectManifes''t'
+  'getManifes''t'
   'vs''code-textmate'
 )
 
@@ -109,13 +101,8 @@ for entry in "${TERMS[@]}"; do
   total=$((total + count))
 done
 
-printf 'vestige-check: hits per term\n'
+printf 'retired-names: hits per term\n'
 printf '%s\n' "${summary[@]}"
-printf 'vestige-check: %s hit(s) in total\n' "$total"
+printf 'retired-names: %s hit(s) in total\n' "$total"
 
-if [[ $total -gt 0 ]]; then
-  if [[ $STRICT -eq 1 ]]; then
-    exit 1
-  fi
-  printf 'vestige-check: warn-only (run with --strict to fail on hits)\n'
-fi
+[[ $total -eq 0 ]]

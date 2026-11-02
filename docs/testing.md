@@ -40,7 +40,7 @@ There are no skipped or ignored tests anywhere in the workspace. If a test is br
 just check
 ```
 
-Runs fmt-check, clippy at deny-level, the full test suite via `cargo nextest`, the WASM build and its gates (`just wasm-check`), and the web app's gates. CI runs the same recipes — local-green implies CI-green. If you want only the test suite: `just test`. `just verify` adds the end-to-end suites, the screenshot tour, Lighthouse, the epic #343 harness and actionlint (see [`AGENTS.md`](../AGENTS.md)).
+Runs fmt-check, clippy at deny-level, the full test suite via `cargo nextest`, the WASM build and its gates (`just wasm-check`), and the web app's gates. CI runs the same recipes — local-green implies CI-green. If you want only the test suite: `just test`. `just verify` adds the end-to-end suites, the screenshot tour, Lighthouse, the retired-names search and actionlint (see [`AGENTS.md`](../AGENTS.md)).
 
 ## Web app (`apps/web`)
 
