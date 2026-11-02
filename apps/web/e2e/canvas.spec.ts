@@ -148,13 +148,14 @@ test("the cursor on a reference in another file marks and reveals its entity", a
 test("editing another person keeps the selection and the camera", async ({
   page,
 }) => {
+  // Camera moves are instant with reduced motion, so the camera read below
+  // is where Fit put it, not a frame of the glide.
+  await page.emulateMedia({ reducedMotion: "reduce" })
   await openProject(page)
   await treeCard(page, "chidi").click()
   await expect(page.getByTestId("details-title")).toHaveText("Chidi Okeke")
   await page.getByTestId("zoom-fit").click()
   await expect.poll(() => cameraOf(page).then((c) => c.zoom)).toBeLessThan(1)
-  // Let the fit settle before reading the camera.
-  await page.waitForTimeout(400)
   const camera = await cameraOf(page)
 
   // Adaeze dies in 2001.
