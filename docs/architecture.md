@@ -11,8 +11,8 @@ This document uses the architecture words consistently:
 - **Module** — anything with an interface and an implementation: a function, a type, a Rust module, a crate. The unit of "this thing has a public face and an internal one."
 - **Interface** — everything a caller must know: types, invariants, error modes, ordering, configuration. Not just the function signature.
 - **Implementation** — the code inside.
-- **Seam** — where an interface lives. A place behaviour can be altered without editing in place. `ResolvedDocument` is a seam; the LSP feature modules are adapters at the editor seam.
-- **Depth** — leverage at the interface. A small interface that hides a lot of behaviour is **deep**; an interface nearly as complex as its implementation is **shallow**. The validator's `Diagnostic` type is deep; the LSP `convert::to_lsp_diagnostic` adapter is appropriately shallow.
+- **Seam** — where an interface lives. A place behaviour can be altered without editing in place. `ResolvedDocument` is a seam; the language-service feature modules are adapters at the editor seam.
+- **Depth** — leverage at the interface. A small interface that hides a lot of behaviour is **deep**; an interface nearly as complex as its implementation is **shallow**. The validator's `Diagnostic` type is deep; the workspace's UTF-16 offset conversion is appropriately shallow.
 - **Deletion test** — imagine deleting a module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep.
 
 ## Pipeline
@@ -44,7 +44,7 @@ A project's manifest YAML plus its [`InputFile`](../CONTEXT.md#kulfile)s flow th
   ▼  CheckResult { resolved, diagnostics, manifest }
 ```
 
-`kul_core::check(manifest_name, manifest_yaml, &[InputFile])` is the single entry point that runs the whole pipeline. The CLI calls it once per project: each subcommand is CWD-rooted (no positional `<file>`), discovers the manifest and every sibling `.kul` via the shared `kul-loader` crate, and hands the bytes off in one call. The LSP calls it once per project (not per URI — issue #85): `did_open` discovers the project from the opened URI's directory, reads every sibling `.kul` off disk, and feeds the whole set into one `check`; subsequent `did_change` and `did_close` mutate the per-URI overlay and re-run `check` for the same project. The WASM bridge calls `check_with_manifest` with a typed manifest the JS host constructed and synthesizes a placeholder `kul.yml` body so any `.kul`-side diagnostic into the manifest still has bytes to anchor at. The pipeline operates on `Document.kul_files` with `N>=1` consumers (per [ADR-0015](./adr/0015-global-project-namespace.md)): the resolver builds one project-wide id index, the validator threads file iteration through it, and R01/R02/R13 honour the global namespace.
+`kul_core::check(manifest_name, manifest_yaml, &[InputFile])` is the single entry point that runs the whole pipeline. The CLI calls it once per project: each subcommand is CWD-rooted (no positional `<file>`), discovers the manifest and every sibling `.kul` via the shared `kul-loader` crate, and hands the bytes off in one call. The browser `Workspace` (`kul-wasm`) calls it once per edit, lazily: it holds the project's files, and the first request after a change re-checks the whole set and caches the result for every request until the next change. The pipeline operates on `Document.kul_files` with `N>=1` consumers (per [ADR-0015](./adr/0015-global-project-namespace.md)): the resolver builds one project-wide id index, the validator threads file iteration through it, and R01/R02/R13 honour the global namespace.
 
 The shape is deliberately linear. Each pass produces a strictly richer artifact; nothing earlier in the pipeline ever consults something later. This is why:
 
@@ -66,46 +66,27 @@ kul-core   ── library (no_std-friendly intent, but uses std for now)
               declarative Query value, layered over ResolvedDocument,
               never over the export; ADR-0024/0025/0026).
 
-kul-loader ── library
-              Shared filesystem entry point: given a project-root path,
-              encapsulates kul.yml discovery, *.kul enumeration (flat
-              directory per ADR-0015), and IO error handling once. Two
-              entry points over the same discovery rule: `load` (strict;
-              returns typed ProjectLoadError, used by the CLI) and
-              `discover` (lenient; swallows missing-manifest / unreadable
-              files into empty results, used by the LSP). Both share one
-              internal directory-walk helper so the discovery rule lives
-              in exactly one place. Lives outside kul-core (which forbids
-              filesystem IO) and outside kul-cli (which already depends
-              on kul-lsp).
-
 kul-cli    ── thin binary `kul`
-              Five CWD-rooted subcommands: `validate` (renders
-              diagnostics with miette), `format` (canonicalize per
-              ADR-0004), `export` (project to JSON via
-              kul_core::export), `query` (id → detail lookups and lineal
-              kin-set queries via kul_core::query; `query person|marriage
-              <id>`, `query kin <id> parents|children|ancestors|descendants`),
-              and `lsp`
-              (delegates to kul_lsp::run). `validate`, `format`,
-              `export`, and `query` take no positional project argument —
-              each loads the project from CWD via `kul-loader`. Owns
-              argument parsing and human/JSON output formatting; the
-              `query --format json` path emits the same QueryEnvelope
-              bytes the WASM surface returns (ADR-0024).
+              Four subcommands over a project directory (`[DIR]`,
+              default the working directory, read flat for `*.kul`):
+              `validate` (renders diagnostics with miette), `format`
+              (canonicalize per ADR-0004), `export` (JSON via
+              kul_core::export, or SVG via kul-visual), and `query` (id
+              → detail lookups, kin-set queries and relationship
+              resolution via kul_core::query). Owns argument parsing and
+              human/JSON output formatting; `query --format json` prints
+              the QueryEnvelope (ADR-0024).
 
-kul-lsp    ── library + binary `kul-lsp`
-              tower-lsp Backend implementation. Owns the project-keyed
-              cache (one cached check per project root, not per URI),
-              implements feature modules (hover, definition, completion,
-              diagnostics, export, …), translates kul-core types to LSP
-              types. Cross-file features (definition, references,
-              rename, completion) are project-wide per ADR-0015;
-              diagnostics broadcast to every project file on every
-              update so the Problems pane reflects project-wide health.
-              Never re-implements pipeline logic — only adapts. Custom
-              requests (e.g. `kul/export`) are registered via
-              `LspService::build().custom_method(...)` in `lib.rs`.
+kul-language-service ── library
+              The language features as pure functions over a checked
+              project: diagnostics, hover, complete, definition,
+              references, prepare_rename and rename, symbols,
+              quick_fixes, semantic_tokens, lexical_tokens, format,
+              entity_at, locate and details. No IO, no editor protocol,
+              no async runtime. Files are addressed by name, offsets are
+              UTF-8 bytes, results are Kul-native types. Cross-file
+              features are project-wide per ADR-0015. Never re-implements
+              pipeline logic — it asks ResolvedDocument and node_at.
 
 kul-layout ── library
               Positioning pass for the canonical UI pattern. Public
@@ -130,66 +111,57 @@ kul-svg    ── library
               downstream consumers convert to raster via standard
               tools. Depends on kul-layout and kul-render.
 
-kul-wasm   ── library (cdylib + rlib), published as `@kullang/wasm`
-              wasm-bindgen adapter over kul-core. Operation-specific
-              exposed functions — `check`, `exportGraph`, `format`,
-              `renderSvg`, the query lookups `queryPerson` /
-              `queryMarriage`, the batched detail lookup `queryDetail`,
-              and the kin-set query `queryKin` — each a
-              thin wrapper around the matching kul-core deep module, plus
-              version-metadata getters.
-              Surface shape is settled in ADR-0011 (fourth shape, the
-              query envelope, added by ADR-0024); TypeScript types are
-              derived via Tsify, committed, and diffed in CI per
-              ADR-0012. Single ESM `--target bundler` build for
-              modern bundlers (Vite, Webpack, Next.js, etc.).
+kul-wasm   ── library (cdylib + rlib), built with wasm-pack --target web
+              The browser's engine: one stateful `Workspace` class. It
+              holds a project's files, caches one check per edit, and
+              serves every kul-language-service feature plus the render
+              (`analyze`, `renderSvg`) through kul-visual, converting
+              every offset to UTF-16 code units at the boundary. Surface
+              shape is settled in ADR-0011; TypeScript types are derived
+              via Tsify, committed, and diffed per ADR-0012.
 ```
 
-The dependency graph is unidirectional: `kul-cli → kul-lsp → kul-core`, `kul-cli → kul-loader → kul-core`, `kul-cli → kul-core`, `kul-wasm → kul-core`, and `kul-lsp → kul-svg → kul-layout → kul-render → kul-core` for the visual-rendering pipeline. Nothing depends on the CLI; nothing in core depends on the LSP, the loader, the visual-rendering crates, or the WASM crate. The loader sits below both `kul-cli` and `kul-lsp`. The visual-rendering crates (`kul-render`, `kul-layout`, `kul-svg`) sit between `kul-core` and `kul-lsp` so the LSP can fulfil the `kul/render` request without dragging the canonical-pattern projection into core. New crates should preserve this unidirectional shape.
+The dependency graph is unidirectional: `kul-cli → kul-visual → kul-core`, `kul-wasm → kul-language-service → kul-core`, `kul-wasm → kul-visual`, and `kul-visual → kul-svg → kul-layout → kul-render → kul-core` for the visual-rendering pipeline. Nothing depends on the CLI or the WASM crate; nothing in core depends on the language service or the visual-rendering crates. The visual-rendering crates sit beside the language service, not under it, so the editor features never drag the canonical-pattern projection in, and the workspace composes the two. New crates should preserve this unidirectional shape.
 
-### Why a separate `kul-lsp` crate at all?
+### Why a separate `kul-language-service` crate at all?
 
-A nontrivial chunk of LSP-specific machinery (tower-lsp, async runtime, JSON-RPC framing, document cache, byte ↔ LSP-position translation) doesn't belong in core — it's editor-protocol concern, not language concern. Bundling it into `kul-cli` would force the CLI binary to pull in `tower-lsp` and `tokio` for users who only ever run `kul validate`. The split is the deletion test passing: removing `kul-lsp` would either reproduce the editor logic in the CLI, or eliminate editor support entirely.
+The editor features (hover, completion and its token-stream classifier, rename, highlighting, …) are language-tooling concern, not language concern: `kul-core` answers what a project *means*, the service answers what an editor should *show*. Keeping them out of `kul-core` keeps the CLI and the core free of them; keeping them out of `kul-wasm` keeps them testable as plain Rust with no JavaScript boundary and no offset conversion in sight. The deletion test passes: removing the crate would either move the features into the WASM adapter, mixing them with ABI and UTF-16 concerns, or eliminate editor support.
 
 ### Why a separate `kul-wasm` crate at all?
 
-Same shape of argument as the LSP split, in the JS direction. Browser and Node consumers cannot shell out to the `kul` binary or speak LSP over stdio; they need a JS-callable surface. Compiling `kul-core` to WebAssembly with `wasm-bindgen` is the only viable path. The bridge has its own concerns — `cdylib` crate type, `wasm-bindgen` derives, `console_error_panic_hook` registration, `serde-wasm-bindgen` round-trip, the bundler-target build pipeline — that have no place in `kul-core` or `kul-cli`. The deletion test passes: removing `kul-wasm` would either reproduce the JS adapter elsewhere, or eliminate JS-ecosystem consumers entirely. The `kul-core/tsify` feature exists exactly so the WASM crate can derive accurate `.d.ts` from the Rust source of truth without forcing tsify onto the CLI/LSP build graph (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)).
+The browser cannot shell out to the `kul` binary; it needs a JS-callable surface, and compiling to WebAssembly with `wasm-bindgen` is the only viable path. The bridge has its own concerns — `cdylib` crate type, `wasm-bindgen` derives, `console_error_panic_hook` registration, the workspace's cached state, UTF-16 offsets, the `--target web` build — that have no place in `kul-core`, the language service or the CLI. The deletion test passes: removing `kul-wasm` would either reproduce the JS adapter elsewhere, or eliminate the browser app. The `tsify` features of `kul-core` and `kul-language-service` exist exactly so the WASM crate can derive accurate `.d.ts` from the Rust source of truth without forcing tsify onto the CLI's build graph (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)).
 
-## LSP request flow
+## Language-feature request flow
 
-A textDocument request lands here:
+A request from the editor lands here:
 
 ```
-client (VSCode)
-  │  JSON-RPC over stdio
+editor (CodeMirror, in the language worker)
+  │  method call with a file name and UTF-16 offsets
   ▼
-server.rs::Backend::<request> handler
-  │  reads ProjectEntry from state::Documents
-  │  (cache key is the URI's project root, not the URI itself —
-  │   one CheckResult per project, shared by every URI in it)
+kul_wasm::Workspace::<method>
+  │  offsets → UTF-8 bytes through the file's Utf16Index
+  │  the cached CheckResult (re-checked only if a file changed since)
   ▼
-&entry.check.resolved  (cached project-wide ResolvedDocument)
+kul_language_service::<feature>(&check, file, byte_offset)
+  │  file name → FileId; resolved.node_at(file, offset) → Option<Node<'_>>
+  │  pattern-matches the Node variant; cross-file features resolve target
+  │  FileIds through resolved.entity(name).file and name them by file name
+  ▼
+Kul-native result (byte spans keyed by file name)
   │
-  ▼  resolved.node_at(entry.file_id_for(uri), byte_offset)  →  Option<Node<'_>>
-  │
-  ▼  features/<feature>.rs builds the response by pattern-matching
-  │  on the Node variant; cross-file features resolve target FileIds
-  │  through resolved.entity(name).file, then map FileId → Url via
-  │  ProjectEntry::url_for(...)
-  │
-  ▼  convert.rs translates ByteSpan + types to LSP types (Range, Url, …)
-  │
-  ▼  Result<Response, Error>
+  ▼  the workspace converts every span back to UTF-16 units
+JS value (Tsify-derived type)
 ```
 
-Lifecycle: `did_open` discovers the project from the opened URI (sibling `kul.yml` plus every `.kul` file in the same directory, read off disk) and inserts one cache entry for the whole project. `did_change` mutates the overlay for the active URI and re-runs `kul_core::check` for the project. `did_close` flips the URI's overlay to `None` and evicts the entry when no URIs from the project remain open. External filesystem changes reach the cache through `workspace/didChangeWatchedFiles` (issue #86): the LSP registers watchers for `**/*.kul` and `**/kul.yml` from `initialized`, then routes per-event through `Documents::process_watcher_event` — `.kul` Created/Changed/Deleted reload the project (Changed and Deleted are dropped when the URI is overlaid so an open, unsaved editor buffer survives an on-disk delete-then-recreate); `kul.yml` Changed reloads the manifest; `kul.yml` Deleted evicts the entry. Diagnostic publishes broadcast to every file in the project — open URIs and disk-only siblings alike — so the Problems pane reflects project-wide health (issue #85).
+Lifecycle: `setFile(name, text, version)` replaces one file's text and drops the cached check; `renameFile` and `deleteFile` do the same for the file set. The next request re-checks the whole project once (per [ADR-0007](./adr/0007-resolved-document-owns-document.md) and [ADR-0015](./adr/0015-global-project-namespace.md)) and every request after it reads the cache. `analyze()` returns the project's diagnostics, each anchored at a named file, plus the rendered tree; the caller filters diagnostics per file. `lexicalTokens` reads only the stored text, so it never waits for a check.
 
 Four things make this work:
 
-1. The project cache (`state::Documents`) holds the full project-wide `CheckResult` — including the cached `ResolvedDocument` — per project root. Opening N files from one project triggers one resolve, not N (per [ADR-0007](./adr/0007-resolved-document-owns-document.md) and [ADR-0015](./adr/0015-global-project-namespace.md)).
-2. `node_at` is the shared foundation. Hover, goto-definition, and completion all start with "what's at the cursor?" — implementing it once means the three features can't disagree about it.
-3. `Node` is a typed enum, not a tag. Each LSP feature pattern-matches the variants relevant to it; the compiler enforces exhaustiveness when a new variant lands.
-4. The `ProjectEntry` carries a parallel `Vec<Url>` and `Vec<LineIndex>` keyed by `FileId`. Cross-file features (definition, references, rename) turn a project-wide query result into URI-keyed LSP responses by indexing those slices — there is no separate URI-keyed cache to keep in sync.
+1. The workspace holds one `CheckResult` — including the cached `ResolvedDocument` — for the whole project. A dozen requests after an edit trigger one resolve, not a dozen.
+2. `node_at` is the shared foundation. Hover, definition, completion, references and rename all start with "what's at the cursor?" — implementing it once means they can't disagree about it.
+3. `Node` is a typed enum, not a tag. Each feature pattern-matches the variants relevant to it; the compiler enforces exhaustiveness when a new variant lands.
+4. Offsets are converted in exactly one place. The service never sees UTF-16 and JavaScript never sees bytes.
 
 ## The seams
 
@@ -197,22 +169,21 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 
 | Seam                                  | File                                          | What's behind it                                                                                                |
 | ------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `kul_core::check`                    | `crates/kul-core/src/lib.rs`                 | The whole pipeline. CLI and LSP both enter here. Takes `(manifest_name, manifest_yaml: &str, &[InputFile])` per [ADR-0013](./adr/0013-project-manifest.md) and [ADR-0014](./adr/0014-file-identity-and-per-file-namespaces.md); returns a `CheckResult` whose `resolved: ResolvedDocument` field is the cached query view (per [ADR-0007](./adr/0007-resolved-document-owns-document.md)). The WASM bridge enters via `check_with_manifest` (a typed-manifest variant) instead. |
+| `kul_core::check`                    | `crates/kul-core/src/lib.rs`                 | The whole pipeline. The CLI and the browser `Workspace` both enter here. Takes `&[InputFile]` — the project's files, which it puts in [file order](../CONTEXT.md#file-order) itself (per [ADR-0014](./adr/0014-file-identity-and-per-file-namespaces.md)); returns a `CheckResult` whose `resolved: ResolvedDocument` field is the cached query view (per [ADR-0007](./adr/0007-resolved-document-owns-document.md)). |
 | `FileId` / `FileSpan`                 | `crates/kul-core/src/span.rs`                | Project-wide locators. `FileId` indexes into `Document.kul_files` (with `FileId::MANIFEST` = `FileId(0)`); `FileSpan` is the `(file, byte-range)` pair every diagnostic anchors on. AST nodes keep bare `ByteSpan` (per ADR-0014) — their owning `KulFile` provides file context implicitly. |
-| `Manifest` + adapters' loaders       | `crates/kul-core/src/manifest.rs`, `crates/kul-loader/src/lib.rs` | The project-level manifest, loaded by each adapter. The shared `kul-loader` crate is the single seam for project-root → (manifest YAML + `.kul` files) discovery: `load` (strict, typed errors — used by the CLI) and `discover` (lenient — used by the LSP, which tolerates missing manifests so editor sessions stay usable). Both share one directory-walk helper so the discovery rule lives once. The WASM bridge receives a typed manifest as a JS argument — it does not go through the loader. `kul-core` itself never reads the filesystem — it consumes the typed value. The directory-scoped discovery rule (spec/14.3) lives once as `kul_core::manifest::sibling_path` (for per-file lookups: the LSP receives a `.kul` URI, asks for its sibling manifest); `kul-loader::{load,discover}` is the project-root counterpart. Schema and discovery rule are normative ([`spec/14-project-manifest.md`](../spec/14-project-manifest.md)). |
-| `ResolvedDocument` query methods      | `crates/kul-core/src/semantic.rs`            | All kinship questions. ADR-0001 mandates queries go through this; raw AST iteration is the seam's job. Per-id lookups (`person`, `marriage`, `entity`) take a bare id (project-wide per [ADR-0015](./adr/0015-global-project-namespace.md)); per-file iteration helpers (`persons_in(file)`, etc.) keep the file parameter for per-URI LSP needs. One-hop parenthood: `parents_of`, `children_of`, `children_of_marriage` — inverse children indexes are built during `semantic::resolve` (owned statement-idx style, ADR-0007) so the query engine and detail lookup do not rebuild them. Owns its `Arc<Document>` so the resolved view can be cached alongside other artifacts (no self-referential lifetime). |
+| `ResolvedDocument` query methods      | `crates/kul-core/src/semantic.rs`            | All kinship questions. ADR-0001 mandates queries go through this; raw AST iteration is the seam's job. Per-id lookups (`person`, `marriage`, `entity`) take a bare id (project-wide per [ADR-0015](./adr/0015-global-project-namespace.md)); per-file iteration helpers (`persons_in(file)`, etc.) keep the file parameter for per-file language features. One-hop parenthood: `parents_of`, `children_of`, `children_of_marriage` — inverse children indexes are built during `semantic::resolve` (owned statement-idx style, ADR-0007) so the query engine and detail lookup do not rebuild them. Owns its `Arc<Document>` so the resolved view can be cached alongside other artifacts (no self-referential lifetime). |
 | `ResolvedDocument::node_at`           | `crates/kul-core/src/node_at.rs`             | "What's at byte offset X?" Returns a typed `Node`. Foundation for hover, definition, completion.                |
 | `ResolvedDocument::statement_at`      | `crates/kul-core/src/semantic.rs`            | "What top-level statement encloses byte offset X?" Returns `&Statement`. Coarser than `node_at` — used by completion to know whether a cursor sitting on a fresh line is "still under" the previous statement. |
 | `Node::entity_reference`              | `crates/kul-core/src/node_at.rs`             | "What entity (person / marriage) is the cursor pointing at?" Returns an `EntityNode` summary (id, kind, decl span, target). Used by goto-definition, find-references, rename. |
 | `Diagnostic` + `Severity` + code + `detail` | `crates/kul-core/src/diagnostic.rs`    | The error currency. Carries spans, codes (KUL-Rxx), related info, and (per ADR-0006) an optional sub-case tag. |
 | `field_meta::FieldMeta`               | `crates/kul-core/src/field_meta.rs`          | Per-field taxonomy: value shape, completion description, hover Markdown. Hover, completion, and semantic-tokens consume it (ADR-0005). |
-| `export::export`                      | `crates/kul-core/src/export.rs`              | Canonical JSON projection of a `CheckResult` into an `ExportEnvelope`. Strict on errors; format-dispatched (kinship-native or cytoscape). The deep module the CLI's `kul export` and the LSP's `kul/export` both call. Schema documented in [`spec/15-export-schema.md`](../spec/15-export-schema.md); shape, posture, and versioning settled in ADRs 0008–0010. Person/marriage/parenthood-link wire shapes are single-sourced with the `query` lookups via `projection::build_one_*` (`crates/kul-core/src/projection.rs`). |
+| `export::export`                      | `crates/kul-core/src/export.rs`              | Canonical JSON projection of a `CheckResult` into an `ExportEnvelope`. Strict on errors; format-dispatched (kinship-native or cytoscape). The deep module the CLI's `kul export` calls, and the render pipeline's input. Schema documented in [`spec/15-export-schema.md`](../spec/15-export-schema.md); shape, posture, and versioning settled in ADRs 0008–0010. Person/marriage/parenthood-link wire shapes are single-sourced with the `query` lookups via `projection::build_one_*` (`crates/kul-core/src/projection.rs`). |
 | `query::{person, marriage, details, evaluate, kin_query}` + `QueryEnvelope` | `crates/kul-core/src/query.rs` (+ `query/`) | The kinship-query seam. Id → detail lookups (`person(id)` / `marriage(id)`) return the same export shapes, `None` when absent (absence is the answer). `details(resolved, &[DetailTarget])` is the batched member of that family — one check, many targets, each answered with its own fields plus its relational neighbourhood, flat in the number of targets (ADR-0035, ADR-0037). `evaluate(resolved, &Query)` is the single evaluation path for kin-set queries over the declarative `Query` value; named sugar (`parents_of`, `ancestors_of(depth)`, …) desugars to it, and `kin_query` wraps it in the envelope (ADR-0025). Results carry the terminology-neutral `RelationshipDescriptor` (ADR-0026). `QueryEnvelope<T>` (gated on passing checks, strict per ADR-0009) single-sources the contract serialization the CLI `kul query` and the WASM query surface both emit. Layered over `ResolvedDocument`, never over the export; collateral kin, relationship resolution, and attribute filtering land here later (ADR-0024, PRD 0005). |
 | `kul_layout::layout`                  | `crates/kul-layout/src/lib.rs`               | `(RenderShape, LayoutConfig) -> PositionedShape`. Positioning pass for the canonical UI pattern. Wraps Walker's algorithm with the marriage-edge / ghost-slot / generation-row adapter. `PositionedShape` is an internal Rust seam — not Serialize, not schema-versioned (ADR-0016). |
 | `kul_svg::render`                     | `crates/kul-svg/src/lib.rs`                  | `(PositionedShape, ThemeConfig) -> String`. Theme-agnostic SVG emitter. Uses semantic CSS classes; consuming surfaces own theming via stylesheet (ADR-0016). |
-| `LineIndex`                           | `crates/kul-lsp/src/convert.rs`              | Byte ↔ LSP-position. Handles UTF-16 code units and CRLF. Holds source as `Arc<str>` so `state::Document` shares the same heap buffer.|
-| `state::Documents`                    | `crates/kul-lsp/src/state.rs`                | The LSP project cache. Thread-safe; the only path to a `ProjectEntry` from inside an LSP request handler. Keyed by `ProjectRoot` (one entry per project, not per URI), so multiple open URIs in one project share a single `CheckResult`. Each `ProjectEntry` carries the project-wide `LineIndex` slice and the matching `Url` slice in `FileId(1..)` order — cross-file features resolve through these.          |
-| `kul_wasm::{check, export_graph, format_source, render_svg, query_person, query_marriage, query_detail, query_kin}` | `crates/kul-wasm/src/lib.rs`     | The WASM/JS surface. Deep-module entrypoints exposed via `wasm-bindgen` with operation-specific return shapes (per [ADR-0011](./adr/0011-wasm-surface-three-shapes-no-wrappers.md); the query envelope is the fourth shape, ADR-0024). `queryKin` takes a declarative `Query` value and returns `QueryEnvelope<QueryResult>`; members carry person id + descriptor, no person payload. `queryDetail` takes a list of `DetailTarget`s and hydrates them all in one check — the operation both the detail panel and the kin list's row labels are fed from (ADR-0037). No convenience layer; consumers compose helpers at the call site. |
+| `kul_language_service::*`             | `crates/kul-language-service/src/lib.rs`     | The language features, one pure function each over a `CheckResult`, a file name and a byte offset. Results are Kul-native: `Location { file, span }`, `TextEdit`, `FileEdit`, and enums for completion, symbol, token and diagnostic kinds. Hover, completion and highlighting read `field_meta` (ADR-0005); completion classifies tokens first (ADR-0002). |
+| `Utf16Index`                          | `crates/kul-wasm/src/utf16.rs`               | UTF-8 byte offset ↔ UTF-16 code-unit offset for one file's text, one per workspace file. The only place the two units meet. |
+| `kul_wasm::Workspace`                 | `crates/kul-wasm/src/lib.rs`                 | The WASM/JS surface: a stateful class holding a project's files and one cached check (per [ADR-0011](./adr/0011-wasm-surface-three-shapes-no-wrappers.md)). One method per language feature plus `analyze` and `renderSvg`, each a thin call that converts offsets at the boundary. No convenience layer and no kinship queries. |
 
 If you find yourself reaching around one of these (e.g. iterating `document.statements` from a feature module), stop and consider extending the seam instead.
 
@@ -226,24 +197,14 @@ If you find yourself reaching around one of these (e.g. iterating `document.stat
 4. Add a test `rule_NN_<short_name>` in `crates/kul-core/tests/validator.rs` covering the positive case (rule fires) and negative case (rule doesn't fire). Snapshot the diagnostic output.
 5. If the rule needs a new kinship query ("does this person have any siblings?"), add it as a method on `ResolvedDocument` rather than walking the AST inline. ADR-0001.
 
-### A new LSP feature
+### A new language feature
 
 1. Read [ADR-0001](./adr/0001-resolved-document-as-query-seam.md) — your feature should phrase itself as a question against `ResolvedDocument`.
-2. Add a new module under `crates/kul-lsp/src/features/`.
-3. Wire it into `Backend` in `server.rs` and advertise the capability in `initialize`.
-4. Add an integration test in `crates/kul-lsp/tests/<feature>.rs` using the existing minimal LSP client.
-5. If the feature needs new "what's at the cursor?" information, extend the `Node` enum in `node_at.rs` (additively — don't rename existing variants) and the resolution logic. The feature then matches on the new variant.
-6. If the feature keys on "what entity is the cursor pointing at?" (a person / marriage id, decl or reference), call `node.entity_reference()` instead of pattern-matching the four id-bearing `Node` variants by hand. The accessor returns an `EntityNode` with `kind`, `name`, `ident_span`, `is_decl`, `target`, and a `decl_span()` method.
-
-### A new LSP custom request
-
-Custom (non-LSP-standard) requests like `kul/export` follow a slightly different wiring than the textDocument capabilities above:
-
-1. Define request params (with `serde::Deserialize`) and the projection function in `crates/kul-lsp/src/features/<request>.rs`. Keep the projection a pure `(Document, Params) -> Result<Response, Error>` function so it's unit-testable without LSP plumbing.
-2. Add a public method on `Backend` (`pub async fn <name>(&self, params: …) -> jsonrpc::Result<…>`) in `server.rs` that reads from `state::Documents` and calls the projection.
-3. Register the method in `lib.rs` via `LspService::build(...).custom_method("<namespace>/<name>", Backend::<name>).finish()`.
-4. Advertise the custom capability under `experimental.<name>` in `Backend::initialize` so clients can detect support.
-5. Add an integration test that drives the real binary with the same hand-rolled stdio LSP client as the standard-capability tests use; verify both the success-payload shape and the JSON-RPC error path.
+2. Add a module under `crates/kul-language-service/src/` with one `pub fn` taking `(&CheckResult, file: &str, …)` and returning a Kul-native type (byte spans, files by name). Re-export it from `lib.rs`. Give its result types the `cfg_attr(feature = "tsify", …)` derive.
+3. Add inline tests, `insta` snapshots for structured output, in the same module; cover a cross-file case if the feature can reach another file.
+4. Add a `Workspace` method in `crates/kul-wasm/src/lib.rs` that converts input offsets to bytes, calls the feature, and converts every span in the result back to UTF-16 (destructure the result exhaustively, so a new span field cannot slip through unconverted).
+5. Cover the method in `crates/kul-wasm/tests/workspace.rs`, its offsets in `tests/utf16.rs`, and the built module in `tests/node/smoke.mjs`; run `just wasm` and commit the regenerated `.d.ts`.
+6. If the feature needs new "what's at the cursor?" information, extend the `Node` enum in `node_at.rs` (additively — don't rename existing variants). If it keys on "what entity is the cursor pointing at?", call `node.entity_reference()` instead of pattern-matching the four id-bearing `Node` variants by hand.
 
 ### A new AST variant
 
@@ -253,7 +214,7 @@ This is the highest-risk change because the AST is a stable surface. Read the ad
 2. Update the parser to produce the new shape.
 3. Update `node_at.rs` so the cursor-resolver covers it (else hover/definition/completion will silently miss it).
 4. Update the validator if any rule should care.
-5. Update LSP feature modules whose `match` arms might now be non-exhaustive (the compiler will tell you).
+5. Update language-service feature modules whose `match` arms might now be non-exhaustive (the compiler will tell you).
 6. Update the spec.
 
 ### A new field on a statement
@@ -268,11 +229,11 @@ Per ADR-0005 the field taxonomy lives in `field_meta`. Adding a field is mostly 
 
 ### A new sub-case on an existing rule
 
-Per ADR-0006 a single rule can carry multiple sub-cases on the same primary span, distinguished by a `detail` tag. Add one when the code-action provider (or any other tooling consumer) needs to behave differently per sub-case.
+Per ADR-0006 a single rule can carry multiple sub-cases on the same primary span, distinguished by a `detail` tag. Add one when the quick fixes (or any other tooling consumer) need to behave differently per sub-case.
 
 1. Add a `pub const` tag in `kul_core::diagnostic::detail` (naming: `<rule>-<short>`).
 2. Set it on the producing diagnostic via `.with_detail(detail::TAG)`.
-3. Match on it at the consumer (e.g. the code-action registry).
+3. Match on it at the consumer (e.g. `crates/kul-language-service/src/quick_fixes.rs`).
 
 ### A new CLI subcommand
 
@@ -287,10 +248,10 @@ The query engine lives under `crates/kul-core/src/query/` and has exactly one ev
 1. Add the new shape to the **`Query` value** (`query/pattern.rs`) — a new `QuerySource` / `PatternClassification` variant, a new `Projection`, or a filter field. Enums, not reshapes.
 2. Teach the **evaluator** (`query/engine.rs`) to handle the new variant, and derive any new descriptor dimension in `query/descriptor.rs`. The descriptor's serialization is a committed contract (ADR-0026) — new dimensions were pinned at their `notApplicable` defaults up front, so populate them rather than adding fields.
 3. Add **named sugar** in `query/sugar.rs` *defined as* its Query-value expansion — never a second evaluation path.
-4. The adapters are thin wiring: a WASM entry over the new `Query`/result types (`crates/kul-wasm/src/lib.rs`) and a CLI verb (`crates/kul-cli/src/commands/query.rs`). Both go through the one core path, so the CLI `--format json` bytes stay the WASM bytes.
-5. Prove correctness **once** at the core seam with `insta` snapshots (`crates/kul-core/tests/kin.rs`) plus targeted fixtures. Adapters get wiring/serialization tests only. Regenerate the committed `.d.ts` with `just wasm` and exercise the new types in `crates/kul-wasm/tests/typescript/usage.ts`.
+4. The adapter is thin wiring: a CLI verb (`crates/kul-cli/src/commands/query.rs`) that goes through the one core path and prints the query envelope for `--format json`.
+5. Prove correctness **once** at the core seam with `insta` snapshots (`crates/kul-core/tests/kin.rs`) plus targeted fixtures. The CLI gets wiring/serialization tests only.
 
-A **detail lookup** is not this. Lookups take an id (or a `DetailTarget`), not a `Query` value, and live directly in `query.rs` / `query/detail.rs` — see ADR-0024 for why absence rather than a typed error is their answer, and ADR-0037 for the batched one's shape. Step 4's CLI verb is also not automatic: `queryDetail` deliberately has none, because an adoption's `(childId, marriageId)` pair and a mixed-kind batch have no CLI spelling that isn't CLI-only semantics.
+A **detail lookup** is not this. Lookups take an id (or a `DetailTarget`), not a `Query` value, and live directly in `query.rs` / `query/detail.rs` — see ADR-0024 for why absence rather than a typed error is their answer, and ADR-0037 for the batched one's shape. Step 4's CLI verb is also not automatic: the batched detail lookup deliberately has none, because an adoption's `(childId, marriageId)` pair and a mixed-kind batch have no CLI spelling that isn't CLI-only semantics. Its consumer is the language service's `details`, which feeds the canvas details panel.
 
 ### A new exported field
 
@@ -304,21 +265,18 @@ The export snapshot suite (`crates/kul-core/tests/export.rs`) auto-grows as each
 
 If the new construct is structurally large enough that consumers might silently drop it (a new top-level collection, an existing field's semantics changing incompatibly), bump `SCHEMA_VERSION` in `export.rs` in the same change and document the bump in [ADR-0010](./adr/0010-export-schema-versioning.md).
 
-### A new WASM-exposed function or type
+### A new WASM-exposed method or type
 
-The bridge is intentionally thin (per [ADR-0011](./adr/0011-wasm-surface-three-shapes-no-wrappers.md)) and adding to it should stay thin. Re-read that ADR before adding any new surface — the rule of three says wait until a third independent consumer asks for the same helper.
+The bridge is intentionally thin (per [ADR-0011](./adr/0011-wasm-surface-three-shapes-no-wrappers.md)) and adding to it should stay thin. Re-read that ADR before adding any new surface — the rule of three says wait until a third independent consumer asks for the same helper. A new language feature follows the recipe above; anything else:
 
-When a new entrypoint genuinely belongs:
+1. Add a method to `Workspace` in `crates/kul-wasm/src/lib.rs` with `#[wasm_bindgen(js_name = "camelCaseName")]`. Its body converts offsets in, makes one call, and converts offsets out.
+2. If the return type is new, derive `serde::Serialize` + `tsify::Tsify` with `#[tsify(into_wasm_abi)]` and `#[serde(rename_all = "camelCase")]`, on the type where it is defined (a `kul-core` or `kul-language-service` type behind their `tsify` feature, or a `kul-wasm` type). Its rustdoc becomes the JSDoc on the generated `.d.ts` — write it for a JS/TS consumer.
+3. Prefer an existing type over inventing a parallel WASM-only one. Single source of truth.
+4. Add a test in `crates/kul-wasm/tests/workspace.rs`, and in `tests/utf16.rs` if the method reads or returns offsets.
+5. Extend `crates/kul-wasm/tests/typescript/usage.ts` to exercise the new surface from a real consumer perspective (`just wasm-check` runs `tsc --noEmit` on it) and `tests/node/smoke.mjs` to call it on the built module.
+6. Run `just wasm` to regenerate `crates/kul-wasm/types/kul_wasm.d.ts`. Commit the diff. `just wasm-check` (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)) fails if the committed snapshot drifts from the regenerated output.
 
-1. Add a `pub fn` in `crates/kul-wasm/src/lib.rs` with `#[wasm_bindgen(js_name = "camelCaseName")]`. Body should be ≤3 lines: `console_error_panic_hook::set_once()`, one `kul_core::*` call, return.
-2. If the return type is a new struct, derive `serde::Serialize` + `tsify::Tsify`, add `#[tsify(into_wasm_abi)]` and `#[serde(rename_all = "camelCase")]`. Add the type's rustdoc explaining the JS-side contract — that text becomes the JSDoc on the generated `.d.ts`.
-3. If the new type is reused from `kul-core`, prefer extending the existing `Exported*` struct in `crates/kul-core/src/export.rs` over inventing a parallel WASM-only type. Single source of truth.
-4. Add a snapshot test in `crates/kul-wasm/tests/<entrypoint>.rs` mirroring the existing `check.rs` / `format.rs` / `export_graph.rs` shape.
-5. Extend `crates/kul-wasm/tests/typescript/usage.ts` to exercise the new surface from a real consumer perspective. CI runs `tsc --noEmit` on it.
-6. Run `just wasm` to regenerate `crates/kul-wasm/types/kul_wasm.d.ts`. Commit the diff. CI's `wasm-build` job (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)) fails the merge if the committed snapshot drifts from the regenerated output.
-7. Extend the Node smoke test (`crates/kul-wasm/tests/node/smoke.mjs`) if the new function would meaningfully break end-to-end without protocol-level coverage.
-
-An `Option<T>` field normally projects to `T | undefined` and, over the WASM boundary, serializes to an *absent* key (tsify's default serializer omits `None`). When the contract requires an explicit JSON `null` in that slot — as the query lookups do, where `null` is the load-bearing "no such entity" answer, distinct from absent — add `#[tsify(missing_as_null)]` to the *outermost* type whose `into_js` is invoked (the one wasm-bindgen returns), so the whole serialized tree uses `serialize_missing_as_null`. Fields that opt out with `#[serde(skip_serializing_if = "Option::is_none")]` stay absent regardless. This keeps the WASM bytes identical to the CLI's `serde_json` output, which always writes `null` for a non-skipped `None`. See ADR-0024 and `QueryEnvelope`.
+An `Option<T>` field projects to `T | undefined` and, over the WASM boundary, serializes to an *absent* key (tsify's default serializer omits `None`); a method returning `Option<T>` returns `undefined` for `None`.
 
 ### A new public type or function
 
@@ -332,14 +290,14 @@ Things to push back on if you find yourself reaching for them:
 
 - A `Visitor` trait over the AST. Pattern matches on a 2-variant enum are clearer; add this only if the AST grows past ~6 statement variants. ADR-0001 anti-suggestion.
 - A "framework" for parser error recovery. The grammar is small; ad-hoc recovery is fine. Reconsider if the grammar doubles.
-- A shared LSP-feature query helper. `completion.rs` and `hover.rs` overlap a little; that's fine. Extract only when a third feature wants the same code (rule of three).
+- A shared language-feature query helper. `completion` and `hover` overlap a little; that's fine. Extract only when a third feature wants the same code (rule of three) — `entity_under` in `kul-language-service` is that extraction, for definition, references, rename and entity-at.
 - Re-exposing `Document.statements` to external callers. ADR-0001 closes this off.
 - A trait abstraction over "things that can validate." There's one validator; abstractions enabled by future-supposed alternatives are speculative.
 
 ## Performance budget
 
-The current target is **<100ms total** for parse + check + LSP-translate on a 1000-statement document. The budget lives as a test (not a benchmark), at [`crates/kul-lsp/tests/perf.rs`](../crates/kul-lsp/tests/perf.rs). The test asserts <500ms (5× CI slack) so it doesn't flake on slow runners; the comment in the test records the actual target.
+The current targets are **<100ms** for check plus the diagnostics projection on a 1000-statement project, and **<2ms** (release) for one `Workspace::analyze()` on `examples/09-family-across-a-century`. The budgets live as tests (not benchmarks), in each crate's `tests/perf.rs` ([`kul-language-service`](../crates/kul-language-service/tests/perf.rs), [`kul-wasm`](../crates/kul-wasm/tests/perf.rs), [`kul-visual`](../crates/kul-visual/tests/perf.rs) for the 5k-card render). Each asserts a ~5× ceiling so it doesn't flake on slow runners; the comment in the test records the actual target. `just perf-release` runs them under a release build.
 
-If a change pushes the test over budget, *fix the regression* — don't loosen the assertion. If a new pass legitimately needs more headroom, raise the budget in the same change with a comment justifying why.
+If a change pushes a test over budget, *fix the regression* — don't loosen the assertion. If a new pass legitimately needs more headroom, raise the budget in the same change with a comment justifying why.
 
 See [`testing.md`](./testing.md) for the rationale on perf-as-tests-rather-than-benches.

@@ -7,14 +7,13 @@ Conventions, layout, and workflow for anyone (human or AI) working in this repos
 ```
 crates/
   kul-core/   — library: lexer, parser, AST, semantic, validator, diagnostics, node-at-cursor query, formatter, export
-  kul-loader/ — library: project filesystem loader shared by `kul-cli` and `kul-lsp` (no `kul-core` dependency on disk IO)
   kul-render/ — library: the canonical UI pattern as data — projects `ExportEnvelope` into `RenderShape` for surface renderers to consume (ADR-0016, ADR-0017)
   kul-layout/ — library: positioning pass — turns `RenderShape` into a `PositionedShape` (cards and edges in absolute pixel coordinates; marriages render as thick marriage edges) via a Walker's-algorithm port plus a canonical-pattern adapter (ADR-0018)
   kul-svg/    — library: theme-agnostic SVG emitter over `PositionedShape` (semantic CSS classes; no inline colours) (ADR-0016)
   kul-visual/ — library: thin composition facade over the pinned pipeline crates — `render_from_check` owns the `compute → layout → render` success sequence so every SVG-producing surface routes through one entrypoint (ADR-0031)
-  kul-cli/    — binary `kul`: `kul validate`, `kul format`, `kul export`, `kul lsp` subcommands
-  kul-lsp/    — library + binary `kul-lsp`: LSP adapter over kul-core (handles standard capabilities plus the `kul/export` and `kul/render` custom requests)
-  kul-wasm/   — library (cdylib): WASM adapter over kul-core, published as `@kullang/wasm` (npm) and `kul-wasm.tar.gz` (GitHub Release). Surface is `check`, `exportGraph`, `format` (per ADR-0011).
+  kul-cli/    — binary `kul`: `kul validate`, `kul format`, `kul export`, `kul query` over a project directory
+  kul-language-service/ — library: the editor features (hover, completion, rename, tokens, …) as pure functions over a checked project, with Kul-native results
+  kul-wasm/   — library (cdylib): the browser's engine, a stateful `Workspace` over the language service and the renderer, built with `wasm-pack --target web` (per ADR-0011)
 docs/
   vision.md    — language scope and design intent
   architecture.md — implementation map: pipeline, seams, "where to add X" recipes
@@ -54,8 +53,8 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 - Rust toolchain (stable, edition 2024). Install via [`rustup`](https://rustup.rs/).
 - [`just`](https://just.systems/) — task runner. `cargo install just --locked` or `brew install just`.
 - [`cargo-nextest`](https://nexte.st/) — test runner. `cargo install cargo-nextest --locked`.
-- [Node 22](https://nodejs.org/) with `npm ci` run once at the repo root — `just check`'s TypeScript gate and the VSCode extension build need it. The pinned version lives in `.nvmrc`.
-- [`wasm-pack`](https://rustwasm.github.io/wasm-pack/installer/) — `just check` builds the WASM and runs its gates (`just wasm-check`). The VSCode extension packages the `--target web` build as a build asset ([ADR-0040](./docs/adr/0040-engine-provenance-a-build-asset-not-a-registry-dependency.md)). `cargo install wasm-pack --locked` or the installer script.
+- [Node 22](https://nodejs.org/) — `just wasm-check` runs the Node smoke test and the TypeScript compile-test on the built module, and the web app's gates need it. The pinned version lives in `.nvmrc`.
+- [`wasm-pack`](https://rustwasm.github.io/wasm-pack/installer/) — `just check` builds the WASM and runs its gates (`just wasm-check`). `cargo install wasm-pack --locked` or the installer script.
 
 ### One command for green
 
@@ -63,7 +62,7 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 just check
 ```
 
-Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo nextest run --workspace`; then `just wasm-check` (both WASM builds, the committed `.d.ts` diff, the package shape, the 1 MB gzipped budget, the Node smoke test and the TypeScript compile-test); then the TypeScript workspace tests (Vitest in `packages/preview` and `editor/vscode`) and the extension's preview build and bundle. That bundle step is not redundant with the tests: Vitest resolves `packages/preview/src`, while the extension bundles `dist` — only the bundle catches a module that never reached `dist`. Last come the web app's gates (`just web-check`, `just web-build`): the `apps/web/scripts/serve-dist.mjs` unit tests always, and the app's typecheck, lint, unit tests and production build once `apps/web/package.json` exists. Local-green implies CI-green: `.github/workflows/rust.yml`, `web.yml` and `vscode-extension.yml` run the same recipes.
+Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo nextest run --workspace`; then `just wasm-check` (the `--target web` build, the committed `.d.ts` diff, the 1 MB gzipped budget, the Node smoke test and the TypeScript compile-test). Last come the web app's gates (`just web-check`, `just web-build`): the `apps/web/scripts/serve-dist.mjs` unit tests always, and the app's typecheck, lint, unit tests and production build once `apps/web/package.json` exists. Local-green implies CI-green: `.github/workflows/rust.yml` and `web.yml` run the same recipes.
 
 ```sh
 just verify
@@ -77,14 +76,13 @@ Other recipes:
 - `just fmt` — auto-format.
 - `just lint` — clippy alone.
 - `just run -- --help` — passthrough to `cargo run -p kul-cli --`. The CLI's `validate` / `format` / `export` subcommands are CWD-rooted (they discover the project from the current directory), so to drive one against an example use the cargo binary directly: `cargo run -p kul-cli -- validate` from inside `examples/02-three-generations/`.
-- `just vscode` (or `just vscode release`) — build LSP, package the VSCode extension, and install the `.vsix`. Re-run after each code change; reload the VSCode window to pick it up. See [`editor/vscode/DEVELOPING.md`](./editor/vscode/DEVELOPING.md).
 
 ### Definition of done (Rust changes)
 
 A change is done when:
 
 1. `just check` is green.
-2. New behavior is covered by tests in the appropriate crate. Snapshot tests (via `insta`) are the default for parser / validator / LSP-feature output — see [`docs/testing.md`](./docs/testing.md) for layout/mechanics, [`CODING_STANDARDS.md`](./CODING_STANDARDS.md) for the behavior-not-implementation principle, and [ADR-0003](./docs/adr/0003-snapshot-tests-as-primary-validation.md).
+2. New behavior is covered by tests in the appropriate crate. Snapshot tests (via `insta`) are the default for parser / validator / language-feature output — see [`docs/testing.md`](./docs/testing.md) for layout/mechanics, [`CODING_STANDARDS.md`](./CODING_STANDARDS.md) for the behavior-not-implementation principle, and [ADR-0003](./docs/adr/0003-snapshot-tests-as-primary-validation.md).
 3. Public items have rustdoc; clippy lints are at deny level (no `#[allow]` without a justifying comment).
 4. If a non-obvious design choice is being made, it lands as an ADR in [`docs/adr/`](./docs/adr/) — not as a code comment that a future agent might "simplify" away.
 5. If your change touches `spec/`, the kinship section of `CONTEXT.md`, or `examples/`, update [`skills/kul-authoring/`](./skills/kul-authoring/SKILL.md) accordingly in the same PR.

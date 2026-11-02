@@ -20,11 +20,11 @@ The one-page definition-of-done any agent working in this workspace is held to. 
 
 ## Tests
 
-- [ ] Snapshot tests via `insta` for structured output (parser, validator, LSP-feature). Hand-written assertions for cardinal counts, exit codes, cross-platform paths, single-scalar checks. See [`docs/testing.md`](../testing.md) and [ADR-0003](../adr/0003-snapshot-tests-as-primary-validation.md).
+- [ ] Snapshot tests via `insta` for structured output (parser, validator, language-feature). Hand-written assertions for cardinal counts, exit codes, cross-platform paths, single-scalar checks. See [`docs/testing.md`](../testing.md) and [ADR-0003](../adr/0003-snapshot-tests-as-primary-validation.md).
 - [ ] Validator rule tests cover the **positive case** (rule doesn't fire) *and* the **negative case** (rule fires; diagnostic snapshot). Named `rule_NN_<short_name>` to match the function.
 - [ ] Failing fixtures live inline (`let source = "kul 0.1\n…";`), not under `examples/`. The corpus is the **positive** test surface.
-- [ ] LSP integration tests use the stdio client in `crates/kul-lsp/tests/`. Each runs `initialize → did_open → request → shutdown`.
-- [ ] Perf-sensitive paths get a `#[test]` in `crates/kul-lsp/tests/perf.rs` with a 5× ceiling and the real target in a comment.
+- [ ] Language features are tested inline in their `kul-language-service` module; a new `Workspace` method gets a wiring test in `crates/kul-wasm/tests/workspace.rs`, and an offset test in `tests/utf16.rs` if it reads or returns offsets.
+- [ ] Perf-sensitive paths get a `#[test]` in the owning crate's `tests/perf.rs` with a 5× ceiling and the real target in a comment.
 - [ ] WASM surface changes: `crates/kul-wasm/tests/typescript/usage.ts` exercises the new shape, and `just wasm` regenerates `kul_wasm.d.ts`. Commit the diff. CI fails on drift ([ADR-0012](../adr/0012-tsify-derived-types-committed-and-diffed.md)).
 - [ ] If `*.snap.new` files appeared, `cargo insta review` them. The `Stop` hook will block end-of-turn while any `.snap.new` exists.
 

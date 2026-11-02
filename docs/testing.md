@@ -15,11 +15,11 @@ Tests in this workspace live at two layers, and both layers are load-bearing.
 | kul-core | `crates/kul-core/tests/{lexer,parser,validator,format,export}.rs` | Integration tests; insta snapshots. `export.rs` macro-generates one snapshot per `examples/*/<stem>.kul` per option matrix (default / with-positions / cytoscape). |
 | kul-core | `crates/kul-core/tests/{query,kin,filter,resolve,detail}.rs` | The query seam, one file per capability; insta snapshots of the serialized `QueryEnvelope` over the example corpus. `detail.rs` covers the [batched detail lookup](../CONTEXT.md#batched-detail-lookup) — mixed link kinds, 0..6 parent sets, several marriages, an adoption entity, and the batch's order / `null`-in-position semantics. |
 | kul-cli  | `crates/kul-cli/tests/cli.rs`                 | End-to-end via `assert_cmd` + `predicates`. Covers every subcommand including `kul export` (success / failure envelopes, both formats, `--with-positions`). |
-| kul-lsp  | `crates/kul-lsp/tests/{handshake,diagnostics,hover,definition,completion,cold_start,export}.rs` | Stdio LSP client driving the real server; insta snapshots. `export.rs` covers the `kul/export` custom request end-to-end (success, failure, cytoscape, document-not-open error). |
-| kul-lsp  | `crates/kul-lsp/tests/perf.rs`                | Performance budget gates (no LSP-protocol round-trip)                          |
-| kul-wasm | `crates/kul-wasm/tests/{check,export_graph,format,query}.rs` | Rust-side snapshot tests over the example corpus, asserting the WASM serde-bridge faithfully round-trips the underlying `kul-core` output. `export_graph.rs` includes a cross-surface bit-identical assertion against `kul_core::export::export`. `query.rs` covers the query seam's adapter for **wiring and serialization only** — kinship correctness is proven once, in `kul-core`, and deliberately not re-tested here. |
-| kul-wasm | `crates/kul-wasm/tests/typescript/usage.ts` (driven by `tsc --noEmit` in CI) | TypeScript consumer compile-test. Exercises realistic patterns (discriminating on `ok`, narrowing `GraphPayload`, iterating `parenthoodLinks`, `@ts-expect-error` on illegal arguments) so a `.d.ts` that compiles against itself but isn't usable in real consumer code surfaces. |
-| kul-wasm | `crates/kul-wasm/tests/node/smoke.mjs` (driven by `node --experimental-wasm-modules` in CI) | End-to-end Node smoke test: imports the wasm-pack output as a downstream consumer would, calls every exported function on the example corpus and a known-broken fixture, asserts shape and basic invariants. Catches WASM-toolchain or JS-glue regressions invisible to Rust-only tests. |
+| kul-language-service | inline `#[cfg(test)]` modules in `src/*.rs` | Each feature module tests its `pub fn` directly against checked fixtures; insta snapshots of hover Markdown, completion lists, symbols, semantic tokens, rename edits, quick fixes, diagnostics and details. Cross-file cases (definition, references, rename, locate, entity-at) check a two-file project. |
+| kul-language-service, kul-wasm, kul-visual | `tests/perf.rs` in each | Performance budget gates (see below). |
+| kul-wasm | `crates/kul-wasm/tests/{workspace,utf16}.rs` | The `Workspace` natively: the file lifecycle (versions, rename, delete, file order, re-check after an edit), each method's wiring to the language service, the rendered SVG against `render_from_check` for every example in both themes, and — in `utf16.rs` — every offset crossing the boundary, with Gujarati, Devanagari and emoji before each feature's inputs and outputs. Feature behaviour itself is proven once, in `kul-language-service`. |
+| kul-wasm | `crates/kul-wasm/tests/typescript/usage.ts` (driven by `tsc --noEmit` in `just wasm-check`) | TypeScript consumer compile-test. Exercises realistic patterns (narrowing `RenameResult` on `ok`, switching on `EntityDetail.kind`, an exhaustive `TokenKind` switch, slicing JS strings with returned spans, `@ts-expect-error` on illegal arguments) so a `.d.ts` that compiles against itself but isn't usable in real consumer code surfaces. |
+| kul-wasm | `crates/kul-wasm/tests/node/smoke.mjs` (driven by `node` in `just wasm-check`) | End-to-end Node smoke test: loads the built `--target web` module with `initSync` and drives a `Workspace` through every method on the example corpus and a non-ASCII two-file project — analyze, hover, completion, rename across files, format, quick fixes, locate, entity-at, details, both token kinds and `renderSvg` in both themes — slicing JS strings with the returned spans. Catches WASM-toolchain or JS-glue regressions invisible to Rust-only tests. |
 
 These cross public-API surfaces and exercise wire formats / process behavior. They are the highest-fidelity tests in the suite.
 
@@ -27,8 +27,8 @@ These cross public-API surfaces and exercise wire formats / process behavior. Th
 
 Several src/ files carry inline test modules at the bottom. They serve two roles:
 
-1. **Unit tests of pure-logic helpers** that have no external surface: `convert::LineIndex` round-trip math, `date.rs` partial-date parsing, `span.rs` arithmetic. These could not reasonably live in `tests/` without widening visibility.
-2. **Fast-inner-loop coverage of feature entry points**: `features/{hover,definition,completion,diagnostics}.rs` each have inline tests that call their `pub fn` directly with hand-built `ResolvedDocument` fixtures. They run in milliseconds; the integration tests in `tests/` cover the same scenarios at higher fidelity (full stdio JSON-RPC) but ~25× slower per test. Both layers are kept on purpose — the inline tests catch logic bugs in the dev loop; the integration tests catch wire-format and lifecycle bugs.
+1. **Unit tests of pure-logic helpers** that have no external surface: `kul-wasm`'s `Utf16Index` offset math, `date.rs` partial-date parsing, `span.rs` arithmetic. These could not reasonably live in `tests/` without widening visibility.
+2. **Feature entry points**: every `kul-language-service` module tests its `pub fn` inline against checked fixtures. The features are pure functions, so these run in milliseconds and are the features' primary tests; `kul-wasm`'s `tests/` then cover the wiring, the lifecycle and the offset conversion at the boundary, not the features again.
 
 If you're testing genuinely public behavior and don't need the inner-loop speed, `tests/` is the better home. If you're testing a private helper or want sub-millisecond feedback while iterating on a feature module, inline is fine. The deciding question is "does this need to run as part of every cargo nextest in <50ms, and does it touch private surface?" — yes to either pushes inline; no to both pushes to `tests/`.
 
@@ -40,11 +40,11 @@ There are no skipped or ignored tests anywhere in the workspace. If a test is br
 just check
 ```
 
-Runs fmt-check, clippy at deny-level, the full test suite via `cargo nextest`, the WASM build and its gates (`just wasm-check`), the TypeScript workspace gates and the web app's gates. CI runs the same recipes — local-green implies CI-green. If you want only the test suite: `just test`. `just verify` adds the browser suites, Lighthouse and actionlint (see [`AGENTS.md`](../AGENTS.md)).
+Runs fmt-check, clippy at deny-level, the full test suite via `cargo nextest`, the WASM build and its gates (`just wasm-check`), and the web app's gates. CI runs the same recipes — local-green implies CI-green. If you want only the test suite: `just test`. `just verify` adds the browser suites, Lighthouse and actionlint (see [`AGENTS.md`](../AGENTS.md)).
 
 ## Snapshots (insta)
 
-Most parser, validator, and LSP-feature tests are **snapshot tests**: the output is rendered once, committed to `.snap` files, and subsequent runs assert byte-for-byte equality. This makes regressions visible as a diff rather than a single boolean.
+Most parser, validator, and language-feature tests are **snapshot tests**: the output is rendered once, committed to `.snap` files, and subsequent runs assert byte-for-byte equality. This makes regressions visible as a diff rather than a single boolean.
 
 ### Workflow
 
@@ -67,7 +67,7 @@ Never commit a `.snap.new` file; the gitignore catches it but always check `git 
 
 ### When to use a snapshot vs a hand-written assertion
 
-- **Snapshot**: any structured output a human would otherwise compare field-by-field. Diagnostic lists, parsed AST shapes, LSP completion lists, hover Markdown. Diff-driven review catches subtle regressions (a stray newline, a re-ordered enum variant).
+- **Snapshot**: any structured output a human would otherwise compare field-by-field. Diagnostic lists, parsed AST shapes, completion lists, hover Markdown. Diff-driven review catches subtle regressions (a stray newline, a re-ordered enum variant).
 - **Hand-written assertion**: cross-platform path checks, cardinal counts, panics, exact float comparisons, sentinel values. Anything where the test's question is a single boolean.
 
 If you find yourself writing a 50-line assertion of "this field equals X, that field equals Y", switch to a snapshot.
@@ -114,22 +114,13 @@ If a single test is doing both, that's fine; if it grows complex, split.
 
 When you add a new rule (KUL-R14, etc.), follow the same pattern. The numbering is part of the public diagnostic contract — once shipped, codes don't get reassigned.
 
-## LSP integration tests
-
-The LSP integration tests in `crates/kul-lsp/tests/` use a small in-test LSP client (Content-Length framing, JSON-RPC, threads + mpsc) to drive the real server. They are the highest-fidelity tests in the suite — they catch regressions in capabilities advertisement, lifecycle handlers, and message ordering.
-
-Conventions:
-
-- Each feature has its own test file (`hover.rs`, `definition.rs`, etc.).
-- Each test does an `initialize` → `did_open` → feature-request → `shutdown` cycle.
-- Use `recv_until(predicate, deadline)` instead of `recv()` when the server may emit unsolicited notifications (e.g. `publishDiagnostics`) before your expected response.
-- 5-second deadlines are conventional; if your test legitimately needs longer, comment why.
-
 ## Performance budgets
 
-Perf budgets are tests, not benchmarks. Each crate keeps its gates in one `tests/perf.rs`, easy to find, running as part of `cargo nextest`:
+Perf budgets are tests, not benchmarks. Each crate keeps its gates in one `tests/perf.rs`, easy to find, running as part of `cargo nextest`; `just perf-release` runs the per-edit ones (language service, workspace, render) under a release build:
 
-- [`crates/kul-lsp/tests/perf.rs`](../crates/kul-lsp/tests/perf.rs) — the language/render pipeline. The canonical example is `one_thousand_statement_check_and_translate_under_budget`: builds a 1000-person document, runs the full `kul_core::check` + `to_lsp` pipeline, asserts the elapsed time is under a ceiling.
+- [`crates/kul-language-service/tests/perf.rs`](../crates/kul-language-service/tests/perf.rs) — the per-edit language pipeline. `one_thousand_statement_check_and_diagnostics_under_budget` builds a 1000-person document, runs `kul_core::check` plus the diagnostics projection, and asserts a 500ms ceiling (target 100ms); `ten_files_of_one_hundred_statements_under_budget` does the same across ten files, to catch a per-file cost in the resolver.
+- [`crates/kul-wasm/tests/perf.rs`](../crates/kul-wasm/tests/perf.rs) — one `Workspace::analyze()` on `examples/09-family-across-a-century` after an edit: check, diagnostics with UTF-16 offsets, and the render, measured natively as the median of nine runs. Targets 2ms release and 10ms debug; ceilings 10ms and 50ms. Observed on a developer laptop: ≈0.17ms release, ≈1.2ms debug. The in-browser measurement (keystroke to canvas swap) lives with the canvas's end-to-end suite.
+- [`crates/kul-visual/tests/perf.rs`](../crates/kul-visual/tests/perf.rs) — the canonical render over a generated ~5,000-card project, with each stage (`compute`, `layout`, `render`) timed and an SVG node-count ceiling. Release ≈40ms against a 250ms ceiling; debug ≈190ms against 1500ms.
 - [`crates/kul-core/tests/perf.rs`](../crates/kul-core/tests/perf.rs) — the **kinship query engine** ([ADR-0029](./adr/0029-query-engine-performance-posture.md)). `ten_thousand_person_query_operations_under_budget` builds a deterministic ~10k-person synthetic corpus and times the eight representative query operations, guarding the `< ~50 ms/query` interactive target under the engine's no-index / no-cache constraint. `batched_detail_cost_is_flat_in_the_number_of_targets` guards a *shape* rather than a ceiling: the [batched detail lookup](../CONTEXT.md#batched-detail-lookup) answering forty targets must cost no more than 2× answering one, check included ([ADR-0035](./adr/0035-detail-surface-one-selection-one-batched-lookup.md), [ADR-0037](./adr/0037-batched-detail-lookup-shape.md)) — the observed ratio is ≈1.0, and the whole detail surface rests on it.
 
 The "tests, not benches" choice is deliberate:
@@ -150,8 +141,8 @@ If a budget gets in the way of a legitimate change, *raise it deliberately*, wit
 
 The WASM artifact has two CI gates that aren't tests in the `cargo nextest` sense, but fail the build the same way:
 
-- **Bundle-size budget** — `just wasm-check` (the `wasm-build` job in `.github/workflows/rust.yml`) gzips the built `.wasm` and fails if size > 1 MB. Prevents silent regressions where a dependency bump bloats the artifact.
-- **Generated TypeScript types diff** — the same job regenerates `crates/kul-wasm/types/kul_wasm.d.ts` via `wasm-pack build` and `git diff --exit-code`s against the committed snapshot. A Rust-side type change that crosses the WASM boundary fails the merge with a reviewable diff instead of landing as silent runtime drift on consumers (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)). Regenerate locally with `just wasm` and commit the diff.
+- **Bundle-size budget** — `just wasm-check` (the `wasm-build` job in `.github/workflows/rust.yml`) gzips the built `.wasm`, prints its size, and fails if it is over 1 MB (it is ≈170 KB). Prevents silent regressions where a dependency bump bloats the artifact.
+- **Generated TypeScript types diff** — the same job regenerates `crates/kul-wasm/types/kul_wasm.d.ts` via `wasm-pack build --target web` and `git diff --exit-code`s against the committed snapshot. A Rust-side type change that crosses the WASM boundary fails the merge with a reviewable diff instead of landing as silent runtime drift on consumers (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)). Regenerate locally with `just wasm` and commit the diff.
 
 Both gates are part of `just check` and `.github/workflows/rust.yml` (per-PR), not just `release.yml` — a Rust-side change that breaks WASM is caught at PR time, not at release tag.
 
