@@ -78,7 +78,7 @@ Grep the diff for:
 
 ### 7. Diff hygiene
 
-- [ ] No reordering of existing fields/variants without an additivity justification (per ADR-0014 and the additivity principle).
+- [ ] No reordering of existing fields/variants without an additivity justification (per the additivity principle in `CONTEXT.md`).
 - [ ] No backwards-compat shims for code the author could simply change (pre-1.0, language is the only frozen surface).
 - [ ] No re-exports added "for convenience" — adapter crates compose `kul-core` directly.
 - [ ] `Cargo.lock` changes are intentional (a dep bump should be in its own commit with rationale).

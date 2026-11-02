@@ -96,7 +96,7 @@ Adjacent material, in the order most useful for picking up the data model:
 - [`./architecture.md`](./architecture.md) — the implementation pipeline that produces the queryable graph (parse → resolve → validate). The graph lives in the artefacts that pipeline emits.
 - [ADR-0001](./adr/0001-resolved-document-as-query-seam.md) — the present-day rule-evaluator: every kinship question goes through `ResolvedDocument`.
 - [ADR-0008](./adr/0008-export-kinship-native-shape.md) — the canonical "graph view" that consumers outside the toolchain receive.
-- [ADR-0013](./adr/0013-project-manifest.md), [ADR-0014](./adr/0014-file-identity-and-per-file-namespaces.md), [ADR-0015](./adr/0015-global-project-namespace.md) — the project-wide namespace and file-identity model. The graph's *scope* lives here.
+- [ADR-0048](./adr/0048-a-project-is-a-flat-set-of-kul-files.md), [ADR-0015](./adr/0015-global-project-namespace.md) — what a project is (a flat set of `.kul` files), its file identity and its one project-wide namespace. The graph's *scope* lives here.
 - [ADR-0016](./adr/0016-visualization-pipeline-crate-boundaries.md) — the visualization pipeline crates and their graph projections.
 - [ADR-0020](./adr/0020-polygamy-hub-and-fan.md) — the polygamy-hub structural pattern. A graph topology the rendering pipeline treats specially.
 - `examples/` — every example file demonstrates a distinct graph topology (nuclear family, three generations, divorce-and-remarriage, adoption, cousins, polygamy, disconnected lineages, multi-file project, cross-century lineage). Browse them when grilling a feature against real graph shapes.

@@ -80,7 +80,7 @@ The top-level value `kul export` (and the public `kul_core::export::export` func
 
 ### Project (project-wide namespace)
 
-A flat set of uniquely named `.kul` files. Read from disk, it is every `.kul` file directly inside one directory: subdirectories are not walked and other files are ignored. Every id declared in any of the project's files is visible from every other file by bare name — there is no `import` statement, no namespace prefix, and no qualified-reference syntax. The file boundary is purely organizational; the project is one logical namespace. A project with no files, or only empty ones, is the empty family and is valid. Defined normatively in [spec §2, *Projects*](./spec/02-document-structure.md#projects); the namespace decision is recorded in [ADR-0015](./docs/adr/0015-global-project-namespace.md), which supersedes ADR-0014's Position B.
+A flat set of uniquely named `.kul` files. Read from disk, it is every `.kul` file directly inside one directory: subdirectories are not walked and other files are ignored. Every id declared in any of the project's files is visible from every other file by bare name — there is no `import` statement, no namespace prefix, and no qualified-reference syntax. The file boundary is purely organizational; the project is one logical namespace. A project with no files, or only empty ones, is the empty family and is valid. Defined normatively in [spec §2, *Projects*](./spec/02-document-structure.md#projects); the namespace decision is recorded in [ADR-0015](./docs/adr/0015-global-project-namespace.md), and what a project is in [ADR-0048](./docs/adr/0048-a-project-is-a-flat-set-of-kul-files.md).
 
 ### File order
 
@@ -246,11 +246,11 @@ These names appear in code, ADRs, and architecture discussion.
 
 ### KulFile
 
-One parsed `.kul` source file: name, raw source bytes, and a list of **statements**. Type lives at `crates/kul-core/src/ast.rs` (introduced by [ADR-0014](./docs/adr/0014-file-identity-and-per-file-namespaces.md)). AST nodes inside a `KulFile` carry bare [`ByteSpan`](#span--bytespan)s — their owning `KulFile` provides file context implicitly.
+One parsed `.kul` source file: name, raw source bytes, and a list of **statements**. Type lives at `crates/kul-core/src/ast.rs` (file identity per [ADR-0048](./docs/adr/0048-a-project-is-a-flat-set-of-kul-files.md)). AST nodes inside a `KulFile` carry bare [`ByteSpan`](#span--bytespan)s — their owning `KulFile` provides file context implicitly.
 
 ### Document
 
-The multi-file project container: zero or more [`KulFile`](#kulfile)s in [file order](#file-order), each addressable by a [`FileId`](#fileid). Type lives at `crates/kul-core/src/ast.rs`. Each `KulFile` is held behind an `Arc` so callers can keep cheap shared handles ([ADR-0014](./docs/adr/0014-file-identity-and-per-file-namespaces.md)).
+The multi-file project container: zero or more [`KulFile`](#kulfile)s in [file order](#file-order), each addressable by a [`FileId`](#fileid). Type lives at `crates/kul-core/src/ast.rs`. Each `KulFile` is held behind an `Arc` so callers can keep cheap shared handles ([ADR-0048](./docs/adr/0048-a-project-is-a-flat-set-of-kul-files.md)).
 
 ### Statement
 
@@ -266,7 +266,7 @@ A `(start, end)` byte range into a single source string. Every AST node carries 
 
 ### FileSpan
 
-A `(file: FileId, span: ByteSpan)` pair: the project-wide locator a [`Diagnostic`](#diagnostic) anchors on, and the shape of `EntityRef.span` and `EntityNode.ident_span`. Lives at `crates/kul-core/src/span.rs`. Decouples a span from the implicit "this file" context that AST nodes can rely on; introduced by [ADR-0014](./docs/adr/0014-file-identity-and-per-file-namespaces.md).
+A `(file: FileId, span: ByteSpan)` pair: the project-wide locator a [`Diagnostic`](#diagnostic) anchors on, and the shape of `EntityRef.span` and `EntityNode.ident_span`. Lives at `crates/kul-core/src/span.rs`. Decouples a span from the implicit "this file" context that AST nodes can rely on ([ADR-0048](./docs/adr/0048-a-project-is-a-flat-set-of-kul-files.md)).
 
 ### Lexer / Parser
 

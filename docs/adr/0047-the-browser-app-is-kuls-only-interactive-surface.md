@@ -54,6 +54,10 @@ The app's components are keyboard-reachable with visible focus, and every state 
 
 The setup steps and the rules are in [`docs/deploy.md`](../deploy.md).
 
+### The records of the retired surfaces
+
+A search for the retired surfaces' names must come back empty; it stays as `scripts/retired-names.sh`, run by `just verify` and CI, so the names don't creep back. ADRs are records, so the search skips the whole of any ADR whose status line says *Superseded*, and that ADR's file name where another document links to it: rewriting a superseded record would falsify history, and a link to one is how a newer record says what it replaced. Nothing else is exempt, so ADRs still in force that named a retired surface were edited: the name became a description ("the language server", "the editor preview"), the decision text was kept, and each such record says in its status line which new ADR amends it. Living docs link the record in force (ADR-0048 for a project's files, not the project-file ADR it replaced).
+
 ## Consequences
 
 - A language feature is written once in Rust and reaches the reader through one adapter (ADR-0049) rather than two protocols.

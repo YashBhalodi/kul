@@ -13,7 +13,7 @@ The one-page definition-of-done any agent working in this workspace is held to. 
 
 - [ ] Vocabulary comes from `CONTEXT.md`. If you need a term that isn't there, either find the canonical one or extend `CONTEXT.md` in the same change.
 - [ ] Queries go through seams. `ResolvedDocument` is the kinship-query seam ([ADR-0001](../adr/0001-resolved-document-as-query-seam.md)); features and validator rules never walk `document.statements` directly.
-- [ ] Additive changes on the AST and field set. Never reorder, rename, or remove. See the **additivity principle** in [`CONTEXT.md`](../../CONTEXT.md) and [ADR-0014](../adr/0014-file-identity-and-per-file-namespaces.md).
+- [ ] Additive changes on the AST and field set. Never reorder, rename, or remove. See the **additivity principle** in [`CONTEXT.md`](../../CONTEXT.md).
 - [ ] No speculative abstractions. The **rule of three** applies — extract a helper only when the third consumer asks for it. See [`docs/architecture.md`](../architecture.md) "What not to add."
 - [ ] Comments explain *why*, not *what*. The repo prefers ADRs over load-bearing comments because comments get "simplified" away by future agents.
 - [ ] No `#[allow(…)]` without a one-line justifying comment. No `#[ignore]`. No `// TODO`.
