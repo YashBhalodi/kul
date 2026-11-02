@@ -12,6 +12,8 @@
 // run one at a time, in the order they were called.
 
 import type { DirectoryPath, StorageBackend } from "./backend"
+import { parseCanvasCamera } from "./canvas-camera"
+import type { CanvasCamera } from "./canvas-camera"
 import { parseEditorWindow } from "./editor-window"
 import type { EditorWindowLayout } from "./editor-window"
 import {
@@ -41,25 +43,15 @@ export interface ProjectFile {
   text: string
 }
 
-export type JsonValue =
-  | null
-  | boolean
-  | number
-  | string
-  | Array<JsonValue>
-  | { [key: string]: JsonValue }
-
-/**
- * A project's window state, restored when it opens again. The canvas
- * camera is owned by the canvas; the store keeps it as it is given.
- */
+/** A project's window state, restored when it opens again. */
 export interface ProjectUi {
   /** The editor window's layout; null until it is first moved. */
   editorWindow: EditorWindowLayout | null
   /** Open files, in tab order. */
   openTabs: Array<string>
   activeFile: string | null
-  camera: JsonValue
+  /** The canvas camera; null until the tree is first drawn. */
+  camera: CanvasCamera | null
 }
 
 export const EMPTY_UI: ProjectUi = {
@@ -401,7 +393,7 @@ function parseUi(value: unknown): ProjectUi {
     editorWindow: parseEditorWindow(value.editorWindow),
     openTabs,
     activeFile: typeof value.activeFile === "string" ? value.activeFile : null,
-    camera: (value.camera ?? null) as JsonValue,
+    camera: parseCanvasCamera(value.camera),
   }
 }
 
