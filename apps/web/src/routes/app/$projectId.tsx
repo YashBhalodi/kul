@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { CanvasSurface } from "@/app/canvas-surface"
+import { ProjectView } from "@/app/project-view"
 
 export const Route = createFileRoute("/app/$projectId")({
-  component: CanvasSurface,
+  component: function ProjectRoute() {
+    const { projectId } = Route.useParams()
+    return <ProjectView projectId={projectId} />
+  },
 })

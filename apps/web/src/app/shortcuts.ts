@@ -13,6 +13,10 @@ export const appHotkeys = defineAppHotkeys({
     hotkey: "?",
     meta: { name: "Show keyboard shortcuts", group: "General" },
   },
+  "file.rename": {
+    hotkey: "F2",
+    meta: { name: "Rename the selected file", group: "Files" },
+  },
 })
 
 declare module "@tanstack/react-hotkeys" {

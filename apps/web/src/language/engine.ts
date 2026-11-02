@@ -5,9 +5,9 @@
 import { wrap } from "comlink"
 import type { Remote } from "comlink"
 
-import type { EngineInfo, LanguageWorkerApi } from "./worker"
+import type { EngineInfo, LanguageWorkerApi, TreeRender } from "./worker"
 
-export type { EngineInfo }
+export type { EngineInfo, TreeRender }
 
 export interface Engine {
   info: EngineInfo

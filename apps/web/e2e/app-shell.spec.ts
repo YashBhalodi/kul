@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 
-import { expectAppReady, pressMod } from "./support"
+import { PROJECT_URL, expectAppReady, pressMod } from "./support"
 
 test("a deep link into the app is served the shell", async ({ page }) => {
   const response = await page.goto("/app/3f2c9a1e-project")
@@ -9,10 +9,15 @@ test("a deep link into the app is served the shell", async ({ page }) => {
   await expectAppReady(page)
   await expect(page.getByTestId("canvas")).toBeVisible()
   await expect(page).toHaveTitle("Kul")
+  // No project has that id in this browser.
+  await expect(page.getByTestId("project-missing")).toContainText(
+    "This project isn’t in this browser"
+  )
 })
 
-test("/app opens the app", async ({ page }) => {
+test("/app opens the app at a project", async ({ page }) => {
   await page.goto("/app")
+  await expect(page).toHaveURL(PROJECT_URL)
   await expectAppReady(page)
 })
 

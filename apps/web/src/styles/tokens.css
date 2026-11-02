@@ -3,7 +3,7 @@
  * Components read these through Tailwind's theme (bg-background,
  * text-muted-foreground, border-border, ...) and never name a colour of
  * their own. The light theme is :root; the dark theme is the `dark` class on
- * <html>, which /theme.js sets before the first paint.
+ * <html>, which src/prefs/theme-init.js sets before the first paint.
  *
  * One accent (teal) carries primary actions, links and focus rings; every
  * other surface is a near-neutral grey with a faint cool tint.
@@ -27,6 +27,7 @@
   --accent: oklch(0.945 0.006 250);
   --accent-foreground: oklch(0.22 0.012 255);
   --destructive: oklch(0.53 0.19 27);
+  --destructive-foreground: oklch(0.985 0.005 27);
   --border: oklch(0.885 0.007 250);
   --input: oklch(0.86 0.008 250);
   --ring: oklch(0.55 0.09 190);
@@ -63,6 +64,7 @@
   --accent: oklch(0.28 0.009 255);
   --accent-foreground: oklch(0.96 0.004 250);
   --destructive: oklch(0.7 0.17 25);
+  --destructive-foreground: oklch(0.2 0.04 25);
   --border: oklch(0.31 0.008 255);
   --input: oklch(0.34 0.008 255);
   --ring: oklch(0.7 0.1 185);

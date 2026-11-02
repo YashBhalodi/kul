@@ -32,3 +32,10 @@ export function bootEngine(): void {
     }
   )
 }
+
+/** The running engine, starting it if needed. */
+export function getEngine(): Promise<Engine> {
+  bootEngine()
+  if (!engine) throw new Error("The language engine is not running")
+  return engine
+}

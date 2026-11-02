@@ -4,11 +4,31 @@
 // serious or critical violation fails the tour. The PNGs are artefacts, not
 // golden images.
 
-import AxeBuilder from "@axe-core/playwright"
-import { expect, test } from "@playwright/test"
-import type { Page } from "@playwright/test"
+import { mkdirSync, writeFileSync } from "node:fs"
+import { join } from "node:path"
 
-import { expectAppReady, pressMod } from "./support"
+import AxeBuilder from "@axe-core/playwright"
+import { expect, test } from "./fixtures"
+import type { Page } from "./fixtures"
+
+import {
+  chooseFromSwitcher,
+  createFile,
+  fileRows,
+  openProject,
+  openSwitcher,
+  pressMod,
+} from "./support"
+
+const FIXTURES = join(import.meta.dirname, "../test-results/tour-fixtures")
+
+/** A .kul file on disk for the tour to import. */
+function fixture(name: string, text: string): string {
+  mkdirSync(FIXTURES, { recursive: true })
+  const path = join(FIXTURES, name)
+  writeFileSync(path, text)
+  return path
+}
 
 type Theme = "light" | "dark"
 
@@ -31,13 +51,110 @@ const STATES: ReadonlyArray<State> = [
     widths: [1440],
     fullPage: true,
   },
-  { name: "app-shell", path: "/app/", widths: [1440], enter: expectAppReady },
+  { name: "app-shell", path: "/app/", widths: [1440], enter: openProject },
+  {
+    name: "project-switcher",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await openSwitcher(page)
+      await page.getByRole("menuitem", { name: "New from example" }).hover()
+      await expect(page.getByRole("menu")).toHaveCount(2)
+    },
+  },
+  {
+    name: "file-name-error",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await page.getByRole("button", { name: "New file" }).click()
+      await page
+        .getByRole("textbox", { name: "New file name" })
+        .fill("Three-Generations")
+      await expect(page.getByRole("alert")).toBeVisible()
+    },
+  },
+  {
+    name: "delete-file",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      const row = fileRows(page).first()
+      await row.hover()
+      await row.getByRole("button", { name: /^Actions for/ }).click()
+      await page.getByRole("menuitem", { name: "Delete…" }).click()
+      await expect(page.getByRole("alertdialog")).toBeVisible()
+    },
+  },
+  {
+    name: "import-collision",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      const chooser = page.waitForEvent("filechooser")
+      await chooseFromSwitcher(page, [
+        "Import into this project",
+        "Files or a .zip…",
+      ])
+      await (
+        await chooser
+      ).setFiles([
+        fixture("three-generations.kul", 'person a name:"A" gender:other\n'),
+        fixture("Notes.kul", 'person b name:"B" gender:other\n'),
+      ])
+      await expect(page.getByRole("dialog")).toBeVisible()
+    },
+  },
+  {
+    name: "persistence-banner",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await page.evaluate(() =>
+        Object.assign(navigator.storage, {
+          persist: () => Promise.resolve(false),
+        })
+      )
+      await createFile(page, "notes")
+      await expect(page.getByTestId("persistence-banner")).toBeVisible()
+    },
+  },
+  {
+    name: "read-only-banner",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      // Another tab takes the project over; this one turns read-only.
+      const other = await page.context().newPage()
+      await openProject(other, page.url())
+      await other.getByRole("button", { name: "Use here instead" }).click()
+      await other.close()
+      await expect(page.getByTestId("read-only-banner")).toBeVisible()
+    },
+  },
+  {
+    name: "settings",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await pressMod(page, "K")
+      await page.getByRole("option", { name: "Settings", exact: true }).click()
+      await expect(page.getByTestId("storage-usage")).toContainText("using")
+    },
+  },
   {
     name: "command-palette",
     path: "/app/",
     widths: [1440],
     enter: async (page) => {
-      await expectAppReady(page)
+      await openProject(page)
       await pressMod(page, "K")
       await expect(page.getByRole("dialog")).toBeVisible()
     },
@@ -47,7 +164,7 @@ const STATES: ReadonlyArray<State> = [
     path: "/app/",
     widths: [1440],
     enter: async (page) => {
-      await expectAppReady(page)
+      await openProject(page)
       await page.keyboard.press("?")
       await expect(page.getByRole("dialog")).toBeVisible()
     },
@@ -75,6 +192,11 @@ for (const state of STATES) {
         await state.enter?.(page)
         await expect(page.locator("html")).toHaveClass(
           theme === "dark" ? /\bdark\b/ : /^(?!.*\bdark\b)/
+        )
+
+        // Let entry animations (dialogs, menus) settle before the capture.
+        await page.evaluate(() =>
+          Promise.all(document.getAnimations().map((a) => a.finished))
         )
 
         const overflow = await page.evaluate(

@@ -20,6 +20,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -78,6 +79,38 @@
       transparent 1.5px
     );
     background-size: 20px 20px;
+  }
+
+  /* The family tree on the canvas: cards on the card surface, birth and
+     adoption lines in the muted ink, marriages in the accent. */
+  .tree-preview .kul-card rect {
+    fill: var(--card);
+    stroke: var(--muted-foreground);
+    stroke-width: 1.5;
+  }
+  .tree-preview .kul-card[data-kind="ghost"] rect {
+    fill: var(--muted);
+    stroke: var(--border);
+  }
+  .tree-preview .kul-label-name {
+    fill: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .tree-preview .kul-card[data-kind="ghost"] .kul-label-name {
+    fill: var(--muted-foreground);
+  }
+  .tree-preview .kul-edge {
+    stroke: var(--muted-foreground);
+    stroke-width: 1.5;
+  }
+  .tree-preview .kul-edge[data-link-kind="marriage"] {
+    stroke: var(--primary);
+    stroke-width: 6;
+  }
+  .tree-preview .kul-edge[data-is-ended="true"] {
+    stroke-opacity: 0.6;
   }
 
   /* The theme switch highlights the saved preference, which theme-init.js

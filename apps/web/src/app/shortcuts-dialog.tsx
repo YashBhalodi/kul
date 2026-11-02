@@ -9,11 +9,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Kbd } from "@/components/ui/kbd"
-import { appStore } from "./app-store"
+import { appStore, dialogControl } from "./app-store"
 
 /** The cheat sheet: every declared shortcut, by group. */
 export function ShortcutsDialog() {
-  const open = useSelector(appStore, (state) => state.shortcutsOpen)
+  const control = dialogControl("shortcuts")
+  const open = useSelector(appStore, control.open)
   const items = useAppHotkeyList()
   const format = useFormatForDisplay()
 
@@ -30,7 +31,7 @@ export function ShortcutsDialog() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={appStore.actions.setShortcutsOpen}>
+    <Dialog open={open} onOpenChange={control.onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Keyboard shortcuts</DialogTitle>

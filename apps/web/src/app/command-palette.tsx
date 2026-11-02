@@ -12,20 +12,21 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command"
-import { appStore } from "./app-store"
+import { appStore, dialogControl } from "./app-store"
 import { commandStore, groupCommands } from "./commands"
 import { appHotkeys } from "./shortcuts"
 
 /** The command palette: every registered command, searchable. */
 export function CommandPalette() {
-  const open = useSelector(appStore, (state) => state.paletteOpen)
+  const control = dialogControl("palette")
+  const open = useSelector(appStore, control.open)
   const commands = useSelector(commandStore)
   const format = useFormatForDisplay()
   const input = useRef<HTMLInputElement>(null)
   return (
     <CommandDialog
       open={open}
-      onOpenChange={appStore.actions.setPaletteOpen}
+      onOpenChange={control.onOpenChange}
       title="Command palette"
       description="Search for a command to run"
       className="sm:max-w-lg"
@@ -46,7 +47,7 @@ export function CommandPalette() {
                     value={command.id}
                     keywords={[command.title, ...(command.keywords ?? [])]}
                     onSelect={() => {
-                      appStore.actions.setPaletteOpen(false)
+                      appStore.actions.hide("palette")
                       command.run()
                     }}
                   >

@@ -32,6 +32,19 @@ describe("registerCommands", () => {
 })
 
 describe("groupCommands", () => {
+  it("lists the known groups first, in their fixed order", () => {
+    registerCommands([
+      command("other", "Zebra"),
+      command("theme", "Appearance"),
+      command("new", "Files"),
+    ])
+    expect(groupCommands(commandStore.state).map((g) => g.name)).toEqual([
+      "Files",
+      "Appearance",
+      "Zebra",
+    ])
+  })
+
   it("groups commands in order of each group's first command", () => {
     registerCommands([
       command("theme", "Appearance"),

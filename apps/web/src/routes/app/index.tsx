@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { CanvasSurface } from "@/app/canvas-surface"
+import { StartView } from "@/app/project-view"
 
 export const Route = createFileRoute("/app/")({
-  component: CanvasSurface,
+  component: StartView,
 })

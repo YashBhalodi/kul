@@ -12,6 +12,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { appStore } from "./app-store"
+import { ExportMenu } from "./export-menu"
+import { ProjectSwitcher } from "./project-switcher"
+import { SaveStatus } from "./save-status"
 import { appHotkeys } from "./shortcuts"
 
 /** The app's slim top bar above the canvas. */
@@ -33,8 +36,14 @@ export function TopBar() {
         </TooltipTrigger>
         <TooltipContent>Kul home</TooltipContent>
       </Tooltip>
+      <span className="text-border" aria-hidden>
+        /
+      </span>
+      <ProjectSwitcher />
+      <SaveStatus />
 
       <div className="ml-auto flex items-center gap-1.5">
+        <ExportMenu />
         <Button
           variant="outline"
           className="w-56 justify-start gap-2 text-muted-foreground"

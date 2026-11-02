@@ -55,6 +55,8 @@ Runs fmt-check, clippy at deny-level, the full test suite via `cargo nextest`, t
 
 The screenshots are artefacts to look at, not golden images: whoever changes the UI opens the PNGs for the states they touched and checks them against the design checklist (layout, type, contrast, states, canvas chrome, copy).
 
+The project store has one contract suite, `src/store/project-store.contract.ts`, that every storage backend must pass: `project-store.test.ts` runs it on the in-memory backend in Node, and `project-store.browser.test.ts` on a real origin private file system in Chromium and WebKit. A change to the store's behaviour goes into the contract, never into one backend's test. Every end-to-end test starts in a fresh browser context, so an empty file system: each one is a first visit, which opens the seeded example project.
+
 ## Snapshots (insta)
 
 Most parser, validator, and language-feature tests are **snapshot tests**: the output is rendered once, committed to `.snap` files, and subsequent runs assert byte-for-byte equality. This makes regressions visible as a diff rather than a single boolean.

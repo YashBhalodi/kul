@@ -54,7 +54,27 @@ export interface CommandGroup {
   commands: Array<Command>
 }
 
-/** Commands grouped for display, groups in order of first registration. */
+/**
+ * The palette lists these groups first, in this order, however their
+ * commands came and went; any other group follows them.
+ */
+export const GROUP_ORDER: ReadonlyArray<string> = [
+  "Files",
+  "Projects",
+  "Appearance",
+  "App",
+  "Help",
+]
+
+function groupRank(name: string): number {
+  const rank = GROUP_ORDER.indexOf(name)
+  return rank === -1 ? GROUP_ORDER.length : rank
+}
+
+/**
+ * Commands grouped for display: the groups of GROUP_ORDER first, then the
+ * rest in order of first registration.
+ */
 export function groupCommands(
   commands: ReadonlyMap<string, Command>
 ): Array<CommandGroup> {
@@ -67,5 +87,7 @@ export function groupCommands(
     }
     group.commands.push(command)
   }
-  return [...groups.values()]
+  return [...groups.values()].sort(
+    (a, b) => groupRank(a.name) - groupRank(b.name)
+  )
 }

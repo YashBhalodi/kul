@@ -365,6 +365,18 @@ The browser's engine: the stateful `Workspace` class in `kul-wasm` ([ADR-0011](.
 
 The UTF-8 byte offset ↔ UTF-16 code-unit offset converter for one file's text, in `crates/kul-wasm/src/utf16.rs`. The [`Workspace`](#workspace) keeps one per file and converts every offset that crosses the boundary through it — the only place the two units meet. Records only non-ASCII characters, so ASCII text costs nothing.
 
+### Project store
+
+Where the web app keeps a browser's [projects](#project-project-wide-namespace): `apps/web/src/store/`, the only code that touches browser storage (an ESLint rule enforces it; UI preferences live beside it in `src/prefs/`). Each project is a folder in the origin private file system holding `project.json` (name, timestamps and the **window state** — open tabs, active file, editor window, camera) and a `files/` folder of `.kul` files; the project list is the folder listing. The store enforces the file-name rules (`.kul`, no `/` or `\`, at most 128 characters, unique ignoring case) and returns files in [file order](#file-order). One interface, two backends: the origin private file system, and memory for a window that cannot store files.
+
+### Owning tab
+
+The browser tab that may write a project: the one holding the Web Lock `kul-project-<id>`. Any other tab showing the project is **read-only**: it shows the owner's writes as they land and offers to take the project over, which steals the lock and turns the previous owner read-only.
+
+### Example project
+
+A project made from one of the repository's `examples/`, which the web app bundles at build time. A first visit opens one (`02-three-generations`), named after its family ("The Okeke family"); the rest are offered as "New from example".
+
 ### Tier-1 token / Tier-2 token
 
 The two layers of the preview's `--kul-*` custom properties ([ADR-0036](./docs/adr/0036-two-tier-theming-and-the-accessibility-non-goal.md), sized in [ADR-0038](./docs/adr/0038-tier-1-register-overlay-stack-and-the-reserved-carve-out.md)). A **tier-1 token** is part of the theme contract: a colour role, a typography choice, a diagram hue, a step on the spacing / radius / motion scales, or one of the reserved query paints. Tier 1 is the only layer that may bridge to a `--vscode-*` palette variable, and it is a closed register — chrome growth does not enlarge it. A **tier-2 token** is the per-site semantic layer (`--kul-legend-border-color`, `--kul-error-row-hover-bg`): exactly one per application site, aliasing a tier-1 primitive rather than a `--vscode-*` variable. Both live in `packages/preview/src/preview-themes.css` — tier 1 inside a per-theme `body[data-theme="…"]` block, tier 2 on `body` — while the application rules that consume tier 2 live in `preview.css`. A theme re-maps tier 1 and may override any single tier-2 alias. `crates/kul-svg` bakes tier 1 plus the diagram half of tier 2 into self-contained SVG export; `packages/preview/tests/tokens.test.ts` holds the split as a structural lint.
