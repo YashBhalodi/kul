@@ -1,6 +1,6 @@
 # ADR 0034 — Query transport: the engine runs in the webview, and results bind to cards by person id
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0049](./0049-the-language-service-and-the-workspace-in-a-worker.md) — the engine runs in the app's language worker as a stateful `Workspace`; the preview UI it served was removed.
 **Date:** 2026-07-26
 **Deciders:** owner
 

@@ -35,7 +35,7 @@ The check is cheap and iterative: `Index::new` already precomputes every person'
 
 `MAX_LINEAGE_DEPTH = 512` sits well above any realistic document (recorded human lineages run to ~100 generations; the "hundreds deep" band is already known-safe on every surface) yet far below the "thousands" depth at which the smallest surface stacks overflow — a document exactly at the cap still recurses safely.
 
-`KUL-V01` is a new diagnostic namespace (`V` for the visualization pipeline), distinct from the language-level `KUL-L`/`KUL-P`/`KUL-R`/`KUL-M`/`KUL-Q` codes: it is a rendering resource limit, not a language-validation rule, so it is not part of the normative `spec/` and does not appear from `kul validate` or the non-visual `kul export` (whose graph build is flat). It is unanchored (`primary: None`, like `KUL-M01`) — depth is a whole-document property, not a single declaration.
+`KUL-V01` is a new diagnostic namespace (`V` for the visualization pipeline), distinct from the language-level `KUL-L`/`KUL-P`/`KUL-R`/`KUL-Q` codes: it is a rendering resource limit, not a language-validation rule, so it is not part of the normative `spec/` and does not appear from `kul validate` or the non-visual `kul export` (whose graph build is flat). It is unanchored (`primary: None`) — depth is a whole-document property, not a single declaration.
 
 ## Consequences
 

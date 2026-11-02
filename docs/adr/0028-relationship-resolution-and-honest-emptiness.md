@@ -1,6 +1,6 @@
 # ADR 0028 — Relationship resolution: nearest-common-ancestor bounding, unbounded lineal detection, and honest emptiness
 
-**Status:** Accepted
+**Status:** Accepted; amended by [ADR-0047](./0047-the-browser-app-is-kuls-only-interactive-surface.md) — relationship resolution is reached through `kul query rel` only; its WASM export was removed.
 **Date:** 2026-07-05
 **Deciders:** owner
 

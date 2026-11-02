@@ -1,6 +1,6 @@
 # ADR 0045 — The filter bar's three states: derived reasons, a partitioning tally, and one class per painter
 
-**Status:** Accepted
+**Status:** Superseded — the preview UI it governed was removed ([ADR-0047](./0047-the-browser-app-is-kuls-only-interactive-surface.md)); the engine remains in kul-core and the CLI.
 **Date:** 2026-07-26
 **Deciders:** owner
 

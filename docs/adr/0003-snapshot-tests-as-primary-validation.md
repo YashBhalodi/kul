@@ -6,7 +6,7 @@
 
 ## Context
 
-The kul-core pipeline produces structured output at every stage: tokens with spans, AST nodes with spans, resolved indexes, lists of diagnostics with codes and related-info. The kul-lsp feature modules produce LSP responses: hover Markdown blocks, lists of completion items, location lists for goto-definition, lists of LSP diagnostics. In every case, the test's question is "did the output structure change?", not "is one specific scalar equal to a literal?"
+The kul-core pipeline produces structured output at every stage: tokens with spans, AST nodes with spans, resolved indexes, lists of diagnostics with codes and related-info. The language-service feature modules produce structured answers: hover Markdown blocks, lists of completion items, location lists for goto-definition, lists of diagnostics. In every case, the test's question is "did the output structure change?", not "is one specific scalar equal to a literal?"
 
 Three test styles were considered:
 

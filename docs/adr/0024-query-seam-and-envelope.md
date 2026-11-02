@@ -1,6 +1,6 @@
 # ADR 0024 — The `query` seam over `ResolvedDocument`, and the `QueryEnvelope` fourth surface
 
-**Status:** Accepted
+**Status:** Accepted; amended by [ADR-0047](./0047-the-browser-app-is-kuls-only-interactive-surface.md) — the query engine is reached through the CLI only; its WASM exports were removed.
 **Date:** 2026-07-05
 **Deciders:** owner
 

@@ -1,6 +1,6 @@
 # ADR 0038 — The tier-1 register's real size, the overlay stack, and the lint's reserved carve-out
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0052](./0052-the-canvas-contract.md) — the token register it sized was removed with the preview UI.
 **Date:** 2026-07-26
 **Deciders:** owner
 

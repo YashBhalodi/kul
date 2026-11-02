@@ -18,7 +18,7 @@ The pinning is deliberate: a consumer pulls only the layers it needs, and no cra
 
 - the WASM `renderSvg` path (`crates/kul-wasm/src/lib.rs`),
 - the CLI `kul export --format=svg` path (`crates/kul-cli/src/commands/export.rs`),
-- the LSP `kul/render` + `kul/exportSvg` path (`crates/kul-lsp/src/features/svg_envelope.rs`, itself already shared between those two requests after #269).
+- the language server's `kul/render` + `kul/exportSvg` path (its `svg_envelope` module, itself already shared between those two requests after #269).
 
 Every copy ran the identical success sequence and differed only in three genuinely surface-specific ways: the **theme** (`ThemeConfig::default()` for the theme-agnostic preview vs. `ThemeConfig::for_file_export()` for the self-contained file export), the **failure projection** (raw `ExportedDiagnostic`s for WASM, miette-to-stderr for the CLI, URI/range-anchored diagnostics for the LSP), and the **output sink** (a JS envelope, stdout, an LSP response envelope). The `RenderEnvelope` comment in `crates/kul-wasm/src/lib.rs` recorded the intent explicitly: *"Rule-of-three: a shared crate emerges only when a third independent consumer materializes."* With WASM, CLI, and LSP now all consuming the pipeline, the rule-of-three threshold is reached.
 

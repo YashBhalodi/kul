@@ -1,6 +1,6 @@
 # ADR 0033 — The phrasing layer: consumer-side, data-only language packs over a backbone-derived facet key
 
-**Status:** Accepted
+**Status:** Superseded — the preview UI it governed was removed ([ADR-0047](./0047-the-browser-app-is-kuls-only-interactive-surface.md)); the engine remains in kul-core and the CLI.
 **Date:** 2026-07-26
 **Deciders:** owner
 

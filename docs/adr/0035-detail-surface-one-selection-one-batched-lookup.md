@@ -1,6 +1,6 @@
 # ADR 0035 — The detail surface: one selection over three entity kinds, fed by one batched lookup
 
-**Status:** Accepted
+**Status:** Superseded — the preview UI it governed was removed ([ADR-0047](./0047-the-browser-app-is-kuls-only-interactive-surface.md)); the engine remains in kul-core and the CLI. The batched detail lookup it introduced stays, governed by [ADR-0037](./0037-batched-detail-lookup-shape.md).
 **Date:** 2026-07-26
 **Deciders:** owner
 

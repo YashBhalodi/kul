@@ -11,7 +11,7 @@ The export's contract on a document with validation errors had to be settled in 
 1. **Permissive-with-envelope.** Always project a partial graph, even when errors are present. Wrap it in an envelope that carries both `graph` and `diagnostics` so the consumer can render whatever exists and overlay error squiggles on top. Useful for live-preview UX in editors — the user keeps seeing their family while typing the next person's name.
 2. **Strict-on-errors.** If any error-severity diagnostic is present, refuse to project. Return a failure envelope carrying only the diagnostics. The consumer is told "your document is broken; nothing to render" and decides what to do — show an error banner, keep the previously-rendered tree, debounce until the doc is clean.
 
-Both positions are coherent. The choice came down to where to put the UX policy. Permissive-mode embeds an opinion ("a partial render is more useful than a banner") into the foundation; every consumer inherits it. Strict-mode hands the policy to the consumer, where it can be tuned per surface — a CLI pipeline wants the loud failure, a web visualizer might want to render the last-clean projection, a future webview live-preview might cache and debounce.
+Both positions are coherent. The choice came down to where to put the UX policy. Permissive-mode embeds an opinion ("a partial render is more useful than a banner") into the foundation; every consumer inherits it. Strict-mode hands the policy to the consumer, where it can be tuned per surface — a CLI pipeline wants the loud failure, a web visualizer might want to render the last-clean projection, a live preview might cache and debounce.
 
 ## Decision
 

@@ -1,6 +1,6 @@
 # ADR 0042 — The selection seam: a target is an address, a store is the seam, and centring measures the panel
 
-**Status:** Accepted
+**Status:** Superseded — the preview UI it governed was removed ([ADR-0047](./0047-the-browser-app-is-kuls-only-interactive-surface.md)); the engine remains in kul-core and the CLI. Its centring rule is replaced by [ADR-0052](./0052-the-canvas-contract.md).
 **Date:** 2026-07-26
 **Deciders:** owner
 

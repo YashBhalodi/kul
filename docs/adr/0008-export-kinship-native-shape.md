@@ -6,7 +6,7 @@
 
 ## Context
 
-The export's job is to project a Kul document into a JSON value a downstream consumer can render. That projection has many shapes to choose from — and the choice is load-bearing because every consumer (web visualizer, VSCode webview, scripts, generators) inherits it. Three shapes were on the table:
+The export's job is to project a Kul document into a JSON value a downstream consumer can render. That projection has many shapes to choose from — and the choice is load-bearing because every consumer (web visualizer, editor preview, scripts, generators) inherits it. Three shapes were on the table:
 
 1. **Kinship-native.** Three flat collections — `persons`, `marriages`, `parenthood_links` — that mirror the language's primitives one-to-one. Cross-references are by id; nothing is embedded; nothing is derived. A consumer indexing by id gets a dictionary lookup; a consumer rendering the family tree composes derived views (children-of, siblings-of, descendants-of) on top.
 2. **Generic-graph (nodes + edges).** A flat `nodes` array plus a flat `edges` array, with type tags on each. Loadable into Cytoscape, Sigma.js, vis-network, Gephi without writing a custom adapter. Pays for that interop with a layer of indirection — all kinship-meaningful structure is encoded as `type` discriminators on opaque nodes/edges.

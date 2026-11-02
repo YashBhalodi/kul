@@ -1,12 +1,12 @@
 # ADR 0011 — WASM surface is operation-specific shapes, no convenience layer
 
-**Status:** Accepted
+**Status:** Accepted; amended by [ADR-0049](./0049-the-language-service-and-the-workspace-in-a-worker.md) — the surface is one stateful `Workspace`, run in a Web Worker.
 **Date:** 2026-05-06
 **Deciders:** owner
 
 ## Context
 
-`kul-wasm` exposes `kul-core` to JS-ecosystem consumers (forthcoming graph renderer, VSCode webview live preview, standalone web playground). The bridge had to settle two questions before any code crossed the WASM boundary:
+`kul-wasm` exposes `kul-core` to JS-ecosystem consumers (forthcoming graph renderer, an editor live preview, standalone web playground). The bridge had to settle two questions before any code crossed the WASM boundary:
 
 1. **What's the shape of the public surface?** A single uniform envelope around every operation (`{ ok: true, value }` vs `{ ok: false, diagnostics }` for *every* function), or three operation-specific shapes that mirror what each underlying `kul-core` function actually does?
 2. **What goes in the bridge beyond the deep modules?** Convenience query helpers (`byId`, `descendants`, `siblings`, `aliveAt`), error-coercion wrappers, retry layers — or only the raw `wasm-bindgen` translation of `kul_core::check`, `kul_core::export::export`, and `kul_core::format::format_source`?
@@ -50,7 +50,7 @@ The bridge contains *no* convenience layer. No `byId`, no `descendantsOf`, no `s
 
 ### 2026-05-23 — `renderSvg` added (issue #126)
 
-The canonical visual pipeline (`kul_render::compute` → `kul_layout::layout` → `kul_svg::render`) shipped behind the LSP's `kul/render` custom request in [PRD 0002](../prd/0002-canonical-ui-pattern-visual-renderer.md)'s v1 slice. JS-ecosystem consumers (web playground, future web app) could reach the pipeline only by shelling out to the LSP or reimplementing it. This amendment extends the WASM surface with a fourth operation, `renderSvg(files, manifest) -> RenderSuccess | RenderFailure`, whose JSON shape is bit-identical to `kul_lsp::features::render::RenderResponse` (enforced by a cross-surface snapshot test).
+The canonical visual pipeline (`kul_render::compute` → `kul_layout::layout` → `kul_svg::render`) shipped behind the language server's `kul/render` custom request in PRD 0002's v1 slice. JS-ecosystem consumers (web playground, future web app) could reach the pipeline only by shelling out to the language server or reimplementing it. This amendment extends the WASM surface with a fourth operation, `renderSvg(files, …) -> RenderSuccess | RenderFailure`, whose JSON shape was bit-identical to the language server's render response (enforced by a cross-surface snapshot test).
 
 This is an extension of the principle, not a reversal. The original decision's spine — operation-specific shapes that mirror what each underlying call actually does, plus no convenience layer — applies to `renderSvg` verbatim. The three anti-suggestions above remain accurate: no uniform envelope, no `byId`-style helpers, no partial-graph fallback, no exception-based errors, no hand-written JS façade. The title and decision section are amended in place to drop the "three" count; the surface is now small but not literally three.
 
