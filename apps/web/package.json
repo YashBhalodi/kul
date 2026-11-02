@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "typecheck": "tsr generate && tsc --noEmit",
-    "lint": "tsr generate && eslint --max-warnings 0 . && prettier --check .",
+    "lint": "tsr generate && eslint --max-warnings 0 . && prettier --check . && node scripts/lint-colors.mjs",
     "format": "prettier --write .",
     "test": "vitest run",
     "build": "vite build && node scripts/finalize-dist.mjs && node scripts/check-dist.mjs",
