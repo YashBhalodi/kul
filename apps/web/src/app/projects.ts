@@ -9,6 +9,8 @@ import type { Example } from "@/project/examples"
 import { readLastProject } from "@/store/last-project"
 import { openProjectStore } from "@/store/open-store"
 import { EMPTY_UI } from "@/store/project-store"
+import { takeHandedOffSnippet } from "@/store/try-it"
+import type { TryItSnippet } from "@/store/try-it"
 import type {
   ProjectFile,
   ProjectStore,
@@ -104,6 +106,16 @@ export function createBlankProject(): Promise<ProjectSummary> {
   return create("Untitled project", [{ name: "family.kul", text: "" }])
 }
 
+/**
+ * A new project holding a snippet's files from the docs ("Try it"), named
+ * after the page it came from.
+ */
+export function createScratchProject(
+  snippet: TryItSnippet
+): Promise<ProjectSummary> {
+  return create(`Try it: ${snippet.page}`, snippet.files)
+}
+
 export function createImportedProject(
   name: string,
   files: ReadonlyArray<ProjectFile>
@@ -129,11 +141,25 @@ export async function deleteProject(id: string): Promise<void> {
   await projectsChanged()
 }
 
+let arriving: Promise<ProjectSummary> | undefined
+
 /**
- * The project /app opens: the one opened last, else the latest edited. On
- * a first visit there is none, and the first-run example becomes one.
+ * The project /app opens: a new one holding the snippet a docs page handed
+ * over, if any; else the one opened last, else the latest edited. On a
+ * first visit there is none, and the first-run example becomes one.
  */
-export async function startProject(): Promise<ProjectSummary> {
+export function startProject(): Promise<ProjectSummary> {
+  // The snippet is taken once, so a second call while the first is still
+  // creating its project answers with that same project.
+  arriving ??= pickStartProject().finally(() => {
+    arriving = undefined
+  })
+  return arriving
+}
+
+async function pickStartProject(): Promise<ProjectSummary> {
+  const snippet = takeHandedOffSnippet()
+  if (snippet) return createScratchProject(snippet)
   const store = await connectProjects()
   const pick = async () => {
     const projects = await store.listProjects()

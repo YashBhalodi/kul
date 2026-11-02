@@ -1,0 +1,105 @@
+---
+title: Quick start
+description: Open the app, add a person, marry two people, add a child and watch the tree draw itself.
+---
+
+This page builds a three-person family in the Kul app. It takes about five
+minutes. You need a desktop or laptop browser; the app's editor needs a
+screen at least 1024 pixels wide and a mouse or trackpad.
+
+Every code block on this page has a **Try it** button. It opens the app with
+that block as a new project, so you can skip ahead or catch up at any step.
+
+## 1. Open the app
+
+Open [the app](/app/). The first time, Kul opens an example family so the
+canvas has a tree on it straight away. You can explore it, then start your
+own:
+
+1. Click the project name at the top left to open the project menu.
+2. Choose **New blank project**.
+
+The new project has one empty file, `family.kul`, open in the editor window.
+The canvas says "Your family tree starts here".
+
+## 2. Add your first person
+
+Type this into the editor, or click **Add your first person** on the canvas
+and change what it writes:
+
+```kul
+person meera  name:"Meera Iyer"  gender:female  born:1952
+```
+
+A card for Meera appears on the canvas. The line has three parts:
+
+- `person meera` declares a person with the id `meera`. The id is how the
+  rest of the file refers to her. It is never shown on the tree.
+- `name:"Meera Iyer"` is the name on her card. Names go in double quotes.
+- `gender:female` is required too, and is one of `male`, `female` or
+  `other`.
+
+`born:1952` is optional. So is every other field: leave out what you don't
+know.
+
+## 3. Marry two people
+
+Add a second person and a marriage between them:
+
+```kul
+person meera  name:"Meera Iyer"  gender:female  born:1952
+person ravi   name:"Ravi Iyer"   gender:male    born:1949
+
+marriage m_ravi_meera ravi meera  start:1976-02
+```
+
+A thick line now joins the two cards. A `marriage` line has its own id
+(`m_ravi_meera`), then the two spouses. The first spouse is the **host**:
+the marriage is drawn in the host's family, and the second spouse joins it.
+`start:1976-02` says they married in February 1976.
+
+The `m_` prefix is a habit, not a rule. Any id works, as long as no other
+person or marriage uses it.
+
+## 4. Add a child
+
+A child names the marriage they were born into, on an indented line under
+their own `person` line:
+
+```kul
+person meera  name:"Meera Iyer"  gender:female  born:1952
+person ravi   name:"Ravi Iyer"   gender:male    born:1949
+
+marriage m_ravi_meera ravi meera  start:1976-02
+
+person anand  name:"Anand Iyer"  gender:male  born:1979-11-30
+  birth m_ravi_meera
+```
+
+Anand's card hangs from the middle of his parents' marriage line. You never
+write "Anand's parents are Ravi and Meera". Kul works that out from the
+`birth` line, the same way it works out siblings and grandparents.
+
+## 5. Make a mistake on purpose
+
+Delete `gender:male` from Anand's line. A red underline appears under
+`anand`, the problem count in the top bar goes up, and the canvas keeps
+showing the last tree that worked, dimmed, until you fix it:
+
+```kul expect-error=KUL-R03
+person anand  name:"Anand Iyer"  born:1979-11-30
+```
+
+Put the cursor on the underlined id and press <kbd>Ctrl</kbd>+<kbd>.</kbd>
+(<kbd>⌘</kbd>+<kbd>.</kbd> on a Mac) to see the fixes Kul offers, such as
+adding `gender:male`. Every message Kul can show is listed in the
+[diagnostics reference](/docs/reference/diagnostics/).
+
+## Where to go next
+
+- Learn the rest of the language in the guide, starting with
+  [people and names](/docs/guide/people/).
+- Find your way around [the editor](/docs/app/editor/) and
+  [the canvas](/docs/app/canvas/).
+- Read [where your files live](/docs/app/files-and-backups/) before you type
+  in a lot of family history.

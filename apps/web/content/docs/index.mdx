@@ -1,0 +1,78 @@
+---
+title: Introduction
+description: Kul is a small plain-text language for describing a family. You write down who the people are and how they are joined, and Kul draws the family tree.
+---
+
+Kul is a small language for writing down a family. You describe the people,
+the marriages between them and which marriage each child came from. Kul
+checks what you wrote and draws the family tree from it.
+
+Here is a whole family in Kul:
+
+```kul
+person ramesh  name:"Ramesh Sharma"  gender:male    born:1925-03-10  died:2005-08-22
+person sita    name:"Sita Sharma"    gender:female  born:~1928
+
+marriage m_ramesh_sita ramesh sita  start:1948-06-10
+
+person alice  name:"Alice Sharma"  gender:female  born:1950-04
+  birth m_ramesh_sita
+```
+
+Three kinds of line carry everything:
+
+- `person` introduces someone, with a short id (`ramesh`) that the rest of
+  the text uses to refer to them.
+- `marriage` joins two people.
+- `birth` (or `adoption`), indented under a person, names the marriage that
+  person was born or adopted into.
+
+Nothing else is written down. Alice's parents follow from her `birth` line,
+and so would her siblings, cousins and in-laws once you add them. Sita's
+birth year is only known roughly, so it reads `~1928`. Alice's birth is
+known to the month, so it stops at the month.
+
+## Why plain text
+
+Family history is messy. Dates are half remembered, people marry more than
+once, children are adopted, and some branches never connect to the rest.
+Genealogy apps ask you to fit all of that into their forms and keep it in
+their database. Drawing tools give you a picture with no meaning behind it.
+
+In Kul the text is the record:
+
+- It reads like notes, so you can check it against what you were told.
+- It is yours. It is a few small files you can copy, keep in version
+  control, or send to a relative.
+- Adding something you learn later is one more line. Nothing you wrote
+  before has to change.
+- Kul is lenient where records are uncertain and strict where meaning would
+  be ambiguous. A missing date is fine. A child pointing at a marriage that
+  doesn't exist is an error, explained in plain words.
+
+## What the app does
+
+The [Kul app](/app/) runs in your browser. You type Kul in a small editor
+window, and the tree on the canvas behind it redraws as you type. Mistakes
+are underlined with an explanation, and a few common ones come with a fix
+you can apply in one step. Click a
+person on the tree to jump to the line that declares them.
+
+The app keeps your projects in your browser, on your computer. There is no
+account and nothing is uploaded. [Where your files live](/docs/app/files-and-backups/)
+explains what that means for backups.
+
+It does not research your family for you, import from genealogy sites, or
+model relationships other than marriage, birth and adoption. Friendships,
+engagements and godparents are outside the language; you can still note
+them in a comment.
+
+## Where to go next
+
+- [Quick start](/docs/quick-start/) builds a small family in the app, step
+  by step.
+- The [guide](/docs/guide/people/) covers the language one topic at a time.
+- The [syntax cheat sheet](/docs/reference/cheat-sheet/) fits the whole
+  language on one page.
+- The [command line](/docs/command-line/) checks and formats Kul files in
+  scripts, CI and AI coding agents.

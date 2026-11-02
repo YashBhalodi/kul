@@ -2,7 +2,13 @@ import { expect, test } from "./fixtures"
 
 import { expectAppReady, recordCspViolations } from "./support"
 
-const PAGES = ["/", "/docs/", "/docs/cheat-sheet/", "/app/", "/app/a-project"]
+const PAGES = [
+  "/",
+  "/docs/",
+  "/docs/reference/cheat-sheet/",
+  "/app/",
+  "/app/a-project",
+]
 
 test("every page is served with the content security policy", async ({
   request,

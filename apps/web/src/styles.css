@@ -4,62 +4,21 @@
 @import "@fontsource-variable/inter/wght.css";
 @import "@fontsource-variable/jetbrains-mono/wght.css";
 @import "./styles/tokens.css";
+@import "./styles/theme.css";
+/* The docs search dialog (Fumadocs UI): its colours come from the tokens
+   through Fumadocs' shadcn preset, and its classes from its own files. The
+   path is the workspace's hoisted node_modules. */
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/lib/base.css";
+@source "../../../node_modules/fumadocs-ui/dist/components/dialog/search.js";
+@source "../../../node_modules/fumadocs-ui/dist/components/ui/button.js";
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
-  --font-sans:
-    "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    sans-serif;
-  --font-heading: var(--font-sans);
-  --font-mono:
-    "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Menlo, Consolas,
-    monospace;
-
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --color-link: var(--link);
-  --color-canvas: var(--canvas);
-  --color-canvas-dot: var(--canvas-dot);
-  --color-code: var(--code);
-  --color-code-foreground: var(--code-foreground);
-  --color-overlay: var(--overlay);
-  --color-warning: var(--warning);
-
-  --animate-pill-flash: pill-flash 1.2s ease-out;
-  @keyframes pill-flash {
-    0%,
-    40% {
-      background-color: var(--primary);
-      color: var(--primary-foreground);
-    }
-    100% {
-      background-color: transparent;
-    }
-  }
-
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
+/* Fumadocs' dialog scrim takes the site's. */
+:root,
+.dark {
+  --color-fd-overlay: var(--overlay);
 }
 
 @layer base {
@@ -289,5 +248,125 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0s !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@layer components {
+  /* A docs page's body: type set from the tokens. */
+  .docs-prose {
+    @apply text-base leading-7 text-foreground;
+  }
+  .docs-prose > * + * {
+    @apply mt-5;
+  }
+  .docs-prose h2 {
+    @apply mt-12 scroll-mt-20 text-2xl font-semibold tracking-tight;
+  }
+  .docs-prose h3 {
+    @apply mt-9 scroll-mt-20 text-lg font-semibold tracking-tight;
+  }
+  .docs-prose h4 {
+    @apply mt-7 scroll-mt-20 font-semibold;
+  }
+  .docs-prose a {
+    @apply font-medium text-link underline underline-offset-4 hover:no-underline;
+  }
+  .docs-prose strong {
+    @apply font-semibold;
+  }
+  .docs-prose ul,
+  .docs-prose ol {
+    @apply flex flex-col gap-2 pl-6;
+  }
+  .docs-prose ul {
+    @apply list-disc marker:text-muted-foreground;
+  }
+  .docs-prose ol {
+    @apply list-decimal marker:text-muted-foreground;
+  }
+  .docs-prose li > ul,
+  .docs-prose li > ol,
+  .docs-prose li > div {
+    @apply mt-2;
+  }
+  .docs-prose :not(pre) > code {
+    @apply rounded-md border bg-muted px-1.5 py-0.5 font-mono text-[0.875em] whitespace-nowrap;
+  }
+  .docs-prose kbd {
+    @apply rounded border bg-muted px-1.5 py-0.5 font-mono text-[0.85em];
+  }
+  .docs-prose table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+  .docs-prose th {
+    @apply border-b px-3 py-2 font-semibold;
+  }
+  .docs-prose td {
+    @apply border-b px-3 py-2 align-top;
+  }
+  .docs-prose blockquote {
+    @apply border-l-2 pl-4 text-muted-foreground;
+  }
+
+  /* Code blocks. Highlighted lines take their colours from the
+     --shiki-light / --shiki-dark variables on each span: the shell
+     highlighter writes them inline, and a Kul token sets both from its own
+     theme-aware colour. */
+  .shiki .line {
+    @apply px-4;
+  }
+  .shiki .line:empty {
+    height: 1lh;
+  }
+  .shiki code span {
+    color: var(--shiki-light, inherit);
+    font-style: var(--shiki-light-font-style, inherit);
+  }
+  .dark .shiki code span {
+    color: var(--shiki-dark, inherit);
+    font-style: var(--shiki-dark-font-style, inherit);
+  }
+  .shiki code .line {
+    color: var(--code-foreground);
+  }
+  .shiki .tok-keyword {
+    --shiki-light: var(--syntax-keyword);
+    --shiki-dark: var(--syntax-keyword);
+  }
+  .shiki .tok-field {
+    --shiki-light: var(--syntax-field);
+    --shiki-dark: var(--syntax-field);
+  }
+  .shiki .tok-declaration {
+    --shiki-light: var(--syntax-declaration);
+    --shiki-dark: var(--syntax-declaration);
+  }
+  .shiki .tok-reference {
+    --shiki-light: var(--syntax-reference);
+    --shiki-dark: var(--syntax-reference);
+  }
+  .shiki .tok-enum {
+    --shiki-light: var(--syntax-enum);
+    --shiki-dark: var(--syntax-enum);
+  }
+  .shiki .tok-date {
+    --shiki-light: var(--syntax-date);
+    --shiki-dark: var(--syntax-date);
+  }
+  .shiki .tok-string {
+    --shiki-light: var(--syntax-string);
+    --shiki-dark: var(--syntax-string);
+  }
+  .shiki .tok-comment {
+    --shiki-light: var(--syntax-comment);
+    --shiki-dark: var(--syntax-comment);
+    --shiki-light-font-style: italic;
+    --shiki-dark-font-style: italic;
+  }
+
+  /* An example's tree, drawn below its code at its natural size. */
+  .kul-tree-figure svg {
+    margin-inline: auto;
+    max-width: none;
   }
 }

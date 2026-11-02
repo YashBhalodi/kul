@@ -42,7 +42,7 @@ test("after one visit to the app, the app and the site work offline", async ({
   await expect(treeCard(page, "zola")).toBeVisible()
   expect(await editorText(page)).toContain('person zola name:"Zola"')
 
-  for (const path of ["/", "/docs/", "/docs/cheat-sheet/"]) {
+  for (const path of ["/", "/docs/", "/docs/reference/cheat-sheet/"]) {
     await page.goto(path)
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
     await expect(page.getByRole("contentinfo")).toContainText(

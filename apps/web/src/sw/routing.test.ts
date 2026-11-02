@@ -12,16 +12,16 @@ describe("precachedFileFor", () => {
   it("answers a directory with its index.html", () => {
     expect(precachedFileFor("/")).toBe("/index.html")
     expect(precachedFileFor("/docs/")).toBe("/docs/index.html")
-    expect(precachedFileFor("/docs/cheat-sheet/")).toBe(
-      "/docs/cheat-sheet/index.html"
+    expect(precachedFileFor("/docs/reference/cheat-sheet/")).toBe(
+      "/docs/reference/cheat-sheet/index.html"
     )
     expect(precachedFileFor("/docs")).toBe("/docs/index.html")
   })
 
   it("answers a file with itself", () => {
     expect(precachedFileFor("/llms.txt")).toBe("/llms.txt")
-    expect(precachedFileFor("/docs/cheat-sheet.md")).toBe(
-      "/docs/cheat-sheet.md"
+    expect(precachedFileFor("/docs/reference/cheat-sheet.md")).toBe(
+      "/docs/reference/cheat-sheet.md"
     )
     expect(precachedFileFor("/docs/search.json")).toBe("/docs/search.json")
   })

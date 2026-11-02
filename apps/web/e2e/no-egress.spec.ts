@@ -45,7 +45,7 @@ test("a whole session makes only same-origin requests", async ({
   // The landing page and the docs, with their text variants.
   await page.goto("/")
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
-  for (const path of ["/docs/", "/docs/cheat-sheet/"]) {
+  for (const path of ["/docs/", "/docs/reference/cheat-sheet/"]) {
     await page.goto(path)
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
   }

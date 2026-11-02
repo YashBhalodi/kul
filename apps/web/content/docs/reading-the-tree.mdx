@@ -1,0 +1,144 @@
+---
+title: Reading the tree
+description: What the cards, lines and faded cards on the canvas mean, and why each person sits where they do.
+---
+
+Kul draws every family the same way, from the text alone. There are no
+settings and nothing to arrange by hand: the same files always give the
+same tree. This page explains how to read it.
+
+## The basic picture
+
+The tree is a classic family tree. Each generation is a row, oldest at the
+top. A married couple sit side by side, joined by a thick line, and their
+children hang from the middle of that line on the row below.
+
+```kul tree
+person hiroshi  name:"Hiroshi Tanaka"  gender:male    born:1978-02-11
+person yuki     name:"Yuki Tanaka"     gender:female  born:1980-06-30
+
+marriage m_hiroshi_yuki hiroshi yuki  start:2005-09-20
+
+person akiko  name:"Akiko Tanaka"  gender:female  born:2008-04-17
+  birth m_hiroshi_yuki
+person kenji  name:"Kenji Tanaka"  gender:male  born:2011-11-03
+  birth m_hiroshi_yuki
+```
+
+Children attach to their parents' **marriage**, not to either parent,
+because that is how a `birth` line is written.
+
+## Cards
+
+Each person has one card, showing their name. Every card has the same
+shape and size. The colour of its outline shows gender, as the legend says.
+
+Dates and other details are not on the card. In the app, click a card to
+see everything recorded about that person in the details panel.
+
+## Lines
+
+- A **thick line** between two cards is a marriage. A marriage that ended
+  in divorce is drawn fainter.
+- A **solid line** down to a child is a birth.
+- A **dashed line** down to a child is an adoption.
+
+## Where each person sits
+
+A person can belong to several families at once: the one they were born
+into, one or more that adopted them, and each family they married into. Kul
+draws their card in one place, chosen in this order:
+
+1. With their first marriage that hasn't ended.
+2. Otherwise, in the family that adopted them most recently.
+3. Otherwise, in the family they were born into.
+4. Otherwise, on its own.
+
+So a married daughter sits beside her husband, an adopted son sits with
+his adoptive parents, and someone with no recorded ties stands alone.
+
+A couple sit in the family of the marriage's **host**, the first spouse in
+the `marriage` line. The other spouse's birth family is drawn as a tree of
+its own.
+
+## Faded cards are past records
+
+Every other place a person belongs gets a faded copy of their card, with a
+dotted outline: a **past record**. It holds the lines of a family that
+person was part of, without a second full card. It appears:
+
+- with a marriage that ended, for a spouse who has since remarried;
+- in an earlier adoptive family, for someone adopted again later;
+- in a birth family, for someone who married into another family or was
+  adopted.
+
+Here Erik and Astrid divorced and each remarried. Their cards sit with
+their new spouses, and a past record of each stays at their first marriage,
+so their daughter Linnea still hangs from her parents' marriage:
+
+```kul tree
+person erik    name:"Erik Lindqvist"    gender:male    born:1970-01-22
+person astrid  name:"Astrid Lindqvist"  gender:female  born:1972-10-08
+
+marriage m_erik_astrid erik astrid  start:1995-06-17  end:2003-06-15  end_reason:divorce
+
+person linnea  name:"Linnea Lindqvist"  gender:female  born:1998-03-29
+  birth m_erik_astrid
+
+person maja  name:"Maja Holm"  gender:female  born:1975-05-14
+
+marriage m_erik_maja erik maja  start:2006-08-26
+
+person oskar  name:"Oskar Lindqvist"  gender:male  born:2008-12-01
+  birth m_erik_maja
+
+person johan  name:"Johan Berg"  gender:male  born:1971-07-30
+
+marriage m_astrid_johan astrid johan  start:2007-04-12
+```
+
+A past record only connects to the family it stands in. Everything else
+about the person, such as their own parents and other marriages, connects
+to their real card. Match the two by name. In the app, a past record has a
+↺ badge in its corner; click it to go to the person's own card.
+
+## Several spouses at once
+
+A person with more than one current marriage is drawn once, on a row of
+their own. Each spouse sits on the row below, joined by their own marriage
+line, and each marriage's children gather under that marriage:
+
+```kul tree
+person khalid  name:"Khalid Al-Rashid"  gender:male    born:1950-03-29
+person aisha   name:"Aisha Al-Rashid"   gender:female  born:1955-07-11
+person layla   name:"Layla Al-Rashid"   gender:female  born:1958-02-23
+
+marriage m_khalid_aisha khalid aisha  start:1975-05-04
+marriage m_khalid_layla khalid layla  start:1980-09-16
+
+person yusuf  name:"Yusuf Al-Rashid"  gender:male  born:1977-06-13
+  birth m_khalid_aisha
+person zahra  name:"Zahra Al-Rashid"  gender:female  born:1982-01-08
+  birth m_khalid_layla
+```
+
+## Separate families
+
+Families with no recorded link between them are drawn as separate trees,
+left to right in the order they appear in your files, all sharing the same
+rows for each generation. See
+[disconnected lineages](/docs/guide/disconnected-lineages/).
+
+## What the tree doesn't show
+
+Time is not an axis: a card's position says nothing about when the person
+lived, only how they are related. Brothers and sisters appear in the order
+their `person` lines are written, not by age, so write them in birth order
+if that is how you want to see them.
+
+## The legend
+
+The app's legend lists only what the current tree contains: the gender
+colours, past records, and the kinds of line. Use the legend button in the
+canvas controls to show or hide it. A tree you download as SVG carries the
+same legend.

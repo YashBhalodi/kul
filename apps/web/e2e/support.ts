@@ -241,3 +241,16 @@ export async function waitForOfflineCopy(page: Page) {
     })
   })
 }
+
+/**
+ * Open the docs search dialog. The trigger works once the page has
+ * hydrated, so a click before that is retried.
+ */
+export async function openDocsSearch(page: Page) {
+  const dialog = page.getByRole("dialog")
+  await expect(async () => {
+    await page.getByTestId("docs-search").click()
+    await expect(dialog).toBeVisible({ timeout: 1000 })
+  }).toPass()
+  return dialog
+}

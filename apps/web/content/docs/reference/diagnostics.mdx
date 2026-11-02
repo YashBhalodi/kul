@@ -1,0 +1,468 @@
+---
+title: Diagnostics
+description: Every error Kul can report, what it means, an example and how to fix it.
+---
+
+When something in your files is wrong, Kul reports it with a code, such as
+`KUL-R03`, and a message that names the person, marriage or field involved.
+In the app the problem is underlined and listed in the problems list; on
+the command line, `kul validate` prints it with the line it is on.
+
+The codes are grouped by what found the problem:
+
+- **L** and **P**: the text can't be read as Kul. Fix these first; they often
+  cause others.
+- **R**: the text reads fine, but breaks one of the language's rules.
+- **V**: the tree can't be drawn.
+- **Q**: a question asked with `kul query` can't be answered.
+
+Each example below is checked when these docs are built, and shows the
+message Kul gives for it.
+
+## Reading the text
+
+### KUL-L01: Broken text in quotes [#kul-l01]
+
+A quoted value is missing its closing `"`, or contains a backslash that
+isn't `\"` or `\\`. Because the value can't be read, the field it belongs to
+is reported too.
+
+```kul expect-error=KUL-L01,KUL-P07
+person asha  name:"Asha Rao"  gender:female  family:"Rao
+```
+
+**Fix:** close the quotes. To put a `"` inside a name, write `\"`; for a
+backslash, write `\\`.
+
+### KUL-P01: Not a person or a marriage [#kul-p01]
+
+A line that starts at the left edge must begin with `person` or
+`marriage`. Usually the keyword is misspelled, or a `birth` or `adoption`
+line lost its indentation.
+
+```kul expect-error=KUL-P01
+persn asha  name:"Asha Rao"  gender:female
+```
+
+**Fix:** correct the keyword, or indent the line under its person.
+
+### KUL-P03: Missing id [#kul-p03]
+
+An id is missing where one is needed: after `person`, after `marriage` (the
+marriage's own id and both spouses), or after `birth` and `adoption`. A
+reserved word such as `name` or `person` doesn't count as an id.
+
+```kul expect-error=KUL-P03
+person ravi  name:"Ravi"  gender:male
+marriage m_ravi ravi
+```
+
+**Fix:** add the missing id. A marriage needs three: its own, then the two
+spouses.
+
+### KUL-P04: Not a field [#kul-p04]
+
+Where a field belongs there is something else, such as a value without a
+field name.
+
+```kul expect-error=KUL-P04
+person asha  name:"Asha Rao"  gender:female  1961
+```
+
+**Fix:** write the field in full, as `born:1961`.
+
+### KUL-P05: Missing colon [#kul-p05]
+
+A field name isn't followed by `:`. Fields are written with no spaces:
+`born:1961`, not `born 1961` or `born : 1961`.
+
+```kul expect-error=KUL-P05
+person asha  name:"Asha Rao"  gender:female  born 1961
+```
+
+**Fix:** join the field name and value with a colon.
+
+### KUL-P07: Text without quotes [#kul-p07]
+
+`name:`, `family:` and `given:` hold text, which always goes in double
+quotes, even a single word.
+
+```kul expect-error=KUL-P07
+person asha  name:"Asha Rao"  gender:female  family:Rao
+```
+
+**Fix:** put the value in quotes: `family:"Rao"`.
+
+### KUL-P08: Unknown gender [#kul-p08]
+
+`gender:` takes exactly one of `male`, `female` or `other`, without quotes.
+
+```kul expect-error=KUL-P08
+person asha  name:"Asha Rao"  gender:f
+```
+
+**Fix:** use one of the three values. Use `other` for anything else.
+
+### KUL-P10: Field not allowed here [#kul-p10]
+
+The field exists, but not on this kind of line: `start:` on a person, or
+`born:` on a marriage.
+
+```kul expect-error=KUL-P10
+person asha  name:"Asha Rao"  gender:female  start:1961
+```
+
+**Fix:** move the field to the right line, or use the right name. A
+person's dates are `born:` and `died:`; a marriage's are `start:` and `end:`.
+See [fields](/docs/reference/fields/).
+
+### KUL-P11: Missing date [#kul-p11]
+
+A date field has no date after its colon, or has a quoted value. Dates are
+written bare.
+
+```kul expect-error=KUL-P11
+person asha  name:"Asha Rao"  gender:female  born:"1961"
+```
+
+**Fix:** write the date without quotes, or remove the field if you don't
+know it.
+
+### KUL-P12: Missing end reason [#kul-p12]
+
+`end_reason:` has no value after it. The marriage is also reported as
+having an `end:` without a reason.
+
+```kul expect-error=KUL-P12,KUL-R05
+person ravi   name:"Ravi"   gender:male
+person meera  name:"Meera"  gender:female
+
+marriage m_ravi_meera ravi meera  end:1990  end_reason:
+```
+
+**Fix:** write `end_reason:divorce`.
+
+### KUL-P13: Two birth lines [#kul-p13]
+
+A person was born once, so they have at most one `birth` line.
+
+```kul expect-error=KUL-P13
+person ravi   name:"Ravi"   gender:male
+person meera  name:"Meera"  gender:female
+
+marriage m_ravi_meera ravi meera
+
+person anand  name:"Anand"  gender:male
+  birth m_ravi_meera
+  birth m_ravi_meera
+```
+
+**Fix:** keep one `birth` line. If the person was also raised by another
+couple, record that with an `adoption` line.
+
+### KUL-P14: Field not allowed on adoption [#kul-p14]
+
+An `adoption` line takes only `start:` and `end:`.
+
+```kul expect-error=KUL-P14
+person ravi   name:"Ravi"   gender:male
+person meera  name:"Meera"  gender:female
+
+marriage m_ravi_meera ravi meera
+
+person anand  name:"Anand"  gender:male
+  adoption m_ravi_meera  start:1990  born:1989
+```
+
+**Fix:** move the field to the `person` line, or remove it.
+
+### KUL-P15: Badly written date [#kul-p15]
+
+A date must be `YYYY`, `YYYY-MM` or `YYYY-MM-DD`, with a four-digit year
+and two-digit month and day, optionally after `~`.
+
+```kul expect-error=KUL-P15
+person asha  name:"Asha Rao"  gender:female  born:1961-2
+```
+
+**Fix:** pad the month and day with a zero: `1961-02`.
+
+### KUL-P16: Date that doesn't exist [#kul-p16]
+
+The date is written correctly, but there is no such month or day: month
+13, or 30 February.
+
+```kul expect-error=KUL-P16
+person asha  name:"Asha Rao"  gender:female  born:1961-02-30
+```
+
+**Fix:** correct the date. If you only know the month, write just the
+month: `1961-02`.
+
+## Rules
+
+### KUL-R01: Id used twice [#kul-r01]
+
+Every id in a project names one person or one marriage, across all files.
+The second declaration is reported, and the message points to the first.
+
+```kul expect-error=KUL-R01
+person asha  name:"Asha Rao"   gender:female
+person asha  name:"Asha Iyer"  gender:female
+```
+
+**Fix:** give one of them a different id, such as `asha_iyer`, and update
+the marriages that refer to it. The editor's rename (<kbd>F2</kbd>) does
+both at once.
+
+### KUL-R02: Unknown id [#kul-r02]
+
+A marriage names a spouse, or a `birth` or `adoption` line names a
+marriage, that isn't declared anywhere in the project.
+
+```kul expect-error=KUL-R02
+person anand  name:"Anand"  gender:male
+  birth m_ravi_meera
+```
+
+**Fix:** correct a typo, or declare the missing person or marriage. In a
+project with several files, check the file that should declare it is in
+the project.
+
+### KUL-R03: Missing name or gender [#kul-r03]
+
+Every person needs `name:` and `gender:`.
+
+```kul expect-error=KUL-R03
+person asha  name:"Asha Rao"
+```
+
+**Fix:** add the missing field. The editor offers to add it for you
+(<kbd>Ctrl</kbd>+<kbd>.</kbd>).
+
+### KUL-R04: Married to themselves [#kul-r04]
+
+A marriage's two spouses are the same id.
+
+```kul expect-error=KUL-R04
+person ravi  name:"Ravi"  gender:male
+marriage m_ravi ravi ravi
+```
+
+**Fix:** name the other spouse.
+
+### KUL-R05: End without a reason, or a reason without an end [#kul-r05]
+
+`end:` and `end_reason:` go together: a marriage has both or neither.
+
+```kul expect-error=KUL-R05
+person ravi   name:"Ravi"   gender:male
+person meera  name:"Meera"  gender:female
+
+marriage m_ravi_meera ravi meera  end_reason:divorce
+```
+
+**Fix:** add the missing one. If you know a divorce happened but not when,
+give your best estimate, such as `end:~1990`. The editor offers to fix it.
+
+### KUL-R05b: Unknown end reason [#kul-r05b]
+
+`divorce` is the only end reason. In particular, a death doesn't end a
+marriage; it is recorded on the person.
+
+```kul expect-error=KUL-R05b
+person ravi   name:"Ravi"   gender:male  died:1990
+person meera  name:"Meera"  gender:female
+
+marriage m_ravi_meera ravi meera  end:1990  end_reason:death
+```
+
+**Fix:** for a divorce, write `end_reason:divorce`, without quotes. For a
+death, remove `end:` and `end_reason:` and record `died:` on the person.
+
+### KUL-R06: Died before being born [#kul-r06]
+
+```kul expect-error=KUL-R06
+person asha  name:"Asha Rao"  gender:female  born:1961  died:1958
+```
+
+**Fix:** check both dates. If one is uncertain, make it partial or circa
+rather than guessing.
+
+### KUL-R07: Marriage ends before it starts [#kul-r07]
+
+```kul expect-error=KUL-R07
+person ravi   name:"Ravi"   gender:male
+person meera  name:"Meera"  gender:female
+
+marriage m_ravi_meera ravi meera  start:1990  end:1985  end_reason:divorce
+```
+
+**Fix:** check the `start:` and `end:` dates.
+
+### KUL-R08: Adoption ends before it starts [#kul-r08]
+
+```kul expect-error=KUL-R08
+person ravi   name:"Ravi"   gender:male
+person meera  name:"Meera"  gender:female
+
+marriage m_ravi_meera ravi meera
+
+person anand  name:"Anand"  gender:male
+  adoption m_ravi_meera  start:1990  end:1985
+```
+
+**Fix:** check the adoption's `start:` and `end:` dates.
+
+### KUL-R09: Married before being born [#kul-r09]
+
+The marriage starts before one of the spouses was born.
+
+```kul expect-error=KUL-R09
+person ravi   name:"Ravi"   gender:male  born:1960
+person meera  name:"Meera"  gender:female
+
+marriage m_ravi_meera ravi meera  start:1950
+```
+
+**Fix:** check the marriage's `start:` and the spouse's `born:`.
+
+### KUL-R10: Married after dying [#kul-r10]
+
+The marriage starts after one of the spouses died.
+
+```kul expect-error=KUL-R10
+person ravi   name:"Ravi"   gender:male  died:1970
+person meera  name:"Meera"  gender:female
+
+marriage m_ravi_meera ravi meera  start:1976
+```
+
+**Fix:** check the dates, and that the marriage names the right spouses.
+
+### KUL-R11: Born before a parent [#kul-r11]
+
+A child's `born:` is earlier than the `born:` of a parent in their `birth`
+marriage.
+
+```kul expect-error=KUL-R11
+person ravi   name:"Ravi"   gender:male  born:1960
+person meera  name:"Meera"  gender:female
+
+marriage m_ravi_meera ravi meera
+
+person anand  name:"Anand"  gender:male  born:1950
+  birth m_ravi_meera
+```
+
+**Fix:** check the dates, and that the `birth` line names the right
+marriage.
+
+### KUL-R12: Adopted before the parent was born [#kul-r12]
+
+An adoption starts before one of the adoptive parents was born.
+
+```kul expect-error=KUL-R12
+person ravi   name:"Ravi"   gender:male  born:1960
+person meera  name:"Meera"  gender:female
+
+marriage m_ravi_meera ravi meera
+
+person anand  name:"Anand"  gender:male
+  adoption m_ravi_meera  start:1955
+```
+
+**Fix:** check the adoption's `start:`, and that it names the right
+marriage.
+
+### KUL-R13: Their own ancestor [#kul-r13]
+
+Following `birth` and `adoption` lines upward leads back to the same
+person. This often happens when a child's line names the marriage they are
+a spouse in, rather than their parents' marriage. It is checked across all
+files.
+
+```kul expect-error=KUL-R13
+person ravi   name:"Ravi"   gender:male
+  birth m_ravi_meera
+person meera  name:"Meera"  gender:female
+
+marriage m_ravi_meera ravi meera
+```
+
+**Fix:** point the `birth` or `adoption` line at the parents' marriage.
+
+### KUL-R14: Several current marriages, not hosted [#kul-r14]
+
+A person with two or more marriages that have no `end:` must be the first
+spouse, the host, in every one of them. See
+[multiple marriages](/docs/guide/multiple-marriages/).
+
+```kul expect-error=KUL-R14
+person khalid  name:"Khalid"  gender:male
+person aisha   name:"Aisha"   gender:female
+person layla   name:"Layla"   gender:female
+
+marriage m_khalid_aisha khalid aisha
+marriage m_layla_khalid layla khalid
+```
+
+**Fix:** swap the two spouse ids in the reported marriage, so the shared
+spouse comes first. If one of the marriages ended in divorce, give it its
+`end:` and `end_reason:divorce`.
+
+### KUL-R15: Field set twice [#kul-r15]
+
+A line sets the same field more than once. Only one value can be right.
+
+```kul expect-error=KUL-R15
+person asha  name:"Asha Rao"  gender:female  born:1961  born:1962
+```
+
+**Fix:** keep one. Note the other in a comment if the sources disagree.
+
+## Drawing the tree
+
+### KUL-V01: Lineage too deep to draw [#kul-v01]
+
+A line of descent is more than 512 generations deep. No real family comes
+close, so this usually means generated or looping data.
+
+**Fix:** check for a run of `birth` lines that chain far further than
+intended.
+
+### KUL-V02: Not a family graph [#kul-v02]
+
+The renderer was given data it doesn't draw. You won't see this from Kul
+files you write; it means a bug in Kul.
+
+**Fix:** please [report it](https://github.com/YashBhalodi/kul/issues),
+with the files that cause it.
+
+### KUL-V03: Inconsistent family graph [#kul-v03]
+
+The renderer found the family's links inconsistent after they had passed
+every rule. This means a bug in Kul.
+
+**Fix:** please [report it](https://github.com/YashBhalodi/kul/issues),
+with the files that cause it.
+
+## Command-line queries
+
+These come only from `kul query`, which asks questions about a project
+from the [command line](/docs/command-line/).
+
+### KUL-Q01: Unknown person in a query [#kul-q01]
+
+The query names a person id the project doesn't declare, as in
+`kul query kin nobody parents`.
+
+**Fix:** use an id from the project. `kul query persons` lists them.
+
+### KUL-Q02: Bad filter [#kul-q02]
+
+A `--where` filter can't be used: the date in it isn't a valid date, or the
+comparison doesn't suit the field, such as `<` on a name.
+
+**Fix:** check the filter against `kul query --help`. Comparisons with `<`
+and `>` work on dates only.

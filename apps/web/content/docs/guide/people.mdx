@@ -1,0 +1,88 @@
+---
+title: People and names
+description: The person line, its id, the name on the card, family and given names, and gender.
+---
+
+Every person in a family gets one `person` line:
+
+```kul
+person asha  name:"Asha Rao"  gender:female  family:"Rao"  given:"Asha"  born:1961-02  died:~2019
+```
+
+The line starts with `person` and an id, followed by fields. A field is a
+name, a colon and a value, with no spaces around the colon: `born:1961-02`.
+Fields can come in any order. [Formatting](/docs/guide/comments-and-formatting/)
+puts them in a standard order and lines up the columns.
+
+## The id
+
+The id (`asha` above) is how the rest of the project refers to this
+person: in marriages, and in nothing else. It never appears on the tree, so
+pick something short you will recognise.
+
+- It starts with a letter or `_`, followed by letters, digits, `_` or `-`.
+  `asha`, `asha_rao`, `asha-2` and `_unknown_father` are all fine.
+- Case matters: `Asha` and `asha` are two different ids.
+- Every id in a project is unique, across people and marriages and across
+  all of the project's files.
+- A few words are part of the language and can't be ids: `person`,
+  `marriage`, `birth`, `adoption`, `name`, `gender`, `family`, `given`,
+  `born`, `died`, `start`, `end`, `end_reason`, `divorce`, `male`, `female`
+  and `other`.
+
+If two people share a first name, give them ids that tell them apart, such
+as `ravi_sr` and `ravi_jr`. The [editor](/docs/app/editor/) can rename an id
+everywhere it is used, so an early choice is easy to change.
+
+## Name
+
+`name:` is the name on the person's card, written in double quotes. It is
+required, and it can hold any text, in any script:
+
+```kul
+person kavya  name:"Kavya Menon (née Pillai)"  gender:female
+person dev    name:"देव शर्मा"                  gender:male
+```
+
+Text values always need quotes, even a single word: write `name:"Asha"`,
+not `name:Asha`. Inside the quotes, write `\"` for a double quote and `\\`
+for a backslash.
+
+## Family and given names
+
+`family:` and `given:` are optional. They hold the family name and the given
+name separately, for when the order or form of a name matters. They don't
+change what the card shows; that is always `name:`.
+
+```kul
+person tanaka_h  name:"Tanaka Hiroshi"  gender:male  family:"Tanaka"  given:"Hiroshi"
+```
+
+## Gender
+
+`gender:` is required, and takes one of three values, written without
+quotes: `male`, `female` or `other`. Use `other` whenever neither of the
+first two fits, or when you would rather not say.
+
+The tree shows gender only as the colour of a card's outline, and the
+legend names each colour.
+
+## Birth and death dates
+
+`born:` and `died:` are optional dates. Write as much of the date as you
+know: a year, a year and month, or a full date, with `~` in front when it's
+approximate. [Dates](/docs/guide/dates/) covers the details.
+
+A person with no `died:` is someone whose death isn't recorded.
+
+## Leaving things out
+
+Only `name:` and `gender:` are required. There is no way to write
+"unknown", because you never need one: leave the field out.
+
+```kul
+person grandfather  name:"Grandfather"  gender:male
+```
+
+When you learn more later, add fields to the same line. Nothing else in the
+project has to change.

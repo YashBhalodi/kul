@@ -5,7 +5,7 @@ import { routeTree } from "./routeTree.gen"
 export function getRouter() {
   return createRouter({
     routeTree,
-    // Every page is a directory index (/docs/, /docs/cheat-sheet/), so links
+    // Every page is a directory index (/docs/, /docs/guide/dates/), so links
     // match the prerendered files without a redirect.
     trailingSlash: "always",
     scrollRestoration: true,

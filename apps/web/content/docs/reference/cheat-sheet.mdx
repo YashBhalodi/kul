@@ -1,0 +1,83 @@
+---
+title: Syntax cheat sheet
+description: The whole Kul language on one page.
+---
+
+## A complete file
+
+```kul
+# Comments start with # and run to the end of the line.
+person ramesh  name:"Ramesh Sharma"  gender:male    born:1925-03-10  died:2005-08-22
+person sita    name:"Sita Sharma"    gender:female  family:"Sharma"  given:"Sita"  born:~1928
+
+marriage m_ramesh_sita ramesh sita  start:1948-06-10
+
+person alice  name:"Alice Sharma"  gender:female  born:1950-04
+  birth m_ramesh_sita
+person bob    name:"Bob Khan"      gender:male    born:1948
+
+marriage m_alice_bob alice bob  start:1972  end:1990-08  end_reason:divorce
+
+person ravi  name:"Ravi Sharma"  gender:male  born:~1980
+  adoption m_alice_bob  start:1985-06-01
+```
+
+## Statements
+
+```text
+person <id>  name:"…"  gender:male|female|other  [family:"…"]  [given:"…"]  [born:<date>]  [died:<date>]
+  birth <marriage-id>
+  adoption <marriage-id>  [start:<date>]  [end:<date>]
+
+marriage <id> <host-id> <spouse-id>  [start:<date>]  [end:<date>  end_reason:divorce]
+```
+
+- `person` and `marriage` lines start at the beginning of a line.
+- `birth` and `adoption` lines are indented under the person they describe.
+  A person has at most one `birth` and any number of `adoption`s.
+- The first spouse in a `marriage` is the host; the second joins the host's
+  family.
+- Statements can appear in any order, and in any file of the project.
+
+## Values
+
+| Kind   | Written as                          | Examples                                  |
+| ------ | ----------------------------------- | ----------------------------------------- |
+| Text   | Double quotes, `\"` and `\\` inside | `name:"Asha Rao"`, `name:"Asha \"Ammu\""` |
+| Choice | Bare word                           | `gender:female`, `end_reason:divorce`     |
+| Date   | Bare, 4-digit year first            | `1975`, `1975-09`, `1975-09-03`           |
+| Circa  | `~` before any date                 | `~1975`, `~1975-09`                       |
+| Id     | Bare word                           | `birth m_alice_bob`                       |
+
+A field is `name:value` with no spaces around the `:`. Leave out a field you
+don't know; there is no "unknown" value.
+
+## Ids
+
+- Start with a letter or `_`; then letters, digits, `_` and `-`.
+- Case-sensitive, and unique across people and marriages in the whole
+  project.
+- Not one of these words: `adoption` `birth` `born` `died` `divorce` `end`
+  `end_reason` `family` `female` `gender` `given` `male` `marriage` `name`
+  `other` `person` `start`.
+
+## Rules worth remembering
+
+- A person needs `name:` and `gender:`.
+- `end:` and `end_reason:divorce` go together. A death is recorded with
+  `died:` on the person, never by ending the marriage.
+- Someone in two or more marriages without an `end:` must be the first
+  spouse in each of them.
+- A child is linked to a **marriage**, never to a parent directly.
+- Dates are checked for timelines that can't be true, with partial dates
+  read as their whole period and `~` dates given five years either way.
+
+## Projects
+
+- A project is every `.kul` file directly inside one folder (on disk), or
+  the files in one project (in the app).
+- All files share one set of ids, with no imports.
+- Files are read in the byte order of their names: `01-…`, `02-…`.
+
+See [fields](/docs/reference/fields/) for every field in detail and
+[diagnostics](/docs/reference/diagnostics/) for every error.

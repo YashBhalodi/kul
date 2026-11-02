@@ -1,0 +1,90 @@
+---
+title: Dates
+description: Full dates, partial dates and circa dates, and why you never have to invent precision you don't have.
+---
+
+Dates appear in `born:` and `died:` on a person, `start:` and `end:` on a
+marriage, and `start:` and `end:` on an adoption. They are all written the
+same way, without quotes.
+
+## How much you know
+
+Write the date to the precision your source gives you:
+
+| You know         | Write        |
+| ---------------- | ------------ |
+| The exact day    | `1975-09-03` |
+| The month        | `1975-09`    |
+| The year         | `1975`       |
+| Roughly the year | `~1975`      |
+
+The year always has four digits, and the month and day two each:
+`1975-09-03`, never `1975-9-3`. The date has to exist, so `1975-02-30` is
+an error.
+
+`~` means "circa": the date is approximate, beyond what the written
+precision says. It works with any of the forms, so `~1975-09` reads "around
+September 1975".
+
+```kul
+person grandmother  name:"Lakshmi"  gender:female  born:~1925  died:1998-03
+person mother       name:"Uma"      gender:female  born:1950-07-14
+```
+
+## Not knowing is fine
+
+There is no way to write an unknown date, on purpose. If you don't know a
+date, leave the field out. If you know roughly, use a coarser date or `~`.
+You never have to make up a day to satisfy a form.
+
+These say three different things, and Kul keeps them apart:
+
+- No `born:` at all: the birth date isn't recorded.
+- `born:1950`: born in 1950, day and month not recorded.
+- `born:~1950`: born around 1950, give or take.
+
+Comments are a good place for where a date came from, or for a source that
+disagrees:
+
+```kul
+person grandfather  name:"Grandfather"  gender:male  born:~1925  # the family bible says 1923
+```
+
+## How Kul checks dates
+
+Kul catches impossible timelines: a death before a birth, a marriage that
+ends before it starts, a child born before a parent, a marriage after a
+spouse's death, and a few more listed in the
+[diagnostics reference](/docs/reference/diagnostics/).
+
+Uncertain dates are given the benefit of the doubt:
+
+- A partial date stands for its whole period. `1950` means any day in 1950,
+  so a child born `1950` and a parent born `1950-06` is not an error: the
+  child might have been born in December.
+- A `~` date gets five years of slack either way. A parent born `~1955` and
+  a child born `1952` is allowed, because the parent might have been born
+  as early as 1950.
+
+A rule only fires when the dates conflict however the uncertainty is read.
+
+```kul
+person mother  name:"Uma"    gender:female  born:~1955
+person father  name:"Arjun"  gender:male
+
+marriage m_arjun_uma father mother
+
+person son  name:"Kiran"  gender:male  born:1952
+  birth m_arjun_uma
+```
+
+Kul does not judge whether a date is plausible. A mother aged 12, or a
+child born years after a divorce, is accepted: real records contain
+surprises, and Kul records them rather than arguing.
+
+What it does flag is a timeline that can't be true. Here Ravi dies before he
+is born, which Kul reports as `KUL-R06`:
+
+```kul expect-error=KUL-R06
+person ravi  name:"Ravi"  gender:male  born:1950  died:1948
+```

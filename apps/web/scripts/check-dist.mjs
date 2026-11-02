@@ -56,7 +56,9 @@ export function checkDist(root) {
   const docsPages = [...files].filter((file) =>
     /^docs\/.+\/index\.html$/.test(file)
   )
-  const markdown = [...files].filter((file) => /^docs\/[^/]+\.md$/.test(file))
+  const markdown = [...files].filter(
+    (file) => /^docs\/.+\.md$/.test(file) && file !== "docs/index.md"
+  )
   if (docsPages.length === 0)
     problems.push("no docs page under docs/<slug>/index.html")
   for (const page of docsPages) {
@@ -149,6 +151,24 @@ export function checkDist(root) {
           `${path} loads a script from a data: URL, which the CSP blocks`
         )
       }
+    }
+  }
+  // The text variants are served as text: llms files as plain text, the
+  // docs' Markdown variants as Markdown.
+  if (files.has("_headers")) {
+    const blocks = parseHeaders(read("_headers"))
+    for (const file of files) {
+      const expected = file.endsWith(".md")
+        ? "text/markdown; charset=utf-8"
+        : file.endsWith(".txt")
+          ? "text/plain; charset=utf-8"
+          : undefined
+      if (!expected) continue
+      const type = headersFor(blocks, `/${file}`).get("content-type")?.value
+      if (type !== expected)
+        problems.push(
+          `/${file} is served as ${type ?? "nothing"}, not ${expected}`
+        )
     }
   }
   // Browsers revalidate the service worker on every check, under the CSP.

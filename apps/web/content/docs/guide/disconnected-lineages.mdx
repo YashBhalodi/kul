@@ -1,0 +1,62 @@
+---
+title: Disconnected lineages
+description: Families that don't connect yet, people with no recorded ties, and how their order on the page sets their order on the tree.
+---
+
+A Kul project doesn't have to describe one connected tree. Research rarely
+works that way: you find a great-grandmother's family before you can say
+how they connect to yours, or you know of a cousin but not which branch
+they belong to.
+
+Write them down anyway. Each group that isn't connected to the others is
+drawn as its own tree, side by side with the rest:
+
+```kul
+# The Park family
+person jinho   name:"Jin-ho Park"   gender:male    born:1960-04-12
+person soojin  name:"Soo-jin Park"  gender:female  born:1963-08-25
+
+marriage m_jinho_soojin jinho soojin  start:1988-05-14
+
+person minjun  name:"Min-jun Park"  gender:male  born:1990-07-03
+  birth m_jinho_soojin
+
+# Nadia, with no ties recorded yet
+person nadia  name:"Nadia Haddad"  gender:female  born:~1985
+
+# The Costa family
+person bruno   name:"Bruno Costa"   gender:male    born:1955-02-09
+person helena  name:"Helena Costa"  gender:female  born:1958-11-28
+
+marriage m_bruno_helena bruno helena  start:1980-06-21
+```
+
+A person with no marriage, birth or adoption is drawn as a single card.
+That isn't an error; it's all you know so far.
+
+## Order on the page is order on the tree
+
+The separate trees are placed left to right in the order they appear in
+your files: a family where its first marriage is written, a lone person
+where their `person` line is. Above, the Parks come first, then Nadia, then
+the Costas. To move a family to the left, move its lines up. The same goes for
+brothers and sisters inside one family: they appear in the order their
+`person` lines are written.
+
+## Connecting them later
+
+When you find the link, add it. If Nadia turns out to be Bruno and Helena's
+daughter, give her a `birth` line:
+
+```kul
+person bruno   name:"Bruno Costa"   gender:male    born:1955-02-09
+person helena  name:"Helena Costa"  gender:female  born:1958-11-28
+
+marriage m_bruno_helena bruno helena  start:1980-06-21
+
+person nadia  name:"Nadia Haddad"  gender:female  born:~1985
+  birth m_bruno_helena
+```
+
+Nothing else changes. Her card moves into the Costa family, under her
+parents' marriage.

@@ -1,0 +1,126 @@
+---
+title: The command line
+description: Install the kul command, then check, format and export Kul projects in scripts, CI and AI coding agents.
+---
+
+The `kul` command does outside the browser what the app does inside it:
+it checks a project, formats it and draws its tree. Use it to keep a family
+in a git repository, to check it in CI, or to let an AI coding agent check
+the Kul it writes.
+
+## Install
+
+Download the archive for your computer from the
+[latest release on GitHub](https://github.com/YashBhalodi/kul/releases/latest):
+
+| Computer              | Archive                               |
+| --------------------- | ------------------------------------- |
+| Linux (x86-64)        | `kul-x86_64-unknown-linux-gnu.tar.gz` |
+| macOS (Apple silicon) | `kul-aarch64-apple-darwin.tar.gz`     |
+| macOS (Intel)         | `kul-x86_64-apple-darwin.tar.gz`      |
+| Windows (x86-64)      | `kul-x86_64-pc-windows-msvc.zip`      |
+
+Unpack it and put the `kul` program (`kul.exe` on Windows) in a folder on
+your `PATH`. Then check that it runs:
+
+```sh
+kul --version
+```
+
+With a Rust toolchain you can build it from source instead:
+
+```sh
+cargo install --locked --git https://github.com/YashBhalodi/kul kul-cli
+```
+
+## Projects on disk
+
+Every command works on one project: all the `.kul` files directly inside a
+folder. Files in subfolders, and other files, are ignored. Name the folder
+as the last argument, or leave it out to use the current folder:
+
+```sh
+kul validate                 # the project in this folder
+kul validate ~/family        # the project in ~/family
+```
+
+A project downloaded from the app (**Export** › **Download project
+(.zip)**) unzips to exactly this.
+
+## Check: kul validate
+
+```sh
+kul validate ~/family
+```
+
+It prints `ok`, or each problem with its code, message and the line it is
+on, the same [diagnostics](/docs/reference/diagnostics/) the app shows. It
+exits with status 0 when the project is clean and 1 when it has errors, so
+it works as a CI step.
+
+- `--format json` prints one JSON object per problem, one per line, with
+  its file, line and column.
+- `--quiet` leaves out the `ok` line.
+
+## Format: kul format
+
+```sh
+kul format ~/family            # rewrite every file in the standard layout
+kul format --check ~/family    # change nothing; exit 1 if a file would change
+```
+
+Formatting is described in [comments and formatting](/docs/guide/comments-and-formatting/).
+It refuses a project whose files can't be read, so run `kul validate`
+first.
+
+## Export: kul export
+
+```sh
+kul export ~/family > family.json
+kul export --format svg ~/family > tree.svg
+```
+
+- The default `--format json` writes the whole family as JSON: its
+  `persons`, `marriages` and `parenthoodLinks`.
+- `--format cytoscape` writes nodes and edges for graph libraries such as
+  Cytoscape.js.
+- `--format svg` writes the tree as a self-contained SVG with its legend:
+  the same picture as **Download tree** in the app.
+
+Export only works on a project without errors; otherwise it prints the
+problems and exits with status 1.
+
+## Questions: kul query
+
+`kul query` answers questions about a family from its files:
+
+```sh
+kul query person alice ~/family
+kul query kin alice cousins --degree 1 ~/family
+kul query persons --where "born>1950" --where "absent(died)" ~/family
+```
+
+`kul query --help` lists every question it can answer, including
+ancestors, descendants, siblings, in-laws and step-relations.
+
+## With AI coding agents
+
+Coding agents such as Claude Code, Codex or Cursor can write Kul for you,
+for example by turning a family history someone wrote down into a project.
+They do it well when they know the language and can check their own work.
+
+To teach them the language, point the agent at [`/llms-full.txt`](/llms-full.txt),
+which is all of these docs in one Markdown file, or at [`/llms.txt`](/llms.txt),
+an index of them. You can also install Kul's authoring skill into a project:
+
+```sh
+npx skills add YashBhalodi/kul --skill kul-authoring
+```
+
+Then ask the agent to run `kul validate` after every change and fix what it
+reports until it prints `ok`. The JSON output (`--format json`) is easy for
+an agent to read. Finish with `kul format` to give the files the standard
+layout.
+
+To look at the result, import the folder into the app, or run
+`kul export --format svg` and open the SVG.

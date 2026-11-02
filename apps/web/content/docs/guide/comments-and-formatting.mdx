@@ -1,0 +1,81 @@
+---
+title: Comments and formatting
+description: "Notes that start with #, and the one standard layout that formatting gives every file."
+---
+
+## Comments
+
+A `#` starts a comment, which runs to the end of the line. A comment can
+have a line to itself or follow a statement:
+
+```kul
+# The Iyers, as Meera's sister told it in 2019.
+person meera  name:"Meera Iyer"  gender:female  born:1952  # from her school record
+```
+
+Kul ignores comments when it checks your files and draws the tree, and
+keeps them exactly as written when it formats them. Use them for whatever
+the language doesn't hold:
+
+- where a fact came from, and how sure you are of it;
+- a source that disagrees with the one you followed;
+- relationships Kul doesn't model, such as a godparent or an engagement;
+- what you still need to find out.
+
+A `#` inside a quoted name is part of the name, not a comment.
+
+## Formatting
+
+Kul has one standard layout, and the formatter rewrites a file into it. It
+changes only spacing, blank lines and the order of fields; what the file
+says stays the same. There are no settings, so every Kul file looks alike.
+
+Here is a file typed in a hurry:
+
+```kul
+person meera name:"Meera Iyer" born:1952 gender:female   # from the 1976 wedding card
+person ravi gender:male name:"Ravi Iyer"
+
+
+marriage m_ravi_meera ravi meera start:1976-02
+person anand born:1979-11-30 name:"Anand Iyer" gender:male
+
+    birth m_ravi_meera
+```
+
+And the same file formatted:
+
+```kul
+person meera  name:"Meera Iyer"  gender:female  born:1952  # from the 1976 wedding card
+person ravi   name:"Ravi Iyer"   gender:male
+
+marriage m_ravi_meera ravi meera  start:1976-02
+person anand  name:"Anand Iyer"  gender:male  born:1979-11-30
+  birth m_ravi_meera
+```
+
+What it did:
+
+- It put the fields in the standard order. A person's go `name`, `gender`,
+  `family`, `given`, `born`, `died`; a marriage's go `start`, `end`,
+  `end_reason`; an adoption's go `start`, `end`.
+- It left two spaces before each field and before a trailing comment, and
+  one space between the words at the start of a line.
+- It indented the `birth` line by exactly two spaces.
+- It lined up the columns of neighbouring lines of the same kind, so names,
+  genders and dates sit under each other. A blank line ends a block; add
+  one where you don't want two groups of lines aligned with each other.
+- It collapsed the two blank lines into one, and removed the blank line
+  between Anand's `person` line and his `birth` line.
+
+Formatting needs a file that reads correctly. If a line can't be read, for
+example because a quote is missing, fix that first.
+
+## Formatting in the app and on the command line
+
+- In the editor, press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>
+  (<kbd>⌥</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> on a Mac) to format the open
+  file, or run **Format all files** from the command palette.
+- On the command line, `kul format` formats every file in a project, and
+  `kul format --check` only reports whether they already are. See
+  [the command line](/docs/command-line/).

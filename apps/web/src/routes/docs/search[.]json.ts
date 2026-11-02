@@ -1,21 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { createFromSource } from "fumadocs-core/search/server"
 
-import { htmlPath, docsPages, pagePlainText } from "@/docs/pages"
+import { source } from "@/docs/source"
 
-// The docs search index, prerendered to a static JSON file: one entry per
-// page with its URL, title, summary and text.
+// The docs search index, prerendered to a static file. The search dialog
+// downloads it once and searches in the browser, so search needs no server
+// and works offline.
 export const Route = createFileRoute("/docs/search.json")({
   server: {
     handlers: {
-      GET: () =>
-        Response.json(
-          docsPages.map((page) => ({
-            url: htmlPath(page),
-            title: page.title,
-            description: page.description,
-            content: pagePlainText(page),
-          }))
-        ),
+      GET: () => createFromSource(source, { language: "english" }).staticGET(),
     },
   },
 })

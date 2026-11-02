@@ -22,6 +22,7 @@ import {
   fileRows,
   goToEnd,
   PROJECT_URL,
+  openDocsSearch,
   openProject,
   openSwitcher,
   pressMod,
@@ -70,10 +71,36 @@ const STATES: ReadonlyArray<State> = [
   { name: "landing", path: "/", widths: [390, 768, 1440], fullPage: true },
   { name: "docs", path: "/docs/", widths: [390, 1440], fullPage: true },
   {
-    name: "docs-cheat-sheet",
-    path: "/docs/cheat-sheet/",
-    widths: [1440],
+    name: "docs-guide",
+    path: "/docs/guide/children/",
+    widths: [390, 1440],
     fullPage: true,
+  },
+  {
+    name: "docs-cheat-sheet",
+    path: "/docs/reference/cheat-sheet/",
+    widths: [390, 1440],
+    fullPage: true,
+  },
+  {
+    name: "docs-diagnostics",
+    path: "/docs/reference/diagnostics/",
+    widths: [390, 1440],
+    enter: async (page) => {
+      await page.locator("#kul-p12").scrollIntoViewIfNeeded()
+    },
+  },
+  {
+    name: "docs-search",
+    path: "/docs/",
+    widths: [390, 1440],
+    enter: async (page) => {
+      const dialog = await openDocsSearch(page)
+      await dialog.getByRole("combobox", { name: "Search" }).fill("adoption")
+      await expect(
+        dialog.getByText("Children", { exact: true }).first()
+      ).toBeVisible()
+    },
   },
   {
     name: "app-shell",
