@@ -189,7 +189,11 @@ export function editorToken(page: Page, kind: string, text: string) {
 /** Open a new project from an example, by its title. */
 export async function openExample(page: Page, title: string, name = title) {
   await chooseFromSwitcher(page, ["New from example", title])
-  await expect(page.getByTestId("project-switcher")).toHaveText(name)
+  // Creating the project writes every file before the app opens it, which
+  // can take longer than an assertion's default wait on a loaded machine.
+  await expect(page.getByTestId("project-switcher")).toHaveText(name, {
+    timeout: 15_000,
+  })
   await expect(editorContent(page)).toBeVisible()
 }
 

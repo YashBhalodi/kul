@@ -39,6 +39,9 @@ test("a whole session makes only same-origin requests", async ({
   context,
   baseURL,
 }) => {
+  // A whole session in one test: the site, a search, the app, an import,
+  // two downloads, a reload and a Try it. Give it more than one step's time.
+  test.setTimeout(90_000)
   const origin = new URL(baseURL ?? "").origin
   const requests: Array<string> = []
   context.on("request", (request) => requests.push(request.url()))
