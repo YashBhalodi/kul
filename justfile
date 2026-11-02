@@ -88,7 +88,8 @@ web-check: (_web "typecheck" "lint" "test")
 # The web app's dev server, on a fresh WASM build.
 web: wasm (_web "dev")
 
-# The web app's production build with prerender, into apps/web/dist/client.
+# The web app's production build with prerender, into apps/web/dist/client,
+# then its _headers (CSP hashes) and the layout check (scripts/check-dist.mjs).
 web-build: wasm (_web "build")
 
 # Playwright end-to-end suites against the built site, served by
@@ -102,14 +103,10 @@ shots: web-build (_web "shots")
 # Lighthouse CI (@lhci/cli) against serve-dist, asserting the score floors.
 lighthouse: web-build (_web "lighthouse")
 
-# Run npm scripts of apps/web in order; skip while the app does not exist.
+# Run npm scripts of apps/web in order.
 _web +SCRIPTS:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ ! -f apps/web/package.json ]]; then
-      echo "skip: apps/web/package.json does not exist yet, so the web app's {{SCRIPTS}} gate(s) do not run"
-      exit 0
-    fi
     for script in {{SCRIPTS}}; do
       npm --prefix apps/web run "$script"
     done

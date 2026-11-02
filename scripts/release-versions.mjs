@@ -33,12 +33,11 @@ export function cargoWorkspaceVersion(toml) {
 }
 
 /**
- * Check the lockstep under `root`. Returns `{ version, notes }` when every
- * source agrees; throws an Error whose `problems` lists each mismatch.
+ * Check the lockstep under `root`. Returns `{ version }` when every source
+ * agrees; throws an Error whose `problems` lists each mismatch.
  */
 export function checkVersions({ root, tag }) {
     const problems = [];
-    const notes = [];
 
     const cargo = cargoWorkspaceVersion(readFileSync(join(root, "Cargo.toml"), "utf8"));
     if (!cargo) problems.push("Cargo.toml has no [workspace.package] version");
@@ -50,7 +49,7 @@ export function checkVersions({ root, tag }) {
             problems.push(`${WEB_PACKAGE} version ${web} != Cargo.toml version ${cargo}`);
         }
     } else {
-        notes.push(`${WEB_PACKAGE} does not exist yet, so only Cargo.toml and the tag are compared`);
+        problems.push(`${WEB_PACKAGE} is missing`);
     }
 
     if (tag !== undefined) {
@@ -67,7 +66,7 @@ export function checkVersions({ root, tag }) {
         error.problems = problems;
         throw error;
     }
-    return { version: cargo, notes };
+    return { version: cargo };
 }
 
 function main() {
@@ -75,8 +74,7 @@ function main() {
         options: { root: { type: "string", default: "." }, tag: { type: "string" } },
     });
     try {
-        const { version, notes } = checkVersions(values);
-        for (const note of notes) console.error(`note: ${note}`);
+        const { version } = checkVersions(values);
         console.log(version);
     } catch (error) {
         for (const problem of error.problems ?? [error.message]) {

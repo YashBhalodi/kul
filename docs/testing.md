@@ -42,6 +42,19 @@ just check
 
 Runs fmt-check, clippy at deny-level, the full test suite via `cargo nextest`, the WASM build and its gates (`just wasm-check`), and the web app's gates. CI runs the same recipes — local-green implies CI-green. If you want only the test suite: `just test`. `just verify` adds the browser suites, Lighthouse and actionlint (see [`AGENTS.md`](../AGENTS.md)).
 
+## Web app (`apps/web`)
+
+| Kind | Lives at | Runs in |
+| --- | --- | --- |
+| Pure logic (`*.test.ts`) and the build scripts (`scripts/*.test.mjs`) | next to the module | Vitest, Node (`just web-check`) |
+| Code that needs a browser: the language worker and the WASM, theme and storage (`*.browser.test.ts`) | next to the module | Vitest browser mode, Chromium and WebKit through Playwright (`just web-check`) |
+| The built site's layout: every prerendered page, the SPA shell, the llms files, the Markdown variants, the search index, `_redirects`, and a CSP that hashes each page's inline scripts | `apps/web/scripts/check-dist.mjs` | after every build (`just web-build`) |
+| End to end against the production build, served by `scripts/serve-dist.mjs` with Netlify's `_redirects` and `_headers` rules | `apps/web/e2e/*.spec.ts` | Playwright on Chromium, Firefox and WebKit (`just e2e`) |
+| The screenshot tour: every named state, both themes, the tour widths, axe (serious or critical fails) and a no-horizontal-overflow check | `apps/web/e2e/tour.spec.ts` | Playwright, Chromium (`just shots`), PNGs in `apps/web/test-results/shots/` |
+| Lighthouse on the landing page and a docs page: Performance and Accessibility ≥ 95 (mobile preset, median of 3 runs) | `apps/web/lighthouserc.json` | `@lhci/cli` against `serve-dist` (`just lighthouse`) |
+
+The screenshots are artefacts to look at, not golden images: whoever changes the UI opens the PNGs for the states they touched and checks them against the design checklist (layout, type, contrast, states, canvas chrome, copy).
+
 ## Snapshots (insta)
 
 Most parser, validator, and language-feature tests are **snapshot tests**: the output is rendered once, committed to `.snap` files, and subsequent runs assert byte-for-byte equality. This makes regressions visible as a diff rather than a single boolean.

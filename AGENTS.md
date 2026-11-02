@@ -62,13 +62,13 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 just check
 ```
 
-Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo nextest run --workspace`; then `just wasm-check` (the `--target web` build, the committed `.d.ts` diff, the 1 MB gzipped budget, the Node smoke test and the TypeScript compile-test). Last come the web app's gates (`just web-check`, `just web-build`): the `apps/web/scripts/serve-dist.mjs` unit tests always, and the app's typecheck, lint, unit tests and production build once `apps/web/package.json` exists. Local-green implies CI-green: `.github/workflows/rust.yml` and `web.yml` run the same recipes.
+Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo nextest run --workspace`; then `just wasm-check` (the `--target web` build, the committed `.d.ts` diff, the 1 MB gzipped budget, the Node smoke test and the TypeScript compile-test). Last come the web app's gates (`just web-check`, `just web-build`): its typecheck, lint (ESLint and Prettier), Vitest in Node and in browsers (Chromium and WebKit, through Playwright), the `serve-dist` unit tests, and the production build with prerender, its generated `_headers` and the layout check (`apps/web/scripts/check-dist.mjs`). Install the browsers once with `npx playwright install chromium webkit firefox`. Local-green implies CI-green: `.github/workflows/rust.yml` and `web.yml` run the same recipes.
 
 ```sh
 just verify
 ```
 
-Runs `just check`, then `just e2e` (Playwright against the built site served by `serve-dist`), `just shots` (the screenshot tour with axe), `just lighthouse`, the epic #343 harness (`just baseline-diff`, `just vestige-check`; see `scripts/pivot/`) and `just lint-workflows` (actionlint). The web recipes print a skip line while `apps/web/package.json` does not exist.
+Runs `just check`, then `just e2e` (Playwright against the built site served by `serve-dist`), `just shots` (the screenshot tour with axe), `just lighthouse`, the epic #343 harness (`just baseline-diff`, `just vestige-check`; see `scripts/pivot/`) and `just lint-workflows` (actionlint). `just web` runs the app's dev server.
 
 Other recipes:
 

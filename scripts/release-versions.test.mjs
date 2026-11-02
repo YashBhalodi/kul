@@ -72,7 +72,7 @@ describe("cargoWorkspaceVersion", () => {
 
 describe("checkVersions", () => {
     test("agreeing Cargo.toml, web package and tag give the version", () => {
-        assert.deepEqual(checkVersions({ root: fixture(), tag: "v1.2.3" }), { version: "1.2.3", notes: [] });
+        assert.deepEqual(checkVersions({ root: fixture(), tag: "v1.2.3" }), { version: "1.2.3" });
     });
 
     test("without a tag, the two files are compared", () => {
@@ -103,12 +103,9 @@ describe("checkVersions", () => {
         }
     });
 
-    test("a missing web package compares Cargo.toml with the tag and says so", () => {
-        const result = checkVersions({ root: fixture({ web: null }), tag: "v1.2.3" });
-        assert.equal(result.version, "1.2.3");
-        assert.equal(result.notes.length, 1);
-        assert.deepEqual(problemsOf({ root: fixture({ web: null }), tag: "v1.2.4" }), [
-            "tag v1.2.4 != Cargo.toml version 1.2.3",
+    test("a missing web package fails", () => {
+        assert.deepEqual(problemsOf({ root: fixture({ web: null }), tag: "v1.2.3" }), [
+            "apps/web/package.json is missing",
         ]);
     });
 
