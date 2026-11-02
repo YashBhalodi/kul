@@ -1,0 +1,6 @@
+dist/
+test-results/
+playwright-report/
+.lighthouseci/
+src/routeTree.gen.ts
+.vitest/

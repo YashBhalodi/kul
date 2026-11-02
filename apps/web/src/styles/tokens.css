@@ -1,0 +1,78 @@
+/*
+ * The token sheet: every colour the app, the landing page and the docs use.
+ * Components read these through Tailwind's theme (bg-background,
+ * text-muted-foreground, border-border, ...) and never name a colour of
+ * their own. The light theme is :root; the dark theme is the `dark` class on
+ * <html>, which /theme.js sets before the first paint.
+ *
+ * One accent (teal) carries primary actions, links and focus rings; every
+ * other surface is a near-neutral grey with a faint cool tint.
+ */
+
+:root {
+  color-scheme: light;
+
+  --background: oklch(0.985 0.002 250);
+  --foreground: oklch(0.22 0.012 255);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.012 255);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.012 255);
+  --primary: oklch(0.47 0.085 190);
+  --primary-foreground: oklch(0.985 0.005 190);
+  --secondary: oklch(0.955 0.004 250);
+  --secondary-foreground: oklch(0.25 0.012 255);
+  --muted: oklch(0.955 0.004 250);
+  --muted-foreground: oklch(0.47 0.014 255);
+  --accent: oklch(0.945 0.006 250);
+  --accent-foreground: oklch(0.22 0.012 255);
+  --destructive: oklch(0.53 0.19 27);
+  --border: oklch(0.885 0.007 250);
+  --input: oklch(0.86 0.008 250);
+  --ring: oklch(0.55 0.09 190);
+  --link: oklch(0.43 0.085 195);
+  --radius: 0.625rem;
+
+  /* The canvas: its ground and the dot grid that moves with the camera. */
+  --canvas: oklch(0.975 0.003 250);
+  --canvas-dot: oklch(0.83 0.008 250);
+
+  /* Code blocks on the landing page and in the docs. */
+  --code: oklch(0.965 0.004 250);
+  --code-foreground: oklch(0.25 0.014 255);
+
+  /* The scrim behind dialogs. */
+  --overlay: oklch(0.22 0.012 255 / 18%);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: oklch(0.175 0.006 255);
+  --foreground: oklch(0.94 0.004 250);
+  --card: oklch(0.21 0.007 255);
+  --card-foreground: oklch(0.94 0.004 250);
+  --popover: oklch(0.225 0.008 255);
+  --popover-foreground: oklch(0.94 0.004 250);
+  --primary: oklch(0.78 0.1 185);
+  --primary-foreground: oklch(0.2 0.03 195);
+  --secondary: oklch(0.26 0.008 255);
+  --secondary-foreground: oklch(0.94 0.004 250);
+  --muted: oklch(0.25 0.008 255);
+  --muted-foreground: oklch(0.73 0.012 250);
+  --accent: oklch(0.28 0.009 255);
+  --accent-foreground: oklch(0.96 0.004 250);
+  --destructive: oklch(0.7 0.17 25);
+  --border: oklch(0.31 0.008 255);
+  --input: oklch(0.34 0.008 255);
+  --ring: oklch(0.7 0.1 185);
+  --link: oklch(0.8 0.1 185);
+
+  --canvas: oklch(0.16 0.006 255);
+  --canvas-dot: oklch(0.3 0.008 255);
+
+  --code: oklch(0.21 0.007 255);
+  --code-foreground: oklch(0.92 0.006 250);
+
+  --overlay: oklch(0.05 0.005 255 / 45%);
+}

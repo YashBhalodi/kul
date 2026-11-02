@@ -1,0 +1,3 @@
+# Netlify redirects. The app is client-only: every /app path (and /app
+# itself) is served the prerendered SPA shell, whose router renders the page.
+/app/*  /_shell.html  200

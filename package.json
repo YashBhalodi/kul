@@ -2,6 +2,7 @@
     "name": "kul-workspace",
     "private": true,
     "workspaces": [
+        "apps/web",
         "crates/kul-wasm/pkg"
     ]
 }
