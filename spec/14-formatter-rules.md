@@ -32,7 +32,7 @@ The two-space inter-field rule is the only unusual one. It buys visual separatio
 
 ## 14.4 Indentation
 
-Sub-statements (`birth`, `adoption`) MUST be indented with exactly two ASCII spaces. Tabs are forbidden — the lexer already treats them as parse errors.
+Sub-statements (`birth`, `adoption`) MUST be indented with exactly two ASCII spaces. Any other indentation the lexer accepts ([Section 2](./02-document-structure.md#whitespace-conventions): tabs, or any number of spaces) is rewritten to two spaces.
 
 ## 14.5 Per-region sparse column alignment
 

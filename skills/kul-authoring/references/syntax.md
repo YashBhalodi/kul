@@ -73,10 +73,11 @@ born:1925-03-10     # exact full date
 born:~1925          # approximately 1925
 ```
 
-## Strings, bare values, comments
+## Value spellings, comments
 
-- Strings: double-quoted UTF-8. Escapes: `\"`, `\\`. Quote anything containing whitespace, `:`, `#`, or `"`.
-- Bare values: single tokens with no whitespace/`:`/`"`/`#`. Conventional for enums (`gender:female`, `end_reason:divorce`) and id references.
+- Text fields (`name`, `family`, `given`) are **always** double-quoted, even one word: `name:"Asha"`. `name:Asha` is a parse error (`KUL-P07`). Escapes: `\"`, `\\`.
+- Choice fields are **always** bare: `gender:female`, `end_reason:divorce`. `gender:"female"` is a parse error (`KUL-P08`); `end_reason:"divorce"` is rejected (`KUL-R05b`).
+- Dates and id references are bare: `born:~1925`, `birth m_alice_bob`.
 - Comments: `#` to end-of-line. Preserved verbatim by the formatter.
 
 ## Identifiers

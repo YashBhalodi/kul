@@ -24,10 +24,10 @@ person carol name:"Carol Sharma" born:1975-09-03 gender:female
 ## 5.2 adoption sub-statement
 
 ```
-  adoption <marriage-id> start:<date> [end:<date>]
+  adoption <marriage-id> [start:<date>] [end:<date>]
 ```
 
-Declares that this person was adopted by the couple represented by `<marriage-id>`, becoming effective on `start:<date>`. If the adoption was later terminated, `end:<date>` records when.
+Declares that this person was adopted by the couple represented by `<marriage-id>`. `start:<date>` records when the adoption took effect; omit it when the date is lost to record. If the adoption was later terminated, `end:<date>` records when. Both fields are optional; a date rule with a missing operand is silent ([Section 7](./07-validation-rules.md)).
 
 A person MAY have zero or more `adoption` sub-statements; multiple adoptions over a lifetime are permitted. Adoptions are permanent unless `end` is given. There is no `end_reason` field on adoption sub-statements in v1.
 

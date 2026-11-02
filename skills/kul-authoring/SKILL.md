@@ -19,7 +19,7 @@ Kul is a small declarative language for kinship — persons, marriages, biologic
 person <id> name:"…" gender:male|female|other  [family:…] [given:…] [born:…] [died:…]
 marriage <id> <spouse_a> <spouse_b>  [start:…]  [end:… end_reason:divorce]
   birth <marriage-id>          # indented under a person; bio child of the marriage's spouses
-  adoption <marriage-id> start:…  [end:…]  # indented under a person; adopted into the marriage
+  adoption <marriage-id> [start:…] [end:…]  # indented under a person; adopted into the marriage
 ```
 
 That's the entire surface. **Everything else — children, parents, siblings, half-siblings, cousins, uncles, in-laws, step-relations — is derived** from the person + marriage + birth/adoption graph. There is no `child` keyword, no `parent` field, no `sibling` declaration. See [`references/vocabulary.md`](./references/vocabulary.md) for the full NL→Kul mapping table.

@@ -26,16 +26,18 @@ A string literal is a sequence of characters enclosed in double quotes: `"Alice 
 
 No other escape sequences are recognized; a backslash followed by any other character is a lexical error. String contents may contain any valid UTF-8 character including newlines, but newlines inside a string are unconventional and tools may discourage them.
 
-## 3.4 Bare values
+## 3.4 Value spellings
 
-Where a value is a single token containing no whitespace, no `:`, no `"`, and no `#`, it MAY be written without quotes. The following are equivalent:
+Each field's value type fixes how it is written, and there is exactly one spelling per type:
 
-```
-gender:female
-gender:"female"
-```
+| Value type                                                | Written                | Example                       |
+| --------------------------------------------------------- | ---------------------- | ----------------------------- |
+| Text (`name`, `family`, `given`)                          | quoted string literal  | `name:"Asha"`                 |
+| Choice (`gender`, `end_reason`)                           | bare, one of its words | `gender:female`               |
+| Date (`born`, `died`, `start`, `end`)                     | bare date literal      | `born:~1925`                  |
+| Identifier reference (`birth`, `adoption`, spouse places) | bare identifier        | `birth m_alice_bob`           |
 
-Use of bare values is conventional for enumerations (`gender:male`, `end_reason:divorce`) and identifier references (`birth m_alice_bob`). Strings that contain a space, colon, hash, or quote MUST be quoted.
+A text value MUST be quoted, even when it is one word: `name:Asha` is a parse error (KUL-P07). A choice value MUST be bare: `gender:"female"` is a parse error (KUL-P08), and `end_reason:"divorce"` is not a recognized end reason (KUL-R05b).
 
 ## 3.5 Date literals
 
@@ -64,7 +66,7 @@ There is no syntax for unknown dates. Absence of a date field expresses "not rec
 
 ## 3.6 Field syntax
 
-A field is `<name>:<value>` written as a single token group with no whitespace between the name, the colon, and the value. The name is one of the field-name keywords listed in [Section 11 — Reserved keywords](./11-reserved-keywords.md). The value is a string literal, bare value, date literal, or identifier as appropriate to the field.
+A field is `<name>:<value>` written as a single token group with no whitespace between the name, the colon, and the value. The name is one of the field-name keywords listed in [Section 11 — Reserved keywords](./11-reserved-keywords.md). The value is written as its type requires (§3.4): a string literal, a bare choice word, a date literal, or an identifier.
 
 ```
 name:"Alice Sharma"

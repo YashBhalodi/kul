@@ -42,7 +42,7 @@ Positional arguments (`<id>`, spouses, marriage-refs) keep their grammar-mandate
 
 ### 4. Indentation
 
-Sub-statements (`birth`, `adoption`) are indented with **exactly two spaces**. Tabs are forbidden — the lexer already treats them as parse errors.
+Sub-statements (`birth`, `adoption`) are indented with **exactly two spaces**. Other indentation the lexer accepts (tabs, any number of spaces) is rewritten to two spaces.
 
 ### 5. Field alignment
 
