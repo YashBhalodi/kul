@@ -47,6 +47,29 @@ pub fn kul_language_version() -> String {
     kul_core::export::LANGUAGE_VERSION.into()
 }
 
+/// One diagnostic code the toolchain can report.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct DiagnosticCode {
+    /// The stable code (`KUL-R03`).
+    pub code: String,
+    /// What the code means, in a few words.
+    pub summary: String,
+}
+
+/// Every diagnostic code the toolchain reports, in code order: what the
+/// docs' diagnostics reference must cover.
+#[wasm_bindgen(js_name = "diagnosticCodes")]
+pub fn diagnostic_codes() -> Vec<DiagnosticCode> {
+    kul_core::diagnostic::DIAGNOSTIC_CODES
+        .iter()
+        .map(|entry| DiagnosticCode {
+            code: entry.code.into(),
+            summary: entry.summary.into(),
+        })
+        .collect()
+}
+
 /// One analysis of the whole project: what was analyzed, what is wrong with
 /// it, and the rendered tree.
 #[derive(Debug, Clone, Serialize, Tsify)]

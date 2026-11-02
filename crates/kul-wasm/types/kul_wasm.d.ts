@@ -168,6 +168,20 @@ export interface CompletionItem {
 }
 
 /**
+ * One diagnostic code the toolchain can report.
+ */
+export interface DiagnosticCode {
+    /**
+     * The stable code (`KUL-R03`).
+     */
+    code: string;
+    /**
+     * What the code means, in a few words.
+     */
+    summary: string;
+}
+
+/**
  * One entity\'s own fields plus its relational neighbourhood — the answer to
  * a single [`DetailTarget`].
  *
@@ -539,6 +553,12 @@ export class Workspace {
     symbols(file: string): OutlineSymbol[];
 }
 
+/**
+ * Every diagnostic code the toolchain reports, in code order: what the
+ * docs' diagnostics reference must cover.
+ */
+export function diagnosticCodes(): DiagnosticCode[];
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -546,6 +566,7 @@ export interface InitOutput {
     readonly KUL_CORE_VERSION: (a: number) => void;
     readonly KUL_LANGUAGE_VERSION: (a: number) => void;
     readonly __wbg_workspace_free: (a: number, b: number) => void;
+    readonly diagnosticCodes: (a: number) => void;
     readonly workspace_analyze: (a: number) => number;
     readonly workspace_complete: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly workspace_definition: (a: number, b: number, c: number, d: number) => number;

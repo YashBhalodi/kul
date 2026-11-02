@@ -9,6 +9,8 @@ import init, {
     KUL_CORE_VERSION,
     KUL_LANGUAGE_VERSION,
     Workspace,
+    diagnosticCodes,
+    type DiagnosticCode,
     type Analysis,
     type CompletionItem,
     type Diagnostic,
@@ -28,6 +30,10 @@ export async function load(url: URL): Promise<string> {
     await init({ module_or_path: url });
     return `${KUL_CORE_VERSION()} implementing Kul ${KUL_LANGUAGE_VERSION()}`;
 }
+
+// The docs check their diagnostics reference against the catalogue.
+const catalogue: DiagnosticCode[] = diagnosticCodes();
+const documented: string[] = catalogue.map((entry) => `${entry.code}: ${entry.summary}`);
 
 // A worker keeps one workspace and tags every text with a version.
 const ws = new Workspace();
@@ -169,4 +175,5 @@ export const used = [
     adoptive,
     themes,
     download,
+    documented,
 ];

@@ -109,6 +109,166 @@ pub mod detail {
     pub const R05_END_REASON_WITHOUT_END: &str = "r05-end-reason-without-end";
 }
 
+/// One diagnostic code the toolchain can report, with a one-line summary
+/// of the problem it names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DiagnosticCode {
+    /// The stable code (`KUL-R03`).
+    pub code: &'static str,
+    /// What the code means, in a few words.
+    pub summary: &'static str,
+}
+
+/// Every diagnostic code the Kul toolchain reports, in code order: the
+/// lexer (`L`), the parser (`P`), the validator's rules (`R`), the renderer
+/// (`V`) and the CLI's queries (`Q`).
+///
+/// This is the catalogue the docs' diagnostics reference is checked
+/// against. `tests/diagnostic_catalog.rs` holds it equal to the codes the
+/// workspace's sources emit, so a new code cannot ship without an entry.
+pub const DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
+    DiagnosticCode {
+        code: "KUL-L01",
+        summary: "a string without its closing quote, or with an unknown escape",
+    },
+    DiagnosticCode {
+        code: "KUL-P01",
+        summary: "a line that is not a `person` or `marriage` statement",
+    },
+    DiagnosticCode {
+        code: "KUL-P03",
+        summary: "a missing or malformed identifier",
+    },
+    DiagnosticCode {
+        code: "KUL-P04",
+        summary: "something other than a field where a field belongs",
+    },
+    DiagnosticCode {
+        code: "KUL-P05",
+        summary: "a field name without its `:`",
+    },
+    DiagnosticCode {
+        code: "KUL-P07",
+        summary: "a text field whose value is not a string",
+    },
+    DiagnosticCode {
+        code: "KUL-P08",
+        summary: "a `gender:` value other than `male`, `female` or `other`",
+    },
+    DiagnosticCode {
+        code: "KUL-P10",
+        summary: "a field that does not belong on the statement",
+    },
+    DiagnosticCode {
+        code: "KUL-P11",
+        summary: "a date field without a date",
+    },
+    DiagnosticCode {
+        code: "KUL-P12",
+        summary: "an `end_reason:` without a value",
+    },
+    DiagnosticCode {
+        code: "KUL-P13",
+        summary: "more than one `birth` line under one person",
+    },
+    DiagnosticCode {
+        code: "KUL-P14",
+        summary: "a field that does not belong on `adoption`",
+    },
+    DiagnosticCode {
+        code: "KUL-P15",
+        summary: "a date that is not written `YYYY`, `YYYY-MM` or `YYYY-MM-DD`",
+    },
+    DiagnosticCode {
+        code: "KUL-P16",
+        summary: "a date that does not exist, such as month 13 or 30 February",
+    },
+    DiagnosticCode {
+        code: "KUL-R01",
+        summary: "the same id declared twice in the project",
+    },
+    DiagnosticCode {
+        code: "KUL-R02",
+        summary: "a reference to an id the project does not declare",
+    },
+    DiagnosticCode {
+        code: "KUL-R03",
+        summary: "a person without `name:` or `gender:`",
+    },
+    DiagnosticCode {
+        code: "KUL-R04",
+        summary: "a marriage whose two spouses are the same person",
+    },
+    DiagnosticCode {
+        code: "KUL-R05",
+        summary: "`end:` without `end_reason:`, or `end_reason:` without `end:`",
+    },
+    DiagnosticCode {
+        code: "KUL-R05b",
+        summary: "an `end_reason:` value other than `divorce`",
+    },
+    DiagnosticCode {
+        code: "KUL-R06",
+        summary: "a person who died before they were born",
+    },
+    DiagnosticCode {
+        code: "KUL-R07",
+        summary: "a marriage that ends before it starts",
+    },
+    DiagnosticCode {
+        code: "KUL-R08",
+        summary: "an adoption that ends before it starts",
+    },
+    DiagnosticCode {
+        code: "KUL-R09",
+        summary: "a marriage that starts before a spouse was born",
+    },
+    DiagnosticCode {
+        code: "KUL-R10",
+        summary: "a marriage that starts after a spouse died",
+    },
+    DiagnosticCode {
+        code: "KUL-R11",
+        summary: "a child born before a birth parent",
+    },
+    DiagnosticCode {
+        code: "KUL-R12",
+        summary: "an adoption that starts before an adoptive parent was born",
+    },
+    DiagnosticCode {
+        code: "KUL-R13",
+        summary: "a person who is their own ancestor",
+    },
+    DiagnosticCode {
+        code: "KUL-R14",
+        summary: "a person in two ongoing marriages who does not host both",
+    },
+    DiagnosticCode {
+        code: "KUL-R15",
+        summary: "the same field set twice on one statement",
+    },
+    DiagnosticCode {
+        code: "KUL-V01",
+        summary: "a lineage too deep to draw",
+    },
+    DiagnosticCode {
+        code: "KUL-V02",
+        summary: "the renderer was handed a graph it does not draw",
+    },
+    DiagnosticCode {
+        code: "KUL-V03",
+        summary: "the renderer found the family graph inconsistent",
+    },
+    DiagnosticCode {
+        code: "KUL-Q01",
+        summary: "a query names a person the project does not declare",
+    },
+    DiagnosticCode {
+        code: "KUL-Q02",
+        summary: "a query's filter is not one the CLI understands",
+    },
+];
+
 /// Wraps a [`Diagnostic`] with the source bytes of its primary span's
 /// file, for `miette` rendering. Build one per-diagnostic at the rendering
 /// edge.

@@ -8,11 +8,16 @@
 
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { initSync, KUL_CORE_VERSION, KUL_LANGUAGE_VERSION, Workspace } from '../../pkg/kul_wasm.js';
+import { diagnosticCodes, initSync, KUL_CORE_VERSION, KUL_LANGUAGE_VERSION, Workspace } from '../../pkg/kul_wasm.js';
 
 initSync({ module: readFileSync(new URL('../../pkg/kul_wasm_bg.wasm', import.meta.url)) });
 
 assert.match(KUL_CORE_VERSION(), /^\d+\.\d+\.\d+/);
+
+// the diagnostic catalogue: every code with a summary
+const catalogue = diagnosticCodes();
+assert.ok(catalogue.some((entry) => entry.code === 'KUL-R03' && entry.summary.length > 0));
+assert.ok(catalogue.every((entry) => /^KUL-[LPRVQ]\d\d[a-z]?$/.test(entry.code)));
 assert.equal(KUL_LANGUAGE_VERSION(), '0.1');
 
 const examples = new URL('../../../../examples/', import.meta.url);
