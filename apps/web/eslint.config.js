@@ -54,6 +54,30 @@ export default tseslint.config(
     },
   },
   {
+    // Storage belongs to two folders: src/store/ (projects, and the last one
+    // opened) and src/prefs/ (UI preferences such as the theme).
+    files: ["src/**/*.{ts,tsx,js}"],
+    ignores: ["src/store/**", "src/prefs/**"],
+    rules: {
+      "no-restricted-globals": [
+        "error",
+        ...["localStorage", "sessionStorage", "indexedDB"].map((name) => ({
+          name,
+          message: "Storage access lives in src/store/ or src/prefs/.",
+        })),
+      ],
+      "no-restricted-properties": [
+        "error",
+        ...["localStorage", "sessionStorage", "indexedDB", "getDirectory"].map(
+          (property) => ({
+            property,
+            message: "Storage access lives in src/store/ or src/prefs/.",
+          })
+        ),
+      ],
+    },
+  },
+  {
     // Node scripts and configs: plain JavaScript, checked without types.
     files: ["**/*.{js,mjs}"],
     extends: [tseslint.configs.disableTypeChecked],

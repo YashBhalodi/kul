@@ -26,7 +26,20 @@ export default defineConfig({
             enabled: true,
             headless: true,
             provider: playwright(),
-            instances: [{ browser: "chromium" }, { browser: "webkit" }],
+            instances: [
+              { browser: "chromium" },
+              {
+                browser: "webkit",
+                // Playwright's WebKit has no origin private file system in
+                // an ephemeral context (getDirectory() rejects); a
+                // persistent context has the whole API.
+                provider: playwright({
+                  persistentContext: "node_modules/.cache/vitest-webkit",
+                }),
+                // A persistent context serves one test file at a time.
+                fileParallelism: false,
+              },
+            ],
           },
         },
       },
