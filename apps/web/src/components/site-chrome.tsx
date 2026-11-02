@@ -71,7 +71,15 @@ export function SiteFooter({ wide = false }: { wide?: boolean }) {
           wide ? "max-w-7xl" : "max-w-6xl"
         )}
       >
-        <p>Kul {APP_VERSION} · MIT licence</p>
+        <p>
+          Kul {APP_VERSION} ·{" "}
+          <a
+            href={`${REPO_URL}/blob/main/LICENSE`}
+            className="hover:text-foreground"
+          >
+            MIT licence
+          </a>
+        </p>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
           <Link to="/docs/" className="hover:text-foreground">
             Docs

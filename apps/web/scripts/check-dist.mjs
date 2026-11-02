@@ -3,7 +3,9 @@
 // prerendered page, the SPA shell, the llms files, the docs' Markdown
 // variants, the search index, the service worker and the Netlify config sit
 // at their exact paths, nothing that must stay client-only was prerendered,
-// and the service worker precaches every file the site serves.
+// the service worker precaches every file the site serves, the landing page
+// shows what the engine makes of its examples, and the Open Graph image,
+// favicons, robots.txt and sitemap.xml are in place.
 //
 //   node scripts/check-dist.mjs [--dir <dir>]
 //
@@ -15,13 +17,18 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import { parseArgs } from "node:util"
 
 import { SW_FILE, precachedUrls } from "./build-sw.mjs"
+import { landingProblems, siteFileProblems } from "./check-landing.mjs"
 import { inlineScripts, listFiles, scriptHash } from "./finalize-dist.mjs"
 import { headersFor, parseHeaders, parseRedirects } from "./serve-dist.mjs"
 
 const SITE_ORIGIN = "https://kullang.dev"
 
-/** Every problem with the build at `root`, as human-readable lines. */
-export function checkDist(root) {
+/**
+ * Every problem with the build at `root`, as human-readable lines. The
+ * landing page is checked against `landing`, the content the engine makes
+ * (src/landing/landing-content.ts).
+ */
+export function checkDist(root, landing) {
   const problems = []
   const files = new Set(listFiles(root))
   const read = (file) => readFileSync(join(root, file), "utf8")
@@ -30,7 +37,16 @@ export function checkDist(root) {
     return files.has(file)
   }
 
-  requireFile("index.html", "the landing page")
+  if (requireFile("index.html", "the landing page")) {
+    problems.push(...landingProblems(read("index.html"), landing))
+  }
+  problems.push(
+    ...siteFileProblems(
+      [...files],
+      (file) => readFileSync(join(root, file)),
+      SITE_ORIGIN
+    )
+  )
   requireFile("_shell.html", "the SPA shell for /app/*")
   requireFile("docs/index.html", "the docs home")
   requireFile("docs/index.md", "the docs home as Markdown")
@@ -182,7 +198,7 @@ export function checkDist(root) {
   return problems
 }
 
-function main() {
+async function main() {
   const here = fileURLToPath(new URL(".", import.meta.url))
   const { values } = parseArgs({
     options: {
@@ -195,10 +211,12 @@ function main() {
     )
     process.exit(1)
   }
-  const problems = checkDist(values.dir)
+  const { buildLandingContent } =
+    await import("../src/landing/landing-content.ts")
+  const problems = checkDist(values.dir, buildLandingContent())
   for (const problem of problems) console.error(`check-dist: ${problem}`)
   if (problems.length > 0) process.exit(1)
   console.log(`check-dist: ${values.dir} is complete`)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) main()
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) await main()

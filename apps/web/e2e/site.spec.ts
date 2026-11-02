@@ -10,18 +10,40 @@ test.describe("with JavaScript disabled", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
       "Describe a family in plain text. Kul draws the tree."
     )
+    const main = page.getByRole("main")
     await expect(
-      page.getByRole("heading", { name: "Why a language" })
-    ).toBeVisible()
-    await expect(page.locator("pre code")).toContainText(
-      "marriage m_ramesh_sita"
-    )
-    await expect(
-      page.getByRole("main").getByRole("link", { name: "Open Kul" })
+      main.getByRole("link", { name: "Open Kul" }).first()
     ).toHaveAttribute("href", "/app")
     await expect(
-      page.getByRole("link", { name: "Learn the language" })
+      main.getByRole("link", { name: "Learn the language" })
     ).toHaveAttribute("href", "/docs/")
+    for (const section of [
+      "Family history doesn't fit in a form",
+      "Write it down the way you'd tell it",
+      "The text, and the tree Kul draws from it",
+      "The awkward parts of real families",
+      "The rules behind the language",
+      "Try it on your own family",
+    ]) {
+      await expect(
+        main.getByRole("heading", { level: 2, name: section })
+      ).toBeVisible()
+    }
+    // The sample, highlighted at build time, beside the tree it draws.
+    const sample = main.locator("pre.kul-lines").first()
+    await expect(sample).toContainText("marriage m_chinua_adaeze chinua adaeze")
+    await expect(sample.locator(".tok-keyword").first()).toHaveText("person")
+    await expect(
+      main.locator(".landing-tree svg .kul-card[data-person-id=chinua]")
+    ).toBeVisible()
+    // The engine's own message for the mistake example.
+    await expect(main.locator("[data-landing-diagnostic]")).toContainText(
+      "KUL-R02"
+    )
+    await expect(main.locator("[data-feature]")).toHaveCount(7)
+    await expect(
+      page.getByRole("contentinfo").getByRole("link", { name: "MIT licence" })
+    ).toHaveAttribute("href", /\/blob\/main\/LICENSE$/)
   })
 
   test("the docs read fully and link to each other", async ({ page }) => {

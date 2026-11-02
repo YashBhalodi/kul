@@ -364,6 +364,47 @@
     --shiki-dark-font-style: italic;
   }
 
+  /* Kul code on the landing page: long lines wrap under their own start
+     (a hanging indent) instead of scrolling; tokens never break. */
+  .kul-lines {
+    @apply leading-6 text-code-foreground;
+  }
+  .kul-lines code {
+    @apply flex flex-col;
+  }
+  .kul-line {
+    @apply flex;
+  }
+  .kul-line-mark {
+    @apply flex w-6 shrink-0 items-start select-none;
+  }
+  .kul-line-number {
+    @apply mr-4 w-5 shrink-0 text-right text-muted-foreground select-none;
+  }
+  .kul-line-text {
+    @apply min-w-0 flex-1 pl-[4ch] -indent-[4ch] whitespace-pre-wrap;
+  }
+  .kul-line-text > span {
+    @apply whitespace-pre;
+  }
+  .kul-noted {
+    @apply underline decoration-primary decoration-2 underline-offset-4;
+  }
+  /* A callout's number, in the code's gutter and before its note. */
+  .kul-note-number {
+    @apply inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-primary font-sans text-[0.6875rem] leading-none font-semibold text-primary-foreground;
+    margin-top: 0.125rem;
+  }
+  .landing-code {
+    @apply rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.875em];
+  }
+  /* The sample's tree: its natural size, smaller where the column is. */
+  .landing-tree svg {
+    width: 100%;
+    max-width: 26rem;
+    height: auto;
+  }
+
   /* An example's tree, drawn below its code at its natural size. */
   .kul-tree-figure svg {
     margin-inline: auto;

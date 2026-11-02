@@ -13,12 +13,22 @@ import { docsPagePaths } from "./scripts/docs-pages.mjs"
 import { diagnosticsDrift } from "./src/docs/content-checks.ts"
 import { engineDiagnosticCodes } from "./src/highlight/node-engine.ts"
 import { rehypeKul } from "./src/highlight/rehype-kul.ts"
+import { landingPage } from "./src/landing/vite-plugin.ts"
 
 // The site is fully static (dist/client). The landing page, the docs, their
 // Markdown variants, the docs search index and the llms files are
 // prerendered; /app is client-only and served by the SPA shell
 // (/_shell.html), which _redirects maps every /app/* path to.
 const SHELL_OUTPUT = "/_shell"
+
+/** The canonical origin the site is published at (src/site.ts). */
+const SITE_ORIGIN = "https://kullang.dev"
+
+/** Every prerendered page: the landing page and each docs page. */
+const pagePaths = () => [
+  "/",
+  ...docsPagePaths().filter((path) => path.endsWith("/")),
+]
 
 /**
  * Fails the build when the diagnostics reference and the engine disagree:
@@ -78,6 +88,7 @@ export default defineConfig({
   preview: { host: "127.0.0.1" },
   plugins: [
     diagnosticsReference(),
+    landingPage({ origin: SITE_ORIGIN, pages: pagePaths }),
     // The docs' MDX: Kul blocks are highlighted and checked by the engine
     // (rehype-kul) before the default highlighter handles everything else.
     fumadocsMdx({
@@ -113,11 +124,13 @@ export default defineConfig({
           !(page.path === "/app" || page.path.startsWith("/app/")),
       },
       pages: [
-        { path: "/" },
         { path: "/llms.txt" },
         { path: "/llms-full.txt" },
         { path: "/docs/search.json" },
-        ...docsPagePaths().map((path) => ({ path })),
+        ...pagePaths().map((path) => ({ path })),
+        ...docsPagePaths()
+          .filter((path) => path.endsWith(".md"))
+          .map((path) => ({ path })),
       ],
     }),
     viteReact(),
