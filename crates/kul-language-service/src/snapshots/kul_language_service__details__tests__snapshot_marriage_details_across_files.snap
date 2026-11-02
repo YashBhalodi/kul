@@ -1,0 +1,73 @@
+---
+source: crates/kul-language-service/src/details.rs
+expression: "details(&check, \"m\")"
+---
+{
+  "kind": "marriage",
+  "marriage": {
+    "id": "m",
+    "spouses": [
+      "alice",
+      "bob"
+    ],
+    "start": {
+      "value": "1972",
+      "precision": "year",
+      "circa": false
+    },
+    "end": {
+      "value": "1990",
+      "precision": "year",
+      "circa": false
+    },
+    "endReason": "divorce"
+  },
+  "spouses": [
+    {
+      "id": "alice",
+      "name": "Alice",
+      "gender": "female",
+      "born": {
+        "value": "1950",
+        "precision": "year",
+        "circa": true
+      }
+    },
+    {
+      "id": "bob",
+      "name": "Bob",
+      "gender": "male"
+    }
+  ],
+  "children": [
+    {
+      "person": {
+        "id": "carol",
+        "name": "Carol",
+        "gender": "female"
+      },
+      "link": {
+        "marriageId": "m",
+        "childId": "carol",
+        "kind": "biological"
+      }
+    },
+    {
+      "person": {
+        "id": "dan",
+        "name": "Dan",
+        "gender": "male"
+      },
+      "link": {
+        "marriageId": "m",
+        "childId": "dan",
+        "kind": "adoptive",
+        "start": {
+          "value": "1980",
+          "precision": "year",
+          "circa": false
+        }
+      }
+    }
+  ]
+}

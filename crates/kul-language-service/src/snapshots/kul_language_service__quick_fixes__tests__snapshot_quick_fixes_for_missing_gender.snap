@@ -1,0 +1,9 @@
+---
+source: crates/kul-language-service/src/quick_fixes.rs
+expression: titles
+---
+[
+  "Add `gender:male`",
+  "Add `gender:female`",
+  "Add `gender:other`"
+]

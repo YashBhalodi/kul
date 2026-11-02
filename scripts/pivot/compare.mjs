@@ -18,9 +18,16 @@
 //   3. `FileId` renumbering where it shows in debug output: every
 //      `FileId(n)` reads as `FileId(#)` on both sides.
 //
-// Extension point for the language-service move: `mapBaselineService` turns
-// one baseline service dump (LSP shapes) into the shape the current dumper
-// writes. It is the identity while both sides run the same dumper.
+// The baseline's language features come from the pinned tree's language
+// server (lsp-dump, LSP shapes); the current tree's from kul-language-service
+// (service-dump, Kul-native shapes). `mapBaselineService` maps the first onto
+// the second before comparing, so the comparison is semantic: same results,
+// different shapes. LSP positions (line, UTF-16 character) become byte offsets
+// into the baseline's own copy of each example (`<baseline>/examples`), URIs
+// become file names, the semantic-token delta stream is decoded through the
+// legend, and LSP enum numbers become their Kul-native names. Every field of
+// either shape is carried or explicitly accounted for; nothing is dropped
+// silently, so a real behaviour difference still shows as a DIFF.
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -30,9 +37,193 @@ const MISSING_ROOT = "not a Kul project root";
 const FILE_ID = /FileId\(\d+\)/g;
 const MAX_DETAILS = 12;
 
-/** Maps one baseline service dump onto the current dumper's shape. */
-export function mapBaselineService(dump) {
-  return dump;
+// ---------------------------------------------------------------- LSP -> native
+
+// LSP CompletionItemKind, SymbolKind and DiagnosticSeverity numbers.
+const COMPLETION_KIND = { 14: "keyword", 5: "field", 20: "enumValue", 12: "value", 23: "marriage", 6: "person" };
+const SYMBOL_KIND = { 13: "person", 24: "marriage" };
+const SYMBOL_FIELD = 8; // birth and adoption, told apart by their label
+const SEVERITY = { 1: "error", 2: "warning", 3: "note" };
+// LSP semantic-token legend names -> Kul-native token kinds.
+const TOKEN_KIND = {
+  keyword: "keyword",
+  property: "fieldName",
+  function: "declaration",
+  parameter: "reference",
+  enum: "enumValue",
+  number: "date",
+  string: "string",
+};
+
+/** Line starts of `text`, for LSP position -> byte offset. */
+function lineIndex(text) {
+  const lines = text.split("\n");
+  const starts = [];
+  let at = 0;
+  for (const line of lines) {
+    starts.push(at);
+    at += Buffer.byteLength(line) + 1;
+  }
+  return { lines, starts };
+}
+
+/** LSP `{ line, character }` (UTF-16 units) -> UTF-8 byte offset. */
+function toByte(index, { line, character }) {
+  let units = 0;
+  let bytes = index.starts[line];
+  for (const ch of index.lines[line]) {
+    if (units >= character || units + ch.length > character) break;
+    units += ch.length;
+    bytes += Buffer.byteLength(ch);
+  }
+  return bytes;
+}
+
+function fail(message) {
+  throw new Error(`mapBaselineService: ${message}`);
+}
+
+/**
+ * Maps one baseline service dump (LSP shapes) onto service-dump's shape.
+ * `sources` maps each of the project's file names to its text; `legend` is
+ * the baseline's semantic-token legend.
+ */
+export function mapBaselineService(dump, sources, legend) {
+  const indexes = Object.fromEntries(Object.entries(sources).map(([f, t]) => [f, lineIndex(t)]));
+  const fileOf = (uri) => {
+    const file = uri.slice(uri.lastIndexOf("/") + 1);
+    if (!(file in indexes)) fail(`no source for ${uri}`);
+    return file;
+  };
+  const span = (file, range) => ({
+    start: toByte(indexes[file], range.start),
+    end: toByte(indexes[file], range.end),
+  });
+  const location = (loc) => {
+    const file = fileOf(loc.uri);
+    return { file, span: span(file, loc.range) };
+  };
+  const diagnostic = (file, d) => {
+    if (!(d.severity in SEVERITY)) fail(`diagnostic severity ${d.severity}`);
+    return {
+      code: d.code,
+      severity: SEVERITY[d.severity],
+      message: d.message,
+      location: { file, span: span(file, d.range) },
+      related: (d.relatedInformation ?? []).map((r) => ({ message: r.message, location: location(r.location) })),
+    };
+  };
+  const fileEdits = (edit) =>
+    Object.entries(edit.changes ?? {})
+      .map(([uri, edits]) => {
+        const file = fileOf(uri);
+        return { file, edits: edits.map((e) => ({ span: span(file, e.range), text: e.newText })) };
+      })
+      .sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
+  const completion = (item) => {
+    if (!(item.kind in COMPLETION_KIND)) fail(`completion kind ${item.kind}`);
+    const out = {
+      label: item.label,
+      kind: COMPLETION_KIND[item.kind],
+      detail: item.detail,
+      preselect: item.preselect ?? false,
+    };
+    if (item.insertText !== undefined) {
+      if (item.insertTextFormat !== 2) fail(`insert text format ${item.insertTextFormat}`);
+      const cursor = item.insertText.indexOf("$0");
+      out.insert = { text: item.insertText.replace("$0", ""), cursor: Buffer.byteLength(item.insertText.slice(0, cursor)) };
+    }
+    return out;
+  };
+  const symbol = (file, s) => {
+    let kind = SYMBOL_KIND[s.kind];
+    if (kind === undefined) {
+      if (s.kind !== SYMBOL_FIELD) fail(`symbol kind ${s.kind}`);
+      kind = s.name.startsWith("birth ") ? "birth" : "adoption";
+    }
+    const out = {
+      name: s.name,
+      kind,
+      span: span(file, s.range),
+      selection: span(file, s.selectionRange),
+      children: (s.children ?? []).map((c) => symbol(file, c)),
+    };
+    if (s.detail != null) out.detail = s.detail;
+    return out;
+  };
+  const semanticTokens = (file, { data }) => {
+    const tokens = [];
+    let line = 0;
+    let character = 0;
+    for (let i = 0; i < data.length; i += 5) {
+      const [deltaLine, deltaStart, length, type, modifiers] = data.slice(i, i + 5);
+      if (modifiers !== 0) fail(`token modifiers ${modifiers}`);
+      line += deltaLine;
+      character = deltaLine > 0 ? deltaStart : character + deltaStart;
+      const kind = TOKEN_KIND[legend.tokenTypes[type]];
+      if (kind === undefined) fail(`token type ${type}`);
+      tokens.push({
+        span: { start: toByte(indexes[file], { line, character }), end: toByte(indexes[file], { line, character: character + length }) },
+        kind,
+      });
+    }
+    return tokens;
+  };
+  const quickFix = (file, action) => {
+    if (action.kind !== "quickfix" || action.diagnostics?.length !== 1) fail(`code action ${action.title}`);
+    const edits = fileEdits(action.edit);
+    if (edits.length !== 1 || edits[0].file !== file) fail(`code action ${action.title} edits another file`);
+    return { title: action.title, diagnostic: diagnostic(file, action.diagnostics[0]), edits: edits[0].edits };
+  };
+  const position = (file, p) => ({
+    offset: p.offset,
+    hover:
+      p.hover === null
+        ? null
+        : p.hover.contents.kind === "markdown"
+          ? { markdown: p.hover.contents.value, span: span(file, p.hover.range) }
+          : fail(`hover contents ${p.hover.contents.kind}`),
+    completion: p.completion?.map(completion) ?? [],
+    definition: p.definition === null ? null : location(p.definition),
+    references: p.references?.map(location) ?? null,
+    referencesWithDeclaration: p.referencesWithDeclaration?.map(location) ?? null,
+    prepareRename: p.prepareRename === null ? null : span(file, p.prepareRename),
+    rename: "ok" in p.rename ? { ok: fileEdits(p.rename.ok) } : { error: p.rename.error },
+    entityAt: p.entityAt.entity,
+  });
+
+  const files = {};
+  for (const [file, f] of Object.entries(dump.files)) {
+    if (!(file in indexes)) fail(`no source for ${file}`);
+    files[file] = {
+      diagnostics: f.diagnostics.map((d) => diagnostic(file, d)),
+      symbols: f.symbols.map((s) => symbol(file, s)),
+      semanticTokens: semanticTokens(file, f.semanticTokens),
+      format:
+        f.formatting === null
+          ? null
+          : f.formatting.map((e) => ({ span: span(file, e.range), text: e.newText })),
+      quickFixes: f.codeActions.map((a) => quickFix(file, a)),
+      positions: f.positions.map((p) => position(file, p)),
+    };
+  }
+  return {
+    project: dump.project,
+    files,
+    locate: Object.fromEntries(
+      Object.entries(dump.locate).map(([id, r]) => [id, r.location === null ? null : location(r.location)]),
+    ),
+  };
+}
+
+/** The text of every `.kul` file of one project in a capture's examples copy. */
+function projectSources(examples, project) {
+  const dir = join(examples, project);
+  return Object.fromEntries(
+    readdirSync(dir)
+      .filter((f) => f.endsWith(".kul"))
+      .map((f) => [f, readFileSync(join(dir, f), "utf8")]),
+  );
 }
 
 // ---------------------------------------------------------------- allowlist
@@ -213,8 +404,10 @@ function compareCli(baseDir, curDir, report) {
   }
 }
 
-function compareService(baseDir, curDir, report) {
-  const names = [...new Set([...projectFiles(baseDir), ...projectFiles(curDir)])].sort();
+function compareService(baseDir, curDir, examples, report) {
+  const legend = readJson(join(baseDir, "_legend.json"));
+  const dumps = (dir) => projectFiles(dir).filter((f) => f !== "_legend.json");
+  const names = [...new Set([...dumps(baseDir), ...dumps(curDir)])].sort();
   for (const name of names) {
     const label = `service/${name.replace(/\.json$/, "")}`;
     if (!existsSync(join(baseDir, name)) || !existsSync(join(curDir, name))) {
@@ -222,9 +415,9 @@ function compareService(baseDir, curDir, report) {
       continue;
     }
     const removed = { count: 0 };
-    const base = normalizeFileIds(
-      dropRetiredDiagnostics(mapBaselineService(readJson(join(baseDir, name))), removed),
-    );
+    const sources = projectSources(examples, name.replace(/\.json$/, ""));
+    const mapped = mapBaselineService(readJson(join(baseDir, name)), sources, legend);
+    const base = normalizeFileIds(dropRetiredDiagnostics(mapped, removed));
     const cur = normalizeFileIds(readJson(join(curDir, name)));
     const details = [];
     diffValues(base, cur, "$", details);
@@ -254,7 +447,7 @@ function main() {
     },
   };
   compareCli(join(baseline, "cli"), join(current, "cli"), report);
-  compareService(join(baseline, "service"), join(current, "service"), report);
+  compareService(join(baseline, "service"), join(current, "service"), join(baseline, "examples"), report);
   if (failures) {
     console.log(`\nbaseline diff: ${failures} unexplained difference(s)`);
     process.exit(1);

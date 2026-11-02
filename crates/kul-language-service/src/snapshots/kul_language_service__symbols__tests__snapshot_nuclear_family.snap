@@ -1,0 +1,104 @@
+---
+source: crates/kul-language-service/src/symbols.rs
+expression: symbols_for(src)
+---
+[
+  {
+    "name": "Hiroshi Tanaka",
+    "detail": "b. 1978",
+    "kind": "person",
+    "span": {
+      "start": 765,
+      "end": 834
+    },
+    "selection": {
+      "start": 772,
+      "end": 779
+    },
+    "children": []
+  },
+  {
+    "name": "Yuki Tanaka",
+    "detail": "b. 1980",
+    "kind": "person",
+    "span": {
+      "start": 835,
+      "end": 904
+    },
+    "selection": {
+      "start": 842,
+      "end": 846
+    },
+    "children": []
+  },
+  {
+    "name": "Hiroshi Tanaka & Yuki Tanaka",
+    "detail": "2005",
+    "kind": "marriage",
+    "span": {
+      "start": 906,
+      "end": 960
+    },
+    "selection": {
+      "start": 915,
+      "end": 929
+    },
+    "children": []
+  },
+  {
+    "name": "Akiko Tanaka",
+    "detail": "b. 2008",
+    "kind": "person",
+    "span": {
+      "start": 1151,
+      "end": 1239
+    },
+    "selection": {
+      "start": 1158,
+      "end": 1163
+    },
+    "children": [
+      {
+        "name": "birth m_hiroshi_yuki",
+        "kind": "birth",
+        "span": {
+          "start": 1219,
+          "end": 1239
+        },
+        "selection": {
+          "start": 1219,
+          "end": 1224
+        },
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "Kenji Tanaka",
+    "detail": "b. 2011",
+    "kind": "person",
+    "span": {
+      "start": 1241,
+      "end": 1327
+    },
+    "selection": {
+      "start": 1248,
+      "end": 1253
+    },
+    "children": [
+      {
+        "name": "birth m_hiroshi_yuki",
+        "kind": "birth",
+        "span": {
+          "start": 1307,
+          "end": 1327
+        },
+        "selection": {
+          "start": 1307,
+          "end": 1312
+        },
+        "children": []
+      }
+    ]
+  }
+]

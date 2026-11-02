@@ -15,9 +15,10 @@
 //!   prepare-rename, rename to `pivot_renamed`, and entity-at;
 //! - per project: locate for every person and marriage id.
 //!
-//! The pinned tree's `kul_core::check` also takes the project's manifest;
-//! `baseline.sh` builds that side with the `pinned` feature, which reads it
-//! the way the pinned server did (`kul_loader::discover`).
+//! The pinned tree's `kul_core::check` also takes the project's manifest,
+//! read the way the pinned server read it (`kul_loader::discover`). Only the
+//! pinned tree is built against this dumper: the current tree has no language
+//! server, and `service-dump` captures its language features instead.
 //!
 //! Each project writes `<out-dir>/<project>.json`. Object keys are sorted
 //! (serde_json without `preserve_order`), URLs are `file:///<project>/<file>`,
@@ -98,15 +99,9 @@ fn read_kul_files(dir: &Path) -> Vec<(String, String)> {
         .collect()
 }
 
-#[cfg(feature = "pinned")]
 fn check(dir: &Path, inputs: &[InputFile]) -> kul_core::CheckResult {
     let discovered = kul_loader::discover(dir);
     kul_core::check(discovered.manifest_name, &discovered.manifest_yaml, inputs)
-}
-
-#[cfg(not(feature = "pinned"))]
-fn check(_dir: &Path, inputs: &[InputFile]) -> kul_core::CheckResult {
-    kul_core::check(inputs)
 }
 
 fn build_entry(project: &str, dir: &Path) -> ProjectEntry {
@@ -117,7 +112,7 @@ fn build_entry(project: &str, dir: &Path) -> ProjectEntry {
             (url, Arc::from(source), name)
         })
         .collect();
-    // Both trees' servers and checks agree on this order for the examples'
+    // The pinned server and check agree on this order for the examples'
     // plain ASCII names.
     files.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
     let inputs: Vec<InputFile> = files

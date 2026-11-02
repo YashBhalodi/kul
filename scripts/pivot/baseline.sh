@@ -13,37 +13,39 @@
 #       prepare-rename and rename, symbols, code actions, semantic tokens,
 #       formatting, entity-at and locate, at every token start and end offset
 #       of every file (scripts/pivot/lsp-dump, a standalone crate built
-#       against the worktree's `kul-lsp`; it is never committed into it).
+#       against the worktree's language server; it is never committed into
+#       it);
+#     - a copy of its `examples/`, which compare.mjs reads to turn the
+#       language server's line/character positions into byte offsets.
 #   The worktree is removed afterwards. Because the baseline always comes from
 #   PINNED, it can be re-captured at any point in the epic, whatever the
 #   current tree has deleted.
 #
 # diff
-#   Captures the same inputs from the current tree into `current/` and runs
-#   scripts/pivot/compare.mjs, which exits non-zero on any difference outside
-#   its allowlist (removed KUL-M* diagnostics, the missing-manifest error,
-#   FileId renumbering in debug output). Captures the baseline first when it
-#   is missing or was taken with a different version of the capture tools.
+#   Captures the same inputs from the current tree into `current/` (the CLI,
+#   and the language features through scripts/pivot/service-dump, built
+#   against `kul-language-service`) and runs scripts/pivot/compare.mjs. It
+#   maps the baseline's LSP shapes onto the service's Kul-native shapes and
+#   exits non-zero on any difference outside its allowlist (removed KUL-M*
+#   diagnostics, the missing-manifest error, FileId renumbering in debug
+#   output). Captures the baseline first when it is missing or was taken with
+#   a different version of the capture tools.
 #
 # Output (git-ignored), under target/pivot-baseline/ (KUL_PIVOT_STATE overrides):
 #   baseline/{cli,service}/<project>.json   the pinned capture
+#   baseline/examples/                      the pinned examples
 #   baseline/stamp                          commit + capture-tool hash
 #   current/{cli,service}/<project>.json    the latest diff run's capture
 #   diff-report.txt                         the latest diff report
 #   build/                                  worktree and cargo target dir
 #
-# Extension points for later slices (keep them small):
+# The current tree's side:
 #   current_cli       builds the current tree's `kul` and prints its path. The
 #                     CLI cases run with the project as the working directory,
-#                     which the manifest-less CLI (#345) reads as its default
-#                     [DIR], so this needs no change for it. An explicit [DIR]
-#                     variant belongs in `invoke` in cli-capture.mjs.
-#   current_service   writes the current tree's language-feature dump. Today it
-#                     runs the same lsp-dump against the current `kul-lsp`. The
-#                     language-service slice (#346) points it at a dumper over
-#                     `kul-language-service` and fills `mapBaselineService` in
-#                     compare.mjs with the LSP-shape -> Kul-native mapping. It
-#                     must switch before `kul-lsp` is deleted.
+#                     which the CLI reads as its default [DIR]. An explicit
+#                     [DIR] variant belongs in `invoke` in cli-capture.mjs.
+#   current_service   writes the current tree's language-feature dump with
+#                     service-dump.
 #
 # Requires git (with PINNED reachable: CI checks out with fetch-depth 0),
 # cargo and Node 22.
@@ -70,45 +72,50 @@ tools_hash() {
   cat "$HERE/cli-capture.mjs" "$HERE/lsp-dump/src/main.rs" | git hash-object --stdin
 }
 
-# build_lsp_dump <tree> <label> [pinned]: build lsp-dump against <tree>'s
-# crates and print the binary path. `pinned` builds the dumper's `pinned`
-# feature, for the pinned tree's manifest-reading check.
-build_lsp_dump() {
-  local tree=$1 label=$2 pinned=${3:-}
-  local pinned_deps='' loader='' feature_flag=''
-  if [[ -n $pinned ]]; then
-    pinned_deps='"dep:kul-loader"'
-    loader="kul-loader = { path = \"$tree/crates/kul-loader\", optional = true }"
-    feature_flag=pinned
-  fi
-  local dir="$BUILD/lsp-dump-$label"
+# build_dump <name> <tree> <deps>: build scripts/pivot/<name> as a standalone
+# crate against <tree>'s crates (dependency lines <deps>, with the tree's
+# Cargo.lock) and print the binary path.
+build_dump() {
+  local name=$1 tree=$2 deps=$3
+  local dir="$BUILD/$name"
   rm -rf "$dir"
   mkdir -p "$dir/src"
-  cp "$HERE/lsp-dump/src/main.rs" "$dir/src/main.rs"
+  cp "$HERE/$name/src/main.rs" "$dir/src/main.rs"
   cp "$tree/Cargo.lock" "$dir/Cargo.lock"
   cat >"$dir/Cargo.toml" <<EOF
 [package]
-name = "lsp-dump-$label"
+name = "$name"
 version = "0.0.0"
 edition = "2024"
 publish = false
 
 [workspace]
 
-[features]
-pinned = [$pinned_deps]
-
 [dependencies]
-kul-core = { path = "$tree/crates/kul-core" }
-$loader
-kul-lsp = { path = "$tree/crates/kul-lsp" }
-serde = "1"
-serde_json = "1"
-tower-lsp = "0.20"
+$deps
 EOF
   env -u RUSTFLAGS CARGO_TARGET_DIR="$PIVOT_TARGET" \
-    cargo build --quiet --manifest-path "$dir/Cargo.toml" ${feature_flag:+--features "$feature_flag"}
-  printf '%s\n' "$PIVOT_TARGET/debug/lsp-dump-$label"
+    cargo build --quiet --manifest-path "$dir/Cargo.toml"
+  printf '%s\n' "$PIVOT_TARGET/debug/$name"
+}
+
+# The pinned tree's language-server dumper.
+build_lsp_dump() {
+  local tree=$1
+  build_dump lsp-dump "$tree" "kul-core = { path = \"$tree/crates/kul-core\" }
+kul-loader = { path = \"$tree/crates/kul-loader\" }
+kul-lsp = { path = \"$tree/crates/kul-lsp\" }
+serde = \"1\"
+serde_json = \"1\"
+tower-lsp = \"0.20\""
+}
+
+# The current tree's language-service dumper.
+build_service_dump() {
+  build_dump service-dump "$ROOT" "kul-core = { path = \"$ROOT/crates/kul-core\" }
+kul-language-service = { path = \"$ROOT/crates/kul-language-service\" }
+serde = \"1\"
+serde_json = \"1\""
 }
 
 # ---------------------------------------------------------------- current tree
@@ -121,7 +128,7 @@ current_cli() {
 # current_service <examples-root> <out-dir>
 current_service() {
   local dump
-  dump=$(build_lsp_dump "$ROOT" current)
+  dump=$(build_service_dump)
   "$dump" "$1" "$2"
 }
 
@@ -152,8 +159,9 @@ cmd_capture() {
 
   log "building the pinned language-feature dumper"
   local dump
-  dump=$(build_lsp_dump "$WORKTREE" baseline pinned)
+  dump=$(build_lsp_dump "$WORKTREE")
   "$dump" "$WORKTREE/examples" "$out/service"
+  cp -R "$WORKTREE/examples" "$out/examples"
 
   printf 'commit %s\ntools %s\n' "$(git -C "$ROOT" rev-parse "$PINNED")" "$(tools_hash)" >"$out/stamp"
   remove_worktree
@@ -163,7 +171,7 @@ cmd_capture() {
 
 baseline_is_fresh() {
   local stamp="$STATE/baseline/stamp"
-  [[ -f $stamp ]] && grep -qx "tools $(tools_hash)" "$stamp"
+  [[ -f $stamp && -d $STATE/baseline/examples ]] && grep -qx "tools $(tools_hash)" "$stamp"
 }
 
 cmd_diff() {

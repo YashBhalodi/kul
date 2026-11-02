@@ -1,0 +1,11 @@
+---
+source: crates/kul-language-service/src/hover.rs
+expression: body
+---
+**Alice** — `person alice`
+
+- gender: female
+- born: `1900-01-01`
+- died: `~1980`
+- family name: Doe
+- given name: A.

@@ -659,6 +659,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "kul-language-service"
+version = "0.4.3"
+dependencies = [
+ "insta",
+ "kul-core",
+ "serde",
+ "serde_json",
+ "tsify",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "kul-layout"
 version = "0.4.3"
 dependencies = [

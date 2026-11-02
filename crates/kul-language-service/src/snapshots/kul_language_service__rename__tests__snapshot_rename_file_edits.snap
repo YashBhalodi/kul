@@ -1,0 +1,32 @@
+---
+source: crates/kul-language-service/src/rename.rs
+expression: edits
+---
+[
+  {
+    "file": "t.kul",
+    "edits": [
+      {
+        "span": {
+          "start": 7,
+          "end": 12
+        },
+        "text": "alicia"
+      },
+      {
+        "span": {
+          "start": 126,
+          "end": 131
+        },
+        "text": "alicia"
+      },
+      {
+        "span": {
+          "start": 159,
+          "end": 164
+        },
+        "text": "alicia"
+      }
+    ]
+  }
+]

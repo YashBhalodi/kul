@@ -1,0 +1,54 @@
+---
+source: crates/kul-language-service/src/completion/mod.rs
+expression: "complete_for(\"person a <CURSOR>\")"
+---
+[
+  {
+    "label": "name:",
+    "kind": "field",
+    "detail": "Full display name — required",
+    "insert": {
+      "text": "name:\"\"",
+      "cursor": 6
+    },
+    "preselect": false
+  },
+  {
+    "label": "gender:",
+    "kind": "field",
+    "detail": "male, female, or other — required",
+    "preselect": false
+  },
+  {
+    "label": "family:",
+    "kind": "field",
+    "detail": "Family name (last name)",
+    "insert": {
+      "text": "family:\"\"",
+      "cursor": 8
+    },
+    "preselect": false
+  },
+  {
+    "label": "given:",
+    "kind": "field",
+    "detail": "Given name (first name)",
+    "insert": {
+      "text": "given:\"\"",
+      "cursor": 7
+    },
+    "preselect": false
+  },
+  {
+    "label": "born:",
+    "kind": "field",
+    "detail": "Date of birth (YYYY, YYYY-MM, or YYYY-MM-DD)",
+    "preselect": false
+  },
+  {
+    "label": "died:",
+    "kind": "field",
+    "detail": "Date of death — omit if the person is still alive",
+    "preselect": false
+  }
+]
