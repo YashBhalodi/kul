@@ -174,6 +174,14 @@ Four things make this work:
 
 Each analysis that can draw the project carries the theme-agnostic SVG (`analyze().svg`); the canvas (`apps/web/src/app/canvas/`) swaps it into the page under a CSS-transform camera and paints it from the token sheet, reading only the `kul-svg` contract (the `kul-*` classes and `data-*` attributes, [ADR-0016](./adr/0016-visualization-pipeline-crate-boundaries.md), [ADR-0021](./adr/0021-language-properties-plumb-to-svg.md)). An analysis with errors has no SVG, so the canvas keeps the last one, dimmed. The canvas's own decisions — the camera's maths, the selection and linked marks re-applied by id after each swap, revealing an entity clear of the editor window and the details panel, the details panel's model and the legend's rows — are pure modules in `apps/web/src/canvas/`. The details panel asks the worker for `details(id)`, the link from the editor asks `entityAt(file, offset)` once the cursor rests, a selection asks `locate(id)` to move the editor's cursor, and the download asks `renderSvg("fileExport")`, the self-contained variant the CLI's `kul export --format=svg` writes ([ADR-0022](./adr/0022-svg-legend.md)).
 
+### Offline
+
+The site works offline after one visit. `npm run build` ends by writing `/sw.js` (`apps/web/scripts/build-sw.mjs`): Vite bundles `apps/web/src/sw/sw.ts` into one classic script, and Workbox's `injectManifest` adds the precache manifest, which lists every file the build wrote, found by glob: the pages, the SPA shell, the Markdown and text files, the docs search index, scripts, styles, the `.wasm`, fonts and icons. Files under `/assets/` are content-hashed, so the precache answers them first. Everything else on the origin goes to the network first and falls back to the precached copy when the network fails or takes longer than 3 seconds; every `/app` path falls back to `/_shell.html`. The worker is served `no-cache` with the site's CSP, which governs its fetches as it does the pages'.
+
+Every page registers the worker (`apps/web/src/offline/updates.ts`, with `workbox-window`) and looks for a new build when it becomes visible and every hour. A new build installs beside the running one and waits; the page then shows "A new version of Kul is ready" with **Reload**, in the app's toaster or, on the landing page and the docs, one that loads only then. Reload writes the open project's pending edits, then lets the waiting worker take over and reloads the page into the new build. Nothing reloads on its own.
+
+The site's version (`APP_VERSION`, shown in the footer) is `apps/web/package.json`'s, unless the build sets `KUL_SITE_VERSION` (`apps/web/scripts/site-version.mjs`); the end-to-end suite uses it to build a second site to update to.
+
 ## The seams
 
 The most load-bearing interfaces in the codebase. Don't bypass these.

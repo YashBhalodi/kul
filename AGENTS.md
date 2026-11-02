@@ -62,7 +62,7 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 just check
 ```
 
-Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo nextest run --workspace`; then `just wasm-check` (the `--target web` build, the committed `.d.ts` diff, the 1 MB gzipped budget, the Node smoke test and the TypeScript compile-test). Last come the web app's gates (`just web-check`, `just web-build`): its typecheck, lint (ESLint and Prettier), Vitest in Node and in browsers (Chromium and WebKit, through Playwright), the `serve-dist` unit tests, and the production build with prerender, its generated `_headers` and the layout check (`apps/web/scripts/check-dist.mjs`). Install the browsers once with `npx playwright install chromium webkit firefox`. Local-green implies CI-green: `.github/workflows/rust.yml` and `web.yml` run the same recipes.
+Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo nextest run --workspace`; then `just wasm-check` (the `--target web` build, the committed `.d.ts` diff, the 1 MB gzipped budget, the Node smoke test and the TypeScript compile-test). Last come the web app's gates (`just web-check`, `just web-build`): its typecheck, lint (ESLint and Prettier), Vitest in Node and in browsers (Chromium and WebKit, through Playwright), the `serve-dist` unit tests, and the production build with prerender, its service worker, its generated `_headers` and the layout check (`apps/web/scripts/check-dist.mjs`). Install the browsers once with `npx playwright install chromium webkit firefox`. Local-green implies CI-green: `.github/workflows/rust.yml` and `web.yml` run the same recipes.
 
 ```sh
 just verify

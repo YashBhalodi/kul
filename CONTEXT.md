@@ -377,6 +377,10 @@ The browser tab that may write a project: the one holding the Web Lock `kul-proj
 
 A project made from one of the repository's `examples/`, which the web app bundles at build time. A first visit opens one (`02-three-generations`), named after its family ("The Okeke family"); the rest are offered as "New from example".
 
+### Offline copy
+
+The whole site as the service worker (`/sw.js`) precached it: every file one build wrote. Content-hashed assets come from it first; pages and text files come from the network first and from it when the network is gone. A new build installs a new copy beside the current one and waits; the page offers **Reload**, which writes the open project's pending edits and then moves to it.
+
 ### Language worker
 
 The module Web Worker (`apps/web/src/language/worker.ts`) that holds the open project's [`Workspace`](#workspace) behind Comlink. The main thread's **language client** sends every edit as the file's whole text with a new **version**, and keeps the latest text of each file; every answer names the versions it was computed from, and one an edit has overtaken is dropped. Edits answer with lexical tokens at once; analysis waits for edits to pause and is pushed to the main thread. A crashed worker is replaced and given the file set again.
