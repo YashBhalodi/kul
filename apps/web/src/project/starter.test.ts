@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { workspaceWith } from "@/canvas/node-engine"
+import { workspaceWith } from "@/highlight/node-engine"
 import { STARTER_SNIPPET, starterInsertion } from "./starter"
 
 function analyze(source: string) {

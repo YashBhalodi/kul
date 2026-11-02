@@ -40,7 +40,8 @@ import {
 } from "@/editor/kul-editor"
 import type { KulFeatures } from "@/editor/kul-editor"
 import { kulEditorTheme } from "@/editor/theme"
-import { EditTrail, overlaySemantic, tokenRanges } from "@/editor/tokens"
+import { EditTrail, tokenRanges } from "@/editor/tokens"
+import { overlaySemantic } from "@/highlight/tokens"
 import type {
   AnalysisReport,
   Diagnostic,

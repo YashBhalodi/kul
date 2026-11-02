@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { detailsModel, formatDate, sentenceCase } from "./details"
 import { EVERY_CATEGORY } from "./every-category"
-import { workspaceWith } from "./node-engine"
+import { workspaceWith } from "@/highlight/node-engine"
 
 function modelFor(source: string, id: string) {
   const workspace = workspaceWith({ "family.kul": source })

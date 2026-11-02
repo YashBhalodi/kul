@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 
 import { EVERY_CATEGORY } from "@/canvas/every-category"
-import { workspaceWith } from "@/canvas/node-engine"
+import { workspaceWith } from "@/highlight/node-engine"
 
 const tokens = readFileSync(new URL("./tokens.css", import.meta.url), "utf8")
 
