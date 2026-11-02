@@ -65,8 +65,7 @@ fn lineage_too_deep_diagnostic(depth: u32) -> ExportedDiagnostic {
             "lineage is {depth} generations deep, exceeding the visualization limit of \
              {MAX_LINEAGE_DEPTH}; the family tree is too deep to lay out"
         ),
-        // Whole-document property, not a single declaration — unanchored,
-        // like KUL-M01.
+        // Whole-document property, not a single declaration — unanchored.
         primary: None,
         related: Vec::new(),
     }

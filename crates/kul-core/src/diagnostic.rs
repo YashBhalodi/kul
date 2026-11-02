@@ -1,7 +1,8 @@
 //! Diagnostic types emitted by every layer of `kul-core`.
 //!
-//! A [`Diagnostic`] carries an `Option<FileSpan>` (unanchored = manifest
-//! "file not found"), a stable code, and a message. The wrapper
+//! A [`Diagnostic`] carries an `Option<FileSpan>` (unanchored = a
+//! project-wide fact with no single declaration to point at), a stable
+//! code, and a message. The wrapper
 //! [`RenderableDiagnostic`] resolves source bytes by [`FileId`] against a
 //! [`crate::ast::Document`] for miette rendering.
 
@@ -26,8 +27,10 @@ pub struct RelatedSpan {
 
 /// A diagnostic produced by any `kul-core` pass. Stable by `code`.
 ///
-/// `primary` is `Option` because `KUL-M01` (manifest missing on disk) has
-/// no source position; such diagnostics carry context in `message`.
+/// `primary` is `Option` because some diagnostics describe the project or
+/// the request as a whole rather than one declaration (an unknown query
+/// anchor, a render-shape invariant); such diagnostics carry their context
+/// in `message`.
 ///
 /// `detail` is an optional sub-case discriminator used when one code
 /// covers multiple conditions on the same span — consumers match on it
@@ -51,20 +54,6 @@ impl Diagnostic {
             severity: Severity::Error,
             message: message.into(),
             primary: Some(primary),
-            related: Vec::new(),
-            detail: None,
-        }
-    }
-
-    /// Build an error diagnostic with no source anchor (e.g. `KUL-M01`,
-    /// manifest not found). The would-be path goes in `message`.
-    #[must_use]
-    pub fn unanchored_error(code: &'static str, message: impl Into<String>) -> Self {
-        Self {
-            code,
-            severity: Severity::Error,
-            message: message.into(),
-            primary: None,
             related: Vec::new(),
             detail: None,
         }
@@ -120,23 +109,6 @@ pub mod detail {
     pub const R05_END_REASON_WITHOUT_END: &str = "r05-end-reason-without-end";
 }
 
-/// Stable codes for manifest-validation diagnostics. See
-/// [`spec/14-project-manifest.md`](../../../spec/14-project-manifest.md).
-pub mod manifest_codes {
-    /// Manifest not found at the expected path (unanchored).
-    pub const M01_MISSING: &str = "KUL-M01";
-    /// Manifest YAML failed to parse.
-    pub const M02_MALFORMED_YAML: &str = "KUL-M02";
-    /// Manifest missing the required `kul:` field.
-    pub const M03_MISSING_KUL_FIELD: &str = "KUL-M03";
-    /// Manifest's `kul:` value is not a recognized version.
-    pub const M04_UNKNOWN_VERSION: &str = "KUL-M04";
-    /// Unknown top-level manifest field (warning).
-    pub const M05_UNKNOWN_FIELD: &str = "KUL-M05";
-    /// Project has `kul.yml` but zero sibling `.kul` files.
-    pub const M06_EMPTY_PROJECT: &str = "KUL-M06";
-}
-
 /// Wraps a [`Diagnostic`] with the source bytes of its primary span's
 /// file, for `miette` rendering. Build one per-diagnostic at the rendering
 /// edge.
@@ -144,16 +116,15 @@ pub struct RenderableDiagnostic<'a> {
     /// Source bytes of the file the primary span points into. Empty for
     /// unanchored diagnostics (miette renders without a source block).
     pub source: &'a str,
-    /// Display name (the `InputFile.name`, or `manifest_name` when
-    /// unanchored).
+    /// Display name (the `InputFile.name`; empty when unanchored).
     pub source_name: &'a str,
     pub diagnostic: &'a Diagnostic,
 }
 
 impl<'a> RenderableDiagnostic<'a> {
     /// Resolve the diagnostic's primary `FileId` against `document` to
-    /// surface the right source bytes. Unanchored diagnostics fall back
-    /// to the manifest name with an empty source block.
+    /// surface the right source bytes. Unanchored diagnostics render with
+    /// no name and an empty source block.
     pub fn for_diagnostic(document: &'a Document, diagnostic: &'a Diagnostic) -> Self {
         let primary = diagnostic.primary;
         let (source, source_name) = match primary {
@@ -161,7 +132,7 @@ impl<'a> RenderableDiagnostic<'a> {
                 document.source_of(p.file).unwrap_or(""),
                 document.name_of(p.file).unwrap_or(""),
             ),
-            None => ("", document.manifest_name.as_str()),
+            None => ("", ""),
         };
         Self {
             source,

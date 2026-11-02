@@ -85,7 +85,7 @@ pub struct RenderFailure {
 /// Preview-tailored diagnostic. Carries an LSP `Range` (not raw byte
 /// offsets) so the webview can post it back unchanged in a `revealSource`
 /// message and the extension can reveal it via `vscode.window.showTextDocument`.
-/// `uri` and `range` are `None` for unanchored diagnostics (e.g. `KUL-M01`),
+/// `uri` and `range` are `None` for unanchored diagnostics (e.g. `KUL-V01`),
 /// which surface in the popover but cannot be clicked through.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

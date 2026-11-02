@@ -2,7 +2,7 @@
 //!
 //! Fixtures under `tests/fixtures/multi-file/<scenario>/` drive
 //! `kul_core::check` and snapshot rendered diagnostics so regressions to
-//! cross-file R01 / R02 / R13 or to KUL-M06 surface as snapshot diffs.
+//! cross-file R01 / R02 / R09 / R13 surface as snapshot diffs.
 
 use std::path::{Path, PathBuf};
 
@@ -24,11 +24,10 @@ fn read(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()))
 }
 
-/// Load a multi-file project fixture. Files are sorted lexicographically so
-/// snapshot output is deterministic.
-fn load_project(scenario: &str) -> (String, Vec<InputFile>) {
+/// Load a multi-file project fixture: every `.kul` file in its directory.
+/// Sorted so `inputs[i]` is the file `check` places at `FileId(i)`.
+fn load_project(scenario: &str) -> Vec<InputFile> {
     let dir = fixture_dir(scenario);
-    let manifest = read(&dir.join("kul.yml"));
     let mut entries: Vec<PathBuf> = std::fs::read_dir(&dir)
         .unwrap_or_else(|err| panic!("read fixture {}: {err}", dir.display()))
         .flatten()
@@ -36,7 +35,7 @@ fn load_project(scenario: &str) -> (String, Vec<InputFile>) {
         .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("kul"))
         .collect();
     entries.sort();
-    let inputs = entries
+    entries
         .iter()
         .map(|p| {
             InputFile::new(
@@ -44,27 +43,21 @@ fn load_project(scenario: &str) -> (String, Vec<InputFile>) {
                 read(p),
             )
         })
-        .collect();
-    (manifest, inputs)
+        .collect()
 }
 
 fn check_project(scenario: &str) -> (Vec<InputFile>, CheckResult) {
-    let (manifest, inputs) = load_project(scenario);
-    let result = kul_core::check("kul.yml", &manifest, &inputs);
+    let inputs = load_project(scenario);
+    let result = kul_core::check(&inputs);
     (inputs, result)
 }
 
 /// Render a `FileId` as its source filename. Used in snapshots so reordering
 /// fixture inputs produces a reviewer-readable diff rather than a raw id swap.
 fn file_label(file: FileId, inputs: &[InputFile]) -> String {
-    if file == FileId::MANIFEST {
-        return "kul.yml".to_string();
-    }
-    let idx = file.as_u32() as usize;
-    if idx == 0 || idx > inputs.len() {
-        return format!("<file:{}>", file.as_u32());
-    }
-    inputs[idx - 1].name.clone()
+    inputs
+        .get(file.as_u32() as usize)
+        .map_or_else(|| format!("<file:{}>", file.as_u32()), |i| i.name.clone())
 }
 
 fn render_diagnostics(result: &CheckResult, inputs: &[InputFile]) -> String {
@@ -125,8 +118,8 @@ fn project_wide_iteration_walks_every_file() {
 
     let a_kul_idx = inputs.iter().position(|i| i.name == "a.kul").unwrap();
     let b_kul_idx = inputs.iter().position(|i| i.name == "b.kul").unwrap();
-    let a_kul = FileId::from_raw((a_kul_idx + 1) as u32);
-    let b_kul = FileId::from_raw((b_kul_idx + 1) as u32);
+    let a_kul = FileId::from_raw(a_kul_idx as u32);
+    let b_kul = FileId::from_raw(b_kul_idx as u32);
 
     let in_a: Vec<&str> = resolved
         .persons_in(a_kul)
@@ -174,8 +167,8 @@ fn cross_file_duplicate_id_fires_r01_with_primary_on_second() {
         first_idx < second_idx,
         "fixture relies on lexicographic ordering"
     );
-    let first_id = FileId::from_raw((first_idx + 1) as u32);
-    let second_id = FileId::from_raw((second_idx + 1) as u32);
+    let first_id = FileId::from_raw(first_idx as u32);
+    let second_id = FileId::from_raw(second_idx as u32);
     assert_eq!(primary.file, second_id, "primary points to second decl");
     assert_eq!(related.span.file, first_id, "related points to first decl");
 
@@ -183,19 +176,66 @@ fn cross_file_duplicate_id_fires_r01_with_primary_on_second() {
 }
 
 #[test]
-fn empty_project_fires_kul_m06() {
-    let (inputs, result) = check_project("empty-project");
-    assert!(inputs.is_empty(), "fixture has no .kul files");
-    let m06: Vec<&Diagnostic> = result
+fn empty_project_is_a_valid_empty_family() {
+    let result = kul_core::check(&[]);
+    assert!(result.diagnostics.is_empty());
+    assert_eq!(result.resolved().persons().count(), 0);
+}
+
+#[test]
+fn project_of_empty_files_is_a_valid_empty_family() {
+    let inputs = [InputFile::new("a.kul", ""), InputFile::new("b.kul", "")];
+    let result = kul_core::check(&inputs);
+    assert!(result.diagnostics.is_empty());
+    assert_eq!(result.document().kul_files.len(), 2);
+}
+
+#[test]
+fn file_order_is_byte_wise_by_name_whatever_the_input_order() {
+    // Declaration order follows file order, not the caller's listing: the
+    // duplicate in `first.kul` is the first declaration even when the
+    // caller lists `second.kul` first.
+    let mut inputs = load_project("cross-file-duplicate");
+    inputs.reverse();
+    let result = kul_core::check(&inputs);
+
+    let names: Vec<&str> = result
+        .document()
+        .kul_files()
+        .map(|(_, f)| f.name.as_str())
+        .collect();
+    assert_eq!(names, ["first.kul", "second.kul"]);
+
+    let r01 = result
         .diagnostics
         .iter()
-        .filter(|d| d.code == "KUL-M06")
-        .collect();
-    assert_eq!(m06.len(), 1, "expected exactly one KUL-M06");
-    let primary = m06[0].primary.expect("M06 anchors at manifest");
-    assert_eq!(primary.file, FileId::MANIFEST);
+        .find(|d| d.code == "KUL-R01")
+        .expect("R01 fires");
+    let primary = r01.primary.expect("R01 must anchor");
+    assert_eq!(result.document().name_of(primary.file), Some("second.kul"));
+}
 
-    insta::assert_snapshot!(render_diagnostics(&result, &inputs));
+#[test]
+fn file_order_compares_bytes_not_case_folded_or_numeric() {
+    // Byte order puts uppercase before lowercase and `10` before `9`.
+    let inputs = [
+        InputFile::new("b.kul", ""),
+        InputFile::new("a.kul", ""),
+        InputFile::new("B.kul", ""),
+        InputFile::new("9.kul", ""),
+        InputFile::new("10.kul", ""),
+        InputFile::new("é.kul", ""),
+    ];
+    let result = kul_core::check(&inputs);
+    let names: Vec<&str> = result
+        .document()
+        .kul_files()
+        .map(|(_, f)| f.name.as_str())
+        .collect();
+    assert_eq!(
+        names,
+        ["10.kul", "9.kul", "B.kul", "a.kul", "b.kul", "é.kul"]
+    );
 }
 
 #[test]

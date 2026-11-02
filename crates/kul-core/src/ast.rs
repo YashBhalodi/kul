@@ -61,88 +61,50 @@ impl InputFile {
     }
 }
 
-/// One parsed Kul *project*: the manifest plus zero or more `.kul` files.
+/// One parsed Kul *project*: its `.kul` files in file order.
 ///
-/// The manifest lives at [`FileId::MANIFEST`] (= `FileId(0)`); `.kul` files
-/// follow at `FileId(1..)` in input order. Each `KulFile` is held behind an
+/// `kul_files[i]` lives at `FileId(i)`. Each `KulFile` is held behind an
 /// [`Arc`] so callers can share cheap handles without copying source bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Document {
-    /// The manifest's name (typically the path to `kul.yml`). Kept on the
-    /// [`Document`] so diagnostics can anchor at `FileId::MANIFEST` even
-    /// when the YAML body failed to parse.
-    pub manifest_name: String,
-    /// Raw `kul.yml` source bytes. Empty when the manifest was missing on
-    /// disk (KUL-M01 covers that case). Held as [`Arc<str>`] to match
-    /// `.kul` source ownership.
-    pub manifest_source: Arc<str>,
-    /// Parsed `.kul` files in input order. `kul_files[i]` lives at
-    /// `FileId(i + 1)`.
+    /// Parsed `.kul` files in file order.
     pub kul_files: Vec<Arc<KulFile>>,
 }
 
 impl Document {
-    /// Build a [`Document`] without manifest source bytes. For in-memory
-    /// fixtures; production callers that loaded `kul.yml` should use
-    /// [`Document::with_manifest_source`] so manifest-anchored diagnostics
-    /// have bytes to render against.
+    /// Build a [`Document`] from already-parsed files, in file order.
     #[must_use]
-    pub fn new(manifest_name: impl Into<String>, kul_files: Vec<Arc<KulFile>>) -> Self {
-        Self::with_manifest_source(manifest_name, "", kul_files)
-    }
-
-    /// Build a [`Document`] with explicit `kul.yml` source bytes.
-    #[must_use]
-    pub fn with_manifest_source(
-        manifest_name: impl Into<String>,
-        manifest_source: impl Into<Arc<str>>,
-        kul_files: Vec<Arc<KulFile>>,
-    ) -> Self {
-        Self {
-            manifest_name: manifest_name.into(),
-            manifest_source: manifest_source.into(),
-            kul_files,
-        }
+    pub fn new(kul_files: Vec<Arc<KulFile>>) -> Self {
+        Self { kul_files }
     }
 
     /// Resolve a [`FileId`] to its source bytes, or `None` if out of range.
     #[must_use]
     pub fn source_of(&self, file: FileId) -> Option<&str> {
-        if file == FileId::MANIFEST {
-            return Some(self.manifest_source.as_ref());
-        }
         self.kul_file(file).map(|k| k.source.as_ref())
     }
 
     /// Resolve a [`FileId`] to its canonical name, or `None` if out of range.
     #[must_use]
     pub fn name_of(&self, file: FileId) -> Option<&str> {
-        if file == FileId::MANIFEST {
-            return Some(self.manifest_name.as_str());
-        }
         self.kul_file(file).map(|k| k.name.as_str())
     }
 
-    /// Resolve a [`FileId`] to a `.kul` [`KulFile`], or `None` if the id
-    /// is the manifest or out of range.
+    /// Resolve a [`FileId`] to its [`KulFile`], or `None` if out of range.
     #[must_use]
     pub fn kul_file(&self, file: FileId) -> Option<&KulFile> {
-        let idx = file.as_u32().checked_sub(1)? as usize;
-        self.kul_files.get(idx).map(|a| a.as_ref())
+        self.kul_files.get(file.index()).map(Arc::as_ref)
     }
 
-    /// Iterate every `.kul` file with its [`FileId`], in input order.
+    /// Iterate every `.kul` file with its [`FileId`], in file order.
     pub fn kul_files(&self) -> impl Iterator<Item = (FileId, &KulFile)> + '_ {
-        self.kul_files
-            .iter()
-            .enumerate()
-            .map(|(i, k)| (FileId((i + 1) as u32), k.as_ref()))
+        self.kul_file_ids()
+            .zip(self.kul_files.iter().map(Arc::as_ref))
     }
 
-    /// The [`FileId`]s of every `.kul` file, in input order (excludes the
-    /// manifest).
+    /// The [`FileId`]s of every `.kul` file, in file order.
     pub fn kul_file_ids(&self) -> impl Iterator<Item = FileId> + '_ {
-        (0..self.kul_files.len()).map(|i| FileId((i + 1) as u32))
+        (0u32..).take(self.kul_files.len()).map(FileId)
     }
 }
 

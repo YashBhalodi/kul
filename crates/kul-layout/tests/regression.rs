@@ -4,7 +4,6 @@
 
 use kul_core::ast::InputFile;
 use kul_core::diagnostic::Severity;
-use kul_core::manifest::Manifest;
 use kul_layout::{EdgeKind, LayoutConfig, layout};
 use kul_render::compute;
 
@@ -13,7 +12,7 @@ fn layout_from_source(source: &str) -> kul_layout::PositionedShape {
         "regression.kul".to_owned(),
         source.to_owned(),
     )];
-    let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
+    let check = kul_core::check(&inputs);
     assert!(
         check
             .diagnostics

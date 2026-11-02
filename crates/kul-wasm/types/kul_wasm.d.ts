@@ -504,17 +504,6 @@ export interface ExportOptions {
 }
 
 /**
- * Typed `kul.yml` manifest. Serialized with the `kul:` field name.
- */
-export interface Manifest {
-    /**
-     * Language version (`MAJOR.MINOR`) the sibling `.kul` files target.
-     * Surfaced in the export envelope\'s `kul:` field.
-     */
-    kul: string;
-}
-
-/**
  * What one entry of a batched detail lookup addresses.
  *
  * Three entity kinds, because three things on a rendered tree are selectable:
@@ -615,7 +604,8 @@ export interface ExportedDiagnostic {
     severity: string;
     message: string;
     /**
-     * `None` for unanchored diagnostics (e.g. `KUL-M01`).
+     * `None` for unanchored diagnostics (a project-wide fact with no single
+     * declaration to point at).
      */
     primary?: ExportedSpan;
     related: ExportedRelated[];
@@ -675,8 +665,7 @@ export interface ExportedRelated extends ExportedSpan {
 
 export interface ExportedSpan {
     /**
-     * Canonical file name (`InputFile.name`, or `manifest_name` for
-     * `KUL-Mxx`).
+     * Canonical file name (`InputFile.name`).
      */
     file: string;
     byteStart: number;
@@ -737,7 +726,7 @@ export interface SuccessEnvelope {
      */
     schema: number;
     /**
-     * Kul language version from the manifest\'s `kul:` field.
+     * The Kul language version this build implements.
      */
     kul: string;
     /**
@@ -753,9 +742,9 @@ export function KUL_CORE_VERSION(): string;
 
 export function KUL_LANGUAGE_VERSION(): string;
 
-export function check(files: WasmInputFile[], manifest: Manifest): CheckEnvelope;
+export function check(files: WasmInputFile[]): CheckEnvelope;
 
-export function exportGraph(files: WasmInputFile[], manifest: Manifest, options?: ExportOptions | null): ExportEnvelope;
+export function exportGraph(files: WasmInputFile[], options?: ExportOptions | null): ExportEnvelope;
 
 export function format(source: string): string;
 
@@ -772,7 +761,7 @@ export function format(source: string): string;
  * the answer, not an error. Same load-and-check gate as the other query
  * shapes; a failing project yields the envelope's error arm, never a throw.
  */
-export function queryDetail(files: WasmInputFile[], manifest: Manifest, targets: DetailTarget[]): QueryEnvelope<DetailLookupResult>;
+export function queryDetail(files: WasmInputFile[], targets: DetailTarget[]): QueryEnvelope<DetailLookupResult>;
 
 /**
  * Kin-set queries on the fourth WASM shape: evaluate a declarative
@@ -782,14 +771,14 @@ export function queryDetail(files: WasmInputFile[], manifest: Manifest, targets:
  * failing project or an unknown anchor yields the envelope's error arm with
  * a diagnostic, never a throw.
  */
-export function queryKin(files: WasmInputFile[], manifest: Manifest, query: Query): QueryEnvelope<QueryResult>;
+export function queryKin(files: WasmInputFile[], query: Query): QueryEnvelope<QueryResult>;
 
 /**
  * Marriage-lookup counterpart to [`query_person`]. Same load-and-check
  * gate and never-throwing envelope; the ok arm carries the marriage in the
  * export shape, or `null` when no marriage has that id.
  */
-export function queryMarriage(files: WasmInputFile[], manifest: Manifest, id: string): QueryEnvelope<MarriageLookupResult>;
+export function queryMarriage(files: WasmInputFile[], id: string): QueryEnvelope<MarriageLookupResult>;
 
 /**
  * The fourth WASM shape (ADR-0011): the kinship query surface. Looks up a
@@ -798,7 +787,7 @@ export function queryMarriage(files: WasmInputFile[], manifest: Manifest, id: st
  * arm; a clean project yields the ok arm carrying the person in the export
  * shape, or `null` when no person has that id.
  */
-export function queryPerson(files: WasmInputFile[], manifest: Manifest, id: string): QueryEnvelope<PersonLookupResult>;
+export function queryPerson(files: WasmInputFile[], id: string): QueryEnvelope<PersonLookupResult>;
 
 /**
  * Relationship resolution on the fourth WASM shape (issue #259): return
@@ -809,9 +798,9 @@ export function queryPerson(files: WasmInputFile[], manifest: Manifest, id: stri
  * as the other query shapes; a failing project or an unknown / wrong-kind id
  * yields the envelope's error arm with a diagnostic, never a throw.
  */
-export function queryResolve(files: WasmInputFile[], manifest: Manifest, x_id: string, y_id: string, config?: ResolveConfig | null): QueryEnvelope<ResolveResult>;
+export function queryResolve(files: WasmInputFile[], x_id: string, y_id: string, config?: ResolveConfig | null): QueryEnvelope<ResolveResult>;
 
-export function renderSvg(files: WasmInputFile[], manifest: Manifest): RenderEnvelope;
+export function renderSvg(files: WasmInputFile[]): RenderEnvelope;
 
 /**
  * The general query surface on the fourth WASM shape: evaluate any
@@ -823,4 +812,4 @@ export function renderSvg(files: WasmInputFile[], manifest: Manifest): RenderEnv
  * project, unknown anchor, or malformed predicate yields the envelope's error
  * arm with a diagnostic, never a throw.
  */
-export function runQuery(files: WasmInputFile[], manifest: Manifest, query: Query): QueryEnvelope<QueryResult>;
+export function runQuery(files: WasmInputFile[], query: Query): QueryEnvelope<QueryResult>;

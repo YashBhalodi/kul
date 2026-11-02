@@ -28,24 +28,17 @@ export function isProjectSnapshot(value: unknown): value is ProjectSnapshot {
     if (!value || typeof value !== "object") {
         return false;
     }
-    const p = value as { files?: unknown; manifest?: unknown };
+    const p = value as { files?: unknown };
     if (!Array.isArray(p.files)) {
         return false;
     }
-    const filesOk = p.files.every((f) => {
+    return p.files.every((f) => {
         if (!f || typeof f !== "object") {
             return false;
         }
         const file = f as { name?: unknown; source?: unknown };
         return typeof file.name === "string" && typeof file.source === "string";
     });
-    if (!filesOk) {
-        return false;
-    }
-    if (!p.manifest || typeof p.manifest !== "object") {
-        return false;
-    }
-    return typeof (p.manifest as { kul?: unknown }).kul === "string";
 }
 
 function isLspPosition(value: unknown): value is LspPosition {

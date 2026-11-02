@@ -50,7 +50,6 @@ import type { HostAdapter, PreviewHandle } from "../src/types.js";
 
 const PROJECT: ProjectSnapshot = {
     files: [{ name: "family.kul", source: "" }],
-    manifest: { kul: "0.1" },
 };
 
 /**

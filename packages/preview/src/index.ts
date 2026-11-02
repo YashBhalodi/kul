@@ -45,7 +45,6 @@ export type {
     ExportedPerson,
     KinPattern,
     LinkedPerson,
-    Manifest,
     MarriageTie,
     Member,
     Projection,

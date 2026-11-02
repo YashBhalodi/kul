@@ -4,9 +4,9 @@
 //! Usage: `lsp-dump <examples-root> <out-dir>`
 //!
 //! Every subdirectory of `<examples-root>` that holds a `.kul` file is one
-//! project. The project is built the way the server builds it (the lenient
-//! `kul_loader::discover` plus `kul_core::check`), then every feature
-//! function is called directly, with no LSP session:
+//! project: its `*.kul` files, read flat. The project is checked the way the
+//! server checks it, then every feature function is called directly, with no
+//! LSP session:
 //!
 //! - per file: diagnostics, document symbols, semantic tokens, formatting
 //!   and code actions over the whole file;
@@ -14,6 +14,10 @@
 //!   completion, definition, references (with and without the declaration),
 //!   prepare-rename, rename to `pivot_renamed`, and entity-at;
 //! - per project: locate for every person and marriage id.
+//!
+//! The pinned tree's `kul_core::check` also takes the project's manifest;
+//! `baseline.sh` builds that side with the `pinned` feature, which reads it
+//! the way the pinned server did (`kul_loader::discover`).
 //!
 //! Each project writes `<out-dir>/<project>.json`. Object keys are sorted
 //! (serde_json without `preserve_order`), URLs are `file:///<project>/<file>`,
@@ -79,22 +83,48 @@ fn to_value<T: serde::Serialize>(v: T) -> Value {
     serde_json::to_value(v).expect("serialize feature result")
 }
 
-fn build_entry(project: &str, dir: &Path) -> ProjectEntry {
+/// `(name, source)` of every `*.kul` file directly inside `dir`.
+fn read_kul_files(dir: &Path) -> Vec<(String, String)> {
+    std::fs::read_dir(dir)
+        .expect("read project dir")
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("kul") && !p.is_dir())
+        .map(|p| {
+            let name = p.file_name().unwrap().to_string_lossy().into_owned();
+            let source = std::fs::read_to_string(&p).expect("read .kul file");
+            (name, source)
+        })
+        .collect()
+}
+
+#[cfg(feature = "pinned")]
+fn check(dir: &Path, inputs: &[InputFile]) -> kul_core::CheckResult {
     let discovered = kul_loader::discover(dir);
-    let mut files: Vec<(Url, Arc<str>, String)> = discovered
-        .files
+    kul_core::check(discovered.manifest_name, &discovered.manifest_yaml, inputs)
+}
+
+#[cfg(not(feature = "pinned"))]
+fn check(_dir: &Path, inputs: &[InputFile]) -> kul_core::CheckResult {
+    kul_core::check(inputs)
+}
+
+fn build_entry(project: &str, dir: &Path) -> ProjectEntry {
+    let mut files: Vec<(Url, Arc<str>, String)> = read_kul_files(dir)
         .into_iter()
-        .map(|f| {
-            let url = Url::parse(&format!("file:///{project}/{}", f.name)).expect("file url");
-            (url, Arc::from(f.source), f.name)
+        .map(|(name, source)| {
+            let url = Url::parse(&format!("file:///{project}/{name}")).expect("file url");
+            (url, Arc::from(source), name)
         })
         .collect();
+    // Both trees' servers and checks agree on this order for the examples'
+    // plain ASCII names.
     files.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
     let inputs: Vec<InputFile> = files
         .iter()
         .map(|(_, src, name)| InputFile::new(name.clone(), Arc::clone(src)))
         .collect();
-    let check = kul_core::check(discovered.manifest_name, &discovered.manifest_yaml, &inputs);
+    let check = check(dir, &inputs);
     let metas = files
         .iter()
         .map(|(url, src, _)| (url.clone(), LineIndex::new(Arc::clone(src))))

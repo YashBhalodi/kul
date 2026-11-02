@@ -86,7 +86,6 @@ describe("the visible centre", () => {
 
 const PROJECT: ProjectSnapshot = {
     files: [{ name: "family.kul", source: "# fixture\n" }],
-    manifest: { kul: "0.1" },
 };
 
 const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200">

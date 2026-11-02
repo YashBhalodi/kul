@@ -1,7 +1,7 @@
 //! Diagnostic translation: `kul_core::Diagnostic` → `lsp_types::Diagnostic`.
 //!
-//! Filters by `FileId` so a manifest-anchored diagnostic doesn't leak onto a
-//! `.kul` URI. Related-info pointing at sibling files (common under ADR-0015
+//! Filters by `FileId` so a diagnostic anchored in one file doesn't leak
+//! onto another file's URI. Related-info pointing at sibling files (common under ADR-0015
 //! for R01 duplicates and R02 type-mismatch) is anchored at the sibling URI.
 
 use kul_core::diagnostic::{Diagnostic as CoreDiagnostic, Severity as CoreSeverity};
@@ -17,8 +17,8 @@ use crate::state::ProjectEntry;
 pub const SOURCE: &str = "kul";
 
 /// Translate every diagnostic whose primary anchor lives in `file` into
-/// LSP diagnostics. Diagnostics anchored elsewhere (other files, the
-/// manifest) are skipped — LSP attaches squiggles to one URI at a time.
+/// LSP diagnostics. Diagnostics anchored elsewhere (other files, or
+/// nowhere) are skipped — LSP attaches squiggles to one URI at a time.
 pub fn to_lsp(
     entry: &ProjectEntry,
     file: FileId,
@@ -113,7 +113,7 @@ mod tests {
     use kul_core::span::ByteSpan;
 
     fn file_one() -> FileId {
-        FileId::from_raw(1)
+        FileId::from_raw(0)
     }
 
     #[test]
@@ -142,13 +142,13 @@ mod tests {
 
     #[test]
     fn diagnostics_in_a_different_file_are_filtered_out() {
-        let entry = test_open_file("hello");
+        let entry = test_project_entry(&[("a.kul", "hello"), ("b.kul", "world")]);
         let diag = CoreDiagnostic::error(
-            "KUL-M03",
-            "missing kul",
-            fspan(FileId::MANIFEST, ByteSpan::new(0, 1)),
+            "KUL-R03",
+            "missing name",
+            fspan(FileId::from_raw(1), ByteSpan::new(0, 1)),
         );
-        let lsp = to_lsp(&entry, file_one(), std::slice::from_ref(&diag));
+        let lsp = to_lsp(&entry, FileId::from_raw(0), std::slice::from_ref(&diag));
         assert!(lsp.is_empty());
     }
 
@@ -194,8 +194,8 @@ mod tests {
             ("first.kul", "person alice name:\"A\" gender:female\n"),
             ("second.kul", "person alice name:\"A2\" gender:male\n"),
         ]);
-        let f1 = FileId::from_raw(1);
-        let f2 = FileId::from_raw(2);
+        let f1 = FileId::from_raw(0);
+        let f2 = FileId::from_raw(1);
         let diag = CoreDiagnostic::error(
             "KUL-R01",
             "duplicate id `alice`",

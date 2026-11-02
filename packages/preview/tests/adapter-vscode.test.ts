@@ -32,7 +32,6 @@ function fakeHandle() {
 
 const PROJECT: ProjectSnapshot = {
     files: [{ name: "a.kul", source: 'person a name:"A" gender:male\n' }],
-    manifest: { kul: "0.1" },
 };
 
 // Drive the bridge the way VSCode does: a `window.message` event whose `data`
@@ -77,9 +76,9 @@ describe("installVscodeInboundBridge — render", () => {
         post({
             type: "render",
             svg: "<svg/>",
-            project: { files: [{ name: "a.kul" }], manifest: { kul: "0.1" } },
+            project: { files: [{ name: "a.kul" }] },
         });
-        post({ type: "render", svg: "<svg/>", project: { files: [] } });
+        post({ type: "render", svg: "<svg/>", project: { files: "a.kul" } });
         expect(render).toHaveBeenNthCalledWith(1, "<svg/>", null);
         expect(render).toHaveBeenNthCalledWith(2, "<svg/>", null);
     });

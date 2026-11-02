@@ -56,11 +56,10 @@ pub fn render_from_check(
 mod tests {
     use super::*;
     use kul_core::ast::InputFile;
-    use kul_core::manifest::Manifest;
 
     fn check(source: &str) -> CheckResult {
         let files = [InputFile::new("family.kul".to_owned(), source.to_owned())];
-        kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &files)
+        kul_core::check(&files)
     }
 
     #[test]

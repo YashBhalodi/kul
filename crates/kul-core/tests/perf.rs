@@ -31,7 +31,6 @@ use std::fmt::Write as _;
 use std::time::{Duration, Instant};
 
 use kul_core::ast::InputFile;
-use kul_core::manifest::Manifest;
 use kul_core::query::{
     DetailTarget, Predicate, Query, ResolveConfig, SortSpec, ancestors_of, cousins_of,
     descendants_of, details, resolve, run_query,
@@ -308,7 +307,7 @@ fn ten_thousand_person_query_operations_under_budget() {
     let (source, marks) = generate_corpus();
 
     let inputs = vec![InputFile::new("large.kul", source.as_str())];
-    let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
+    let check = kul_core::check(&inputs);
     assert!(
         check.diagnostics.is_empty(),
         "generated fixture must validate cleanly; got {} diagnostics: {:?}",
@@ -463,7 +462,7 @@ fn time_stateless_detail(inputs: &[InputFile], targets: &[DetailTarget]) -> Dura
     (0..3)
         .map(|_| {
             let start = Instant::now();
-            let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), inputs);
+            let check = kul_core::check(inputs);
             let answers = details(check.resolved(), targets);
             let elapsed = start.elapsed();
             assert_eq!(answers.len(), targets.len(), "one answer per target");
@@ -486,7 +485,7 @@ fn time_stateless_detail(inputs: &[InputFile], targets: &[DetailTarget]) -> Dura
 fn batched_detail_cost_is_flat_in_the_number_of_targets() {
     let (source, _marks) = generate_corpus();
     let inputs = vec![InputFile::new("large.kul", source.as_str())];
-    let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
+    let check = kul_core::check(&inputs);
     assert!(
         check.diagnostics.is_empty(),
         "generated fixture must validate cleanly"

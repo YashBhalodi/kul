@@ -232,7 +232,7 @@ impl LanguageServer for Backend {
         self.client
             .log_message(MessageType::INFO, "kul-lsp initialized")
             .await;
-        // Register file watchers for `.kul` and `kul.yml`. Fire-and-forget
+        // Register the `.kul` file watcher. Fire-and-forget
         // via `tokio::spawn` so a client that doesn't support dynamic
         // registration can't stall the LSP lifecycle.
         let client = self.client.clone();
@@ -242,16 +242,10 @@ impl LanguageServer for Backend {
                 method: "workspace/didChangeWatchedFiles".to_owned(),
                 register_options: Some(
                     serde_json::to_value(DidChangeWatchedFilesRegistrationOptions {
-                        watchers: vec![
-                            FileSystemWatcher {
-                                glob_pattern: GlobPattern::String("**/*.kul".to_owned()),
-                                kind: None,
-                            },
-                            FileSystemWatcher {
-                                glob_pattern: GlobPattern::String("**/kul.yml".to_owned()),
-                                kind: None,
-                            },
-                        ],
+                        watchers: vec![FileSystemWatcher {
+                            glob_pattern: GlobPattern::String("**/*.kul".to_owned()),
+                            kind: None,
+                        }],
                     })
                     .expect("DidChangeWatchedFilesRegistrationOptions serializes"),
                 ),
@@ -303,11 +297,6 @@ impl LanguageServer for Backend {
                 WatchAction::Ignored { .. } => {}
                 WatchAction::Reloaded { cleared } => {
                     self.publish_project(&uri, None).await;
-                    for url in cleared {
-                        self.client.publish_diagnostics(url, Vec::new(), None).await;
-                    }
-                }
-                WatchAction::Evicted { cleared } => {
                     for url in cleared {
                         self.client.publish_diagnostics(url, Vec::new(), None).await;
                     }

@@ -17,7 +17,6 @@
 
 use kul_core::ast::InputFile;
 use kul_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic};
-use kul_core::manifest::Manifest;
 use kul_core::query::{
     DetailLookupResult, DetailTarget, MarriageLookupResult, PersonLookupResult, Query,
     QueryEnvelope, QueryResult, ResolveConfig, ResolveResult, detail_lookup, kin_query,
@@ -27,10 +26,6 @@ use kul_visual::{ThemeConfig, render_from_check};
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
-
-/// Stable label for manifest-anchored diagnostics; the bridge receives
-/// a typed `Manifest` directly, not raw YAML.
-const WASM_MANIFEST_NAME: &str = "kul.yml";
 
 /// One `.kul` input file as the JS host hands it to the bridge. Mirrors
 /// [`kul_core::ast::InputFile`]; exists separately so `tsify` can derive
@@ -80,33 +75,25 @@ pub fn format_source(source: &str) -> String {
 }
 
 #[wasm_bindgen(js_name = "check")]
-pub fn check(files: Vec<WasmInputFile>, manifest: Manifest) -> CheckEnvelope {
+pub fn check(files: Vec<WasmInputFile>) -> CheckEnvelope {
     console_error_panic_hook::set_once();
     let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", &manifest, &inputs);
+    let result = kul_core::check(&inputs);
     let diagnostics = kul_core::export::export_diagnostics(&result);
     CheckEnvelope { diagnostics }
 }
 
 #[wasm_bindgen(js_name = "exportGraph")]
-pub fn export_graph(
-    files: Vec<WasmInputFile>,
-    manifest: Manifest,
-    options: Option<ExportOptions>,
-) -> ExportEnvelope {
+pub fn export_graph(files: Vec<WasmInputFile>, options: Option<ExportOptions>) -> ExportEnvelope {
     console_error_panic_hook::set_once();
     let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    export_with(&inputs, &manifest, options.unwrap_or_default())
+    export_with(&inputs, options.unwrap_or_default())
 }
 
 /// Native-callable variant of [`export_graph`]; lets non-wasm tests
 /// call in without round-tripping through `JsValue`.
-pub fn export_with(
-    inputs: &[InputFile],
-    manifest: &Manifest,
-    options: ExportOptions,
-) -> ExportEnvelope {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+pub fn export_with(inputs: &[InputFile], options: ExportOptions) -> ExportEnvelope {
+    let result = kul_core::check(inputs);
     kul_core::export::export(&result, options)
 }
 
@@ -146,10 +133,10 @@ pub struct RenderFailure {
 }
 
 #[wasm_bindgen(js_name = "renderSvg")]
-pub fn render_svg(files: Vec<WasmInputFile>, manifest: Manifest) -> RenderEnvelope {
+pub fn render_svg(files: Vec<WasmInputFile>) -> RenderEnvelope {
     console_error_panic_hook::set_once();
     let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    render_svg_with(&inputs, &manifest)
+    render_svg_with(&inputs)
 }
 
 /// Native-callable variant of [`render_svg`]; lets non-wasm tests call
@@ -160,8 +147,8 @@ pub fn render_svg(files: Vec<WasmInputFile>, manifest: Manifest) -> RenderEnvelo
 /// options surfaced in v1 (ADR-0011). This surface owns only its theme
 /// choice, its failure projection (raw `ExportedDiagnostic`s), and its
 /// output sink (the JS `RenderEnvelope`).
-pub fn render_svg_with(inputs: &[InputFile], manifest: &Manifest) -> RenderEnvelope {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+pub fn render_svg_with(inputs: &[InputFile]) -> RenderEnvelope {
+    let result = kul_core::check(inputs);
     match render_from_check(&result, &ThemeConfig::default()) {
         Ok(svg) => RenderEnvelope::Success(RenderSuccess { ok: true, svg }),
         Err(diagnostics) => RenderEnvelope::Failure(RenderFailure {
@@ -193,24 +180,16 @@ export type DetailLookupResult = (EntityDetail | null)[];
     js_name = "queryPerson",
     unchecked_return_type = "QueryEnvelope<PersonLookupResult>"
 )]
-pub fn query_person(
-    files: Vec<WasmInputFile>,
-    manifest: Manifest,
-    id: String,
-) -> QueryEnvelope<PersonLookupResult> {
+pub fn query_person(files: Vec<WasmInputFile>, id: String) -> QueryEnvelope<PersonLookupResult> {
     console_error_panic_hook::set_once();
     let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    query_person_with(&inputs, &manifest, &id)
+    query_person_with(&inputs, &id)
 }
 
 /// Native-callable variant of [`query_person`]; lets non-wasm tests call in
 /// without round-tripping through `JsValue`.
-pub fn query_person_with(
-    inputs: &[InputFile],
-    manifest: &Manifest,
-    id: &str,
-) -> QueryEnvelope<PersonLookupResult> {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+pub fn query_person_with(inputs: &[InputFile], id: &str) -> QueryEnvelope<PersonLookupResult> {
+    let result = kul_core::check(inputs);
     person_lookup(&result, id)
 }
 
@@ -223,21 +202,16 @@ pub fn query_person_with(
 )]
 pub fn query_marriage(
     files: Vec<WasmInputFile>,
-    manifest: Manifest,
     id: String,
 ) -> QueryEnvelope<MarriageLookupResult> {
     console_error_panic_hook::set_once();
     let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    query_marriage_with(&inputs, &manifest, &id)
+    query_marriage_with(&inputs, &id)
 }
 
 /// Native-callable variant of [`query_marriage`].
-pub fn query_marriage_with(
-    inputs: &[InputFile],
-    manifest: &Manifest,
-    id: &str,
-) -> QueryEnvelope<MarriageLookupResult> {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+pub fn query_marriage_with(inputs: &[InputFile], id: &str) -> QueryEnvelope<MarriageLookupResult> {
+    let result = kul_core::check(inputs);
     marriage_lookup(&result, id)
 }
 
@@ -258,22 +232,20 @@ pub fn query_marriage_with(
 )]
 pub fn query_detail(
     files: Vec<WasmInputFile>,
-    manifest: Manifest,
     targets: Vec<DetailTarget>,
 ) -> QueryEnvelope<DetailLookupResult> {
     console_error_panic_hook::set_once();
     let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    query_detail_with(&inputs, &manifest, &targets)
+    query_detail_with(&inputs, &targets)
 }
 
 /// Native-callable variant of [`query_detail`]; lets non-wasm tests call in
 /// without round-tripping through `JsValue`.
 pub fn query_detail_with(
     inputs: &[InputFile],
-    manifest: &Manifest,
     targets: &[DetailTarget],
 ) -> QueryEnvelope<DetailLookupResult> {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+    let result = kul_core::check(inputs);
     detail_lookup(&result, targets)
 }
 
@@ -287,24 +259,16 @@ pub fn query_detail_with(
     js_name = "queryKin",
     unchecked_return_type = "QueryEnvelope<QueryResult>"
 )]
-pub fn query_kin(
-    files: Vec<WasmInputFile>,
-    manifest: Manifest,
-    query: Query,
-) -> QueryEnvelope<QueryResult> {
+pub fn query_kin(files: Vec<WasmInputFile>, query: Query) -> QueryEnvelope<QueryResult> {
     console_error_panic_hook::set_once();
     let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    query_kin_with(&inputs, &manifest, &query)
+    query_kin_with(&inputs, &query)
 }
 
 /// Native-callable variant of [`query_kin`]; lets non-wasm tests call in
 /// without round-tripping through `JsValue`.
-pub fn query_kin_with(
-    inputs: &[InputFile],
-    manifest: &Manifest,
-    query: &Query,
-) -> QueryEnvelope<QueryResult> {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+pub fn query_kin_with(inputs: &[InputFile], query: &Query) -> QueryEnvelope<QueryResult> {
+    let result = kul_core::check(inputs);
     kin_query(&result, query)
 }
 
@@ -320,23 +284,15 @@ pub fn query_kin_with(
     js_name = "runQuery",
     unchecked_return_type = "QueryEnvelope<QueryResult>"
 )]
-pub fn run_query(
-    files: Vec<WasmInputFile>,
-    manifest: Manifest,
-    query: Query,
-) -> QueryEnvelope<QueryResult> {
+pub fn run_query(files: Vec<WasmInputFile>, query: Query) -> QueryEnvelope<QueryResult> {
     console_error_panic_hook::set_once();
     let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    run_query_with(&inputs, &manifest, &query)
+    run_query_with(&inputs, &query)
 }
 
 /// Native-callable variant of [`run_query`].
-pub fn run_query_with(
-    inputs: &[InputFile],
-    manifest: &Manifest,
-    query: &Query,
-) -> QueryEnvelope<QueryResult> {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+pub fn run_query_with(inputs: &[InputFile], query: &Query) -> QueryEnvelope<QueryResult> {
+    let result = kul_core::check(inputs);
     query_envelope(&result, query)
 }
 
@@ -353,25 +309,23 @@ pub fn run_query_with(
 )]
 pub fn query_resolve(
     files: Vec<WasmInputFile>,
-    manifest: Manifest,
     x_id: String,
     y_id: String,
     config: Option<ResolveConfig>,
 ) -> QueryEnvelope<ResolveResult> {
     console_error_panic_hook::set_once();
     let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    query_resolve_with(&inputs, &manifest, &x_id, &y_id, config)
+    query_resolve_with(&inputs, &x_id, &y_id, config)
 }
 
 /// Native-callable variant of [`query_resolve`]; lets non-wasm tests call in
 /// without round-tripping through `JsValue`.
 pub fn query_resolve_with(
     inputs: &[InputFile],
-    manifest: &Manifest,
     x_id: &str,
     y_id: &str,
     config: Option<ResolveConfig>,
 ) -> QueryEnvelope<ResolveResult> {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
+    let result = kul_core::check(inputs);
     resolve_relationship(&result, x_id, y_id, &config.unwrap_or_default())
 }

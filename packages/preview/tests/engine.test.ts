@@ -7,7 +7,6 @@ import { describe, expect, it, vi } from "vitest";
 import type {
     DetailLookupResult,
     DetailTarget,
-    Manifest,
     QueryEnvelope,
     WasmInputFile,
 } from "../src/engine-wire.js";
@@ -24,18 +23,16 @@ const SOURCE = {
 
 const PROJECT: ProjectSnapshot = {
     files: [{ name: "a.kul", source: 'person a name:"A" gender:male\n' }],
-    manifest: { kul: "0.1" },
 };
 
 function fakeModule() {
     const calls: {
         files: WasmInputFile[];
-        manifest: Manifest;
         targets: DetailTarget[];
     }[] = [];
     const module: EngineModule = {
-        queryDetail(files, manifest, targets) {
-            calls.push({ files, manifest, targets });
+        queryDetail(files, targets) {
+            calls.push({ files, targets });
             return { ok: true, result: [null] } as QueryEnvelope<DetailLookupResult>;
         },
         queryKin() {
@@ -107,7 +104,7 @@ describe("createQueryEngine laziness", () => {
 });
 
 describe("createQueryEngine queryDetail", () => {
-    it("passes the project's files and manifest with every call (stateless surface)", async () => {
+    it("passes the project's files with every call (stateless surface)", async () => {
         const { module, calls } = fakeModule();
         const engine = createQueryEngine(SOURCE, async () => module);
         const targets: DetailTarget[] = [
@@ -116,7 +113,7 @@ describe("createQueryEngine queryDetail", () => {
         ];
         await engine.queryDetail(PROJECT, targets);
         expect(calls).toEqual([
-            { files: PROJECT.files, manifest: PROJECT.manifest, targets },
+            { files: PROJECT.files, targets },
         ]);
     });
 

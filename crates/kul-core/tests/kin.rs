@@ -17,7 +17,6 @@ use std::path::{Path, PathBuf};
 
 use kul_core::CheckResult;
 use kul_core::ast::InputFile;
-use kul_core::manifest::Manifest;
 use kul_core::query::{
     Affinity, Classification, EdgeNature, IntRange, LinealRole, MarriageStatus, PathHop, Query,
     QueryEvalError, Seniority, Sharing, Side, ancestors_of, aunts_uncles_of, children_of,
@@ -65,7 +64,7 @@ fn check_multi_file(dir: &str) -> CheckResult {
             )
         })
         .collect();
-    kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs)
+    kul_core::check(&inputs)
 }
 
 /// Serialize the kin-query envelope exactly as the WASM / CLI-`json`

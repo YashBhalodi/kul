@@ -33,11 +33,6 @@ export interface WasmInputFile {
     source: string;
 }
 
-/** Typed `kul.yml` manifest. Serialized with the `kul:` field name. */
-export interface Manifest {
-    kul: string;
-}
-
 export interface ExportedSpan {
     file: string;
     byteStart: number;

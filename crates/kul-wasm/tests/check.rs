@@ -33,12 +33,12 @@ fn input(name: &str, source: &str) -> WasmInputFile {
 
 fn check_json(source: &str) -> String {
     let files = vec![input("input.kul", source)];
-    let envelope = kul_wasm::check(files, kul_core::manifest::Manifest::default());
+    let envelope = kul_wasm::check(files);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 
 fn check_multi_file_json(files: Vec<WasmInputFile>) -> String {
-    let envelope = kul_wasm::check(files, kul_core::manifest::Manifest::default());
+    let envelope = kul_wasm::check(files);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 
@@ -97,7 +97,7 @@ macro_rules! clean_example {
         fn $name() {
             let path = examples_dir().join($dir).join(concat!($stem, ".kul"));
             let files = vec![input(concat!($stem, ".kul"), &read(&path))];
-            let envelope = kul_wasm::check(files, kul_core::manifest::Manifest::default());
+            let envelope = kul_wasm::check(files);
             assert!(
                 envelope.diagnostics.is_empty(),
                 "{} produced diagnostics: {:#?}",
@@ -152,7 +152,7 @@ clean_example!(
 #[test]
 fn example_08_multi_file_project_is_clean() {
     let files = multi_file_inputs("08-multi-file-project");
-    let envelope = kul_wasm::check(files, kul_core::manifest::Manifest::default());
+    let envelope = kul_wasm::check(files);
     assert!(
         envelope.diagnostics.is_empty(),
         "08-multi-file-project produced diagnostics: {:#?}",

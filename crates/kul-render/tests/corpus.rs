@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 
 use kul_core::CheckResult;
 use kul_core::ast::InputFile;
-use kul_core::manifest::Manifest;
 
 use kul_render::compute;
 
@@ -45,7 +44,7 @@ fn check_example(dir: &Path) -> CheckResult {
             )
         })
         .collect();
-    kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs)
+    kul_core::check(&inputs)
 }
 
 fn render_example(dir: &str) -> String {

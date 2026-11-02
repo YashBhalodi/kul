@@ -45,7 +45,6 @@ import type { HostAdapter, PreviewHandle, RevealTarget } from "../src/types.js";
 
 const PROJECT: ProjectSnapshot = {
     files: [{ name: "family.kul", source: "# fixture\n" }],
-    manifest: { kul: "0.1" },
 };
 
 // The labels in the picture deliberately disagree with the engine's names.

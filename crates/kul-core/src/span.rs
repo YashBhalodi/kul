@@ -10,15 +10,13 @@ use std::ops::Range;
 
 /// Opaque file identifier inside a [`crate::ast::Document`].
 ///
-/// `FileId(0)` is the manifest; subsequent ids are `.kul` files in input
-/// order. Equality is the only operation downstream should rely on.
+/// `FileId(i)` is the `i`-th `.kul` file of the project in file order
+/// (see [`crate::check`]). Equality is the only operation downstream should
+/// rely on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct FileId(pub(crate) u32);
 
 impl FileId {
-    /// Conventional id of the project manifest (`kul.yml`).
-    pub const MANIFEST: FileId = FileId(0);
-
     /// Construct from a raw index. For tests and synthetic fixtures.
     pub const fn from_raw(idx: u32) -> Self {
         FileId(idx)
@@ -26,6 +24,11 @@ impl FileId {
 
     pub fn as_u32(self) -> u32 {
         self.0
+    }
+
+    /// Position of the file in the project's file order.
+    pub(crate) fn index(self) -> usize {
+        self.0 as usize
     }
 }
 

@@ -26,9 +26,6 @@ import {
 const fixture = new URL('../../../../examples/02-three-generations/three-generations.kul', import.meta.url);
 const source = readFileSync(fixture, 'utf8');
 
-// JS callers construct the manifest inline — discovery is the host's job.
-const manifest = { kul: '0.1' };
-
 // `format` stays single-source — the per-file asymmetry is intentional.
 const formatted = format(source);
 if (typeof formatted !== 'string' || formatted.length === 0) {
@@ -39,7 +36,7 @@ if (typeof formatted !== 'string' || formatted.length === 0) {
 // `check` and `exportGraph` take an array of `{name, source}`. Single-
 // file invocation: a one-element array.
 const singleFile = [{ name: 'three-generations.kul', source }];
-const cleanResult = check(singleFile, manifest);
+const cleanResult = check(singleFile);
 if (!Array.isArray(cleanResult?.diagnostics)) {
     console.error(`check returned non-array diagnostics on clean fixture: ${JSON.stringify(cleanResult)}`);
     process.exit(1);
@@ -49,7 +46,7 @@ if (cleanResult.diagnostics.length !== 0) {
     process.exit(1);
 }
 
-const brokenResult = check([{ name: 'input.kul', source: 'person alice gender:female\n' }], manifest);
+const brokenResult = check([{ name: 'input.kul', source: 'person alice gender:female\n' }]);
 if (!Array.isArray(brokenResult?.diagnostics) || brokenResult.diagnostics.length < 1) {
     console.error(`expected broken source to produce at least one diagnostic, got: ${JSON.stringify(brokenResult)}`);
     process.exit(1);
@@ -82,12 +79,12 @@ if (multiFiles.length < 2) {
     console.error(`expected multi-file example to have >= 2 .kul files, got: ${multiFiles.length}`);
     process.exit(1);
 }
-const multiCheck = check(multiFiles, manifest);
+const multiCheck = check(multiFiles);
 if (!Array.isArray(multiCheck?.diagnostics) || multiCheck.diagnostics.length !== 0) {
     console.error(`expected multi-file example to be clean, got: ${JSON.stringify(multiCheck)}`);
     process.exit(1);
 }
-const multiExport = exportGraph(multiFiles, manifest);
+const multiExport = exportGraph(multiFiles);
 if (multiExport?.ok !== true) {
     console.error(`exportGraph on multi-file example did not produce success envelope: ${JSON.stringify(multiExport)}`);
     process.exit(1);
@@ -115,7 +112,7 @@ if (!Number.isInteger(schemaVersion) || schemaVersion < 1) {
     process.exit(1);
 }
 
-const exportEnvelope = exportGraph(singleFile, manifest);
+const exportEnvelope = exportGraph(singleFile);
 if (exportEnvelope?.ok !== true) {
     console.error(`exportGraph on clean fixture did not produce success envelope: ${JSON.stringify(exportEnvelope)}`);
     process.exit(1);
@@ -139,25 +136,25 @@ if (typeof persons[0].name !== 'string' || persons[0].name.length === 0) {
 // arm with the entity payload, an unknown id lands in the ok arm with a
 // `null` result, and a failing project lands in the error arm.
 const firstPersonId = persons[0].id;
-const personLookup = queryPerson(singleFile, manifest, firstPersonId);
+const personLookup = queryPerson(singleFile, firstPersonId);
 if (personLookup?.ok !== true || personLookup.result?.id !== firstPersonId) {
     console.error(`queryPerson on known id did not return the person: ${JSON.stringify(personLookup)}`);
     process.exit(1);
 }
-const missingLookup = queryPerson(singleFile, manifest, 'no_such_id');
+const missingLookup = queryPerson(singleFile, 'no_such_id');
 if (missingLookup?.ok !== true || missingLookup.result !== null) {
     console.error(`queryPerson on unknown id should be ok with null result: ${JSON.stringify(missingLookup)}`);
     process.exit(1);
 }
 const firstMarriageId = exportEnvelope.graph?.marriages?.[0]?.id;
 if (typeof firstMarriageId === 'string') {
-    const marriageLookup = queryMarriage(singleFile, manifest, firstMarriageId);
+    const marriageLookup = queryMarriage(singleFile, firstMarriageId);
     if (marriageLookup?.ok !== true || marriageLookup.result?.id !== firstMarriageId) {
         console.error(`queryMarriage on known id did not return the marriage: ${JSON.stringify(marriageLookup)}`);
         process.exit(1);
     }
 }
-const brokenLookup = queryPerson([{ name: 'input.kul', source: 'person alice gender:female\n' }], manifest, 'alice');
+const brokenLookup = queryPerson([{ name: 'input.kul', source: 'person alice gender:female\n' }], 'alice');
 if (brokenLookup?.ok !== false || !Array.isArray(brokenLookup.diagnostics) || brokenLookup.diagnostics.length < 1) {
     console.error(`queryPerson on failing project should be the error arm: ${JSON.stringify(brokenLookup)}`);
     process.exit(1);
@@ -167,7 +164,7 @@ if (brokenLookup?.ok !== false || !Array.isArray(brokenLookup.diagnostics) || br
 // target objects, a JS glue shape no other entry point exercises, so drive it
 // through the real WASM boundary: several targets in, one answer per target
 // out, in the order asked, with `null` where a target names no entity.
-const detailEnvelope = queryDetail(singleFile, manifest, [
+const detailEnvelope = queryDetail(singleFile, [
     { kind: 'person', id: firstPersonId },
     { kind: 'person', id: 'no_such_id' },
     ...(typeof firstMarriageId === 'string' ? [{ kind: 'marriage', id: firstMarriageId }] : []),

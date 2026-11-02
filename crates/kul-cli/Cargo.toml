@@ -16,7 +16,7 @@ name = "kul"
 path = "src/main.rs"
 
 [dependencies]
-kul-core = { workspace = true, features = ["yaml"] }
+kul-core = { workspace = true }
 kul-loader = { workspace = true }
 kul-lsp = { workspace = true }
 kul-visual = { workspace = true }

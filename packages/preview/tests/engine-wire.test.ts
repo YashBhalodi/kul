@@ -28,7 +28,6 @@ const MIRROR = resolve(HERE, "..", "src", "engine-wire.ts");
 /** Every declaration `engine-wire.ts` claims to mirror. */
 const MIRRORED = [
     "WasmInputFile",
-    "Manifest",
     "ExportedSpan",
     "ExportedRelated",
     "ExportedDiagnostic",

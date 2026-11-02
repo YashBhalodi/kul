@@ -19,8 +19,7 @@ name = "kul-lsp"
 path = "src/main.rs"
 
 [dependencies]
-kul-core = { workspace = true, features = ["yaml"] }
-kul-loader = { workspace = true }
+kul-core = { workspace = true }
 kul-visual = { workspace = true }
 tower-lsp = { workspace = true }
 tokio = { workspace = true }

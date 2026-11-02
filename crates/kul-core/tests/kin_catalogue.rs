@@ -2,7 +2,7 @@
 //! `Query` values a non-Rust consumer has to build for itself.
 //!
 //! `crates/kul-core/src/query/sugar.rs` is Rust-only: the WASM surface exposes
-//! `queryKin(files, manifest, query)` and no sugar at all, so a JS consumer
+//! `queryKin(files, query)` and no sugar at all, so a JS consumer
 //! that wants "siblings" constructs `kinOf(x, collateral up{1,1} down{1,1})`
 //! by hand. `packages/preview/src/kin-sets.ts` does exactly that for all
 //! thirteen, and until this file existed nothing checked the copy.
@@ -27,7 +27,6 @@ use std::path::{Path, PathBuf};
 
 use kul_core::CheckResult;
 use kul_core::ast::InputFile;
-use kul_core::manifest::Manifest;
 use kul_core::query::{
     IntRange, KinMember, Query, QueryEvalError, QuerySource, ancestors_of, aunts_uncles_of,
     children_of, cousins_of, descendants_of, evaluate, in_laws_of, nieces_nephews_of, parents_of,
@@ -150,7 +149,7 @@ fn check_example_dir(dir: &str) -> CheckResult {
             )
         })
         .collect();
-    kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs)
+    kul_core::check(&inputs)
 }
 
 fn member_ids(members: &[KinMember<'_>]) -> Vec<String> {

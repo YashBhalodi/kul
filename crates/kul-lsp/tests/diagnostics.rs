@@ -157,13 +157,7 @@ fn publish_diagnostics_match_kul_core() {
 
     let lsp_diags = params["diagnostics"].as_array().expect("diagnostics array");
     let inputs = vec![kul_core::ast::InputFile::new("test.kul", FIXTURE)];
-    let core_diags = kul_core::check_with_manifest(
-        "kul.yml",
-        "",
-        &kul_core::manifest::Manifest::default(),
-        &inputs,
-    )
-    .diagnostics;
+    let core_diags = kul_core::check(&inputs).diagnostics;
     let line_index = LineIndex::new(FIXTURE);
 
     assert_eq!(

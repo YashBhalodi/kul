@@ -14,7 +14,6 @@
 import type {
     DetailLookupResult,
     DetailTarget,
-    Manifest,
     Query,
     QueryEnvelope,
     QueryResult,
@@ -32,12 +31,11 @@ export interface EngineSource {
 
 /**
  * The project a query runs against. Every WASM operation is stateless — it
- * takes `files + manifest` and re-checks — so the source travels with the
+ * takes the project's files and re-checks — so the source travels with the
  * picture it produced (ADR-0034).
  */
 export interface ProjectSnapshot {
     files: WasmInputFile[];
-    manifest: Manifest;
 }
 
 /**
@@ -48,17 +46,14 @@ export interface ProjectSnapshot {
 export interface EngineModule {
     queryDetail(
         files: WasmInputFile[],
-        manifest: Manifest,
         targets: DetailTarget[],
     ): QueryEnvelope<DetailLookupResult>;
     queryKin(
         files: WasmInputFile[],
-        manifest: Manifest,
         query: Query,
     ): QueryEnvelope<QueryResult>;
     runQuery(
         files: WasmInputFile[],
-        manifest: Manifest,
         query: Query,
     ): QueryEnvelope<QueryResult>;
     /**
@@ -72,7 +67,6 @@ export interface EngineModule {
      */
     queryResolve(
         files: WasmInputFile[],
-        manifest: Manifest,
         xId: string,
         yId: string,
     ): QueryEnvelope<ResolveResult>;
@@ -197,19 +191,19 @@ export function createQueryEngine(
     return {
         async queryDetail(project, targets) {
             const mod = await moduleOnce();
-            return mod.queryDetail(project.files, project.manifest, targets);
+            return mod.queryDetail(project.files, targets);
         },
         async queryKin(project, query) {
             const mod = await moduleOnce();
-            return mod.queryKin(project.files, project.manifest, query);
+            return mod.queryKin(project.files, query);
         },
         async runQuery(project, query) {
             const mod = await moduleOnce();
-            return mod.runQuery(project.files, project.manifest, query);
+            return mod.runQuery(project.files, query);
         },
         async queryResolve(project, xId, yId) {
             const mod = await moduleOnce();
-            return mod.queryResolve(project.files, project.manifest, xId, yId);
+            return mod.queryResolve(project.files, xId, yId);
         },
         get isLoaded() {
             return loaded !== null;

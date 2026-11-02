@@ -1,5 +1,5 @@
 //! Integration tests for `workspace/didChangeWatchedFiles`: external
-//! Create/Change/Delete of `.kul` files and `kul.yml`, including the
+//! Create/Change/Delete of `.kul` files, including the
 //! overlay-wins rule for files currently open in the editor.
 
 use std::collections::BTreeMap;
@@ -368,40 +368,6 @@ fn deleted_event_keeps_open_buffer_and_its_dependents() {
     assert!(
         joneses_codes.iter().all(|c| c != "KUL-R02"),
         "joneses.kul must keep resolving m_alice_bob from the surviving buffer; got: {joneses_codes:?}",
-    );
-}
-
-#[test]
-fn deleted_event_for_kul_yml_evicts_project_and_clears_all_uris() {
-    let (dir, urls) = common::fixture_project(
-        "watched_deleted_kul_yml",
-        &[("smiths.kul", SMITHS), ("joneses.kul", JONESES_WITH_XREF)],
-    );
-    let smiths_uri = urls[0].as_str().to_owned();
-    let joneses_uri = urls[1].as_str().to_owned();
-
-    let mut handle = Handle::spawn();
-    handshake(&mut handle);
-    did_open(&mut handle, &joneses_uri, JONESES_WITH_XREF);
-    let _ = handle.collect_publishes(Instant::now() + Duration::from_millis(400));
-
-    let manifest_path = dir.join("kul.yml");
-    std::fs::remove_file(&manifest_path).expect("remove kul.yml");
-    let manifest_uri = Url::from_file_path(&manifest_path)
-        .expect("file URL")
-        .to_string();
-    did_change_watched_file(&mut handle, &manifest_uri, 3);
-
-    let publishes = handle.collect_publishes(Instant::now() + Duration::from_millis(800));
-    assert!(
-        empty_publish_for(&publishes, &smiths_uri),
-        "smiths.kul should get a clearing publish on manifest deletion; got: {:?}",
-        publishes.get(&smiths_uri),
-    );
-    assert!(
-        empty_publish_for(&publishes, &joneses_uri),
-        "joneses.kul should get a clearing publish on manifest deletion; got: {:?}",
-        publishes.get(&joneses_uri),
     );
 }
 

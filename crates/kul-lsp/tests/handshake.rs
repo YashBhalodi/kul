@@ -150,7 +150,6 @@ fn handshake_and_did_open() {
     let dir = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("handshake");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("create fixture dir");
-    std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").expect("write kul.yml");
     let kul_path = dir.join("alice.kul");
     let kul_url = tower_lsp::lsp_types::Url::from_file_path(&kul_path).expect("file URL");
     write_message(

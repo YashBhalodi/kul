@@ -792,7 +792,6 @@ describe("a render takes the lens down rather than re-asserting it", () => {
 describe("the mounted preview feeds the lens pointer movement", () => {
     const PROJECT: ProjectSnapshot = {
         files: [{ name: "family.kul", source: "# fixture\n" }],
-        manifest: { kul: "0.1" },
     };
 
     function mounted(): { container: HTMLElement; handle: PreviewHandle } {

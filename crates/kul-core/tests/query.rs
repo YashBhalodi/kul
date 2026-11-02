@@ -12,7 +12,6 @@ use std::path::{Path, PathBuf};
 
 use kul_core::CheckResult;
 use kul_core::ast::InputFile;
-use kul_core::manifest::Manifest;
 use kul_core::query::{marriage_lookup, person_lookup};
 
 use crate::common::check_one;
@@ -55,7 +54,7 @@ fn check_multi_file(dir: &str) -> CheckResult {
             )
         })
         .collect();
-    kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs)
+    kul_core::check(&inputs)
 }
 
 fn person_json(check: &CheckResult, id: &str) -> String {

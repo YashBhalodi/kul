@@ -9,7 +9,6 @@
 use std::path::{Path, PathBuf};
 
 use kul_core::ast::InputFile;
-use kul_core::manifest::Manifest;
 use kul_core::query::{
     DetailTarget, IntRange, Query, ResolveConfig, detail_lookup, kin_query, marriage_lookup,
     person_lookup, resolve_relationship,
@@ -41,9 +40,8 @@ fn nuclear_inputs() -> Vec<InputFile> {
 #[test]
 fn person_lookup_json_matches_core() {
     let inputs = nuclear_inputs();
-    let manifest = Manifest::default();
-    let via_wasm = query_person_with(&inputs, &manifest, "hiroshi");
-    let check = kul_core::check_with_manifest("kul.yml", "", &manifest, &inputs);
+    let via_wasm = query_person_with(&inputs, "hiroshi");
+    let check = kul_core::check(&inputs);
     let via_core = person_lookup(&check, "hiroshi");
     assert_eq!(
         serde_json::to_string_pretty(&via_wasm).unwrap(),
@@ -54,9 +52,8 @@ fn person_lookup_json_matches_core() {
 #[test]
 fn marriage_lookup_json_matches_core() {
     let inputs = nuclear_inputs();
-    let manifest = Manifest::default();
-    let via_wasm = query_marriage_with(&inputs, &manifest, "m_hiroshi_yuki");
-    let check = kul_core::check_with_manifest("kul.yml", "", &manifest, &inputs);
+    let via_wasm = query_marriage_with(&inputs, "m_hiroshi_yuki");
+    let check = kul_core::check(&inputs);
     let via_core = marriage_lookup(&check, "m_hiroshi_yuki");
     assert_eq!(
         serde_json::to_string_pretty(&via_wasm).unwrap(),
@@ -74,7 +71,7 @@ fn wasm_abi_signature_returns_ok_arm_for_known_id() {
         name: "nuclear-family.kul".into(),
         source: inputs[0].source.to_string(),
     }];
-    let envelope = query_person(files, Manifest::default(), "hiroshi".to_string());
+    let envelope = query_person(files, "hiroshi".to_string());
     let json = serde_json::to_value(&envelope).unwrap();
     assert_eq!(json["ok"], true);
     assert_eq!(json["result"]["id"], "hiroshi");
@@ -85,7 +82,7 @@ fn wasm_abi_signature_returns_ok_arm_for_known_id() {
 #[test]
 fn unknown_id_yields_ok_arm_with_null_result() {
     let inputs = nuclear_inputs();
-    let envelope = query_person_with(&inputs, &Manifest::default(), "nobody");
+    let envelope = query_person_with(&inputs, "nobody");
     let json = serde_json::to_value(&envelope).unwrap();
     assert_eq!(json["ok"], true);
     assert!(json["result"].is_null(), "expected null result: {json}");
@@ -96,7 +93,7 @@ fn unknown_id_yields_ok_arm_with_null_result() {
 #[test]
 fn failing_project_yields_error_arm() {
     let inputs = vec![InputFile::new("input.kul", "person alice gender:female\n")];
-    let envelope = query_person_with(&inputs, &Manifest::default(), "alice");
+    let envelope = query_person_with(&inputs, "alice");
     let json = serde_json::to_value(&envelope).unwrap();
     assert_eq!(json["ok"], false);
     assert!(
@@ -117,10 +114,9 @@ fn failing_project_yields_error_arm() {
 #[test]
 fn kin_query_json_matches_core() {
     let inputs = nuclear_inputs();
-    let manifest = Manifest::default();
     let query = Query::kin_ancestors("akiko", IntRange::exactly(1), None);
-    let via_wasm = query_kin_with(&inputs, &manifest, &query);
-    let check = kul_core::check_with_manifest("kul.yml", "", &manifest, &inputs);
+    let via_wasm = query_kin_with(&inputs, &query);
+    let check = kul_core::check(&inputs);
     let via_core = kin_query(&check, &query);
     assert_eq!(
         serde_json::to_string_pretty(&via_wasm).unwrap(),
@@ -139,7 +135,7 @@ fn kin_query_abi_returns_members() {
         source: inputs[0].source.to_string(),
     }];
     let query = Query::kin_descendants("hiroshi", IntRange::exactly(1), None);
-    let envelope = query_kin(files, Manifest::default(), query);
+    let envelope = query_kin(files, query);
     let json = serde_json::to_value(&envelope).unwrap();
     assert_eq!(json["ok"], true);
     assert_eq!(json["result"]["kind"], "members");
@@ -159,12 +155,11 @@ fn run_query_json_matches_core() {
     use kul_core::query::{PersonField, Predicate, Query};
 
     let inputs = nuclear_inputs();
-    let manifest = Manifest::default();
     let query = Query::all_persons().filtered(Predicate::Present {
         field: PersonField::Born,
     });
-    let via_wasm = run_query_with(&inputs, &manifest, &query);
-    let check = kul_core::check_with_manifest("kul.yml", "", &manifest, &inputs);
+    let via_wasm = run_query_with(&inputs, &query);
+    let check = kul_core::check(&inputs);
     let via_core = kul_core::query::query_envelope(&check, &query);
     assert_eq!(
         serde_json::to_string_pretty(&via_wasm).unwrap(),
@@ -183,7 +178,7 @@ fn run_query_abi_returns_person_ids() {
         name: "nuclear-family.kul".into(),
         source: inputs[0].source.to_string(),
     }];
-    let envelope = run_query(files, Manifest::default(), Query::all_persons());
+    let envelope = run_query(files, Query::all_persons());
     let json = serde_json::to_value(&envelope).unwrap();
     assert_eq!(json["ok"], true);
     assert_eq!(json["result"]["kind"], "personIds");
@@ -201,7 +196,7 @@ fn run_query_abi_returns_count() {
         name: "nuclear-family.kul".into(),
         source: inputs[0].source.to_string(),
     }];
-    let envelope = run_query(files, Manifest::default(), Query::all_persons().counting());
+    let envelope = run_query(files, Query::all_persons().counting());
     let json = serde_json::to_value(&envelope).unwrap();
     assert_eq!(json["result"]["kind"], "count");
     assert!(json["result"]["count"].as_u64().unwrap() >= 2);
@@ -218,7 +213,7 @@ fn run_query_malformed_predicate_yields_error_arm() {
         field: PersonField::Born,
         value: "not-a-date".to_string(),
     });
-    let envelope = run_query_with(&inputs, &Manifest::default(), &query);
+    let envelope = run_query_with(&inputs, &query);
     let json = serde_json::to_value(&envelope).unwrap();
     assert_eq!(json["ok"], false);
     assert_eq!(json["diagnostics"][0]["code"], "KUL-Q02");
@@ -236,7 +231,7 @@ fn kin_query_collateral_round_trips() {
     }];
     // akiko & kenji are siblings (both children of hiroshi/yuki).
     let query = Query::kin_collateral("akiko", IntRange::exactly(1), IntRange::exactly(1), None);
-    let envelope = query_kin(files, Manifest::default(), query);
+    let envelope = query_kin(files, query);
     let json = serde_json::to_value(&envelope).unwrap();
     assert_eq!(json["ok"], true);
     let members = json["result"]["members"].as_array().unwrap();
@@ -261,7 +256,7 @@ fn kin_query_affinal_round_trips() {
     }];
     // hiroshi's spouse is yuki, reached by a single `across` marriage hop.
     let query = Query::kin_spouses("hiroshi");
-    let envelope = query_kin(files, Manifest::default(), query);
+    let envelope = query_kin(files, query);
     let json = serde_json::to_value(&envelope).unwrap();
     assert_eq!(json["ok"], true);
     let members = json["result"]["members"].as_array().unwrap();
@@ -279,7 +274,7 @@ fn kin_query_affinal_round_trips() {
 fn kin_query_unknown_anchor_yields_error_arm() {
     let inputs = nuclear_inputs();
     let query = Query::kin_ancestors("nobody", IntRange::exactly(1), None);
-    let envelope = query_kin_with(&inputs, &Manifest::default(), &query);
+    let envelope = query_kin_with(&inputs, &query);
     let json = serde_json::to_value(&envelope).unwrap();
     assert_eq!(json["ok"], false);
     assert!(
@@ -301,9 +296,8 @@ fn kin_query_unknown_anchor_yields_error_arm() {
 #[test]
 fn resolve_json_matches_core() {
     let inputs = nuclear_inputs();
-    let manifest = Manifest::default();
-    let via_wasm = query_resolve_with(&inputs, &manifest, "akiko", "hiroshi", None);
-    let check = kul_core::check_with_manifest("kul.yml", "", &manifest, &inputs);
+    let via_wasm = query_resolve_with(&inputs, "akiko", "hiroshi", None);
+    let check = kul_core::check(&inputs);
     let via_core = resolve_relationship(&check, "akiko", "hiroshi", &ResolveConfig::default());
     assert_eq!(
         serde_json::to_string_pretty(&via_wasm).unwrap(),
@@ -321,13 +315,7 @@ fn resolve_abi_returns_relationships() {
         name: "nuclear-family.kul".into(),
         source: inputs[0].source.to_string(),
     }];
-    let envelope = query_resolve(
-        files,
-        Manifest::default(),
-        "akiko".to_string(),
-        "kenji".to_string(),
-        None,
-    );
+    let envelope = query_resolve(files, "akiko".to_string(), "kenji".to_string(), None);
     let json = serde_json::to_value(&envelope).unwrap();
     assert_eq!(json["ok"], true);
     // akiko & kenji are siblings → at least a collateral 1/1 descriptor.
@@ -355,7 +343,6 @@ fn resolve_config_over_the_abi() {
     // path shape only).
     let envelope = query_resolve(
         files,
-        Manifest::default(),
         "hiroshi".to_string(),
         "yuki".to_string(),
         Some(ResolveConfig {
@@ -377,7 +364,7 @@ fn resolve_config_over_the_abi() {
 #[test]
 fn resolve_unknown_id_yields_error_arm() {
     let inputs = nuclear_inputs();
-    let envelope = query_resolve_with(&inputs, &Manifest::default(), "hiroshi", "nobody", None);
+    let envelope = query_resolve_with(&inputs, "hiroshi", "nobody", None);
     let json = serde_json::to_value(&envelope).unwrap();
     assert_eq!(json["ok"], false);
     assert!(
@@ -407,14 +394,13 @@ fn adoption_inputs() -> Vec<InputFile> {
 #[test]
 fn detail_lookup_json_matches_core() {
     let inputs = adoption_inputs();
-    let manifest = Manifest::default();
     let targets = [
         DetailTarget::person("dalisay"),
         DetailTarget::marriage("m_carlos_rosa"),
         DetailTarget::adoption("dalisay", "m_tomas_elena"),
     ];
-    let via_wasm = query_detail_with(&inputs, &manifest, &targets);
-    let check = kul_core::check_with_manifest("kul.yml", "", &manifest, &inputs);
+    let via_wasm = query_detail_with(&inputs, &targets);
+    let check = kul_core::check(&inputs);
     let via_core = detail_lookup(&check, &targets);
     assert_eq!(
         serde_json::to_string_pretty(&via_wasm).unwrap(),
@@ -435,7 +421,6 @@ fn detail_abi_answers_all_three_entity_kinds_in_order() {
     }];
     let envelope = query_detail(
         files,
-        Manifest::default(),
         vec![
             DetailTarget::person("dalisay"),
             DetailTarget::marriage("m_carlos_rosa"),
@@ -458,7 +443,6 @@ fn detail_unknown_target_is_null_in_position() {
     let inputs = adoption_inputs();
     let envelope = query_detail_with(
         &inputs,
-        &Manifest::default(),
         &[
             DetailTarget::person("nobody"),
             DetailTarget::person("mateo"),
@@ -475,11 +459,7 @@ fn detail_unknown_target_is_null_in_position() {
 #[test]
 fn detail_failing_project_yields_error_arm() {
     let inputs = vec![InputFile::new("input.kul", "person alice gender:female\n")];
-    let envelope = query_detail_with(
-        &inputs,
-        &Manifest::default(),
-        &[DetailTarget::person("alice")],
-    );
+    let envelope = query_detail_with(&inputs, &[DetailTarget::person("alice")]);
     let json = serde_json::to_value(&envelope).unwrap();
     assert_eq!(json["ok"], false);
     assert!(

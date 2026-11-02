@@ -47,18 +47,12 @@ fn project_inputs(dir: &Path) -> Vec<InputFile> {
 }
 
 fn export_graph_json(inputs: &[InputFile], options: ExportOptions) -> String {
-    let manifest = kul_core::manifest::Manifest::default();
-    let envelope = kul_wasm::export_with(inputs, &manifest, options);
+    let envelope = kul_wasm::export_with(inputs, options);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 
 fn core_export_json(inputs: &[InputFile], options: ExportOptions) -> String {
-    let check = kul_core::check_with_manifest(
-        "kul.yml",
-        "",
-        &kul_core::manifest::Manifest::default(),
-        inputs,
-    );
+    let check = kul_core::check(inputs);
     let envelope = kul_core::export::export(&check, options);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
@@ -251,15 +245,13 @@ fn wasm_abi_signature_round_trips_to_export_with() {
         .join("01-nuclear-family")
         .join("nuclear-family.kul");
     let source = read(&path);
-    let manifest = kul_core::manifest::Manifest::default();
     let files = vec![WasmInputFile {
         name: "nuclear-family.kul".into(),
         source: source.clone(),
     }];
-    let via_abi = kul_wasm::export_graph(files, manifest.clone(), None);
+    let via_abi = kul_wasm::export_graph(files, None);
     let via_native = kul_wasm::export_with(
         &[InputFile::new("nuclear-family.kul", source)],
-        &manifest,
         ExportOptions::default(),
     );
     let abi_json = serde_json::to_string_pretty(&via_abi).expect("abi");

@@ -154,8 +154,8 @@ impl ResolvedDocument {
             .flat_map(|f| f.statements.iter())
     }
 
-    /// Statements in `file`, in source order. Empty when `file` is the
-    /// manifest or out of range.
+    /// Statements in `file`, in source order. Empty when `file` is out of
+    /// range.
     pub fn statements_in(&self, file: FileId) -> impl Iterator<Item = &Statement> + '_ {
         self.document
             .kul_file(file)
@@ -341,11 +341,14 @@ impl ResolvedDocument {
 
     /// Biological + adoptive parents of `person`, in source order. Each
     /// link's `link_file` is the child's file. Unresolved refs are
-    /// skipped (R02 reports them).
+    /// skipped (R02 reports them); a person this project does not declare
+    /// has no parents in it.
     #[must_use]
     pub fn parents_of<'a>(&'a self, person: &PersonStmt) -> Vec<ParentLink<'a>> {
         let mut out = Vec::new();
-        let person_file = self.file_of_person(person);
+        let Some(person_file) = self.entity_record(&person.id.name).map(|e| e.file) else {
+            return out;
+        };
         if let Some(birth) = &person.birth
             && let Some(marriage) = self.marriage(&birth.marriage_ref.name)
         {
@@ -409,14 +412,6 @@ impl ResolvedDocument {
                 })
             })
             .collect()
-    }
-
-    /// File containing a person's declaration; falls back to
-    /// [`FileId::MANIFEST`] only to keep the type total.
-    fn file_of_person(&self, person: &PersonStmt) -> FileId {
-        self.entity_record(&person.id.name)
-            .map(|e| e.file)
-            .unwrap_or(FileId::MANIFEST)
     }
 }
 
@@ -595,11 +590,11 @@ mod tests {
     use crate::parser::parse;
 
     fn resolve_source(source: &str) -> (ResolvedDocument, FileId) {
-        let file = FileId(1);
+        let file = FileId(0);
         let tokens = tokenize(source);
         let (statements, _) = parse(tokens, file);
         let kf = Arc::new(KulFile::new("test.kul", source, statements));
-        let document = Arc::new(Document::new("kul.yml", vec![kf]));
+        let document = Arc::new(Document::new(vec![kf]));
         let (resolved, _) = resolve(document);
         (resolved, file)
     }
@@ -688,17 +683,14 @@ mod tests {
                      marriage m_cross alice carol start:2000\n";
         let tokens_a = tokenize(src_a);
         let tokens_b = tokenize(src_b);
-        let file_a = FileId(1);
-        let file_b = FileId(2);
+        let file_a = FileId(0);
+        let file_b = FileId(1);
         let (stmts_a, _) = parse(tokens_a, file_a);
         let (stmts_b, _) = parse(tokens_b, file_b);
-        let document = Arc::new(Document::new(
-            "kul.yml",
-            vec![
-                Arc::new(KulFile::new("a.kul", src_a, stmts_a)),
-                Arc::new(KulFile::new("b.kul", src_b, stmts_b)),
-            ],
-        ));
+        let document = Arc::new(Document::new(vec![
+            Arc::new(KulFile::new("a.kul", src_a, stmts_a)),
+            Arc::new(KulFile::new("b.kul", src_b, stmts_b)),
+        ]));
         let (resolved, _) = resolve(document);
 
         let got: Vec<FileId> = resolved
@@ -807,22 +799,22 @@ mod tests {
         let kf1 = Arc::new(KulFile::new(
             "a.kul",
             src1,
-            parse(tokenize(src1), FileId(1)).0,
+            parse(tokenize(src1), FileId(0)).0,
         ));
         let kf2 = Arc::new(KulFile::new(
             "b.kul",
             src2,
-            parse(tokenize(src2), FileId(2)).0,
+            parse(tokenize(src2), FileId(1)).0,
         ));
-        let doc = Arc::new(Document::new("kul.yml", vec![kf1, kf2]));
+        let doc = Arc::new(Document::new(vec![kf1, kf2]));
         let (_resolved, diags) = resolve(doc);
         let r01: Vec<_> = diags.iter().filter(|d| d.code == "KUL-R01").collect();
         assert_eq!(r01.len(), 1, "expected one R01: {diags:#?}");
         let d = r01[0];
         let primary = d.primary.unwrap();
-        assert_eq!(primary.file, FileId(2), "primary anchored at second file");
+        assert_eq!(primary.file, FileId(1), "primary anchored at second file");
         assert_eq!(d.related.len(), 1, "expected one related span");
-        assert_eq!(d.related[0].span.file, FileId(1));
+        assert_eq!(d.related[0].span.file, FileId(0));
     }
 
     #[test]
@@ -832,9 +824,9 @@ mod tests {
         let kf = Arc::new(KulFile::new(
             "a.kul",
             src,
-            parse(tokenize(src), FileId(1)).0,
+            parse(tokenize(src), FileId(0)).0,
         ));
-        let doc = Arc::new(Document::new("kul.yml", vec![kf]));
+        let doc = Arc::new(Document::new(vec![kf]));
         let (_resolved, diags) = resolve(doc);
         assert!(
             diags.iter().any(|d| d.code == "KUL-R01"),
@@ -850,14 +842,14 @@ mod tests {
         let kf1 = Arc::new(KulFile::new(
             "a.kul",
             src1,
-            parse(tokenize(src1), FileId(1)).0,
+            parse(tokenize(src1), FileId(0)).0,
         ));
         let kf2 = Arc::new(KulFile::new(
             "b.kul",
             src2,
-            parse(tokenize(src2), FileId(2)).0,
+            parse(tokenize(src2), FileId(1)).0,
         ));
-        let doc = Arc::new(Document::new("kul.yml", vec![kf1, kf2]));
+        let doc = Arc::new(Document::new(vec![kf1, kf2]));
         let (resolved, diags) = resolve(doc);
         assert!(diags.is_empty(), "no R01 expected: {diags:#?}");
         assert!(resolved.person("alice").is_some());
@@ -890,24 +882,24 @@ mod tests {
         let kf1 = Arc::new(KulFile::new(
             "a.kul",
             src1,
-            parse(tokenize(src1), FileId(1)).0,
+            parse(tokenize(src1), FileId(0)).0,
         ));
         let kf2 = Arc::new(KulFile::new(
             "b.kul",
             src2,
-            parse(tokenize(src2), FileId(2)).0,
+            parse(tokenize(src2), FileId(1)).0,
         ));
-        let doc = Arc::new(Document::new("kul.yml", vec![kf1, kf2]));
+        let doc = Arc::new(Document::new(vec![kf1, kf2]));
         let (resolved, _) = resolve(doc);
         let all: Vec<_> = resolved.persons().map(|p| p.id.name.clone()).collect();
         assert_eq!(all, vec!["alice".to_string(), "bob".to_string()]);
         let in_a: Vec<_> = resolved
-            .persons_in(FileId(1))
+            .persons_in(FileId(0))
             .map(|p| p.id.name.clone())
             .collect();
         assert_eq!(in_a, vec!["alice".to_string()]);
         let in_b: Vec<_> = resolved
-            .persons_in(FileId(2))
+            .persons_in(FileId(1))
             .map(|p| p.id.name.clone())
             .collect();
         assert_eq!(in_b, vec!["bob".to_string()]);

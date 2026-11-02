@@ -57,8 +57,6 @@ pub enum WatchAction {
     /// Project reloaded. Caller should broadcast and empty-publish each
     /// URL in `cleared` (used for the deleted-`.kul` case).
     Reloaded { cleared: Vec<Url> },
-    /// Project evicted (manifest deleted). Empty-publish each URL.
-    Evicted { cleared: Vec<Url> },
 }
 
 impl WatchAction {
@@ -66,13 +64,12 @@ impl WatchAction {
         match self {
             WatchAction::Ignored { reason } => reason,
             WatchAction::Reloaded { .. } => "reloaded",
-            WatchAction::Evicted { .. } => "evicted",
         }
     }
 }
 
 /// Per-`.kul` file metadata kept in `FileId` order. The `i`-th entry
-/// corresponds to `FileId(i + 1)` (the `+1` skips `FileId::MANIFEST`).
+/// corresponds to `FileId(i)`.
 #[derive(Debug, Clone)]
 pub(crate) struct FileMeta {
     pub(crate) url: Url,
@@ -82,8 +79,8 @@ pub(crate) struct FileMeta {
 /// One cached project: [`CheckResult`] + per-file metadata + the overlay.
 ///
 /// `files[i]` carries the URL and `LineIndex` of the `.kul` file at
-/// `FileId(i + 1)` (the `+1` skips `FileId::MANIFEST`); `files` and
-/// `check.document().kul_files` stay in lock-step.
+/// `FileId(i)`; `files` and `check.document().kul_files` stay in
+/// lock-step because both are in file order.
 #[derive(Debug, Clone)]
 pub struct ProjectEntry {
     pub root: ProjectRoot,
@@ -108,17 +105,17 @@ impl ProjectEntry {
         self.files
             .iter()
             .position(|f| &f.url == uri)
-            .map(|i| FileId::from_raw((i + 1) as u32))
+            .map(|i| FileId::from_raw(i as u32))
     }
 
     pub fn url_for(&self, file: FileId) -> Option<&Url> {
-        let i = file.as_u32().checked_sub(1)? as usize;
-        self.files.get(i).map(|f| &f.url)
+        self.files.get(file.as_u32() as usize).map(|f| &f.url)
     }
 
     pub fn line_index_for(&self, file: FileId) -> Option<&LineIndex> {
-        let i = file.as_u32().checked_sub(1)? as usize;
-        self.files.get(i).map(|f| &f.line_index)
+        self.files
+            .get(file.as_u32() as usize)
+            .map(|f| &f.line_index)
     }
 
     /// Map a project-wide [`FileSpan`] to an LSP [`Location`].
@@ -187,7 +184,7 @@ impl ProjectEntry {
     /// Test-only: `View` for the project's first `.kul` file.
     #[cfg(test)]
     pub fn view(&self) -> View<'_> {
-        let file = FileId::from_raw(1);
+        let file = FileId::from_raw(0);
         View {
             file,
             resolved: self.check.resolved(),
@@ -200,7 +197,7 @@ impl ProjectEntry {
     /// Test-only counterpart to [`Self::view`].
     #[cfg(test)]
     pub fn cursor(&self, position: Position) -> Option<Cursor<'_>> {
-        let file = FileId::from_raw(1);
+        let file = FileId::from_raw(0);
         let line_index = self.line_index_for(file)?;
         let offset = line_index.byte_offset(position)?;
         Some(Cursor {
@@ -355,10 +352,9 @@ impl Documents {
     /// Apply one `workspace/didChangeWatchedFiles` event. Rules:
     /// - `.kul` events only act on already-cached projects (discovery stays lazy);
     ///   `Changed`/`Deleted` are ignored for overlaid URIs (editor buffer wins).
-    /// - `kul.yml` `Created`/`Changed` reload; `Deleted` evicts the project.
     /// - Other URI shapes are ignored.
     pub async fn process_watcher_event(&self, uri: &Url, kind: FileChangeType) -> WatchAction {
-        let Some(classified) = classify_watched_uri(uri) else {
+        let Some(root) = kul_file_root(uri) else {
             return WatchAction::Ignored {
                 reason: "unknown-file-type",
             };
@@ -366,15 +362,11 @@ impl Documents {
 
         let prep = {
             let mut inner = self.inner.write().await;
-            match classified {
-                WatchedUri::Manifest { root } => prep_manifest_event(&mut inner, root, kind),
-                WatchedUri::Kul { root, uri } => prep_kul_event(&mut inner, root, uri, kind),
-            }
+            prep_kul_event(&mut inner, root, uri, kind)
         };
 
         match prep {
             WatchPrep::Ignored { reason } => WatchAction::Ignored { reason },
-            WatchPrep::Evicted { cleared } => WatchAction::Evicted { cleared },
             WatchPrep::Rebuild {
                 root,
                 overlay,
@@ -461,30 +453,14 @@ async fn rebuild_and_install(
     urls
 }
 
-/// Classification of a watched-files URI. Malformed input returns `None`
-/// so the caller can log and skip.
-enum WatchedUri<'a> {
-    Kul { root: ProjectRoot, uri: &'a Url },
-    Manifest { root: ProjectRoot },
-}
-
-fn classify_watched_uri(uri: &Url) -> Option<WatchedUri<'_>> {
+/// Project root of a watched `.kul` file URI. Any other URI shape returns
+/// `None` so the caller can log and skip.
+fn kul_file_root(uri: &Url) -> Option<ProjectRoot> {
     let path = uri.to_file_path().ok()?;
-    let file_name = path.file_name()?.to_str()?;
-    if file_name == "kul.yml" {
-        let root = path.parent().map(Path::to_path_buf)?;
-        return Some(WatchedUri::Manifest {
-            root: ProjectRoot(root),
-        });
+    if path.extension().and_then(|s| s.to_str()) != Some("kul") {
+        return None;
     }
-    if path.extension().and_then(|s| s.to_str()) == Some("kul") {
-        let root = path.parent().map(Path::to_path_buf)?;
-        return Some(WatchedUri::Kul {
-            root: ProjectRoot(root),
-            uri,
-        });
-    }
-    None
+    path.parent().map(|p| ProjectRoot(p.to_path_buf()))
 }
 
 /// Decision under the write lock for a watched-files event — rebuild IO
@@ -492,9 +468,6 @@ fn classify_watched_uri(uri: &Url) -> Option<WatchedUri<'_>> {
 enum WatchPrep {
     Ignored {
         reason: &'static str,
-    },
-    Evicted {
-        cleared: Vec<Url>,
     },
     Rebuild {
         root: ProjectRoot,
@@ -574,55 +547,10 @@ fn prep_kul_event(
     }
 }
 
-fn prep_manifest_event(
-    inner: &mut DocumentsInner,
-    root: ProjectRoot,
-    kind: FileChangeType,
-) -> WatchPrep {
-    if !inner.projects.contains_key(&root) {
-        return WatchPrep::Ignored {
-            reason: "unknown-project",
-        };
-    }
-    match kind {
-        FileChangeType::DELETED => {
-            // Directory ceases to be a project. Clear every URI it ever covered.
-            let mut cleared: Vec<Url> = {
-                let entry = inner
-                    .projects
-                    .get(&root)
-                    .expect("contains_key just checked");
-                let mut cleared: Vec<Url> = entry.project_urls().cloned().collect();
-                for url in entry.overlay.keys() {
-                    if !cleared.contains(url) {
-                        cleared.push(url.clone());
-                    }
-                }
-                cleared
-            };
-            cleared.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-            evict_root(inner, &root);
-            WatchPrep::Evicted { cleared }
-        }
-        FileChangeType::CREATED | FileChangeType::CHANGED => {
-            let (overlay, generation) = begin_rebuild(inner, &root, |_| {});
-            WatchPrep::Rebuild {
-                root,
-                overlay,
-                generation,
-                cleared: Vec::new(),
-            }
-        }
-        _ => WatchPrep::Ignored {
-            reason: "unknown-change-type",
-        },
-    }
-}
-
-/// Discover the project at `root`, overlay editor buffers, run
+/// Read the project at `root`, overlay editor buffers, run
 /// [`kul_core::check`]. Reads disk fresh every call.
 fn build_entry(root: ProjectRoot, overlay: HashMap<Url, Option<Arc<str>>>) -> ProjectEntry {
-    let (manifest_label, manifest_yaml, mut disk_files) = discover_disk(root.as_path());
+    let mut disk_files = read_disk(root.as_path());
 
     // Editor-open URIs (`Some`) override disk source; closed URIs (`None`)
     // fall back to disk if present, otherwise dropped.
@@ -636,7 +564,9 @@ fn build_entry(root: ProjectRoot, overlay: HashMap<Url, Option<Arc<str>>>) -> Pr
         }
     }
 
-    disk_files.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+    // File order is the byte-wise order of file names — the same order
+    // `kul_core::check` assigns `FileId`s in, so `files[i]` is `FileId(i)`.
+    disk_files.sort_by_cached_key(|(u, _)| url_label(u));
 
     let files: Vec<FileMeta> = disk_files
         .iter()
@@ -650,7 +580,7 @@ fn build_entry(root: ProjectRoot, overlay: HashMap<Url, Option<Arc<str>>>) -> Pr
         .map(|(u, src)| InputFile::new(url_label(u), Arc::clone(src)))
         .collect();
 
-    let check = kul_core::check(manifest_label, &manifest_yaml, &inputs);
+    let check = kul_core::check(&inputs);
 
     ProjectEntry {
         root,
@@ -661,20 +591,24 @@ fn build_entry(root: ProjectRoot, overlay: HashMap<Url, Option<Arc<str>>>) -> Pr
     }
 }
 
-/// Read manifest + every `.kul` file at `root` off disk. Thin adapter
-/// over [`kul_loader::discover`] (the lenient sibling of `load`). Overlay
+/// Read every `*.kul` file directly inside `root`. Unreadable entries are
+/// skipped so an editor session survives broken on-disk state. Overlay
 /// handling is the caller's job (see [`build_entry`]).
-fn discover_disk(root: &Path) -> (String, String, Vec<(Url, Arc<str>)>) {
-    let project = kul_loader::discover(root);
-    let files: Vec<(Url, Arc<str>)> = project
-        .files
-        .into_iter()
-        .filter_map(|f| {
-            let url = Url::from_file_path(&f.path).ok()?;
-            Some((url, Arc::from(f.source)))
+fn read_disk(root: &Path) -> Vec<(Url, Arc<str>)> {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(|entry| {
+            let path = entry.ok()?.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("kul") || path.is_dir() {
+                return None;
+            }
+            let source = std::fs::read_to_string(&path).ok()?;
+            let url = Url::from_file_path(&path).ok()?;
+            Some((url, Arc::from(source)))
         })
-        .collect();
-    (project.manifest_name, project.manifest_yaml, files)
+        .collect()
 }
 
 /// Build the [`InputFile::name`] label for diagnostic rendering. URL ↔
@@ -689,12 +623,16 @@ fn url_label(url: &Url) -> String {
     url.to_string()
 }
 
-/// Test-only: build a [`ProjectEntry`] from in-memory sources. First file
-/// is at `FileId(1)` with URL `file:///<basename>`.
+/// Test-only: build a [`ProjectEntry`] from in-memory sources, given in
+/// file order. The first file is at `FileId(0)` with URL
+/// `file:///<basename>`.
 #[cfg(test)]
 pub(crate) fn test_project_entry(files: &[(&str, &str)]) -> ProjectEntry {
-    use kul_core::manifest::Manifest;
     assert!(!files.is_empty(), "test project needs at least one file");
+    assert!(
+        files.is_sorted_by_key(|(name, _)| *name),
+        "test project files must be listed in file order"
+    );
     let file_metas: Vec<FileMeta> = files
         .iter()
         .map(|(name, src)| FileMeta {
@@ -706,7 +644,7 @@ pub(crate) fn test_project_entry(files: &[(&str, &str)]) -> ProjectEntry {
         .iter()
         .map(|(name, src)| InputFile::new(*name, *src))
         .collect();
-    let check = kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs);
+    let check = kul_core::check(&inputs);
     let mut overlay: HashMap<Url, Option<Arc<str>>> = HashMap::new();
     for (meta, (_, src)) in file_metas.iter().zip(files.iter()) {
         overlay.insert(meta.url.clone(), Some(Arc::from(*src)));

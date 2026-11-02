@@ -24,7 +24,6 @@ import { installVscodeInboundBridge } from "../src/adapter-vscode.js";
 import type {
     DetailLookupResult,
     DetailTarget,
-    Manifest,
     Query,
     QueryEnvelope,
     WasmInputFile,
@@ -50,7 +49,6 @@ const PROJECT: ProjectSnapshot = {
             source: 'person giuseppe name:"Giuseppe" gender:male\n',
         },
     ],
-    manifest: { kul: "0.1" },
 };
 
 const SVG = `<svg xmlns="http://www.w3.org/2000/svg">
@@ -70,39 +68,33 @@ function okModule(): {
     module: EngineModule;
     calls: {
         files: WasmInputFile[];
-        manifest: Manifest;
         targets: DetailTarget[];
     }[];
     resolveCalls: {
         files: WasmInputFile[];
-        manifest: Manifest;
         anchors: [string, string];
     }[];
     filterCalls: {
         files: WasmInputFile[];
-        manifest: Manifest;
         query: Query;
     }[];
 } {
     const calls: {
         files: WasmInputFile[];
-        manifest: Manifest;
         targets: DetailTarget[];
     }[] = [];
     const resolveCalls: {
         files: WasmInputFile[];
-        manifest: Manifest;
         anchors: [string, string];
     }[] = [];
     const filterCalls: {
         files: WasmInputFile[];
-        manifest: Manifest;
         query: Query;
     }[] = [];
     return {
         module: {
-            queryDetail(files, manifest, targets) {
-                calls.push({ files, manifest, targets });
+            queryDetail(files, targets) {
+                calls.push({ files, targets });
                 return {
                     ok: true,
                     result: targets.map(() => PERSON_DETAIL),
@@ -111,12 +103,12 @@ function okModule(): {
             queryKin() {
                 return { ok: true, result: { kind: "count", count: 0 } };
             },
-            runQuery(files, manifest, query) {
-                filterCalls.push({ files, manifest, query });
+            runQuery(files, query) {
+                filterCalls.push({ files, query });
                 return { ok: true, result: { kind: "personIds", personIds: [] } };
             },
-            queryResolve(files, manifest, xId, yId) {
-                resolveCalls.push({ files, manifest, anchors: [xId, yId] });
+            queryResolve(files, xId, yId) {
+                resolveCalls.push({ files, anchors: [xId, yId] });
                 return { ok: true, result: { relationships: [] } };
             },
         },
@@ -184,7 +176,7 @@ afterEach(() => {
 });
 
 describe("a query runs end to end against the rendered project", () => {
-    it("posts the render's own files + manifest to the engine and returns the envelope", async () => {
+    it("posts the render's own files to the engine and returns the envelope", async () => {
         const { module, calls } = okModule();
         const { container, handle } = mount(async () => module);
         installVscodeInboundBridge(handle);
@@ -205,7 +197,6 @@ describe("a query runs end to end against the rendered project", () => {
         expect(calls).toEqual([
             {
                 files: PROJECT.files,
-                manifest: PROJECT.manifest,
                 targets: [{ kind: "person", id: "giuseppe" }],
             },
         ]);
@@ -216,7 +207,6 @@ describe("a query runs end to end against the rendered project", () => {
         const { handle } = mount(async () => module);
         const second: ProjectSnapshot = {
             files: [{ name: "family.kul", source: "# edited\n" }],
-            manifest: { kul: "0.1" },
         };
         handle.render(SVG, PROJECT);
         handle.render(SVG, second);
@@ -236,7 +226,6 @@ describe("a query runs end to end against the rendered project", () => {
         expect(resolveCalls).toEqual([
             {
                 files: PROJECT.files,
-                manifest: PROJECT.manifest,
                 anchors: ["giuseppe", "maria"],
             },
         ]);
@@ -256,7 +245,7 @@ describe("a query runs end to end against the rendered project", () => {
         expect(envelope).not.toBeNull();
         expect(isQueryOk(envelope!)).toBe(true);
         expect(filterCalls).toEqual([
-            { files: PROJECT.files, manifest: PROJECT.manifest, query },
+            { files: PROJECT.files, query },
         ]);
     });
 

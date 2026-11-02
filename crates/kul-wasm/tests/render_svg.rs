@@ -44,8 +44,7 @@ fn project_inputs(dir: &Path) -> Vec<InputFile> {
 }
 
 fn render_svg_json(inputs: &[InputFile]) -> String {
-    let manifest = kul_core::manifest::Manifest::default();
-    let envelope = kul_wasm::render_svg_with(inputs, &manifest);
+    let envelope = kul_wasm::render_svg_with(inputs);
     serde_json::to_string_pretty(&envelope).expect("serialize envelope")
 }
 
@@ -54,12 +53,7 @@ fn render_svg_json(inputs: &[InputFile]) -> String {
 /// success/failure the same way. The wasm bridge must produce
 /// byte-identical JSON.
 fn direct_pipeline_json(inputs: &[InputFile]) -> String {
-    let check = kul_core::check_with_manifest(
-        "kul.yml",
-        "",
-        &kul_core::manifest::Manifest::default(),
-        inputs,
-    );
+    let check = kul_core::check(inputs);
     let envelope = match render_from_check(&check, &ThemeConfig::default()) {
         Ok(svg) => RenderEnvelope::Success(RenderSuccess { ok: true, svg }),
         Err(diagnostics) => RenderEnvelope::Failure(RenderFailure {
@@ -103,14 +97,12 @@ fn wasm_abi_signature_round_trips_to_render_svg_with() {
         .join("01-nuclear-family")
         .join("nuclear-family.kul");
     let source = read(&path);
-    let manifest = kul_core::manifest::Manifest::default();
     let files = vec![WasmInputFile {
         name: "nuclear-family.kul".into(),
         source: source.clone(),
     }];
-    let via_abi = kul_wasm::render_svg(files, manifest.clone());
-    let via_native =
-        kul_wasm::render_svg_with(&[InputFile::new("nuclear-family.kul", source)], &manifest);
+    let via_abi = kul_wasm::render_svg(files);
+    let via_native = kul_wasm::render_svg_with(&[InputFile::new("nuclear-family.kul", source)]);
     let abi_json = serde_json::to_string_pretty(&via_abi).expect("abi");
     let native_json = serde_json::to_string_pretty(&via_native).expect("native");
     assert_eq!(abi_json, native_json);
@@ -142,7 +134,7 @@ fn deep_lineage_source(generations: usize) -> String {
 #[test]
 fn deep_lineage_returns_failure_envelope_not_a_trap() {
     let inputs = vec![InputFile::new("deep.kul", deep_lineage_source(3_000))];
-    let envelope = kul_wasm::render_svg_with(&inputs, &kul_core::manifest::Manifest::default());
+    let envelope = kul_wasm::render_svg_with(&inputs);
     let RenderEnvelope::Failure(failure) = envelope else {
         panic!("a lineage past the depth cap must return a failure envelope, not a success");
     };

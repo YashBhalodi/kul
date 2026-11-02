@@ -652,12 +652,7 @@ fn query_json_matches_core_envelope_bytes() {
     )
     .unwrap();
     let inputs = vec![kul_core::ast::InputFile::new("nuclear-family.kul", source)];
-    let check = kul_core::check_with_manifest(
-        "kul.yml",
-        "",
-        &kul_core::manifest::Manifest::default(),
-        &inputs,
-    );
+    let check = kul_core::check(&inputs);
     let envelope = kul_core::query::person_lookup(&check, "hiroshi");
     let core_json = serde_json::to_string(&envelope).unwrap();
 
@@ -767,12 +762,7 @@ fn query_kin_json_matches_core_envelope_bytes() {
     )
     .unwrap();
     let inputs = vec![kul_core::ast::InputFile::new("nuclear-family.kul", source)];
-    let check = kul_core::check_with_manifest(
-        "kul.yml",
-        "",
-        &kul_core::manifest::Manifest::default(),
-        &inputs,
-    );
+    let check = kul_core::check(&inputs);
     let query =
         kul_core::query::Query::kin_ancestors("akiko", kul_core::query::IntRange::exactly(1), None);
     let core_json = serde_json::to_string(&kul_core::query::kin_query(&check, &query)).unwrap();
@@ -1025,12 +1015,7 @@ fn query_rel_json_matches_core_envelope_bytes() {
     )
     .unwrap();
     let inputs = vec![kul_core::ast::InputFile::new("nuclear-family.kul", source)];
-    let check = kul_core::check_with_manifest(
-        "kul.yml",
-        "",
-        &kul_core::manifest::Manifest::default(),
-        &inputs,
-    );
+    let check = kul_core::check(&inputs);
     let envelope = kul_core::query::resolve_relationship(
         &check,
         "akiko",

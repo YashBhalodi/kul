@@ -23,7 +23,6 @@ import {
     type CytoscapeGraph,
     type ExportedPerson,
     type ExportedMarriage,
-    type Manifest,
     type WasmInputFile,
     type Query,
     type RelationshipDescriptor,
@@ -58,39 +57,32 @@ if (schemaVersion < 1) {
     throw new Error('unsupported schema');
 }
 
-// The project manifest is now a required argument — JS callers construct
-// it inline. The on-disk YAML schema is `kul: "<MAJOR.MINOR>"`; the JS
-// object mirrors that field name.
-const manifest: Manifest = { kul: '0.1' };
-
-// `check` and `exportGraph` take an array of `{name, source}` pairs —
-// the JS host enumerates the project's `.kul` files itself, the bridge
-// no longer hard-codes a single opaque file name.
+// `check` and `exportGraph` take the project: an array of `{name, source}`
+// pairs, one per `.kul` file. The bridge puts them in file order itself.
 const singleFile: WasmInputFile[] = [{ name: 'input.kul', source }];
 
 // `check` returns `{ diagnostics }`. Empty array means clean — emptiness
 // is the discriminator (no `ok` field per ADR-0011).
-const cleanResult = check(singleFile, manifest);
+const cleanResult = check(singleFile);
 if (cleanResult.diagnostics.length === 0) {
     // Clean-document short-circuit: downstream consumers proceed without
     // touching the diagnostic list.
 }
 
 // Multi-file invocation: the JS host hands the whole project across the
-// ABI, mirroring how a project's `.kul` files live alongside `kul.yml`
-// on disk. Cross-file id references resolve.
+// ABI. Cross-file id references resolve.
 const multiFile: WasmInputFile[] = [
     { name: 'people.kul', source: 'person alice name:"Alice" gender:female\n' },
     { name: 'marriages.kul', source: 'person bob name:"Bob" gender:male\nmarriage m alice bob start:1970\n' },
 ];
-const multiResult = check(multiFile, manifest);
+const multiResult = check(multiFile);
 void multiResult.diagnostics.length;
 
 // Narrow into a real diagnostic against a known-broken source so the TS
 // types for `code`, `severity`, `message`, and `primary?.byteStart` land.
-// `primary` is optional: unanchored diagnostics like `KUL-M01` carry the
-// would-be location in the message rather than a byte span.
-const broken = check([{ name: 'input.kul', source: 'person alice gender:female\n' }], manifest);
+// `primary` is optional: an unanchored diagnostic describes the project as
+// a whole and carries its context in the message rather than a byte span.
+const broken = check([{ name: 'input.kul', source: 'person alice gender:female\n' }]);
 const firstDiagnostic = broken.diagnostics[0];
 if (firstDiagnostic !== undefined) {
     const code: string = firstDiagnostic.code;
@@ -107,17 +99,17 @@ if (firstDiagnostic !== undefined) {
 
 // Type system must reject a bare string where an array is expected.
 // @ts-expect-error check requires an array of input files
-check('person alice gender:female\n', manifest);
+check('person alice gender:female\n');
 
 // Type system must reject malformed file entries.
 // @ts-expect-error check entries require both `name` and `source`
-check([{ name: 'input.kul' }], manifest);
+check([{ name: 'input.kul' }]);
 
 // `exportGraph` accepts options as a typed object; omitting it is valid.
-const defaultExport = exportGraph(singleFile, manifest);
-const positionedExport = exportGraph(singleFile, manifest, { withPositions: true });
-const cytoscapeExport = exportGraph(singleFile, manifest, { format: 'cytoscape' });
-const multiFileExport = exportGraph(multiFile, manifest);
+const defaultExport = exportGraph(singleFile);
+const positionedExport = exportGraph(singleFile, { withPositions: true });
+const cytoscapeExport = exportGraph(singleFile, { format: 'cytoscape' });
+const multiFileExport = exportGraph(multiFile);
 
 // Discriminate success vs failure by structural narrowing — `in` checks
 // the discriminating field directly. The wire-level `ok` is a `boolean`
@@ -154,17 +146,17 @@ if ('graph' in cytoscapeExport) {
 
 // Type system must reject unknown format strings.
 // @ts-expect-error "graphviz" is not a valid ExportFormat
-exportGraph(singleFile, manifest, { format: 'graphviz' });
+exportGraph(singleFile, { format: 'graphviz' });
 
 // `renderSvg` runs the full canonical-visual pipeline (kul-render →
 // kul-layout → kul-svg) and returns a tagged envelope. Same input
-// shape as `check` / `exportGraph` (files + manifest); no options in
+// shape as `check` / `exportGraph` (the project's files); no options in
 // v1. The success arm carries an SVG string; the failure arm carries
 // the same `ExportedDiagnostic` shape `exportGraph`'s failure
 // envelope produces. The wire-level `ok` is a `boolean` rather than a
 // literal, so structural narrowing (`'svg' in env`) is the right tool
 // — mirrors the discrimination pattern used for `exportGraph` above.
-const renderedClean = renderSvg(singleFile, manifest);
+const renderedClean = renderSvg(singleFile);
 let renderedSvg = '';
 let renderFailureCode = '';
 if ('svg' in renderedClean) {
@@ -177,7 +169,6 @@ if ('svg' in renderedClean) {
 // produces an `ok: false` envelope here.
 const renderedBroken = renderSvg(
     [{ name: 'input.kul', source: 'person alice gender:female\n' }],
-    manifest,
 );
 if ('diagnostics' in renderedBroken) {
     renderFailureCode = renderedBroken.diagnostics[0]?.code ?? renderFailureCode;
@@ -186,11 +177,11 @@ if ('diagnostics' in renderedBroken) {
 // Type system must reject a bare string where an array is expected,
 // matching `check` / `exportGraph`'s signature.
 // @ts-expect-error renderSvg requires an array of input files
-renderSvg('person alice name:"A" gender:female\n', manifest);
+renderSvg('person alice name:"A" gender:female\n');
 
 // `queryPerson` / `queryMarriage` are the fourth WASM shape (ADR-0011):
 // the kinship query surface. Same input shape as `check` / `exportGraph`
-// (files + manifest) plus the id being looked up. The result is a
+// (the project's files) plus the id being looked up. The result is a
 // `QueryEnvelope<T>` — an `ok`-discriminated union mirroring the other
 // envelopes. The ok arm's `result` is the entity in the export shape, or
 // `null` when no entity has that id; the error arm carries the same
@@ -200,7 +191,7 @@ renderSvg('person alice name:"A" gender:female\n', manifest);
 // the right tool (mirrors the `exportGraph` / `renderSvg` pattern above).
 let lookedUpPersonName = '';
 let personLookupErrorCode = '';
-const personEnvelope = queryPerson(singleFile, manifest, 'alice');
+const personEnvelope = queryPerson(singleFile, 'alice');
 if ('result' in personEnvelope) {
     // `result` is `ExportedPerson | null` — null means no such person.
     const person: ExportedPerson | null = personEnvelope.result;
@@ -212,7 +203,7 @@ if ('result' in personEnvelope) {
 }
 
 let lookedUpMarriageId = '';
-const marriageEnvelope = queryMarriage(multiFile, manifest, 'm');
+const marriageEnvelope = queryMarriage(multiFile, 'm');
 if ('result' in marriageEnvelope) {
     const marriage: ExportedMarriage | null = marriageEnvelope.result;
     if (marriage !== null) {
@@ -224,7 +215,6 @@ if ('result' in marriageEnvelope) {
 // arm, never a partial answer.
 const brokenLookup = queryPerson(
     [{ name: 'input.kul', source: 'person alice gender:female\n' }],
-    manifest,
     'alice',
 );
 if ('diagnostics' in brokenLookup) {
@@ -234,9 +224,9 @@ if ('diagnostics' in brokenLookup) {
 // Type system must reject a bare string where an array is expected, and
 // must require the id argument.
 // @ts-expect-error queryPerson requires an array of input files
-queryPerson('person alice name:"A" gender:female\n', manifest, 'alice');
+queryPerson('person alice name:"A" gender:female\n', 'alice');
 // @ts-expect-error queryMarriage requires an id argument
-queryMarriage(singleFile, manifest);
+queryMarriage(singleFile);
 
 // `queryKin` is the kin-set variant of the fourth shape: it takes a
 // declarative `Query` value (not an id string) and returns a
@@ -256,7 +246,7 @@ const kinQuery: Query = {
 };
 let firstKinId = '';
 let kinErrorCode = '';
-const kinEnvelope = queryKin(multiFile, manifest, kinQuery);
+const kinEnvelope = queryKin(multiFile, kinQuery);
 if ('result' in kinEnvelope) {
     // `QueryResult` is tagged on `kind`; this slice produces `members`.
     if (kinEnvelope.result.kind === 'members') {
@@ -293,7 +283,7 @@ const cousinsQuery: Query = {
     },
     projection: 'members',
 };
-const cousinsEnvelope = queryKin(multiFile, manifest, cousinsQuery);
+const cousinsEnvelope = queryKin(multiFile, cousinsQuery);
 if ('result' in cousinsEnvelope && cousinsEnvelope.result.kind === 'members') {
     for (const member of cousinsEnvelope.result.members) {
         // The collateral arm carries the materialized derived numbers.
@@ -313,7 +303,7 @@ if ('result' in cousinsEnvelope && cousinsEnvelope.result.kind === 'members') {
 
 // Type system must reject an id string where a Query value is expected.
 // @ts-expect-error queryKin requires a Query value, not an id string
-queryKin(multiFile, manifest, 'alice');
+queryKin(multiFile, 'alice');
 
 // `runQuery` is the general query surface: any `Query` — the new
 // `allPersons` source plus the attribute-filter extensions (`where`
@@ -334,7 +324,7 @@ const personsQuery: Query = {
 };
 let firstPersonId = '';
 let personsErrorCode = '';
-const personsEnvelope = runQuery(multiFile, manifest, personsQuery);
+const personsEnvelope = runQuery(multiFile, personsQuery);
 if ('result' in personsEnvelope) {
     // `allPersons` + `members` produces the ids-only `personIds` shape.
     if (personsEnvelope.result.kind === 'personIds') {
@@ -352,7 +342,7 @@ const countQuery: Query = {
     projection: 'count',
 };
 let personCount = 0;
-const countEnvelope = runQuery(singleFile, manifest, countQuery);
+const countEnvelope = runQuery(singleFile, countQuery);
 if ('result' in countEnvelope && countEnvelope.result.kind === 'count') {
     personCount = countEnvelope.result.count;
 }
@@ -368,13 +358,13 @@ const filteredKinQuery: Query = {
     sort: { field: 'born' },
     projection: 'members',
 };
-const filteredKinEnvelope = runQuery(multiFile, manifest, filteredKinQuery);
+const filteredKinEnvelope = runQuery(multiFile, filteredKinQuery);
 if ('result' in filteredKinEnvelope && filteredKinEnvelope.result.kind === 'members') {
     void filteredKinEnvelope.result.members.length;
 }
 
 // Type system must reject an unknown predicate operator.
-runQuery(multiFile, manifest, {
+runQuery(multiFile, {
     source: { kind: 'allPersons' },
     // @ts-expect-error "contains" is not a valid predicate op
     where: [{ op: 'contains', field: 'name', value: 'x' }],
@@ -388,7 +378,7 @@ runQuery(multiFile, manifest, {
 let firstRelationshipKind = '';
 let resolveEmptyReason: EmptyReason | undefined;
 let resolveErrorCode = '';
-const resolveEnvelope = queryResolve(multiFile, manifest, 'alice', 'bob');
+const resolveEnvelope = queryResolve(multiFile, 'alice', 'bob');
 if ('result' in resolveEnvelope) {
     const result: ResolveResult = resolveEnvelope.result;
     if (result.relationships.length === 0) {
@@ -402,11 +392,11 @@ if ('result' in resolveEnvelope) {
 }
 
 // The config is optional; when present it carries only the generation budget.
-queryResolve(multiFile, manifest, 'alice', 'bob', { maxApexGenerations: 3 });
+queryResolve(multiFile, 'alice', 'bob', { maxApexGenerations: 3 });
 
 // Type system must reject a missing second anchor id.
 // @ts-expect-error queryResolve requires two anchor ids
-queryResolve(multiFile, manifest, 'alice');
+queryResolve(multiFile, 'alice');
 
 // `queryDetail` is the batched variant of the fourth shape: any number of
 // `DetailTarget`s answered in one project check, each with the entity's own
@@ -422,7 +412,7 @@ const detailTargets: DetailTarget[] = [
     { kind: 'marriage', id: 'm' },
     { kind: 'adoption', childId: 'carol', marriageId: 'm' },
 ];
-const detailEnvelope = queryDetail(multiFile, manifest, detailTargets);
+const detailEnvelope = queryDetail(multiFile, detailTargets);
 if ('result' in detailEnvelope) {
     for (const entry of detailEnvelope.result) {
         if (entry === null) {
@@ -459,9 +449,9 @@ if ('result' in detailEnvelope) {
 // an adoption target addressed by a single id (it has none — it is addressed
 // by the `(childId, marriageId)` pair).
 // @ts-expect-error a DetailTarget needs its kind discriminator
-queryDetail(multiFile, manifest, [{ id: 'alice' }]);
+queryDetail(multiFile, [{ id: 'alice' }]);
 // @ts-expect-error an adoption target is addressed by childId + marriageId
-queryDetail(multiFile, manifest, [{ kind: 'adoption', id: 'alice' }]);
+queryDetail(multiFile, [{ kind: 'adoption', id: 'alice' }]);
 
 // Suppress "unused binding" diagnostics in --noUnusedLocals mode.
 export const _exports = {

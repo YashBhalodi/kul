@@ -44,12 +44,7 @@ fn one_thousand_statement_check_and_translate_under_budget() {
 
     let start = std::time::Instant::now();
     let inputs = vec![kul_core::ast::InputFile::new("test.kul", source.as_str())];
-    let core = kul_core::check_with_manifest(
-        "kul.yml",
-        "",
-        &kul_core::manifest::Manifest::default(),
-        &inputs,
-    );
+    let core = kul_core::check(&inputs);
     let file = core.document().kul_file_ids().next().unwrap();
     let diagnostics = core.diagnostics.clone();
     let entry = fixture_entry(core, &["test.kul"]);
@@ -85,12 +80,7 @@ fn ten_files_of_one_hundred_statements_under_budget() {
     }
 
     let start = std::time::Instant::now();
-    let core = kul_core::check_with_manifest(
-        "kul.yml",
-        "",
-        &kul_core::manifest::Manifest::default(),
-        &inputs,
-    );
+    let core = kul_core::check(&inputs);
     let diagnostics = core.diagnostics.clone();
     let file_ids: Vec<_> = core.document().kul_file_ids().collect();
     let basename_refs: Vec<&str> = basenames.iter().map(String::as_str).collect();
@@ -233,12 +223,7 @@ fn large_document_render_under_budget() {
     let (source, declared_persons) = generate_large_document(5_000);
 
     let inputs = vec![kul_core::ast::InputFile::new("large.kul", source.as_str())];
-    let check = kul_core::check_with_manifest(
-        "kul.yml",
-        "",
-        &kul_core::manifest::Manifest::default(),
-        &inputs,
-    );
+    let check = kul_core::check(&inputs);
     assert!(
         check.diagnostics.is_empty(),
         "generated fixture must validate cleanly; got {} diagnostics: {:?}",

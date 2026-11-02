@@ -46,10 +46,6 @@ pub fn load_cwd_project() -> Result<LoadedProject, ProjectRunError> {
 /// the [`CheckResult`].
 pub fn load_and_check() -> Result<(LoadedProject, CheckResult), ExitCode> {
     let project = load_cwd_project().map_err(ProjectRunError::report)?;
-    let result = kul_core::check(
-        project.manifest_name.clone(),
-        &project.manifest_yaml,
-        &project.inputs,
-    );
+    let result = kul_core::check(&project.inputs);
     Ok((project, result))
 }

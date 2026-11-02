@@ -70,10 +70,17 @@ tools_hash() {
   cat "$HERE/cli-capture.mjs" "$HERE/lsp-dump/src/main.rs" | git hash-object --stdin
 }
 
-# build_lsp_dump <tree> <label>: build lsp-dump against <tree>'s crates and
-# print the binary path.
+# build_lsp_dump <tree> <label> [pinned]: build lsp-dump against <tree>'s
+# crates and print the binary path. `pinned` builds the dumper's `pinned`
+# feature, for the pinned tree's manifest-reading check.
 build_lsp_dump() {
-  local tree=$1 label=$2
+  local tree=$1 label=$2 pinned=${3:-}
+  local pinned_deps='' loader='' feature_flag=''
+  if [[ -n $pinned ]]; then
+    pinned_deps='"dep:kul-loader"'
+    loader="kul-loader = { path = \"$tree/crates/kul-loader\", optional = true }"
+    feature_flag=pinned
+  fi
   local dir="$BUILD/lsp-dump-$label"
   rm -rf "$dir"
   mkdir -p "$dir/src"
@@ -88,16 +95,19 @@ publish = false
 
 [workspace]
 
+[features]
+pinned = [$pinned_deps]
+
 [dependencies]
 kul-core = { path = "$tree/crates/kul-core" }
-kul-loader = { path = "$tree/crates/kul-loader" }
+$loader
 kul-lsp = { path = "$tree/crates/kul-lsp" }
 serde = "1"
 serde_json = "1"
 tower-lsp = "0.20"
 EOF
   env -u RUSTFLAGS CARGO_TARGET_DIR="$PIVOT_TARGET" \
-    cargo build --quiet --manifest-path "$dir/Cargo.toml"
+    cargo build --quiet --manifest-path "$dir/Cargo.toml" ${feature_flag:+--features "$feature_flag"}
   printf '%s\n' "$PIVOT_TARGET/debug/lsp-dump-$label"
 }
 
@@ -142,7 +152,7 @@ cmd_capture() {
 
   log "building the pinned language-feature dumper"
   local dump
-  dump=$(build_lsp_dump "$WORKTREE" baseline)
+  dump=$(build_lsp_dump "$WORKTREE" baseline pinned)
   "$dump" "$WORKTREE/examples" "$out/service"
 
   printf 'commit %s\ntools %s\n' "$(git -C "$ROOT" rev-parse "$PINNED")" "$(tools_hash)" >"$out/stamp"

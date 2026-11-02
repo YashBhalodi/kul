@@ -312,11 +312,10 @@ pub fn resolve_relationship(
 mod tests {
     use super::*;
     use crate::ast::InputFile;
-    use crate::manifest::Manifest;
 
     fn check(source: &str) -> CheckResult {
         let inputs = vec![InputFile::new("test.kul", source)];
-        crate::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs)
+        crate::check(&inputs)
     }
 
     const NUCLEAR: &str = "\
