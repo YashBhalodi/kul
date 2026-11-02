@@ -48,7 +48,7 @@ Several families that share no relatives, plus a person declared with no ties at
 
 [`../examples/08-multi-file-project/`](../examples/08-multi-file-project/)
 
-One family split across three `.kul` files in one project directory. Exercises the project-wide flat namespace ([ADR-0015](../docs/adr/0015-global-project-namespace.md)): every id is visible from every file by bare name, with no imports, and `birth` lines resolve marriages declared in sibling files.
+One family split across three `.kul` files in one project directory. Exercises the project-wide flat namespace ([ADR-0015](../docs/adr/0015-global-project-namespace.md)): every id is visible from every file by bare name, with no imports, and `birth` lines resolve marriages declared in the project's other files.
 
 ## 8.9 A family across a century
 

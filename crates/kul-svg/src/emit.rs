@@ -47,10 +47,10 @@ impl ThemeConfig {
 
     /// The "file-export" variant: self-contained + legend, fixed.
     ///
-    /// Distinct from [`ThemeConfig::default`] — the preview variant
+    /// Distinct from [`ThemeConfig::default`] — the canvas variant
     /// (theme-agnostic, no legend) per ADR-0016. This constructor is the
     /// single source of truth for the file-export shape (ADR-0022) so the
-    /// CLI's `kul export --format=svg` and the LSP's `kul/exportSvg` can
+    /// CLI's `kul export --format=svg` and the browser's SVG download can
     /// never drift.
     pub fn for_file_export() -> Self {
         Self::with_self_contained(true).with_legend(true)
@@ -98,22 +98,22 @@ pub(crate) fn render(positioned: &PositionedShape, config: &ThemeConfig) -> Stri
 }
 
 /// Concrete neutral light theme baked into a self-contained SVG
-/// ([`ThemeConfig::self_contained`]). Structural subset of the VSCode
-/// preview stylesheet; excludes all chrome (pan/zoom, hover, selection,
-/// ghost `↺` badge) per ADR-0016. Structural dasharrays ship inline.
+/// ([`ThemeConfig::self_contained`]), so a downloaded tree reads the same
+/// anywhere. It styles the structure only — no pan/zoom, hover, selection
+/// or ghost `↺` badge, which are the canvas's (ADR-0016). Structural
+/// dasharrays ship inline.
 ///
-/// The token layer mirrors the preview's two tiers (ADR-0036): tier 1 is
-/// the theme contract — colour roles, the diagram hues, the diagram font
-/// — and tier 2 is the per-site semantic layer aliasing onto it. The
-/// subset rule is what "structural subset" now means concretely: the
-/// chrome half of both tiers (raised-surface interaction states, the
-/// spacing / radius / motion scales, the reserved query paint) is skipped,
-/// because none of it has an application site in a bare SVG.
+/// The properties come in two layers (ADR-0052): **roles** carry the
+/// concrete values — colour roles, the diagram hues, the diagram font — and
+/// **per-site aliases** (`--kul-card-fill`, `--kul-edge-birth-stroke`, …)
+/// name one application site each and point at a role. Every name and value
+/// here is part of the exported SVG, which stays byte-stable.
+///
+/// `--kul-preview-bg` (the background alias) keeps the name it has always
+/// had in exported files; renaming it would change every export (ADR-0052).
 ///
 /// `--kul-ghost-stroke` keeps a literal rather than aliasing `--kul-muted`:
-/// this theme has always drawn the ghost border a shade lighter than the
-/// ghost label, and ADR-0036 re-expresses values without re-choosing them.
-/// It is the per-site override ADR-0016 kept open, used as intended.
+/// the ghost border is drawn a shade lighter than the ghost label.
 const SELF_CONTAINED_STYLE: &str = r#"<style>
 svg {
   --kul-surface: #ffffff;
@@ -627,7 +627,7 @@ mod tests {
     use super::*;
 
     /// Drift catch: the file-export variant must stay self-contained + legend.
-    /// If either bit ever changes, this fires before the CLI/LSP snapshots do.
+    /// If either bit ever changes, this fires before the CLI and workspace snapshots do.
     #[test]
     fn for_file_export_is_self_contained_with_legend() {
         let cfg = ThemeConfig::for_file_export();

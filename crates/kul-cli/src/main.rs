@@ -2,6 +2,8 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand, ValueEnum};
 
+use crate::commands::project::ProjectArg;
+
 mod commands;
 
 const VERSION_STRING: &str = concat!(
@@ -14,25 +16,24 @@ const VERSION_STRING: &str = concat!(
 const TOP_LONG_ABOUT: &str = "\
 Kul language CLI — parse, validate, format, and export Kul projects.
 
-A Kul *project* is a directory holding a `kul.yml` manifest plus one or
-more sibling `.kul` files. `kul validate`, `kul format`, and
-`kul export` all operate on the project rooted at the current working
-directory — no positional file argument is taken. `kul lsp` runs the
-language server over stdio for editor integrations.
+A Kul *project* is every `.kul` file directly inside one directory —
+not recursive; other files and subdirectories are ignored. Files are
+read in byte-wise lexicographic order of their names. Every subcommand
+takes the project directory as an optional `[DIR]` argument, defaulting
+to the current directory. A directory with no `.kul` files is an empty
+project: a valid, empty family.
 
 EXAMPLES:
-  cd examples/08-multi-file-project && kul validate
-  cd my-family && kul validate --format json | jq .
-  cd my-family && kul format          # canonicalize every .kul in place
-  cd my-family && kul format --check  # CI gate: non-zero if anything is dirty
-  cd my-family && kul export | jq .   # project graph to JSON
-  kul lsp                              # speak LSP over stdio (editor integrations)
+  kul validate examples/08-multi-file-project
+  kul validate --format json | jq .
+  kul format              # canonicalize every .kul in place
+  kul format --check      # CI gate: non-zero if anything is dirty
+  kul export my-family | jq .   # project graph to JSON
 
 EXIT CODES:
   0  project validated/formatted/exported cleanly
-  1  one or more files had error diagnostics, the project root was not a
-     Kul project (no `kul.yml`), or (under `--check`) some file was not
-     in canonical form
+  1  one or more files had error diagnostics, the project could not be
+     read, or (under `--check`) some file was not in canonical form
   2  CLI usage error (e.g. unknown flag)
 
 SEE ALSO:
@@ -54,17 +55,19 @@ struct Cli {
 }
 
 const VALIDATE_LONG_ABOUT: &str = "\
-Validate every `.kul` file in the current Kul project.
+Validate every `.kul` file in a Kul project.
 
-The project is the directory containing `kul.yml` — the command is run
-from that directory and takes no positional argument. Every `.kul` file
-sibling of `kul.yml` is parsed and run through the validator in one
-pass; project-wide rules (cross-file duplicate ids, cross-file
+The project is every `.kul` file directly inside `[DIR]` (default: the
+current directory). Every file is parsed and run through the validator
+in one pass; project-wide rules (cross-file duplicate ids, cross-file
 references, cross-file cycle detection) fire here.
 
 EXAMPLES:
-  # From a project root.
+  # The project in the current directory.
   kul validate
+
+  # The project in another directory.
+  kul validate examples/02-three-generations
 
   # Quiet mode for scripts: only diagnostics, no `ok` line.
   kul validate --quiet
@@ -93,21 +96,20 @@ JSON OUTPUT (--format json):
 ";
 
 const FORMAT_LONG_ABOUT: &str = "\
-Canonicalize every `.kul` file in the current Kul project (per ADR
-0004).
+Canonicalize every `.kul` file in a Kul project (per ADR 0004).
 
-The project is the directory containing `kul.yml` — the command is run
-from that directory and takes no positional argument. Without
-`--check`, each `.kul` file is rewritten in place. With `--check`, no
+The project is every `.kul` file directly inside `[DIR]` (default: the
+current directory). Without `--check`, each `.kul` file is rewritten in
+place. With `--check`, no
 file is modified — the command exits non-zero if any input is not
 already in canonical form, which is the right shape for a CI gate.
 
 EXAMPLES:
-  # From a project root.
+  # The project in the current directory.
   kul format
 
   # CI gate.
-  kul format --check
+  kul format --check my-family
 
 EXIT CODES:
   0  every file in the project is in canonical form (or was
@@ -118,27 +120,26 @@ EXIT CODES:
 ";
 
 const EXPORT_LONG_ABOUT: &str = "\
-Project the current Kul project to the canonical JSON envelope, an
-alternative graph JSON, or a self-contained SVG.
+Project a Kul project to the canonical JSON envelope, an alternative
+graph JSON, or a self-contained SVG.
 
-The project is the directory containing `kul.yml` — the command is run
-from that directory and takes no positional argument. The export is
+The project is every `.kul` file directly inside `[DIR]` (default: the
+current directory). The export is
 **strict**: any error-severity diagnostic blocks projection and the
 failure envelope (carrying the diagnostics) is written to stdout with
 a non-zero exit code. Warnings do not block.
 
 One envelope is written for the whole project, carrying the union of
-every file's persons, marriages, and parenthood links.
+every file's persons, marriages, and parenthood links, in file order.
 
 FORMATS (`--format`):
 
   json       (default) the canonical kinship-native envelope —
-             `persons`, `marriages`, `parenthood_links`. Spec §16.
+             `persons`, `marriages`, `parenthoodLinks`. Spec §15.
   cytoscape  Cytoscape JSON (`nodes` + `edges`), loadable into
              Cytoscape.js, Sigma.js, vis-network, etc.
-  svg        a self-contained SVG of the canonical visual — the same
-             render pipeline the VSCode preview uses, with a neutral
-             light theme baked in (inline `<style>`) so the file
+  svg        a self-contained SVG of the canonical visual, with a
+             neutral light theme baked in (inline `<style>`) so the file
              renders standalone in any browser or `<img>`. Streams to
              stdout: `kul export --format=svg > tree.svg`. On a project
              with error-severity diagnostics, nothing is written to
@@ -155,7 +156,7 @@ The success envelope shape is:
     \"graph\":  {
       \"persons\":           [ ... ],
       \"marriages\":         [ ... ],
-      \"parenthood_links\":  [ ... ]
+      \"parenthoodLinks\":   [ ... ]
     }
   }
 
@@ -166,23 +167,24 @@ The failure envelope shape is:
     \"diagnostics\": [ ... ]  // same schema as `kul validate --format json`
   }
 
-See `spec/16-export-schema.md` for the normative schema.
+See `spec/15-export-schema.md` for the normative schema.
 
 EXAMPLES:
   kul export | jq .
+  kul export --format=svg my-family > tree.svg
 
 EXIT CODES:
   0  project projected to a success envelope
   1  errors blocked the projection, or the project could not be
-     loaded
+     read
   2  CLI usage error
 ";
 
 const QUERY_LONG_ABOUT: &str = "\
-Ask kinship questions of the current Kul project.
+Ask kinship questions of a Kul project.
 
-The project is the directory containing `kul.yml` — the command is run
-from that directory and takes no positional project argument. Like
+The project is every `.kul` file directly inside `[DIR]`, the last
+argument of every verb (default: the current directory). Like
 `kul export`, `kul query` is **strict**: it runs only against a project
 that passes its checks. A project with error-severity diagnostics blocks
 the query — the diagnostics render to stderr (or, under `--format json`,
@@ -238,8 +240,7 @@ FORMATS (`--format`):
 
   human  (default) the entity's recorded fields in a readable,
          terminology-neutral layout.
-  json   the query envelope — byte-identical to what the `@kullang/wasm`
-         query surface returns. The ok arm carries `result` (the entity,
+  json   the query envelope. The ok arm carries `result` (the entity,
          or `null` when the id names none); the error arm carries
          `diagnostics`.
 
@@ -251,32 +252,23 @@ NOT FOUND:
 
 EXAMPLES:
   kul query person hiroshi
-  kul query marriage m_hiroshi_yuki --format json | jq .
+  kul query marriage m_hiroshi_yuki examples/01-nuclear-family --format json | jq .
 
 EXIT CODES:
   0  the entity was found
-  1  the entity was not found, or the project could not be loaded or
+  1  the entity was not found, or the project could not be read or
      failed its checks
   2  CLI usage error (e.g. a missing id argument)
 ";
 
-const LSP_LONG_ABOUT: &str = "\
-Run the Kul language server over stdio.
-
-This subcommand is intended for editor integrations: an editor's LSP client
-spawns `kul lsp` as a child process and exchanges JSON-RPC messages over
-stdin/stdout. Logs go to stderr.
-
-ENVIRONMENT:
-  RUST_LOG  Filter directive for tracing logs (e.g. `kul_lsp=debug`).
-            Defaults to `kul_lsp=info`.
-";
-
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// Validate every `.kul` file in the current Kul project.
+    /// Validate every `.kul` file in a Kul project.
     #[command(long_about = VALIDATE_LONG_ABOUT)]
     Validate {
+        #[command(flatten)]
+        project: ProjectArg,
+
         /// Suppress the `ok` line on success. Diagnostics are still printed.
         #[arg(short, long)]
         quiet: bool,
@@ -291,18 +283,24 @@ enum Command {
         no_color: bool,
     },
 
-    /// Format every `.kul` file in the current Kul project.
+    /// Format every `.kul` file in a Kul project.
     #[command(long_about = FORMAT_LONG_ABOUT)]
     Format {
+        #[command(flatten)]
+        project: ProjectArg,
+
         /// Verify formatting without modifying files. Exits non-zero if any
         /// input is not in canonical form. Suitable for CI.
         #[arg(long)]
         check: bool,
     },
 
-    /// Project the current Kul project to the canonical JSON envelope.
+    /// Project a Kul project to the canonical JSON envelope.
     #[command(long_about = EXPORT_LONG_ABOUT)]
     Export {
+        #[command(flatten)]
+        project: ProjectArg,
+
         /// Output format: `json` (canonical kinship envelope, default),
         /// `cytoscape` (node/edge JSON), or `svg` (self-contained SVG).
         #[arg(long, value_enum, default_value_t = commands::export::CliExportFormat::Json)]
@@ -315,16 +313,12 @@ enum Command {
         with_positions: bool,
     },
 
-    /// Ask kinship questions of the current Kul project.
+    /// Ask kinship questions of a Kul project.
     #[command(long_about = QUERY_LONG_ABOUT)]
     Query {
         #[command(subcommand)]
         verb: QueryVerb,
     },
-
-    /// Run the language server over stdio.
-    #[command(long_about = LSP_LONG_ABOUT)]
-    Lsp,
 }
 
 /// The shared attribute-filter flags (`--where` / `--sort` / `--count` /
@@ -367,8 +361,11 @@ enum QueryVerb {
         /// The person id to look up.
         id: String,
 
+        #[command(flatten)]
+        project: ProjectArg,
+
         /// Output format: `human` (default, readable fields) or `json`
-        /// (the query envelope, byte-identical to the WASM surface).
+        /// (the query envelope).
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
@@ -378,8 +375,11 @@ enum QueryVerb {
         /// The marriage id to look up.
         id: String,
 
+        #[command(flatten)]
+        project: ProjectArg,
+
         /// Output format: `human` (default, readable fields) or `json`
-        /// (the query envelope, byte-identical to the WASM surface).
+        /// (the query envelope).
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
@@ -393,6 +393,9 @@ enum QueryVerb {
 
         /// Which relation to return.
         relation: KinRelation,
+
+        #[command(flatten)]
+        project: ProjectArg,
 
         /// Generation cap for `ancestors` / `descendants` (omit for
         /// unbounded). Ignored for the fixed-shape relations.
@@ -414,7 +417,7 @@ enum QueryVerb {
         filter: FilterArgs,
 
         /// Output format: `human` (default, terminology-neutral facts) or
-        /// `json` (the query envelope, byte-identical to the WASM surface).
+        /// `json` (the query envelope).
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
@@ -424,12 +427,15 @@ enum QueryVerb {
     /// attribute-filter query. Returns person ids (hydrate with `query
     /// person <id>`), or a count with `--count`.
     Persons {
+        #[command(flatten)]
+        project: ProjectArg,
+
         /// Attribute filter / sort / count flags.
         #[command(flatten)]
         filter: FilterArgs,
 
         /// Output format: `human` (default, one line per person) or `json`
-        /// (the query envelope, byte-identical to the WASM surface).
+        /// (the query envelope).
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
@@ -444,6 +450,9 @@ enum QueryVerb {
         /// The second person id.
         y: String,
 
+        #[command(flatten)]
+        project: ProjectArg,
+
         /// Per-blood-segment generation budget (nearest-common-ancestor
         /// bound). Higher reaches more distant collaterals; direct-line ties
         /// are always found regardless. The fixed 2-affinal-hop ceiling is
@@ -452,7 +461,7 @@ enum QueryVerb {
         max_generations: u32,
 
         /// Output format: `human` (default, terminology-neutral facts) or
-        /// `json` (the query envelope, byte-identical to the WASM surface).
+        /// `json` (the query envelope).
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
@@ -488,6 +497,7 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
     match cli.command {
         Command::Validate {
+            project,
             quiet,
             format,
             no_color,
@@ -495,45 +505,78 @@ fn main() -> ExitCode {
             quiet,
             format,
             no_color,
+            project,
         }),
-        Command::Format { check } => commands::format::run(commands::format::Options { check }),
+        Command::Format { project, check } => {
+            commands::format::run(commands::format::Options { check, project })
+        }
         Command::Export {
+            project,
             format,
             with_positions,
         } => commands::export::run(commands::export::Options {
             format,
             with_positions,
+            project,
         }),
         Command::Query { verb } => run_query(verb),
-        Command::Lsp => run_lsp(),
     }
 }
 
 fn run_query(verb: QueryVerb) -> ExitCode {
     let options = match verb {
-        QueryVerb::Person { id, format } => commands::query::Options {
+        QueryVerb::Person {
+            id,
+            project,
+            format,
+        } => commands::query::Options {
             verb: commands::query::Verb::Person,
             id,
             format,
+            project,
         },
-        QueryVerb::Marriage { id, format } => commands::query::Options {
+        QueryVerb::Marriage {
+            id,
+            project,
+            format,
+        } => commands::query::Options {
             verb: commands::query::Verb::Marriage,
             id,
             format,
+            project,
         },
         QueryVerb::Kin {
             anchor,
             relation,
+            project,
             depth,
             degree,
             removed,
             filter,
             format,
-        } => return run_query_kin(anchor, relation, depth, degree, removed, filter, format),
-        QueryVerb::Persons { filter, format } => return run_query_persons(filter, format),
+        } => {
+            return run_query_kin(
+                KinArgs {
+                    anchor,
+                    relation,
+                    depth,
+                    degree,
+                    removed,
+                },
+                filter,
+                format,
+                project,
+            );
+        }
+        QueryVerb::Persons {
+            project,
+            filter,
+            format,
+        } => return run_query_persons(filter, format, project),
         QueryVerb::Rel {
             x,
             y,
+            project,
             max_generations,
             format,
         } => {
@@ -544,10 +587,20 @@ fn run_query(verb: QueryVerb) -> ExitCode {
                     max_apex_generations: max_generations,
                 },
                 format,
+                project,
             });
         }
     };
     commands::query::run(options)
+}
+
+/// The traversal half of a parsed `kul query kin` invocation.
+struct KinArgs {
+    anchor: String,
+    relation: KinRelation,
+    depth: Option<u32>,
+    degree: Option<u32>,
+    removed: u32,
 }
 
 /// Desugar a `kul query kin` invocation into the one [`Query`] value and run
@@ -555,17 +608,21 @@ fn run_query(verb: QueryVerb) -> ExitCode {
 /// sugar; there are no CLI-only query semantics.
 ///
 /// [`Query`]: kul_core::query::Query
-#[allow(clippy::too_many_arguments)] // one CLI invocation's parsed args; splitting hurts clarity.
 fn run_query_kin(
-    anchor: String,
-    relation: KinRelation,
-    depth: Option<u32>,
-    degree: Option<u32>,
-    removed: u32,
+    kin: KinArgs,
     filter: FilterArgs,
     format: OutputFormat,
+    project: ProjectArg,
 ) -> ExitCode {
     use kul_core::query::{IntRange, Query};
+
+    let KinArgs {
+        anchor,
+        relation,
+        depth,
+        degree,
+        removed,
+    } = kin;
 
     let query = match relation {
         KinRelation::Parents => Query::kin_ancestors(&anchor, IntRange::exactly(1), None),
@@ -609,18 +666,23 @@ fn run_query_kin(
         anchor,
         query,
         format,
+        project,
     })
 }
 
 /// Run a pure attribute-filter `kul query persons` invocation: the
 /// `allPersons` source plus the shared filter flags, desugared to the one
 /// Query value.
-fn run_query_persons(filter: FilterArgs, format: OutputFormat) -> ExitCode {
+fn run_query_persons(filter: FilterArgs, format: OutputFormat, project: ProjectArg) -> ExitCode {
     let query = match apply_filters(kul_core::query::Query::all_persons(), &filter) {
         Ok(query) => query,
         Err(code) => return code,
     };
-    commands::query::run_persons(commands::query::PersonsOptions { query, format })
+    commands::query::run_persons(commands::query::PersonsOptions {
+        query,
+        format,
+        project,
+    })
 }
 
 /// Attach the shared filter flags to a base [`Query`], parsing the `--where`
@@ -662,19 +724,4 @@ fn apply_filters(
         query = query.counting();
     }
     Ok(query)
-}
-
-fn run_lsp() -> ExitCode {
-    let runtime = match tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-    {
-        Ok(rt) => rt,
-        Err(err) => {
-            eprintln!("kul: failed to start language server runtime: {err}");
-            return ExitCode::from(1);
-        }
-    };
-    runtime.block_on(kul_lsp::run());
-    ExitCode::SUCCESS
 }

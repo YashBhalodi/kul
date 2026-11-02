@@ -1,20 +1,21 @@
-//! `kul validate` subcommand. Validates every `.kul` in the CWD project
-//! in one pass and reports every diagnostic, cross-file or not.
+//! `kul validate` subcommand. Validates every `.kul` file of a project in
+//! one pass and reports every diagnostic, cross-file or not.
 
 use std::process::ExitCode;
 
 use crate::OutputFormat;
 use crate::commands::diag;
-use crate::commands::project::load_and_check;
+use crate::commands::project::{ProjectArg, load_and_check};
 
 pub struct Options {
     pub quiet: bool,
     pub format: OutputFormat,
     pub no_color: bool,
+    pub project: ProjectArg,
 }
 
 pub fn run(opts: Options) -> ExitCode {
-    let (_project, result) = match load_and_check() {
+    let result = match load_and_check(&opts.project.dir) {
         Ok(x) => x,
         Err(code) => return code,
     };

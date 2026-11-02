@@ -8,7 +8,7 @@
 //! Dates are tagged `{ value, precision, circa }` so consumers don't
 //! re-parse a `~YYYY-MM-DD` string.
 //!
-//! See [`spec/16-export-schema.md`](../../../spec/16-export-schema.md),
+//! See [`spec/15-export-schema.md`](../../../spec/15-export-schema.md),
 //! ADR-0008, ADR-0009, ADR-0010.
 
 pub mod cytoscape;
@@ -40,7 +40,6 @@ pub const LANGUAGE_VERSION: &str = "0.1";
 /// Output format for [`export`]. Lowercase wire form shared by CLI flags
 /// and JS consumers.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum ExportFormat {
     /// Kinship-native JSON: `persons` / `marriages` / `parenthood_links`.
@@ -54,7 +53,6 @@ pub enum ExportFormat {
 /// Tunable knobs for [`export`]. CamelCase Deserialize with per-field
 /// defaults so JS callers can pass `{}` or partial objects.
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify), tsify(from_wasm_abi))]
 #[serde(default, rename_all = "camelCase")]
 pub struct ExportOptions {
     pub format: ExportFormat,
@@ -66,7 +64,6 @@ pub struct ExportOptions {
 /// The export envelope: success (graph) or failure (diagnostics).
 /// Untagged with a shared `ok` boolean for consumer discrimination.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify), tsify(into_wasm_abi))]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum ExportEnvelope {
     Success(SuccessEnvelope),
@@ -74,14 +71,13 @@ pub enum ExportEnvelope {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct SuccessEnvelope {
     /// Always `true`. Consumer-facing discriminator.
     pub ok: bool,
     /// Schema version (see [`SCHEMA_VERSION`]).
     pub schema: u32,
-    /// Kul language version from the manifest's `kul:` field.
+    /// The Kul language version this build implements.
     pub kul: String,
     /// The exported graph (shape determined by [`ExportOptions::format`]).
     pub graph: GraphPayload,
@@ -90,7 +86,6 @@ pub struct SuccessEnvelope {
 /// Graph payload inside a [`SuccessEnvelope`]. Untagged on the wire — the
 /// consumer knows which shape from the `--format` they requested.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum GraphPayload {
     /// Kinship-native: three flat collections.
@@ -118,7 +113,6 @@ impl GraphPayload {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct FailureEnvelope {
     /// Always `false`. Consumer-facing discriminator.
@@ -135,7 +129,6 @@ impl ExportEnvelope {
 
 /// The kinship-native graph: three flat collections.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedGraph {
     pub persons: Vec<ExportedPerson>,
@@ -221,20 +214,19 @@ pub struct ExportedDate {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedDiagnostic {
     pub code: String,
     pub severity: &'static str,
     pub message: String,
-    /// `None` for unanchored diagnostics (e.g. `KUL-M01`).
+    /// `None` for unanchored diagnostics (a project-wide fact with no single
+    /// declaration to point at).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub primary: Option<ExportedSpan>,
     pub related: Vec<ExportedRelated>,
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedRelated {
     pub label: String,
@@ -243,11 +235,9 @@ pub struct ExportedRelated {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedSpan {
-    /// Canonical file name (`InputFile.name`, or `manifest_name` for
-    /// `KUL-Mxx`).
+    /// Canonical file name (`InputFile.name`).
     pub file: String,
     pub byte_start: usize,
     pub byte_end: usize,
@@ -289,7 +279,7 @@ pub fn export(check: &CheckResult, options: ExportOptions) -> ExportEnvelope {
     ExportEnvelope::Success(SuccessEnvelope {
         ok: true,
         schema: SCHEMA_VERSION,
-        kul: check.manifest.kul_version.clone(),
+        kul: LANGUAGE_VERSION.to_string(),
         graph,
     })
 }
@@ -409,12 +399,7 @@ mod tests {
 
     fn export_source(source: &str) -> ExportEnvelope {
         let inputs = vec![crate::ast::InputFile::new("test.kul", source)];
-        let check = crate::check_with_manifest(
-            "kul.yml",
-            "",
-            &crate::manifest::Manifest::default(),
-            &inputs,
-        );
+        let check = crate::check(&inputs);
         export(&check, ExportOptions::default())
     }
 
@@ -443,16 +428,8 @@ mod tests {
     }
 
     #[test]
-    fn manifest_version_propagates_to_envelope_kul_field() {
-        let manifest = crate::manifest::Manifest {
-            kul_version: "0.1".to_string(),
-        };
-        let inputs = vec![crate::ast::InputFile::new(
-            "test.kul",
-            "person alice name:\"Alice\" gender:female\n",
-        )];
-        let check = crate::check_with_manifest("kul.yml", "", &manifest, &inputs);
-        let env = export(&check, ExportOptions::default());
+    fn envelope_kul_field_is_the_language_version() {
+        let env = export_source("person alice name:\"Alice\" gender:female\n");
         let ExportEnvelope::Success(s) = env else {
             panic!("expected success");
         };
@@ -552,12 +529,7 @@ person d name:\"D\" gender:female born:~1980
     fn cytoscape_format_returns_cytoscape_payload() {
         let src = "person alice name:\"A\" gender:female\n";
         let inputs = vec![crate::ast::InputFile::new("test.kul", src)];
-        let check = crate::check_with_manifest(
-            "kul.yml",
-            "",
-            &crate::manifest::Manifest::default(),
-            &inputs,
-        );
+        let check = crate::check(&inputs);
         let env = export(
             &check,
             ExportOptions {

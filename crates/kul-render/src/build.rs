@@ -23,7 +23,7 @@ use crate::shape::{
 /// risking a stack-overflow abort reachable from untrusted input. Chosen
 /// well above any real genealogy (recorded human lineages run to ~100
 /// generations) yet far below the "thousands" depth at which the smallest
-/// surface stacks (WASM, LSP workers) overflow. See ADR-0032.
+/// surface stack (the browser's WASM worker) overflows. See ADR-0032.
 pub(crate) const MAX_LINEAGE_DEPTH: u32 = 512;
 
 /// Diagnostic code for a lineage past [`MAX_LINEAGE_DEPTH`] (ADR-0032).
@@ -65,8 +65,7 @@ fn lineage_too_deep_diagnostic(depth: u32) -> ExportedDiagnostic {
             "lineage is {depth} generations deep, exceeding the visualization limit of \
              {MAX_LINEAGE_DEPTH}; the family tree is too deep to lay out"
         ),
-        // Whole-document property, not a single declaration — unanchored,
-        // like KUL-M01.
+        // Whole-document property, not a single declaration — unanchored.
         primary: None,
         related: Vec::new(),
     }

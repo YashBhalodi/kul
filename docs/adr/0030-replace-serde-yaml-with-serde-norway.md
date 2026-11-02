@@ -1,6 +1,6 @@
 # ADR 0030 — Replace unmaintained `serde_yaml` with the maintained `serde_norway` fork
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0048](./0048-a-project-is-a-flat-set-of-kul-files.md) — with no project file there is no YAML to parse.
 **Date:** 2026-07-06
 **Deciders:** owner
 

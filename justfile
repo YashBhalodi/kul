@@ -2,29 +2,25 @@
 
 default: check
 
-# Format-check + clippy + tests. Local-green should imply CI-green.
-check: fmt-check lint test check-ts
+# Every gate that runs on each change: Rust format, clippy and tests, the
+# WASM build and its gates, the web app's gates and the release script's
+# tests. Local-green implies CI-green: `.github/workflows/rust.yml` and
+# `web.yml` run these same recipes.
+check: fmt-check lint test wasm-check web-check web-build release-test
 
-# Run the TypeScript workspace gates (Vitest in packages/preview and
-# editor/vscode) — the same suites .github/workflows/vscode-extension.yml
-# runs per PR. Requires Node 22 and a prior `npm ci` at the repo root.
-#
-# The extension build runs too, and is not redundant with the tests: Vitest
-# resolves `packages/preview/src`, while the extension bundles `dist`. Only
-# the bundle catches a module that never reached `dist` — the failure mode a
-# `src/` subdirectory introduces, invisible to every test.
-#
-# The query engine is skipped here on purpose. ADR-0040 makes it a build asset
-# staged by `just wasm`, and promises this gate never needs a wasm toolchain;
-# packaging keeps the strict check, so a .vsix still cannot ship without it.
-check-ts:
-    npm test --workspaces --if-present
-    KUL_ALLOW_MISSING_ENGINE=1 npm run build:preview --workspace kul
-    npm run bundle --workspace kul
+# Everything `check` runs, plus the browser suites, Lighthouse, the search
+# for retired names, and actionlint over the workflows.
+verify: check e2e shots lighthouse retired-names lint-workflows
 
 # Run the full test suite via cargo-nextest.
 test:
     cargo nextest run --workspace --no-tests=pass
+
+# The per-edit perf gates under a release build — the check and diagnostics,
+# the workspace's analyze() and the tree render — because the release
+# wall-clock is the cost a user feels. `test` covers the debug ceilings.
+perf-release:
+    cargo nextest run -p kul-language-service -p kul-wasm -p kul-visual --release -E 'binary(perf)'
 
 # Auto-format the workspace.
 fmt:
@@ -56,28 +52,75 @@ install:
 render-examples:
     scripts/render-examples.sh
 
-# Build both WebAssembly artifacts. Requires `wasm-pack`.
+# Build the WebAssembly module into `crates/kul-wasm/pkg/` (package
+# `kul-wasm`, which the web app consumes as a workspace package) and copy its
+# generated `.d.ts` to the committed snapshot. Requires `wasm-pack`.
 #
-# `pkg/` is the `--target bundler` build published to npm as `@kullang/wasm`.
-# Its generated `package.json` is patched so its `name` is `@kullang/wasm`
-# (wasm-pack derives the npm name from the Cargo crate name, which is
-# `kul-wasm`), and it is the source of the committed `.d.ts` snapshot.
-#
-# `pkg-web/` is the `--target web` build the VSCode preview loads in its
-# webview (ADR-0040). It emits an ESM module with an `init(url)` entry point
-# that fetches and instantiates, which is the lazy shape ADR-0034 wants; the
-# extension stages it into `media/preview/wasm/` at package time. It is never
-# published — the same commit's core, shipped inside one extension artifact.
+# `--target web` emits an ES module whose default export fetches and
+# instantiates the `.wasm`; `initSync` takes the bytes instead, which is how
+# the Node smoke test loads it.
 wasm:
-    wasm-pack build crates/kul-wasm --target bundler --out-dir pkg --out-name kul_wasm
-    node -e 'const fs=require("fs"),p="crates/kul-wasm/pkg/package.json";const j=JSON.parse(fs.readFileSync(p));j.name="@kullang/wasm";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")'
+    wasm-pack build crates/kul-wasm --target web --out-dir pkg --out-name kul_wasm
     cp crates/kul-wasm/pkg/kul_wasm.d.ts crates/kul-wasm/types/kul_wasm.d.ts
-    wasm-pack build crates/kul-wasm --target web --out-dir pkg-web --out-name kul_wasm
 
-# Reinstall the VSCode extension end-to-end: build the LSP, package the
-# `.vsix`, and install via `code --install-extension --force`. Idempotent
-# — re-run after each code change. Reload the VSCode window afterwards
-# (Cmd+Shift+P -> "Developer: Reload Window"). Pass `release` for an
-# optimized LSP build; defaults to debug.
-vscode mode="debug":
-    editor/vscode/scripts/dev-install.sh {{mode}}
+# Build the WASM and run its gates: the committed `.d.ts` matches the build
+# (ADR-0012), the gzipped size budget (1 MB), the Node smoke test and the
+# TypeScript compile-test.
+wasm-check: wasm
+    #!/usr/bin/env bash
+    set -euo pipefail
+    git diff --exit-code -- crates/kul-wasm/types/ || {
+      echo "error: generated kul_wasm.d.ts differs from the committed snapshot; commit crates/kul-wasm/types/" >&2
+      exit 1
+    }
+    size=$(gzip -c crates/kul-wasm/pkg/kul_wasm_bg.wasm | wc -c | tr -d ' ')
+    budget=$((1024 * 1024))
+    echo "gzipped .wasm: $size bytes (budget: $budget)"
+    [[ $size -le $budget ]] || { echo "error: wasm gzip size $size exceeds budget $budget" >&2; exit 1; }
+    node crates/kul-wasm/tests/node/smoke.mjs
+    npx --yes -p typescript@5.6 tsc --project crates/kul-wasm/tests/typescript/tsconfig.json
+
+# The web app's fast gates: the serve-dist unit tests, then the app's
+# typecheck, lint and unit tests (Vitest, node and browser modes).
+web-check: (_web "typecheck" "lint" "test")
+    node --test --test-reporter=spec apps/web/scripts/serve-dist.test.mjs
+
+# The web app's dev server, on a fresh WASM build.
+web: wasm (_web "dev")
+
+# The web app's production build with prerender, into apps/web/dist/client,
+# then its _headers (CSP hashes) and the layout check (scripts/check-dist.mjs).
+web-build: wasm (_web "build")
+
+# Playwright end-to-end suites against the built site, served by
+# apps/web/scripts/serve-dist.mjs, on Chromium, WebKit and Firefox.
+e2e: web-build (_web "e2e")
+
+# The screenshot tour (apps/web/e2e/tour.spec.ts), with axe on every state.
+# Writes apps/web/test-results/shots/<state>-<theme>-<width>.png.
+shots: web-build (_web "shots")
+
+# Lighthouse CI (@lhci/cli) against serve-dist, asserting the score floors.
+lighthouse: web-build (_web "lighthouse")
+
+# Run npm scripts of apps/web in order.
+_web +SCRIPTS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for script in {{SCRIPTS}}; do
+      npm --prefix apps/web run "$script"
+    done
+
+# actionlint (with shellcheck, when installed) over .github/workflows.
+lint-workflows:
+    actionlint
+
+# The release workflow's version lockstep check (scripts/release-versions.mjs),
+# over fixture trees and this repository.
+release-test:
+    node --test --test-reporter=spec scripts/release-versions.test.mjs
+
+# Fail if a name of a retired surface is back (scripts/retired-names.sh lists
+# them and what it skips; ADR-0047).
+retired-names:
+    scripts/retired-names.sh

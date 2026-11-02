@@ -1,0 +1,10 @@
+{
+  "title": "Using the app",
+  "pages": [
+    "editor",
+    "canvas",
+    "projects",
+    "files-and-backups",
+    "keyboard-shortcuts"
+  ]
+}

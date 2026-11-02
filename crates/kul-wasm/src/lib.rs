@@ -1,377 +1,556 @@
-//! WebAssembly bindings for `kul-core`, published as `@kullang/wasm`.
+//! Kul in the browser: a stateful [`Workspace`] over one project's files.
 //!
-//! Thin adapter: translates the JS/WASM ABI into native Kul calls. No
-//! language semantics of its own.
+//! The workspace holds the project's `.kul` files, checks them on demand and
+//! caches the [`CheckResult`] (and with it the `ResolvedDocument`, ADR-0007),
+//! so a hover or a completion after an edit pays one check, not one per
+//! request. Every editor feature is a thin call into `kul-language-service`;
+//! rendering goes through `kul_visual::render_from_check` (ADR-0031). See
+//! ADR-0011 for the surface and ADR-0012 for the derived TypeScript types.
 //!
-//! `check` and `exportGraph` are project-scoped (take the full file
-//! array); `format` is per-file because the underlying formatter has no
-//! cross-file interaction.
+//! **Offsets.** Rust counts UTF-8 bytes; JavaScript counts UTF-16 code units.
+//! Every offset crossing this boundary, in either direction, is a UTF-16
+//! code-unit offset into that file's text, converted here and nowhere else.
 //!
-//! Function-shaped getters carry the version constants because
-//! wasm-bindgen does not support `&'static str` consts at the top level.
-//!
-//! `console_error_panic_hook::set_once()` runs from each entry point so
-//! `kul-core` bugs surface as readable JS console errors. Idempotent.
-//!
-//! See ADR-0011 (surface shape) and ADR-0012 (tsify-derived TS types).
+//! `console_error_panic_hook` is installed when a workspace is created, so a
+//! bug surfaces as a readable console error.
 
+mod utf16;
+
+use std::cell::OnceCell;
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
+use kul_core::CheckResult;
 use kul_core::ast::InputFile;
-use kul_core::export::{ExportEnvelope, ExportOptions, ExportedDiagnostic};
-use kul_core::manifest::Manifest;
-use kul_core::query::{
-    DetailLookupResult, DetailTarget, MarriageLookupResult, PersonLookupResult, Query,
-    QueryEnvelope, QueryResult, ResolveConfig, ResolveResult, detail_lookup, kin_query,
-    marriage_lookup, person_lookup, query_envelope, resolve_relationship,
+use kul_core::export::ExportedDiagnostic;
+use kul_core::query::EntityDetail;
+use kul_language_service::{
+    self as service, CompletionItem, Diagnostic, Entity, FileEdit, Hover, Location, OutlineSymbol,
+    QuickFix, Related, Severity, Span, TextEdit, Token,
 };
 use kul_visual::{ThemeConfig, render_from_check};
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
 
-/// Stable label for manifest-anchored diagnostics; the bridge receives
-/// a typed `Manifest` directly, not raw YAML.
-const WASM_MANIFEST_NAME: &str = "kul.yml";
+use utf16::Utf16Index;
 
-/// One `.kul` input file as the JS host hands it to the bridge. Mirrors
-/// [`kul_core::ast::InputFile`]; exists separately so `tsify` can derive
-/// a TS type without leaking the feature dependency onto `kul-core`.
-#[derive(Debug, Clone, Deserialize, Tsify)]
-#[tsify(from_wasm_abi)]
-#[serde(rename_all = "camelCase")]
-pub struct WasmInputFile {
-    pub name: String,
-    pub source: String,
-}
-
-impl From<WasmInputFile> for InputFile {
-    fn from(file: WasmInputFile) -> Self {
-        InputFile::new(file.name, file.source)
-    }
-}
-
-/// JS-side return type of [`check`]. Empty `diagnostics` means clean;
-/// consumers discriminate on emptiness, not an `ok` field (ADR-0011).
-#[derive(Debug, Clone, Serialize, Tsify)]
-#[tsify(into_wasm_abi)]
-#[serde(rename_all = "camelCase")]
-pub struct CheckEnvelope {
-    pub diagnostics: Vec<ExportedDiagnostic>,
-}
-
+/// The version of the Kul toolchain this module was built from.
 #[wasm_bindgen(js_name = "KUL_CORE_VERSION")]
 pub fn kul_core_version() -> String {
     kul_core::VERSION.into()
 }
 
+/// The version of the Kul language this module implements.
 #[wasm_bindgen(js_name = "KUL_LANGUAGE_VERSION")]
 pub fn kul_language_version() -> String {
     kul_core::export::LANGUAGE_VERSION.into()
 }
 
-#[wasm_bindgen(js_name = "EXPORT_SCHEMA_VERSION")]
-pub fn export_schema_version() -> u32 {
-    kul_core::export::SCHEMA_VERSION
+/// One diagnostic code the toolchain can report.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct DiagnosticCode {
+    /// The stable code (`KUL-R03`).
+    pub code: String,
+    /// What the code means, in a few words.
+    pub summary: String,
 }
 
-#[wasm_bindgen(js_name = "format")]
-pub fn format_source(source: &str) -> String {
-    console_error_panic_hook::set_once();
-    kul_core::format::format_source(source)
+/// Every diagnostic code the toolchain reports, in code order: what the
+/// docs' diagnostics reference must cover.
+#[wasm_bindgen(js_name = "diagnosticCodes")]
+pub fn diagnostic_codes() -> Vec<DiagnosticCode> {
+    kul_core::diagnostic::DIAGNOSTIC_CODES
+        .iter()
+        .map(|entry| DiagnosticCode {
+            code: entry.code.into(),
+            summary: entry.summary.into(),
+        })
+        .collect()
 }
 
-#[wasm_bindgen(js_name = "check")]
-pub fn check(files: Vec<WasmInputFile>, manifest: Manifest) -> CheckEnvelope {
-    console_error_panic_hook::set_once();
-    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", &manifest, &inputs);
-    let diagnostics = kul_core::export::export_diagnostics(&result);
-    CheckEnvelope { diagnostics }
+/// One analysis of the whole project: what was analyzed, what is wrong with
+/// it, and the rendered tree.
+#[derive(Debug, Clone, Serialize, Tsify)]
+#[tsify(into_wasm_abi)]
+#[serde(rename_all = "camelCase")]
+pub struct Analysis {
+    /// Every file, in file order, with the version of the text analyzed —
+    /// compare it with the latest version sent to discard a stale answer.
+    pub files: Vec<FileVersion>,
+    /// Every diagnostic of the project. Filter by `location.file` for one
+    /// file's; a diagnostic without a location concerns the whole project.
+    pub diagnostics: Vec<Diagnostic>,
+    /// The theme-agnostic SVG of the family tree (semantic CSS classes, no
+    /// colours). Absent when the project has errors, or cannot be drawn.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub svg: Option<String>,
 }
 
-#[wasm_bindgen(js_name = "exportGraph")]
-pub fn export_graph(
-    files: Vec<WasmInputFile>,
-    manifest: Manifest,
-    options: Option<ExportOptions>,
-) -> ExportEnvelope {
-    console_error_panic_hook::set_once();
-    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    export_with(&inputs, &manifest, options.unwrap_or_default())
+/// A file name and the version of its text.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct FileVersion {
+    /// The file's name.
+    pub name: String,
+    /// The version passed with its text to `setFile`.
+    pub version: u32,
 }
 
-/// Native-callable variant of [`export_graph`]; lets non-wasm tests
-/// call in without round-tripping through `JsValue`.
-pub fn export_with(
-    inputs: &[InputFile],
-    manifest: &Manifest,
-    options: ExportOptions,
-) -> ExportEnvelope {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
-    kul_core::export::export(&result, options)
-}
-
-/// JS-side return type of [`render_svg`]. Untagged success/failure
-/// discriminated by `ok`, bit-identical to
-/// `kul_lsp::features::render::RenderResponse`. The pipeline composition
-/// itself is shared through `kul_visual::render_from_check` (ADR-0031); this
-/// surface owns only the JS envelope shape around it.
+/// The answer to `rename`: the edits to apply, or why the rename was
+/// refused.
 #[derive(Debug, Clone, Serialize, Tsify)]
 #[tsify(into_wasm_abi)]
 #[serde(untagged)]
-pub enum RenderEnvelope {
-    Success(RenderSuccess),
-    Failure(RenderFailure),
+pub enum RenameResult {
+    /// The rename is valid.
+    Renamed {
+        /// Always `true`.
+        #[tsify(type = "true")]
+        ok: bool,
+        /// One entry per affected file, in file order. Apply them all
+        /// together.
+        edits: Vec<FileEdit>,
+    },
+    /// The rename was refused.
+    Refused {
+        /// Always `false`.
+        #[tsify(type = "false")]
+        ok: bool,
+        /// Why, written for the author.
+        message: String,
+    },
 }
 
-/// Success arm of [`RenderEnvelope`].
-#[derive(Debug, Clone, Serialize, Tsify)]
-#[tsify(into_wasm_abi)]
+/// How `renderSvg` themes the tree.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Tsify)]
+#[tsify(from_wasm_abi)]
 #[serde(rename_all = "camelCase")]
-pub struct RenderSuccess {
-    /// Always `true`. Consumer-facing discriminator.
-    pub ok: bool,
-    /// Theme-agnostic SVG (semantic CSS classes, no inline colours).
-    pub svg: String,
+pub enum SvgTheme {
+    /// Semantic CSS classes and no colours, for a page whose stylesheet themes
+    /// it (the same SVG `analyze` returns).
+    Agnostic,
+    /// Self-contained, for download: the light palette baked in an inline
+    /// style, plus a legend.
+    FileExport,
 }
 
-/// Failure arm of [`RenderEnvelope`]. Same diagnostic shape as
-/// [`export_graph`]'s failure path.
-#[derive(Debug, Clone, Serialize, Tsify)]
-#[tsify(into_wasm_abi)]
-#[serde(rename_all = "camelCase")]
-pub struct RenderFailure {
-    /// Always `false`. Consumer-facing discriminator.
-    pub ok: bool,
-    pub diagnostics: Vec<ExportedDiagnostic>,
+struct SourceFile {
+    text: Arc<str>,
+    version: u32,
+    offsets: OnceCell<Utf16Index>,
 }
 
-#[wasm_bindgen(js_name = "renderSvg")]
-pub fn render_svg(files: Vec<WasmInputFile>, manifest: Manifest) -> RenderEnvelope {
-    console_error_panic_hook::set_once();
-    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    render_svg_with(&inputs, &manifest)
-}
-
-/// Native-callable variant of [`render_svg`]; lets non-wasm tests call
-/// in without round-tripping through `JsValue`.
-///
-/// Routes the canonical-visual pipeline through the shared
-/// [`render_from_check`] facade with the theme-agnostic preview theme; no
-/// options surfaced in v1 (ADR-0011). This surface owns only its theme
-/// choice, its failure projection (raw `ExportedDiagnostic`s), and its
-/// output sink (the JS `RenderEnvelope`).
-pub fn render_svg_with(inputs: &[InputFile], manifest: &Manifest) -> RenderEnvelope {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
-    match render_from_check(&result, &ThemeConfig::default()) {
-        Ok(svg) => RenderEnvelope::Success(RenderSuccess { ok: true, svg }),
-        Err(diagnostics) => RenderEnvelope::Failure(RenderFailure {
-            ok: false,
-            diagnostics,
-        }),
+impl SourceFile {
+    fn offsets(&self) -> &Utf16Index {
+        self.offsets.get_or_init(|| Utf16Index::new(&self.text))
     }
 }
 
-/// Named payload aliases for the query envelopes. `Option<Exported*>`
-/// serializes to `Exported* | null` (json-compatible serializer, per the
-/// export surface); tsify erases the transparent Rust type alias, so we
-/// declare the TS names here and pin them onto the function signatures via
-/// `unchecked_return_type`. This keeps the surface reading exactly like the
-/// pinned sketch in issue #255 / PRD 0005.
-#[wasm_bindgen(typescript_custom_section)]
-const QUERY_LOOKUP_TYPES: &'static str = r#"
-export type PersonLookupResult = ExportedPerson | null;
-export type MarriageLookupResult = ExportedMarriage | null;
-export type DetailLookupResult = (EntityDetail | null)[];
-"#;
-
-/// The fourth WASM shape (ADR-0011): the kinship query surface. Looks up a
-/// person by id, gated on the project passing its checks (strict-on-errors,
-/// ADR-0009). Never throws — a failing project yields the envelope's error
-/// arm; a clean project yields the ok arm carrying the person in the export
-/// shape, or `null` when no person has that id.
-#[wasm_bindgen(
-    js_name = "queryPerson",
-    unchecked_return_type = "QueryEnvelope<PersonLookupResult>"
-)]
-pub fn query_person(
-    files: Vec<WasmInputFile>,
-    manifest: Manifest,
-    id: String,
-) -> QueryEnvelope<PersonLookupResult> {
-    console_error_panic_hook::set_once();
-    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    query_person_with(&inputs, &manifest, &id)
-}
-
-/// Native-callable variant of [`query_person`]; lets non-wasm tests call in
-/// without round-tripping through `JsValue`.
-pub fn query_person_with(
-    inputs: &[InputFile],
-    manifest: &Manifest,
-    id: &str,
-) -> QueryEnvelope<PersonLookupResult> {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
-    person_lookup(&result, id)
-}
-
-/// Marriage-lookup counterpart to [`query_person`]. Same load-and-check
-/// gate and never-throwing envelope; the ok arm carries the marriage in the
-/// export shape, or `null` when no marriage has that id.
-#[wasm_bindgen(
-    js_name = "queryMarriage",
-    unchecked_return_type = "QueryEnvelope<MarriageLookupResult>"
-)]
-pub fn query_marriage(
-    files: Vec<WasmInputFile>,
-    manifest: Manifest,
-    id: String,
-) -> QueryEnvelope<MarriageLookupResult> {
-    console_error_panic_hook::set_once();
-    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    query_marriage_with(&inputs, &manifest, &id)
-}
-
-/// Native-callable variant of [`query_marriage`].
-pub fn query_marriage_with(
-    inputs: &[InputFile],
-    manifest: &Manifest,
-    id: &str,
-) -> QueryEnvelope<MarriageLookupResult> {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
-    marriage_lookup(&result, id)
-}
-
-/// The **batched detail lookup** on the fourth WASM shape: given any number of
-/// targets — a person id, a marriage id, or an adoption's `(childId,
-/// marriageId)` pair — return each entity's own fields plus its relational
-/// neighbourhood (parents, spouses and children carrying their `biological` /
-/// `adoptive` link kinds) in **one** project check.
+/// One project's `.kul` files, with the language features over them.
 ///
-/// This is the operation a detail panel and a kin list are both fed from: one
-/// call, one check, one provenance path. Answers come back in the order asked,
-/// with `null` in the position of a target that names no entity — absence is
-/// the answer, not an error. Same load-and-check gate as the other query
-/// shapes; a failing project yields the envelope's error arm, never a throw.
-#[wasm_bindgen(
-    js_name = "queryDetail",
-    unchecked_return_type = "QueryEnvelope<DetailLookupResult>"
-)]
-pub fn query_detail(
-    files: Vec<WasmInputFile>,
-    manifest: Manifest,
-    targets: Vec<DetailTarget>,
-) -> QueryEnvelope<DetailLookupResult> {
-    console_error_panic_hook::set_once();
-    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    query_detail_with(&inputs, &manifest, &targets)
+/// Files are keyed by name; the project's file order is the byte-wise order
+/// of those names. Edits replace a file's whole text. Analysis runs on
+/// demand and is cached until the next edit.
+#[wasm_bindgen]
+pub struct Workspace {
+    files: BTreeMap<String, SourceFile>,
+    check: OnceCell<CheckResult>,
 }
 
-/// Native-callable variant of [`query_detail`]; lets non-wasm tests call in
-/// without round-tripping through `JsValue`.
-pub fn query_detail_with(
-    inputs: &[InputFile],
-    manifest: &Manifest,
-    targets: &[DetailTarget],
-) -> QueryEnvelope<DetailLookupResult> {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
-    detail_lookup(&result, targets)
+impl Default for Workspace {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
-/// Kin-set queries on the fourth WASM shape: evaluate a declarative
-/// [`Query`] value and return the matching members (person id + descriptor,
-/// **no person payload** — consumers hydrate via [`query_person`]) in the
-/// pinned deterministic order. Same load-and-check gate as the lookups; a
-/// failing project or an unknown anchor yields the envelope's error arm with
-/// a diagnostic, never a throw.
-#[wasm_bindgen(
-    js_name = "queryKin",
-    unchecked_return_type = "QueryEnvelope<QueryResult>"
-)]
-pub fn query_kin(
-    files: Vec<WasmInputFile>,
-    manifest: Manifest,
-    query: Query,
-) -> QueryEnvelope<QueryResult> {
-    console_error_panic_hook::set_once();
-    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    query_kin_with(&inputs, &manifest, &query)
+#[wasm_bindgen]
+impl Workspace {
+    /// An empty project.
+    #[wasm_bindgen(constructor)]
+    #[must_use]
+    pub fn new() -> Workspace {
+        console_error_panic_hook::set_once();
+        Workspace {
+            files: BTreeMap::new(),
+            check: OnceCell::new(),
+        }
+    }
+
+    /// Add the file `name`, or replace its text. `version` tags the text: an
+    /// analysis reports the version it saw for each file.
+    #[wasm_bindgen(js_name = "setFile")]
+    pub fn set_file(&mut self, name: String, text: String, version: u32) {
+        self.files.insert(
+            name,
+            SourceFile {
+                text: text.into(),
+                version,
+                offsets: OnceCell::new(),
+            },
+        );
+        self.check = OnceCell::new();
+    }
+
+    /// Rename the file `from` to `to`, keeping its text and version. Returns
+    /// `false`, changing nothing, when `from` does not exist or `to` does.
+    #[wasm_bindgen(js_name = "renameFile")]
+    pub fn rename_file(&mut self, from: &str, to: String) -> bool {
+        if self.files.contains_key(&to) {
+            return false;
+        }
+        let Some(file) = self.files.remove(from) else {
+            return false;
+        };
+        self.files.insert(to, file);
+        self.check = OnceCell::new();
+        true
+    }
+
+    /// Remove the file `name`. Returns `false` when there is no such file.
+    #[wasm_bindgen(js_name = "deleteFile")]
+    pub fn delete_file(&mut self, name: &str) -> bool {
+        let removed = self.files.remove(name).is_some();
+        if removed {
+            self.check = OnceCell::new();
+        }
+        removed
+    }
+
+    /// Check the project: its diagnostics, and its tree when it has none
+    /// that are errors.
+    pub fn analyze(&self) -> Analysis {
+        let check = self.check();
+        let mut diagnostics: Vec<Diagnostic> = service::diagnostics(check)
+            .into_iter()
+            .map(|d| self.diagnostic(d))
+            .collect();
+        let svg = match render_from_check(check, &ThemeConfig::default()) {
+            Ok(svg) => Some(svg),
+            Err(failure) => {
+                // A project that passes its checks can still be too deep to
+                // draw (KUL-V01); only those render failures are new.
+                if !check.has_errors() {
+                    diagnostics.extend(failure.into_iter().map(|d| self.render_diagnostic(d)));
+                }
+                None
+            }
+        };
+        Analysis {
+            files: self
+                .files
+                .iter()
+                .map(|(name, file)| FileVersion {
+                    name: name.clone(),
+                    version: file.version,
+                })
+                .collect(),
+            diagnostics,
+            svg,
+        }
+    }
+
+    /// The SVG of the family tree in `theme`, or `undefined` when the project
+    /// has errors or cannot be drawn.
+    #[wasm_bindgen(js_name = "renderSvg")]
+    pub fn render_svg(&self, theme: SvgTheme) -> Option<String> {
+        let theme = match theme {
+            SvgTheme::Agnostic => ThemeConfig::default(),
+            SvgTheme::FileExport => ThemeConfig::for_file_export(),
+        };
+        render_from_check(self.check(), &theme).ok()
+    }
+
+    /// Hover content for `offset` in `file`.
+    pub fn hover(&self, file: &str, offset: u32) -> Option<Hover> {
+        let at = self.byte(file, offset)?;
+        let Hover { markdown, span } = service::hover(self.check(), file, at)?;
+        Some(Hover {
+            markdown,
+            span: self.span(file, span),
+        })
+    }
+
+    /// The completions at `offset` in `file`: the full set for the position,
+    /// to be filtered by the word already typed.
+    pub fn complete(&self, file: &str, offset: u32) -> Vec<CompletionItem> {
+        let Some(at) = self.byte(file, offset) else {
+            return Vec::new();
+        };
+        service::complete(self.check(), file, at)
+            .into_iter()
+            .map(completion_item)
+            .collect()
+    }
+
+    /// The declaration the reference at `offset` in `file` names.
+    pub fn definition(&self, file: &str, offset: u32) -> Option<Location> {
+        let at = self.byte(file, offset)?;
+        service::definition(self.check(), file, at).map(|l| self.location(l))
+    }
+
+    /// Every use of the id at `offset` in `file`, optionally with its
+    /// declaration; `undefined` when the cursor is not on an id.
+    pub fn references(
+        &self,
+        file: &str,
+        offset: u32,
+        #[wasm_bindgen(js_name = "includeDeclaration")] include_declaration: bool,
+    ) -> Option<Vec<Location>> {
+        let at = self.byte(file, offset)?;
+        let found = service::references(self.check(), file, at, include_declaration)?;
+        Some(found.into_iter().map(|l| self.location(l)).collect())
+    }
+
+    /// The range a rename at `offset` in `file` would change, or `undefined`
+    /// when nothing there can be renamed.
+    #[wasm_bindgen(js_name = "prepareRename")]
+    pub fn prepare_rename(&self, file: &str, offset: u32) -> Option<Span> {
+        let at = self.byte(file, offset)?;
+        service::prepare_rename(self.check(), file, at).map(|s| self.span(file, s))
+    }
+
+    /// Rename the id at `offset` in `file` to `newName`, across the project.
+    pub fn rename(
+        &self,
+        file: &str,
+        offset: u32,
+        #[wasm_bindgen(js_name = "newName")] new_name: &str,
+    ) -> RenameResult {
+        let renamed = self
+            .byte(file, offset)
+            .ok_or(service::RenameError::NotRenameable)
+            .and_then(|at| service::rename(self.check(), file, at, new_name));
+        match renamed {
+            Ok(edits) => RenameResult::Renamed {
+                ok: true,
+                edits: edits.into_iter().map(|e| self.file_edit(e)).collect(),
+            },
+            Err(e) => RenameResult::Refused {
+                ok: false,
+                message: e.message(),
+            },
+        }
+    }
+
+    /// The outline of `file`.
+    pub fn symbols(&self, file: &str) -> Vec<OutlineSymbol> {
+        service::symbols(self.check(), file)
+            .into_iter()
+            .map(|s| self.symbol(file, s))
+            .collect()
+    }
+
+    /// The quick fixes for diagnostics in `file` touching `start..end`.
+    #[wasm_bindgen(js_name = "quickFixes")]
+    pub fn quick_fixes(&self, file: &str, start: u32, end: u32) -> Vec<QuickFix> {
+        let (Some(start), Some(end)) = (self.byte(file, start), self.byte(file, end)) else {
+            return Vec::new();
+        };
+        service::quick_fixes(self.check(), file, Span { start, end })
+            .into_iter()
+            .map(
+                |QuickFix {
+                     title,
+                     diagnostic,
+                     edits,
+                 }| QuickFix {
+                    title,
+                    diagnostic: self.diagnostic(diagnostic),
+                    edits: edits.into_iter().map(|e| self.edit(file, e)).collect(),
+                },
+            )
+            .collect()
+    }
+
+    /// Highlighting for `file` from its syntax tree. Paint these over
+    /// `lexicalTokens` where both cover the same text.
+    #[wasm_bindgen(js_name = "semanticTokens")]
+    pub fn semantic_tokens(&self, file: &str) -> Vec<Token> {
+        service::semantic_tokens(self.check(), file)
+            .into_iter()
+            .map(|t| self.token(file, t))
+            .collect()
+    }
+
+    /// Highlighting for `file` from the lexer alone. Needs no analysis, so it
+    /// is cheap enough for every keystroke.
+    #[wasm_bindgen(js_name = "lexicalTokens")]
+    pub fn lexical_tokens(&self, file: &str) -> Vec<Token> {
+        let Some(source) = self.files.get(file) else {
+            return Vec::new();
+        };
+        service::lexical_tokens(&source.text)
+            .into_iter()
+            .map(|t| self.token(file, t))
+            .collect()
+    }
+
+    /// The edits that format `file` canonically: none when it already is,
+    /// `undefined` when it has syntax errors.
+    pub fn format(&self, file: &str) -> Option<Vec<TextEdit>> {
+        let edits = service::format(self.check(), file)?;
+        Some(edits.into_iter().map(|e| self.edit(file, e)).collect())
+    }
+
+    /// The entity whose id sits at `offset` in `file`.
+    #[wasm_bindgen(js_name = "entityAt")]
+    pub fn entity_at(&self, file: &str, offset: u32) -> Option<Entity> {
+        let at = self.byte(file, offset)?;
+        service::entity_at(self.check(), file, at)
+    }
+
+    /// The declaration of the person or marriage `id`.
+    pub fn locate(&self, id: &str) -> Option<Location> {
+        service::locate(self.check(), id).map(|l| self.location(l))
+    }
+
+    /// The facts about the person or marriage `id`, for a details panel;
+    /// `undefined` when there is no such entity or the project has errors.
+    pub fn details(&self, id: &str) -> Option<EntityDetail> {
+        service::details(self.check(), id)
+    }
 }
 
-/// Native-callable variant of [`query_kin`]; lets non-wasm tests call in
-/// without round-tripping through `JsValue`.
-pub fn query_kin_with(
-    inputs: &[InputFile],
-    manifest: &Manifest,
-    query: &Query,
-) -> QueryEnvelope<QueryResult> {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
-    kin_query(&result, query)
+impl Workspace {
+    /// The cached check of the current files.
+    fn check(&self) -> &CheckResult {
+        self.check.get_or_init(|| {
+            let inputs: Vec<InputFile> = self
+                .files
+                .iter()
+                .map(|(name, file)| InputFile::new(name.clone(), Arc::clone(&file.text)))
+                .collect();
+            kul_core::check(&inputs)
+        })
+    }
+
+    fn offsets(&self, file: &str) -> &Utf16Index {
+        self.files
+            .get(file)
+            .expect("every result names a workspace file")
+            .offsets()
+    }
+
+    /// A JavaScript offset into `file` as a byte offset.
+    fn byte(&self, file: &str, offset: u32) -> Option<usize> {
+        let source = self.files.get(file)?;
+        Some(source.offsets().to_byte(offset as usize))
+    }
+
+    fn span(&self, file: &str, Span { start, end }: Span) -> Span {
+        let offsets = self.offsets(file);
+        Span {
+            start: offsets.to_utf16(start),
+            end: offsets.to_utf16(end),
+        }
+    }
+
+    fn location(&self, Location { file, span }: Location) -> Location {
+        let span = self.span(&file, span);
+        Location { file, span }
+    }
+
+    fn edit(&self, file: &str, TextEdit { span, text }: TextEdit) -> TextEdit {
+        TextEdit {
+            span: self.span(file, span),
+            text,
+        }
+    }
+
+    fn file_edit(&self, FileEdit { file, edits }: FileEdit) -> FileEdit {
+        let edits = edits.into_iter().map(|e| self.edit(&file, e)).collect();
+        FileEdit { file, edits }
+    }
+
+    fn token(&self, file: &str, Token { span, kind }: Token) -> Token {
+        Token {
+            span: self.span(file, span),
+            kind,
+        }
+    }
+
+    fn symbol(&self, file: &str, s: OutlineSymbol) -> OutlineSymbol {
+        let OutlineSymbol {
+            name,
+            detail,
+            kind,
+            span,
+            selection,
+            children,
+        } = s;
+        OutlineSymbol {
+            name,
+            detail,
+            kind,
+            span: self.span(file, span),
+            selection: self.span(file, selection),
+            children: children.into_iter().map(|c| self.symbol(file, c)).collect(),
+        }
+    }
+
+    fn diagnostic(&self, d: Diagnostic) -> Diagnostic {
+        let Diagnostic {
+            code,
+            severity,
+            message,
+            location,
+            related,
+        } = d;
+        Diagnostic {
+            code,
+            severity,
+            message,
+            location: location.map(|l| self.location(l)),
+            related: related
+                .into_iter()
+                .map(|Related { message, location }| Related {
+                    message,
+                    location: self.location(location),
+                })
+                .collect(),
+        }
+    }
+
+    /// A render-shape diagnostic (`KUL-V*`) in the language service's shape.
+    fn render_diagnostic(&self, d: ExportedDiagnostic) -> Diagnostic {
+        let severity = match d.severity {
+            "warning" => Severity::Warning,
+            "note" => Severity::Note,
+            _ => Severity::Error,
+        };
+        let location = |file: String, start, end| {
+            self.location(Location {
+                file,
+                span: Span { start, end },
+            })
+        };
+        Diagnostic {
+            code: d.code,
+            severity,
+            message: d.message,
+            location: d
+                .primary
+                .map(|p| location(p.file, p.byte_start, p.byte_end)),
+            related: d
+                .related
+                .into_iter()
+                .map(|r| Related {
+                    message: r.label,
+                    location: location(r.span.file, r.span.byte_start, r.span.byte_end),
+                })
+                .collect(),
+        }
+    }
 }
 
-/// The general query surface on the fourth WASM shape: evaluate any
-/// declarative [`Query`] — an `allPersons` or `kinOf` source, an optional
-/// `where` filter, `sort`, certainty `mode`, and a `members`/`count`
-/// projection — and return the [`QueryResult`] (`members`, `personIds`, or
-/// `count`). The single evaluation path underlying [`query_kin`]; use this for
-/// attribute-filter and count queries. Same load-and-check gate; a failing
-/// project, unknown anchor, or malformed predicate yields the envelope's error
-/// arm with a diagnostic, never a throw.
-#[wasm_bindgen(
-    js_name = "runQuery",
-    unchecked_return_type = "QueryEnvelope<QueryResult>"
-)]
-pub fn run_query(
-    files: Vec<WasmInputFile>,
-    manifest: Manifest,
-    query: Query,
-) -> QueryEnvelope<QueryResult> {
-    console_error_panic_hook::set_once();
-    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    run_query_with(&inputs, &manifest, &query)
-}
-
-/// Native-callable variant of [`run_query`].
-pub fn run_query_with(
-    inputs: &[InputFile],
-    manifest: &Manifest,
-    query: &Query,
-) -> QueryEnvelope<QueryResult> {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
-    query_envelope(&result, query)
-}
-
-/// Relationship resolution on the fourth WASM shape (issue #259): return
-/// **all** the ways two persons `xId` and `yId` are related, each a
-/// terminology-neutral descriptor, plus — only when there are none — an
-/// honest emptiness reason (`disconnected` vs `noneWithinBounds`). An omitted
-/// `config` uses the default generation budget of 5. Same load-and-check gate
-/// as the other query shapes; a failing project or an unknown / wrong-kind id
-/// yields the envelope's error arm with a diagnostic, never a throw.
-#[wasm_bindgen(
-    js_name = "queryResolve",
-    unchecked_return_type = "QueryEnvelope<ResolveResult>"
-)]
-pub fn query_resolve(
-    files: Vec<WasmInputFile>,
-    manifest: Manifest,
-    x_id: String,
-    y_id: String,
-    config: Option<ResolveConfig>,
-) -> QueryEnvelope<ResolveResult> {
-    console_error_panic_hook::set_once();
-    let inputs: Vec<InputFile> = files.into_iter().map(Into::into).collect();
-    query_resolve_with(&inputs, &manifest, &x_id, &y_id, config)
-}
-
-/// Native-callable variant of [`query_resolve`]; lets non-wasm tests call in
-/// without round-tripping through `JsValue`.
-pub fn query_resolve_with(
-    inputs: &[InputFile],
-    manifest: &Manifest,
-    x_id: &str,
-    y_id: &str,
-    config: Option<ResolveConfig>,
-) -> QueryEnvelope<ResolveResult> {
-    let result = kul_core::check_with_manifest(WASM_MANIFEST_NAME, "", manifest, inputs);
-    resolve_relationship(&result, x_id, y_id, &config.unwrap_or_default())
+/// Completion items carry no file offsets; an insertion's cursor is an
+/// offset into its own (ASCII) text, converted all the same.
+fn completion_item(item: CompletionItem) -> CompletionItem {
+    let insert = item.insert.map(|mut insertion| {
+        insertion.cursor = insertion.text[..insertion.cursor].encode_utf16().count();
+        insertion
+    });
+    CompletionItem { insert, ..item }
 }

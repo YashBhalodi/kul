@@ -1,6 +1,6 @@
 # ADR 0036 — Preview theming rebuilt in two tiers, four reserved query hues, and accessibility as a stated non-goal
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0052](./0052-the-canvas-contract.md) (theming through the app's tokens) and [ADR-0047](./0047-the-browser-app-is-kuls-only-interactive-surface.md) (accessibility is a gate).
 **Date:** 2026-07-26
 **Deciders:** owner
 

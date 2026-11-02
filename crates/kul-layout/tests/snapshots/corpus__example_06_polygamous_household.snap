@@ -1,229 +1,229 @@
 ---
 source: crates/kul-layout/tests/corpus.rs
-expression: yaml
+expression: positioned
 ---
-width: 1360.0
-height: 592.0
+width: 1360
+height: 592
 cards:
-- person_id: omar
-  kind: canonical
-  x: 505.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Omar Al-Rashid
-  generation: 0
-  gender: male
-  born: ~1925
-- person_id: fatima
-  kind: canonical
-  x: 695.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Fatima Al-Rashid
-  generation: 0
-  gender: female
-  born: 1928-04-02
-- person_id: khalid
-  kind: canonical
-  x: 600.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Khalid Al-Rashid
-  generation: 1
-  gender: male
-  born: 1950-03-29
-- person_id: aisha
-  kind: canonical
-  x: 24.0
-  y: 344.0
-  width: 160.0
-  height: 64.0
-  name: Aisha Al-Rashid
-  generation: 1
-  gender: female
-  born: 1955-07-11
-- person_id: layla
-  kind: canonical
-  x: 408.0
-  y: 344.0
-  width: 160.0
-  height: 64.0
-  name: Layla Al-Rashid
-  generation: 1
-  gender: female
-  born: 1958-02-23
-- person_id: mariam
-  kind: canonical
-  x: 1176.0
-  y: 344.0
-  width: 160.0
-  height: 64.0
-  name: Mariam Al-Rashid
-  generation: 1
-  gender: female
-  born: 1962-10-19
-- person_id: yusuf
-  kind: canonical
-  x: 312.0
-  y: 504.0
-  width: 160.0
-  height: 64.0
-  name: Yusuf Al-Rashid
-  generation: 2
-  gender: male
-  born: 1977-06-13
-- person_id: zahra
-  kind: canonical
-  x: 504.0
-  y: 504.0
-  width: 160.0
-  height: 64.0
-  name: Zahra Al-Rashid
-  generation: 2
-  gender: female
-  born: 1982-01-08
-- person_id: hassan
-  kind: canonical
-  x: 792.0
-  y: 504.0
-  width: 160.0
-  height: 64.0
-  name: Hassan Al-Rashid
-  generation: 2
-  gender: male
-  born: 1987-03-21
-- person_id: noor
-  kind: canonical
-  x: 984.0
-  y: 504.0
-  width: 160.0
-  height: 64.0
-  name: Noor Al-Rashid
-  generation: 2
-  gender: female
-  born: 1990-11-07
+  - person_id: omar
+    kind: canonical
+    x: 505
+    y: 24
+    width: 160
+    height: 64
+    name: Omar Al-Rashid
+    generation: 0
+    gender: male
+    born: ~1925
+  - person_id: fatima
+    kind: canonical
+    x: 695
+    y: 24
+    width: 160
+    height: 64
+    name: Fatima Al-Rashid
+    generation: 0
+    gender: female
+    born: 1928-04-02
+  - person_id: khalid
+    kind: canonical
+    x: 600
+    y: 184
+    width: 160
+    height: 64
+    name: Khalid Al-Rashid
+    generation: 1
+    gender: male
+    born: 1950-03-29
+  - person_id: aisha
+    kind: canonical
+    x: 24
+    y: 344
+    width: 160
+    height: 64
+    name: Aisha Al-Rashid
+    generation: 1
+    gender: female
+    born: 1955-07-11
+  - person_id: layla
+    kind: canonical
+    x: 408
+    y: 344
+    width: 160
+    height: 64
+    name: Layla Al-Rashid
+    generation: 1
+    gender: female
+    born: 1958-02-23
+  - person_id: mariam
+    kind: canonical
+    x: 1176
+    y: 344
+    width: 160
+    height: 64
+    name: Mariam Al-Rashid
+    generation: 1
+    gender: female
+    born: 1962-10-19
+  - person_id: yusuf
+    kind: canonical
+    x: 312
+    y: 504
+    width: 160
+    height: 64
+    name: Yusuf Al-Rashid
+    generation: 2
+    gender: male
+    born: 1977-06-13
+  - person_id: zahra
+    kind: canonical
+    x: 504
+    y: 504
+    width: 160
+    height: 64
+    name: Zahra Al-Rashid
+    generation: 2
+    gender: female
+    born: 1982-01-08
+  - person_id: hassan
+    kind: canonical
+    x: 792
+    y: 504
+    width: 160
+    height: 64
+    name: Hassan Al-Rashid
+    generation: 2
+    gender: male
+    born: 1987-03-21
+  - person_id: noor
+    kind: canonical
+    x: 984
+    y: 504
+    width: 160
+    height: 64
+    name: Noor Al-Rashid
+    generation: 2
+    gender: female
+    born: 1990-11-07
 edges:
-- link_kind: birth
-  marriage_id: m_omar_fatima
-  child_id: khalid
-  is_past: false
-  points:
-  - - 680.0
-    - 56.0
-  - - 680.0
-    - 156.0
-  - - 680.0
-    - 156.0
-  - - 680.0
-    - 184.0
-- link_kind: birth
-  marriage_id: m_khalid_aisha
-  child_id: yusuf
-  is_past: false
-  points:
-  - - 392.0
-    - 316.0
-  - - 392.0
-    - 476.0
-  - - 392.0
-    - 476.0
-  - - 392.0
-    - 504.0
-- link_kind: birth
-  marriage_id: m_khalid_layla
-  child_id: zahra
-  is_past: false
-  points:
-  - - 584.0
-    - 316.0
-  - - 584.0
-    - 476.0
-  - - 584.0
-    - 476.0
-  - - 584.0
-    - 504.0
-- link_kind: birth
-  marriage_id: m_khalid_mariam
-  child_id: hassan
-  is_past: false
-  points:
-  - - 968.0
-    - 316.0
-  - - 968.0
-    - 476.0
-  - - 872.0
-    - 476.0
-  - - 872.0
-    - 504.0
-- link_kind: birth
-  marriage_id: m_khalid_mariam
-  child_id: noor
-  is_past: false
-  points:
-  - - 968.0
-    - 316.0
-  - - 968.0
-    - 476.0
-  - - 1064.0
-    - 476.0
-  - - 1064.0
-    - 504.0
-- link_kind: marriage
-  marriage_id: m_omar_fatima
-  host_id: omar
-  joining_id: fatima
-  start: 1945-08-17
-  is_ended: false
-  points:
-  - - 665.0
-    - 56.0
-  - - 695.0
-    - 56.0
-- link_kind: marriage
-  marriage_id: m_khalid_aisha
-  host_id: khalid
-  joining_id: aisha
-  start: 1975-05-04
-  is_ended: false
-  points:
-  - - 680.0
-    - 248.0
-  - - 680.0
-    - 316.0
-  - - 104.0
-    - 316.0
-  - - 104.0
-    - 344.0
-- link_kind: marriage
-  marriage_id: m_khalid_layla
-  host_id: khalid
-  joining_id: layla
-  start: 1980-09-16
-  is_ended: false
-  points:
-  - - 680.0
-    - 248.0
-  - - 680.0
-    - 316.0
-  - - 488.0
-    - 316.0
-  - - 488.0
-    - 344.0
-- link_kind: marriage
-  marriage_id: m_khalid_mariam
-  host_id: khalid
-  joining_id: mariam
-  start: 1985-12-28
-  is_ended: false
-  points:
-  - - 680.0
-    - 248.0
-  - - 680.0
-    - 316.0
-  - - 1256.0
-    - 316.0
-  - - 1256.0
-    - 344.0
+  - link_kind: birth
+    marriage_id: m_omar_fatima
+    child_id: khalid
+    is_past: false
+    points:
+      - - 680
+        - 56
+      - - 680
+        - 156
+      - - 680
+        - 156
+      - - 680
+        - 184
+  - link_kind: birth
+    marriage_id: m_khalid_aisha
+    child_id: yusuf
+    is_past: false
+    points:
+      - - 392
+        - 316
+      - - 392
+        - 476
+      - - 392
+        - 476
+      - - 392
+        - 504
+  - link_kind: birth
+    marriage_id: m_khalid_layla
+    child_id: zahra
+    is_past: false
+    points:
+      - - 584
+        - 316
+      - - 584
+        - 476
+      - - 584
+        - 476
+      - - 584
+        - 504
+  - link_kind: birth
+    marriage_id: m_khalid_mariam
+    child_id: hassan
+    is_past: false
+    points:
+      - - 968
+        - 316
+      - - 968
+        - 476
+      - - 872
+        - 476
+      - - 872
+        - 504
+  - link_kind: birth
+    marriage_id: m_khalid_mariam
+    child_id: noor
+    is_past: false
+    points:
+      - - 968
+        - 316
+      - - 968
+        - 476
+      - - 1064
+        - 476
+      - - 1064
+        - 504
+  - link_kind: marriage
+    marriage_id: m_omar_fatima
+    host_id: omar
+    joining_id: fatima
+    start: 1945-08-17
+    is_ended: false
+    points:
+      - - 665
+        - 56
+      - - 695
+        - 56
+  - link_kind: marriage
+    marriage_id: m_khalid_aisha
+    host_id: khalid
+    joining_id: aisha
+    start: 1975-05-04
+    is_ended: false
+    points:
+      - - 680
+        - 248
+      - - 680
+        - 316
+      - - 104
+        - 316
+      - - 104
+        - 344
+  - link_kind: marriage
+    marriage_id: m_khalid_layla
+    host_id: khalid
+    joining_id: layla
+    start: 1980-09-16
+    is_ended: false
+    points:
+      - - 680
+        - 248
+      - - 680
+        - 316
+      - - 488
+        - 316
+      - - 488
+        - 344
+  - link_kind: marriage
+    marriage_id: m_khalid_mariam
+    host_id: khalid
+    joining_id: mariam
+    start: 1985-12-28
+    is_ended: false
+    points:
+      - - 680
+        - 248
+      - - 680
+        - 316
+      - - 1256
+        - 316
+      - - 1256
+        - 344

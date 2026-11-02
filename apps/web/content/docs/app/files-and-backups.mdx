@@ -1,0 +1,61 @@
+---
+title: Where your files live
+description: Kul keeps your projects in your browser, on your computer. What that means, how to back them up, and using Kul offline.
+---
+
+Kul has no server and no account. Your projects never leave your computer,
+which also means nobody else keeps a copy of them. Read this before you
+type in a lot of family history.
+
+## In your browser's storage
+
+The app keeps every project in your browser's own storage for this site
+(the origin private file system). It is not a folder you can open on your
+computer, and other websites can't see it. It belongs to one browser, one
+browser profile and one computer: Chrome and Firefox each keep their own, a
+second profile starts empty, and nothing is synced between devices.
+
+Saving is automatic, a moment after you stop typing. The top bar shows
+**Saving…** and then **Saved**.
+
+## How projects can be lost
+
+Browser storage is durable, but not as durable as a file you keep yourself:
+
+- Clearing your browsing data or this site's data,
+  or uninstalling the browser, deletes your projects.
+- A browser short of disk space may clear a site's storage to free up space,
+  unless it has agreed to keep it. After your first edit, Kul asks the
+  browser to keep your projects. Whether it agrees is up to the browser.
+- A private or incognito window may keep nothing at all,
+  or only until the window closes. If Kul can't save, a banner says so.
+
+Open **Settings** from the command palette (<kbd>Ctrl</kbd>+<kbd>K</kbd>,
+then type "settings") to see how much space your projects use and whether
+the browser has agreed to keep them. When it hasn't, the app shows a
+reminder with a **Download backup** button.
+
+## Backing up
+
+Download a project as a `.zip` from **Export** › **Download project
+(.zip)**. Keep the file somewhere you back up anyway. The archive holds
+nothing but your `.kul` files, so it stays readable without Kul.
+
+To restore it, or to move a project to another browser or computer, open
+the project menu and choose **Import as a new project** › **Files or a
+.zip…**. See [projects, import and export](/docs/app/projects/).
+
+If you keep your family in a folder of `.kul` files instead, under version
+control or in a synced folder, import that folder whenever you want to see
+it in the app, and use the [command line](/docs/command-line/) to check it.
+
+## Working offline
+
+After your first visit, Kul keeps a copy of the whole site, the app and
+these docs included, and loads without a connection. Docs search works
+offline too.
+
+When a new version of Kul is published, the app downloads it in the
+background and shows "A new version of Kul is ready". Click **Reload** to
+switch; your work is saved first. Until you do, you keep the version you
+have.

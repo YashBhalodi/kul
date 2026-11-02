@@ -32,8 +32,6 @@
 //! related" when the truth is "not related as far as we looked".
 
 use serde::Serialize;
-#[cfg(feature = "tsify")]
-use tsify::Tsify;
 
 use super::descriptor::RelationshipDescriptor;
 
@@ -57,7 +55,6 @@ fn default_max_apex_generations() -> u32 {
 /// Deserializes with the field defaulted, so an over-the-wire `{}` (or an
 /// omitted config) yields the default budget.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify), tsify(from_wasm_abi, into_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct ResolveConfig {
     /// Per-blood-segment ascent/descent cap. Defaults to
@@ -78,7 +75,6 @@ impl Default for ResolveConfig {
 /// empty (PRD 0005) — the distinction is the product: it lets an app say "not
 /// related" only when it truly means it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum EmptyReason {
     /// `x` and `y` are in different connected components of the full relation
@@ -100,7 +96,6 @@ pub enum EmptyReason {
 /// backbone). Never a bare set: `empty_reason` carries the honest "why" when
 /// there is nothing to show.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify), tsify(into_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct ResolveResult {
     /// Every distinct relationship path from `x` to `y`, deterministically

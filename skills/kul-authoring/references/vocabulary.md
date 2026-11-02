@@ -9,7 +9,7 @@ Maps natural-language kinship terms to Kul. Most everyday terms are **derived** 
 | Person     | `person <id> name:"…" gender:… [born:…] [died:…] [family:…] [given:…]`    |
 | Marriage   | `marriage <id> <spouse_a> <spouse_b> [start:…] [end:… end_reason:divorce]`  |
 | Birth      | `birth <marriage-id>` (sub-statement of `person`; biological link)        |
-| Adoption   | `adoption <marriage-id> start:… [end:…]` (sub-statement of `person`)      |
+| Adoption   | `adoption <marriage-id> [start:…] [end:…]` (sub-statement of `person`)      |
 
 ## NL → Kul mapping
 
@@ -19,7 +19,7 @@ Maps natural-language kinship terms to Kul. Most everyday terms are **derived** 
 | Ex-spouse / divorced                             | Declared           | `marriage … end:<date> end_reason:divorce`.                                                         |
 | Widow / widower                                  | Derived            | Surviving spouse of a marriage whose other spouse has a `died:` date and no `end:` recorded.        |
 | Child / son / daughter                           | Derived            | A `person` with a `birth` (bio) or `adoption` (adoptive) sub-statement pointing at parents' marriage. |
-| Adopted child                                    | Declared (`adoption`) | `adoption <marriage-id> start:…` sub-statement.                                                  |
+| Adopted child                                    | Declared (`adoption`) | `adoption <marriage-id> [start:…]` sub-statement.                                                  |
 | Parent / father / mother                         | Derived            | Spouse of a marriage referenced by some person's `birth` / `adoption` link.                         |
 | Step-father / step-mother                        | Derived            | Spouse of a parent's *other* marriage.                                                              |
 | Sibling / brother / sister                       | Derived            | Two persons sharing a `birth` marriage-id.                                                          |

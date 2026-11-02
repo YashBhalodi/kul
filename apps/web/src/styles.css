@@ -1,0 +1,426 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
+@import "./styles/tokens.css";
+@import "./styles/theme.css";
+/* The docs search dialog (Fumadocs UI): its colours come from the tokens
+   through Fumadocs' shadcn preset, and its classes from its own files. The
+   path is the workspace's hoisted node_modules. */
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/lib/base.css";
+@source "../../../node_modules/fumadocs-ui/dist/components/dialog/search.js";
+@source "../../../node_modules/fumadocs-ui/dist/components/ui/button.js";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Fumadocs' dialog scrim takes the site's. */
+:root,
+.dark {
+  --color-fd-overlay: var(--overlay);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply bg-background font-sans text-foreground antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply min-h-svh bg-background;
+  }
+  code,
+  kbd,
+  pre {
+    @apply font-mono;
+  }
+  ::selection {
+    @apply bg-primary/20;
+  }
+}
+
+@layer components {
+  /* The canvas's dot grid. */
+  .canvas-grid {
+    background-image: radial-gradient(
+      circle,
+      var(--canvas-dot) 1px,
+      transparent 1.5px
+    );
+    background-size: 20px 20px;
+  }
+
+  /* The family tree. The engine's SVG carries classes and data-* attributes
+     only (the kul-svg contract); every colour here comes from the --tree-*
+     tokens. Dashes are the SVG's own: they say what a line or card is. */
+  .kul-tree .kul-card rect {
+    fill: var(--card);
+    stroke: var(--muted-foreground);
+    stroke-width: 1.5;
+  }
+  .kul-tree .kul-card[data-gender="male"] rect {
+    stroke: var(--tree-hue-male);
+  }
+  .kul-tree .kul-card[data-gender="female"] rect {
+    stroke: var(--tree-hue-female);
+  }
+  .kul-tree .kul-card[data-gender="other"] rect {
+    stroke: var(--tree-hue-other);
+  }
+  .kul-tree .kul-card[data-kind="ghost"] rect {
+    fill: var(--tree-hue-past);
+  }
+  .kul-tree .kul-label-name {
+    fill: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .kul-tree .kul-card[data-kind="ghost"] .kul-label-name {
+    fill: var(--muted-foreground);
+  }
+  .kul-tree .kul-edge {
+    stroke: var(--tree-hue-birth);
+    stroke-width: 1.5;
+  }
+  .kul-tree .kul-edge[data-link-kind="adoption"] {
+    stroke: var(--tree-hue-adoption);
+  }
+  .kul-tree .kul-edge[data-link-kind="marriage"] {
+    stroke: var(--tree-hue-marriage);
+    stroke-width: 6;
+  }
+  .kul-tree .kul-edge[data-is-ended="true"] {
+    stroke-opacity: 0.55;
+  }
+  .kul-tree.kul-legend-swatch .kul-edge[data-link-kind="marriage"] {
+    stroke-width: 4;
+  }
+
+  /* What you can click: a card selects its person, a marriage line (or
+     the wider invisible line laid along it) its marriage. */
+  [data-testid="tree"] .kul-card,
+  [data-testid="tree"] .kul-edge[data-link-kind="marriage"],
+  [data-testid="tree"] .kul-hit {
+    cursor: pointer;
+  }
+  .kul-tree .kul-hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 18;
+    pointer-events: stroke;
+  }
+  [data-testid="tree"] .kul-card:hover rect {
+    stroke-width: 2.5;
+  }
+  /* The keyboard's place: a focused card or marriage line. */
+  [data-testid="tree"] .kul-card,
+  [data-testid="tree"] .kul-hit {
+    outline: none;
+  }
+  [data-testid="tree"] .kul-card:focus-visible rect {
+    stroke: var(--ring);
+    stroke-width: 3;
+  }
+  [data-testid="tree"] .kul-hit:focus-visible {
+    stroke: var(--ring);
+    stroke-opacity: 0.6;
+  }
+
+  /* The linked entity (under the editor's cursor), and the selected one. */
+  .kul-tree .kul-card[data-linked] rect {
+    fill: var(--tree-linked-fill);
+    stroke: var(--tree-linked);
+    stroke-width: 2.5;
+  }
+  .kul-tree .kul-edge[data-linked] {
+    stroke: var(--tree-linked);
+    stroke-opacity: 1;
+  }
+  .kul-tree .kul-card[data-selected] rect {
+    fill: var(--tree-selection-fill);
+    stroke: var(--tree-selection);
+    stroke-width: 3;
+  }
+  .kul-tree .kul-edge[data-selected] {
+    stroke: var(--tree-selection);
+    stroke-opacity: 1;
+    stroke-width: 8;
+  }
+
+  /* A past record's way back to the person's own card. */
+  .kul-tree .kul-ghost-badge {
+    cursor: pointer;
+    outline: none;
+  }
+  .kul-tree .kul-ghost-badge-target {
+    fill: transparent;
+    pointer-events: all;
+  }
+  .kul-tree .kul-ghost-badge text {
+    fill: var(--muted-foreground);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .kul-tree .kul-ghost-badge:hover .kul-ghost-badge-target,
+  .kul-tree .kul-ghost-badge:focus-visible .kul-ghost-badge-target {
+    fill: var(--accent);
+    stroke: var(--ring);
+  }
+  .kul-tree .kul-ghost-badge:hover text,
+  .kul-tree .kul-ghost-badge:focus-visible text {
+    fill: var(--primary);
+  }
+  .kul-tree .kul-card[data-pulse] rect {
+    animation: tree-pulse 0.9s ease-out;
+  }
+
+  /* Kul code, coloured from the engine's tokens (the editor's `.tok-*`
+     marks; anywhere else Kul code is shown uses the same classes). */
+  .tok-keyword {
+    color: var(--syntax-keyword);
+    font-weight: 600;
+  }
+  .tok-field {
+    color: var(--syntax-field);
+  }
+  .tok-declaration {
+    color: var(--syntax-declaration);
+    font-weight: 600;
+  }
+  .tok-reference {
+    color: var(--syntax-reference);
+  }
+  .tok-enum {
+    color: var(--syntax-enum);
+  }
+  .tok-date {
+    color: var(--syntax-date);
+  }
+  .tok-string {
+    color: var(--syntax-string);
+  }
+  .tok-comment {
+    color: var(--syntax-comment);
+    font-style: italic;
+  }
+
+  /* Hover content in the editor, from the language service's Markdown. */
+  .cm-kul-hover {
+    @apply flex max-w-md flex-col gap-2 px-3 py-2.5 font-sans text-[0.8125rem] leading-relaxed;
+  }
+  .cm-kul-hover code {
+    @apply rounded-sm bg-muted px-1 font-mono text-[0.75rem];
+  }
+  .cm-kul-hover pre {
+    @apply overflow-x-auto rounded-md bg-code p-2 font-mono text-[0.75rem] text-code-foreground;
+  }
+  .cm-kul-hover ul {
+    @apply flex list-disc flex-col gap-0.5 pl-4;
+  }
+  .cm-kul-hover a {
+    @apply text-link underline underline-offset-2;
+  }
+
+  /* The theme switch highlights the saved preference, which theme-init.js
+     puts on <html> before the first paint. */
+  :root:not([data-theme-preference]) .theme-switch [data-theme-option="system"],
+  :root[data-theme-preference="system"]
+    .theme-switch
+    [data-theme-option="system"],
+  :root[data-theme-preference="light"]
+    .theme-switch
+    [data-theme-option="light"],
+  :root[data-theme-preference="dark"] .theme-switch [data-theme-option="dark"] {
+    @apply bg-background text-foreground shadow-sm;
+  }
+}
+
+@keyframes tree-pulse {
+  0%,
+  45% {
+    stroke: var(--tree-selection);
+    stroke-width: 6;
+  }
+}
+
+/* Motion is decoration only: honour the reader's setting everywhere.
+   Transitions are switched off outright rather than shortened: every
+   element's transition-property defaults to `all`, so any duration at all
+   would turn every style change (the editor's font size, say) into a
+   transition, and code that measures the page would read the old value. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer components {
+  /* A docs page's body: type set from the tokens. */
+  .docs-prose {
+    @apply text-base leading-7 text-foreground;
+  }
+  .docs-prose > * + * {
+    @apply mt-5;
+  }
+  .docs-prose h2 {
+    @apply mt-12 scroll-mt-20 text-2xl font-semibold tracking-tight;
+  }
+  .docs-prose h3 {
+    @apply mt-9 scroll-mt-20 text-lg font-semibold tracking-tight;
+  }
+  .docs-prose h4 {
+    @apply mt-7 scroll-mt-20 font-semibold;
+  }
+  .docs-prose a {
+    @apply font-medium text-link underline underline-offset-4 hover:no-underline;
+  }
+  .docs-prose strong {
+    @apply font-semibold;
+  }
+  .docs-prose ul,
+  .docs-prose ol {
+    @apply flex flex-col gap-2 pl-6;
+  }
+  .docs-prose ul {
+    @apply list-disc marker:text-muted-foreground;
+  }
+  .docs-prose ol {
+    @apply list-decimal marker:text-muted-foreground;
+  }
+  .docs-prose li > ul,
+  .docs-prose li > ol,
+  .docs-prose li > div {
+    @apply mt-2;
+  }
+  .docs-prose :not(pre) > code {
+    @apply rounded-md border bg-muted px-1.5 py-0.5 font-mono text-[0.875em] whitespace-nowrap;
+  }
+  .docs-prose kbd {
+    @apply rounded border bg-muted px-1.5 py-0.5 font-mono text-[0.85em];
+  }
+  .docs-prose table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+  .docs-prose th {
+    @apply border-b px-3 py-2 font-semibold;
+  }
+  .docs-prose td {
+    @apply border-b px-3 py-2 align-top;
+  }
+  .docs-prose blockquote {
+    @apply border-l-2 pl-4 text-muted-foreground;
+  }
+
+  /* Code blocks. Highlighted lines take their colours from the
+     --shiki-light / --shiki-dark variables on each span: the shell
+     highlighter writes them inline, and a Kul token sets both from its own
+     theme-aware colour. */
+  .shiki .line {
+    @apply px-4;
+  }
+  .shiki .line:empty {
+    height: 1lh;
+  }
+  .shiki code span {
+    color: var(--shiki-light, inherit);
+    font-style: var(--shiki-light-font-style, inherit);
+  }
+  .dark .shiki code span {
+    color: var(--shiki-dark, inherit);
+    font-style: var(--shiki-dark-font-style, inherit);
+  }
+  .shiki code .line {
+    color: var(--code-foreground);
+  }
+  .shiki .tok-keyword {
+    --shiki-light: var(--syntax-keyword);
+    --shiki-dark: var(--syntax-keyword);
+  }
+  .shiki .tok-field {
+    --shiki-light: var(--syntax-field);
+    --shiki-dark: var(--syntax-field);
+  }
+  .shiki .tok-declaration {
+    --shiki-light: var(--syntax-declaration);
+    --shiki-dark: var(--syntax-declaration);
+  }
+  .shiki .tok-reference {
+    --shiki-light: var(--syntax-reference);
+    --shiki-dark: var(--syntax-reference);
+  }
+  .shiki .tok-enum {
+    --shiki-light: var(--syntax-enum);
+    --shiki-dark: var(--syntax-enum);
+  }
+  .shiki .tok-date {
+    --shiki-light: var(--syntax-date);
+    --shiki-dark: var(--syntax-date);
+  }
+  .shiki .tok-string {
+    --shiki-light: var(--syntax-string);
+    --shiki-dark: var(--syntax-string);
+  }
+  .shiki .tok-comment {
+    --shiki-light: var(--syntax-comment);
+    --shiki-dark: var(--syntax-comment);
+    --shiki-light-font-style: italic;
+    --shiki-dark-font-style: italic;
+  }
+
+  /* Kul code on the landing page: long lines wrap under their own start
+     (a hanging indent) instead of scrolling; tokens never break. */
+  .kul-lines {
+    @apply leading-6 text-code-foreground;
+  }
+  .kul-lines code {
+    @apply flex flex-col;
+  }
+  .kul-line {
+    @apply flex;
+  }
+  .kul-line-mark {
+    @apply flex w-6 shrink-0 items-start select-none;
+  }
+  .kul-line-number {
+    @apply mr-4 w-5 shrink-0 text-right text-muted-foreground select-none;
+  }
+  .kul-line-text {
+    @apply min-w-0 flex-1 pl-[4ch] -indent-[4ch] whitespace-pre-wrap;
+  }
+  .kul-line-text > span {
+    @apply whitespace-pre;
+  }
+  .kul-noted {
+    @apply underline decoration-primary decoration-2 underline-offset-4;
+  }
+  /* A callout's number, in the code's gutter and before its note. */
+  .kul-note-number {
+    @apply inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-primary font-sans text-[0.6875rem] leading-none font-semibold text-primary-foreground;
+    margin-top: 0.125rem;
+  }
+  .landing-code {
+    @apply rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.875em];
+  }
+  /* The sample's tree: its natural size, smaller where the column is. */
+  .landing-tree svg {
+    width: 100%;
+    max-width: 26rem;
+    height: auto;
+  }
+
+  /* An example's tree, drawn below its code at its natural size. */
+  .kul-tree-figure svg {
+    margin-inline: auto;
+    max-width: none;
+  }
+}

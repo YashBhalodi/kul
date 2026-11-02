@@ -1,12 +1,12 @@
-//! `kul query` subcommand — id → detail lookups over the CWD Kul project.
+//! `kul query` subcommand — kinship questions over one Kul project.
 //!
 //! Two verbs: `kul query person <id>` and `kul query marriage <id>`. Like
 //! `kul export`, the command runs only against a project that passes its
 //! checks (strict-on-errors); a failing project prints diagnostics and
 //! exits nonzero.
 //!
-//! `--format json` emits the exact [`QueryEnvelope`] serialization the WASM
-//! surface returns — this path is the epic's contract-snapshot harness.
+//! `--format json` emits the [`QueryEnvelope`] serialization single-sourced
+//! in `kul-core` — this path is the query contract's snapshot harness.
 //! `--format human` renders the entity's recorded fields in a readable,
 //! terminology-neutral layout; presentation is owned by the CLI, not a
 //! third contract shape.
@@ -26,13 +26,13 @@ use kul_core::export::{ExportedDate, ExportedMarriage, ExportedPerson};
 use kul_core::query::{
     Affinity, Classification, EdgeNature, EmptyReason, HopEdge, LinealRole, MarriageStatus, Member,
     PathHop, PersonField, Predicate, Query, QueryEnvelope, QueryResult, RelationshipDescriptor,
-    ResolveConfig, ResolveResult, Seniority, Sharing, Side, SortDirection, SortSpec, kin_query,
+    ResolveConfig, ResolveResult, Seniority, Sharing, Side, SortDirection, SortSpec,
     marriage_lookup, person_lookup, query_envelope, resolve_relationship,
 };
 
 use crate::OutputFormat;
 use crate::commands::diag;
-use crate::commands::project::load_and_check;
+use crate::commands::project::{ProjectArg, load_and_check};
 
 /// Which detail lookup to run.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -55,10 +55,11 @@ pub struct Options {
     pub verb: Verb,
     pub id: String,
     pub format: OutputFormat,
+    pub project: ProjectArg,
 }
 
 pub fn run(opts: Options) -> ExitCode {
-    let (_project, check) = match load_and_check() {
+    let check = match load_and_check(&opts.project.dir) {
         Ok(x) => x,
         Err(code) => return code,
     };
@@ -215,16 +216,16 @@ pub struct KinOptions {
     pub anchor: String,
     pub query: Query,
     pub format: OutputFormat,
+    pub project: ProjectArg,
 }
 
 pub fn run_kin(opts: KinOptions) -> ExitCode {
-    let (_project, check) = match load_and_check() {
+    let check = match load_and_check(&opts.project.dir) {
         Ok(x) => x,
         Err(code) => return code,
     };
-    // One evaluation path: the same envelope the WASM `queryKin` surface
-    // returns, so `--format json` bytes are byte-identical.
-    let envelope = kin_query(&check, &opts.query);
+    // One evaluation path: the envelope `kul-core` single-sources.
+    let envelope = query_envelope(&check, &opts.query);
     match opts.format {
         // The json envelope is the contract answer for every outcome (empty
         // set, bad anchor, failing project) — always stdout, carrying the
@@ -425,15 +426,15 @@ fn seniority_word(seniority: Seniority) -> &'static str {
 pub struct PersonsOptions {
     pub query: Query,
     pub format: OutputFormat,
+    pub project: ProjectArg,
 }
 
 pub fn run_persons(opts: PersonsOptions) -> ExitCode {
-    let (_project, check) = match load_and_check() {
+    let check = match load_and_check(&opts.project.dir) {
         Ok(x) => x,
         Err(code) => return code,
     };
-    // One evaluation path: the same envelope the WASM `runQuery` surface
-    // returns, so `--format json` bytes are byte-identical.
+    // One evaluation path: the envelope `kul-core` single-sources.
     let envelope = query_envelope(&check, &opts.query);
     match opts.format {
         OutputFormat::Json => finish_query_json(&envelope),
@@ -714,15 +715,15 @@ pub struct RelOptions {
     pub y: String,
     pub config: ResolveConfig,
     pub format: OutputFormat,
+    pub project: ProjectArg,
 }
 
 pub fn run_rel(opts: RelOptions) -> ExitCode {
-    let (_project, check) = match load_and_check() {
+    let check = match load_and_check(&opts.project.dir) {
         Ok(x) => x,
         Err(code) => return code,
     };
-    // One evaluation path: the same envelope the WASM `queryResolve` surface
-    // returns, so `--format json` bytes are byte-identical.
+    // One evaluation path: the envelope `kul-core` single-sources.
     let envelope = resolve_relationship(&check, &opts.x, &opts.y, &opts.config);
     match opts.format {
         OutputFormat::Json => finish_rel_json(&envelope),

@@ -1,6 +1,6 @@
 # ADR 0013 — Project manifest (`kul.yml`)
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0048](./0048-a-project-is-a-flat-set-of-kul-files.md) — a project is a flat set of `.kul` files with no project file.
 **Date:** 2026-05-09
 **Deciders:** owner
 

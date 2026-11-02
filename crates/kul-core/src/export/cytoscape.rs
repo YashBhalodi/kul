@@ -9,14 +9,11 @@
 //! (adoptive edges carry `start`/`end`).
 
 use serde::Serialize;
-#[cfg(feature = "tsify")]
-use tsify::Tsify;
 
 use crate::export::{ExportedDate, ExportedGraph, ParenthoodLinkKind};
 
 /// The Cytoscape JSON graph shape.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct CytoscapeGraph {
     pub nodes: Vec<CytoscapeNode>,
@@ -24,7 +21,6 @@ pub struct CytoscapeGraph {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct CytoscapeNode {
     pub data: NodeData,
@@ -33,7 +29,6 @@ pub struct CytoscapeNode {
 /// Per-node `data` payload. Untagged: serialized variant is chosen by
 /// which fields are present.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum NodeData {
     Person(PersonNodeData),
@@ -41,7 +36,6 @@ pub enum NodeData {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct PersonNodeData {
     /// `p:<person-id>`.
@@ -62,7 +56,6 @@ pub struct PersonNodeData {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct MarriageNodeData {
     /// `m:<marriage-id>`.
@@ -79,14 +72,12 @@ pub struct MarriageNodeData {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct CytoscapeEdge {
     pub data: EdgeData,
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeData {
     /// `m:<marriage-id>`. Every edge originates at a marriage.
@@ -175,12 +166,7 @@ mod tests {
 
     fn cytoscape_for(source: &str) -> CytoscapeGraph {
         let inputs = vec![crate::ast::InputFile::new("test.kul", source)];
-        let check = crate::check_with_manifest(
-            "kul.yml",
-            "",
-            &crate::manifest::Manifest::default(),
-            &inputs,
-        );
+        let check = crate::check(&inputs);
         let envelope = export(&check, ExportOptions::default());
         let crate::export::ExportEnvelope::Success(success) = envelope else {
             panic!("expected success envelope");

@@ -24,6 +24,5 @@ kul-render = { workspace = true }
 [dev-dependencies]
 kul-core = { workspace = true }
 kul-render = { workspace = true }
-insta = { workspace = true }
+insta = { workspace = true, features = ["yaml"] }
 serde = { workspace = true }
-serde_norway = { workspace = true }

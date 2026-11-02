@@ -1,7 +1,7 @@
 //! The traversal engine and the single [`evaluate`] entry point.
 //!
 //! `evaluate` is the *one* evaluation path (ADR-0025): every surface — Rust
-//! sugar, WASM, CLI — builds a [`Query`] value and hands it here. Paths are
+//! sugar, CLI — builds a [`Query`] value and hands it here. Paths are
 //! 1–3 blood segments (each an `up* down*` run) joined by at most two marriage
 //! (`across`) hops — the full grammar: lineal, collateral, and affinal
 //! (spouse, step, in-law) shapes.
@@ -98,7 +98,7 @@ pub enum QueryEvalError {
 
 impl QueryEvalError {
     /// Project to the [`ExportedDiagnostic`] the [`QueryEnvelope`] error arm
-    /// carries on the WASM and CLI-`json` surfaces. The synthesized
+    /// carries on the CLI-`json` surface. The synthesized
     /// diagnostic has no source span (the bad id came from the query, not
     /// the source), so `primary` is absent.
     ///
@@ -152,7 +152,7 @@ pub fn evaluate<'a>(
 
 /// Evaluate a full [`Query`] — source, `where` filter, `sort`, certainty
 /// `mode`, and projection — to a serialized [`QueryResult`]. **The one
-/// evaluation path** (ADR-0025): every surface (Rust sugar, WASM, CLI) builds
+/// evaluation path** (ADR-0025): every surface (Rust sugar, CLI) builds
 /// the [`Query`] value and hands it here.
 ///
 /// Pipeline: gather candidates from the source (`allPersons` in declaration

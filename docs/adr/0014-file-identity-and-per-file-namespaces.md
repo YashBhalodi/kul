@@ -1,6 +1,6 @@
 # ADR 0014 — File-identity types and per-file id namespaces
 
-**Status:** Accepted (Position B superseded by [ADR-0015](./0015-global-project-namespace.md))
+**Status:** Superseded by [ADR-0048](./0048-a-project-is-a-flat-set-of-kul-files.md) (the project file, its diagnostics and the reserved `FileId`) and [ADR-0015](./0015-global-project-namespace.md) (per-file namespaces). ADR-0048 restates the file-identity types this record introduced.
 **Date:** 2026-05-09
 **Deciders:** owner
 

@@ -1,6 +1,6 @@
 # ADR 0015 — Global project namespace for multi-file Kul projects
 
-**Status:** Accepted
+**Status:** Accepted; amended by [ADR-0048](./0048-a-project-is-a-flat-set-of-kul-files.md) — a project is every `.kul` file directly inside a directory, and an empty project is valid.
 **Date:** 2026-05-16
 **Deciders:** owner
 **Supersedes (in part):** [ADR-0014](./0014-file-identity-and-per-file-namespaces.md) — Position B (per-file namespaces)
@@ -23,7 +23,7 @@ That leaves Position A — global namespace — as the only position that satisf
 
 ### Pure global namespace across every `.kul` file in the project
 
-A Kul **project** is a directory containing a `kul.yml` manifest plus one or more `*.kul` files. Every person- or marriage-id declared in any of those files is visible from every file in the project. There is no `import` statement, no namespace prefix, no qualified-reference syntax. The file boundary is purely organizational; the project is one logical namespace.
+A Kul **project** is a flat set of `.kul` files ([ADR-0048](./0048-a-project-is-a-flat-set-of-kul-files.md)). Every person- or marriage-id declared in any of those files is visible from every file in the project. There is no `import` statement, no namespace prefix, no qualified-reference syntax. The file boundary is purely organizational; the project is one logical namespace.
 
 A single-file project is just a project with `N=1`: nothing changes from the author's perspective; nothing changes from the toolchain's perspective beyond the implementation detail that the resolver now walks every file.
 
@@ -56,9 +56,9 @@ The wrong-kind sub-cases (a spouse position naming a marriage id, or a `birth` r
 
 The parent graph spans every file in the project. `cycles::find_cycles(resolved)` (dropping its `FileId` parameter) starts from `resolved.persons()` and walks parent links via `resolved.parents_of(person)`. A cycle that spans two files is reported as one cycle, not as two per-file fragments. Each related-span on the diagnostic anchors at the file containing the corresponding parent-link — which is the child's owning file, since the parent-link span is the `birth`/`adoption` ref inside the child's declaration.
 
-### New `KUL-M06` — empty project
+### The empty project
 
-A project with a `kul.yml` manifest but zero sibling `.kul` files is structurally invalid. The top-level `kul_core::check` entry point now emits `KUL-M06` (severity error) anchored at the manifest's start when `inputs.is_empty()` and `manifest_yaml` is non-empty. The "non-empty `manifest_yaml`" guard preserves the in-memory-callers path (the WASM `format` helper, ad-hoc unit tests that pass `""` for the manifest source): they are not asserting a project, just running the pipeline against in-memory inputs.
+A project with no files, or only empty ones, is the empty family and is valid ([ADR-0048](./0048-a-project-is-a-flat-set-of-kul-files.md)).
 
 ### Cross-file LSP features land in a later slice
 
@@ -79,7 +79,7 @@ R13 cycle detection now catches cross-file mistakes (`alice` in `branch-a.kul` a
 
 The resolver retains all the existing per-file iteration helpers, so per-URI LSP features (document symbols, semantic tokens, per-file diagnostic streams) keep working unchanged. The change is concentrated in the per-id query surface and R01/R02/R13 semantics — exactly the seams the PRD identified.
 
-**Negative.** R01 cross-file ordering pins a "file-discovery order" contract: the second declaration is whatever file the toolchain happens to walk second. For the CLI, this is the lexicographic order the shared `kul-loader` crate enumerates the project directory in (locked in by slice 2 — issue #83). For other adapters, the contract is "input order to `kul_core::check`" — adapters are responsible for picking a stable order. Snapshot tests on multi-file R01 must therefore commit to one input order; reordering inputs in a test flips primary/related.
+**Negative.** R01 cross-file ordering pins a file-order contract: the second declaration is the one in the later file. `kul_core::check` owns that order — the byte-wise order of file names (ADR-0048) — so every caller gets the same primary and related spans whatever order it passes the files in.
 
 Cross-file related-spans in R02's wrong-kind sub-cases (e.g. "this spouse position names a marriage; the marriage is declared *here*, in a different file") cannot be rendered by miette's single-source frontend. ADR-0006's existing same-file related-span filter handles this — it drops cross-file related-spans from the miette label list. The diagnostic message itself still carries the cross-file context, so the user sees *what* collided; just not a visual snippet for the related site. The LSP filters diagnostics per-URI today, so this is invisible in editor squiggles; the CLI's miette path is the only renderer affected, and the loss is minor (the message is enough). A future deepening could extend `RenderableDiagnostic` to a multi-source rendering path, but neither this slice nor any near-term slice plans it.
 

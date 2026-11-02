@@ -46,7 +46,7 @@ pub(super) enum KindTag {
 }
 
 /// Canonical column kinds for a statement kind, in order. Field columns
-/// flow from [`field_meta::fields_for`] (spec §15.2); structural cells
+/// flow from [`field_meta::fields_for`] (spec §14.2); structural cells
 /// (keyword, positional, references, comment) are formatter-only.
 pub(super) fn canonical_columns(kind: KindTag) -> &'static [CellKind] {
     static PERSON: LazyLock<Vec<CellKind>> = LazyLock::new(|| build_columns(KindTag::Person));

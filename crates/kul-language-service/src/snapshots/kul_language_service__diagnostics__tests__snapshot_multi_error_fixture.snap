@@ -1,0 +1,106 @@
+---
+source: crates/kul-language-service/src/diagnostics.rs
+expression: diagnostics(&check)
+---
+[
+  {
+    "code": "KUL-R01",
+    "severity": "error",
+    "message": "id `alice` is already used by another person — pick a different id (every id must be unique across the project)",
+    "location": {
+      "file": "a.kul",
+      "span": {
+        "start": 29,
+        "end": 34
+      }
+    },
+    "related": [
+      {
+        "message": "first declared here as a person",
+        "location": {
+          "file": "a.kul",
+          "span": {
+            "start": 7,
+            "end": 12
+          }
+        }
+      }
+    ]
+  },
+  {
+    "code": "KUL-R03",
+    "severity": "error",
+    "message": "person `alice` needs a `gender:` field — use `gender:male`, `gender:female`, or `gender:other`",
+    "location": {
+      "file": "a.kul",
+      "span": {
+        "start": 7,
+        "end": 12
+      }
+    },
+    "related": []
+  },
+  {
+    "code": "KUL-R02",
+    "severity": "error",
+    "message": "no person with id `ghost` is declared in the project — check for a typo, or add a `person ghost …` declaration",
+    "location": {
+      "file": "b.kul",
+      "span": {
+        "start": 17,
+        "end": 22
+      }
+    },
+    "related": []
+  },
+  {
+    "code": "KUL-R02",
+    "severity": "error",
+    "message": "no marriage with id `nope` is declared in the project — check for a typo, or add a `marriage nope …` declaration (the `birth` link expects a marriage id)",
+    "location": {
+      "file": "b.kul",
+      "span": {
+        "start": 84,
+        "end": 88
+      }
+    },
+    "related": []
+  },
+  {
+    "code": "KUL-R05",
+    "severity": "error",
+    "message": "marriage `m` has an `end:` date but no `end_reason:` — add `end_reason:divorce`",
+    "location": {
+      "file": "b.kul",
+      "span": {
+        "start": 38,
+        "end": 42
+      }
+    },
+    "related": []
+  },
+  {
+    "code": "KUL-R07",
+    "severity": "error",
+    "message": "marriage `m` ended before it began",
+    "location": {
+      "file": "b.kul",
+      "span": {
+        "start": 38,
+        "end": 42
+      }
+    },
+    "related": [
+      {
+        "message": "started here",
+        "location": {
+          "file": "b.kul",
+          "span": {
+            "start": 29,
+            "end": 33
+          }
+        }
+      }
+    ]
+  }
+]

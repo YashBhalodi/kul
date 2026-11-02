@@ -141,11 +141,11 @@ impl ResolvedDocument {
     /// use kul_core::span::FileId;
     ///
     /// let source = "person alice name:\"Alice\" gender:female\n";
-    /// let kul_file = FileId::from_raw(1);
+    /// let kul_file = FileId::from_raw(0);
     /// let tokens = tokenize(source);
     /// let (statements, _) = parse(tokens, kul_file);
     /// let kf = Arc::new(KulFile::new("test.kul", source, statements));
-    /// let document = Arc::new(Document::new("kul.yml", vec![kf]));
+    /// let document = Arc::new(Document::new(vec![kf]));
     /// let (resolved, _) = resolve(document);
     ///
     /// let node = resolved.node_at(kul_file, 0).expect("a node");
@@ -394,11 +394,11 @@ mod tests {
     use std::sync::Arc;
 
     fn build(source: &str) -> (ResolvedDocument, FileId) {
-        let file = FileId(1);
+        let file = FileId(0);
         let tokens = crate::lexer::tokenize(source);
         let (statements, _) = crate::parser::parse(tokens, file);
         let kf = Arc::new(KulFile::new("test.kul", source, statements));
-        let document = Arc::new(Document::new("kul.yml", vec![kf]));
+        let document = Arc::new(Document::new(vec![kf]));
         let (resolved, _) = resolve(document);
         (resolved, file)
     }

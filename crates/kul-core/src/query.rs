@@ -3,13 +3,13 @@
 //!
 //! The query engine is a deep module layered over [`ResolvedDocument`]
 //! (ADR-0001) — the same checked-project substrate the validator and the
-//! LSP read. It consumes only `ResolvedDocument`'s public accessors and
+//! language service read. It consumes only `ResolvedDocument`'s public accessors and
 //! never re-walks the AST, and it never consumes the exported graph: the
 //! export is the escape hatch for consumers who don't use the engine, not
 //! the engine's own input.
 //!
-//! This first slice carries the two simplest operations — the id → detail
-//! lookups [`person`] and [`marriage`]. They return the **same serialized
+//! The simplest operations are the id → detail lookups [`person`] and
+//! [`marriage`]. They return the **same serialized
 //! shapes the export produces** ([`ExportedPerson`] / [`ExportedMarriage`]),
 //! single-sourced through `projection::build_one_person` /
 //! `projection::build_one_marriage` so a lookup and a whole-graph export can
@@ -19,26 +19,20 @@
 //! that names a marriage when a person was asked for (and vice versa),
 //! yields `None`. There is no error type at the lookup layer — a lookup
 //! asks "is there a person with this id?", and "no" is a complete, honest
-//! answer. (Typed unknown-id errors arrive in later slices, where an id is
-//! an *input anchor* to a relationship question rather than the subject of
+//! answer. (A typed unknown-id error exists only where an id is an *input
+//! anchor* to a kin-set or relationship question rather than the subject of
 //! the question.)
 //!
-//! [`detail_lookup`] is the **batched** member of the same family: one
-//! check, any number of [`DetailTarget`]s, each answered with the entity's
-//! own fields *plus* its relational neighbourhood. It exists because the
-//! single-entity lookups cannot answer a detail panel and because composing
-//! them re-pays the check per call (ADR-0035, ADR-0037); [`EntityDetail`]
-//! carries the shape.
+//! [`detail`] is the third member of the same family: one person or marriage
+//! answered with its own fields *plus* its relational neighbourhood, because
+//! the plain lookups cannot answer a details panel (ADR-0037);
+//! [`EntityDetail`] carries the shape.
 //!
-//! The [`QueryEnvelope`] type is the adapter-facing contract: the WASM and
-//! CLI surfaces both wrap a lookup in it, gated on the project passing
-//! checks (strict-on-errors, ADR-0009). Single-sourcing the envelope here
-//! keeps the CLI `--format json` output byte-identical to what WASM
-//! returns. See the query-engine ADR and PRD 0005.
+//! The [`QueryEnvelope`] type is the CLI's contract: `kul query` wraps an
+//! answer in it, gated on the project passing checks (strict-on-errors,
+//! ADR-0009), and `--format json` prints it (ADR-0024, ADR-0025).
 
 use serde::Serialize;
-#[cfg(feature = "tsify")]
-use tsify::Tsify;
 
 use crate::CheckResult;
 use crate::export::{
@@ -60,7 +54,7 @@ pub use descriptor::{
     Affinity, Classification, EdgeNature, Gender, HopEdge, LinealRole, MarriageStatus, PathHop,
     RelationshipDescriptor, Seniority, Sharing, Side,
 };
-pub use detail::{DetailTarget, EntityDetail, LinkedPerson, MarriageTie, details};
+pub use detail::{EntityDetail, LinkedPerson, MarriageTie, detail};
 pub use engine::{KinMember, QueryEvalError, evaluate, resolve, run_query};
 pub use filter::{FilterMode, PersonField, Predicate, SortDirection, SortSpec};
 pub use pattern::{
@@ -103,32 +97,15 @@ pub type PersonLookupResult = Option<ExportedPerson>;
 /// `null` when the id names no marriage.
 pub type MarriageLookupResult = Option<ExportedMarriage>;
 
-/// Payload of a [batched detail lookup](detail_lookup): one entry per
-/// requested [`DetailTarget`], in the order asked — the entity's detail, or
-/// `null` when that target names no entity.
-pub type DetailLookupResult = Vec<Option<EntityDetail>>;
-
-/// Adapter-facing result of a query operation. Mirrors the existing
-/// check/export/render surface: an untagged union discriminated by an `ok`
-/// boolean — the ok arm carries the query `result`, the error arm carries
+/// The CLI-facing result of a query operation. Mirrors the export
+/// envelope: an untagged union discriminated by an `ok` boolean — the ok arm carries the query `result`, the error arm carries
 /// the structured `diagnostics` of a project that failed its checks.
 ///
 /// The engine never throws / never panics: a failing project yields the
 /// [`QueryEnvelope::Error`] arm, not a partial answer (strict-on-errors,
-/// ADR-0009). Generic over the payload `T` so later slices (kin-set
-/// queries, relationship resolution) reuse the same envelope.
+/// ADR-0009). Generic over the payload `T`, so lookups, kin-set queries and
+/// relationship resolution share one envelope.
 #[derive(Debug, Clone, Serialize)]
-// `missing_as_null` makes a `None` lookup `result` serialize as an explicit
-// JSON `null` across the WASM boundary, matching the CLI's serde_json output
-// and the committed TS type (`result` is a required `T | null`, never
-// absent). Fields that opt out via `skip_serializing_if` (the export shape's
-// optionals) stay absent as before — the flag only affects `None` values
-// that reach the serializer.
-#[cfg_attr(
-    feature = "tsify",
-    derive(Tsify),
-    tsify(into_wasm_abi, missing_as_null)
-)]
 #[serde(untagged)]
 pub enum QueryEnvelope<T> {
     /// The project passed its checks; `result` carries the query answer.
@@ -140,7 +117,6 @@ pub enum QueryEnvelope<T> {
 /// Ok arm of a [`QueryEnvelope`]. `ok` is always `true` (consumer-facing
 /// discriminator); `result` is the query payload.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct QueryOk<T> {
     /// Always `true`. Consumer-facing discriminator.
@@ -153,7 +129,6 @@ pub struct QueryOk<T> {
 /// `diagnostics` carries every diagnostic the failing project produced —
 /// the same [`ExportedDiagnostic`] shape the check/export surfaces use.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct QueryError {
     /// Always `false`. Consumer-facing discriminator.
@@ -173,8 +148,7 @@ impl<T> QueryEnvelope<T> {
 /// Wrap a person lookup in a [`QueryEnvelope`], gated on the project
 /// passing its checks. A project with error-severity diagnostics yields
 /// the error arm (never a partial answer). This is the single source of
-/// the person-lookup contract serialization shared by the WASM and CLI
-/// surfaces.
+/// the person-lookup contract serialization `kul query person` prints.
 #[must_use]
 pub fn person_lookup(check: &CheckResult, id: &str) -> QueryEnvelope<PersonLookupResult> {
     if check.has_errors() {
@@ -205,40 +179,10 @@ pub fn marriage_lookup(check: &CheckResult, id: &str) -> QueryEnvelope<MarriageL
     })
 }
 
-/// Answer a batch of [`DetailTarget`]s and wrap the answer in a
-/// [`QueryEnvelope`], gated on the project passing its checks
-/// (strict-on-errors, ADR-0009). The single source of the batched-detail
-/// contract serialization the WASM `queryDetail` surface returns.
-///
-/// **One call, one check, any number of targets.** Every target is answered
-/// off the same checked project, so the batch's cost is flat in the number of
-/// targets — the property the detail surface rests on (ADR-0035, ADR-0037).
-///
-/// Two outcomes, both non-throwing:
-/// - project failed its checks → the error arm carries the check diagnostics;
-/// - otherwise → the ok arm carries one entry per target, in the order asked,
-///   `null` where a target names no entity (absence is the answer).
-#[must_use]
-pub fn detail_lookup(
-    check: &CheckResult,
-    targets: &[DetailTarget],
-) -> QueryEnvelope<DetailLookupResult> {
-    if check.has_errors() {
-        return QueryEnvelope::Error(QueryError {
-            ok: false,
-            diagnostics: export_diagnostics(check),
-        });
-    }
-    QueryEnvelope::Ok(QueryOk {
-        ok: true,
-        result: details(check.resolved(), targets),
-    })
-}
-
 /// Evaluate a kin-set [`Query`] and wrap the answer in a [`QueryEnvelope`],
 /// gated on the project passing its checks (strict-on-errors, ADR-0009).
-/// The single source of the kin-query contract serialization shared by the
-/// WASM `queryKin` surface and the CLI `kul query kin --format json` path.
+/// The single source of the kin-query contract serialization the CLI's
+/// `kul query kin --format json` path prints.
 ///
 /// Three outcomes, all non-throwing:
 /// - project failed its checks → the error arm carries the check diagnostics;
@@ -262,20 +206,10 @@ pub fn query_envelope(check: &CheckResult, query: &Query) -> QueryEnvelope<Query
     }
 }
 
-/// Evaluate a kin-set [`Query`] and wrap the answer in a [`QueryEnvelope`].
-/// A thin alias for [`query_envelope`] retained for the `queryKin` WASM
-/// surface and the CLI `kul query kin` path — every source (kin-set,
-/// attribute filter, count) shares the one [`run_query`] path underneath.
-#[must_use]
-pub fn kin_query(check: &CheckResult, query: &Query) -> QueryEnvelope<QueryResult> {
-    query_envelope(check, query)
-}
-
 /// Resolve **all** the ways two persons are related and wrap the answer in a
 /// [`QueryEnvelope`], gated on the project passing its checks (strict-on-
 /// errors, ADR-0009). The single source of the resolution contract
-/// serialization shared by the WASM `queryResolve` surface and the CLI
-/// `kul query rel --format json` path.
+/// serialization the CLI's `kul query rel --format json` path prints.
 ///
 /// Three outcomes, all non-throwing:
 /// - project failed its checks → the error arm carries the check diagnostics;
@@ -312,11 +246,10 @@ pub fn resolve_relationship(
 mod tests {
     use super::*;
     use crate::ast::InputFile;
-    use crate::manifest::Manifest;
 
     fn check(source: &str) -> CheckResult {
         let inputs = vec![InputFile::new("test.kul", source)];
-        crate::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs)
+        crate::check(&inputs)
     }
 
     const NUCLEAR: &str = "\

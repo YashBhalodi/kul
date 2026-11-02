@@ -9,8 +9,8 @@
 //! date shape (exact, partial-year, partial-month, circa, missing) and every
 //! operator is snapshotted against it in **both certainty modes**. Two kinds
 //! of assertion:
-//! - **Contract snapshots**: serialize the `query_envelope` bytes (the WASM
-//!   `runQuery` and CLI-`json` surfaces mirror them).
+//! - **Contract snapshots**: serialize the `query_envelope` bytes (the bytes
+//!   `kul query persons --format json` prints).
 //! - **Targeted behavioural checks**: the sort determinism rules (missing-last,
 //!   id tiebreak, date-bounds order), composition onto a traversal, and the
 //!   malformed-predicate typed error.

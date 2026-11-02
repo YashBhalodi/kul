@@ -95,7 +95,7 @@ Subagent prompt (substitute `<branch>`, `<subject>`, `<files>`, `<instruction>`)
 > 1. Read the involved files to understand the current state.
 > 2. Apply the change exactly as instructed.
 > 3. If the change shifts behavior covered by `insta` snapshots, accept the new snapshots (intentional snapshot diffs are fine; mention them in the commit body).
-> 4. Run `just check` (fmt + clippy-deny-warnings + nextest).
+> 4. Run `just check` (fmt, clippy at deny-warnings, nextest, the WASM gates and the web app's gates).
 > 5. **Green** → `git add` the touched paths and `git commit -m "<subject>"` with a one-sentence body explaining the *why*. Return `RESULT: applied`.
 > 6. **Red** → diagnose the failure before deciding:
 >    - **(a) Behavior actually changed.** A test correctly catches a behavior shift the instruction did not anticipate. `git reset --hard HEAD && git clean -fd`. Return:

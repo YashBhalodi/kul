@@ -1,0 +1,113 @@
+---
+title: Children
+description: The birth and adoption lines, which tie a child to the marriage they were born or adopted into.
+---
+
+A child is a person like any other. What makes them someone's child is an
+indented line under their `person` line, naming the **marriage** they came
+from: `birth` for a biological child, `adoption` for an adopted one.
+
+## Birth
+
+```kul
+person hiroshi  name:"Hiroshi Tanaka"  gender:male    born:1978-02-11
+person yuki     name:"Yuki Tanaka"     gender:female  born:1980-06-30
+
+marriage m_hiroshi_yuki hiroshi yuki  start:2005-09-20
+
+person akiko  name:"Akiko Tanaka"  gender:female  born:2008-04-17
+  birth m_hiroshi_yuki
+person kenji  name:"Kenji Tanaka"  gender:male  born:2011-11-03
+  birth m_hiroshi_yuki
+```
+
+`birth m_hiroshi_yuki` says Akiko was born to the couple in that marriage.
+Her parents are its two spouses, and Kenji is her brother because he names
+the same marriage. None of that is written anywhere else.
+
+A `birth` line has no fields of its own. The date of birth is the child's
+`born:` field. A person has at most one `birth` line.
+
+Sub-statement lines must be indented, and belong to the `person` line above
+them. Two spaces is the convention, and what formatting produces.
+
+### Parents need a marriage
+
+A `birth` line names a marriage, never a parent. If your record names a
+child's parents but says nothing about a wedding, declare the marriage
+anyway, without a date, and note why:
+
+```kul
+person john  name:"John"  gender:male
+person mary  name:"Mary"  gender:female
+
+# Not recorded as married; declared so the children have parents.
+marriage m_john_mary john mary
+
+person tom  name:"Tom"  gender:male  born:1962
+  birth m_john_mary
+```
+
+A person with no `birth` line is the start of what you know of their line.
+When you find their parents later, add the marriage and the `birth` line.
+The person's own line doesn't change.
+
+## Adoption
+
+```kul
+person carlos  name:"Carlos Mendoza"  gender:male    born:1973-02-18
+person rosa    name:"Rosa Mendoza"    gender:female  born:1975-09-24
+
+marriage m_carlos_rosa carlos rosa  start:2000-01-15
+
+person bayani  name:"Bayani Mendoza"  gender:other  born:~1995
+  adoption m_carlos_rosa  start:2007-06-01
+```
+
+An `adoption` line names the adopting couple's marriage. `start:` is the
+date the adoption took effect; write it when you know it. If the adoption
+later ended, add `end:` with that date. Otherwise it lasts.
+
+Adopted and biological children are equal members of the family. On the
+tree the only difference is the line to their parents: solid for birth,
+dashed for adoption.
+
+## Birth and adoption together
+
+A person can have one `birth` line and any number of `adoption` lines. Each
+one stays true; a later adoption doesn't erase the birth family.
+
+```kul
+person eduardo  name:"Eduardo Reyes"  gender:male    born:1962-03-11
+person luz      name:"Luz Reyes"      gender:female  born:1965-12-02
+
+marriage m_eduardo_luz eduardo luz  start:1988-07-09
+
+person tomas  name:"Tomas Garcia"  gender:male    born:1958-06-25
+person elena  name:"Elena Garcia"  gender:female  born:1960-10-14
+
+marriage m_tomas_elena tomas elena  start:1985-03-01
+
+person carlos  name:"Carlos Mendoza"  gender:male    born:1973-02-18
+person rosa    name:"Rosa Mendoza"    gender:female  born:1975-09-24
+
+marriage m_carlos_rosa carlos rosa  start:2000-01-15
+
+person dalisay  name:"Dalisay Mendoza"  gender:female  born:1990-08-03
+  birth m_eduardo_luz
+  adoption m_tomas_elena  start:1994-04-20  end:1999-02-10
+  adoption m_carlos_rosa  start:2002-11-30
+```
+
+Dalisay was born to Eduardo and Luz, adopted by the Garcias for five years,
+and later adopted by the Mendozas. The tree places her card with the
+Mendozas, her most recent family, and marks the other two with faded
+copies of her card. [Reading the tree](/docs/reading-the-tree/) explains
+those.
+
+## When the dates disagree
+
+Kul checks a child's dates against the parents': a child can't be born
+before a birth parent, and an adoption can't start before an adoptive
+parent was born. It doesn't check that a birth falls inside the marriage's
+dates, because real families don't always oblige.

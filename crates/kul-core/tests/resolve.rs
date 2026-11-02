@@ -5,8 +5,8 @@
 //! the kin-set queries are. Two kinds of test:
 //! - **Contract snapshots** over the small, deterministic cases (self,
 //!   disconnected, none-within-bounds, unknown id): serialize the
-//!   `resolve_relationship` envelope and pin its bytes — the WASM and
-//!   CLI-`json` surfaces mirror them.
+//!   `resolve_relationship` envelope and pin its bytes — the bytes
+//!   `kul query rel --format json` prints.
 //! - **Targeted behavioural fixtures** for the hazards the design pinned:
 //!   per-segment cap vs unbounded lineal, cousin-marriage multiplicity,
 //!   adoption-into-relatives, double cousins, step subsumption, deterministic
@@ -50,8 +50,8 @@ fn check_example(dir: &str, stem: &str) -> CheckResult {
     check_one(&read(&path))
 }
 
-/// Serialize the resolve envelope exactly as the WASM / CLI-`json` surfaces do
-/// (the contract snapshot).
+/// Serialize the resolve envelope exactly as `kul query rel --format json`
+/// does (the contract snapshot).
 fn envelope_json(check: &CheckResult, x: &str, y: &str, config: &ResolveConfig) -> String {
     serde_json::to_string_pretty(&resolve_relationship(check, x, y, config))
         .expect("serialize resolve envelope")

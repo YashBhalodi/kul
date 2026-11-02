@@ -1,15 +1,10 @@
 # Multi-file projects
 
-A **Kul project** is one directory containing a `kul.yml` manifest plus one or more `.kul` files. Every id declared in any of those files is visible from every other file by bare name — there is no `import`. Subdirectories are not walked. Normative source: [spec §10 — file conventions](https://github.com/YashBhalodi/kul/blob/main/spec/10-file-conventions.md), [spec §14 — project manifest](https://github.com/YashBhalodi/kul/blob/main/spec/14-project-manifest.md).
+A **Kul project** is the `.kul` files directly inside one directory — no other file is needed. Every id declared in any of those files is visible from every other file by bare name — there is no `import`. Subdirectories are not walked, and files with other extensions are ignored. Normative source: [spec §2 — projects](https://github.com/YashBhalodi/kul/blob/main/spec/02-document-structure.md#projects), [spec §10 — file conventions](https://github.com/YashBhalodi/kul/blob/main/spec/10-file-conventions.md).
 
-## Manifest
+## File order and naming
 
-```yaml
-# kul.yml
-kul: "0.1"
-```
-
-Required next to the `.kul` files. Missing manifest → `KUL-M01`. Manifest with zero `.kul` siblings → `KUL-M06`.
+Files are read in byte-wise order of their names (`10-x.kul` sorts before `9-x.kul`, and uppercase before lowercase). References resolve in every direction, so order never decides validity; it decides **declaration order** — the order an export lists entities in, and which of two duplicate ids is reported. Name files with a zero-padded prefix (`01-founders.kul`, `02-parents.kul`) so file order matches reading order.
 
 ## Cross-file references
 

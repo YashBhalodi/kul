@@ -1,5 +1,5 @@
 name: Bug report
-description: Wrong behavior in the CLI, language server, VSCode extension, or @kullang/wasm
+description: Wrong behavior in the web app or the kul CLI
 labels: ["bug"]
 body:
   - type: markdown
@@ -12,10 +12,8 @@ body:
     attributes:
       label: Which surface?
       options:
-        - kul CLI (validate / format / export / lsp)
-        - kul-lsp language server
-        - VSCode extension
-        - "@kullang/wasm (npm)"
+        - Web app
+        - kul CLI (validate / format / export / query)
         - Documentation / spec
         - Other
     validations:
@@ -25,7 +23,7 @@ body:
     id: version
     attributes:
       label: Version
-      description: e.g. `kul --version`, the npm package version, or the VSCode extension version. "Latest from main @ <sha>" is fine for self-built binaries.
+      description: For the CLI, the output of `kul --version`. For the web app, the date you used it. "Latest from main @ <sha>" is fine for self-built binaries.
       placeholder: "0.1.0"
     validations:
       required: true
@@ -50,7 +48,7 @@ body:
     id: actual
     attributes:
       label: Actual behavior
-      description: Include exact diagnostic output, stack traces, or screenshots. For LSP issues, the `kul-lsp` log if you can capture it.
+      description: Include exact diagnostic output, stack traces, or screenshots. For the web app, the browser console output if you can capture it.
     validations:
       required: true
 
@@ -58,4 +56,4 @@ body:
     id: environment
     attributes:
       label: OS / environment
-      placeholder: "macOS 14.5, VSCode 1.95, Node 22"
+      placeholder: "macOS 14.5, Firefox 132"

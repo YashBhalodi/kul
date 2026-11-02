@@ -1,0 +1,188 @@
+---
+source: crates/kul-language-service/src/symbols.rs
+expression: symbols_for(src)
+---
+[
+  {
+    "name": "Erik Lindqvist",
+    "detail": "b. 1970",
+    "kind": "person",
+    "span": {
+      "start": 1007,
+      "end": 1077
+    },
+    "selection": {
+      "start": 1014,
+      "end": 1018
+    },
+    "children": []
+  },
+  {
+    "name": "Astrid Lindqvist",
+    "detail": "b. 1972",
+    "kind": "person",
+    "span": {
+      "start": 1078,
+      "end": 1148
+    },
+    "selection": {
+      "start": 1085,
+      "end": 1091
+    },
+    "children": []
+  },
+  {
+    "name": "Erik Lindqvist & Astrid Lindqvist",
+    "detail": "1995–2003",
+    "kind": "marriage",
+    "span": {
+      "start": 1150,
+      "end": 1238
+    },
+    "selection": {
+      "start": 1159,
+      "end": 1172
+    },
+    "children": []
+  },
+  {
+    "name": "Linnea Lindqvist",
+    "detail": "b. 1998",
+    "kind": "person",
+    "span": {
+      "start": 1240,
+      "end": 1332
+    },
+    "selection": {
+      "start": 1247,
+      "end": 1253
+    },
+    "children": [
+      {
+        "name": "birth m_erik_astrid",
+        "kind": "birth",
+        "span": {
+          "start": 1313,
+          "end": 1332
+        },
+        "selection": {
+          "start": 1313,
+          "end": 1318
+        },
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "Maja Holm",
+    "detail": "b. 1975",
+    "kind": "person",
+    "span": {
+      "start": 1360,
+      "end": 1421
+    },
+    "selection": {
+      "start": 1367,
+      "end": 1371
+    },
+    "children": []
+  },
+  {
+    "name": "Erik Lindqvist & Maja Holm",
+    "detail": "2006",
+    "kind": "marriage",
+    "span": {
+      "start": 1423,
+      "end": 1471
+    },
+    "selection": {
+      "start": 1432,
+      "end": 1443
+    },
+    "children": []
+  },
+  {
+    "name": "Oskar Lindqvist",
+    "detail": "b. 2008",
+    "kind": "person",
+    "span": {
+      "start": 1473,
+      "end": 1559
+    },
+    "selection": {
+      "start": 1480,
+      "end": 1485
+    },
+    "children": [
+      {
+        "name": "birth m_erik_maja",
+        "kind": "birth",
+        "span": {
+          "start": 1542,
+          "end": 1559
+        },
+        "selection": {
+          "start": 1542,
+          "end": 1547
+        },
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "Johan Berg",
+    "detail": "b. 1971",
+    "kind": "person",
+    "span": {
+      "start": 1610,
+      "end": 1671
+    },
+    "selection": {
+      "start": 1617,
+      "end": 1622
+    },
+    "children": []
+  },
+  {
+    "name": "Astrid Lindqvist & Johan Berg",
+    "detail": "2007",
+    "kind": "marriage",
+    "span": {
+      "start": 1673,
+      "end": 1727
+    },
+    "selection": {
+      "start": 1682,
+      "end": 1696
+    },
+    "children": []
+  },
+  {
+    "name": "Frida Berg",
+    "detail": "b. 2010",
+    "kind": "person",
+    "span": {
+      "start": 1729,
+      "end": 1815
+    },
+    "selection": {
+      "start": 1736,
+      "end": 1741
+    },
+    "children": [
+      {
+        "name": "birth m_astrid_johan",
+        "kind": "birth",
+        "span": {
+          "start": 1795,
+          "end": 1815
+        },
+        "selection": {
+          "start": 1795,
+          "end": 1800
+        },
+        "children": []
+      }
+    ]
+  }
+]

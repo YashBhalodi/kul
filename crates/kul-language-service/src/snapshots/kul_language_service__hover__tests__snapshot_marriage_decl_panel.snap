@@ -1,0 +1,10 @@
+---
+source: crates/kul-language-service/src/hover.rs
+expression: body
+---
+**Alice Doe & Bob Smith** — `marriage m`
+
+- spouses: `a` (Alice Doe) (host) & `b` (Bob Smith)
+- start: `2010-06-15`
+- end: `2020-04-01`
+- end_reason: `divorce`

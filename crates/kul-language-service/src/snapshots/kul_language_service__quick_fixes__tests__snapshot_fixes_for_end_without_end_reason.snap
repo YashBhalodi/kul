@@ -1,0 +1,31 @@
+---
+source: crates/kul-language-service/src/quick_fixes.rs
+expression: fixes_for(src)
+---
+[
+  {
+    "title": "Add `end_reason:divorce`",
+    "diagnostic": {
+      "code": "KUL-R05",
+      "severity": "error",
+      "message": "marriage `m` has an `end:` date but no `end_reason:` — add `end_reason:divorce`",
+      "location": {
+        "file": "t.kul",
+        "span": {
+          "start": 92,
+          "end": 96
+        }
+      },
+      "related": []
+    },
+    "edits": [
+      {
+        "span": {
+          "start": 96,
+          "end": 96
+        },
+        "text": " end_reason:divorce"
+      }
+    ]
+  }
+]

@@ -1,6 +1,6 @@
 # ADR 0040 — Engine provenance: the webview's engine is a build asset, not a registry dependency
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0047](./0047-the-browser-app-is-kuls-only-interactive-surface.md) — the engine is a workspace package the web app imports.
 **Date:** 2026-07-26
 **Deciders:** owner
 

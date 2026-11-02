@@ -1,0 +1,87 @@
+---
+title: Fields
+description: Every field of every statement, whether it is required, and the values it takes.
+---
+
+A field is written `name:value`, with no spaces around the colon. Fields
+can come in any order, and each may appear once per line. Leave out a field
+you don't know.
+
+## person
+
+```text
+person <id>  <fields>
+```
+
+| Field    | Required | Value                       | Meaning                                     |
+| -------- | -------- | --------------------------- | ------------------------------------------- |
+| `name`   | Yes      | Text, in quotes             | The name shown on the person's card.        |
+| `gender` | Yes      | `male`, `female` or `other` | The person's gender.                        |
+| `family` | No       | Text, in quotes             | The family name, kept apart from `name`.    |
+| `given`  | No       | Text, in quotes             | The given name, kept apart from `name`.     |
+| `born`   | No       | A date                      | When the person was born.                   |
+| `died`   | No       | A date                      | When the person died. Absent: not recorded. |
+
+## birth
+
+```text
+  birth <marriage-id>
+```
+
+Indented under a person. The person was born to the two spouses of the
+named marriage. No fields: the date is the person's `born:`. At most one
+per person.
+
+## adoption
+
+```text
+  adoption <marriage-id>  <fields>
+```
+
+Indented under a person. The person was adopted by the two spouses of the
+named marriage. Any number per person, alongside a `birth`.
+
+| Field   | Required | Value  | Meaning                                                   |
+| ------- | -------- | ------ | --------------------------------------------------------- |
+| `start` | No       | A date | When the adoption took effect. Write it when you know it. |
+| `end`   | No       | A date | When the adoption ended. Absent: it lasts.                |
+
+## marriage
+
+```text
+marriage <id> <host-id> <spouse-id>  <fields>
+```
+
+The host is the first spouse; the second joins the host's family. The two
+must be different people.
+
+| Field        | Required          | Value     | Meaning                                     |
+| ------------ | ----------------- | --------- | ------------------------------------------- |
+| `start`      | No                | A date    | When the marriage began.                    |
+| `end`        | With `end_reason` | A date    | When the marriage ended in divorce.         |
+| `end_reason` | With `end`        | `divorce` | Why it ended. `divorce` is the only reason. |
+
+A spouse's death does not end a marriage: record it with `died:` on the
+person.
+
+## Dates
+
+| Form           | Example      | Meaning                             |
+| -------------- | ------------ | ----------------------------------- |
+| `YYYY`         | `1975`       | Some day in 1975.                   |
+| `YYYY-MM`      | `1975-09`    | Some day in September 1975.         |
+| `YYYY-MM-DD`   | `1975-09-03` | That day.                           |
+| `~` + any form | `~1975`      | Around then: five years either way. |
+
+Years have four digits, months and days two. The day must exist in that
+month and year: `1975-02-29` is an error, `1976-02-29` is fine.
+
+## Text
+
+Text goes in double quotes and can hold any characters, in any script.
+Inside the quotes, `\"` is a double quote and `\\` a backslash; a backslash
+before anything else is an error.
+
+```kul
+person ammu  name:"Asha \"Ammu\" Rao"  gender:female
+```

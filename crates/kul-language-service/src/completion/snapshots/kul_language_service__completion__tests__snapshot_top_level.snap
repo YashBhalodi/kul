@@ -1,0 +1,18 @@
+---
+source: crates/kul-language-service/src/completion/mod.rs
+expression: "complete_for(\"<CURSOR>\")"
+---
+[
+  {
+    "label": "person",
+    "kind": "keyword",
+    "detail": "Declare an individual (name, gender, dates)",
+    "preselect": false
+  },
+  {
+    "label": "marriage",
+    "kind": "keyword",
+    "detail": "Declare a marriage between two people",
+    "preselect": false
+  }
+]

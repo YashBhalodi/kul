@@ -4,7 +4,7 @@ A conforming validator MUST report all of the following as errors. A document wi
 
 ## Structural
 
-1. **Duplicate ID within the project** — no two top-level statements (across `person` and `marriage`) may share an ID anywhere in the project. A Kul project (see [Section 14](./14-project-manifest.md)) is one logical namespace: an ID declared in one `.kul` file collides with the same ID declared in any sibling `.kul` file. The diagnostic anchors at the second declaration in file-discovery order (ties broken by byte offset within a file); a related-span points to the first declaration.
+1. **Duplicate ID within the project** — no two top-level statements (across `person` and `marriage`) may share an ID anywhere in the project. A Kul project (see [Section 2](./02-document-structure.md#projects)) is one logical namespace: an ID declared in one `.kul` file collides with the same ID declared in any other file of the project. The diagnostic anchors at the second declaration in declaration order (file order, then byte offset within a file); a related-span points to the first declaration.
 2. **Unresolved reference** — every `birth` marriage reference, `adoption` marriage reference, and marriage spouse reference must resolve to a declared ID in the project. Cross-file references resolve cleanly: an ID declared in any `.kul` file of the project is visible from every file.
 3. **Required field missing** — a `person` MUST have `name` and `gender`. A `marriage` has no required named fields — the positional `id` and two spouse references are enforced by the grammar; `start:` is optional because dates are sometimes lost to record.
 4. **Self-marriage** — a marriage's two spouse references MUST be distinct identifiers.
@@ -33,17 +33,6 @@ For each comparison below, when a date has partial granularity it is treated as 
 ## Fields
 
 15. **Duplicate field** — a `person`, `marriage`, or `adoption` statement MUST NOT set the same field more than once. Fields are unordered and each may appear at most once per statement; because accessors take the first occurrence, a repeated field silently discards every later value, so the second and subsequent occurrences are errors. The diagnostic anchors at the duplicate occurrence's field name; a related-span points to the first occurrence. (A field whose value failed to parse is reported by the parser and does not additionally count toward this rule.)
-
-## Manifest
-
-The following codes are reported by the project-manifest validator pass against `kul.yml` (see [Section 14](./14-project-manifest.md)). They flow through the same diagnostic infrastructure as the `KUL-Rxx` rules above.
-
-- **KUL-M01** — manifest not found at expected path. Unanchored.
-- **KUL-M02** — manifest YAML malformed. Anchors at the line/column the YAML parser reported.
-- **KUL-M03** — manifest is well-formed YAML but missing the required `kul:` field. Anchors at the manifest start.
-- **KUL-M04** — manifest's `kul:` value is not a recognized Kul language version. Anchors at the value.
-- **KUL-M05** — manifest carries an unknown top-level field. Severity warning; anchors at the field key.
-- **KUL-M06** — project has a `kul.yml` but zero sibling `.kul` files. Anchors at the manifest start.
 
 ## Things explicitly NOT validated in v1
 

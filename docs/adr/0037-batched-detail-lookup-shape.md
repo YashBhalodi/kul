@@ -1,6 +1,6 @@
 # ADR 0037 — The batched detail lookup: a target list in, an entity-kind union out
 
-**Status:** Accepted
+**Status:** Accepted; amended by [ADR-0049](./0049-the-language-service-and-the-workspace-in-a-worker.md) — the lookup answers one person or marriage by id; the target list, the adoption target and its variant were removed (see the amendment below).
 **Date:** 2026-07-26
 **Deciders:** owner
 
@@ -31,10 +31,9 @@ Four questions had to be answered before code:
 
 ### The unit of a request is a *list of targets*, and that is what makes it batched
 
-`query::details(resolved, &[DetailTarget]) -> Vec<Option<EntityDetail>>`, wrapped for the adapters
-as `query::detail_lookup(check, &[DetailTarget]) -> QueryEnvelope<DetailLookupResult>` and surfaced
-as WASM `queryDetail(files, manifest, targets)`. Answers come back **in the order asked**, one per
-target.
+`query::details(resolved, &[DetailTarget]) -> Vec<Option<EntityDetail>>`. Answers come back **in
+the order asked**, one per target. Its consumer is the language service's `details(id)`, which the
+canvas details panel asks about one entity at a time (ADR-0049, ADR-0052).
 
 A single-target operation would have satisfied ADR-0035's detail panel and nothing else. The list is
 what lets the *same* operation supply the kin list's row labels — N person targets, one check, read
@@ -99,8 +98,8 @@ path-identity discipline: the engine does not collapse two distinct ties, and a 
 **Absence is the answer, per target.** A target naming no entity yields `null` *in its own position*;
 the rest of the batch still answers. This is ADR-0024's subject-vs-anchor line held exactly: the
 target is the subject of the question, so "no such entity" is a complete answer, and no typed error
-is introduced. A project that fails its checks is the envelope's error arm, whole (ADR-0009) — never
-a partial batch.
+is introduced. A project that fails its checks gets no answer at all (the language service's
+`details` is strict on errors, ADR-0009) — never a partial batch.
 
 **No ghost model.** Nothing in the answer knows a person is drawn more than once. ADR-0035 pinned
 this: re-deriving [ADR-0019](./0019-ghost-model-and-bio-anchor.md) inside the query layer would
@@ -119,7 +118,7 @@ out:
   kinds in one call; flattening that into argv means a per-argument kind tag, i.e. a small argument
   grammar the core does not have.
 
-The operation exists to serve one batched click in a webview. `kul query person|marriage <id>` still
+The operation exists to serve a details panel. `kul query person|marriage <id>` still
 answers the same underlying data one entity at a time, and `kul export` carries the parenthood links
 in full, so nothing is unreachable from a terminal. If a CLI need appears later it can be added
 without reshaping the contract.
@@ -132,12 +131,10 @@ without reshaping the contract.
 - The parenthood link's serialized shape now has one producer path, like the person and marriage
   shapes before it. Adding a field to `ExportedParenthoodLink` updates the export *and* the detail
   lookup in one edit.
-- `queryDetail` is the sixth function on the WASM query surface and the first that takes a *list* of
-  request values. Its TypeScript types ship under ADR-0012's committed-tsify discipline; the
-  `DetailLookupResult` payload alias is declared in the same `typescript_custom_section` as the
-  other payload aliases, because tsify erases transparent Rust type aliases.
-- The CLI and the WASM surface are no longer feature-symmetric. That is a first for the query seam
-  and is accepted deliberately, on the grounds above.
+- `EntityDetail` and its parts cross the WASM boundary through the `Workspace`'s `details`, under
+  ADR-0012's committed-tsify discipline.
+- The CLI and the app are not feature-symmetric: the app has a details panel and no query UI, the
+  CLI has queries and no batched lookup. That is accepted deliberately, on the grounds above.
 
 ## Anti-suggestions (do not re-propose)
 
@@ -167,3 +164,12 @@ without reshaping the contract.
   regardless, which is the adjacency ADR-0025 already sanctions building per invocation.
 - **"Add `kul query detail` for symmetry."** It cannot be spelled without a CLI-only pair syntax and
   a CLI-only batch grammar. Symmetry is not worth a second address vocabulary.
+
+## Amendment (2026-11-02) — one entity by id
+
+The details panel is the lookup's only caller, and it asks about one entity at a time: the canvas selects a person card or a marriage line, never an adoption edge. So the lookup is now `query::detail(resolved, id) -> Option<EntityDetail>`, answering the person or marriage `id` names (they share one namespace), and these parts of the decision above no longer hold:
+
+- **The target list.** The batch existed so a stateless WASM call could pay the project check once for many targets. The browser `Workspace` caches one check per edit ([ADR-0049](./0049-the-language-service-and-the-workspace-in-a-worker.md)), so each call already reads a checked project; a list in and a list out only added a wrapper. The flatness perf test went with it; `detail(id)` sits in the query engine's per-operation budget instead.
+- **The adoption target and the `adoption` variant of `EntityDetail`.** No surface selects an adoption. An adoption's own dates still reach the panel on the adopted person's parent rows (`LinkedPerson.link`).
+
+What stands: the answer carries only export shapes, one row per link (path identity), a marriage per row with the spouse beside it, absence is `None`, and the CLI has no matching verb.

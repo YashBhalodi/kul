@@ -1,0 +1,74 @@
+---
+title: Splitting a family across files
+description: A project is a flat set of .kul files that share one set of ids. File names are unique, and their order is the order Kul reads them in.
+---
+
+A small family fits in one file. A large one is easier to work with in
+several: one file per branch, per generation, or per side of the family.
+How you split it is up to you; Kul reads the files as one family.
+
+## A project is its files
+
+A Kul **project** is a set of `.kul` files side by side, with nothing else
+to set up:
+
+- In the app, a project is what you see in the editor's file list.
+- On disk, for the [command line](/docs/command-line/), a project is every
+  `.kul` file directly inside one folder. Files in subfolders, and files
+  with other extensions, are ignored.
+
+## One set of ids
+
+Every id declared in any file can be used from every other file, by its
+bare name. There is no `import` line. Here the children in
+`02-children.kul` name a marriage declared in `01-founders.kul`:
+
+```kul project="patel" title="01-founders.kul"
+person ramesh  name:"Ramesh Patel"  gender:male    born:1928-04-10  died:2010-12-03
+person sita    name:"Sita Patel"    gender:female  born:1931-09-22  died:2018-06-14
+
+marriage m_ramesh_sita ramesh sita  start:1952-02-18
+```
+
+```kul project="patel" title="02-children.kul"
+person alice  name:"Alice Patel"  gender:female  born:1955-07-19
+  birth m_ramesh_sita
+person dev    name:"Dev Patel"    gender:male    born:1958-03-28
+  birth m_ramesh_sita
+```
+
+Because the ids are shared, each one must be unique across the whole
+project. Declaring `alice` in two files is an error, reported on the second
+one.
+
+The second file isn't valid on its own, since `m_ramesh_sita` lives in the
+first. Together they are one project, and **Try it** on either opens both
+files.
+
+## File order
+
+Kul reads a project's files in the order of their names, comparing them
+character by character by their bytes. Digits come before capital letters,
+and capital letters before lower case, so `10-x.kul` sorts before
+`9-x.kul`, and `Zed.kul` before `alice.kul`.
+
+The order never changes whether a project is valid: a reference works in
+either direction. It does decide which tree is drawn first when families
+aren't connected, the order of brothers and sisters, and which of two
+duplicate ids gets the error.
+
+To keep the order you mean, start each name with a number padded to the
+same width: `01-founders.kul`, `02-children.kul`, … `10-later.kul`.
+
+## File names in the app
+
+The app keeps the same rules and adds two of its own, so a project always
+copies cleanly to any computer:
+
+- Names end in `.kul`. When you create or rename a file, type the name
+  without it and the app adds it.
+- No two files may have names that differ only in capitals, such as
+  `Family.kul` and `family.kul`, because some computers can't keep both in
+  one folder.
+
+Names can't contain `/` or `\`, and are at most 128 characters long.

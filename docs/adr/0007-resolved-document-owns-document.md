@@ -35,13 +35,13 @@ pub struct CheckResult {
 
 The previously-separate `persons: HashMap<&str, &PersonStmt>` and `marriages: HashMap<&str, &MarriageStmt>` indexes collapse into the single `entities` map. Per-kind lookup (`person(id)` / `marriage(id)`) checks the stored `kind` and dereferences the statement at the recorded index.
 
-`Arc<Document>` integrates naturally with the `Arc<str>` source already adopted in `kul-lsp::convert::LineIndex` and `kul-lsp::state::Document` ([refactor #3](../architecture.md)). The shared-immutable-data idiom is already paying for itself in the LSP cache; this extends the same shape to the AST itself.
+`Arc<Document>` integrates naturally with the `Arc<str>` source the editor's document cache already used. The shared-immutable-data idiom was already paying for itself there; this extends the same shape to the AST itself.
 
 ## Consequences
 
-- The LSP document cache (`state::Document`) holds one `CheckResult` per open URI, and every request handler reads through `doc.check.resolved` directly — no `semantic::resolve` call per keystroke. For an N-statement document this saves an O(N) hashmap rebuild on every hover/completion/definition/etc. request. The performance test in `crates/kul-lsp/tests/perf.rs` continues to assert <500ms on 1000-statement documents.
+- The editor's cache holds one `CheckResult` per project — today the browser `Workspace` (ADR-0049) — and every feature reads through `check.resolved` directly: no `semantic::resolve` call per request. For an N-statement project this saves an O(N) hashmap rebuild on every hover/completion/definition/etc. request. `crates/kul-language-service/tests/perf.rs` holds the check plus diagnostics on 1000 statements under budget.
 - The borrowed view types — `Node<'a>`, `EntityNode<'a>`, `EntityTarget<'a>`, `EntityRef<'a>`, `ParentLink<'a>` — keep their lifetime parameters. They're transient view types whose `'a` is now the elided lifetime of `&resolved`. Pattern matches and method calls in feature modules continue to work as before; the only difference is what the lifetime is *measured against* (a `&ResolvedDocument` rather than a `&'a Document`).
-- `ResolvedDocument: Send + Sync` (because every field is). The LSP server can hold one in `tokio::sync::RwLock<HashMap<Url, Document>>` without further wrapping.
+- `ResolvedDocument: Send + Sync` (because every field is). A host can share one across threads without further wrapping.
 - `Document` itself does **not** need a `Send + Sync` bound beyond what it already had (all fields are owned plain data: `String`, `Vec`, primitive spans). `Arc<Document>` works without any new derives.
 - `entity()` returns `Option<EntityRef<'_>>` constructed on the fly from the stored `ResolvedEntity` — one extra match arm per query. The cost is a few cycles; the alternative (storing `&'a Ident` in the map) is what we're moving away from.
 - New invariant inside `ResolvedDocument`: every `ResolvedEntity::statement_idx` points at a statement of the matching `kind`. Maintained by `resolve()` and asserted via `unreachable!` in `person`/`marriage` lookups. If the invariant is ever broken, the panic surfaces immediately rather than silently returning a wrong result.

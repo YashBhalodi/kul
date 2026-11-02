@@ -1,0 +1,160 @@
+name: Web
+
+# The web app's gates, the workflow lint and the release script's tests,
+# through the same `just` recipes `just check` and `just verify` run locally.
+# Then the tested build deploys to Netlify: a preview per pull request
+# (alias pr-<n>, its URL in a PR comment), production on push to main, each
+# followed by scripts/smoke-deployed.sh. Netlify only hosts; docs/deploy.md
+# has the setup.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: web (check, build, e2e, shots, lighthouse)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable branch
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          key: web
+      - uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3 # v2
+        with:
+          tool: wasm-pack@0.13.1,just
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # The wasm-pack output is a root workspace package (`kul-wasm`); npm
+      # links it into node_modules only when it exists, so build it first.
+      - run: just wasm
+      - run: npm ci
+      # Vitest's browser mode and the Playwright suites drive real browsers.
+      - run: npx playwright install --with-deps chromium webkit firefox
+      - run: just web-check web-build
+      - run: just e2e shots lighthouse
+      - name: Upload the screenshot tour
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: shots
+          path: apps/web/test-results/shots/
+          if-no-files-found: ignore
+      - name: Upload the site
+        uses: actions/upload-artifact@v7
+        with:
+          name: site
+          path: apps/web/dist/client/
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: deploy (Netlify)
+    needs: web
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    concurrency:
+      group: netlify-${{ github.event.pull_request.number || 'production' }}
+      cancel-in-progress: false
+    env:
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+    steps:
+      - name: Check for the Netlify secrets
+        id: netlify
+        run: |
+          if [ -n "$NETLIFY_AUTH_TOKEN" ] && [ -n "$NETLIFY_SITE_ID" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=Netlify deploy skipped::NETLIFY_AUTH_TOKEN or NETLIFY_SITE_ID is not set (a fork, or before setup; see docs/deploy.md). Skipping the deploy and the smoke check."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.netlify.outputs.configured == 'true'
+      - uses: actions/setup-node@v6
+        if: steps.netlify.outputs.configured == 'true'
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@v8
+        if: steps.netlify.outputs.configured == 'true'
+        with:
+          name: site
+          path: apps/web/dist/client/
+      # --filter names the workspace package, so the CLI doesn't ask which
+      # one to use; --no-build deploys the tested build as it is.
+      - name: Deploy to Netlify
+        id: deploy
+        if: steps.netlify.outputs.configured == 'true'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ -n "$PR_NUMBER" ]; then
+            target=(--alias "pr-$PR_NUMBER")
+            message="PR $PR_NUMBER at $PR_SHA"
+          else
+            target=(--prod)
+            message="main at $GITHUB_SHA"
+          fi
+          npx --yes netlify-cli@27.13.0 deploy --no-build --filter kul-web \
+            --dir apps/web/dist/client --site "$NETLIFY_SITE_ID" \
+            "${target[@]}" --message "$message" --json < /dev/null > "$RUNNER_TEMP/deploy.json"
+          jq . "$RUNNER_TEMP/deploy.json"
+          {
+            echo "url=$(jq -r .deploy_url "$RUNNER_TEMP/deploy.json")"
+            echo "logs=$(jq -r .logs "$RUNNER_TEMP/deploy.json")"
+          } >> "$GITHUB_OUTPUT"
+      - name: Smoke-check the deploy
+        if: steps.netlify.outputs.configured == 'true'
+        run: scripts/smoke-deployed.sh "${{ steps.deploy.outputs.url }}"
+      - name: Comment the preview URL on the pull request
+        if: steps.netlify.outputs.configured == 'true' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          URL: ${{ steps.deploy.outputs.url }}
+          LOGS: ${{ steps.deploy.outputs.logs }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          marker="<!-- kul-preview-deploy -->"
+          body="$marker
+          **Preview:** $URL
+
+          Built from $SHA, smoke-checked. [Deploy log]($LOGS)"
+          id="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -n 1)"
+          if [ -n "$id" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -f body="$body" > /dev/null
+          fi
+
+  workflows:
+    name: workflows (actionlint, release script, retired names)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3 # v2
+        with:
+          tool: just
+      - name: Install actionlint
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12 "$RUNNER_TEMP/bin"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - run: just lint-workflows release-test retired-names

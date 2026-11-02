@@ -1,220 +1,220 @@
 ---
 source: crates/kul-layout/tests/corpus.rs
-expression: yaml
+expression: positioned
 ---
-width: 1356.0
-height: 272.0
+width: 1356
+height: 272
 cards:
-- person_id: carlos
-  kind: canonical
-  x: 121.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Carlos Mendoza
-  generation: 0
-  gender: male
-  born: 1973-02-18
-- person_id: rosa
-  kind: canonical
-  x: 311.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Rosa Mendoza
-  generation: 0
-  gender: female
-  born: 1975-09-24
-- person_id: mateo
-  kind: canonical
-  x: 24.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Mateo Mendoza
-  generation: 1
-  gender: male
-  born: 2003-05-10
-- person_id: bayani
-  kind: canonical
-  x: 216.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Bayani Mendoza
-  generation: 1
-  gender: other
-  born: ~1995
-- person_id: dalisay
-  kind: canonical
-  x: 408.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Dalisay Mendoza
-  generation: 1
-  gender: female
-  born: 1990-08-03
-- person_id: eduardo
-  kind: canonical
-  x: 600.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Eduardo Reyes
-  generation: 0
-  gender: male
-  born: 1962-03-11
-- person_id: luz
-  kind: canonical
-  x: 790.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Luz Reyes
-  generation: 0
-  gender: female
-  born: 1965-12-02
-- person_id: dalisay
-  kind: ghost:past_birth
-  x: 695.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Dalisay Mendoza
-  generation: 1
-  gender: female
-  born: 1990-08-03
-- person_id: tomas
-  kind: canonical
-  x: 982.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Tomas Garcia
-  generation: 0
-  gender: male
-  born: 1958-06-25
-- person_id: elena
-  kind: canonical
-  x: 1172.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Elena Garcia
-  generation: 0
-  gender: female
-  born: 1960-10-14
-- person_id: dalisay
-  kind: ghost:past_adoption
-  x: 1077.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Dalisay Mendoza
-  generation: 1
-  gender: female
-  born: 1990-08-03
+  - person_id: carlos
+    kind: canonical
+    x: 121
+    y: 24
+    width: 160
+    height: 64
+    name: Carlos Mendoza
+    generation: 0
+    gender: male
+    born: 1973-02-18
+  - person_id: rosa
+    kind: canonical
+    x: 311
+    y: 24
+    width: 160
+    height: 64
+    name: Rosa Mendoza
+    generation: 0
+    gender: female
+    born: 1975-09-24
+  - person_id: mateo
+    kind: canonical
+    x: 24
+    y: 184
+    width: 160
+    height: 64
+    name: Mateo Mendoza
+    generation: 1
+    gender: male
+    born: 2003-05-10
+  - person_id: bayani
+    kind: canonical
+    x: 216
+    y: 184
+    width: 160
+    height: 64
+    name: Bayani Mendoza
+    generation: 1
+    gender: other
+    born: ~1995
+  - person_id: dalisay
+    kind: canonical
+    x: 408
+    y: 184
+    width: 160
+    height: 64
+    name: Dalisay Mendoza
+    generation: 1
+    gender: female
+    born: 1990-08-03
+  - person_id: eduardo
+    kind: canonical
+    x: 600
+    y: 24
+    width: 160
+    height: 64
+    name: Eduardo Reyes
+    generation: 0
+    gender: male
+    born: 1962-03-11
+  - person_id: luz
+    kind: canonical
+    x: 790
+    y: 24
+    width: 160
+    height: 64
+    name: Luz Reyes
+    generation: 0
+    gender: female
+    born: 1965-12-02
+  - person_id: dalisay
+    kind: "ghost:past_birth"
+    x: 695
+    y: 184
+    width: 160
+    height: 64
+    name: Dalisay Mendoza
+    generation: 1
+    gender: female
+    born: 1990-08-03
+  - person_id: tomas
+    kind: canonical
+    x: 982
+    y: 24
+    width: 160
+    height: 64
+    name: Tomas Garcia
+    generation: 0
+    gender: male
+    born: 1958-06-25
+  - person_id: elena
+    kind: canonical
+    x: 1172
+    y: 24
+    width: 160
+    height: 64
+    name: Elena Garcia
+    generation: 0
+    gender: female
+    born: 1960-10-14
+  - person_id: dalisay
+    kind: "ghost:past_adoption"
+    x: 1077
+    y: 184
+    width: 160
+    height: 64
+    name: Dalisay Mendoza
+    generation: 1
+    gender: female
+    born: 1990-08-03
 edges:
-- link_kind: birth
-  marriage_id: m_carlos_rosa
-  child_id: mateo
-  is_past: false
-  points:
-  - - 296.0
-    - 56.0
-  - - 296.0
-    - 156.0
-  - - 104.0
-    - 156.0
-  - - 104.0
-    - 184.0
-- link_kind: adoption
-  marriage_id: m_carlos_rosa
-  child_id: bayani
-  is_past: false
-  adoption_start: 2007-06-01
-  points:
-  - - 296.0
-    - 56.0
-  - - 296.0
-    - 156.0
-  - - 296.0
-    - 156.0
-  - - 296.0
-    - 184.0
-- link_kind: birth
-  marriage_id: m_eduardo_luz
-  child_id: dalisay
-  is_past: true
-  points:
-  - - 775.0
-    - 56.0
-  - - 775.0
-    - 156.0
-  - - 775.0
-    - 156.0
-  - - 775.0
-    - 184.0
-- link_kind: adoption
-  marriage_id: m_tomas_elena
-  child_id: dalisay
-  is_past: true
-  adoption_start: 1994-04-20
-  adoption_end: 1999-02-10
-  points:
-  - - 1157.0
-    - 56.0
-  - - 1157.0
-    - 156.0
-  - - 1157.0
-    - 156.0
-  - - 1157.0
-    - 184.0
-- link_kind: adoption
-  marriage_id: m_carlos_rosa
-  child_id: dalisay
-  is_past: false
-  adoption_start: 2002-11-30
-  points:
-  - - 296.0
-    - 56.0
-  - - 296.0
-    - 156.0
-  - - 488.0
-    - 156.0
-  - - 488.0
-    - 184.0
-- link_kind: marriage
-  marriage_id: m_carlos_rosa
-  host_id: carlos
-  joining_id: rosa
-  start: 2000-01-15
-  is_ended: false
-  points:
-  - - 281.0
-    - 56.0
-  - - 311.0
-    - 56.0
-- link_kind: marriage
-  marriage_id: m_eduardo_luz
-  host_id: eduardo
-  joining_id: luz
-  start: 1988-07-09
-  is_ended: false
-  points:
-  - - 760.0
-    - 56.0
-  - - 790.0
-    - 56.0
-- link_kind: marriage
-  marriage_id: m_tomas_elena
-  host_id: tomas
-  joining_id: elena
-  start: 1985-03-01
-  is_ended: false
-  points:
-  - - 1142.0
-    - 56.0
-  - - 1172.0
-    - 56.0
+  - link_kind: birth
+    marriage_id: m_carlos_rosa
+    child_id: mateo
+    is_past: false
+    points:
+      - - 296
+        - 56
+      - - 296
+        - 156
+      - - 104
+        - 156
+      - - 104
+        - 184
+  - link_kind: adoption
+    marriage_id: m_carlos_rosa
+    child_id: bayani
+    is_past: false
+    adoption_start: 2007-06-01
+    points:
+      - - 296
+        - 56
+      - - 296
+        - 156
+      - - 296
+        - 156
+      - - 296
+        - 184
+  - link_kind: birth
+    marriage_id: m_eduardo_luz
+    child_id: dalisay
+    is_past: true
+    points:
+      - - 775
+        - 56
+      - - 775
+        - 156
+      - - 775
+        - 156
+      - - 775
+        - 184
+  - link_kind: adoption
+    marriage_id: m_tomas_elena
+    child_id: dalisay
+    is_past: true
+    adoption_start: 1994-04-20
+    adoption_end: 1999-02-10
+    points:
+      - - 1157
+        - 56
+      - - 1157
+        - 156
+      - - 1157
+        - 156
+      - - 1157
+        - 184
+  - link_kind: adoption
+    marriage_id: m_carlos_rosa
+    child_id: dalisay
+    is_past: false
+    adoption_start: 2002-11-30
+    points:
+      - - 296
+        - 56
+      - - 296
+        - 156
+      - - 488
+        - 156
+      - - 488
+        - 184
+  - link_kind: marriage
+    marriage_id: m_carlos_rosa
+    host_id: carlos
+    joining_id: rosa
+    start: 2000-01-15
+    is_ended: false
+    points:
+      - - 281
+        - 56
+      - - 311
+        - 56
+  - link_kind: marriage
+    marriage_id: m_eduardo_luz
+    host_id: eduardo
+    joining_id: luz
+    start: 1988-07-09
+    is_ended: false
+    points:
+      - - 760
+        - 56
+      - - 790
+        - 56
+  - link_kind: marriage
+    marriage_id: m_tomas_elena
+    host_id: tomas
+    joining_id: elena
+    start: 1985-03-01
+    is_ended: false
+    points:
+      - - 1142
+        - 56
+      - - 1172
+        - 56

@@ -1,6 +1,6 @@
 # ADR 0012 — TypeScript types are derived from Rust via Tsify, committed, and diffed in CI
 
-**Status:** Accepted
+**Status:** Accepted; amended by [ADR-0049](./0049-the-language-service-and-the-workspace-in-a-worker.md) — the committed types are the `Workspace`'s and the language service's, consumed by the web app rather than an npm package.
 **Date:** 2026-05-06
 **Deciders:** owner
 

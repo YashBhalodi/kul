@@ -1,19 +1,19 @@
-//! `kul format` subcommand. Rewrites every `.kul` in the CWD project in
+//! `kul format` subcommand. Rewrites every `.kul` file of a project in
 //! place; `--check` makes it a non-mutating CI gate. Parse errors block
 //! formatting since the formatter requires a parseable input.
 
-use std::path::PathBuf;
 use std::process::ExitCode;
 
 use crate::commands::diag;
-use crate::commands::project::load_and_check;
+use crate::commands::project::{ProjectArg, load_and_check};
 
 pub struct Options {
     pub check: bool,
+    pub project: ProjectArg,
 }
 
 pub fn run(opts: Options) -> ExitCode {
-    let (project, result) = match load_and_check() {
+    let result = match load_and_check(&opts.project.dir) {
         Ok(x) => x,
         Err(code) => return code,
     };
@@ -26,18 +26,17 @@ pub fn run(opts: Options) -> ExitCode {
 
     let mut had_diff = false;
     let mut had_error = false;
-    for input in &project.inputs {
-        // Flat directory per ADR-0015.
-        let path: PathBuf = project.root.join(&input.name);
-        let formatted = kul_core::format::format_source(&input.source);
-        if formatted.as_str() == input.source.as_ref() {
+    for (_, file) in result.document().kul_files() {
+        let formatted = kul_core::format::format_source(&file.source);
+        if formatted.as_str() == file.source.as_ref() {
             continue;
         }
         if opts.check {
-            eprintln!("{}: not formatted", input.name);
+            eprintln!("{}: not formatted", file.name);
             had_diff = true;
             continue;
         }
+        let path = opts.project.dir.join(&file.name);
         if let Err(err) = std::fs::write(&path, &formatted) {
             eprintln!("kul: {}: write: {err}", path.display());
             had_error = true;

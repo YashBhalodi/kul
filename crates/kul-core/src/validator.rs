@@ -657,8 +657,8 @@ fn rule_13_parenthood_cycles(resolved: &ResolvedDocument) -> Vec<Diagnostic> {
             .expect("cycle must have at least one member");
         let head_file = resolved
             .entity(&head.id.name)
-            .map(|e| e.file)
-            .unwrap_or(FileId::MANIFEST);
+            .expect("cycle members are declared persons")
+            .file;
         let message = if cycle.members.len() == 1 {
             format!(
                 "`{}` ends up as their own ancestor — check the `birth` and `adoption` links",

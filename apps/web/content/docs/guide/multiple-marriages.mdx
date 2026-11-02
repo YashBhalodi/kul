@@ -1,0 +1,90 @@
+---
+title: Multiple marriages
+description: Remarriage after a divorce or a death, and households where one person has several spouses at once.
+---
+
+A person can be in any number of marriages. Each is its own `marriage`
+line, and each child names the one marriage they were born into, so
+half-siblings stay clearly apart.
+
+## Remarriage
+
+After a divorce, each former spouse can marry again:
+
+```kul tree
+person erik    name:"Erik Lindqvist"    gender:male    born:1970-01-22
+person astrid  name:"Astrid Lindqvist"  gender:female  born:1972-10-08
+
+marriage m_erik_astrid erik astrid  start:1995-06-17  end:2003-06-15  end_reason:divorce
+
+person linnea  name:"Linnea Lindqvist"  gender:female  born:1998-03-29
+  birth m_erik_astrid
+
+person maja  name:"Maja Holm"  gender:female  born:1975-05-14
+
+marriage m_erik_maja erik maja  start:2006-08-26
+
+person oskar  name:"Oskar Lindqvist"  gender:male  born:2008-12-01
+  birth m_erik_maja
+```
+
+Linnea and Oskar share a father, Erik, through two different marriages. The
+tree draws Erik's card with Maja, his current wife. His first marriage stays
+on the tree with faded copies of Erik and Astrid, so Linnea still hangs from
+her parents' marriage; Astrid's own card stands apart until you record what
+happened next in her life.
+
+After a spouse's death, a remarriage looks the same. The first marriage
+keeps no `end:`, because [a death is not a divorce](/docs/guide/marriages/#a-death-is-not-a-divorce):
+
+```kul
+person anil   name:"Anil Desai"   gender:male
+person priya  name:"Priya Desai"  gender:female  died:1990
+person rekha  name:"Rekha Desai"  gender:female
+
+marriage m_anil_priya anil priya  start:1970
+marriage m_anil_rekha anil rekha  start:1993
+```
+
+Neither marriage has an `end:`, so Kul treats Anil like the households in
+the next section: he must be the first spouse in both, and the tree draws
+both wives beside him.
+
+## Several spouses at once
+
+Kul records polygamous households directly. Two marriages that overlap in
+time are written the same way as any others:
+
+```kul
+person khalid  name:"Khalid Al-Rashid"  gender:male    born:1950-03-29
+person aisha   name:"Aisha Al-Rashid"   gender:female  born:1955-07-11
+person layla   name:"Layla Al-Rashid"   gender:female  born:1958-02-23
+
+marriage m_khalid_aisha khalid aisha  start:1975-05-04
+marriage m_khalid_layla khalid layla  start:1980-09-16
+
+person yusuf  name:"Yusuf Al-Rashid"  gender:male  born:1977-06-13
+  birth m_khalid_aisha
+person zahra  name:"Zahra Al-Rashid"  gender:female  born:1982-01-08
+  birth m_khalid_layla
+```
+
+There is one rule. A person in two or more marriages that haven't ended
+must be the **host**, the first spouse, in every one of them. The tree then
+has a single place to draw that household from: Khalid on top, each wife
+on the row below him, and each marriage's children under that marriage.
+
+If a marriage lists the shared spouse second, Kul reports it and suggests
+the fix, which is to swap the two ids:
+
+```kul expect-error=KUL-R14
+person khalid  name:"Khalid Al-Rashid"  gender:male
+person aisha   name:"Aisha Al-Rashid"   gender:female
+person layla   name:"Layla Al-Rashid"   gender:female
+
+marriage m_khalid_aisha khalid aisha
+marriage m_layla_khalid layla khalid
+```
+
+The rule only counts marriages without an `end:`. Once a marriage has
+ended, it no longer competes for the host's place.

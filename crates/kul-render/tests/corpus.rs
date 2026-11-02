@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 
 use kul_core::CheckResult;
 use kul_core::ast::InputFile;
-use kul_core::manifest::Manifest;
 
 use kul_render::compute;
 
@@ -26,8 +25,7 @@ fn read(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()))
 }
 
-/// Load every `.kul` file from `dir` lexicographically (mirrors
-/// `kul-loader::load` on-disk order).
+/// Check the project in `dir`: every `.kul` file directly inside it.
 fn check_example(dir: &Path) -> CheckResult {
     let mut entries: Vec<PathBuf> = std::fs::read_dir(dir)
         .unwrap_or_else(|err| panic!("read_dir {}: {err}", dir.display()))
@@ -45,7 +43,7 @@ fn check_example(dir: &Path) -> CheckResult {
             )
         })
         .collect();
-    kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs)
+    kul_core::check(&inputs)
 }
 
 fn render_example(dir: &str) -> String {

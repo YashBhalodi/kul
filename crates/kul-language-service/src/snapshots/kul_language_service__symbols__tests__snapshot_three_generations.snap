@@ -1,0 +1,160 @@
+---
+source: crates/kul-language-service/src/symbols.rs
+expression: symbols_for(src)
+---
+[
+  {
+    "name": "Chinua Okeke",
+    "detail": "~1925–1998",
+    "kind": "person",
+    "span": {
+      "start": 1205,
+      "end": 1317
+    },
+    "selection": {
+      "start": 1212,
+      "end": 1218
+    },
+    "children": []
+  },
+  {
+    "name": "Adaeze Okeke",
+    "detail": "b. 1930",
+    "kind": "person",
+    "span": {
+      "start": 1318,
+      "end": 1413
+    },
+    "selection": {
+      "start": 1325,
+      "end": 1331
+    },
+    "children": []
+  },
+  {
+    "name": "Chinua Okeke & Adaeze Okeke",
+    "detail": "1948",
+    "kind": "marriage",
+    "span": {
+      "start": 1415,
+      "end": 1471
+    },
+    "selection": {
+      "start": 1424,
+      "end": 1439
+    },
+    "children": []
+  },
+  {
+    "name": "Emeka Okeke",
+    "detail": "b. 1950",
+    "kind": "person",
+    "span": {
+      "start": 1498,
+      "end": 1580
+    },
+    "selection": {
+      "start": 1505,
+      "end": 1510
+    },
+    "children": [
+      {
+        "name": "birth m_chinua_adaeze",
+        "kind": "birth",
+        "span": {
+          "start": 1559,
+          "end": 1580
+        },
+        "selection": {
+          "start": 1559,
+          "end": 1564
+        },
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "Ngozi Okeke",
+    "detail": "b. 1955",
+    "kind": "person",
+    "span": {
+      "start": 1581,
+      "end": 1645
+    },
+    "selection": {
+      "start": 1588,
+      "end": 1593
+    },
+    "children": []
+  },
+  {
+    "name": "Emeka Okeke & Ngozi Okeke",
+    "detail": "1978",
+    "kind": "marriage",
+    "span": {
+      "start": 1647,
+      "end": 1699
+    },
+    "selection": {
+      "start": 1656,
+      "end": 1669
+    },
+    "children": []
+  },
+  {
+    "name": "Chidi Okeke",
+    "detail": "b. 1980",
+    "kind": "person",
+    "span": {
+      "start": 1726,
+      "end": 1812
+    },
+    "selection": {
+      "start": 1733,
+      "end": 1738
+    },
+    "children": [
+      {
+        "name": "birth m_emeka_ngozi",
+        "kind": "birth",
+        "span": {
+          "start": 1793,
+          "end": 1812
+        },
+        "selection": {
+          "start": 1793,
+          "end": 1798
+        },
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "Amara Okeke",
+    "detail": "b. 1983",
+    "kind": "person",
+    "span": {
+      "start": 1813,
+      "end": 1896
+    },
+    "selection": {
+      "start": 1820,
+      "end": 1825
+    },
+    "children": [
+      {
+        "name": "birth m_emeka_ngozi",
+        "kind": "birth",
+        "span": {
+          "start": 1877,
+          "end": 1896
+        },
+        "selection": {
+          "start": 1877,
+          "end": 1882
+        },
+        "children": []
+      }
+    ]
+  }
+]

@@ -1,0 +1,18 @@
+---
+source: crates/kul-language-service/src/completion/mod.rs
+expression: "complete_for(\"person alice name:\\\"Alice\\\" gender:female born:1950\\n\\\n             person bob name:\\\"Bob\\\" gender:male born:1948\\n\\\n             marriage m <CURSOR>\",)"
+---
+[
+  {
+    "label": "alice",
+    "kind": "person",
+    "detail": "Alice, b. 1950",
+    "preselect": false
+  },
+  {
+    "label": "bob",
+    "kind": "person",
+    "detail": "Bob, b. 1948",
+    "preselect": false
+  }
+]

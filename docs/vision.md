@@ -8,7 +8,7 @@ This is the long-form *why*. For the short pitch, see the [project README](../RE
 
 I think in structured terms but struggle to remember the relationships and names in my own family and social circle. Existing tools either don't capture the dynamics that matter — polygamy, retroactive adoption, marriages that end and the *reasons* they end — or capture them in formats nobody hand-authors twice.
 
-What I wanted was a single, formally-specified language in which a family can be described — including its evolution over time — such that the description is *itself* the artifact. Visualizations, editors, and other surfaces are downstream; the language is the canonical source of truth.
+What I wanted was a single, formally-specified language in which a family can be described — including its evolution over time — such that the description is *itself* the artifact. The app's editor and tree are built on it; the language is the canonical source of truth.
 
 ## The name
 
@@ -73,24 +73,21 @@ These are not statements about the validity of the relationships in general — 
 
 ## Deliverables
 
-KulLang's v1 envelope is four coherent artifacts:
+KulLang is four coherent artifacts:
 
-1. **The language specification** — fourteen normative sections plus a standalone EBNF grammar. Self-contained; rigorous enough that an independent parser can be written from it alone. → [`spec/`](../spec/README.md)
-2. **A reference parser and library** — [`kul-core`](../crates/kul-core/), implementing the spec end-to-end: lexer, parser, semantic resolution, validator (13 spec rules), formatter, node-at-cursor query, JSON export.
-3. **A CLI** — [`kul`](../crates/kul-cli/), wrapping the library: `kul validate`, `kul format`, `kul export`, `kul lsp`.
-4. **Editor tooling** — [`kul-lsp`](../crates/kul-lsp/) (the language server) plus an LSP-backed [VSCode extension](../editor/vscode/) delivering live diagnostics, hover, go-to-definition, find-references, rename, completion, document symbols, code actions, formatting, and semantic tokens. Plus [`@kullang/wasm`](../crates/kul-wasm/) for browser and Node consumers.
-
-A web visualization app, a mobile app, or any other application surface would be downstream of these artifacts. None is part of v1; each may or may not be built.
+1. **The language specification** — normative sections plus a standalone EBNF grammar. Self-contained; rigorous enough that an independent parser can be written from it alone. → [`spec/`](../spec/README.md)
+2. **The engine** — [`kul-core`](../crates/kul-core/) implements the spec end to end (lexer, parser, semantic resolution, the fifteen validation rules, formatter, JSON export, the kinship-query engine); the visual pipeline draws the [canonical tree](./canonical-ui-pattern.md); [`kul-language-service`](../crates/kul-language-service/) answers what an editor needs (diagnostics, hover, completion, definition, references, rename, symbols, quick fixes, formatting, highlighting); [`kul-wasm`](../crates/kul-wasm/) runs all of it in a browser.
+3. **The web app** — [kullang.dev](https://kullang.dev), built from [`apps/web`](../apps/web/): an editor and a live family tree side by side, the "Learn Kul" guide and reference, and `llms.txt` for language models. It runs entirely in the reader's browser: projects are stored there, nothing is uploaded, and it works offline.
+4. **The CLI** — [`kul`](../crates/kul-cli/): `validate`, `format`, `export` and `query` over a project directory, for scripts, CI and AI agents.
 
 ## Posture
 
 Kul is a **personal project with public artifacts**, not a community-driven standard:
 
-- The language specification, reference parser, CLI, language server, and WASM bindings are all published under MIT.
+- The language specification, the engine, the web app and the CLI are all published under MIT.
 - Anyone may read, implement, fork, or build on top of any of them.
-- There's no commitment in v1 to a contributor community, governance process, or maintenance SLA.
-- As the project matures, openness may evolve toward a fuller open-source posture (community contributions, public roadmap, etc.). That's not a v1 commitment.
-- Any application surface (a webapp, a mobile app) may be open-source, commercial, or remain unbuilt. That decision sits outside the core project's vision.
+- There's no commitment to a contributor community, governance process, or maintenance SLA.
+- As the project matures, openness may evolve toward a fuller open-source posture (community contributions, public roadmap, etc.).
 
 ## Non-goals
 

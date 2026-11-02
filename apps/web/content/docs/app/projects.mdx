@@ -1,0 +1,68 @@
+---
+title: Projects, import and export
+description: Keeping several families apart, starting from an example, bringing files in and taking them out.
+---
+
+A **project** is one family's set of `.kul` files. You can keep as many
+projects as you like, and switch between them.
+
+## The project menu
+
+Click the project's name at the top left. The menu lists your projects,
+most recently edited first; click one to open it. Below the list:
+
+- **New blank project** starts with one empty file, `family.kul`.
+- **New from example** copies one of the example families that come with
+  Kul. They are a good way to see a feature in a working family: divorce
+  and remarriage, adoption, a polygamous household, a family split across
+  files, and more.
+- **Import into this project** and **Import as a new project** bring in
+  files (see below).
+- **Rename project…**, **Duplicate project** and **Delete project…** do what
+  they say. Deleting a project removes its files from the browser for good,
+  so [download a copy](#export) first if you might want it back.
+
+New projects are numbered when a name is taken ("Untitled project 2"), but
+two projects may share a name if you rename them that way.
+
+## Import
+
+Kul can import `.kul` files, folders, and `.zip` archives, either into the
+open project or as a new project. Choose **Files or a .zip…** or **A
+folder…** from the import menu, or drop them anywhere on the canvas.
+
+Whatever you bring in is flattened to its `.kul` files:
+
+- `.kul` files in subfolders are imported too, side by side with the rest.
+- A `.zip` is opened and read the same way.
+- Other files (a README, images, a `.zip` inside a `.zip`) are ignored.
+
+A message afterwards says what happened, for example "Imported 3 files,
+ignored 2".
+
+If an imported file has the same name as one already in the project,
+ignoring capitals, Kul asks once what to do with all of them:
+
+- **Keep both** imports the new file under a new name, such as
+  `family-2.kul`.
+- **Replace** overwrites the project's file with the imported one.
+- **Skip** leaves the project's file alone and drops the imported one.
+
+## Export
+
+The **Export** menu in the top bar has three downloads:
+
+- **Download project (.zip)**: every file in the project, in one archive.
+  This is your backup, and the way to move a project to another browser or
+  computer. Import it there as a new project.
+- **Download** the open file, on its own.
+- **Download tree (.svg)**: a picture of the tree, with its legend.
+
+The `.zip` holds plain `.kul` files, nothing else. Unzipped, it is a project
+folder the [command line](/docs/command-line/) can read.
+
+## Starting from the docs
+
+Every working example in these docs has a **Try it** button. It opens the
+app with that example as a new project, named after the page it came from,
+such as "Try it: Children". Your other projects are untouched.

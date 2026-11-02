@@ -4,21 +4,12 @@ use kul_core::lexer::tokenize;
 use kul_core::parser::parse;
 use kul_core::span::FileId;
 
-/// Per-file statement-list view that the parser snapshots stringify;
-/// matches the legacy `ast::Document` shape so the snapshots stay stable
-/// independently of the multi-file `Document` refactor.
-#[derive(Debug)]
-#[allow(dead_code)]
-struct Document {
-    statements: Vec<kul_core::ast::Statement>,
-}
-
+/// One file's statements and parse diagnostics, as the snapshots show them.
 fn render(source: &str) -> String {
     let tokens = tokenize(source);
-    let (statements, diags) = parse(tokens, FileId::MANIFEST);
-    let doc = Document { statements };
+    let (statements, diags) = parse(tokens, FileId::from_raw(0));
     let mut out = String::new();
-    out.push_str(&format!("ast: {doc:#?}\n"));
+    out.push_str(&format!("statements: {statements:#?}\n"));
     out.push_str(&format!("diagnostics: {diags:#?}\n"));
     out
 }
@@ -114,7 +105,7 @@ fn parse_person_with_two_birth_diagnoses() {
 fn unterminated_string_does_not_swallow_next_statement() {
     let source = "person alice name:\"Alice\nperson bob name:\"Bob\" gender:male\n";
     let tokens = tokenize(source);
-    let (statements, diags) = parse(tokens, FileId::MANIFEST);
+    let (statements, diags) = parse(tokens, FileId::from_raw(0));
     assert_eq!(
         statements.len(),
         2,
@@ -136,7 +127,7 @@ fn unterminated_string_does_not_swallow_next_statement() {
 #[test]
 fn unquoted_string_value_message_hints_at_quotes() {
     let tokens = tokenize("person alice name:Alice gender:female\n");
-    let (_, diags) = parse(tokens, FileId::MANIFEST);
+    let (_, diags) = parse(tokens, FileId::from_raw(0));
     let p07: Vec<_> = diags.iter().filter(|d| d.code == "KUL-P07").collect();
     assert_eq!(p07.len(), 1, "expected one KUL-P07, got: {diags:#?}");
     let msg = &p07[0].message;

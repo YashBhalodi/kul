@@ -1,0 +1,99 @@
+---
+title: Marriages
+description: The marriage line, the host and the joining spouse, start and end dates, and why a death does not end a marriage.
+---
+
+A marriage joins two people:
+
+```kul
+person ravi   name:"Ravi Iyer"   gender:male    born:1949
+person meera  name:"Meera Iyer"  gender:female  born:1952
+
+marriage m_ravi_meera ravi meera  start:1976-02-14
+```
+
+After `marriage` come three ids: the marriage's own id, then the two
+spouses. Like a person's id, the marriage id must be unique in the project.
+Children use it to say which marriage they came from, so a name such as
+`m_ravi_meera` keeps the file readable.
+
+The two spouses must be two different people, and both must be declared
+somewhere in the project. Kul doesn't mind whether a marriage comes before
+or after the people in it.
+
+## The host
+
+The order of the spouses matters. The first is the marriage's **host**, and
+the second **joins** the host's family. On the tree, the couple sits where
+the host belongs, in the host's family. The joining spouse's own birth
+family, if you record it, is drawn as a separate tree.
+
+Put first the person whose family you are telling the story of. If Meera's
+family is the one you are recording and Ravi married into it, write
+`marriage m_meera_ravi meera ravi`. To change the host, swap the two ids.
+
+## Start date
+
+`start:` is when the marriage began. It is optional: wedding dates are often
+lost, and a marriage without one is still a marriage. Write it as precisely
+as you know it, as in [dates](/docs/guide/dates/).
+
+## Divorce: end and end_reason
+
+A marriage that ended in divorce gets an `end:` date and
+`end_reason:divorce`. The two always go together:
+
+```kul
+person erik    name:"Erik Lindqvist"    gender:male    born:1970-01-22
+person astrid  name:"Astrid Lindqvist"  gender:female  born:1972-10-08
+
+marriage m_erik_astrid erik astrid  start:1995-06-17  end:2003-06-15  end_reason:divorce
+```
+
+`divorce` is the only end reason. If you know a marriage ended but not when,
+use the closest date you have, such as `end:~2003`.
+
+Leaving one of the pair out is an error, which the editor offers to fix:
+
+```kul expect-error=KUL-R05
+person erik    name:"Erik Lindqvist"    gender:male
+person astrid  name:"Astrid Lindqvist"  gender:female
+
+marriage m_erik_astrid erik astrid  start:1995-06-17  end:2003-06-15
+```
+
+On the tree, an ended marriage is drawn fainter than a current one.
+
+## A death is not a divorce
+
+When a spouse dies, don't end the marriage. Record the death on the person
+with `died:`, and leave the marriage as it is:
+
+```kul
+person bob    name:"Bob Sharma"    gender:male    born:1948-11-30  died:2020-03-15
+person alice  name:"Alice Sharma"  gender:female  born:1950-04-12
+
+marriage m_alice_bob alice bob  start:1972-05-12
+```
+
+The marriage is still part of Alice's story: she is Bob's widow, not his
+former wife, and she stays in the family she married into. Kul can tell
+that the marriage stopped being active when Bob died, from his `died:`
+date, so it doesn't need to be told twice. `end:` is only for a marriage
+that the two people ended while both were alive.
+
+## The same couple, twice
+
+If two people divorce and later marry again, write two marriages with
+different ids. Each child names the marriage they were born into:
+
+```kul
+person alice  name:"Alice"  gender:female
+person bob    name:"Bob"    gender:male
+
+marriage m_alice_bob_1 alice bob  start:1972-05-12  end:1980-01-01  end_reason:divorce
+marriage m_alice_bob_2 alice bob  start:1985-06-15
+```
+
+For someone who married different people over their life, see
+[multiple marriages](/docs/guide/multiple-marriages/).

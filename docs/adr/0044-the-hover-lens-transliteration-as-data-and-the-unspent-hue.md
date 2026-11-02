@@ -1,6 +1,6 @@
 # ADR 0044 — The hover lens: transliteration as data, a settle-shaped debounce, and the hue that stays unspent
 
-**Status:** Accepted
+**Status:** Superseded — the preview UI it governed was removed ([ADR-0047](./0047-the-browser-app-is-kuls-only-interactive-surface.md)); the engine remains in kul-core and the CLI.
 **Date:** 2026-07-26
 **Deciders:** owner
 

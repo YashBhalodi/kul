@@ -1,0 +1,100 @@
+---
+title: The editor
+description: The floating editor window, its file list and tabs, and the help it gives as you type.
+---
+
+The editor is a window that floats over the tree. You write Kul in it, and
+the tree behind it redraws as you type. Changes save by themselves; the top
+bar says **Saving…** and then **Saved**.
+
+The app is made for desktop browsers. On a screen narrower than 1024 pixels,
+or a device with only a touchscreen, `/app` shows a notice instead of the
+editor. These docs work everywhere.
+
+## Moving the window around
+
+- **Move** it by dragging its title bar.
+- **Resize** it from any edge or corner.
+- **Dock** it to the left or right edge of the screen with the buttons in
+  its title bar, or by dragging it against that edge. Docked, it takes the
+  full height and the tree uses the rest of the screen. Drag the title bar
+  away from the edge to float it again.
+- **Minimize** it to a small pill in the bottom-left corner to see the
+  whole tree. Click the pill to bring the editor back. <kbd>Ctrl</kbd>+<kbd>J</kbd>
+  (<kbd>⌘</kbd>+<kbd>J</kbd> on a Mac) shows or hides it from anywhere.
+
+The window's place and size are saved with each project.
+
+## Files and tabs
+
+The column on the left of the window lists the project's files, in
+[file order](/docs/guide/files/#file-order).
+
+- To add a file, click the + button above the list and type a name. The
+  app adds `.kul` for you.
+- To rename one, double-click it, or select it and press <kbd>F2</kbd>.
+- To delete or download one, use the ⋯ button that appears beside it when
+  you point at it.
+
+A file with problems has a red dot next to its name. Clicking a file opens
+it in a tab. Close a tab with its × button, by middle-clicking it, or with
+the command palette's **Close** command.
+
+## As you type
+
+Keywords, ids, field names, values, dates and comments each have their own
+colour, the same as on these pages. Beyond that, the editor helps in three
+ways:
+
+- Anything wrong is underlined a moment after you stop
+  typing. Point at the underline to read the message. The problem count in
+  the top bar opens the problems list below the editor; click a problem to
+  jump to it. The tree keeps showing the last version that worked, dimmed,
+  until the problems are fixed.
+- Suggestions appear as you type: field names after a
+  person or marriage, the allowed values of `gender:` and `end_reason:`,
+  and the ids of marriages and people where one belongs. Press
+  <kbd>Ctrl</kbd>+<kbd>Space</kbd> to ask for them.
+- Point at an id to see who or what it refers to, or at a
+  keyword or field to see what it means.
+
+## Finding and changing things
+
+These work while the editor has the keyboard. On a Mac, <kbd>Ctrl</kbd>
+means <kbd>⌘</kbd> and <kbd>Alt</kbd> means <kbd>⌥</kbd>, except in
+
+<kbd>Ctrl</kbd>+<kbd>Space</kbd>.
+
+| To                                         | Press                                         |
+| ------------------------------------------ | --------------------------------------------- |
+| Go to where an id is declared, in any file | <kbd>F12</kbd>                                |
+| List every place an id is used             | <kbd>Shift</kbd>+<kbd>F12</kbd>               |
+| Rename an id everywhere, across all files  | <kbd>F2</kbd>                                 |
+| See the fixes for a problem                | <kbd>Ctrl</kbd>+<kbd>.</kbd>                  |
+| Format the file                            | <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>  |
+| Jump to a person or marriage               | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd> |
+| Comment or uncomment the selected lines    | <kbd>Ctrl</kbd>+<kbd>/</kbd>                  |
+| Find and replace                           | <kbd>Ctrl</kbd>+<kbd>F</kbd>                  |
+
+Renaming an id changes every file that uses it at once, and a single undo
+(<kbd>Ctrl</kbd>+<kbd>Z</kbd>) puts every file back.
+
+Fixes are offered for a person missing `name:` or `gender:`, and for a
+marriage with `end:` but no `end_reason:` or the other way round.
+
+Every shortcut in the app is on the [keyboard shortcuts](/docs/app/keyboard-shortcuts/)
+page, and in the app itself: press <kbd>?</kbd>.
+
+## The command palette
+
+<kbd>Ctrl</kbd>+<kbd>K</kbd> (<kbd>⌘</kbd>+<kbd>K</kbd> on a Mac) opens the
+command palette: type a few letters of what you want, such as "format", "new
+file" or "zoom", and press <kbd>Enter</kbd>. It lists files to open, and the
+commands for files, projects, the editor, the canvas and the theme.
+
+## When a project is open in two tabs
+
+A project can be edited in one browser tab at a time. If you open it in a
+second tab, that tab shows it read-only, with the note "This project is
+open in another tab". It still follows every change you make in the first.
+Click **Use here instead** to move editing to that tab.

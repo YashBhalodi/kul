@@ -1,6 +1,6 @@
 # ADR 0046 — The mode boundary's render paths, and what the retired documents leave behind
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0052](./0052-the-canvas-contract.md) — selection and camera survive re-renders; the query mode it bounded was removed with the preview UI.
 **Date:** 2026-07-26
 **Deciders:** owner
 

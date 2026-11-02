@@ -17,9 +17,10 @@ You are the last check before a PR goes up for merge. You don't write code — y
 
 ### 1. Build & test gate
 
-- [ ] `just check` is green on the branch tip. (Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo nextest run --workspace`.)
+- [ ] `just check` is green on the branch tip. (Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo nextest run --workspace`, the WASM build and its gates, the web app's typecheck, lint and Vitest, the production build with its output checks, and the release script's tests.)
+- [ ] If the diff touches `apps/web`, `just e2e` is green (WebKit needs a Linux host or CI; say where each browser ran), and `gh pr checks` is green.
 - [ ] No `*.snap.new` files left in the worktree.
-- [ ] No `target/`, no `.env`, no editor cruft staged.
+- [ ] No `target/`, `node_modules/`, `apps/web/dist/`, `apps/web/test-results/`, no `.env`, no editor cruft staged.
 
 If `just check` fails, stop here and report the failure. Don't bother running the remaining gates until the branch is green — they'll be moot.
 
@@ -42,11 +43,13 @@ Per `AGENTS.md`: PR diff size is not a constraint; what matters is the work-shap
 For each non-trivial change in the diff, verify the documentation it implies is also in the diff:
 
 - [ ] New validator rule → spec entry in `spec/07-validation-rules.md` *and* positive+negative tests in `crates/kul-core/tests/validator.rs`.
-- [ ] New LSP feature → integration test in `crates/kul-lsp/tests/` *and* capability advert in `Backend::initialize`.
+- [ ] New language feature → inline tests (snapshots) in its `crates/kul-language-service` module; a `Workspace` method with tests in `crates/kul-wasm/tests/workspace.rs` and `utf16.rs`; the regenerated `.d.ts`; and, once the app uses it, the editor mapping with an `apps/web/e2e/` test and its shortcut in `src/app/shortcuts.ts` and the keyboard-shortcuts docs page.
+- [ ] Web app change → Vitest for pure modules (`*.test.ts`) or browser APIs (`*.browser.test.ts`), a Playwright spec for what a user sees, and a tour state for anything that draws something new, with the changed screenshots opened and checked against the design checklist.
 - [ ] New AST variant or field → ADR if the shape is non-obvious; spec section if user-facing; `node_at.rs` updated; rustdoc on new public items.
 - [ ] New WASM surface → `crates/kul-wasm/tests/typescript/usage.ts` exercises it; `crates/kul-wasm/types/kul_wasm.d.ts` regenerated (`just wasm`) and committed.
 - [ ] New CLI subcommand → end-to-end test in `crates/kul-cli/tests/` via `assert_cmd`.
-- [ ] Non-obvious design call → ADR in `docs/adr/` with the next number, following the existing 15-ADR format.
+- [ ] Non-obvious design call → ADR in `docs/adr/` with the next number, following the existing ADR format; a record it replaces gets a *Superseded by* or *Amended by* status line linking back.
+- [ ] Spec change → `skills/kul-authoring/` and `apps/web/content/docs/` say the same thing.
 - [ ] New domain term → entry in `CONTEXT.md`.
 
 A PR that ships an ADR but not the code it documents (or vice versa) is not atomic at the product perspective. Flag it.
@@ -61,7 +64,7 @@ A PR that ships an ADR but not the code it documents (or vice versa) is not atom
 
 Grep the diff for:
 
-- [ ] `#[allow(` without an adjacent justifying comment.
+- [ ] `#[allow(` or `eslint-disable` without an adjacent justifying comment.
 - [ ] `#[ignore]` on tests.
 - [ ] `// TODO`, `// FIXME`, `// XXX`.
 - [ ] `unwrap()` / `expect("…")` in non-test code without a comment explaining the invariant.
@@ -69,11 +72,13 @@ Grep the diff for:
 - [ ] `dbg!`, `println!` in non-test code.
 - [ ] Long inline match arms that should have been a method on `ResolvedDocument` (per ADR-0001).
 - [ ] Bypassed seams: feature module walking `document.statements` directly, validator rule iterating raw AST. Per `docs/architecture.md`'s seam table.
-- [ ] Domain-vocab drift: "service", "handler", "component", "manager", "API" used as nouns in new code or comments. Per `CONTEXT.md`.
+- [ ] Domain-vocab drift: "service", "handler", "component", "manager", "API" used as nouns in new code or comments for something `CONTEXT.md` names. Per `CONTEXT.md`.
+- [ ] Web seams bypassed: browser storage outside `apps/web/src/store/` and `src/prefs/`, a colour literal outside `src/styles/tokens.css`, a request to another origin, a shortcut bound without an entry in `src/app/shortcuts.ts`, the canvas reading anything but the `kul-svg` classes and `data-*` attributes.
+- [ ] Prose that describes history instead of present behaviour ("formerly", "no longer", "used to", "legacy") in code comments and docs; history belongs in git, `CHANGELOG.md` and ADRs.
 
 ### 7. Diff hygiene
 
-- [ ] No reordering of existing fields/variants without an additivity justification (per ADR-0014 and the additivity principle).
+- [ ] No reordering of existing fields/variants without an additivity justification (per the additivity principle in `CONTEXT.md`).
 - [ ] No backwards-compat shims for code the author could simply change (pre-1.0, language is the only frozen surface).
 - [ ] No re-exports added "for convenience" — adapter crates compose `kul-core` directly.
 - [ ] `Cargo.lock` changes are intentional (a dep bump should be in its own commit with rationale).

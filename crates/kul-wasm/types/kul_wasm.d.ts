@@ -1,70 +1,50 @@
 /* tslint:disable */
 /* eslint-disable */
-
-export type PersonLookupResult = ExportedPerson | null;
-export type MarriageLookupResult = ExportedMarriage | null;
-export type DetailLookupResult = (EntityDetail | null)[];
-
-
 /**
- * A birth-order comparison under the strict-interval rule. `elder` /
- * `younger` only when *every* interpretation of one date strictly precedes
- * the other; `unknown` when dates are missing or intervals overlap;
- * `notApplicable` is reserved for `self`.
+ * A declared entity, by id. The id keys `data-person-id` /
+ * `data-marriage-id` in the rendered SVG.
  */
-export type Seniority = "elder" | "younger" | "unknown" | "notApplicable";
-
-/**
- * A declarative descriptor pattern: which relationships to a person count
- * as matches. The named sugar (`parents_of`, `ancestors_of`, …) each
- * desugar to one of these.
- */
-export interface KinPattern {
-    classification: PatternClassification;
+export interface Entity {
     /**
-     * Optional filter on the path\'s edge nature; omitted (`None`) matches
-     * both blood and adoptive.
+     * The declaration\'s id.
      */
-    edgeNature?: EdgeNature;
+    id: string;
     /**
-     * Optional filter on the sibling-junction [`Sharing`]; omitted (`None`)
-     * matches every sharing. Only ever narrows collateral results — a lineal
-     * path is always `notApplicable`.
+     * Person or marriage.
      */
-    sharing?: Sharing;
-    /**
-     * Optional filter on the derived [`Side`]; omitted (`None`) matches every
-     * side. `Some(Side::Both)` selects couple-apex-rooted relations,
-     * `Some(Side::Maternal)` a single family branch, and so on.
-     */
-    side?: Side;
-    /**
-     * Optional filter on the derived [`Affinity`]; omitted (`None`) matches
-     * every affinity. `Some(Affinity::Step)` / `Some(Affinity::InLaw)` select
-     * affinal relations (and, since a blood path is always `blood`, exclude
-     * blood ones). Also the switch that lets the engine spend affinal hops:
-     * with no `affinal_hops` bound set, a `step` / `inLaw` affinity filter
-     * raises the marriage-hop budget to the fixed ceiling of 2.
-     */
-    affinity?: Affinity;
-    /**
-     * Optional filter on the number of marriage (`across`) hops on the path.
-     * Omitted (`None`) leaves the count unconstrained (0 when no affinity
-     * filter opens the budget, up to the ceiling of 2 otherwise). The engine
-     * caps traversal at 2 affinal hops regardless of this bound — the ceiling
-     * is fixed semantics, not a knob (ADR-0027).
-     */
-    affinalHops?: IntRange;
+    kind: EntityKind;
 }
 
 /**
- * A marriage hop\'s status. Wire form: `\"ongoing\" | \"ended\"`. `ended` iff the
- * marriage record carries an `end` date or an `end_reason`; otherwise
- * `ongoing`. Ended marriages are traversed exactly like ongoing ones — the
- * core reports and tags, never filters (whether divorce dissolves affinity is
- * a downstream terminology decision).
+ * A file name and the version of its text.
  */
-export type MarriageStatus = "ongoing" | "ended";
+export interface FileVersion {
+    /**
+     * The file\'s name.
+     */
+    name: string;
+    /**
+     * The version passed with its text to `setFile`.
+     */
+    version: number;
+}
+
+/**
+ * A half-open range `[start, end)` of offsets into one file\'s text.
+ *
+ * In JavaScript the offsets are UTF-16 code units, the unit CodeMirror and
+ * `String` indexing use.
+ */
+export interface Span {
+    /**
+     * Offset of the first character in the range.
+     */
+    start: number;
+    /**
+     * Offset just past the last character in the range.
+     */
+    end: number;
+}
 
 /**
  * A neighbouring person plus the parenthood link that reaches them.
@@ -87,183 +67,151 @@ export interface LinkedPerson {
 }
 
 /**
- * A person field a predicate or sort key names. `born` / `died` are date
- * fields (three-valued interval predicates); the rest are string fields
- * (exact, case-sensitive). `id` is always present; every other field may be
- * absent.
+ * A range in a named project file.
  */
-export type PersonField = "id" | "name" | "family" | "given" | "gender" | "born" | "died";
-
-/**
- * A single-key sort. Dates order by (lower bound, upper bound); strings, ids,
- * and gender by codepoint; **missing values sort last regardless of
- * direction**; ties always broken by person id ascending — fully
- * deterministic, so snapshots stay stable (ADR-0025).
- */
-export interface SortSpec {
-    field: PersonField;
-    direction?: SortDirection;
+export interface Location {
+    /**
+     * The file\'s name, as the project names it (`family.kul`).
+     */
+    file: string;
+    /**
+     * The range in that file.
+     */
+    span: Span;
 }
 
 /**
- * Adapter-facing result of a query operation. Mirrors the existing
- * check/export/render surface: an untagged union discriminated by an `ok`
- * boolean — the ok arm carries the query `result`, the error arm carries
- * the structured `diagnostics` of a project that failed its checks.
+ * A secondary place a [`Diagnostic`] points at.
+ */
+export interface Related {
+    /**
+     * What this place is (`first declared here as a person`).
+     */
+    message: string;
+    /**
+     * The place.
+     */
+    location: Location;
+}
+
+/**
+ * Hover content for one position.
+ */
+export interface Hover {
+    /**
+     * The content, as Markdown.
+     */
+    markdown: string;
+    /**
+     * The range the content describes (the whole id, field or keyword).
+     */
+    span: Span;
+}
+
+/**
+ * How `renderSvg` themes the tree.
+ */
+export type SvgTheme = "agnostic" | "fileExport";
+
+/**
+ * How serious a [`Diagnostic`] is.
+ */
+export type Severity = "error" | "warning" | "note";
+
+/**
+ * One analysis of the whole project: what was analyzed, what is wrong with
+ * it, and the rendered tree.
+ */
+export interface Analysis {
+    /**
+     * Every file, in file order, with the version of the text analyzed —
+     * compare it with the latest version sent to discard a stale answer.
+     */
+    files: FileVersion[];
+    /**
+     * Every diagnostic of the project. Filter by `location.file` for one
+     * file\'s; a diagnostic without a location concerns the whole project.
+     */
+    diagnostics: Diagnostic[];
+    /**
+     * The theme-agnostic SVG of the family tree (semantic CSS classes, no
+     * colours). Absent when the project has errors, or cannot be drawn.
+     */
+    svg?: string;
+}
+
+/**
+ * One completion.
+ */
+export interface CompletionItem {
+    /**
+     * What the list shows, and what is inserted when `insert` is absent.
+     */
+    label: string;
+    /**
+     * What it inserts.
+     */
+    kind: CompletionKind;
+    /**
+     * A one-line description (a field\'s meaning, a person\'s name and birth
+     * year, a marriage\'s spouses and years).
+     */
+    detail: string;
+    /**
+     * Text to insert instead of the label.
+     */
+    insert?: Insertion;
+    /**
+     * Whether the list should select this item first.
+     */
+    preselect: boolean;
+}
+
+/**
+ * One diagnostic code the toolchain can report.
+ */
+export interface DiagnosticCode {
+    /**
+     * The stable code (`KUL-R03`).
+     */
+    code: string;
+    /**
+     * What the code means, in a few words.
+     */
+    summary: string;
+}
+
+/**
+ * One entity\'s own fields plus its relational neighbourhood, as a details
+ * panel shows it.
  *
- * The engine never throws / never panics: a failing project yields the
- * [`QueryEnvelope::Error`] arm, not a partial answer (strict-on-errors,
- * ADR-0009). Generic over the payload `T` so later slices (kin-set
- * queries, relationship resolution) reuse the same envelope.
- */
-export type QueryEnvelope<T> = QueryOk<T> | QueryError;
-
-/**
- * An inclusive integer range; an absent `max` means unbounded. Used for a
- * lineal pattern\'s generation bounds.
- */
-export interface IntRange {
-    min: number;
-    max?: number;
-}
-
-/**
- * Direction of a [`Classification::Lineal`] relationship.
- */
-export type LinealRole = "ancestor" | "descendant";
-
-/**
- * Endpoint / linking-relative gender. Wire form: `\"male\" | \"female\" |
- * \"other\"`. Mirrors [`ast::Gender`] but lives here so the descriptor\'s
- * serialized surface is self-contained (the AST enum is not part of any
- * wire contract).
- */
-export type Gender = "male" | "female" | "other";
-
-/**
- * Error arm of a [`QueryEnvelope`]. `ok` is always `false`;
- * `diagnostics` carries every diagnostic the failing project produced —
- * the same [`ExportedDiagnostic`] shape the check/export surfaces use.
- */
-export interface QueryError {
-    /**
-     * Always `false`. Consumer-facing discriminator.
-     */
-    ok: boolean;
-    /**
-     * Every diagnostic the validator produced (errors, warnings, notes).
-     */
-    diagnostics: ExportedDiagnostic[];
-}
-
-/**
- * Failure arm of [`RenderEnvelope`]. Same diagnostic shape as
- * [`export_graph`]\'s failure path.
- */
-export interface RenderFailure {
-    /**
-     * Always `false`. Consumer-facing discriminator.
-     */
-    ok: boolean;
-    diagnostics: ExportedDiagnostic[];
-}
-
-/**
- * Graph payload inside a [`SuccessEnvelope`]. Untagged on the wire — the
- * consumer knows which shape from the `--format` they requested.
- */
-export type GraphPayload = ExportedGraph | CytoscapeGraph;
-
-/**
- * How the alter is classified relative to the ego. Internally tagged on
- * `kind`. This slice emits only [`Classification::Lineal`]; `self` and
- * `collateral` derive mechanically from the same hop counts (see
- * [`RelationshipDescriptor::derive`]) so later slices need no rework.
- */
-export type Classification = { kind: "self" } | { kind: "lineal"; role: LinealRole; generations: number } | { kind: "collateral"; up: number; down: number; cousinDegree: number; removed: number };
-
-/**
- * JS-side return type of [`check`]. Empty `diagnostics` means clean;
- * consumers discriminate on emptiness, not an `ok` field (ADR-0011).
- */
-export interface CheckEnvelope {
-    diagnostics: ExportedDiagnostic[];
-}
-
-/**
- * JS-side return type of [`render_svg`]. Untagged success/failure
- * discriminated by `ok`, bit-identical to
- * `kul_lsp::features::render::RenderResponse`. The pipeline composition
- * itself is shared through `kul_visual::render_from_check` (ADR-0031); this
- * surface owns only the JS envelope shape around it.
- */
-export type RenderEnvelope = RenderSuccess | RenderFailure;
-
-/**
- * Ok arm of a [`QueryEnvelope`]. `ok` is always `true` (consumer-facing
- * discriminator); `result` is the query payload.
- */
-export interface QueryOk<T> {
-    /**
-     * Always `true`. Consumer-facing discriminator.
-     */
-    ok: boolean;
-    /**
-     * The query answer (for a lookup: the entity, or `null`).
-     */
-    result: T;
-}
-
-/**
- * One `.kul` input file as the JS host hands it to the bridge. Mirrors
- * [`kul_core::ast::InputFile`]; exists separately so `tsify` can derive
- * a TS type without leaking the feature dependency onto `kul-core`.
- */
-export interface WasmInputFile {
-    name: string;
-    source: string;
-}
-
-/**
- * One attribute predicate on a person\'s own field. **Internally tagged on
- * `op`** so TypeScript consumers get a discriminated union to `switch` on.
- *
- * Only ever tests the person\'s *own* fields — never combines fields (no age
- * arithmetic, no \"alive in 1985\"), never reaches across entities (no
- * \"spouse\'s family\"). Compound questions decompose in *consumer* code.
- *
- * Set **non**-membership (`∉`) is not a variant: it is a conjunction of
- * `Neq` predicates (`x ∉ {A,B}` ≡ `x≠A ∧ x≠B`), which `where`\'s AND-only
- * composition expresses directly.
- */
-export type Predicate = { op: "eq"; field: PersonField; value: string } | { op: "neq"; field: PersonField; value: string } | { op: "lt"; field: PersonField; value: string } | { op: "lte"; field: PersonField; value: string } | { op: "gt"; field: PersonField; value: string } | { op: "gte"; field: PersonField; value: string } | { op: "in"; field: PersonField; values: string[] } | { op: "present"; field: PersonField } | { op: "absent"; field: PersonField };
-
-/**
- * One entity\'s own fields plus its relational neighbourhood — the answer to
- * a single [`DetailTarget`].
- *
- * A tagged union over the three selectable entity kinds, so a consumer\'s
+ * A tagged union over the two entity kinds an id can name, so a consumer\'s
  * panel variant maps 1:1 onto a variant here. Absent fields are **omitted**
  * from the wire (the export shapes\' `skip_serializing_if`), never sent as an
  * empty placeholder.
  */
-export type EntityDetail = { kind: "person"; person: ExportedPerson; parents: LinkedPerson[]; marriages: MarriageTie[]; children: LinkedPerson[] } | { kind: "marriage"; marriage: ExportedMarriage; spouses: ExportedPerson[]; children: LinkedPerson[] } | { kind: "adoption"; adoption: ExportedParenthoodLink; child: ExportedPerson; parents: ExportedPerson[] };
+export type EntityDetail = { kind: "person"; person: ExportedPerson; parents: LinkedPerson[]; marriages: MarriageTie[]; children: LinkedPerson[] } | { kind: "marriage"; marriage: ExportedMarriage; spouses: ExportedPerson[]; children: LinkedPerson[] };
 
 /**
- * One hop of the lossless path backbone. Internally tagged on `step`.
- * Vertical hops (`up` / `down`) carry the person landed on, that person\'s
- * gender, and the edge kind. The `across` variant (a marriage hop) carries
- * the marriage id, its [`MarriageStatus`], and the reason it ended when
- * present.
+ * One highlighted token.
  */
-export type PathHop = { step: "up"; to: string; gender: Gender; edge: HopEdge } | { step: "down"; to: string; gender: Gender; edge: HopEdge } | { step: "across"; to: string; gender: Gender; marriage: string; status: MarriageStatus; endReason?: string };
+export interface Token {
+    /**
+     * The token\'s text range. Never empty and never spans a line break.
+     */
+    span: Span;
+    /**
+     * What it is.
+     */
+    kind: TokenKind;
+}
 
 /**
  * One marriage a person is a spouse in, with the person on the other side.
  *
  * Each marriage is its own row rather than a joined spouse list, because the
  * marriage\'s `start` / `end` / `endReason` are what explain a person\'s
- * history (ADR-0035).
+ * history.
  */
 export interface MarriageTie {
     /**
@@ -279,33 +227,86 @@ export interface MarriageTie {
 }
 
 /**
- * One member of a `members` result on the wire: the person id plus the
- * [`RelationshipDescriptor`] recording how it was reached. Carries **no
- * person payload** — consumers hydrate via the `person(id)` lookup. The
- * Rust-native evaluator returns a borrowed [`KinMember`](super::KinMember)
- * instead; this is its serialized projection.
+ * One outline entry.
  */
-export interface Member {
-    personId: string;
-    descriptor: RelationshipDescriptor;
+export interface OutlineSymbol {
+    /**
+     * The label: a display name, or the id when there is none.
+     */
+    name: string;
+    /**
+     * A short date summary (`1900–1990`, `b. 1950`), when there are dates.
+     */
+    detail?: string;
+    /**
+     * What it stands for.
+     */
+    kind: SymbolKind;
+    /**
+     * The whole statement, sub-statements included.
+     */
+    span: Span;
+    /**
+     * The part to select when jumping to it: the id, or the keyword of a
+     * sub-statement.
+     */
+    selection: Span;
+    /**
+     * A person\'s `birth` and `adoption` sub-statements.
+     */
+    children: OutlineSymbol[];
 }
 
 /**
- * Output format for [`export`]. Lowercase wire form shared by CLI flags
- * and JS consumers.
+ * One problem the parser, resolver or validator found.
  */
-export type ExportFormat = "json" | "cytoscape";
+export interface Diagnostic {
+    /**
+     * Stable code: `KUL-Lxx` (lexer), `KUL-Pxx` (parser), `KUL-Rxx`
+     * (validator rule), `KUL-Vxx` (render).
+     */
+    code: string;
+    /**
+     * How serious it is.
+     */
+    severity: Severity;
+    /**
+     * The message, written for the author.
+     */
+    message: string;
+    /**
+     * Where it is. Absent for a problem with the project as a whole.
+     */
+    location?: Location;
+    /**
+     * Other places that explain it (a duplicate\'s first declaration).
+     */
+    related: Related[];
+}
+
+/**
+ * One repair for one diagnostic. Its edits all apply to the file the fix
+ * was asked for.
+ */
+export interface QuickFix {
+    /**
+     * What the fix does (`Add `gender:female``).
+     */
+    title: string;
+    /**
+     * The diagnostic it repairs.
+     */
+    diagnostic: Diagnostic;
+    /**
+     * Its edits to the file, in source order.
+     */
+    edits: TextEdit[];
+}
 
 /**
  * Parenthood kind. Wire form: `\"biological\"` / `\"adoptive\"`.
  */
 export type ParenthoodLinkKind = "biological" | "adoptive";
-
-/**
- * Per-node `data` payload. Untagged: serialized variant is chosen by
- * which fields are present.
- */
-export type NodeData = PersonNodeData | MarriageNodeData;
 
 /**
  * Projected date: `value` (no circa marker), `precision`
@@ -318,308 +319,77 @@ export interface ExportedDate {
 }
 
 /**
- * Sibling-junction parent-set sharing. An apex-junction comparison, so
- * `notApplicable` for every lineal / self path (there is no sibling
- * junction). Also usable as a kin-pattern filter, so it is `Deserialize`.
+ * Replace the text in `span` with `text`. An empty span inserts.
  */
-export type Sharing = "full" | "half" | "notApplicable";
-
-/**
- * Success arm of [`RenderEnvelope`].
- */
-export interface RenderSuccess {
+export interface TextEdit {
     /**
-     * Always `true`. Consumer-facing discriminator.
+     * The range to replace.
      */
-    ok: boolean;
+    span: Span;
     /**
-     * Theme-agnostic SVG (semantic CSS classes, no inline colours).
+     * The replacement text.
      */
-    svg: string;
+    text: string;
 }
 
 /**
- * The Cytoscape JSON graph shape.
+ * Text to insert in place of an item\'s label, with where the cursor lands.
  */
-export interface CytoscapeGraph {
-    nodes: CytoscapeNode[];
-    edges: CytoscapeEdge[];
+export interface Insertion {
+    /**
+     * The text.
+     */
+    text: string;
+    /**
+     * Offset into `text` where the cursor goes after inserting it.
+     */
+    cursor: number;
 }
 
 /**
- * The certainty mode a filter runs under (PRD 0005).
+ * The answer to `rename`: the edits to apply, or why the rename was
+ * refused.
+ */
+export type RenameResult = { ok: true; edits: FileEdit[] } | { ok: false; message: string };
+
+/**
+ * The edits one change makes to one file, in source order. Ranges are
+ * against the file\'s text before any of the edits apply, and never overlap.
+ */
+export interface FileEdit {
+    /**
+     * The file\'s name.
+     */
+    file: string;
+    /**
+     * Its edits, in source order.
+     */
+    edits: TextEdit[];
+}
+
+/**
+ * The two kinds of entity a Kul project declares.
+ */
+export type EntityKind = "person" | "marriage";
+
+/**
+ * What a [`CompletionItem`] inserts.
+ */
+export type CompletionKind = "keyword" | "field" | "enumValue" | "value" | "marriage" | "person";
+
+/**
+ * What a highlighted token is.
  *
- * `certain` (the default) keeps only rows a predicate conjunction evaluates
- * **True** for — the engine never asserts what the data doesn\'t support.
- * `includeUncertain` also keeps **Unknown** rows — for gap-finding
- * researchers hunting fuzzy records.
+ * Lexical tokens are classified from the lexer alone; semantic tokens from
+ * the checked syntax tree, and they refine the lexical ones where both cover
+ * the same text.
  */
-export type FilterMode = "certain" | "includeUncertain";
+export type TokenKind = "keyword" | "fieldName" | "declaration" | "reference" | "enumValue" | "date" | "string" | "comment";
 
 /**
- * The classification a [`KinPattern`] selects for, internally tagged on
- * `kind`. `any` (an unclassified match) arrives with a later slice as a
- * further additive variant.
+ * What an [`OutlineSymbol`] stands for.
  */
-export type PatternClassification = { kind: "lineal"; role: LinealRole; generations: IntRange } | { kind: "collateral"; up: IntRange; down: IntRange } | { kind: "collateralByDegree"; degree: IntRange; removed: IntRange } | { kind: "any"; maxUp: number; maxDown: number };
-
-/**
- * The direction a [`SortSpec`] orders by. `asc` is the default; **missing
- * values sort last regardless of direction**, and ties are always broken by
- * person id ascending.
- */
-export type SortDirection = "asc" | "desc";
-
-/**
- * The edge tag on a vertical [`PathHop`]. Wire form: `\"bio\" | \"adoptive\"`.
- */
-export type HopEdge = "bio" | "adoptive";
-
-/**
- * The export envelope: success (graph) or failure (diagnostics).
- * Untagged with a shared `ok` boolean for consumer discrimination.
- */
-export type ExportEnvelope = SuccessEnvelope | FailureEnvelope;
-
-/**
- * The kinship-native graph: three flat collections.
- */
-export interface ExportedGraph {
-    persons: ExportedPerson[];
-    marriages: ExportedMarriage[];
-    parenthoodLinks: ExportedParenthoodLink[];
-}
-
-/**
- * The one caller knob for [`resolve`](super::resolve): the *search budget*.
- *
- * `max_apex_generations` bounds **each blood segment\'s** ascent and descent
- * (the up-count and down-count of every `up* down*` run) — a nearest-common-
- * ancestor bound, not a total-path-length bound. It is a budget, never
- * semantics: the fixed 2-affinal-hop ceiling is not configurable here.
- *
- * Deserializes with the field defaulted, so an over-the-wire `{}` (or an
- * omitted config) yields the default budget.
- */
-export interface ResolveConfig {
-    /**
-     * Per-blood-segment ascent/descent cap. Defaults to
-     * [`DEFAULT_MAX_APEX_GENERATIONS`].
-     */
-    maxApexGenerations?: number;
-}
-
-/**
- * The result of [`resolve`](super::resolve): every way `x` and `y` are
- * related, plus — **only when the list is empty** — the reason.
- *
- * One descriptor per distinct relationship path (path identity, exactly as in
- * the kin-set queries; ADR-0026), in the pinned deterministic order
- * ([`resolve`](super::resolve) sorts by path hop count then serialized
- * backbone). Never a bare set: `empty_reason` carries the honest \"why\" when
- * there is nothing to show.
- */
-export interface ResolveResult {
-    /**
-     * Every distinct relationship path from `x` to `y`, deterministically
-     * ordered. Empty when the two are unrelated (see `empty_reason`).
-     */
-    relationships: RelationshipDescriptor[];
-    /**
-     * Present **iff** `relationships` is empty: why no tie was found.
-     */
-    emptyReason?: EmptyReason;
-}
-
-/**
- * The result of evaluating a [`Query`]. A tagged union: the produced variant
- * is fixed by (source, projection) — `kinOf` + `members` → [`QueryResult::Members`];
- * `allPersons` + `members` → [`QueryResult::PersonIds`]; either source +
- * `count` → [`QueryResult::Count`].
- */
-export type QueryResult = { kind: "members"; members: Member[] } | { kind: "personIds"; personIds: string[] } | { kind: "count"; count: number };
-
-/**
- * The single contract artifact: a declarative, serializable query. Every
- * surface builds this and hands it to [`run_query`](super::run_query) (the
- * one evaluation path).
- *
- * `where` / `sort` / `mode` are all-additive attribute-filter extensions
- * (ADR-0025). `where` is **conjunction-only** — the predicates AND together;
- * there is no OR (that is two queries and a set union in consumer code).
- * `mode` defaults to [`FilterMode::Certain`]; `sort` and `where` default to
- * \"none\", so the wire shape of a plain kin query is unchanged.
- */
-export interface Query {
-    source: QuerySource;
-    /**
-     * Attribute predicates on each candidate\'s own fields, AND-ed together
-     * (the field is named `where` on the wire). Empty = no filter.
-     */
-    where?: Predicate[];
-    /**
-     * Optional single-key sort. Absent = source\'s default order
-     * (`allPersons`: declaration order; `kinOf`: the pinned member order).
-     */
-    sort?: SortSpec;
-    /**
-     * Certainty mode for three-valued predicates. Defaults to `certain`.
-     */
-    mode?: FilterMode;
-    projection: Projection;
-}
-
-/**
- * The terminology-neutral record of how the alter relates to the ego, plus
- * the lossless [`PathHop`] backbone. One descriptor per distinct
- * relationship path — descriptor identity *is* path identity, and the
- * engine never collapses same-classification descriptors (ADR-0026).
- */
-export interface RelationshipDescriptor {
-    egoId: string;
-    alterId: string;
-    egoGender: Gender;
-    alterGender: Gender;
-    classification: Classification;
-    edgeNature: EdgeNature;
-    affinity: Affinity;
-    sharing: Sharing;
-    side: Side;
-    seniority: Seniority;
-    apexSeniority: Seniority;
-    path: PathHop[];
-}
-
-/**
- * Tunable knobs for [`export`]. CamelCase Deserialize with per-field
- * defaults so JS callers can pass `{}` or partial objects.
- */
-export interface ExportOptions {
-    format?: ExportFormat;
-    /**
-     * Attach `span: [byte_start, byte_end]` to every entity. Opt in when
-     * the consumer needs to map a graph node back to its source location.
-     */
-    withPositions?: boolean;
-}
-
-/**
- * Typed `kul.yml` manifest. Serialized with the `kul:` field name.
- */
-export interface Manifest {
-    /**
-     * Language version (`MAJOR.MINOR`) the sibling `.kul` files target.
-     * Surfaced in the export envelope\'s `kul:` field.
-     */
-    kul: string;
-}
-
-/**
- * What one entry of a batched detail lookup addresses.
- *
- * Three entity kinds, because three things on a rendered tree are selectable:
- * a person card, a marriage edge, and an adoption edge. An **adoption link
- * has no id of its own** — it is a sub-statement of the child — so it is
- * addressed by the `(childId, marriageId)` pair, the same pair the rendered
- * adoption edge carries. Variants stay additive: a `birth` target would be a
- * new variant, never a reshape.
- */
-export type DetailTarget = { kind: "person"; id: string } | { kind: "marriage"; id: string } | { kind: "adoption"; childId: string; marriageId: string };
-
-/**
- * What the query produces: the matching set (`members` for `kinOf`, the
- * `personIds` shape for `allPersons`) or its `count`.
- */
-export type Projection = "members" | "count";
-
-/**
- * Where a query draws its candidate persons from.
- */
-export type QuerySource = { kind: "allPersons" } | { kind: "kinOf"; anchor: string; pattern: KinPattern };
-
-/**
- * Whether the parent-child edges on the path are all blood or include at
- * least one adoption. `adoptive` iff *any* hop is an adoption edge; the
- * per-hop truth stays lossless in the [`PathHop`] backbone.
- */
-export type EdgeNature = "blood" | "adoptive";
-
-/**
- * Whether the relationship runs through marriage hops, and if so in what
- * position (issue #258). A three-way scalar over the path\'s `across` hops:
- * - no `across` hop ⇒ `blood`;
- * - every `across` hop *in ancestor position* ⇒ `step`;
- * - any `across` hop *not* in ancestor position ⇒ `inLaw` (inLaw wins the
- *   scalar when both kinds appear; the [`PathHop`] backbone keeps the full
- *   truth).
- *
- * **Ancestor position** is mechanical: an `across` hop is in ancestor
- * position iff it is preceded by at least one hop and *every* preceding hop
- * is [`Up`](PathHop::Up). A path-initial `across` is therefore never in
- * ancestor position — spouse and spouse\'s kin read `inLaw`, while a parent\'s
- * spouse (`up`, `across`) reads `step`.
- *
- * Also usable as a kin-pattern filter (`step_parents_of` selects `step`,
- * `in_laws_of` selects `inLaw`), so it is `Deserialize`.
- */
-export type Affinity = "blood" | "step" | "inLaw";
-
-/**
- * Which side of the family the relationship routes through. Derived from
- * the path\'s *initial ascent*, never guessed. `both` marks a couple-apex
- * collateral path. Also usable as a kin-pattern filter, so it is
- * `Deserialize`.
- */
-export type Side = "maternal" | "paternal" | "other" | "both" | "notApplicable";
-
-/**
- * Why a [`ResolveResult`] is empty. Present **iff** the relationship list is
- * empty (PRD 0005) — the distinction is the product: it lets an app say \"not
- * related\" only when it truly means it.
- */
-export type EmptyReason = "disconnected" | "noneWithinBounds";
-
-export interface CytoscapeEdge {
-    data: EdgeData;
-}
-
-export interface CytoscapeNode {
-    data: NodeData;
-}
-
-export interface EdgeData {
-    /**
-     * `m:<marriage-id>`. Every edge originates at a marriage.
-     */
-    source: string;
-    /**
-     * `p:<person-id>`. Every edge ends at a person.
-     */
-    target: string;
-    /**
-     * `\"spouse\"`, `\"biological_child\"`, or `\"adoptive_child\"`.
-     */
-    type: string;
-    /**
-     * `start:` of an adoption. Absent on spouse/bio-child edges.
-     */
-    start?: ExportedDate;
-    /**
-     * `end:` of an adoption. Absent on spouse/bio-child edges.
-     */
-    end?: ExportedDate;
-}
-
-export interface ExportedDiagnostic {
-    code: string;
-    severity: string;
-    message: string;
-    /**
-     * `None` for unanchored diagnostics (e.g. `KUL-M01`).
-     */
-    primary?: ExportedSpan;
-    related: ExportedRelated[];
-}
+export type SymbolKind = "person" | "marriage" | "birth" | "adoption";
 
 export interface ExportedMarriage {
     id: string;
@@ -669,158 +439,178 @@ export interface ExportedPerson {
     span?: [number, number];
 }
 
-export interface ExportedRelated extends ExportedSpan {
-    label: string;
-}
 
-export interface ExportedSpan {
-    /**
-     * Canonical file name (`InputFile.name`, or `manifest_name` for
-     * `KUL-Mxx`).
-     */
-    file: string;
-    byteStart: number;
-    byteEnd: number;
-    line: number;
-    column: number;
-}
-
-export interface FailureEnvelope {
-    /**
-     * Always `false`. Consumer-facing discriminator.
-     */
-    ok: boolean;
-    /**
-     * Every diagnostic the validator produced (errors, warnings, notes).
-     */
-    diagnostics: ExportedDiagnostic[];
-}
-
-export interface MarriageNodeData {
-    /**
-     * `m:<marriage-id>`.
-     */
-    id: string;
-    /**
-     * Always `\"marriage\"`.
-     */
-    type: string;
-    start?: ExportedDate;
-    end?: ExportedDate;
-    endReason?: string;
-}
-
-export interface PersonNodeData {
-    /**
-     * `p:<person-id>`.
-     */
-    id: string;
-    /**
-     * Always `\"person\"`.
-     */
-    type: string;
-    name: string;
-    family?: string;
-    given?: string;
-    gender: string;
-    born?: ExportedDate;
-    died?: ExportedDate;
-}
-
-export interface SuccessEnvelope {
-    /**
-     * Always `true`. Consumer-facing discriminator.
-     */
-    ok: boolean;
-    /**
-     * Schema version (see [`SCHEMA_VERSION`]).
-     */
-    schema: number;
-    /**
-     * Kul language version from the manifest\'s `kul:` field.
-     */
-    kul: string;
-    /**
-     * The exported graph (shape determined by [`ExportOptions::format`]).
-     */
-    graph: GraphPayload;
-}
-
-
-export function EXPORT_SCHEMA_VERSION(): number;
-
+/**
+ * The version of the Kul toolchain this module was built from.
+ */
 export function KUL_CORE_VERSION(): string;
 
+/**
+ * The version of the Kul language this module implements.
+ */
 export function KUL_LANGUAGE_VERSION(): string;
 
-export function check(files: WasmInputFile[], manifest: Manifest): CheckEnvelope;
-
-export function exportGraph(files: WasmInputFile[], manifest: Manifest, options?: ExportOptions | null): ExportEnvelope;
-
-export function format(source: string): string;
-
 /**
- * The **batched detail lookup** on the fourth WASM shape: given any number of
- * targets — a person id, a marriage id, or an adoption's `(childId,
- * marriageId)` pair — return each entity's own fields plus its relational
- * neighbourhood (parents, spouses and children carrying their `biological` /
- * `adoptive` link kinds) in **one** project check.
+ * One project's `.kul` files, with the language features over them.
  *
- * This is the operation a detail panel and a kin list are both fed from: one
- * call, one check, one provenance path. Answers come back in the order asked,
- * with `null` in the position of a target that names no entity — absence is
- * the answer, not an error. Same load-and-check gate as the other query
- * shapes; a failing project yields the envelope's error arm, never a throw.
+ * Files are keyed by name; the project's file order is the byte-wise order
+ * of those names. Edits replace a file's whole text. Analysis runs on
+ * demand and is cached until the next edit.
  */
-export function queryDetail(files: WasmInputFile[], manifest: Manifest, targets: DetailTarget[]): QueryEnvelope<DetailLookupResult>;
+export class Workspace {
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Check the project: its diagnostics, and its tree when it has none
+     * that are errors.
+     */
+    analyze(): Analysis;
+    /**
+     * The completions at `offset` in `file`: the full set for the position,
+     * to be filtered by the word already typed.
+     */
+    complete(file: string, offset: number): CompletionItem[];
+    /**
+     * The declaration the reference at `offset` in `file` names.
+     */
+    definition(file: string, offset: number): Location | undefined;
+    /**
+     * Remove the file `name`. Returns `false` when there is no such file.
+     */
+    deleteFile(name: string): boolean;
+    /**
+     * The facts about the person or marriage `id`, for a details panel;
+     * `undefined` when there is no such entity or the project has errors.
+     */
+    details(id: string): EntityDetail | undefined;
+    /**
+     * The entity whose id sits at `offset` in `file`.
+     */
+    entityAt(file: string, offset: number): Entity | undefined;
+    /**
+     * The edits that format `file` canonically: none when it already is,
+     * `undefined` when it has syntax errors.
+     */
+    format(file: string): TextEdit[] | undefined;
+    /**
+     * Hover content for `offset` in `file`.
+     */
+    hover(file: string, offset: number): Hover | undefined;
+    /**
+     * Highlighting for `file` from the lexer alone. Needs no analysis, so it
+     * is cheap enough for every keystroke.
+     */
+    lexicalTokens(file: string): Token[];
+    /**
+     * The declaration of the person or marriage `id`.
+     */
+    locate(id: string): Location | undefined;
+    /**
+     * An empty project.
+     */
+    constructor();
+    /**
+     * The range a rename at `offset` in `file` would change, or `undefined`
+     * when nothing there can be renamed.
+     */
+    prepareRename(file: string, offset: number): Span | undefined;
+    /**
+     * The quick fixes for diagnostics in `file` touching `start..end`.
+     */
+    quickFixes(file: string, start: number, end: number): QuickFix[];
+    /**
+     * Every use of the id at `offset` in `file`, optionally with its
+     * declaration; `undefined` when the cursor is not on an id.
+     */
+    references(file: string, offset: number, includeDeclaration: boolean): Location[] | undefined;
+    /**
+     * Rename the id at `offset` in `file` to `newName`, across the project.
+     */
+    rename(file: string, offset: number, newName: string): RenameResult;
+    /**
+     * Rename the file `from` to `to`, keeping its text and version. Returns
+     * `false`, changing nothing, when `from` does not exist or `to` does.
+     */
+    renameFile(from: string, to: string): boolean;
+    /**
+     * The SVG of the family tree in `theme`, or `undefined` when the project
+     * has errors or cannot be drawn.
+     */
+    renderSvg(theme: SvgTheme): string | undefined;
+    /**
+     * Highlighting for `file` from its syntax tree. Paint these over
+     * `lexicalTokens` where both cover the same text.
+     */
+    semanticTokens(file: string): Token[];
+    /**
+     * Add the file `name`, or replace its text. `version` tags the text: an
+     * analysis reports the version it saw for each file.
+     */
+    setFile(name: string, text: string, version: number): void;
+    /**
+     * The outline of `file`.
+     */
+    symbols(file: string): OutlineSymbol[];
+}
 
 /**
- * Kin-set queries on the fourth WASM shape: evaluate a declarative
- * [`Query`] value and return the matching members (person id + descriptor,
- * **no person payload** — consumers hydrate via [`query_person`]) in the
- * pinned deterministic order. Same load-and-check gate as the lookups; a
- * failing project or an unknown anchor yields the envelope's error arm with
- * a diagnostic, never a throw.
+ * Every diagnostic code the toolchain reports, in code order: what the
+ * docs' diagnostics reference must cover.
  */
-export function queryKin(files: WasmInputFile[], manifest: Manifest, query: Query): QueryEnvelope<QueryResult>;
+export function diagnosticCodes(): DiagnosticCode[];
+
+export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
+
+export interface InitOutput {
+    readonly memory: WebAssembly.Memory;
+    readonly KUL_CORE_VERSION: (a: number) => void;
+    readonly KUL_LANGUAGE_VERSION: (a: number) => void;
+    readonly __wbg_workspace_free: (a: number, b: number) => void;
+    readonly diagnosticCodes: (a: number) => void;
+    readonly workspace_analyze: (a: number) => number;
+    readonly workspace_complete: (a: number, b: number, c: number, d: number, e: number) => void;
+    readonly workspace_definition: (a: number, b: number, c: number, d: number) => number;
+    readonly workspace_deleteFile: (a: number, b: number, c: number) => number;
+    readonly workspace_details: (a: number, b: number, c: number) => number;
+    readonly workspace_entityAt: (a: number, b: number, c: number, d: number) => number;
+    readonly workspace_format: (a: number, b: number, c: number, d: number) => void;
+    readonly workspace_hover: (a: number, b: number, c: number, d: number) => number;
+    readonly workspace_lexicalTokens: (a: number, b: number, c: number, d: number) => void;
+    readonly workspace_locate: (a: number, b: number, c: number) => number;
+    readonly workspace_new: () => number;
+    readonly workspace_prepareRename: (a: number, b: number, c: number, d: number) => number;
+    readonly workspace_quickFixes: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly workspace_references: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly workspace_rename: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+    readonly workspace_renameFile: (a: number, b: number, c: number, d: number, e: number) => number;
+    readonly workspace_renderSvg: (a: number, b: number, c: number) => void;
+    readonly workspace_semanticTokens: (a: number, b: number, c: number, d: number) => void;
+    readonly workspace_setFile: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly workspace_symbols: (a: number, b: number, c: number, d: number) => void;
+    readonly __wbindgen_export: (a: number, b: number) => number;
+    readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
+    readonly __wbindgen_export3: (a: number, b: number, c: number) => void;
+    readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
+}
+
+export type SyncInitInput = BufferSource | WebAssembly.Module;
 
 /**
- * Marriage-lookup counterpart to [`query_person`]. Same load-and-check
- * gate and never-throwing envelope; the ok arm carries the marriage in the
- * export shape, or `null` when no marriage has that id.
+ * Instantiates the given `module`, which can either be bytes or
+ * a precompiled `WebAssembly.Module`.
+ *
+ * @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
+ *
+ * @returns {InitOutput}
  */
-export function queryMarriage(files: WasmInputFile[], manifest: Manifest, id: string): QueryEnvelope<MarriageLookupResult>;
+export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
 
 /**
- * The fourth WASM shape (ADR-0011): the kinship query surface. Looks up a
- * person by id, gated on the project passing its checks (strict-on-errors,
- * ADR-0009). Never throws — a failing project yields the envelope's error
- * arm; a clean project yields the ok arm carrying the person in the export
- * shape, or `null` when no person has that id.
+ * If `module_or_path` is {RequestInfo} or {URL}, makes a request and
+ * for everything else, calls `WebAssembly.instantiate` directly.
+ *
+ * @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
+ *
+ * @returns {Promise<InitOutput>}
  */
-export function queryPerson(files: WasmInputFile[], manifest: Manifest, id: string): QueryEnvelope<PersonLookupResult>;
-
-/**
- * Relationship resolution on the fourth WASM shape (issue #259): return
- * **all** the ways two persons `xId` and `yId` are related, each a
- * terminology-neutral descriptor, plus — only when there are none — an
- * honest emptiness reason (`disconnected` vs `noneWithinBounds`). An omitted
- * `config` uses the default generation budget of 5. Same load-and-check gate
- * as the other query shapes; a failing project or an unknown / wrong-kind id
- * yields the envelope's error arm with a diagnostic, never a throw.
- */
-export function queryResolve(files: WasmInputFile[], manifest: Manifest, x_id: string, y_id: string, config?: ResolveConfig | null): QueryEnvelope<ResolveResult>;
-
-export function renderSvg(files: WasmInputFile[], manifest: Manifest): RenderEnvelope;
-
-/**
- * The general query surface on the fourth WASM shape: evaluate any
- * declarative [`Query`] — an `allPersons` or `kinOf` source, an optional
- * `where` filter, `sort`, certainty `mode`, and a `members`/`count`
- * projection — and return the [`QueryResult`] (`members`, `personIds`, or
- * `count`). The single evaluation path underlying [`query_kin`]; use this for
- * attribute-filter and count queries. Same load-and-check gate; a failing
- * project, unknown anchor, or malformed predicate yields the envelope's error
- * arm with a diagnostic, never a throw.
- */
-export function runQuery(files: WasmInputFile[], manifest: Manifest, query: Query): QueryEnvelope<QueryResult>;
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;

@@ -1,12 +1,12 @@
 # ADR 0011 — WASM surface is operation-specific shapes, no convenience layer
 
-**Status:** Accepted
+**Status:** Accepted; amended by [ADR-0049](./0049-the-language-service-and-the-workspace-in-a-worker.md) — the surface is one stateful `Workspace`, run in a Web Worker.
 **Date:** 2026-05-06
 **Deciders:** owner
 
 ## Context
 
-`kul-wasm` exposes `kul-core` to JS-ecosystem consumers (forthcoming graph renderer, VSCode webview live preview, standalone web playground). The bridge had to settle two questions before any code crossed the WASM boundary:
+`kul-wasm` exposes `kul-core` to JS-ecosystem consumers (forthcoming graph renderer, an editor live preview, standalone web playground). The bridge had to settle two questions before any code crossed the WASM boundary:
 
 1. **What's the shape of the public surface?** A single uniform envelope around every operation (`{ ok: true, value }` vs `{ ok: false, diagnostics }` for *every* function), or three operation-specific shapes that mirror what each underlying `kul-core` function actually does?
 2. **What goes in the bridge beyond the deep modules?** Convenience query helpers (`byId`, `descendants`, `siblings`, `aliveAt`), error-coercion wrappers, retry layers — or only the raw `wasm-bindgen` translation of `kul_core::check`, `kul_core::export::export`, and `kul_core::format::format_source`?
@@ -17,42 +17,49 @@ The convenience-helpers question has the symmetric pull. Every consumer will eve
 
 ## Decision
 
-The WASM surface is a small set of `#[wasm_bindgen]` operations plus three version-metadata getters. Each operation returns the shape that mirrors its underlying `kul-core` (or downstream pipeline) semantics — no uniform envelope is forced over the surface:
+The WASM surface is one stateful class, `Workspace`, plus two version getters (`KUL_CORE_VERSION()`, `KUL_LANGUAGE_VERSION()`; wasm-bindgen does not support `&'static str` consts at the top level). See the 2026-11-02 amendment below for why it holds state.
 
-- **`check(source) -> { diagnostics }`.** Always succeeds. An empty `diagnostics` array is the discriminator — there is no `ok` field, because emptiness already carries that information unambiguously.
-- **`exportGraph(source, options?) -> SuccessEnvelope | FailureEnvelope`.** A tagged union with `ok: true` / `ok: false`, bit-identical to what `kul export --format=json` (or `--format=cytoscape`) emits. Strict on errors per [ADR-0009](./0009-export-strict-on-diagnostics.md).
-- **`format(source) -> string`.** Returns a string unconditionally — best-effort even on partial-parse input, mirroring `kul_core::format::format_source`'s contract. Callers that want to reject malformed input run `check` first.
-- **`renderSvg(files, manifest) -> RenderSuccess | RenderFailure`.** A tagged union mirroring `exportGraph`'s shape: success carries the SVG string, failure carries the same `ExportedDiagnostic` list. JSON is bit-identical to the LSP's `kul/render` response. See the 2026-05-23 amendment below.
+- **The workspace holds a project's files** — `setFile(name, text, version)`, `renameFile(from, to)`, `deleteFile(name)` — checks them on demand, and caches the `CheckResult` (and with it the `ResolvedDocument`, [ADR-0007](./0007-resolved-document-owns-document.md)) until the next edit. Edits replace a file's whole text; the version is the caller's tag for that text.
+- **Each method is one deep-module call**, returning the shape that mirrors it. No uniform envelope is forced over the surface:
+  - `analyze() -> Analysis` — `{ files, diagnostics, svg? }`: every file with the version analyzed, every diagnostic of the project, and the theme-agnostic SVG when the tree can be drawn. There is no `ok` field; the diagnostics list and the presence of `svg` already say it.
+  - One method per language-service feature (`hover`, `complete`, `definition`, `references`, `prepareRename`, `rename`, `symbols`, `quickFixes`, `semanticTokens`, `lexicalTokens`, `format`, `entityAt`, `locate`, `details`), each a thin call into `kul-language-service` returning its Kul-native type, `undefined` where the service answers nothing.
+  - `rename(...) -> RenameResult` is the one tagged union, `{ ok: true, edits } | { ok: false, message }`, because a refused rename has a reason the author must see.
+  - `renderSvg(theme) -> string | undefined` renders the same tree as `analyze()` in the `agnostic` theme, or self-contained with a legend in the `fileExport` theme (ADR-0022), through `kul_visual::render_from_check` (ADR-0031).
+- **Offsets are UTF-16 code units** at the boundary, in both directions. Rust counts UTF-8 bytes; one converter per file (`Utf16Index`) translates every offset that crosses, so neither the language service nor the JavaScript side handles the other's unit.
 
-Plus three version constants exposed as zero-arg functions (wasm-bindgen does not currently support `&'static str` consts at the top level): `KUL_CORE_VERSION()`, `KUL_LANGUAGE_VERSION()`, `EXPORT_SCHEMA_VERSION()`. Consumers negotiate compatibility on these without parsing an envelope.
-
-The bridge contains *no* convenience layer. No `byId`, no `descendantsOf`, no `siblingsOf`, no `aliveAt`. Every such helper is single-digit lines from the exported graph; consumers compose them at the call site. The bridge is a wasm-bindgen translation of three deep modules, and nothing else.
-
-The implementation discipline that backs this decision is in [`crates/kul-wasm/src/lib.rs`](../../crates/kul-wasm/src/lib.rs): each function is a `pub fn` of three lines or fewer, calling exactly one `kul_core::*` function and (for `exportGraph`) one round-trip through `serde-wasm-bindgen`.
+The bridge contains *no* convenience layer. No `byId`, no `descendantsOf`, no `siblingsOf`, no `aliveAt`, and no kinship queries: the query engine stays in `kul-core` and the CLI. The implementation discipline is in [`crates/kul-wasm/src/lib.rs`](../../crates/kul-wasm/src/lib.rs): each method converts its offsets, calls one function, and converts the result.
 
 ## Consequences
 
-- The WASM surface is small enough to memorize and audit. Three function signatures, three return shapes, three constants. The TypeScript file is dominated by types lifted from `kul-core::export` (via Tsify), not by hand-written API conventions.
-- `exportGraph`'s output is byte-for-byte identical to `kul export --format=json`. A consumer that switches between server-side CLI and browser-side WASM gets the same bytes. The cross-surface bit-identical assertion in `crates/kul-wasm/tests/export_graph.rs` enforces this.
-- `check`'s empty-array discriminator is a single `result.diagnostics.length === 0` check at the call site. No `ok` field to maintain, no extra branch in consumer code. The TS compile-test fixture exercises this pattern.
-- `format` always returns a string. Editors that want to format-as-you-type don't have to special-case error states. Editors that want to refuse malformed input run `check` first — a pattern that's already in the LSP server side.
-- The deletion test passes by design: removing `kul-wasm` would either reproduce the JS adapter elsewhere or eliminate JS-ecosystem consumers entirely. There is no "but we'd lose the helper layer" pull, because the helper layer does not exist.
+- The WASM surface is small enough to memorize and audit: one class whose methods are the language service's functions, plus two getters. The TypeScript file is dominated by types derived from the Rust result types (via Tsify, [ADR-0012](./0012-tsify-derived-types-committed-and-diffed.md)), not by hand-written API conventions.
+- The SVG the workspace renders is the SVG `kul export --format=svg` writes for the same files: both go through `render_from_check`, and the workspace tests assert it for every example in both themes.
+- A clean project is `analysis.diagnostics.length === 0` at the call site. No `ok` field to maintain, no extra branch in consumer code.
+- A JavaScript caller never converts offsets. CodeMirror positions, `String.prototype.slice` and every span the workspace returns are all UTF-16 code units; the conversion is tested with Gujarati, Devanagari and emoji at every method.
+- The deletion test passes by design: removing `kul-wasm` would either reproduce the JS adapter elsewhere or eliminate the browser app. There is no "but we'd lose the helper layer" pull, because the helper layer does not exist.
 - When the third consumer of a derived view (`byId`, `descendantsOf`, etc.) materializes, the helper graduates into a follow-on PRD — written from three concrete call sites, not three guesses.
 
 ## Anti-suggestions (do not re-propose)
 
-- **"Wrap every operation in `{ ok, ... }` for consistency."** Erases real semantic differences between operations. `format` cannot fail; `check` reports diagnostics rather than success/failure; only `export` has a binary outcome. Forcing a uniform shape pushes redundant booleans onto consumers and obscures what each operation actually does.
+- **"Wrap every method in `{ ok, ... }` for consistency."** Erases real semantic differences between methods. `format` answers with edits or nothing; `analyze` reports diagnostics rather than success/failure; only `rename` has a refusal that needs a reason. Forcing a uniform shape pushes redundant booleans onto consumers and obscures what each method actually does.
 - **"Add `byId` / `descendantsOf` / `siblingsOf` to the bridge now."** Speculative. Single-digit lines from the exported graph at the consumer's call site, where the consumer's exact need is known. Re-propose only after three independent consumers have hand-rolled the same helper — then write a query-API PRD informed by their actual call shapes.
-- **"Make `exportGraph` return a partial graph on errors."** Same answer as [ADR-0009](./0009-export-strict-on-diagnostics.md): the strict envelope is the foundation; partial-render UX is a consumer concern. The WASM bridge inherits the CLI's contract verbatim — no per-surface UX policy in the bridge.
-- **"Throw JS exceptions on validation errors."** Errors are part of the contract, not exceptions to it. The structured envelope (`FailureEnvelope`) is how the API surfaces them. The panic hook (`console_error_panic_hook`) only triggers on genuine `kul-core` bugs, not expected failure modes.
+- **"Render a partial tree on errors."** Same answer as [ADR-0009](./0009-export-strict-on-diagnostics.md): rendering is strict; keeping the last valid tree on screen is a consumer concern. The bridge inherits the CLI's contract verbatim — no per-surface UX policy in the bridge.
+- **"Throw JS exceptions on validation errors."** Errors are part of the contract, not exceptions to it. Diagnostics and `RenameResult` are how the API surfaces them. The panic hook (`console_error_panic_hook`) only triggers on genuine `kul-core` bugs, not expected failure modes.
 - **"Hand-write a fluent JS façade in `crates/kul-wasm/src/js/`."** Doubles the surface — every function gains a Rust signature *and* a JS wrapper, both of which need to stay in sync. The wasm-bindgen output IS the public surface; one source of truth.
 
 ## Amendments
 
 ### 2026-05-23 — `renderSvg` added (issue #126)
 
-The canonical visual pipeline (`kul_render::compute` → `kul_layout::layout` → `kul_svg::render`) shipped behind the LSP's `kul/render` custom request in [PRD 0002](../prd/0002-canonical-ui-pattern-visual-renderer.md)'s v1 slice. JS-ecosystem consumers (web playground, future web app) could reach the pipeline only by shelling out to the LSP or reimplementing it. This amendment extends the WASM surface with a fourth operation, `renderSvg(files, manifest) -> RenderSuccess | RenderFailure`, whose JSON shape is bit-identical to `kul_lsp::features::render::RenderResponse` (enforced by a cross-surface snapshot test).
+The canonical visual pipeline (`kul_render::compute` → `kul_layout::layout` → `kul_svg::render`) shipped behind the language server's `kul/render` custom request in PRD 0002's v1 slice. JS-ecosystem consumers (web playground, future web app) could reach the pipeline only by shelling out to the language server or reimplementing it. This amendment extends the WASM surface with a fourth operation, `renderSvg(files, …) -> RenderSuccess | RenderFailure`, whose JSON shape was bit-identical to the language server's render response (enforced by a cross-surface snapshot test).
 
 This is an extension of the principle, not a reversal. The original decision's spine — operation-specific shapes that mirror what each underlying call actually does, plus no convenience layer — applies to `renderSvg` verbatim. The three anti-suggestions above remain accurate: no uniform envelope, no `byId`-style helpers, no partial-graph fallback, no exception-based errors, no hand-written JS façade. The title and decision section are amended in place to drop the "three" count; the surface is now small but not literally three.
 
 The rule-of-three on shared envelope types fires here: `RenderResponse` (LSP) and `RenderEnvelope` (wasm) are the first two consumers of "an envelope around `{ ok, svg | diagnostics }`". A third independent consumer would justify lifting them into a common crate; until then, the two adapters declare their own envelopes and a snapshot test enforces bit-identity at the JSON level.
+
+### 2026-11-02 — a stateful `Workspace` replaces the stateless operations (issue #346)
+
+The browser app's editor needs every language feature on every keystroke's worth of change: hover, completion, rename across files, highlighting, plus the live render. The stateless operations (`check(files)`, `exportGraph(files)`, `format(source)`, `renderSvg(files)`) re-ran the whole check on each call and took the file set each time; serving a dozen features per edit through them would multiply the dominant cost by a dozen. The query operations (`queryPerson`, `queryMarriage`, `queryDetail`, `queryKin`, `runQuery`, `queryResolve`) served a query UI the app does not have.
+
+So the surface becomes the `Workspace` described in the Decision above. It holds the files and caches one check per edit; the language features move from the retired language server into `kul-language-service` and the workspace is their adapter, converting offsets to UTF-16 at the boundary. The stateless and query operations, `EXPORT_SCHEMA_VERSION()` (only `exportGraph` emitted that schema), and the Tsify derive on every type that no longer crosses the boundary are removed. `wasm-opt` drops the query engine from the blob: the gzipped module went from 208,251 to 169,798 bytes. The build is `--target web` only.
+
+The spine of the original decision holds: shapes that mirror what each underlying call does, and no convenience layer. Holding state does not add a layer — the workspace's state is exactly the inputs a stateless call took, kept between calls. The anti-suggestions above are restated for the new surface.

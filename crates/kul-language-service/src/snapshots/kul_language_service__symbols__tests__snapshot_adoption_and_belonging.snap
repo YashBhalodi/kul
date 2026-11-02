@@ -1,0 +1,245 @@
+---
+source: crates/kul-language-service/src/symbols.rs
+expression: symbols_for(src)
+---
+[
+  {
+    "name": "Carlos Mendoza",
+    "detail": "b. 1973",
+    "kind": "person",
+    "span": {
+      "start": 1230,
+      "end": 1298
+    },
+    "selection": {
+      "start": 1237,
+      "end": 1243
+    },
+    "children": []
+  },
+  {
+    "name": "Rosa Mendoza",
+    "detail": "b. 1975",
+    "kind": "person",
+    "span": {
+      "start": 1299,
+      "end": 1367
+    },
+    "selection": {
+      "start": 1306,
+      "end": 1310
+    },
+    "children": []
+  },
+  {
+    "name": "Carlos Mendoza & Rosa Mendoza",
+    "detail": "2000",
+    "kind": "marriage",
+    "span": {
+      "start": 1369,
+      "end": 1421
+    },
+    "selection": {
+      "start": 1378,
+      "end": 1391
+    },
+    "children": []
+  },
+  {
+    "name": "Mateo Mendoza",
+    "detail": "b. 2003",
+    "kind": "person",
+    "span": {
+      "start": 1466,
+      "end": 1552
+    },
+    "selection": {
+      "start": 1473,
+      "end": 1478
+    },
+    "children": [
+      {
+        "name": "birth m_carlos_rosa",
+        "kind": "birth",
+        "span": {
+          "start": 1533,
+          "end": 1552
+        },
+        "selection": {
+          "start": 1533,
+          "end": 1538
+        },
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "Bayani Mendoza",
+    "detail": "b. ~1995",
+    "kind": "person",
+    "span": {
+      "start": 1663,
+      "end": 1768
+    },
+    "selection": {
+      "start": 1670,
+      "end": 1676
+    },
+    "children": [
+      {
+        "name": "adoption m_carlos_rosa",
+        "detail": "2007",
+        "kind": "adoption",
+        "span": {
+          "start": 1728,
+          "end": 1768
+        },
+        "selection": {
+          "start": 1728,
+          "end": 1736
+        },
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "Dalisay Mendoza",
+    "detail": "b. 1990",
+    "kind": "person",
+    "span": {
+      "start": 1846,
+      "end": 2040
+    },
+    "selection": {
+      "start": 1853,
+      "end": 1860
+    },
+    "children": [
+      {
+        "name": "birth m_eduardo_luz",
+        "kind": "birth",
+        "span": {
+          "start": 1919,
+          "end": 1938
+        },
+        "selection": {
+          "start": 1919,
+          "end": 1924
+        },
+        "children": []
+      },
+      {
+        "name": "adoption m_tomas_elena",
+        "detail": "1994–1999",
+        "kind": "adoption",
+        "span": {
+          "start": 1941,
+          "end": 1997
+        },
+        "selection": {
+          "start": 1941,
+          "end": 1949
+        },
+        "children": []
+      },
+      {
+        "name": "adoption m_carlos_rosa",
+        "detail": "2002",
+        "kind": "adoption",
+        "span": {
+          "start": 2000,
+          "end": 2040
+        },
+        "selection": {
+          "start": 2000,
+          "end": 2008
+        },
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "Eduardo Reyes",
+    "detail": "b. 1962",
+    "kind": "person",
+    "span": {
+      "start": 2077,
+      "end": 2145
+    },
+    "selection": {
+      "start": 2084,
+      "end": 2091
+    },
+    "children": []
+  },
+  {
+    "name": "Luz Reyes",
+    "detail": "b. 1965",
+    "kind": "person",
+    "span": {
+      "start": 2146,
+      "end": 2214
+    },
+    "selection": {
+      "start": 2153,
+      "end": 2156
+    },
+    "children": []
+  },
+  {
+    "name": "Eduardo Reyes & Luz Reyes",
+    "detail": "1988",
+    "kind": "marriage",
+    "span": {
+      "start": 2216,
+      "end": 2268
+    },
+    "selection": {
+      "start": 2225,
+      "end": 2238
+    },
+    "children": []
+  },
+  {
+    "name": "Tomas Garcia",
+    "detail": "b. 1958",
+    "kind": "person",
+    "span": {
+      "start": 2324,
+      "end": 2389
+    },
+    "selection": {
+      "start": 2331,
+      "end": 2336
+    },
+    "children": []
+  },
+  {
+    "name": "Elena Garcia",
+    "detail": "b. 1960",
+    "kind": "person",
+    "span": {
+      "start": 2390,
+      "end": 2455
+    },
+    "selection": {
+      "start": 2397,
+      "end": 2402
+    },
+    "children": []
+  },
+  {
+    "name": "Tomas Garcia & Elena Garcia",
+    "detail": "1985",
+    "kind": "marriage",
+    "span": {
+      "start": 2457,
+      "end": 2509
+    },
+    "selection": {
+      "start": 2466,
+      "end": 2479
+    },
+    "children": []
+  }
+]

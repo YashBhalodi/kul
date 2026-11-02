@@ -1,0 +1,24 @@
+---
+source: crates/kul-language-service/src/completion/mod.rs
+expression: "complete_for(\"person a name:\\\"A\\\" gender:<CURSOR>\")"
+---
+[
+  {
+    "label": "male",
+    "kind": "enumValue",
+    "detail": "Male",
+    "preselect": false
+  },
+  {
+    "label": "female",
+    "kind": "enumValue",
+    "detail": "Female",
+    "preselect": false
+  },
+  {
+    "label": "other",
+    "kind": "enumValue",
+    "detail": "Non-binary or unspecified",
+    "preselect": false
+  }
+]

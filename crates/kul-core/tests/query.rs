@@ -3,8 +3,9 @@
 //! Looks up known person and marriage ids in three structurally different
 //! examples (nuclear, polygamous-household, multi-file) and snapshots the
 //! serialized envelope shapes, plus the unknown-id and wrong-kind-id
-//! `null`-result cases. The serialization pins the *contract* the WASM and
-//! CLI surfaces mirror; kinship correctness is not at stake here.
+//! `null`-result cases. The serialization pins the *contract* `kul query
+//! person|marriage --format json` prints; kinship correctness is not at stake
+//! here.
 
 mod common;
 
@@ -12,7 +13,6 @@ use std::path::{Path, PathBuf};
 
 use kul_core::CheckResult;
 use kul_core::ast::InputFile;
-use kul_core::manifest::Manifest;
 use kul_core::query::{marriage_lookup, person_lookup};
 
 use crate::common::check_one;
@@ -55,7 +55,7 @@ fn check_multi_file(dir: &str) -> CheckResult {
             )
         })
         .collect();
-    kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs)
+    kul_core::check(&inputs)
 }
 
 fn person_json(check: &CheckResult, id: &str) -> String {

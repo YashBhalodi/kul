@@ -1,0 +1,12 @@
+{
+  "title": "Learn Kul",
+  "pages": [
+    "index",
+    "quick-start",
+    "guide",
+    "reading-the-tree",
+    "app",
+    "reference",
+    "command-line"
+  ]
+}

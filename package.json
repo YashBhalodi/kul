@@ -2,7 +2,7 @@
     "name": "kul-workspace",
     "private": true,
     "workspaces": [
-        "packages/*",
-        "editor/vscode"
+        "apps/web",
+        "crates/kul-wasm/pkg"
     ]
 }

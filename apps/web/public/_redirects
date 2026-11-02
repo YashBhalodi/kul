@@ -1,0 +1,12 @@
+# Netlify redirects. First match wins.
+
+# One canonical host. www and the site's production netlify.app host move
+# permanently to https://kullang.dev, files included (`!`). Deploy previews
+# (pr-<n>--kullang-app.netlify.app) and deploy permalinks are other hosts,
+# so they serve the site as they are.
+https://www.kullang.dev/*          https://kullang.dev/:splat  301!
+https://kullang-app.netlify.app/*  https://kullang.dev/:splat  301!
+
+# The app is client-only: every /app path (and /app itself) is served the
+# prerendered SPA shell, whose router renders the page.
+/app/*  /_shell.html  200

@@ -1,7 +1,5 @@
 # 4. Top-level statements
 
-The Kul language version is declared in the sibling project manifest `kul.yml`, not in the `.kul` source itself. See [Section 14 — Project manifest](./14-project-manifest.md).
-
 ## 4.1 Person statement
 
 A person statement declares a person and their fields, optionally followed by indented sub-statements:

@@ -1,134 +1,134 @@
 ---
 source: crates/kul-layout/tests/corpus.rs
-expression: yaml
+expression: positioned
 ---
-width: 400.0
-height: 432.0
+width: 400
+height: 432
 cards:
-- person_id: chinua
-  kind: canonical
-  x: 25.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Chinua Okeke
-  generation: 0
-  gender: male
-  family: Okeke
-  given: Chinua
-  born: ~1925
-  died: 1998-05-12
-- person_id: adaeze
-  kind: canonical
-  x: 215.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Adaeze Okeke
-  generation: 0
-  gender: female
-  family: Okeke
-  given: Adaeze
-  born: 1930-03
-- person_id: emeka
-  kind: canonical
-  x: 25.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Emeka Okeke
-  generation: 1
-  gender: male
-  born: '1950'
-- person_id: ngozi
-  kind: canonical
-  x: 215.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Ngozi Okeke
-  generation: 1
-  gender: female
-  born: 1955-08-19
-- person_id: chidi
-  kind: canonical
-  x: 24.0
-  y: 344.0
-  width: 160.0
-  height: 64.0
-  name: Chidi Okeke
-  generation: 2
-  gender: male
-  born: 1980-11-14
-- person_id: amara
-  kind: canonical
-  x: 216.0
-  y: 344.0
-  width: 160.0
-  height: 64.0
-  name: Amara Okeke
-  generation: 2
-  gender: female
-  born: 1983-07
+  - person_id: chinua
+    kind: canonical
+    x: 25
+    y: 24
+    width: 160
+    height: 64
+    name: Chinua Okeke
+    generation: 0
+    gender: male
+    family: Okeke
+    given: Chinua
+    born: ~1925
+    died: 1998-05-12
+  - person_id: adaeze
+    kind: canonical
+    x: 215
+    y: 24
+    width: 160
+    height: 64
+    name: Adaeze Okeke
+    generation: 0
+    gender: female
+    family: Okeke
+    given: Adaeze
+    born: 1930-03
+  - person_id: emeka
+    kind: canonical
+    x: 25
+    y: 184
+    width: 160
+    height: 64
+    name: Emeka Okeke
+    generation: 1
+    gender: male
+    born: "1950"
+  - person_id: ngozi
+    kind: canonical
+    x: 215
+    y: 184
+    width: 160
+    height: 64
+    name: Ngozi Okeke
+    generation: 1
+    gender: female
+    born: 1955-08-19
+  - person_id: chidi
+    kind: canonical
+    x: 24
+    y: 344
+    width: 160
+    height: 64
+    name: Chidi Okeke
+    generation: 2
+    gender: male
+    born: 1980-11-14
+  - person_id: amara
+    kind: canonical
+    x: 216
+    y: 344
+    width: 160
+    height: 64
+    name: Amara Okeke
+    generation: 2
+    gender: female
+    born: 1983-07
 edges:
-- link_kind: birth
-  marriage_id: m_chinua_adaeze
-  child_id: emeka
-  is_past: false
-  points:
-  - - 200.0
-    - 56.0
-  - - 200.0
-    - 156.0
-  - - 105.0
-    - 156.0
-  - - 105.0
-    - 184.0
-- link_kind: birth
-  marriage_id: m_emeka_ngozi
-  child_id: chidi
-  is_past: false
-  points:
-  - - 200.0
-    - 216.0
-  - - 200.0
-    - 316.0
-  - - 104.0
-    - 316.0
-  - - 104.0
-    - 344.0
-- link_kind: birth
-  marriage_id: m_emeka_ngozi
-  child_id: amara
-  is_past: false
-  points:
-  - - 200.0
-    - 216.0
-  - - 200.0
-    - 316.0
-  - - 296.0
-    - 316.0
-  - - 296.0
-    - 344.0
-- link_kind: marriage
-  marriage_id: m_chinua_adaeze
-  host_id: chinua
-  joining_id: adaeze
-  start: 1948-11-02
-  is_ended: false
-  points:
-  - - 185.0
-    - 56.0
-  - - 215.0
-    - 56.0
-- link_kind: marriage
-  marriage_id: m_emeka_ngozi
-  host_id: emeka
-  joining_id: ngozi
-  start: 1978-12-09
-  is_ended: false
-  points:
-  - - 185.0
-    - 216.0
-  - - 215.0
-    - 216.0
+  - link_kind: birth
+    marriage_id: m_chinua_adaeze
+    child_id: emeka
+    is_past: false
+    points:
+      - - 200
+        - 56
+      - - 200
+        - 156
+      - - 105
+        - 156
+      - - 105
+        - 184
+  - link_kind: birth
+    marriage_id: m_emeka_ngozi
+    child_id: chidi
+    is_past: false
+    points:
+      - - 200
+        - 216
+      - - 200
+        - 316
+      - - 104
+        - 316
+      - - 104
+        - 344
+  - link_kind: birth
+    marriage_id: m_emeka_ngozi
+    child_id: amara
+    is_past: false
+    points:
+      - - 200
+        - 216
+      - - 200
+        - 316
+      - - 296
+        - 316
+      - - 296
+        - 344
+  - link_kind: marriage
+    marriage_id: m_chinua_adaeze
+    host_id: chinua
+    joining_id: adaeze
+    start: 1948-11-02
+    is_ended: false
+    points:
+      - - 185
+        - 56
+      - - 215
+        - 56
+  - link_kind: marriage
+    marriage_id: m_emeka_ngozi
+    host_id: emeka
+    joining_id: ngozi
+    start: 1978-12-09
+    is_ended: false
+    points:
+      - - 185
+        - 216
+      - - 215
+        - 216

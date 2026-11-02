@@ -3,9 +3,9 @@
 //! The canonical-visual pipeline — `compute` (kul-render) → `layout`
 //! (kul-layout) → `render` (kul-svg) — has one invariant success arm that
 //! every SVG-producing surface reruns identically. [`render_from_check`]
-//! owns that arm once; the WASM `renderSvg`, CLI `kul export --format=svg`,
-//! and LSP `kul/render` + `kul/exportSvg` surfaces call it and keep only
-//! their own theme choice, failure projection, and output sink.
+//! owns that arm once; the browser `Workspace` (`analyze` and `renderSvg`)
+//! and the CLI's `kul export --format=svg` call it and keep only their own
+//! theme choice, failure projection, and output sink.
 //!
 //! This crate sits **above** the four ADR-0016-pinned crates (`kul-render`,
 //! `kul-layout`, `kul-svg`, and `kul-core`), composing their pinned public
@@ -27,7 +27,7 @@ use kul_svg::render;
 /// Composes the pinned pipeline functions — `kul_render::compute` →
 /// `kul_layout::layout` → `kul_svg::render` — with the default
 /// [`LayoutConfig`] and the caller's [`ThemeConfig`]. The theme is the sole
-/// pipeline parameter that varies across surfaces (theme-agnostic preview
+/// pipeline parameter that varies across surfaces (theme-agnostic canvas
 /// vs. self-contained file export); everything upstream of `render` is
 /// invariant, so it lives here.
 ///
@@ -36,9 +36,8 @@ use kul_svg::render;
 /// Returns the project's [`ExportedDiagnostic`]s when the render shape is a
 /// failure (the project did not pass its checks; strict-on-errors per
 /// ADR-0009). Each surface projects this list into its own failure sink —
-/// a JS envelope, a miette-to-stderr render, or URI/range-anchored LSP
-/// diagnostics — so the returned list is the raw material, not the final
-/// shape.
+/// the workspace's diagnostic list or a miette-to-stderr render — so the
+/// returned list is the raw material, not the final shape.
 pub fn render_from_check(
     check: &CheckResult,
     theme: &ThemeConfig,
@@ -56,11 +55,10 @@ pub fn render_from_check(
 mod tests {
     use super::*;
     use kul_core::ast::InputFile;
-    use kul_core::manifest::Manifest;
 
     fn check(source: &str) -> CheckResult {
         let files = [InputFile::new("family.kul".to_owned(), source.to_owned())];
-        kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &files)
+        kul_core::check(&files)
     }
 
     #[test]

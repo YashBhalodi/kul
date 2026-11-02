@@ -1,193 +1,193 @@
 ---
 source: crates/kul-layout/tests/corpus.rs
-expression: yaml
+expression: positioned
 ---
-width: 1164.0
-height: 432.0
+width: 1164
+height: 432
 cards:
-- person_id: jinho
-  kind: canonical
-  x: 24.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Jin-ho Park
-  generation: 0
-  gender: male
-  born: 1960-04-12
-- person_id: soojin
-  kind: canonical
-  x: 214.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Soo-jin Park
-  generation: 0
-  gender: female
-  born: 1963-08-25
-- person_id: minjun
-  kind: canonical
-  x: 119.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Min-jun Park
-  generation: 1
-  gender: male
-  born: 1990-07-03
-- person_id: nadia
-  kind: canonical
-  x: 406.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Nadia Haddad
-  generation: 0
-  gender: female
-  born: ~1985
-- person_id: bruno
-  kind: canonical
-  x: 741.5
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Bruno Costa
-  generation: 0
-  gender: male
-  born: 1955-02-09
-- person_id: helena
-  kind: canonical
-  x: 931.5
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Helena Costa
-  generation: 0
-  gender: female
-  born: 1958-11-28
-- person_id: tiago
-  kind: canonical
-  x: 598.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Tiago Costa
-  generation: 1
-  gender: male
-  born: 1982-09-15
-- person_id: carla
-  kind: canonical
-  x: 788.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Carla Costa
-  generation: 1
-  gender: female
-  born: 1984-12-05
-- person_id: lucas
-  kind: canonical
-  x: 693.0
-  y: 344.0
-  width: 160.0
-  height: 64.0
-  name: Lucas Costa
-  generation: 2
-  gender: male
-  born: 2012-04-22
-- person_id: beatriz
-  kind: canonical
-  x: 980.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Beatriz Costa
-  generation: 1
-  gender: female
-  born: 1985-03-30
+  - person_id: jinho
+    kind: canonical
+    x: 24
+    y: 24
+    width: 160
+    height: 64
+    name: Jin-ho Park
+    generation: 0
+    gender: male
+    born: 1960-04-12
+  - person_id: soojin
+    kind: canonical
+    x: 214
+    y: 24
+    width: 160
+    height: 64
+    name: Soo-jin Park
+    generation: 0
+    gender: female
+    born: 1963-08-25
+  - person_id: minjun
+    kind: canonical
+    x: 119
+    y: 184
+    width: 160
+    height: 64
+    name: Min-jun Park
+    generation: 1
+    gender: male
+    born: 1990-07-03
+  - person_id: nadia
+    kind: canonical
+    x: 406
+    y: 24
+    width: 160
+    height: 64
+    name: Nadia Haddad
+    generation: 0
+    gender: female
+    born: ~1985
+  - person_id: bruno
+    kind: canonical
+    x: 741.5
+    y: 24
+    width: 160
+    height: 64
+    name: Bruno Costa
+    generation: 0
+    gender: male
+    born: 1955-02-09
+  - person_id: helena
+    kind: canonical
+    x: 931.5
+    y: 24
+    width: 160
+    height: 64
+    name: Helena Costa
+    generation: 0
+    gender: female
+    born: 1958-11-28
+  - person_id: tiago
+    kind: canonical
+    x: 598
+    y: 184
+    width: 160
+    height: 64
+    name: Tiago Costa
+    generation: 1
+    gender: male
+    born: 1982-09-15
+  - person_id: carla
+    kind: canonical
+    x: 788
+    y: 184
+    width: 160
+    height: 64
+    name: Carla Costa
+    generation: 1
+    gender: female
+    born: 1984-12-05
+  - person_id: lucas
+    kind: canonical
+    x: 693
+    y: 344
+    width: 160
+    height: 64
+    name: Lucas Costa
+    generation: 2
+    gender: male
+    born: 2012-04-22
+  - person_id: beatriz
+    kind: canonical
+    x: 980
+    y: 184
+    width: 160
+    height: 64
+    name: Beatriz Costa
+    generation: 1
+    gender: female
+    born: 1985-03-30
 edges:
-- link_kind: birth
-  marriage_id: m_jinho_soojin
-  child_id: minjun
-  is_past: false
-  points:
-  - - 199.0
-    - 56.0
-  - - 199.0
-    - 156.0
-  - - 199.0
-    - 156.0
-  - - 199.0
-    - 184.0
-- link_kind: birth
-  marriage_id: m_bruno_helena
-  child_id: tiago
-  is_past: false
-  points:
-  - - 916.5
-    - 56.0
-  - - 916.5
-    - 156.0
-  - - 678.0
-    - 156.0
-  - - 678.0
-    - 184.0
-- link_kind: birth
-  marriage_id: m_bruno_helena
-  child_id: beatriz
-  is_past: false
-  points:
-  - - 916.5
-    - 56.0
-  - - 916.5
-    - 156.0
-  - - 1060.0
-    - 156.0
-  - - 1060.0
-    - 184.0
-- link_kind: birth
-  marriage_id: m_tiago_carla
-  child_id: lucas
-  is_past: false
-  points:
-  - - 773.0
-    - 216.0
-  - - 773.0
-    - 316.0
-  - - 773.0
-    - 316.0
-  - - 773.0
-    - 344.0
-- link_kind: marriage
-  marriage_id: m_jinho_soojin
-  host_id: jinho
-  joining_id: soojin
-  start: 1988-05-14
-  is_ended: false
-  points:
-  - - 184.0
-    - 56.0
-  - - 214.0
-    - 56.0
-- link_kind: marriage
-  marriage_id: m_bruno_helena
-  host_id: bruno
-  joining_id: helena
-  start: 1980-06-21
-  is_ended: false
-  points:
-  - - 901.5
-    - 56.0
-  - - 931.5
-    - 56.0
-- link_kind: marriage
-  marriage_id: m_tiago_carla
-  host_id: tiago
-  joining_id: carla
-  start: 2010-10-16
-  is_ended: false
-  points:
-  - - 758.0
-    - 216.0
-  - - 788.0
-    - 216.0
+  - link_kind: birth
+    marriage_id: m_jinho_soojin
+    child_id: minjun
+    is_past: false
+    points:
+      - - 199
+        - 56
+      - - 199
+        - 156
+      - - 199
+        - 156
+      - - 199
+        - 184
+  - link_kind: birth
+    marriage_id: m_bruno_helena
+    child_id: tiago
+    is_past: false
+    points:
+      - - 916.5
+        - 56
+      - - 916.5
+        - 156
+      - - 678
+        - 156
+      - - 678
+        - 184
+  - link_kind: birth
+    marriage_id: m_bruno_helena
+    child_id: beatriz
+    is_past: false
+    points:
+      - - 916.5
+        - 56
+      - - 916.5
+        - 156
+      - - 1060
+        - 156
+      - - 1060
+        - 184
+  - link_kind: birth
+    marriage_id: m_tiago_carla
+    child_id: lucas
+    is_past: false
+    points:
+      - - 773
+        - 216
+      - - 773
+        - 316
+      - - 773
+        - 316
+      - - 773
+        - 344
+  - link_kind: marriage
+    marriage_id: m_jinho_soojin
+    host_id: jinho
+    joining_id: soojin
+    start: 1988-05-14
+    is_ended: false
+    points:
+      - - 184
+        - 56
+      - - 214
+        - 56
+  - link_kind: marriage
+    marriage_id: m_bruno_helena
+    host_id: bruno
+    joining_id: helena
+    start: 1980-06-21
+    is_ended: false
+    points:
+      - - 901.5
+        - 56
+      - - 931.5
+        - 56
+  - link_kind: marriage
+    marriage_id: m_tiago_carla
+    host_id: tiago
+    joining_id: carla
+    start: 2010-10-16
+    is_ended: false
+    points:
+      - - 758
+        - 216
+      - - 788
+        - 216

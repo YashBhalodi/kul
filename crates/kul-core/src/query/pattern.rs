@@ -1,5 +1,5 @@
 //! The **Query value** — the declarative, serializable request every
-//! surface (Rust sugar, WASM, CLI) constructs and the single
+//! surface (Rust sugar, CLI) constructs and the single
 //! [`evaluate`](super::evaluate) entry point consumes. There is exactly one
 //! evaluation path (ADR-0025); the surfaces are thin constructors of this
 //! value, never second engines.
@@ -10,8 +10,6 @@
 //! a reshape.
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "tsify")]
-use tsify::Tsify;
 
 use super::descriptor::{Affinity, EdgeNature, LinealRole, RelationshipDescriptor, Sharing, Side};
 use super::filter::{FilterMode, Predicate, SortSpec};
@@ -19,7 +17,6 @@ use super::filter::{FilterMode, Predicate, SortSpec};
 /// An inclusive integer range; an absent `max` means unbounded. Used for a
 /// lineal pattern's generation bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify), tsify(from_wasm_abi, into_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct IntRange {
     pub min: u32,
@@ -57,7 +54,6 @@ impl IntRange {
 /// `kind`. `any` (an unclassified match) arrives with a later slice as a
 /// further additive variant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum PatternClassification {
     /// Direct ancestors or descendants whose generation count falls in
@@ -94,7 +90,6 @@ pub enum PatternClassification {
 /// as matches. The named sugar (`parents_of`, `ancestors_of`, …) each
 /// desugar to one of these.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct KinPattern {
     pub classification: PatternClassification,
@@ -131,7 +126,6 @@ pub struct KinPattern {
 
 /// Where a query draws its candidate persons from.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum QuerySource {
     /// Every person in the project, in document declaration order (before any
@@ -146,7 +140,6 @@ pub enum QuerySource {
 /// What the query produces: the matching set (`members` for `kinOf`, the
 /// `personIds` shape for `allPersons`) or its `count`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum Projection {
     /// The matching set itself — `members` (id + descriptor) for a `kinOf`
@@ -167,7 +160,6 @@ pub enum Projection {
 /// `mode` defaults to [`FilterMode::Certain`]; `sort` and `where` default to
 /// "none", so the wire shape of a plain kin query is unchanged.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify), tsify(from_wasm_abi, into_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct Query {
     pub source: QuerySource,
@@ -445,7 +437,6 @@ impl Query {
 /// Rust-native evaluator returns a borrowed [`KinMember`](super::KinMember)
 /// instead; this is its serialized projection.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct Member {
     pub person_id: String,
@@ -457,7 +448,6 @@ pub struct Member {
 /// `allPersons` + `members` → [`QueryResult::PersonIds`]; either source +
 /// `count` → [`QueryResult::Count`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify), tsify(into_wasm_abi))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum QueryResult {
     /// A `kinOf` set: matching persons, each with its descriptor, in the

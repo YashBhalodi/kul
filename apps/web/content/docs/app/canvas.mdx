@@ -1,0 +1,70 @@
+---
+title: The canvas
+description: Moving around the tree, selecting people and marriages, the details panel, and how the tree and the editor follow each other.
+---
+
+The canvas fills the screen behind the editor and shows the family tree.
+It redraws as you type. [Reading the tree](/docs/reading-the-tree/) explains
+what the cards and lines mean.
+
+## Moving around
+
+Drag the background or scroll to pan. To zoom, hold <kbd>Ctrl</kbd>
+(<kbd>⌘</kbd> on a Mac) and scroll, or pinch on a trackpad. The buttons in
+the bottom-right corner zoom out and in, **Fit** the whole tree on screen,
+or show it at its actual size.
+
+When the canvas has the keyboard (click its background), the arrow keys
+pan, <kbd>+</kbd> and <kbd>-</kbd> zoom, and <kbd>0</kbd> fits the tree.
+
+The first time a project draws a tree, Kul fits it to the screen. After
+that the view stays where you leave it, and is saved with the project.
+
+## Selecting
+
+Click a card to select that person, or a marriage line to select the
+marriage. Three things happen:
+
+- The selection is outlined on the tree.
+- The **details panel** opens on the right, with everything recorded about
+  them: dates, parents, marriages and children. Click a name in the panel
+  to select that person instead.
+- The editor shows the line that declares them, without taking the keyboard
+  from the canvas.
+
+Press <kbd>Esc</kbd> or close the panel to clear the selection. The
+selection stays put while you edit, as long as the person or marriage is
+still there.
+
+From the keyboard, <kbd>Tab</kbd> moves through the people's cards and the
+marriage lines on the tree, and <kbd>Enter</kbd> or <kbd>Space</kbd> selects
+the one in focus. From the editor, the command palette's **Show details for
+the entity at the cursor** selects the person or marriage your cursor is on,
+and leaves the cursor where it is.
+
+## The editor follows you, and you follow the editor
+
+The link works in both directions. Move the cursor in the editor onto a
+person or a marriage, and the tree marks it with a softer outline and
+brings it into view if it's off screen. Click something on the tree, and
+the editor jumps to it.
+
+On a past record (a faded card), the ↺ badge takes you to the person's own
+card.
+
+## When the tree can't be drawn
+
+While your files have errors, the canvas keeps the last tree that worked,
+dimmed, with a note such as "2 errors — showing the last valid tree". Click
+the note to see the problems. If there has never been a tree, the canvas
+says what to fix instead.
+
+An empty project shows **Add your first person**, which writes a starter
+person into the open file for you to change.
+
+## Saving the picture
+
+**Export** in the top bar has **Download tree (.svg)**. The SVG is a
+self-contained drawing of the tree with its legend, in light colours, that
+opens in any browser. It is only offered while the project has no
+errors.

@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 
 use kul_core::CheckResult;
 use kul_core::ast::InputFile;
-use kul_core::manifest::Manifest;
 use kul_layout::{
     EdgeKind, LayoutConfig, PositionedCard, PositionedEdge, PositionedShape, SlotKind, layout,
 };
@@ -47,72 +46,71 @@ fn check_example(dir: &Path) -> CheckResult {
             )
         })
         .collect();
-    kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs)
+    kul_core::check(&inputs)
 }
 
-fn layout_example(dir: &str) -> String {
+fn layout_example(dir: &str) -> PositionedDump {
     let check = check_example(&examples_dir().join(dir));
     let shape = compute(&check);
     let success = shape
         .as_success()
         .expect("example must produce a success render shape");
     let positioned = layout(success, &LayoutConfig::default());
-    let dump: PositionedDump = (&positioned).into();
-    serde_norway::to_string(&dump).expect("serialize positioned shape")
+    (&positioned).into()
 }
 
 #[test]
 fn example_01_nuclear_family() {
-    let yaml = layout_example("01-nuclear-family");
-    insta::assert_snapshot!(yaml);
+    let positioned = layout_example("01-nuclear-family");
+    insta::assert_yaml_snapshot!(positioned);
 }
 
 #[test]
 fn example_02_three_generations() {
-    let yaml = layout_example("02-three-generations");
-    insta::assert_snapshot!(yaml);
+    let positioned = layout_example("02-three-generations");
+    insta::assert_yaml_snapshot!(positioned);
 }
 
 #[test]
 fn example_03_divorce_and_remarriage() {
-    let yaml = layout_example("03-divorce-and-remarriage");
-    insta::assert_snapshot!(yaml);
+    let positioned = layout_example("03-divorce-and-remarriage");
+    insta::assert_yaml_snapshot!(positioned);
 }
 
 #[test]
 fn example_04_adoption_and_belonging() {
-    let yaml = layout_example("04-adoption-and-belonging");
-    insta::assert_snapshot!(yaml);
+    let positioned = layout_example("04-adoption-and-belonging");
+    insta::assert_yaml_snapshot!(positioned);
 }
 
 #[test]
 fn example_05_cousins_and_in_laws() {
-    let yaml = layout_example("05-cousins-and-in-laws");
-    insta::assert_snapshot!(yaml);
+    let positioned = layout_example("05-cousins-and-in-laws");
+    insta::assert_yaml_snapshot!(positioned);
 }
 
 #[test]
 fn example_06_polygamous_household() {
-    let yaml = layout_example("06-polygamous-household");
-    insta::assert_snapshot!(yaml);
+    let positioned = layout_example("06-polygamous-household");
+    insta::assert_yaml_snapshot!(positioned);
 }
 
 #[test]
 fn example_07_disconnected_lineages() {
-    let yaml = layout_example("07-disconnected-lineages");
-    insta::assert_snapshot!(yaml);
+    let positioned = layout_example("07-disconnected-lineages");
+    insta::assert_yaml_snapshot!(positioned);
 }
 
 #[test]
 fn example_08_multi_file_project() {
-    let yaml = layout_example("08-multi-file-project");
-    insta::assert_snapshot!(yaml);
+    let positioned = layout_example("08-multi-file-project");
+    insta::assert_yaml_snapshot!(positioned);
 }
 
 #[test]
 fn example_09_family_across_a_century() {
-    let yaml = layout_example("09-family-across-a-century");
-    insta::assert_snapshot!(yaml);
+    let positioned = layout_example("09-family-across-a-century");
+    insta::assert_yaml_snapshot!(positioned);
 }
 
 #[derive(Serialize)]

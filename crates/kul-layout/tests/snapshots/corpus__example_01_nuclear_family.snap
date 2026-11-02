@@ -1,85 +1,85 @@
 ---
 source: crates/kul-layout/tests/corpus.rs
-expression: yaml
+expression: positioned
 ---
-width: 400.0
-height: 272.0
+width: 400
+height: 272
 cards:
-- person_id: hiroshi
-  kind: canonical
-  x: 25.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Hiroshi Tanaka
-  generation: 0
-  gender: male
-  born: 1978-02-11
-- person_id: yuki
-  kind: canonical
-  x: 215.0
-  y: 24.0
-  width: 160.0
-  height: 64.0
-  name: Yuki Tanaka
-  generation: 0
-  gender: female
-  born: 1980-06-30
-- person_id: akiko
-  kind: canonical
-  x: 24.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Akiko Tanaka
-  generation: 1
-  gender: female
-  born: 2008-04-17
-- person_id: kenji
-  kind: canonical
-  x: 216.0
-  y: 184.0
-  width: 160.0
-  height: 64.0
-  name: Kenji Tanaka
-  generation: 1
-  gender: male
-  born: 2011-11-03
+  - person_id: hiroshi
+    kind: canonical
+    x: 25
+    y: 24
+    width: 160
+    height: 64
+    name: Hiroshi Tanaka
+    generation: 0
+    gender: male
+    born: 1978-02-11
+  - person_id: yuki
+    kind: canonical
+    x: 215
+    y: 24
+    width: 160
+    height: 64
+    name: Yuki Tanaka
+    generation: 0
+    gender: female
+    born: 1980-06-30
+  - person_id: akiko
+    kind: canonical
+    x: 24
+    y: 184
+    width: 160
+    height: 64
+    name: Akiko Tanaka
+    generation: 1
+    gender: female
+    born: 2008-04-17
+  - person_id: kenji
+    kind: canonical
+    x: 216
+    y: 184
+    width: 160
+    height: 64
+    name: Kenji Tanaka
+    generation: 1
+    gender: male
+    born: 2011-11-03
 edges:
-- link_kind: birth
-  marriage_id: m_hiroshi_yuki
-  child_id: akiko
-  is_past: false
-  points:
-  - - 200.0
-    - 56.0
-  - - 200.0
-    - 156.0
-  - - 104.0
-    - 156.0
-  - - 104.0
-    - 184.0
-- link_kind: birth
-  marriage_id: m_hiroshi_yuki
-  child_id: kenji
-  is_past: false
-  points:
-  - - 200.0
-    - 56.0
-  - - 200.0
-    - 156.0
-  - - 296.0
-    - 156.0
-  - - 296.0
-    - 184.0
-- link_kind: marriage
-  marriage_id: m_hiroshi_yuki
-  host_id: hiroshi
-  joining_id: yuki
-  start: 2005-09-20
-  is_ended: false
-  points:
-  - - 185.0
-    - 56.0
-  - - 215.0
-    - 56.0
+  - link_kind: birth
+    marriage_id: m_hiroshi_yuki
+    child_id: akiko
+    is_past: false
+    points:
+      - - 200
+        - 56
+      - - 200
+        - 156
+      - - 104
+        - 156
+      - - 104
+        - 184
+  - link_kind: birth
+    marriage_id: m_hiroshi_yuki
+    child_id: kenji
+    is_past: false
+    points:
+      - - 200
+        - 56
+      - - 200
+        - 156
+      - - 296
+        - 156
+      - - 296
+        - 184
+  - link_kind: marriage
+    marriage_id: m_hiroshi_yuki
+    host_id: hiroshi
+    joining_id: yuki
+    start: 2005-09-20
+    is_ended: false
+    points:
+      - - 185
+        - 56
+      - - 215
+        - 56

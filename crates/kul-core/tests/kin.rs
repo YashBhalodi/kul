@@ -3,8 +3,8 @@
 //! Kinship correctness is proven **once**, here at the `query` seam. Two
 //! kinds of test:
 //! - **Contract snapshots** over the example corpus: serialize the
-//!   `kin_query` envelope and pin its bytes (the WASM and CLI-`json`
-//!   surfaces mirror them). These cover ordering, edge-tagging, unbounded
+//!   `query_envelope` and pin its bytes (the bytes `kul query kin --format
+//!   json` prints). These cover ordering, edge-tagging, unbounded
 //!   depth, and the full descriptor serialization.
 //! - **Targeted behavioural fixtures** for the structural hazards the design
 //!   pinned: cycle-guarded termination, doubly-reachable ancestors, multi-
@@ -17,12 +17,11 @@ use std::path::{Path, PathBuf};
 
 use kul_core::CheckResult;
 use kul_core::ast::InputFile;
-use kul_core::manifest::Manifest;
 use kul_core::query::{
     Affinity, Classification, EdgeNature, IntRange, LinealRole, MarriageStatus, PathHop, Query,
     QueryEvalError, Seniority, Sharing, Side, ancestors_of, aunts_uncles_of, children_of,
-    cousins_of, descendants_of, evaluate, in_laws_of, kin_query, nieces_nephews_of, parents_of,
-    siblings_of, spouses_of, step_children_of, step_parents_of, step_siblings_of,
+    cousins_of, descendants_of, evaluate, in_laws_of, nieces_nephews_of, parents_of,
+    query_envelope, siblings_of, spouses_of, step_children_of, step_parents_of, step_siblings_of,
 };
 
 use crate::common::check_one;
@@ -65,13 +64,13 @@ fn check_multi_file(dir: &str) -> CheckResult {
             )
         })
         .collect();
-    kul_core::check_with_manifest("kul.yml", "", &Manifest::default(), &inputs)
+    kul_core::check(&inputs)
 }
 
-/// Serialize the kin-query envelope exactly as the WASM / CLI-`json`
-/// surfaces do (the contract snapshot).
+/// Serialize the kin-query envelope exactly as `kul query kin --format json`
+/// does (the contract snapshot).
 fn envelope_json(check: &CheckResult, query: &Query) -> String {
-    serde_json::to_string_pretty(&kin_query(check, query)).expect("serialize kin envelope")
+    serde_json::to_string_pretty(&query_envelope(check, query)).expect("serialize kin envelope")
 }
 
 // ---------------------------------------------------------------------------

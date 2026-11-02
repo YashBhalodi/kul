@@ -1,0 +1,55 @@
+---
+source: crates/kul-language-service/src/details.rs
+expression: "details(&check, \"dan\")"
+---
+{
+  "kind": "person",
+  "person": {
+    "id": "dan",
+    "name": "Dan",
+    "gender": "male"
+  },
+  "parents": [
+    {
+      "person": {
+        "id": "alice",
+        "name": "Alice",
+        "gender": "female",
+        "born": {
+          "value": "1950",
+          "precision": "year",
+          "circa": true
+        }
+      },
+      "link": {
+        "marriageId": "m",
+        "childId": "dan",
+        "kind": "adoptive",
+        "start": {
+          "value": "1980",
+          "precision": "year",
+          "circa": false
+        }
+      }
+    },
+    {
+      "person": {
+        "id": "bob",
+        "name": "Bob",
+        "gender": "male"
+      },
+      "link": {
+        "marriageId": "m",
+        "childId": "dan",
+        "kind": "adoptive",
+        "start": {
+          "value": "1980",
+          "precision": "year",
+          "circa": false
+        }
+      }
+    }
+  ],
+  "marriages": [],
+  "children": []
+}
