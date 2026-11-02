@@ -264,6 +264,21 @@ test("tabs open, switch and close", async ({ page }) => {
   await expect(page.getByTestId("editor-tab")).toHaveText(["01-founders.kul"])
 })
 
+test("the palette opens a file by name", async ({ page }) => {
+  await openProject(page)
+  await openExample(page, "A multi-file project")
+  await pressMod(page, "K")
+  const palette = page.getByRole("dialog", { name: "Command palette" })
+  await palette
+    .getByRole("option", { name: "Open 03-grandchildren.kul", exact: true })
+    .click()
+  await expect(palette).toBeHidden()
+  await expect(activeTab(page)).toHaveAttribute(
+    "data-name",
+    "03-grandchildren.kul"
+  )
+})
+
 test("the window minimizes, docks, moves and resizes, and keeps it across a reload", async ({
   page,
 }) => {

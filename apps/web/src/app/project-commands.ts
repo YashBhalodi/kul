@@ -6,13 +6,14 @@ import { appStore } from "./app-store"
 import { useCommands } from "./commands"
 import type { Command } from "./commands"
 import { downloadFile, downloadProject } from "./download"
+import { openFileCommands } from "./file-commands"
 import {
   askToDeleteFile,
   startNewFile,
   startRenamingFile,
 } from "./file-list-state"
 import { pickImport } from "./import-picker"
-import { sessionStore } from "./project-session"
+import { selectFile, sessionStore } from "./project-session"
 import {
   createBlankProject,
   createProjectFromExample,
@@ -30,6 +31,9 @@ export function useProjectCommands(): void {
     (state) => state.status === "open" && state.access === "owner"
   )
   const activeFile = useSelector(sessionStore, (state) => state.ui.activeFile)
+  const fileNames = useSelector(sessionStore, (state) =>
+    state.files.map((file) => file.name).join("\n")
+  )
   const projects = useSelector(projectsStore, (state) => state.projects)
 
   const commands = useMemo((): ReadonlyArray<Command> => {
@@ -37,6 +41,12 @@ export function useProjectCommands(): void {
       void made.then((created) => open(created.id))
     const list: Array<Command> = []
 
+    list.push(
+      ...openFileCommands(
+        fileNames === "" ? [] : fileNames.split("\n"),
+        selectFile
+      )
+    )
     if (owner) {
       list.push({
         id: "file.new",
@@ -177,7 +187,7 @@ export function useProjectCommands(): void {
       run: () => appStore.actions.show("settings"),
     })
     return list
-  }, [open, project, owner, activeFile, projects])
+  }, [open, project, owner, activeFile, fileNames, projects])
 
   useCommands(commands)
 }
