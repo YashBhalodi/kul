@@ -72,23 +72,19 @@ One of the fifteen spec-defined checks (KUL-R01 through KUL-R15). See [`spec/04-
 
 ### Diagnostic
 
-An error or warning emitted by the manifest validator pass, the parser, the resolver, or the validator. Carries a **code** (`KUL-Mxx` for manifest, `KUL-Lxx`/`KUL-Pxx` for lex/parse, `KUL-Rxx` for validator rules), a **severity**, a **message**, an optional **primary** [`FileSpan`](#filespan), and optional **related** spans (each anchored to a `FileSpan`, possibly in a sibling file under project-wide resolution). The optional primary covers `KUL-M01` (manifest-not-found) — the only diagnostic with no source position to anchor at. `KUL-M06` (project has `kul.yml` but zero `.kul` files) anchors at the manifest. Rendered to the user via `miette` (CLI) or translated to LSP diagnostics (editor); the latter filters to the active URI's `FileId`.
+An error or warning emitted by the parser, the resolver, or the validator. Carries a **code** (`KUL-Lxx`/`KUL-Pxx` for lex/parse, `KUL-Rxx` for validator rules), a **severity**, a **message**, an optional **primary** [`FileSpan`](#filespan), and optional **related** spans (each anchored to a `FileSpan`, possibly in another file under project-wide resolution). The primary is optional because a few diagnostics describe the project or the request as a whole rather than one declaration (an unknown query anchor, a render-shape invariant such as `KUL-V01`). Rendered to the user via `miette` (CLI) or translated to LSP diagnostics (editor); the latter filters to the active URI's `FileId`.
 
 ### ExportEnvelope
 
-The top-level value `kul export` (and the public `kul_core::export::export` function) emits. Either a **success envelope** carrying a `schema` number, the source's `kul` language version (sourced from the [`Manifest`](#manifest)), and the [`ExportedGraph`](#exportedgraph), or a **failure envelope** carrying the diagnostic list. The export is strict on errors per [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md).
-
-### Project manifest
-
-The `kul.yml` file alongside one or more `.kul` files. Carries the Kul language version the source targets and (in the future) any project-level configuration. Required: a `.kul` file without a sibling `kul.yml` is not a valid Kul project. Discovery is directory-scoped — no walk-up. Defined normatively in [`spec/14-project-manifest.md`](./spec/14-project-manifest.md); decision recorded in [ADR-0013](./docs/adr/0013-project-manifest.md).
+The top-level value `kul export` (and the public `kul_core::export::export` function) emits. Either a **success envelope** carrying a `schema` number, the `kul` language version the toolchain implements (`LANGUAGE_VERSION`), and the [`ExportedGraph`](#exportedgraph), or a **failure envelope** carrying the diagnostic list. The export is strict on errors per [ADR-0009](./docs/adr/0009-export-strict-on-diagnostics.md).
 
 ### Project (project-wide namespace)
 
-A directory containing one `kul.yml` plus one or more `.kul` files. Every id declared in any of the project's `.kul` files is visible from every other file by bare name — there is no `import` statement, no namespace prefix, and no qualified-reference syntax. The file boundary is purely organizational; the project is one logical namespace. Subdirectories are not walked; non-`.kul` files are silently ignored. Defined normatively in [`spec/14-project-manifest.md`](./spec/14-project-manifest.md); decision recorded in [ADR-0015](./docs/adr/0015-global-project-namespace.md), which supersedes ADR-0014's Position B.
+A flat set of uniquely named `.kul` files. Read from disk, it is every `.kul` file directly inside one directory: subdirectories are not walked and other files are ignored. Every id declared in any of the project's files is visible from every other file by bare name — there is no `import` statement, no namespace prefix, and no qualified-reference syntax. The file boundary is purely organizational; the project is one logical namespace. A project with no files, or only empty ones, is the empty family and is valid. Defined normatively in [spec §2, *Projects*](./spec/02-document-structure.md#projects); the namespace decision is recorded in [ADR-0015](./docs/adr/0015-global-project-namespace.md), which supersedes ADR-0014's Position B.
 
-### Manifest
+### File order
 
-The typed Rust representation of the project manifest. Lives at `crates/kul-core/src/manifest.rs` as `pub struct Manifest { pub kul_version: String }`. Adapters (`kul-cli`, `kul-lsp`, `kul-wasm`) load the on-disk YAML and hand the **raw bytes** to `kul_core::check` (or hand a typed `Manifest` to `kul_core::check_with_manifest` from the WASM bridge); `kul-core` itself never reads the filesystem. The `manifest::validate(yaml, file)` pass produces a typed `Manifest` plus diagnostics with normative `KUL-M01..M05` codes anchored at the manifest's [`FileId`](#fileid) (per [ADR-0014](./docs/adr/0014-file-identity-and-per-file-namespaces.md)).
+The order of a [project](#project-project-wide-namespace)'s files: the byte-wise lexicographic order of their names, comparing UTF-8 bytes (`B.kul` before `a.kul`, `10.kul` before `9.kul`). A project's **declaration order** — which duplicate is "the second" for R01, the order of an export's collections — is its files in file order, then source position. `kul_core::check` owns the rule: it orders its inputs itself, so every caller (the CLI, the WASM bridge) gets the same [`FileId`](#fileid)s whatever order it listed the files in. Defined in [spec §2, *Projects*](./spec/02-document-structure.md#projects).
 
 ### CheckEnvelope
 
@@ -96,7 +92,7 @@ The top-level value `@kullang/wasm`'s `check(source)` function returns. A single
 
 ### ExportedGraph
 
-The kinship-native graph projection inside a success [`ExportEnvelope`](#exportenvelope). Three flat collections — `persons`, `marriages`, `parenthood_links` — that mirror the language primitives one-to-one, with cross-references by id. Defined normatively in [`spec/16-export-schema.md`](./spec/16-export-schema.md); shape choice motivated in [ADR-0008](./docs/adr/0008-export-kinship-native-shape.md).
+The kinship-native graph projection inside a success [`ExportEnvelope`](#exportenvelope). Three flat collections — `persons`, `marriages`, `parenthood_links` — that mirror the language primitives one-to-one, with cross-references by id. Defined normatively in [`spec/15-export-schema.md`](./spec/15-export-schema.md); shape choice motivated in [ADR-0008](./docs/adr/0008-export-kinship-native-shape.md).
 
 ### Schema number
 
@@ -295,7 +291,7 @@ One parsed `.kul` source file: name, raw source bytes, and a list of **statement
 
 ### Document
 
-The multi-file project container: the [`Manifest`](#manifest) plus zero or more [`KulFile`](#kulfile)s, each addressable by a [`FileId`](#fileid). Type lives at `crates/kul-core/src/ast.rs`. Each `KulFile` is held behind an `Arc` so callers can keep cheap shared handles. At v1, the toolchain only ever constructs N=1 `kul_files`; the multi-file shape exists so subsequent issues (cross-`.kul`-file resolution, document merging) can build on file-aware spans without further breaking changes ([ADR-0014](./docs/adr/0014-file-identity-and-per-file-namespaces.md)).
+The multi-file project container: zero or more [`KulFile`](#kulfile)s in [file order](#file-order), each addressable by a [`FileId`](#fileid). Type lives at `crates/kul-core/src/ast.rs`. Each `KulFile` is held behind an `Arc` so callers can keep cheap shared handles ([ADR-0014](./docs/adr/0014-file-identity-and-per-file-namespaces.md)).
 
 ### Statement
 
@@ -303,7 +299,7 @@ The two top-level AST nodes: `Statement::Person(PersonStmt)` and `Statement::Mar
 
 ### FileId
 
-An opaque `Copy` newtype indexing into a [`Document`](#document)'s files (`crates/kul-core/src/span.rs`). `FileId::MANIFEST` (= `FileId(0)`) is the project manifest by convention; subsequent ids are the `.kul` files in input order. Adapters and tests reach for `FileId::MANIFEST` or read ids out of an existing `FileSpan`; `FileId::from_raw(u32)` is available for fixture construction.
+An opaque `Copy` newtype indexing into a [`Document`](#document)'s files (`crates/kul-core/src/span.rs`). `FileId(i)` is the `i`-th `.kul` file in [file order](#file-order). Adapters and tests read ids out of an existing `FileSpan` or the document's `kul_files()`; `FileId::from_raw(u32)` is available for fixture construction.
 
 ### Span / ByteSpan
 

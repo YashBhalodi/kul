@@ -1,10 +1,10 @@
-## 16. Export schema
+# 15. Export schema
 
 This section is normative. It specifies the canonical JSON envelope a conforming Kul exporter MUST produce. The reference exporter is `kul export`, surfaced both as a CLI subcommand and as the public function `kul_core::export::export`.
 
 The export is a one-way projection from a Kul document to a flat JSON shape suitable for downstream consumers (visualizers, web apps, scripts, generators). The `.kul` source remains the canonical artifact; the export is derived.
 
-**One envelope per project.** A Kul project (per [Section 14](./14-project-manifest.md)) is one logical namespace regardless of how many `.kul` files it spans. A conforming exporter MUST emit exactly **one** envelope per project, with the `graph`'s `persons`, `marriages`, and `parenthoodLinks` collections carrying the union of every file's contents. The export does not attribute entities to their source files; downstream consumers that care about file-of-origin track it themselves.
+**One envelope per project.** A Kul project (per [Section 2](./02-document-structure.md#projects)) is one logical namespace regardless of how many `.kul` files it spans. A conforming exporter MUST emit exactly **one** envelope per project, with the `graph`'s `persons`, `marriages`, and `parenthoodLinks` collections carrying the union of every file's contents. The export does not attribute entities to their source files; downstream consumers that care about file-of-origin track it themselves.
 
 The decisions behind this schema — its kinship-native shape, its strict-on-diagnostics posture, and its independent versioning — are recorded in [ADR-0008](../docs/adr/0008-export-kinship-native-shape.md), [ADR-0009](../docs/adr/0009-export-strict-on-diagnostics.md), and [ADR-0010](../docs/adr/0010-export-schema-versioning.md).
 
@@ -25,7 +25,7 @@ A conforming exporter MUST emit one of two top-level objects.
 
 - `ok` MUST be the boolean `true`.
 - `schema` MUST be a positive integer identifying the export schema version (currently `1`).
-- `kul` MUST be the language version that produced the export — the version declared by the document's `kul <version>` line, or the implementation's default if no declaration is present.
+- `kul` MUST be the Kul language version the exporter implements, in `MAJOR.MINOR` form (`"0.1"` for this specification; see [Section 13](./13-versioning-policy.md)).
 - `graph` MUST be the [graph object](#152-graph-object).
 
 **Failure envelope.** Emitted when validation produced one or more error-severity diagnostics. Warnings alone MUST NOT trigger the failure envelope.
@@ -56,7 +56,7 @@ The graph is the kinship-native projection: three flat collections, one per lang
 - Cross-references MUST be by id only. Embedded objects (e.g. inlining the spouses inside a marriage object) MUST NOT appear.
 - Derived projections (e.g. `person.children`, `person.siblings`, `marriage.duration`) MUST NOT appear. Consumers compose these views from the flat collections.
 
-**Declaration order.** A conforming exporter MUST emit `persons`, `marriages`, and `parenthoodLinks` in **declaration order**. For a project (per [Section 14](./14-project-manifest.md)) spanning multiple `.kul` files, declaration order is files sorted **lexicographically by file name**, then in-file source position. Within a single file it is source position only. Within `parenthoodLinks` the entries MUST be grouped by child in person-declaration order; for each child, the `birth` link (if any) MUST come first, followed by `adoption` links in their source-declared order. This determinism enables renderer-side tie-breaking for the canonical UI pattern (see [`docs/canonical-ui-pattern.md`](../docs/canonical-ui-pattern.md)), which falls back on declaration order when its layout rules leave a choice (e.g. arranging unrelated lineages or ordering multiple marriages of the same person).
+**Declaration order.** A conforming exporter MUST emit `persons`, `marriages`, and `parenthoodLinks` in **declaration order**. For a project spanning multiple `.kul` files, declaration order is the files in **file order** — the byte-wise lexicographic order of their names ([Section 2](./02-document-structure.md#projects)) — then in-file source position. Within a single file it is source position only. Within `parenthoodLinks` the entries MUST be grouped by child in person-declaration order; for each child, the `birth` link (if any) MUST come first, followed by `adoption` links in their source-declared order. This determinism enables renderer-side tie-breaking for the canonical UI pattern (see [`docs/canonical-ui-pattern.md`](../docs/canonical-ui-pattern.md)), which falls back on declaration order when its layout rules leave a choice (e.g. arranging unrelated lineages or ordering multiple marriages of the same person).
 
 ### 15.3 Person object
 
@@ -256,4 +256,4 @@ For a three-generation family — a founder couple, their daughter, and her two 
 
 ---
 
-← [Section 15 — Formatter rules](./15-formatter-rules.md) | [Index](./README.md)
+← [Section 14 — Formatter rules](./14-formatter-rules.md) | [Index](./README.md)

@@ -17,12 +17,12 @@ The spec is split across fifteen sections plus a standalone formal grammar. Read
 | #   | Section                                                         | What it covers                                                              |
 | --- | --------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | 1   | [Introduction](./01-introduction.md)                            | The two primitives (Person, Marriage); scope summary                        |
-| 2   | [Document structure](./02-document-structure.md)                | Statements, lines, encoding, whitespace, indentation                        |
+| 2   | [Document structure](./02-document-structure.md)                | Statements, lines, encoding, whitespace, indentation; projects and file order |
 | 3   | [Lexical structure](./03-lexical-structure.md)                  | Comments, identifiers, string/bare/date literals, field syntax              |
 | 4   | [Top-level statements](./04-top-level-statements.md)            | `person` and `marriage`                                                     |
 | 5   | [Person sub-statements](./05-person-sub-statements.md)          | `birth` and `adoption` (indented continuations of a `person`)               |
 | 6   | [Semantics](./06-semantics.md)                                  | Reference resolution, active marriage at time T, parenthood derivation      |
-| 7   | [Validation rules](./07-validation-rules.md)                    | The 13 hard errors a conforming validator must report                       |
+| 7   | [Validation rules](./07-validation-rules.md)                    | The 15 hard errors a conforming validator must report                       |
 | 8   | [Worked examples](./08-worked-examples.md)                      | Four progressive `.kul` documents (links to `../examples/`)                |
 | 9   | [Edge cases](./09-edge-cases.md)                                | Founder persons, adoption-only persons, same-pair remarriage, circa, etc.   |
 | 10  | [File conventions](./10-file-conventions.md)                    | Extension, encoding, line endings, CLI binary                               |
@@ -30,9 +30,8 @@ The spec is split across fifteen sections plus a standalone formal grammar. Read
 | 12  | [Formal grammar (introduction)](./12-formal-grammar.md)         | EBNF intro and constraints not enforced by grammar; full grammar is below   |
 | —   | [`grammar.ebnf`](./grammar.ebnf)                                | Standalone normative EBNF                                                   |
 | 13  | [Versioning policy](./13-versioning-policy.md)                  | How future versions extend without breaking                                 |
-| 14  | [Project manifest](./14-project-manifest.md)                    | The `kul.yml` manifest format, discovery rules, conformance                |
-| 15  | [Formatter rules](./15-formatter-rules.md)                      | Canonical form a conforming `kul format` must produce                      |
-| 16  | [Export schema](./16-export-schema.md)                          | Canonical JSON envelope a conforming `kul export` must produce             |
+| 14  | [Formatter rules](./14-formatter-rules.md)                      | Canonical form a conforming `kul format` must produce                      |
+| 15  | [Export schema](./15-export-schema.md)                          | Canonical JSON envelope a conforming `kul export` must produce             |
 
 ## Conventions used in this spec
 

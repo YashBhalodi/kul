@@ -8,7 +8,7 @@
 //! Dates are tagged `{ value, precision, circa }` so consumers don't
 //! re-parse a `~YYYY-MM-DD` string.
 //!
-//! See [`spec/16-export-schema.md`](../../../spec/16-export-schema.md),
+//! See [`spec/15-export-schema.md`](../../../spec/15-export-schema.md),
 //! ADR-0008, ADR-0009, ADR-0010.
 
 pub mod cytoscape;

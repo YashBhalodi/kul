@@ -302,7 +302,7 @@ fn failure_envelope_missing_required_field() {
     insta::assert_snapshot!(json);
 }
 
-/// Pin the declaration-order contract from `spec/16-export-schema.md` §15.2:
+/// Pin the declaration-order contract from `spec/15-export-schema.md` §15.2:
 /// declarations appear in source order across files (lexicographic by file
 /// name) and within each file. The snapshot projects only ordering-relevant
 /// fields so it does not churn on date / span / envelope detail.

@@ -166,7 +166,7 @@ mod tests {
 
     #[test]
     fn person_fields_match_spec_field_order() {
-        // Spec §15.2 fixes the canonical person-field order.
+        // Spec §14.2 fixes the canonical person-field order.
         assert_eq!(
             fields_for(StatementKind::Person),
             &[

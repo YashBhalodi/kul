@@ -3,12 +3,12 @@
 |                       |                                                                              |
 | --------------------- | ---------------------------------------------------------------------------- |
 | Source file extension | `.kul`                                                                       |
-| Project manifest      | `kul.yml` (one per directory; required — see [Section 14](./14-project-manifest.md)) |
+| Project               | Every `.kul` file directly inside one directory — see [Section 2](./02-document-structure.md#projects) |
 | Encoding              | UTF-8 (no BOM)                                                               |
 | Line endings          | LF or CRLF (parser MUST accept either)                                       |
-| CLI binary            | `kul` (CWD-rooted: `cd my-project && kul validate`)                          |
+| CLI binary            | `kul` (`kul validate [DIR]`; `DIR` defaults to the current directory)        |
 
-A Kul document MAY be empty (zero statements). Such a document represents the empty family and is valid. The project manifest is still required even for an empty document.
+A Kul document MAY be empty (zero statements). Such a document represents the empty family and is valid; so is a project with no documents.
 
 ---
 
