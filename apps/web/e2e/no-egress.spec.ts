@@ -1,7 +1,7 @@
 // No request leaves the origin. A listener on the browser context records
-// every request a full session makes (pages, scripts, workers, the service
-// worker where the browser reports its fetches, downloads) and every one
-// must be same-origin.
+// every request a full session makes (pages, a docs search, scripts,
+// workers, the service worker where the browser reports its fetches,
+// downloads, a Try it) and every one must be same-origin.
 //
 // `data:` and `blob:` URLs also count as staying home: they name bytes the
 // page already holds in memory (an inlined image, an export about to be
@@ -14,10 +14,12 @@ import { join } from "node:path"
 import { expect, test } from "./fixtures"
 import type { Page } from "./fixtures"
 import {
+  PROJECT_URL,
   chooseFromSwitcher,
   expectAppReady,
   expectFiles,
   goToEnd,
+  openDocsSearch,
   openProject,
   treeCard,
 } from "./support"
@@ -57,6 +59,14 @@ test("a whole session makes only same-origin requests", async ({
     )
   )
   expect(statuses).toEqual([200, 200])
+
+  // A docs search: the index loads and answers in the page.
+  const search = await openDocsSearch(page)
+  await search.getByRole("combobox", { name: "Search" }).fill("adoption")
+  await expect(
+    search.getByText("Children", { exact: true }).first()
+  ).toBeVisible()
+  await page.keyboard.press("Escape")
 
   // The app: first run, an edit, an import, both exports, a reload.
   await openProject(page)
@@ -99,10 +109,28 @@ test("a whole session makes only same-origin requests", async ({
   await expectAppReady(page)
   await expect(treeCard(page, "tomi")).toBeVisible()
 
+  // Try it: a docs example opens in the app as a new project.
+  await page.goto("/docs/guide/children/")
+  await page
+    .locator("[data-kul-code]")
+    .filter({ hasText: "person bayani" })
+    .getByTestId("try-it")
+    .click()
+  await expect(page).toHaveURL(PROJECT_URL)
+  await expectAppReady(page)
+  await expect(treeCard(page, "bayani")).toBeVisible()
+
   // The record is real: it holds the pages, their text files, scripts and
   // fonts.
   const paths = requests.map((url) => new URL(url).pathname)
-  for (const expected of ["/", "/docs/", "/docs/index.md", "/llms.txt"]) {
+  for (const expected of [
+    "/",
+    "/docs/",
+    "/docs/index.md",
+    "/llms.txt",
+    "/docs/search.json",
+    "/docs/guide/children/",
+  ]) {
     expect(paths, expected).toContain(expected)
   }
   expect(paths.some((path) => /^\/assets\/.+\.js$/.test(path))).toBe(true)

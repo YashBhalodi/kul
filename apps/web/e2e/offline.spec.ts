@@ -22,7 +22,12 @@ test("after one visit to the app, the app and the site work offline", async ({
   await waitForOfflineCopy(page)
   await context.setOffline(true)
 
-  await page.reload()
+  // The shell the service worker answers with carries the site's CSP,
+  // which keeps the offline app same-origin too.
+  const shell = await page.reload()
+  expect((await shell?.allHeaders())?.["content-security-policy"]).toContain(
+    "connect-src 'self'"
+  )
   await expectAppReady(page)
   await expect(treeCard(page, "adaeze")).toBeVisible()
 
