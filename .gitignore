@@ -2,9 +2,8 @@
 .DS_Store
 Thumbs.db
 
-# Editors
-.vscode/
-.idea/
+# Editor swap and backup files. Editor settings directories belong in
+# your global gitignore (`git config core.excludesFile`).
 *.swp
 *.swo
 *~

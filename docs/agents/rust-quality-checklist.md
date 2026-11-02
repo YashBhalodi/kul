@@ -30,7 +30,7 @@ The one-page definition-of-done any agent working in this workspace is held to. 
 
 ## Verify
 
-- [ ] `just check` is green. (= `cargo fmt --check` + `cargo clippy --workspace --all-targets -- -D warnings` + `cargo nextest run --workspace`.) Local-green should imply CI-green; the same commands run in `.github/workflows/rust.yml`.
+- [ ] `just check` is green. (= `cargo fmt --check` + `cargo clippy --workspace --all-targets -- -D warnings` + `cargo nextest run --workspace` + the WASM gates + the web app's gates; see `AGENTS.md`.) Local-green should imply CI-green; the same commands run in `.github/workflows/rust.yml`.
 - [ ] If `just check` fails, **fix the regression** — don't loosen the assertion, don't raise a perf budget without a justifying comment, don't `#[allow]` a lint without justification.
 - [ ] The per-edit format hook and the blocking clippy hook (configured in `.claude/settings.json`) keep you green during the inner loop. If they ever fail, address the failure before continuing — don't try to outrun them.
 
