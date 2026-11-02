@@ -4,6 +4,8 @@ import { useEffect, useMemo } from "react"
 import type { ReactNode } from "react"
 
 import { Toaster } from "@/components/ui/sonner"
+import { useUpdateToast } from "@/offline/update-toast"
+import { beforeUpdateReload } from "@/offline/updates"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { setThemePreference, toggleTheme } from "@/prefs/theme"
 import { appStore } from "./app-store"
@@ -16,6 +18,7 @@ import { installTestHooks } from "./test-hooks"
 import { ImportDropZone } from "./import-drop-zone"
 import { ImportPicker } from "./import-picker"
 import { useProjectCommands } from "./project-commands"
+import { flushProject } from "./project-session"
 import { DeleteProjectDialog, RenameProjectDialog } from "./project-dialogs"
 import { SettingsDialog } from "./settings-dialog"
 import { ShortcutsDialog } from "./shortcuts-dialog"
@@ -41,6 +44,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function AppFrame({ children }: { children: ReactNode }) {
   useEffect(installTestHooks, [])
+  // An update reloads the page only once the project's edits are written.
+  useEffect(() => beforeUpdateReload(flushProject), [])
+  useUpdateToast()
   useHotkey(appHotkeys["palette.open"], appStore.actions.togglePalette)
   useHotkey(appHotkeys["shortcuts.open"], showShortcuts)
   useProjectCommands()

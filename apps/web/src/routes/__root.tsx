@@ -9,6 +9,8 @@ import type { ReactNode } from "react"
 
 import { buttonVariants } from "@/components/ui/button"
 import { SiteFooter, SiteHeader } from "@/components/site-chrome"
+import { UpdatePrompt } from "@/offline/update-prompt"
+import { startServiceWorker } from "@/offline/updates"
 import { connectTheme } from "@/prefs/theme"
 import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url"
 
@@ -57,6 +59,7 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: ReactNode }) {
   useEffect(() => connectTheme(), [])
+  useEffect(startServiceWorker, [])
   return (
     // theme-init.js sets the theme class before React hydrates.
     <html lang="en" suppressHydrationWarning>
@@ -65,6 +68,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body>
         {children}
+        <UpdatePrompt />
         <Suspense>
           <RouterDevtools />
         </Suspense>
