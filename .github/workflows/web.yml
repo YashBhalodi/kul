@@ -1,7 +1,7 @@
 name: Web
 
-# The web app's gates and the workflow lint, through the same `just` recipes
-# `just check` and `just verify` run locally. The web recipes skip with a
+# The web app's gates, the workflow lint and the release script's tests,
+# through the same `just` recipes `just check` and `just verify` run locally. The web recipes skip with a
 # message while apps/web has no package.json.
 
 on:
@@ -44,7 +44,7 @@ jobs:
           if-no-files-found: ignore
 
   workflows:
-    name: actionlint
+    name: workflows (actionlint, release script)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -56,4 +56,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/bin"
           bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12 "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-      - run: just lint-workflows
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - run: just lint-workflows release-test

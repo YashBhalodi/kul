@@ -3,9 +3,10 @@
 default: check
 
 # Every gate that runs on each change: Rust format, clippy and tests, the
-# WASM build and its gates, and the web app's gates. Local-green implies
-# CI-green: `.github/workflows/rust.yml` and `web.yml` run these same recipes.
-check: fmt-check lint test wasm-check web-check web-build
+# WASM build and its gates, the web app's gates and the release script's
+# tests. Local-green implies CI-green: `.github/workflows/rust.yml` and
+# `web.yml` run these same recipes.
+check: fmt-check lint test wasm-check web-check web-build release-test
 
 # Everything `check` runs, plus the browser suites, Lighthouse, the epic #343
 # baseline diff and old-name search, and actionlint over the workflows.
@@ -113,6 +114,11 @@ _web +SCRIPTS:
 # actionlint (with shellcheck, when installed) over .github/workflows.
 lint-workflows:
     actionlint
+
+# The release workflow's version lockstep check (scripts/release-versions.mjs),
+# over fixture trees and this repository.
+release-test:
+    node --test --test-reporter=spec scripts/release-versions.test.mjs
 
 # Epic #343 harness. scripts/pivot/ and these two recipes are deleted when
 # the epic completes.
