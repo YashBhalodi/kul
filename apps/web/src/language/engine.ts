@@ -1,37 +1,38 @@
-// The main thread's handle on the language worker. Only the app route
-// imports this module, through a dynamic import, so the worker and the
-// .wasm never load on the landing page or the docs, nor during prerender.
+// Starting the real language worker. Only the app route imports this
+// module, through a dynamic import, so the worker and the .wasm never load
+// on the landing page or the docs, nor during prerender.
 
 import { wrap } from "comlink"
-import type { Remote } from "comlink"
 
-import type { EngineInfo, LanguageWorkerApi, TreeRender } from "./worker"
+import type { WorkerHandle } from "./client"
+import type { LanguageWorkerApi } from "./worker"
 
-export type { EngineInfo, TreeRender }
-
-export interface Engine {
-  info: EngineInfo
-  api: Remote<LanguageWorkerApi>
-  terminate: () => void
-}
-
-/** Start the language worker and wait until the engine has loaded. */
-export async function startEngine(): Promise<Engine> {
+/** Start a language worker. */
+export function spawnLanguageWorker(): Promise<WorkerHandle> {
   const worker = new Worker(new URL("./worker.ts", import.meta.url), {
     type: "module",
     name: "kul-language",
   })
-  const failed = new Promise<never>((_, reject) => {
-    worker.addEventListener("error", (event) =>
-      reject(new Error(event.message || "The language worker failed to load"))
-    )
-  })
-  const api = wrap<LanguageWorkerApi>(worker)
-  try {
-    const info = await Promise.race([api.start(), failed])
-    return { info, api, terminate: () => worker.terminate() }
-  } catch (error) {
-    worker.terminate()
-    throw error
+  let failed: ((reason: string) => void) | undefined
+  let failure: string | undefined
+  const fail = (reason: string) => {
+    if (failure !== undefined) return
+    failure = reason
+    failed?.(reason)
   }
+  worker.addEventListener("error", (event) => {
+    event.preventDefault()
+    fail(event.message || "The language worker failed")
+  })
+  worker.addEventListener("messageerror", () =>
+    fail("The language worker sent a message that could not be read")
+  )
+  return Promise.resolve({
+    api: wrap<LanguageWorkerApi>(worker),
+    terminate: () => worker.terminate(),
+    onFailure: (listener) => {
+      failed = listener
+      if (failure !== undefined) listener(failure)
+    },
+  })
 }

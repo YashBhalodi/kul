@@ -1,9 +1,7 @@
 import { useSelector } from "@tanstack/react-store"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 
-import type { TreeRender } from "@/language/engine"
-import { getEngine } from "./engine-status"
-import { sessionStore } from "./project-session"
+import { analysisStore } from "./engine-status"
 
 // Room kept clear around the fitted tree, in CSS pixels.
 const MARGIN = 48
@@ -14,32 +12,13 @@ const MARGIN = 48
  * tree while the project has errors.
  */
 export function TreePreview() {
-  const files = useSelector(sessionStore, (state) => state.files)
-  const [render, setRender] = useState<TreeRender>()
-  const [lastSvg, setLastSvg] = useState<string>()
-
-  useEffect(() => {
-    let current = true
-    void getEngine()
-      .then((engine) => engine.api.render(files))
-      .then((result) => {
-        if (!current) return
-        setRender(result)
-        if (result.svg) setLastSvg(result.svg)
-      })
-      .catch(() => undefined)
-    return () => {
-      current = false
-    }
-  }, [files])
-
-  if (!lastSvg) return null
-  return (
-    <FittedSvg
-      svg={lastSvg}
-      stale={render !== undefined && render.svg === undefined}
-    />
+  const lastSvg = useSelector(analysisStore, (state) => state.lastSvg)
+  const stale = useSelector(
+    analysisStore,
+    (state) => state.report !== undefined && state.report.svg === undefined
   )
+  if (!lastSvg) return null
+  return <FittedSvg svg={lastSvg} stale={stale} />
 }
 
 function FittedSvg({ svg, stale }: { svg: string; stale: boolean }) {

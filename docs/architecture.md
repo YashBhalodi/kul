@@ -136,7 +136,12 @@ The browser cannot shell out to the `kul` binary; it needs a JS-callable surface
 A request from the editor lands here:
 
 ```
-editor (CodeMirror, in the language worker)
+editor (CodeMirror, on the main thread)
+  │  the language client (apps/web/src/language/client.ts): every edit sends
+  │  the file's whole text with a new version; answers that an edit has
+  │  overtaken are dropped
+  ▼  Comlink
+language worker (apps/web/src/language/worker.ts)
   │  method call with a file name and UTF-16 offsets
   ▼
 kul_wasm::Workspace::<method>
@@ -153,6 +158,8 @@ Kul-native result (byte spans keyed by file name)
   ▼  the workspace converts every span back to UTF-16 units
 JS value (Tsify-derived type)
 ```
+
+In the worker, each edit answers with the file's lexical tokens at once, and analysis waits for edits to pause (200ms), a newer edit replacing the waiting one; a feature that needs the check (hover, completion, rename, …) runs the waiting analysis first. A crashed worker is replaced and given the file set again.
 
 Lifecycle: `setFile(name, text, version)` replaces one file's text and drops the cached check; `renameFile` and `deleteFile` do the same for the file set. The next request re-checks the whole project once (per [ADR-0007](./adr/0007-resolved-document-owns-document.md) and [ADR-0015](./adr/0015-global-project-namespace.md)) and every request after it reads the cache. `analyze()` returns the project's diagnostics, each anchored at a named file, plus the rendered tree; the caller filters diagnostics per file. `lexicalTokens` reads only the stored text, so it never waits for a check.
 
