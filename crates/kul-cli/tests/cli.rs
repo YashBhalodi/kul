@@ -777,8 +777,8 @@ fn query_failing_project_gate_json() {
 }
 
 /// The CLI `--format json` path is the epic's contract-snapshot harness:
-/// its bytes must equal the core `query` envelope serialization the WASM
-/// surface also returns (both serialize `kul_core::query::person_lookup`).
+/// its bytes must equal the core `query` envelope serialization
+/// (`kul_core::query::person_lookup`).
 #[test]
 fn query_json_matches_core_envelope_bytes() {
     let output = Command::cargo_bin("kul")
@@ -887,8 +887,8 @@ fn query_kin_unknown_anchor_nonzero() {
         .stderr(contains("no person with id `nobody`"));
 }
 
-/// The CLI `--format json` kin bytes equal the core `kin_query` envelope the
-/// WASM surface also returns (the contract-snapshot harness).
+/// The CLI `--format json` kin bytes equal the core `kin_query` envelope
+/// (the contract-snapshot harness).
 #[test]
 fn query_kin_json_matches_core_envelope_bytes() {
     let output = Command::cargo_bin("kul")
@@ -1160,7 +1160,7 @@ fn query_rel_unknown_id_nonzero() {
 }
 
 /// The `--format json` bytes equal the core `resolve_relationship` envelope
-/// serialization the WASM surface also returns.
+/// serialization.
 #[test]
 fn query_rel_json_matches_core_envelope_bytes() {
     let output = Command::cargo_bin("kul")

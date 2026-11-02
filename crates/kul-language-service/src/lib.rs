@@ -57,7 +57,7 @@ pub use quick_fixes::{QuickFix, quick_fixes};
 pub use references::references;
 pub use rename::{RenameError, prepare_rename, rename};
 pub use semantic_tokens::semantic_tokens;
-pub use symbols::{Symbol, SymbolKind, symbols};
+pub use symbols::{OutlineSymbol, SymbolKind, symbols};
 
 /// A half-open range `[start, end)` of offsets into one file's text.
 ///
@@ -122,9 +122,9 @@ pub struct FileEdit {
 
 /// What a highlighted token is.
 ///
-/// [`lexical_tokens`] classifies from the lexer alone; [`semantic_tokens`]
-/// classifies from the checked syntax tree and refines the lexical ones where
-/// they cover the same text.
+/// Lexical tokens are classified from the lexer alone; semantic tokens from
+/// the checked syntax tree, and they refine the lexical ones where both cover
+/// the same text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]

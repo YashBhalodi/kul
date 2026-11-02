@@ -45,7 +45,6 @@ use crate::semantic::{ChildLink, ParentLinkKind, ResolvedDocument};
 /// adoption edge carries. Variants stay additive: a `birth` target would be a
 /// new variant, never a reshape.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify), tsify(from_wasm_abi, into_wasm_abi))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum DetailTarget {
     /// A person, by id.
@@ -136,7 +135,7 @@ pub struct MarriageTie {
 /// from the wire (the export shapes' `skip_serializing_if`), never sent as an
 /// empty placeholder.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[cfg_attr(feature = "tsify", derive(Tsify), tsify(into_wasm_abi))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum EntityDetail {
     /// A person: their own fields, every parent they are linked to, every

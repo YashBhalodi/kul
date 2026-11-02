@@ -12,9 +12,10 @@ rust-version.workspace = true
 workspace = true
 
 [features]
-# Derive `tsify::Tsify` on the export-envelope types so the `kul-wasm`
-# adapter can emit accurate `.d.ts` files from this Rust source of truth.
-# Default-off — the CLI and LSP never pay the cost. See ADR-0012.
+# Derive `tsify::Tsify` on the types the `kul-wasm` Workspace returns (the
+# entity details and the export shapes inside them) so it can emit accurate
+# `.d.ts` files from this Rust source of truth. Default-off — the CLI never
+# pays the cost. See ADR-0012.
 tsify = ["dep:tsify", "dep:wasm-bindgen"]
 
 [dependencies]

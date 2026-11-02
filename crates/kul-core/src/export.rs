@@ -40,7 +40,6 @@ pub const LANGUAGE_VERSION: &str = "0.1";
 /// Output format for [`export`]. Lowercase wire form shared by CLI flags
 /// and JS consumers.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum ExportFormat {
     /// Kinship-native JSON: `persons` / `marriages` / `parenthood_links`.
@@ -54,7 +53,6 @@ pub enum ExportFormat {
 /// Tunable knobs for [`export`]. CamelCase Deserialize with per-field
 /// defaults so JS callers can pass `{}` or partial objects.
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify), tsify(from_wasm_abi))]
 #[serde(default, rename_all = "camelCase")]
 pub struct ExportOptions {
     pub format: ExportFormat,
@@ -66,7 +64,6 @@ pub struct ExportOptions {
 /// The export envelope: success (graph) or failure (diagnostics).
 /// Untagged with a shared `ok` boolean for consumer discrimination.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify), tsify(into_wasm_abi))]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum ExportEnvelope {
     Success(SuccessEnvelope),
@@ -74,7 +71,6 @@ pub enum ExportEnvelope {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct SuccessEnvelope {
     /// Always `true`. Consumer-facing discriminator.
@@ -90,7 +86,6 @@ pub struct SuccessEnvelope {
 /// Graph payload inside a [`SuccessEnvelope`]. Untagged on the wire — the
 /// consumer knows which shape from the `--format` they requested.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum GraphPayload {
     /// Kinship-native: three flat collections.
@@ -118,7 +113,6 @@ impl GraphPayload {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct FailureEnvelope {
     /// Always `false`. Consumer-facing discriminator.
@@ -135,7 +129,6 @@ impl ExportEnvelope {
 
 /// The kinship-native graph: three flat collections.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedGraph {
     pub persons: Vec<ExportedPerson>,
@@ -221,7 +214,6 @@ pub struct ExportedDate {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedDiagnostic {
     pub code: String,
@@ -235,7 +227,6 @@ pub struct ExportedDiagnostic {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedRelated {
     pub label: String,
@@ -244,7 +235,6 @@ pub struct ExportedRelated {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportedSpan {
     /// Canonical file name (`InputFile.name`).

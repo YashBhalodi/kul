@@ -1,6 +1,6 @@
 [package]
 name = "kul-wasm"
-description = "WebAssembly bindings for kul-core, packaged as @kullang/wasm"
+description = "Kul in the browser: a stateful Workspace with the language features and the tree render, compiled to WebAssembly"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,15 +23,13 @@ wasm-opt = ["-Oz", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
 
 [dependencies]
 kul-core = { workspace = true, features = ["tsify"] }
+kul-language-service = { workspace = true, features = ["tsify"] }
 kul-visual = { workspace = true }
 wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }
 serde = { workspace = true }
-serde-wasm-bindgen = { workspace = true }
 tsify = { workspace = true, features = ["js"] }
 
 [dev-dependencies]
 insta = { workspace = true }
-kul-core = { workspace = true }
-kul-visual = { workspace = true }
 serde_json = { workspace = true }

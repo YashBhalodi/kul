@@ -240,8 +240,7 @@ FORMATS (`--format`):
 
   human  (default) the entity's recorded fields in a readable,
          terminology-neutral layout.
-  json   the query envelope — byte-identical to what the `@kullang/wasm`
-         query surface returns. The ok arm carries `result` (the entity,
+  json   the query envelope. The ok arm carries `result` (the entity,
          or `null` when the id names none); the error arm carries
          `diagnostics`.
 
@@ -366,7 +365,7 @@ enum QueryVerb {
         project: ProjectArg,
 
         /// Output format: `human` (default, readable fields) or `json`
-        /// (the query envelope, byte-identical to the WASM surface).
+        /// (the query envelope).
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
@@ -380,7 +379,7 @@ enum QueryVerb {
         project: ProjectArg,
 
         /// Output format: `human` (default, readable fields) or `json`
-        /// (the query envelope, byte-identical to the WASM surface).
+        /// (the query envelope).
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
@@ -418,7 +417,7 @@ enum QueryVerb {
         filter: FilterArgs,
 
         /// Output format: `human` (default, terminology-neutral facts) or
-        /// `json` (the query envelope, byte-identical to the WASM surface).
+        /// `json` (the query envelope).
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
@@ -436,7 +435,7 @@ enum QueryVerb {
         filter: FilterArgs,
 
         /// Output format: `human` (default, one line per person) or `json`
-        /// (the query envelope, byte-identical to the WASM surface).
+        /// (the query envelope).
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
@@ -462,7 +461,7 @@ enum QueryVerb {
         max_generations: u32,
 
         /// Output format: `human` (default, terminology-neutral facts) or
-        /// `json` (the query envelope, byte-identical to the WASM surface).
+        /// `json` (the query envelope).
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },

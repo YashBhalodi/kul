@@ -25,8 +25,6 @@
 //!   presence-based optional field.
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "tsify")]
-use tsify::Tsify;
 
 use crate::ast::{self, PersonStmt};
 use crate::date::before_strict;
@@ -39,7 +37,6 @@ use super::junction::{Junction, junction_of};
 /// serialized surface is self-contained (the AST enum is not part of any
 /// wire contract).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum Gender {
     Male,
@@ -74,7 +71,6 @@ pub(crate) fn gender_of(person: &PersonStmt) -> Gender {
 /// `collateral` derive mechanically from the same hop counts (see
 /// [`RelationshipDescriptor::derive`]) so later slices need no rework.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Classification {
     /// The alter *is* the ego. Never produced by a kin-set query (the
@@ -97,7 +93,6 @@ pub enum Classification {
 
 /// Direction of a [`Classification::Lineal`] relationship.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum LinealRole {
     Ancestor,
@@ -108,7 +103,6 @@ pub enum LinealRole {
 /// least one adoption. `adoptive` iff *any* hop is an adoption edge; the
 /// per-hop truth stays lossless in the [`PathHop`] backbone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum EdgeNature {
     Blood,
@@ -132,7 +126,6 @@ pub enum EdgeNature {
 /// Also usable as a kin-pattern filter (`step_parents_of` selects `step`,
 /// `in_laws_of` selects `inLaw`), so it is `Deserialize`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum Affinity {
     Blood,
@@ -144,7 +137,6 @@ pub enum Affinity {
 /// `notApplicable` for every lineal / self path (there is no sibling
 /// junction). Also usable as a kin-pattern filter, so it is `Deserialize`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum Sharing {
     Full,
@@ -157,7 +149,6 @@ pub enum Sharing {
 /// collateral path. Also usable as a kin-pattern filter, so it is
 /// `Deserialize`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum Side {
     Maternal,
@@ -172,7 +163,6 @@ pub enum Side {
 /// the other; `unknown` when dates are missing or intervals overlap;
 /// `notApplicable` is reserved for `self`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum Seniority {
     Elder,
@@ -183,7 +173,6 @@ pub enum Seniority {
 
 /// The edge tag on a vertical [`PathHop`]. Wire form: `"bio" | "adoptive"`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum HopEdge {
     Bio,
@@ -205,7 +194,6 @@ impl From<ParentLinkKind> for HopEdge {
 /// core reports and tags, never filters (whether divorce dissolves affinity is
 /// a downstream terminology decision).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum MarriageStatus {
     Ongoing,
@@ -218,7 +206,6 @@ pub enum MarriageStatus {
 /// the marriage id, its [`MarriageStatus`], and the reason it ended when
 /// present.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(tag = "step", rename_all = "camelCase")]
 pub enum PathHop {
     /// Ascend one parent edge to `to`.
@@ -261,7 +248,6 @@ impl PathHop {
 /// relationship path — descriptor identity *is* path identity, and the
 /// engine never collapses same-classification descriptors (ADR-0026).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct RelationshipDescriptor {
     pub ego_id: String,

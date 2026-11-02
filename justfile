@@ -51,27 +51,20 @@ install:
 render-examples:
     scripts/render-examples.sh
 
-# Build both WebAssembly artifacts. Requires `wasm-pack`.
+# Build the WebAssembly module into `crates/kul-wasm/pkg/` (package
+# `kul-wasm`, which the web app consumes as a workspace package) and copy its
+# generated `.d.ts` to the committed snapshot. Requires `wasm-pack`.
 #
-# `pkg/` is the `--target bundler` build published to npm as `@kullang/wasm`.
-# Its generated `package.json` is patched so its `name` is `@kullang/wasm`
-# (wasm-pack derives the npm name from the Cargo crate name, which is
-# `kul-wasm`), and it is the source of the committed `.d.ts` snapshot.
-#
-# `pkg-web/` is the `--target web` build the VSCode preview loads in its
-# webview (ADR-0040). It emits an ESM module with an `init(url)` entry point
-# that fetches and instantiates, which is the lazy shape ADR-0034 wants; the
-# extension stages it into `media/preview/wasm/` at package time. It is never
-# published — the same commit's core, shipped inside one extension artifact.
+# `--target web` emits an ES module whose default export fetches and
+# instantiates the `.wasm`; `initSync` takes the bytes instead, which is how
+# the Node smoke test loads it.
 wasm:
-    wasm-pack build crates/kul-wasm --target bundler --out-dir pkg --out-name kul_wasm
-    node -e 'const fs=require("fs"),p="crates/kul-wasm/pkg/package.json";const j=JSON.parse(fs.readFileSync(p));j.name="@kullang/wasm";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")'
+    wasm-pack build crates/kul-wasm --target web --out-dir pkg --out-name kul_wasm
     cp crates/kul-wasm/pkg/kul_wasm.d.ts crates/kul-wasm/types/kul_wasm.d.ts
-    wasm-pack build crates/kul-wasm --target web --out-dir pkg-web --out-name kul_wasm
 
 # Build the WASM and run its gates: the committed `.d.ts` matches the build
-# (ADR-0012), the package name and version, the gzipped size budget (1 MB),
-# the Node smoke test and the TypeScript compile-test.
+# (ADR-0012), the gzipped size budget (1 MB), the Node smoke test and the
+# TypeScript compile-test.
 wasm-check: wasm
     #!/usr/bin/env bash
     set -euo pipefail
@@ -79,16 +72,11 @@ wasm-check: wasm
       echo "error: generated kul_wasm.d.ts differs from the committed snapshot; commit crates/kul-wasm/types/" >&2
       exit 1
     }
-    name=$(node -p 'require("./crates/kul-wasm/pkg/package.json").name')
-    version=$(node -p 'require("./crates/kul-wasm/pkg/package.json").version')
-    ws_version=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
-    [[ $name == "@kullang/wasm" ]] || { echo "error: package name $name != @kullang/wasm" >&2; exit 1; }
-    [[ $version == "$ws_version" ]] || { echo "error: package version $version != workspace $ws_version" >&2; exit 1; }
     size=$(gzip -c crates/kul-wasm/pkg/kul_wasm_bg.wasm | wc -c | tr -d ' ')
     budget=$((1024 * 1024))
     echo "gzipped .wasm: $size bytes (budget: $budget)"
     [[ $size -le $budget ]] || { echo "error: wasm gzip size $size exceeds budget $budget" >&2; exit 1; }
-    node --experimental-wasm-modules crates/kul-wasm/tests/node/smoke.mjs
+    node crates/kul-wasm/tests/node/smoke.mjs
     npx --yes -p typescript@5.6 tsc --project crates/kul-wasm/tests/typescript/tsconfig.json
 
 # The web app's fast gates: the serve-dist unit tests, then the app's

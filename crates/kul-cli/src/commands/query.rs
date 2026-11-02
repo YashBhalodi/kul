@@ -5,8 +5,8 @@
 //! checks (strict-on-errors); a failing project prints diagnostics and
 //! exits nonzero.
 //!
-//! `--format json` emits the exact [`QueryEnvelope`] serialization the WASM
-//! surface returns — this path is the epic's contract-snapshot harness.
+//! `--format json` emits the [`QueryEnvelope`] serialization single-sourced
+//! in `kul-core` — this path is the query contract's snapshot harness.
 //! `--format human` renders the entity's recorded fields in a readable,
 //! terminology-neutral layout; presentation is owned by the CLI, not a
 //! third contract shape.
@@ -224,8 +224,7 @@ pub fn run_kin(opts: KinOptions) -> ExitCode {
         Ok(x) => x,
         Err(code) => return code,
     };
-    // One evaluation path: the same envelope the WASM `queryKin` surface
-    // returns, so `--format json` bytes are byte-identical.
+    // One evaluation path: the envelope `kul-core` single-sources.
     let envelope = kin_query(&check, &opts.query);
     match opts.format {
         // The json envelope is the contract answer for every outcome (empty
@@ -435,8 +434,7 @@ pub fn run_persons(opts: PersonsOptions) -> ExitCode {
         Ok(x) => x,
         Err(code) => return code,
     };
-    // One evaluation path: the same envelope the WASM `runQuery` surface
-    // returns, so `--format json` bytes are byte-identical.
+    // One evaluation path: the envelope `kul-core` single-sources.
     let envelope = query_envelope(&check, &opts.query);
     match opts.format {
         OutputFormat::Json => finish_query_json(&envelope),
@@ -725,8 +723,7 @@ pub fn run_rel(opts: RelOptions) -> ExitCode {
         Ok(x) => x,
         Err(code) => return code,
     };
-    // One evaluation path: the same envelope the WASM `queryResolve` surface
-    // returns, so `--format json` bytes are byte-identical.
+    // One evaluation path: the envelope `kul-core` single-sources.
     let envelope = resolve_relationship(&check, &opts.x, &opts.y, &opts.config);
     match opts.format {
         OutputFormat::Json => finish_rel_json(&envelope),

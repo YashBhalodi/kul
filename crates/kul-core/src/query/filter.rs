@@ -67,8 +67,6 @@
 use std::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "tsify")]
-use tsify::Tsify;
 
 use crate::ast::PersonStmt;
 use crate::date::{CalendarDay, DateLit, parse_date};
@@ -79,7 +77,6 @@ use crate::span::ByteSpan;
 /// (exact, case-sensitive). `id` is always present; every other field may be
 /// absent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum PersonField {
     Id,
@@ -125,7 +122,6 @@ impl PersonField {
 /// `Neq` predicates (`x ∉ {A,B}` ≡ `x≠A ∧ x≠B`), which `where`'s AND-only
 /// composition expresses directly.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(tag = "op", rename_all = "camelCase")]
 pub enum Predicate {
     /// `field == value`. Exact/case-sensitive for string fields; interval
@@ -156,7 +152,6 @@ pub enum Predicate {
 /// values sort last regardless of direction**, and ties are always broken by
 /// person id ascending.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum SortDirection {
     #[default]
@@ -169,7 +164,6 @@ pub enum SortDirection {
 /// direction**; ties always broken by person id ascending — fully
 /// deterministic, so snapshots stay stable (ADR-0025).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct SortSpec {
     pub field: PersonField,
@@ -184,7 +178,6 @@ pub struct SortSpec {
 /// `includeUncertain` also keeps **Unknown** rows — for gap-finding
 /// researchers hunting fuzzy records.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum FilterMode {
     #[default]
@@ -266,7 +259,7 @@ pub(crate) enum OrderOp {
 
 /// A malformed `where` predicate caught at compile time: an invalid date
 /// literal, an ordering comparison on a non-date field, or `in` on a date
-/// field. Display text is the surface contract — CLI/WASM/query envelopes map
+/// field. Display text is the surface contract — the CLI and the query envelopes map
 /// this through [`super::QueryEvalError::BadPredicate`] without rewriting it.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub(crate) enum FilterCompileError {
@@ -291,7 +284,7 @@ pub(crate) enum FilterCompileError {
 /// op/field mismatches the type cannot (ordering on a non-date field, `in` on
 /// a date field). Returns the first bad predicate — the caller wraps it in
 /// [`super::QueryEvalError::BadPredicate`] so the surfaces (CLI diagnostic,
-/// WASM envelope) report *which* predicate is malformed.
+/// query envelope) report *which* predicate is malformed.
 ///
 /// # Errors
 ///

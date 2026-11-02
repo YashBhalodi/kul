@@ -14,7 +14,7 @@ use tsify::Tsify;
 
 use crate::{Span, file_id};
 
-/// What a [`Symbol`] stands for.
+/// What an [`OutlineSymbol`] stands for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
@@ -33,7 +33,7 @@ pub enum SymbolKind {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify), tsify(into_wasm_abi))]
 #[serde(rename_all = "camelCase")]
-pub struct Symbol {
+pub struct OutlineSymbol {
     /// The label: a display name, or the id when there is none.
     pub name: String,
     /// A short date summary (`1900–1990`, `b. 1950`), when there are dates.
@@ -47,12 +47,12 @@ pub struct Symbol {
     /// sub-statement.
     pub selection: Span,
     /// A person's `birth` and `adoption` sub-statements.
-    pub children: Vec<Symbol>,
+    pub children: Vec<OutlineSymbol>,
 }
 
 /// The outline of `file`, in source order. Empty for an unknown file.
 #[must_use]
-pub fn symbols(check: &CheckResult, file: &str) -> Vec<Symbol> {
+pub fn symbols(check: &CheckResult, file: &str) -> Vec<OutlineSymbol> {
     let Some(file) = file_id(check, file) else {
         return Vec::new();
     };
@@ -66,7 +66,7 @@ pub fn symbols(check: &CheckResult, file: &str) -> Vec<Symbol> {
         .collect()
 }
 
-fn person_symbol(p: &PersonStmt) -> Symbol {
+fn person_symbol(p: &PersonStmt) -> OutlineSymbol {
     // An outline entry needs a visible label, so an empty or whitespace-only
     // `name:""` reads as absent and the id stands in.
     let name = p
@@ -82,7 +82,7 @@ fn person_symbol(p: &PersonStmt) -> Symbol {
     for adoption in &p.adoptions {
         children.push(adoption_symbol(adoption));
     }
-    Symbol {
+    OutlineSymbol {
         name,
         detail: person_detail(p),
         kind: SymbolKind::Person,
@@ -92,10 +92,10 @@ fn person_symbol(p: &PersonStmt) -> Symbol {
     }
 }
 
-fn marriage_symbol(resolved: &ResolvedDocument, m: &MarriageStmt) -> Symbol {
+fn marriage_symbol(resolved: &ResolvedDocument, m: &MarriageStmt) -> OutlineSymbol {
     let a = display_name_or(resolved, &m.spouse_a.name);
     let b = display_name_or(resolved, &m.spouse_b.name);
-    Symbol {
+    OutlineSymbol {
         name: format!("{a} & {b}"),
         detail: date_range(m.start(), m.end()),
         kind: SymbolKind::Marriage,
@@ -105,8 +105,8 @@ fn marriage_symbol(resolved: &ResolvedDocument, m: &MarriageStmt) -> Symbol {
     }
 }
 
-fn birth_symbol(b: &BirthSub) -> Symbol {
-    Symbol {
+fn birth_symbol(b: &BirthSub) -> OutlineSymbol {
+    OutlineSymbol {
         name: format!("birth {}", b.marriage_ref.name),
         detail: None,
         kind: SymbolKind::Birth,
@@ -116,8 +116,8 @@ fn birth_symbol(b: &BirthSub) -> Symbol {
     }
 }
 
-fn adoption_symbol(a: &AdoptionSub) -> Symbol {
-    Symbol {
+fn adoption_symbol(a: &AdoptionSub) -> OutlineSymbol {
+    OutlineSymbol {
         name: format!("adoption {}", a.marriage_ref.name),
         detail: date_range(a.start(), a.end()),
         kind: SymbolKind::Adoption,
@@ -165,11 +165,11 @@ mod tests {
     use super::*;
     use crate::test_support::{FILE, check_one};
 
-    fn symbols_for(source: &str) -> Vec<Symbol> {
+    fn symbols_for(source: &str) -> Vec<OutlineSymbol> {
         symbols(&check_one(source), FILE)
     }
 
-    fn names(syms: &[Symbol]) -> Vec<&str> {
+    fn names(syms: &[OutlineSymbol]) -> Vec<&str> {
         syms.iter().map(|s| s.name.as_str()).collect()
     }
 

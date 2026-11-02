@@ -2,7 +2,7 @@
 //!
 //! The `kul query ... --format json` path is the epic's pinned
 //! contract-serialization harness: the JSON it emits is byte-identical to the
-//! `QueryEnvelope` the WASM surface returns (single-sourced in `kul-core`), so
+//! `QueryEnvelope` single-sourced in `kul-core`, so
 //! snapshotting it over the **whole example corpus** pins the contract —
 //! envelope shape plus relationship-descriptor serialization — against every
 //! topology the engine must survive. Any future engine or serialization change

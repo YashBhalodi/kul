@@ -120,7 +120,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
-      # `just wasm-check` builds both targets and runs every WASM gate: the
-      # committed .d.ts diff, package name and version, the gzipped size
-      # budget, the Node smoke test and the TypeScript compile-test.
+      # `just wasm-check` builds the module and runs every WASM gate: the
+      # committed .d.ts diff, the gzipped size budget (it prints the size),
+      # the Node smoke test and the TypeScript compile-test.
       - run: just wasm-check
