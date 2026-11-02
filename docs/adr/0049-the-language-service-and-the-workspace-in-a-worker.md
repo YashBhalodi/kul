@@ -51,7 +51,7 @@ CodeMirror 6 is the editor (`apps/web/src/editor/` for the app-agnostic parts, `
 
 - A rename or a "format all" is applied **all or nothing** across files: each open file gets one isolated transaction, closed files are written through the project store, and the change is one linked undo step across files. Undo restores a closed file only if it is still as the change left it.
 - The editor's own features match keys through TanStack Hotkeys (user-agent Mod); undo and redo stay CodeMirror's (platform Mod). Every shortcut is declared in one table (`apps/web/src/app/shortcuts.ts`), so the shortcuts dialog and the docs list them all.
-- Tabs are a `nav` list with `aria-current`, not a tablist, because a tablist with close buttons fails axe.
+- Tabs are a `nav` list of buttons with `aria-current` on the active file, not an ARIA `tablist`: a `tab` may not contain another interactive element, so a tab with its close button fails axe (`nested-interactive`), and splitting the close buttons out of the tabs breaks the tab pattern's keyboard model. Each tab and its close button are separate, ordinary controls in the list.
 
 ## Consequences
 
@@ -65,4 +65,5 @@ CodeMirror 6 is the editor (`apps/web/src/editor/` for the app-agnostic parts, `
 - **"Speak an editor protocol inside the worker."** The protocol's types and positions are a translation layer with one consumer.
 - **"Mirror the service's types in WASM-only structs."** Two definitions drift; convert in place at the boundary.
 - **"Re-check per request."** The check dominates every feature; the workspace caches it per edit.
+- **"Make the tabs an ARIA tablist."** Close buttons inside tabs are nested interactive controls; the `nav` list is what passes axe.
 - **"Compare versions per file only."** Cross-file answers (references, rename, diagnostics) depend on every file.

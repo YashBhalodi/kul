@@ -109,6 +109,9 @@ pub(crate) fn render(positioned: &PositionedShape, config: &ThemeConfig) -> Stri
 /// name one application site each and point at a role. Every name and value
 /// here is part of the exported SVG, which stays byte-stable.
 ///
+/// `--kul-preview-bg` (the background alias) keeps the name it has always
+/// had in exported files; renaming it would change every export (ADR-0052).
+///
 /// `--kul-ghost-stroke` keeps a literal rather than aliasing `--kul-muted`:
 /// the ghost border is drawn a shade lighter than the ghost label.
 const SELF_CONTAINED_STYLE: &str = r#"<style>

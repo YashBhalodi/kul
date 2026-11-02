@@ -37,13 +37,14 @@ Revealing an entity (a selection or a new linked entity that is off screen or hi
 
 ### The details panel is an `aside`
 
-The details panel is a side panel along the canvas's right edge, built from `details(id)` through a pure model (`apps/web/src/canvas/details.ts`), never by reading the drawing. It is an `aside`, not a dialog: a dialog moves focus and is modal, and the panel must never take the keyboard or block the canvas.
+The details panel is a side panel along the canvas's right edge, built from `details(id)` through a pure model (`apps/web/src/canvas/details.ts`), never by reading the drawing. It is an `aside` (a complementary landmark), not shadcn's Sheet or a Dialog: those are modal — they move focus into themselves, trap it, and make the rest of the page inert — and the panel must never take the keyboard from the editor or the canvas, nor block either while it is open. It looks like a sheet (right edge, border, shadow, slide-in) without behaving like one, and it sits beside a right-docked editor or under a floating one.
 
 ### Theming: app tokens mapped onto `kul-svg` classes
 
 - The app paints the agnostic SVG with `.kul-tree` rules in `apps/web/src/styles.css`, all from tokens in `apps/web/src/styles/tokens.css`, in `:root` (light) and `.dark`: `--tree-hue-{male,female,other,birth,adoption,marriage,past}`, `--tree-selection(-fill)`, `--tree-linked(-fill)`. Nothing else in `src/` names a colour (`scripts/lint-colors.mjs`).
 - A test reads the palette baked into a real `renderSvg("fileExport")` and holds the hue tokens equal to it in both themes, so the canvas and the downloaded SVG show the same categories in the same colours.
 - **The downloaded SVG** is the CLI's `kul export --format=svg` output: self-contained, light, with the legend baked in (ADR-0022). Its `<style>` keeps two layers — **roles** (colour roles, the diagram hues, the diagram font) and **per-site aliases** that point at a role — and every name and value in it is part of the export, which stays byte-stable.
+- **`--kul-preview-bg` is a kept name.** The self-contained SVG's background alias is called `--kul-preview-bg`, a name from the editor preview that first defined the token layer. Every exported SVG contains it, and the export must stay byte-identical (it is a contract: files people have downloaded and tools that read them), so it is not renamed. Nothing in the app reads it; it lives only inside the exported `<style>`.
 - The canvas's legend is chrome: a collapsible panel listing the categories the current tree draws, its rows and labels held equal to the baked legend by a browser test.
 
 ## Consequences
