@@ -121,11 +121,6 @@ Mirrors [examples/08-multi-file-project](https://github.com/YashBhalodi/kul/tree
 >
 > Alice and Bob had two daughters, Carol (b. June 8, 1981) and Diya (b. October 30, 1984). Dev and Eva had Farid (b. January 17, 1985) and Gita (b. approximately 1988).
 
-`kul.yml`:
-```yaml
-kul: "0.1"
-```
-
 `01-founders.kul`:
 ```
 person ramesh  name:"Ramesh Patel"  gender:male    born:1928-04-10  died:2010-12-03
@@ -162,4 +157,4 @@ person gita   name:"Gita Patel"   gender:female  born:~1988
   birth m_dev_eva
 ```
 
-Cross-file `birth` references (`m_ramesh_sita`, `m_alice_bob`, `m_dev_eva`) resolve by bare id — one logical namespace per directory. The split shown above is one of many the author could choose; the language imposes nothing beyond "one `kul.yml` + N `.kul` files in one directory."
+Cross-file `birth` references (`m_ramesh_sita`, `m_alice_bob`, `m_dev_eva`) resolve by bare id — one logical namespace per directory. The split shown above is one of many the author could choose; the language imposes nothing beyond "N `.kul` files in one directory."

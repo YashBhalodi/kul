@@ -4,7 +4,7 @@ Condensed reference for Kul 0.1. Normative source: [spec sections 3–6](https:/
 
 ## Document shape
 
-UTF-8, no BOM, LF or CRLF. One statement per line. Top-level: `person`, `marriage`. Sub-statements (`birth`, `adoption`) are indented continuations of the most recent `person`. Statement order is free — forward references resolve cleanly. The language version lives in `kul.yml` (`kul: "0.1"`), not inside `.kul`.
+UTF-8, no BOM, LF or CRLF. One statement per line. Top-level: `person`, `marriage`. Sub-statements (`birth`, `adoption`) are indented continuations of the most recent `person`. Statement order is free — forward references resolve cleanly. A `.kul` file declares no language version; it is written against the spec version (0.1).
 
 ```
 # 01-family.kul

@@ -11,7 +11,7 @@ when_to_use: |
 
 # Authoring Kul
 
-Kul is a small declarative language for kinship — persons, marriages, biological birth, and adoption, with first-class chronology. The canonical artifact is a `.kul` file plus a sibling `kul.yml` manifest. The normative source is the [Kul language spec](https://github.com/YashBhalodi/kul/tree/main/spec); the worked corpus is the [examples directory](https://github.com/YashBhalodi/kul/tree/main/examples).
+Kul is a small declarative language for kinship — persons, marriages, biological birth, and adoption, with first-class chronology. The canonical artifact is a project: one or more `.kul` files side by side in one directory, with nothing else required. The normative source is the [Kul language spec](https://github.com/YashBhalodi/kul/tree/main/spec); the worked corpus is the [examples directory](https://github.com/YashBhalodi/kul/tree/main/examples).
 
 ## The four primitives
 
@@ -54,5 +54,5 @@ The language is designed so that **adding new information never requires rewriti
 
 - [`references/vocabulary.md`](./references/vocabulary.md) — NL kinship term → declared-or-derived mapping table.
 - [`references/syntax.md`](./references/syntax.md) — every construct's exact shape with one micro-example each, condensed from `spec/03..06` and `spec/12`.
-- [`references/multi-file.md`](./references/multi-file.md) — splitting a large family across files in one project (`spec/10`, `spec/14`).
+- [`references/multi-file.md`](./references/multi-file.md) — splitting a large family across files in one project (`spec/02`, `spec/10`).
 - [`references/translation-playbook.md`](./references/translation-playbook.md) — five paired NL↔.kul examples. Load this when starting an NL→Kul translation.
