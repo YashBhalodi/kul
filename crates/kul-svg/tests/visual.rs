@@ -343,16 +343,16 @@ fn self_contained_true_injects_inline_style_with_concrete_tokens() {
         style_at < first_g,
         "the <style> block must precede the first element: {svg}"
     );
-    // Tier 1 carries the concrete hue; tier 2 aliases onto it (ADR-0036).
+    // A role carries the concrete hue; the per-site alias points at it (ADR-0052).
     assert!(svg.contains("--kul-hue-male: #1565c0;"), "{svg}");
     assert!(
         svg.contains("--kul-card-stroke-male: var(--kul-hue-male);"),
-        "the male card stroke must alias the tier-1 hue: {svg}"
+        "the male card stroke must alias the hue role: {svg}"
     );
     assert!(svg.contains("--kul-hue-birth: #2e7d32;"), "{svg}");
     assert!(
         svg.contains("--kul-edge-stroke: var(--kul-hue-birth);"),
-        "the birth edge stroke must alias the tier-1 hue: {svg}"
+        "the birth edge stroke must alias the hue role: {svg}"
     );
     assert!(
         svg.contains("--kul-marriage-edge-stroke-width: 8.75;"),
@@ -368,43 +368,21 @@ fn self_contained_true_injects_inline_style_with_concrete_tokens() {
         !svg.contains("kul-ghost-badge"),
         "no ghost-badge styling may appear: {svg}"
     );
-    assert!(!svg.contains("var(--vscode-"), "{svg}");
+    assert_every_var_is_defined(&svg);
 }
 
-/// The baked theme is a *structural subset* of the preview's token layer
-/// (ADR-0016, ADR-0036): tier 1 plus the diagram half of tier 2. The chrome
-/// half — interaction states, the layout scales, the query paint reserved for
-/// the preview — has no application site in a bare SVG and must not ship.
-#[test]
-fn self_contained_bakes_no_chrome_tokens() {
-    let mut shape = empty_shape();
-    shape.cards.push(canonical_card("a", "A"));
-    let svg = render(
-        &shape,
-        &ThemeConfig::with_self_contained(true).with_legend(true),
-    );
-    for chrome_token in [
-        "--kul-control-",
-        "--kul-error-",
-        "--kul-tooltip-",
-        "--kul-region-",
-        "--kul-space-",
-        "--kul-radius-",
-        "--kul-motion-",
-        "--kul-hue-query-",
-        "--kul-hue-sync-",
-        "--kul-dim-alpha",
-        "--kul-selected-outline",
-        "--kul-jump-target",
-        "--kul-hover",
-        "--kul-active",
-        "--kul-accent",
-        "--kul-danger",
-        "--kul-shadow",
-    ] {
+/// A self-contained SVG references only custom properties its own `<style>`
+/// defines, so it renders the same outside any page.
+fn assert_every_var_is_defined(svg: &str) {
+    for reference in svg.split("var(").skip(1) {
+        let name = reference
+            .split([')', ','])
+            .next()
+            .expect("a var() names a property")
+            .trim();
         assert!(
-            !svg.contains(chrome_token),
-            "chrome token `{chrome_token}` must not be baked into a self-contained SVG: {svg}"
+            svg.contains(&format!("{name}:")),
+            "`var({name})` is used but never defined: {svg}"
         );
     }
 }

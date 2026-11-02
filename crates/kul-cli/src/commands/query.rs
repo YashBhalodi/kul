@@ -26,7 +26,7 @@ use kul_core::export::{ExportedDate, ExportedMarriage, ExportedPerson};
 use kul_core::query::{
     Affinity, Classification, EdgeNature, EmptyReason, HopEdge, LinealRole, MarriageStatus, Member,
     PathHop, PersonField, Predicate, Query, QueryEnvelope, QueryResult, RelationshipDescriptor,
-    ResolveConfig, ResolveResult, Seniority, Sharing, Side, SortDirection, SortSpec, kin_query,
+    ResolveConfig, ResolveResult, Seniority, Sharing, Side, SortDirection, SortSpec,
     marriage_lookup, person_lookup, query_envelope, resolve_relationship,
 };
 
@@ -225,7 +225,7 @@ pub fn run_kin(opts: KinOptions) -> ExitCode {
         Err(code) => return code,
     };
     // One evaluation path: the envelope `kul-core` single-sources.
-    let envelope = kin_query(&check, &opts.query);
+    let envelope = query_envelope(&check, &opts.query);
     match opts.format {
         // The json envelope is the contract answer for every outcome (empty
         // set, bad anchor, failing project) — always stdout, carrying the

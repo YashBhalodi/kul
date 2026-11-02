@@ -1,9 +1,8 @@
 //! Snapshot tests for the `query` seam's **batched detail lookup**.
 //!
-//! Each snapshot is one `detail_lookup` envelope over the example corpus —
-//! the serialization the WASM `queryDetail` surface returns byte-for-byte.
-//! The cases are the ones the detail surface actually has to answer
-//! (ADR-0035): a marriage whose children mix `biological` and `adoptive`
+//! Each snapshot is one `details` answer over the example corpus, serialized
+//! as the canvas details panel receives it through the language service's
+//! `details`. The cases are the ones a details panel has to answer: a marriage whose children mix `biological` and `adoptive`
 //! links, a person whose parent set runs from empty to six via a birth plus
 //! two adoptions, a person in several marriages (concurrent and
 //! divorced-then-remarried), and an adoption link addressed by its
@@ -18,7 +17,7 @@ mod common;
 use std::path::{Path, PathBuf};
 
 use kul_core::CheckResult;
-use kul_core::query::{DetailTarget, detail_lookup};
+use kul_core::query::{DetailTarget, EntityDetail, details};
 
 use crate::common::check_one;
 
@@ -41,7 +40,7 @@ fn check_example(dir: &str, stem: &str) -> CheckResult {
 }
 
 fn detail_json(check: &CheckResult, targets: &[DetailTarget]) -> String {
-    serde_json::to_string_pretty(&detail_lookup(check, targets)).expect("serialize detail envelope")
+    serde_json::to_string_pretty(&details(check.resolved(), targets)).expect("serialize details")
 }
 
 fn adoption_project() -> CheckResult {
@@ -144,25 +143,20 @@ fn one_batch_answers_mixed_entity_kinds_in_order() {
 }
 
 #[test]
-fn batch_of_person_targets_carries_the_display_names_a_kin_list_needs() {
-    // The kin list's row labels come from this same operation: one call, N
-    // person ids, `person.name` on each — one provenance path, not two.
+fn batch_of_person_targets_carries_each_display_name() {
+    // One call, N person ids, `person.name` on each.
     let check = check_example("06-polygamous-household", "polygamous-household");
     let targets: Vec<DetailTarget> = ["yusuf", "zahra", "hassan", "noor"]
         .into_iter()
         .map(DetailTarget::person)
         .collect();
-    let names: Vec<String> = match detail_lookup(&check, &targets) {
-        kul_core::query::QueryEnvelope::Ok(ok) => ok
-            .result
-            .into_iter()
-            .map(|entry| match entry.expect("every id is a known person") {
-                kul_core::query::EntityDetail::Person { person, .. } => person.name,
-                other => panic!("expected a person detail, got {other:?}"),
-            })
-            .collect(),
-        kul_core::query::QueryEnvelope::Error(_) => panic!("clean project"),
-    };
+    let names: Vec<String> = details(check.resolved(), &targets)
+        .into_iter()
+        .map(|entry| match entry.expect("every id is a known person") {
+            EntityDetail::Person { person, .. } => person.name,
+            other => panic!("expected a person detail, got {other:?}"),
+        })
+        .collect();
     assert_eq!(
         names,
         [
@@ -180,7 +174,7 @@ fn batch_of_person_targets_carries_the_display_names_a_kin_list_needs() {
 fn unknown_and_wrong_kind_targets_are_null_in_position() {
     // An unknown id, a person id asked for as a marriage, and an adoption
     // pair naming a marriage the child was never adopted into: each `null`,
-    // each in its own position, the batch still the ok arm.
+    // each in its own position, while the rest of the batch answers.
     let check = adoption_project();
     insta::assert_snapshot!(detail_json(
         &check,
@@ -194,15 +188,7 @@ fn unknown_and_wrong_kind_targets_are_null_in_position() {
 }
 
 #[test]
-fn empty_batch_is_an_empty_ok_result() {
+fn empty_batch_is_an_empty_answer() {
     let check = adoption_project();
     insta::assert_snapshot!(detail_json(&check, &[]));
-}
-
-// ---- Failing project: error envelope, never a partial answer ----
-
-#[test]
-fn failing_project_yields_error_envelope() {
-    let check = check_one("person alice gender:female\n"); // missing name → KUL-R03
-    insta::assert_snapshot!(detail_json(&check, &[DetailTarget::person("alice")]));
 }

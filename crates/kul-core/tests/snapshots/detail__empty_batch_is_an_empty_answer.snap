@@ -2,7 +2,4 @@
 source: crates/kul-core/tests/detail.rs
 expression: "detail_json(&check, &[])"
 ---
-{
-  "ok": true,
-  "result": []
-}
+[]

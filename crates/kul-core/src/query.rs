@@ -8,8 +8,8 @@
 //! export is the escape hatch for consumers who don't use the engine, not
 //! the engine's own input.
 //!
-//! This first slice carries the two simplest operations — the id → detail
-//! lookups [`person`] and [`marriage`]. They return the **same serialized
+//! The simplest operations are the id → detail lookups [`person`] and
+//! [`marriage`]. They return the **same serialized
 //! shapes the export produces** ([`ExportedPerson`] / [`ExportedMarriage`]),
 //! single-sourced through `projection::build_one_person` /
 //! `projection::build_one_marriage` so a lookup and a whole-graph export can
@@ -19,21 +19,19 @@
 //! that names a marriage when a person was asked for (and vice versa),
 //! yields `None`. There is no error type at the lookup layer — a lookup
 //! asks "is there a person with this id?", and "no" is a complete, honest
-//! answer. (Typed unknown-id errors arrive in later slices, where an id is
-//! an *input anchor* to a relationship question rather than the subject of
+//! answer. (A typed unknown-id error exists only where an id is an *input
+//! anchor* to a kin-set or relationship question rather than the subject of
 //! the question.)
 //!
-//! [`detail_lookup`] is the **batched** member of the same family: one
+//! [`details`] is the **batched** member of the same family: one
 //! check, any number of [`DetailTarget`]s, each answered with the entity's
 //! own fields *plus* its relational neighbourhood. It exists because the
-//! single-entity lookups cannot answer a detail panel and because composing
-//! them re-pays the check per call (ADR-0035, ADR-0037); [`EntityDetail`]
-//! carries the shape.
+//! single-entity lookups cannot answer a details panel (ADR-0037);
+//! [`EntityDetail`] carries the shape.
 //!
-//! The [`QueryEnvelope`] type is the adapter-facing contract: the CLI wraps
-//! a lookup in it, gated on the project passing checks (strict-on-errors,
-//! ADR-0009), and `--format json` prints it. See the query-engine ADR and
-//! PRD 0005.
+//! The [`QueryEnvelope`] type is the CLI's contract: `kul query` wraps an
+//! answer in it, gated on the project passing checks (strict-on-errors,
+//! ADR-0009), and `--format json` prints it (ADR-0024, ADR-0025).
 
 use serde::Serialize;
 
@@ -100,20 +98,14 @@ pub type PersonLookupResult = Option<ExportedPerson>;
 /// `null` when the id names no marriage.
 pub type MarriageLookupResult = Option<ExportedMarriage>;
 
-/// Payload of a [batched detail lookup](detail_lookup): one entry per
-/// requested [`DetailTarget`], in the order asked — the entity's detail, or
-/// `null` when that target names no entity.
-pub type DetailLookupResult = Vec<Option<EntityDetail>>;
-
-/// Adapter-facing result of a query operation. Mirrors the existing
-/// check/export/render surface: an untagged union discriminated by an `ok`
-/// boolean — the ok arm carries the query `result`, the error arm carries
+/// The CLI-facing result of a query operation. Mirrors the export
+/// envelope: an untagged union discriminated by an `ok` boolean — the ok arm carries the query `result`, the error arm carries
 /// the structured `diagnostics` of a project that failed its checks.
 ///
 /// The engine never throws / never panics: a failing project yields the
 /// [`QueryEnvelope::Error`] arm, not a partial answer (strict-on-errors,
-/// ADR-0009). Generic over the payload `T` so later slices (kin-set
-/// queries, relationship resolution) reuse the same envelope.
+/// ADR-0009). Generic over the payload `T`, so lookups, kin-set queries and
+/// relationship resolution share one envelope.
 #[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum QueryEnvelope<T> {
@@ -188,35 +180,6 @@ pub fn marriage_lookup(check: &CheckResult, id: &str) -> QueryEnvelope<MarriageL
     })
 }
 
-/// Answer a batch of [`DetailTarget`]s and wrap the answer in a
-/// [`QueryEnvelope`], gated on the project passing its checks
-/// (strict-on-errors, ADR-0009).
-///
-/// **One call, one check, any number of targets.** Every target is answered
-/// off the same checked project, so the batch's cost is flat in the number of
-/// targets — the property the detail surface rests on (ADR-0035, ADR-0037).
-///
-/// Two outcomes, both non-throwing:
-/// - project failed its checks → the error arm carries the check diagnostics;
-/// - otherwise → the ok arm carries one entry per target, in the order asked,
-///   `null` where a target names no entity (absence is the answer).
-#[must_use]
-pub fn detail_lookup(
-    check: &CheckResult,
-    targets: &[DetailTarget],
-) -> QueryEnvelope<DetailLookupResult> {
-    if check.has_errors() {
-        return QueryEnvelope::Error(QueryError {
-            ok: false,
-            diagnostics: export_diagnostics(check),
-        });
-    }
-    QueryEnvelope::Ok(QueryOk {
-        ok: true,
-        result: details(check.resolved(), targets),
-    })
-}
-
 /// Evaluate a kin-set [`Query`] and wrap the answer in a [`QueryEnvelope`],
 /// gated on the project passing its checks (strict-on-errors, ADR-0009).
 /// The single source of the kin-query contract serialization the CLI's
@@ -242,15 +205,6 @@ pub fn query_envelope(check: &CheckResult, query: &Query) -> QueryEnvelope<Query
             diagnostics: vec![err.to_diagnostic()],
         }),
     }
-}
-
-/// Evaluate a kin-set [`Query`] and wrap the answer in a [`QueryEnvelope`].
-/// A thin alias for [`query_envelope`] named for the CLI `kul query kin`
-/// path — every source (kin-set, attribute filter, count) shares the one
-/// [`run_query`] path underneath.
-#[must_use]
-pub fn kin_query(check: &CheckResult, query: &Query) -> QueryEnvelope<QueryResult> {
-    query_envelope(check, query)
 }
 
 /// Resolve **all** the ways two persons are related and wrap the answer in a

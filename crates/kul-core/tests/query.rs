@@ -3,8 +3,9 @@
 //! Looks up known person and marriage ids in three structurally different
 //! examples (nuclear, polygamous-household, multi-file) and snapshots the
 //! serialized envelope shapes, plus the unknown-id and wrong-kind-id
-//! `null`-result cases. The serialization pins the *contract* the WASM and
-//! CLI surfaces mirror; kinship correctness is not at stake here.
+//! `null`-result cases. The serialization pins the *contract* `kul query
+//! person|marriage --format json` prints; kinship correctness is not at stake
+//! here.
 
 mod common;
 

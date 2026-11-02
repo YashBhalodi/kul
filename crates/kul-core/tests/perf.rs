@@ -458,7 +458,7 @@ fn person_targets(check: &kul_core::CheckResult, n: usize) -> Vec<DetailTarget> 
 /// `targets` — the way a consumer pays for it. Best of three, matching the
 /// floors-not-p95s convention every query-path figure in ADR-0034 was
 /// measured under.
-fn time_stateless_detail(inputs: &[InputFile], targets: &[DetailTarget]) -> Duration {
+fn time_check_and_details(inputs: &[InputFile], targets: &[DetailTarget]) -> Duration {
     (0..3)
         .map(|_| {
             let start = Instant::now();
@@ -472,15 +472,13 @@ fn time_stateless_detail(inputs: &[InputFile], targets: &[DetailTarget]) -> Dura
         .expect("three samples")
 }
 
-/// The batched detail lookup's cost is **flat in the number of targets** —
-/// the property the whole detail surface rests on (ADR-0035, ADR-0037).
+/// The batched detail lookup's cost is **flat in the number of targets**
+/// (ADR-0037).
 ///
-/// Both timings are of the whole stateless call, check included, because that
-/// is what a consumer pays: the WASM surface takes files and re-checks every
-/// time, and the check is the dominant cost — 42–100% of every operation, at
-/// ≈1.35 µs per declared person (ADR-0034's measured note). The claim under
-/// test is that forty targets ride on the one check rather than each paying
-/// their own — the difference between ≈13 ms and ≈545 ms at the 10k ceiling.
+/// Both timings include the check, because the check is the dominant cost —
+/// ≈1.35 µs per declared person. The claim under test is that forty targets
+/// ride on the one check rather than each paying their own — the difference
+/// between ≈13 ms and ≈545 ms at the 10k ceiling.
 #[test]
 fn batched_detail_cost_is_flat_in_the_number_of_targets() {
     let (source, _marks) = generate_corpus();
@@ -495,8 +493,8 @@ fn batched_detail_cost_is_flat_in_the_number_of_targets() {
     let one = many[..1].to_vec();
     drop(check);
 
-    let t_one = time_stateless_detail(&inputs, &one);
-    let t_many = time_stateless_detail(&inputs, &many);
+    let t_one = time_check_and_details(&inputs, &one);
+    let t_many = time_check_and_details(&inputs, &many);
     let ratio = t_many.as_secs_f64() / t_one.as_secs_f64();
     eprintln!(
         "batched detail flatness: 1 target {t_one:>10.2?}, 40 targets {t_many:>10.2?} ({ratio:.2}×)"

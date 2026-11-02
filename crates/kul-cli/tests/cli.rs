@@ -560,10 +560,13 @@ fn export_format_svg_streams_self_contained_svg() {
         stdout.contains("<style>"),
         "expected an inline <style> block"
     );
-    assert!(
-        !stdout.contains("var(--vscode-"),
-        "self-contained SVG must not reference VSCode theme variables",
-    );
+    for reference in stdout.split("var(").skip(1) {
+        let name = reference.split([')', ',']).next().unwrap().trim();
+        assert!(
+            stdout.contains(&format!("{name}:")),
+            "the exported SVG uses `var({name})` without defining it",
+        );
+    }
     insta::assert_snapshot!(stdout);
 }
 
@@ -887,7 +890,7 @@ fn query_kin_unknown_anchor_nonzero() {
         .stderr(contains("no person with id `nobody`"));
 }
 
-/// The CLI `--format json` kin bytes equal the core `kin_query` envelope
+/// The CLI `--format json` kin bytes equal the core `query_envelope` bytes
 /// (the contract-snapshot harness).
 #[test]
 fn query_kin_json_matches_core_envelope_bytes() {
@@ -909,7 +912,8 @@ fn query_kin_json_matches_core_envelope_bytes() {
     let check = kul_core::check(&inputs);
     let query =
         kul_core::query::Query::kin_ancestors("akiko", kul_core::query::IntRange::exactly(1), None);
-    let core_json = serde_json::to_string(&kul_core::query::kin_query(&check, &query)).unwrap();
+    let core_json =
+        serde_json::to_string(&kul_core::query::query_envelope(&check, &query)).unwrap();
 
     assert_eq!(cli_json.trim(), core_json);
 }
