@@ -4,8 +4,8 @@ expression: formatted
 ---
 # A multi-file project — file 1 of 3: the founders.
 #
-# A Kul project is a directory: one `kul.yml` manifest plus any number of
-# `.kul` files beside it. All files share ONE flat namespace — every
+# A Kul project is the `.kul` files directly inside one directory, in any
+# number of them, side by side. All share ONE flat namespace — every
 # `person` and `marriage` id is visible from every file, with no imports
 # and no prefixes. So you are free to split a family however suits the
 # archive; here it is split by generation across three files.

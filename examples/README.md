@@ -1,6 +1,6 @@
 # Examples
 
-Worked-example Kul projects that double as the **positive test corpus**. Read top to bottom, they're a guided tour of the whole language — each builds on the last, from the smallest complete document to a full multi-generation dynasty. Each example is its own per-directory Kul project (one or more `.kul` files plus a sibling `kul.yml` manifest), and every one is exercised by integration tests across the workspace — they must always validate cleanly. Add an example and the test suite pulls it in automatically; change one and snapshot tests flag the diff.
+Worked-example Kul projects that double as the **positive test corpus**. Read top to bottom, they're a guided tour of the whole language — each builds on the last, from the smallest complete document to a full multi-generation dynasty. Each example is its own per-directory Kul project (the `.kul` files directly inside it), and every one is exercised by integration tests across the workspace — they must always validate cleanly. Add an example and the test suite pulls it in automatically; change one and snapshot tests flag the diff.
 
 | Project | Demonstrates |
 | ------- | ------------ |
@@ -16,31 +16,31 @@ Worked-example Kul projects that double as the **positive test corpus**. Read to
 
 ## Layout
 
-Each example is a self-contained Kul project: a numbered subdirectory of `examples/` carrying one or more `.kul` files plus a sibling `kul.yml` manifest. Most examples are single-file; the multi-file example (`08-multi-file-project/`) demonstrates the project-wide namespace landed by [ADR-0015](../docs/adr/0015-global-project-namespace.md) — every `.kul` file in the directory shares one logical namespace, with cross-file `birth` references resolving by bare id.
+Each example is a self-contained Kul project: a numbered subdirectory of `examples/` carrying one or more `.kul` files, read in byte-wise order of their names, and the `tree.svg` rendered from them. Most examples are single-file; the multi-file example (`08-multi-file-project/`) demonstrates the project-wide namespace landed by [ADR-0015](../docs/adr/0015-global-project-namespace.md) — every `.kul` file in the directory shares one logical namespace, with cross-file `birth` references resolving by bare id.
 
 ```
 examples/
 ├── 01-nuclear-family/
-│   ├── kul.yml
-│   └── nuclear-family.kul
+│   ├── nuclear-family.kul
+│   └── tree.svg
 ├── 02-three-generations/
-│   ├── kul.yml
-│   └── three-generations.kul
+│   ├── three-generations.kul
+│   └── tree.svg
 ├── …
 └── 08-multi-file-project/
-    ├── kul.yml
     ├── 01-founders.kul
     ├── 02-children.kul
-    └── 03-grandchildren.kul
+    ├── 03-grandchildren.kul
+    └── tree.svg
 ```
 
 ## Try it
 
-The CLI's `validate`, `format`, and `export` subcommands are CWD-rooted (issue #83) — each operates on the project rooted at the current working directory. From the repo root:
+The CLI's `validate`, `format`, `export` and `query` subcommands take the project directory as `[DIR]` (default: the current directory). From the repo root:
 
 ```sh
-(cd examples/01-nuclear-family && kul validate)
-(cd examples/08-multi-file-project && kul validate)  # multi-file project
+kul validate examples/01-nuclear-family
+kul validate examples/08-multi-file-project  # multi-file project
 ```
 
 Every example must exit `0`. Anything that doesn't is either a regression or a new spec rule that hasn't been propagated to the corpus yet.
@@ -49,7 +49,7 @@ Every example must exit `0`. Anything that doesn't is either a regression or a n
 
 - Directory names: `NN-short-slug/`, where `NN` orders by complexity (smallest first).
 - Single-file examples: the `.kul` file inside the directory drops the `NN-` prefix (e.g. `01-nuclear-family/nuclear-family.kul`).
-- Multi-file examples: each `.kul` file is named by the slice of the project it carries, prefixed with `NN-` so alphabetic file order matches reading order (e.g. `01-founders.kul`, `02-children.kul`); the directory itself carries the example number.
+- Multi-file examples: each `.kul` file is named by the slice of the project it carries, prefixed with `NN-` so file order (byte-wise by name) matches reading order (e.g. `01-founders.kul`, `02-children.kul`); the directory itself carries the example number.
 - Each `.kul` file starts with a header comment summarizing what it demonstrates.
 - Each example is a distinct, internally-coherent family — names don't carry across examples, so each reads on its own.
 - Each example is **self-contained** — every referenced ID is declared within that example's project directory (single file or sibling files in the same directory).
