@@ -127,6 +127,6 @@ release-test:
 baseline-diff:
     scripts/pivot/baseline.sh diff
 
-# Search for the old surfaces' names. Warn-only until the greenfield sweep.
+# Search for the old surfaces' names; any hit fails.
 vestige-check:
-    scripts/pivot/vestige-check.sh
+    scripts/pivot/vestige-check.sh --strict
