@@ -27,7 +27,7 @@ use kul_svg::render;
 /// Composes the pinned pipeline functions — `kul_render::compute` →
 /// `kul_layout::layout` → `kul_svg::render` — with the default
 /// [`LayoutConfig`] and the caller's [`ThemeConfig`]. The theme is the sole
-/// pipeline parameter that varies across surfaces (theme-agnostic preview
+/// pipeline parameter that varies across surfaces (theme-agnostic canvas
 /// vs. self-contained file export); everything upstream of `render` is
 /// invariant, so it lives here.
 ///

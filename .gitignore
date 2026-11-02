@@ -13,17 +13,8 @@ Thumbs.db
 *.log
 *.tmp
 
-# VSCode extension build artifacts
-*.vsix
+# npm
 node_modules/
-
-# JS workspace build artifacts. Per-package dist/, the extension's bundled
-# extension.js, and `media/preview/` (populated by `npm run build:preview` /
-# `scripts/copy-preview-assets.mjs` before `vsce package` — never authored
-# by hand).
-packages/*/dist/
-editor/vscode/out/
-editor/vscode/media/preview/
 
 # Rust
 /target

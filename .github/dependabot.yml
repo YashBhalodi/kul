@@ -2,8 +2,8 @@ version: 2
 
 # Dependabot scans run weekly. Grouped updates keep the PR count low; the
 # workspace's tight coupling means batching cargo updates is safer than
-# letting each crate get its own PR. The VSCode extension is a separate
-# npm project at editor/vscode, scanned independently.
+# letting each crate get its own PR. The npm scan at the root covers every
+# package in the root `package.json` workspaces.
 
 updates:
   - package-ecosystem: cargo
@@ -17,19 +17,13 @@ updates:
     open-pull-requests-limit: 5
 
   - package-ecosystem: npm
-    directory: /editor/vscode
+    directory: /
     schedule:
       interval: weekly
       day: monday
     groups:
-      vscode-extension:
+      npm-deps:
         patterns: ["*"]
-    # @types/vscode must not exceed engines.vscode in package.json — vsce
-    # package rejects newer types. The engines floor is intentionally low for
-    # broad VSCode compatibility, so pin @types/vscode and bump both manually
-    # when raising the floor.
-    ignore:
-      - dependency-name: "@types/vscode"
     open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions

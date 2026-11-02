@@ -29,6 +29,9 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      # The wasm-pack output is a root workspace package (`kul-wasm`); npm
+      # links it into node_modules only when it exists, so build it first.
+      - run: just wasm
       - run: npm ci
       - run: just web-check web-build
       - run: just e2e shots lighthouse
