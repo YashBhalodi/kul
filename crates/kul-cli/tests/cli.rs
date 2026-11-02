@@ -1,5 +1,6 @@
-//! End-to-end CLI tests. Each test sets `current_dir` on the spawned
-//! `kul` process at an example or temp-fixture project root.
+//! End-to-end CLI tests. Each test runs the `kul` binary on an example or
+//! temp-fixture project directory — as its working directory (the default
+//! `[DIR]`), or as an explicit `[DIR]` argument.
 
 use std::path::PathBuf;
 
@@ -30,12 +31,20 @@ fn tempdir(name: &str) -> PathBuf {
     dir
 }
 
-/// Like [`tempdir`] but writes a default `kul.yml` so the directory
-/// parses as a Kul project root.
-fn project_dir(name: &str) -> PathBuf {
-    let dir = tempdir(name);
-    std::fs::write(dir.join("kul.yml"), "kul: \"0.1\"\n").unwrap();
-    dir
+/// Parse the single JSON envelope `kul export` wrote to stdout.
+fn export_envelope(output: &std::process::Output) -> serde_json::Value {
+    let stdout = std::str::from_utf8(&output.stdout).unwrap();
+    serde_json::from_str(stdout.trim()).expect("one JSON envelope on stdout")
+}
+
+/// The `id` of every entry in one of an export envelope's graph collections.
+fn graph_ids(envelope: &serde_json::Value, collection: &str) -> Vec<String> {
+    envelope["graph"][collection]
+        .as_array()
+        .unwrap_or_else(|| panic!("graph.{collection} is an array"))
+        .iter()
+        .map(|entry| entry["id"].as_str().unwrap().to_owned())
+        .collect()
 }
 
 #[test]
@@ -61,28 +70,115 @@ fn validate_in_multi_file_project_root_succeeds() {
 }
 
 #[test]
-fn validate_outside_project_root_errors() {
-    let dir = tempdir("validate-no-manifest");
+fn validate_empty_directory_is_a_valid_empty_family() {
+    let dir = tempdir("validate-empty");
     Command::cargo_bin("kul")
         .unwrap()
         .current_dir(&dir)
         .arg("validate")
         .assert()
-        .failure()
-        .code(1)
-        .stderr(contains("not a Kul project root"))
-        .stderr(contains("no kul.yml in current directory"));
+        .success()
+        .stdout(contains("ok"));
 }
 
 #[test]
-fn validate_rejects_positional_argument() {
+fn validate_takes_the_project_directory_as_an_argument() {
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(tempdir("validate-dir-arg-cwd"))
+        .arg("validate")
+        .arg(examples_dir().join("08-multi-file-project"))
+        .assert()
+        .success()
+        .stdout(contains("ok"));
+}
+
+#[test]
+fn validate_reads_the_given_directory_not_the_working_directory() {
+    let broken = tempdir("validate-dir-arg-broken");
+    std::fs::write(broken.join("a.kul"), "person alice gender:female\n").unwrap();
     Command::cargo_bin("kul")
         .unwrap()
         .current_dir(examples_dir().join("01-nuclear-family"))
-        .args(["validate", "some-file.kul"])
+        .arg("validate")
+        .arg(&broken)
         .assert()
         .failure()
-        .code(2);
+        .code(1)
+        .stderr(contains("KUL-R03"));
+}
+
+#[test]
+fn validate_missing_directory_errors() {
+    let dir = tempdir("validate-missing-dir");
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .args(["validate", "no-such-directory"])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains(
+            "failed to read project directory no-such-directory",
+        ));
+}
+
+#[test]
+fn validate_ignores_non_kul_files_and_subdirectories() {
+    let dir = tempdir("validate-non-kul-files");
+    std::fs::write(
+        dir.join("family.kul"),
+        "person alice name:\"Alice\" gender:female\n",
+    )
+    .unwrap();
+    // Each of these would fail validation if it were read as Kul source.
+    std::fs::write(dir.join("README.md"), "# not kul\n").unwrap();
+    std::fs::write(dir.join("family.kul.bak"), "person broken\n").unwrap();
+    std::fs::write(dir.join("notes.txt"), "person broken\n").unwrap();
+    std::fs::create_dir_all(dir.join("drafts")).unwrap();
+    std::fs::write(dir.join("drafts").join("draft.kul"), "person broken\n").unwrap();
+    std::fs::create_dir_all(dir.join("folder.kul")).unwrap();
+
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .arg("export")
+        .output()
+        .expect("run kul export");
+    assert!(output.status.success(), "{output:?}");
+    assert_eq!(graph_ids(&export_envelope(&output), "persons"), ["alice"]);
+}
+
+#[test]
+fn export_lists_entities_in_file_name_order_not_creation_order() {
+    // `b.kul` is written first and declares the child; `a.kul` declares the
+    // parents and their marriage. File order is the byte-wise order of the
+    // names, so `a.kul`'s declarations come first.
+    let dir = tempdir("export-file-order");
+    std::fs::write(
+        dir.join("b.kul"),
+        "person carol name:\"Carol\" gender:female\n  birth m_alice_bob\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("a.kul"),
+        "person alice name:\"Alice\" gender:female\n\
+         person bob name:\"Bob\" gender:male\n\
+         marriage m_alice_bob alice bob\n",
+    )
+    .unwrap();
+
+    let output = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&dir)
+        .arg("export")
+        .output()
+        .expect("run kul export");
+    assert!(output.status.success(), "{output:?}");
+    assert_eq!(
+        graph_ids(&export_envelope(&output), "persons"),
+        ["alice", "bob", "carol"]
+    );
 }
 
 #[test]
@@ -98,7 +194,7 @@ fn validate_quiet_suppresses_ok_line() {
 
 #[test]
 fn validate_json_format_emits_jsonl() {
-    let dir = project_dir("validate-json");
+    let dir = tempdir("validate-json");
     std::fs::write(
         dir.join("alice.kul"),
         "person alice gender:female\n", // missing `name:` triggers KUL-R03
@@ -123,7 +219,7 @@ fn validate_json_format_emits_jsonl() {
 
 #[test]
 fn cross_file_duplicate_id_surfaces_r01() {
-    let dir = project_dir("cross-file-r01");
+    let dir = tempdir("cross-file-r01");
     std::fs::write(
         dir.join("a.kul"),
         "person alice  name:\"Alice\"  gender:female  born:1950\n",
@@ -146,7 +242,7 @@ fn cross_file_duplicate_id_surfaces_r01() {
 
 #[test]
 fn cross_file_unresolved_reference_surfaces_r02() {
-    let dir = project_dir("cross-file-r02");
+    let dir = tempdir("cross-file-r02");
     std::fs::write(
         dir.join("a.kul"),
         "person alice  name:\"Alice\"  gender:female  born:1950\n",
@@ -169,7 +265,7 @@ fn cross_file_unresolved_reference_surfaces_r02() {
 
 #[test]
 fn cross_file_parent_cycle_surfaces_r13() {
-    let dir = project_dir("cross-file-r13");
+    let dir = tempdir("cross-file-r13");
     // alice's father is bob in b.kul; bob's parent is alice in a.kul — cycle across files.
     std::fs::write(
         dir.join("a.kul"),
@@ -201,7 +297,13 @@ fn format_check_passes_on_every_example_project() {
         .unwrap()
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.is_dir() && p.join("kul.yml").exists())
+        .filter(|p| {
+            p.is_dir()
+                && std::fs::read_dir(p)
+                    .unwrap()
+                    .flatten()
+                    .any(|e| e.path().extension().is_some_and(|x| x == "kul"))
+        })
         .collect();
     project_roots.sort();
     assert!(
@@ -220,7 +322,7 @@ fn format_check_passes_on_every_example_project() {
 
 #[test]
 fn format_rewrites_every_kul_file_in_project() {
-    let dir = project_dir("format-multi-file");
+    let dir = tempdir("format-multi-file");
     let dirty_a = "person alice  born:1950  name:\"Alice\"  gender:female\n";
     let dirty_b = "person bob    born:1948  name:\"Bob\"    gender:male\n";
     std::fs::write(dir.join("a.kul"), dirty_a).unwrap();
@@ -241,7 +343,7 @@ fn format_rewrites_every_kul_file_in_project() {
 
 #[test]
 fn format_check_reports_diff_without_writing() {
-    let dir = project_dir("format-check-diff");
+    let dir = tempdir("format-check-diff");
     let dirty = "person alice  born:1950  name:\"Alice\"  gender:female\n";
     std::fs::write(dir.join("alice.kul"), dirty).unwrap();
     Command::cargo_bin("kul")
@@ -260,22 +362,36 @@ fn format_check_reports_diff_without_writing() {
 }
 
 #[test]
-fn format_outside_project_root_errors() {
-    let dir = tempdir("format-no-manifest");
+fn format_empty_directory_succeeds() {
+    let dir = tempdir("format-empty");
     Command::cargo_bin("kul")
         .unwrap()
         .current_dir(&dir)
-        .arg("format")
+        .args(["format", "--check"])
         .assert()
-        .failure()
-        .code(1)
-        .stderr(contains("not a Kul project root"));
+        .success();
+}
+
+#[test]
+fn format_rewrites_files_in_the_given_directory() {
+    let dir = tempdir("format-dir-arg");
+    let dirty = "person alice  born:1950  name:\"Alice\"  gender:female\n";
+    std::fs::write(dir.join("alice.kul"), dirty).unwrap();
+    Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(tempdir("format-dir-arg-cwd"))
+        .arg("format")
+        .arg(&dir)
+        .assert()
+        .success();
+    let after = std::fs::read_to_string(dir.join("alice.kul")).unwrap();
+    assert_ne!(after, dirty, "alice.kul should have been rewritten");
 }
 
 /// Parse errors surface through the same miette renderer `validate` uses.
 #[test]
 fn format_with_parse_errors_renders_miette_report() {
-    let dir = project_dir("format-parse-error");
+    let dir = tempdir("format-parse-error");
     std::fs::write(dir.join("broken.kul"), "person\n").unwrap();
     Command::cargo_bin("kul")
         .unwrap()
@@ -292,7 +408,7 @@ fn format_with_parse_errors_renders_miette_report() {
 /// miette's single-source renderer can't draw them inline.
 #[test]
 fn validate_cross_file_duplicate_emits_see_also_footnote() {
-    let dir = project_dir("validate-cross-file-r01");
+    let dir = tempdir("validate-cross-file-r01");
     std::fs::write(
         dir.join("a.kul"),
         "person alice name:\"Alice A\" gender:female\n",
@@ -467,7 +583,7 @@ fn export_format_svg_with_positions_is_usage_error() {
 
 #[test]
 fn export_format_svg_on_error_project_writes_nothing_to_stdout() {
-    let dir = project_dir("export-svg-error");
+    let dir = tempdir("export-svg-error");
     std::fs::write(dir.join("broken.kul"), "person alice gender:female\n").unwrap();
     let output = Command::cargo_bin("kul")
         .unwrap()
@@ -489,16 +605,44 @@ fn export_format_svg_on_error_project_writes_nothing_to_stdout() {
 }
 
 #[test]
-fn export_outside_project_root_errors() {
-    let dir = tempdir("export-no-manifest");
-    Command::cargo_bin("kul")
+fn export_empty_directory_emits_an_empty_graph() {
+    let dir = tempdir("export-empty");
+    let output = Command::cargo_bin("kul")
         .unwrap()
         .current_dir(&dir)
         .arg("export")
-        .assert()
-        .failure()
-        .code(1)
-        .stderr(contains("not a Kul project root"));
+        .output()
+        .expect("run kul export");
+    assert!(output.status.success(), "{output:?}");
+    let envelope = export_envelope(&output);
+    assert_eq!(envelope["ok"], true);
+    assert_eq!(envelope["kul"], "0.1");
+    for collection in ["persons", "marriages", "parenthoodLinks"] {
+        assert_eq!(
+            envelope["graph"][collection],
+            serde_json::json!([]),
+            "{collection}"
+        );
+    }
+}
+
+#[test]
+fn export_of_a_directory_argument_matches_export_from_inside_it() {
+    let project = examples_dir().join("08-multi-file-project");
+    let from_inside = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(&project)
+        .arg("export")
+        .output()
+        .expect("run kul export");
+    let with_dir = Command::cargo_bin("kul")
+        .unwrap()
+        .current_dir(examples_dir())
+        .args(["export", "08-multi-file-project"])
+        .output()
+        .expect("run kul export DIR");
+    assert!(with_dir.status.success(), "{with_dir:?}");
+    assert_eq!(with_dir.stdout, from_inside.stdout);
 }
 
 #[test]
@@ -594,7 +738,7 @@ fn query_wrong_kind_id_is_not_found() {
 /// query — diagnostics to stderr, nonzero exit.
 #[test]
 fn query_failing_project_gate_human() {
-    let dir = project_dir("query-failing-human");
+    let dir = tempdir("query-failing-human");
     std::fs::write(dir.join("alice.kul"), "person alice gender:female\n").unwrap();
     Command::cargo_bin("kul")
         .unwrap()
@@ -610,7 +754,7 @@ fn query_failing_project_gate_human() {
 /// stdout with a nonzero exit — never a partial answer.
 #[test]
 fn query_failing_project_gate_json() {
-    let dir = project_dir("query-failing-json");
+    let dir = tempdir("query-failing-json");
     std::fs::write(dir.join("alice.kul"), "person alice gender:female\n").unwrap();
     let output = Command::cargo_bin("kul")
         .unwrap()
@@ -886,8 +1030,8 @@ fn query_missing_id_is_usage_error() {
 }
 
 #[test]
-fn query_outside_project_root_errors() {
-    let dir = tempdir("query-no-manifest");
+fn query_in_empty_directory_finds_no_one() {
+    let dir = tempdir("query-empty");
     Command::cargo_bin("kul")
         .unwrap()
         .current_dir(&dir)
@@ -895,7 +1039,27 @@ fn query_outside_project_root_errors() {
         .assert()
         .failure()
         .code(1)
-        .stderr(contains("not a Kul project root"));
+        .stderr(contains("no person with id `alice`"));
+}
+
+#[test]
+fn query_takes_the_project_directory_after_its_arguments() {
+    let dir = examples_dir().join("01-nuclear-family");
+    let cwd = tempdir("query-dir-arg-cwd");
+    for args in [
+        vec!["query", "person", "hiroshi"],
+        vec!["query", "kin", "akiko", "parents"],
+        vec!["query", "rel", "akiko", "kenji"],
+        vec!["query", "persons", "--count"],
+    ] {
+        Command::cargo_bin("kul")
+            .unwrap()
+            .current_dir(&cwd)
+            .args(&args)
+            .arg(&dir)
+            .assert()
+            .success();
+    }
 }
 
 // ---- Relationship resolution (`kul query rel`) ----
@@ -1073,9 +1237,9 @@ person foxtrot name:\"Foxtrot\" gender:male                     born:1972
 person golf    name:\"Golf\"    gender:female  family:\"Sen\"
 ";
 
-/// A cohort project rooted in a temp dir with its `kul.yml`.
+/// A cohort project in a temp dir.
 fn cohort_project(name: &str) -> PathBuf {
-    let dir = project_dir(name);
+    let dir = tempdir(name);
     std::fs::write(dir.join("cohort.kul"), FILTER_COHORT).unwrap();
     dir
 }

@@ -638,14 +638,11 @@ dependencies = [
  "clap",
  "insta",
  "kul-core",
- "kul-loader",
- "kul-lsp",
  "kul-visual",
  "miette",
  "predicates",
  "serde",
  "serde_json",
- "tokio",
 ]
 
 [[package]]
@@ -669,15 +666,6 @@ dependencies = [
  "kul-core",
  "kul-render",
  "serde",
-]
-
-[[package]]
-name = "kul-loader"
-version = "0.4.3"
-dependencies = [
- "insta",
- "kul-core",
- "thiserror",
 ]
 
 [[package]]

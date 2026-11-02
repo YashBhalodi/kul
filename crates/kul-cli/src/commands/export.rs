@@ -1,5 +1,5 @@
-//! `kul export` subcommand — projects the CWD Kul project to a single
-//! envelope on stdout. Error-severity diagnostics block and produce the
+//! `kul export` subcommand — projects a Kul project to a single envelope
+//! on stdout. Error-severity diagnostics block and produce the
 //! failure envelope with a non-zero exit.
 
 use std::io::{self, Write};
@@ -9,7 +9,7 @@ use kul_core::export::{ExportFormat, ExportOptions, export};
 use kul_visual::{ThemeConfig, render_from_check};
 
 use crate::commands::diag;
-use crate::commands::project::load_and_check;
+use crate::commands::project::{ProjectArg, load_and_check};
 
 #[derive(Copy, Clone, Debug, clap::ValueEnum, PartialEq, Eq)]
 pub enum CliExportFormat {
@@ -36,17 +36,18 @@ impl From<CliExportFormat> for ExportFormat {
 pub struct Options {
     pub format: CliExportFormat,
     pub with_positions: bool,
+    pub project: ProjectArg,
 }
 
 pub fn run(opts: Options) -> ExitCode {
     match opts.format {
-        CliExportFormat::Svg => run_svg(opts.with_positions),
+        CliExportFormat::Svg => run_svg(&opts),
         CliExportFormat::Json | CliExportFormat::Cytoscape => run_envelope(opts),
     }
 }
 
 fn run_envelope(opts: Options) -> ExitCode {
-    let (_project, check) = match load_and_check() {
+    let check = match load_and_check(&opts.project.dir) {
         Ok(x) => x,
         Err(code) => return code,
     };
@@ -79,14 +80,14 @@ fn run_envelope(opts: Options) -> ExitCode {
 
 /// `--with-positions` is JSON-envelope-only; combining with SVG is a
 /// usage error.
-fn run_svg(with_positions: bool) -> ExitCode {
-    if with_positions {
+fn run_svg(opts: &Options) -> ExitCode {
+    if opts.with_positions {
         eprintln!(
             "kul: --with-positions is not valid with --format=svg (it applies only to the json/cytoscape envelopes)"
         );
         return ExitCode::from(2);
     }
-    let (_project, check) = match load_and_check() {
+    let check = match load_and_check(&opts.project.dir) {
         Ok(x) => x,
         Err(code) => return code,
     };

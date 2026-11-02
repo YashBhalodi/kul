@@ -1,4 +1,4 @@
-//! `kul query` subcommand — id → detail lookups over the CWD Kul project.
+//! `kul query` subcommand — kinship questions over one Kul project.
 //!
 //! Two verbs: `kul query person <id>` and `kul query marriage <id>`. Like
 //! `kul export`, the command runs only against a project that passes its
@@ -32,7 +32,7 @@ use kul_core::query::{
 
 use crate::OutputFormat;
 use crate::commands::diag;
-use crate::commands::project::load_and_check;
+use crate::commands::project::{ProjectArg, load_and_check};
 
 /// Which detail lookup to run.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -55,10 +55,11 @@ pub struct Options {
     pub verb: Verb,
     pub id: String,
     pub format: OutputFormat,
+    pub project: ProjectArg,
 }
 
 pub fn run(opts: Options) -> ExitCode {
-    let (_project, check) = match load_and_check() {
+    let check = match load_and_check(&opts.project.dir) {
         Ok(x) => x,
         Err(code) => return code,
     };
@@ -215,10 +216,11 @@ pub struct KinOptions {
     pub anchor: String,
     pub query: Query,
     pub format: OutputFormat,
+    pub project: ProjectArg,
 }
 
 pub fn run_kin(opts: KinOptions) -> ExitCode {
-    let (_project, check) = match load_and_check() {
+    let check = match load_and_check(&opts.project.dir) {
         Ok(x) => x,
         Err(code) => return code,
     };
@@ -425,10 +427,11 @@ fn seniority_word(seniority: Seniority) -> &'static str {
 pub struct PersonsOptions {
     pub query: Query,
     pub format: OutputFormat,
+    pub project: ProjectArg,
 }
 
 pub fn run_persons(opts: PersonsOptions) -> ExitCode {
-    let (_project, check) = match load_and_check() {
+    let check = match load_and_check(&opts.project.dir) {
         Ok(x) => x,
         Err(code) => return code,
     };
@@ -714,10 +717,11 @@ pub struct RelOptions {
     pub y: String,
     pub config: ResolveConfig,
     pub format: OutputFormat,
+    pub project: ProjectArg,
 }
 
 pub fn run_rel(opts: RelOptions) -> ExitCode {
-    let (_project, check) = match load_and_check() {
+    let check = match load_and_check(&opts.project.dir) {
         Ok(x) => x,
         Err(code) => return code,
     };

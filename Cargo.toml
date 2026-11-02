@@ -2,7 +2,6 @@
 resolver = "3"
 members = [
     "crates/kul-core",
-    "crates/kul-loader",
     "crates/kul-render",
     "crates/kul-layout",
     "crates/kul-svg",
@@ -25,7 +24,6 @@ all = { level = "deny", priority = -1 }
 
 [workspace.dependencies]
 kul-core = { path = "crates/kul-core", version = "0.4.3" }
-kul-loader = { path = "crates/kul-loader", version = "0.4.3" }
 kul-render = { path = "crates/kul-render", version = "0.4.3" }
 kul-layout = { path = "crates/kul-layout", version = "0.4.3" }
 kul-svg = { path = "crates/kul-svg", version = "0.4.3" }

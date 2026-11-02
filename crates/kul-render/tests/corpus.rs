@@ -25,8 +25,7 @@ fn read(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()))
 }
 
-/// Load every `.kul` file from `dir` lexicographically (mirrors
-/// `kul-loader::load` on-disk order).
+/// Check the project in `dir`: every `.kul` file directly inside it.
 fn check_example(dir: &Path) -> CheckResult {
     let mut entries: Vec<PathBuf> = std::fs::read_dir(dir)
         .unwrap_or_else(|err| panic!("read_dir {}: {err}", dir.display()))
