@@ -94,36 +94,117 @@
     background-size: 20px 20px;
   }
 
-  /* The family tree on the canvas: cards on the card surface, birth and
-     adoption lines in the muted ink, marriages in the accent. */
-  .tree-preview .kul-card rect {
+  /* The family tree. The engine's SVG carries classes and data-* attributes
+     only (the kul-svg contract); every colour here comes from the --tree-*
+     tokens. Dashes are the SVG's own: they say what a line or card is. */
+  .kul-tree .kul-card rect {
     fill: var(--card);
     stroke: var(--muted-foreground);
     stroke-width: 1.5;
   }
-  .tree-preview .kul-card[data-kind="ghost"] rect {
-    fill: var(--muted);
-    stroke: var(--border);
+  .kul-tree .kul-card[data-gender="male"] rect {
+    stroke: var(--tree-hue-male);
   }
-  .tree-preview .kul-label-name {
+  .kul-tree .kul-card[data-gender="female"] rect {
+    stroke: var(--tree-hue-female);
+  }
+  .kul-tree .kul-card[data-gender="other"] rect {
+    stroke: var(--tree-hue-other);
+  }
+  .kul-tree .kul-card[data-kind="ghost"] rect {
+    fill: var(--tree-hue-past);
+  }
+  .kul-tree .kul-label-name {
     fill: var(--foreground);
     font-family: var(--font-sans);
     font-size: 13px;
     font-weight: 500;
   }
-  .tree-preview .kul-card[data-kind="ghost"] .kul-label-name {
+  .kul-tree .kul-card[data-kind="ghost"] .kul-label-name {
     fill: var(--muted-foreground);
   }
-  .tree-preview .kul-edge {
-    stroke: var(--muted-foreground);
+  .kul-tree .kul-edge {
+    stroke: var(--tree-hue-birth);
     stroke-width: 1.5;
   }
-  .tree-preview .kul-edge[data-link-kind="marriage"] {
-    stroke: var(--primary);
+  .kul-tree .kul-edge[data-link-kind="adoption"] {
+    stroke: var(--tree-hue-adoption);
+  }
+  .kul-tree .kul-edge[data-link-kind="marriage"] {
+    stroke: var(--tree-hue-marriage);
     stroke-width: 6;
   }
-  .tree-preview .kul-edge[data-is-ended="true"] {
-    stroke-opacity: 0.6;
+  .kul-tree .kul-edge[data-is-ended="true"] {
+    stroke-opacity: 0.55;
+  }
+  .kul-tree.kul-legend-swatch .kul-edge[data-link-kind="marriage"] {
+    stroke-width: 4;
+  }
+
+  /* What you can click: a card selects its person, a marriage line (or
+     the wider invisible line laid along it) its marriage. */
+  [data-testid="tree"] .kul-card,
+  [data-testid="tree"] .kul-edge[data-link-kind="marriage"],
+  [data-testid="tree"] .kul-hit {
+    cursor: pointer;
+  }
+  .kul-tree .kul-hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 18;
+    pointer-events: stroke;
+  }
+  [data-testid="tree"] .kul-card:hover rect {
+    stroke-width: 2.5;
+  }
+
+  /* The linked entity (under the editor's cursor), and the selected one. */
+  .kul-tree .kul-card[data-linked] rect {
+    fill: var(--tree-linked-fill);
+    stroke: var(--tree-linked);
+    stroke-width: 2.5;
+  }
+  .kul-tree .kul-edge[data-linked] {
+    stroke: var(--tree-linked);
+    stroke-opacity: 1;
+  }
+  .kul-tree .kul-card[data-selected] rect {
+    fill: var(--tree-selection-fill);
+    stroke: var(--tree-selection);
+    stroke-width: 3;
+  }
+  .kul-tree .kul-edge[data-selected] {
+    stroke: var(--tree-selection);
+    stroke-opacity: 1;
+    stroke-width: 8;
+  }
+
+  /* A past record's way back to the person's own card. */
+  .kul-tree .kul-ghost-badge {
+    cursor: pointer;
+    outline: none;
+  }
+  .kul-tree .kul-ghost-badge-target {
+    fill: transparent;
+    pointer-events: all;
+  }
+  .kul-tree .kul-ghost-badge text {
+    fill: var(--muted-foreground);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .kul-tree .kul-ghost-badge:hover .kul-ghost-badge-target,
+  .kul-tree .kul-ghost-badge:focus-visible .kul-ghost-badge-target {
+    fill: var(--accent);
+    stroke: var(--ring);
+  }
+  .kul-tree .kul-ghost-badge:hover text,
+  .kul-tree .kul-ghost-badge:focus-visible text {
+    fill: var(--primary);
+  }
+  .kul-tree .kul-card[data-pulse] rect {
+    animation: tree-pulse 0.9s ease-out;
   }
 
   /* Kul code, coloured from the engine's tokens (the editor's `.tok-*`
@@ -184,6 +265,14 @@
     [data-theme-option="light"],
   :root[data-theme-preference="dark"] .theme-switch [data-theme-option="dark"] {
     @apply bg-background text-foreground shadow-sm;
+  }
+}
+
+@keyframes tree-pulse {
+  0%,
+  45% {
+    stroke: var(--tree-selection);
+    stroke-width: 6;
   }
 }
 

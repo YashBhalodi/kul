@@ -38,6 +38,25 @@
   --canvas: oklch(0.975 0.003 250);
   --canvas-dot: oklch(0.83 0.008 250);
 
+  /* The family tree. One hue per category the tree draws: the categories
+     of the palette the downloaded SVG bakes in (kul-svg's --kul-hue-*),
+     which a test keeps in step with this list. Card outlines take the
+     gender hues, lines the birth, adoption and marriage hues, and a past
+     record's card the past hue. */
+  --tree-hue-male: oklch(0.5 0.13 255);
+  --tree-hue-female: oklch(0.52 0.17 355);
+  --tree-hue-other: oklch(0.55 0.12 70);
+  --tree-hue-birth: oklch(0.56 0.02 255);
+  --tree-hue-adoption: oklch(0.55 0.13 150);
+  --tree-hue-marriage: oklch(0.52 0.14 300);
+  --tree-hue-past: oklch(0.945 0.005 250);
+  /* The selected entity, and the softer mark for the one under the
+     editor's cursor. */
+  --tree-selection: oklch(0.47 0.085 190);
+  --tree-selection-fill: oklch(0.94 0.04 190);
+  --tree-linked: oklch(0.56 0.09 190);
+  --tree-linked-fill: oklch(0.955 0.03 190);
+
   /* Code blocks on the landing page and in the docs. */
   --code: oklch(0.965 0.004 250);
   --code-foreground: oklch(0.25 0.014 255);
@@ -92,6 +111,18 @@
 
   --canvas: oklch(0.16 0.006 255);
   --canvas-dot: oklch(0.3 0.008 255);
+
+  --tree-hue-male: oklch(0.74 0.12 250);
+  --tree-hue-female: oklch(0.75 0.14 355);
+  --tree-hue-other: oklch(0.8 0.12 80);
+  --tree-hue-birth: oklch(0.64 0.015 255);
+  --tree-hue-adoption: oklch(0.76 0.13 150);
+  --tree-hue-marriage: oklch(0.72 0.13 300);
+  --tree-hue-past: oklch(0.255 0.008 255);
+  --tree-selection: oklch(0.8 0.11 185);
+  --tree-selection-fill: oklch(0.31 0.05 190);
+  --tree-linked: oklch(0.66 0.08 190);
+  --tree-linked-fill: oklch(0.26 0.03 190);
 
   --code: oklch(0.21 0.007 255);
   --code-foreground: oklch(0.92 0.006 250);

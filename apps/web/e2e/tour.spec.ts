@@ -21,6 +21,7 @@ import {
   openProject,
   openSwitcher,
   pressMod,
+  treeCard,
 } from "./support"
 
 const FIXTURES = join(import.meta.dirname, "../test-results/tour-fixtures")
@@ -65,6 +66,72 @@ const STATES: ReadonlyArray<State> = [
     fullPage: true,
   },
   { name: "app-shell", path: "/app/", widths: [1440], enter: openProject },
+  {
+    name: "canvas-person",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await treeCard(page, "adaeze").click()
+      await expect(page.getByTestId("details-title")).toHaveText("Adaeze Okeke")
+    },
+  },
+  {
+    name: "canvas-marriage",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await page
+        .locator(
+          '[data-testid=tree] .kul-hit[data-marriage-id="m_emeka_ngozi"]'
+        )
+        .click({ force: true })
+      await expect(page.getByTestId("details-title")).toHaveText(
+        "Emeka Okeke & Ngozi Okeke"
+      )
+    },
+  },
+  {
+    name: "canvas-linked",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await editorToken(page, "declaration", "ngozi").click()
+      await expect(treeCard(page, "ngozi")).toHaveAttribute("data-linked", "")
+    },
+  },
+  {
+    name: "canvas-error",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await typeError(page)
+      await expect(page.getByTestId("stale-tree-banner")).toBeVisible()
+    },
+  },
+  {
+    name: "canvas-empty",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await chooseFromSwitcher(page, ["New blank project"])
+      await expect(page.getByTestId("tree-empty")).toBeVisible()
+    },
+  },
+  {
+    name: "canvas-legend",
+    path: "/app/",
+    widths: [1440],
+    enter: async (page) => {
+      await openProject(page)
+      await page.getByTestId("legend-toggle").click()
+      await expect(page.getByTestId("legend")).toBeVisible()
+    },
+  },
   {
     name: "editor-docked-left",
     path: "/app/",

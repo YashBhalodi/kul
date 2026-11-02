@@ -1,8 +1,9 @@
-// Downloads: the project as a .zip, or one file. Everything is built in the
-// page; nothing leaves the machine.
+// Downloads: the project as a .zip, one file, or the tree as an SVG.
+// Everything is built in the page; nothing leaves the machine.
 
 import { zipProject } from "@/project/zip"
 
+import { languageClient } from "./engine-status"
 import { flushProject, sessionStore } from "./project-session"
 
 /** Save `data` as a file named `name` through the browser's download. */
@@ -47,4 +48,16 @@ export async function downloadProject(): Promise<void> {
 export function downloadFile(name: string): void {
   const file = sessionStore.state.files.find((f) => f.name === name)
   if (file) saveFile(file.name, file.text, "text/plain;charset=utf-8")
+}
+
+/**
+ * Download the tree as a self-contained SVG: its own light palette and a
+ * legend baked in, so it reads the same wherever it is opened. Nothing
+ * downloads while the project has errors.
+ */
+export async function downloadTree(): Promise<void> {
+  const { project } = sessionStore.state
+  const svg = await languageClient()?.query("renderSvg", "fileExport")
+  if (!project || !svg) return
+  saveFile(`${fileNameFor(project.name)}.svg`, svg, "image/svg+xml")
 }

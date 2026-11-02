@@ -192,3 +192,35 @@ export async function openExample(page: Page, title: string, name = title) {
   await expect(page.getByTestId("project-switcher")).toHaveText(name)
   await expect(editorContent(page)).toBeVisible()
 }
+
+/** A person's own card on the canvas. */
+export function treeCard(page: Page, id: string) {
+  return page.locator(
+    `[data-testid=tree] .kul-card[data-person-id="${id}"][data-kind="canonical"]`
+  )
+}
+
+/** A marriage's line on the canvas. */
+export function treeMarriage(page: Page, id: string) {
+  return page.locator(
+    `[data-testid=tree] .kul-edge[data-link-kind="marriage"][data-marriage-id="${id}"]`
+  )
+}
+
+/** The canvas camera, read from the tree layer's transform. */
+export async function cameraOf(
+  page: Page
+): Promise<{ x: number; y: number; zoom: number }> {
+  return page.getByTestId("tree-layer").evaluate((layer) => {
+    const matrix = new DOMMatrix(getComputedStyle(layer).transform)
+    return { x: matrix.e, y: matrix.f, zoom: matrix.a }
+  })
+}
+
+/** Open a file of the open project in the editor, from the file list. */
+export async function openFile(page: Page, name: string) {
+  await page
+    .locator(`[data-testid=file-row][data-name='${name}'] button`)
+    .first()
+    .click()
+}

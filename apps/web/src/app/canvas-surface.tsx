@@ -6,8 +6,18 @@ import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { bootEngine, engineStatusStore } from "./engine-status"
 
-/** The canvas: the dot-grid ground the family tree is drawn on. */
-export function CanvasSurface({ children }: { children?: ReactNode }) {
+/**
+ * The canvas: the dot-grid ground the family tree is drawn on. Its bottom
+ * right corner shows the engine's status, or `corner` when given (which
+ * carries the status itself).
+ */
+export function CanvasSurface({
+  children,
+  corner,
+}: {
+  children?: ReactNode
+  corner?: ReactNode
+}) {
   useEffect(bootEngine, [])
   return (
     <div
@@ -15,7 +25,11 @@ export function CanvasSurface({ children }: { children?: ReactNode }) {
       className="canvas-grid absolute inset-0 overflow-hidden bg-canvas"
     >
       {children}
-      <EngineStatusBadge />
+      {corner ?? (
+        <div className="absolute right-4 bottom-4 z-10">
+          <EngineStatusBadge />
+        </div>
+      )}
     </div>
   )
 }
@@ -53,7 +67,8 @@ export function CanvasMessage({
   )
 }
 
-function EngineStatusBadge() {
+/** Whether the Kul engine is starting, running or failed. */
+export function EngineStatusBadge() {
   const status = useSelector(engineStatusStore)
   return (
     <div
@@ -61,7 +76,7 @@ function EngineStatusBadge() {
       data-testid="engine-status"
       data-state={status.state}
       data-restarts={status.state === "ready" ? status.restarts : undefined}
-      className="absolute right-4 bottom-4 z-10 flex items-center gap-2 rounded-full border bg-card/95 py-1 pr-3 pl-2.5 text-xs text-muted-foreground shadow-sm"
+      className="pointer-events-auto flex items-center gap-2 rounded-full border bg-card/95 py-1 pr-3 pl-2.5 text-xs text-muted-foreground shadow-sm"
     >
       {status.state === "starting" && (
         <>

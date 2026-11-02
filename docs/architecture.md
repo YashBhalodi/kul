@@ -170,6 +170,10 @@ Four things make this work:
 3. `Node` is a typed enum, not a tag. Each feature pattern-matches the variants relevant to it; the compiler enforces exhaustiveness when a new variant lands.
 4. Offsets are converted in exactly one place. The service never sees UTF-16 and JavaScript never sees bytes.
 
+### The canvas
+
+Each analysis that can draw the project carries the theme-agnostic SVG (`analyze().svg`); the canvas (`apps/web/src/app/canvas/`) swaps it into the page under a CSS-transform camera and paints it from the token sheet, reading only the `kul-svg` contract (the `kul-*` classes and `data-*` attributes, [ADR-0016](./adr/0016-visualization-pipeline-crate-boundaries.md), [ADR-0021](./adr/0021-language-properties-plumb-to-svg.md)). An analysis with errors has no SVG, so the canvas keeps the last one, dimmed. The canvas's own decisions — the camera's maths, the selection and linked marks re-applied by id after each swap, revealing an entity clear of the editor window and the details panel, the details panel's model and the legend's rows — are pure modules in `apps/web/src/canvas/`. The details panel asks the worker for `details(id)`, the link from the editor asks `entityAt(file, offset)` once the cursor rests, a selection asks `locate(id)` to move the editor's cursor, and the download asks `renderSvg("fileExport")`, the self-contained variant the CLI's `kul export --format=svg` writes ([ADR-0022](./adr/0022-svg-legend.md)).
+
 ## The seams
 
 The most load-bearing interfaces in the codebase. Don't bypass these.

@@ -61,6 +61,7 @@ export interface CommandGroup {
 export const GROUP_ORDER: ReadonlyArray<string> = [
   "Files",
   "Editor",
+  "Canvas",
   "Projects",
   "Appearance",
   "App",

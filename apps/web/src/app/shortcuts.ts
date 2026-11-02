@@ -2,7 +2,8 @@
 // dialog lists them whether or not their components are mounted. A
 // component binds one with `useHotkey(appHotkeys[id], callback)`. The
 // editor's own shortcuts (scope "editor") are matched inside the editor
-// from this same table, and work while it has focus.
+// from this same table, and work while it has focus; the canvas's (scope
+// "canvas") likewise, while the canvas has focus.
 
 import { defineAppHotkeys } from "@tanstack/react-hotkeys"
 
@@ -71,6 +72,46 @@ export const appHotkeys = defineAppHotkeys({
     hotkey: "Mod+F",
     scope: "editor",
     meta: { name: "Find and replace", group: "Editor" },
+  },
+  "canvas.fit": {
+    hotkey: "0",
+    scope: "canvas",
+    meta: { name: "Fit the tree to the canvas", group: "Canvas" },
+  },
+  "canvas.zoomIn": {
+    hotkey: "+",
+    scope: "canvas",
+    meta: { name: "Zoom in", group: "Canvas" },
+  },
+  "canvas.zoomOut": {
+    hotkey: "-",
+    scope: "canvas",
+    meta: { name: "Zoom out", group: "Canvas" },
+  },
+  "canvas.panLeft": {
+    hotkey: "ArrowLeft",
+    scope: "canvas",
+    meta: { name: "Pan left", group: "Canvas" },
+  },
+  "canvas.panRight": {
+    hotkey: "ArrowRight",
+    scope: "canvas",
+    meta: { name: "Pan right", group: "Canvas" },
+  },
+  "canvas.panUp": {
+    hotkey: "ArrowUp",
+    scope: "canvas",
+    meta: { name: "Pan up", group: "Canvas" },
+  },
+  "canvas.panDown": {
+    hotkey: "ArrowDown",
+    scope: "canvas",
+    meta: { name: "Pan down", group: "Canvas" },
+  },
+  "canvas.clearSelection": {
+    hotkey: "Escape",
+    scope: "canvas",
+    meta: { name: "Clear the selection", group: "Canvas" },
   },
 })
 

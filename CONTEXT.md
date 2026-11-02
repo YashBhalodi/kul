@@ -385,6 +385,14 @@ The module Web Worker (`apps/web/src/language/worker.ts`) that holds the open pr
 
 The app's code editor: CodeMirror over the canvas, with the file list, tabs and the **problems strip** (the whole project's errors and warnings). It floats, docks to the left or right side of the canvas, or minimizes to a **pill**; its layout is part of the project's window state. Highlighting comes only from the engine's lexical and semantic tokens — there is no grammar in the app.
 
+### Canvas
+
+The ground the family tree is drawn on in the app, under the editor window. Each analysis that can draw the project swaps the engine's theme-agnostic SVG into it, and the app's token sheet paints the SVG's classes in the light or dark theme. A **camera** (pan and zoom, 10%–800%) shows the tree: it fits the first tree a project draws and then stays put across edits, and it is saved with the project. While the project has errors the canvas keeps the last tree it could draw, dimmed. Ghost cards gain a return badge, and a collapsible legend lists the categories the tree draws. The [entity selection](#entity-selection) and the [linked entity](#linked-entity) are its marks.
+
+### Linked entity
+
+The entity under the editor's cursor, marked on the [canvas](#canvas) more softly than the [entity selection](#entity-selection). It follows the cursor once it rests (about 150 ms) on a declaration or a resolved reference, in any file, and the canvas brings it into view if it is off screen or hidden ([occlusion-aware centring](#occlusion-aware-centring)). Following the cursor never moves the keyboard out of the editor.
+
 ### Tier-1 token / Tier-2 token
 
 The two layers of the preview's `--kul-*` custom properties ([ADR-0036](./docs/adr/0036-two-tier-theming-and-the-accessibility-non-goal.md), sized in [ADR-0038](./docs/adr/0038-tier-1-register-overlay-stack-and-the-reserved-carve-out.md)). A **tier-1 token** is part of the theme contract: a colour role, a typography choice, a diagram hue, a step on the spacing / radius / motion scales, or one of the reserved query paints. Tier 1 is the only layer that may bridge to a `--vscode-*` palette variable, and it is a closed register — chrome growth does not enlarge it. A **tier-2 token** is the per-site semantic layer (`--kul-legend-border-color`, `--kul-error-row-hover-bg`): exactly one per application site, aliasing a tier-1 primitive rather than a `--vscode-*` variable. Both live in `packages/preview/src/preview-themes.css` — tier 1 inside a per-theme `body[data-theme="…"]` block, tier 2 on `body` — while the application rules that consume tier 2 live in `preview.css`. A theme re-maps tier 1 and may override any single tier-2 alias. `crates/kul-svg` bakes tier 1 plus the diagram half of tier 2 into self-contained SVG export; `packages/preview/tests/tokens.test.ts` holds the split as a structural lint.
@@ -419,7 +427,7 @@ A render is the trigger because a render is how an edit reaches the webview (deb
 
 ### Entity selection
 
-The one entity the reader has clicked in the preview ([ADR-0035](./docs/adr/0035-detail-surface-one-selection-one-batched-lookup.md), shaped by [ADR-0042](./docs/adr/0042-the-selection-seam-and-occlusion-aware-centring.md)). #276's "single selection, always" is unchanged in *number* and widened from persons to **entities**: a person card, a marriage edge or an adoption edge. Clicking another entity moves it; Esc or a canvas click clears it. A selection is spelled as a [detail target](#batched-detail-lookup) — a person id, a marriage id, or an adoption's `(childId, marriageId)` pair — so what was clicked reaches the engine without translation and the chrome carries one address vocabulary rather than two. It paints in the reserved query violet, and it registers a [sync suspension](#sync-suspension) so the two meanings of "highlighted" never co-paint. Implemented in `packages/preview/src/selection.ts`.
+The one entity the reader has chosen on the [canvas](#canvas): a person (their card) or a marriage (its line), keyed by its id. Clicking a card or a marriage line selects it, as does a related entity named in the [details panel](#details-panel); Esc or a click on the background clears it. Selecting puts the editor's cursor on the entity's declaration without taking the keyboard. **A selection survives edits**: after every render it is applied again by id, and it ends only when the new tree no longer draws the entity (it was deleted). Implemented in `apps/web/src/canvas/selection.ts`, beside the [linked entity](#linked-entity).
 
 ### Sync suspension
 
@@ -435,7 +443,7 @@ The person an [entity selection](#entity-selection) is anchored on, or nothing w
 
 ### Details panel
 
-The surface an [entity selection](#entity-selection) populates: three variants — person, marriage, adoption — each fed **only** by the [batched detail lookup](#batched-detail-lookup) ([ADR-0035](./docs/adr/0035-detail-surface-one-selection-one-batched-lookup.md)). Absent fields are **omitted**, never rendered as "not recorded", mirroring the wire where both export shapes use `skip_serializing_if`; each marriage occupies **its own line with its span and end reason**, which is what carries the explanation for why a person appears on more than one card; and there is **no ghost note**, because sourcing one would re-derive [ADR-0019](./docs/adr/0019-ghost-model-and-bio-anchor.md) inside the query layer or open a second provenance path. Every person named in it is clickable. It floats over the canvas in the [float region](#region-model) and never reflows it, and its header carries the reveal-in-editor control that click-to-source on the tree gave up. Implemented in `packages/preview/src/detail-panel.ts`.
+What the canvas says about the [entity selection](#entity-selection): a side panel along the canvas's right edge that leaves the rest of the canvas usable and never takes the keyboard. It is fed **only** by the language service's `details` answer — never by reading the drawing — through a pure model (`apps/web/src/canvas/details.ts`): a person's names, gender and dates (partial and circa dates as written), parents, adoptions with their dates, marriages with their dates and end reasons, and children; a marriage's spouses, dates, end reason and children. Absent fields are omitted. Every related person or marriage in it selects that entity, and **Go to source** opens the editor at the declaration. `details` answers nothing while the project has errors, so the panel keeps what it last showed.
 
 ### Hover lens
 
@@ -452,7 +460,7 @@ The trace the [hover lens](#hover-lens) paints across the tree while it reads: e
 
 ### Occlusion-aware centring
 
-Panning a card to the centre of the **visible** region rather than of the raw viewport ([ADR-0036](./docs/adr/0036-two-tier-theming-and-the-accessibility-non-goal.md), computed per [ADR-0042](./docs/adr/0042-the-selection-seam-and-occlusion-aware-centring.md)). The [details panel](#details-panel) overlays the canvas, so a panel-driven walk would otherwise park a card behind the panel — and a selection the reader cannot see is a dead end. The panel's box is measured and the wider free strip wins, so nothing assumes which edge it hugs; only the horizontal axis moves, because the panel is a full-height side float.
+Bringing part of the tree into view without parking it behind the chrome that floats over the [canvas](#canvas) — the editor window and the [details panel](#details-panel) (`apps/web/src/canvas/reveal.ts`). The visible region is the widest full-height strip no occluder covers, measured from the occluders' boxes, so nothing assumes which side they are on. **Revealing** (a selection or a [linked entity](#linked-entity) that is off screen or hidden) moves the camera the least distance that brings the entity inside that region, so the tree around it stays where the reader left it; **jumping** from a [ghost](#ghost-slot)'s return badge centres the person's own card in it.
 
 ### Explore-kin list
 
