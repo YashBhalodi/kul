@@ -224,3 +224,20 @@ export async function openFile(page: Page, name: string) {
     .first()
     .click()
 }
+
+/**
+ * Wait until the service worker has precached the site and is active, so
+ * the next load works offline.
+ */
+export async function waitForOfflineCopy(page: Page) {
+  await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready
+    const worker = registration.active
+    if (!worker || worker.state === "activated") return
+    await new Promise<void>((resolve) => {
+      worker.addEventListener("statechange", () => {
+        if (worker.state === "activated") resolve()
+      })
+    })
+  })
+}

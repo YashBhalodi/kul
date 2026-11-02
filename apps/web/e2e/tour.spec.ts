@@ -11,17 +11,22 @@ import AxeBuilder from "@axe-core/playwright"
 import { expect, test } from "./fixtures"
 import type { Page } from "./fixtures"
 
+import { BUILD_DIR, deployNextBuild, startSite } from "./sites"
+import type { SiteServer } from "./sites"
 import {
   chooseFromSwitcher,
+  expectAppReady,
   createFile,
   editorContent,
   editorToken,
   fileRows,
   goToEnd,
+  PROJECT_URL,
   openProject,
   openSwitcher,
   pressMod,
   treeCard,
+  waitForOfflineCopy,
 } from "./support"
 
 const FIXTURES = join(import.meta.dirname, "../test-results/tour-fixtures")
@@ -50,8 +55,13 @@ interface State {
   name: string
   path: string
   widths: ReadonlyArray<number>
+  /**
+   * Serve the build on an origin of the state's own, which `enter` may
+   * deploy the next build to.
+   */
+  ownSite?: boolean
   /** Bring the page into the state once it has loaded. */
-  enter?: (page: Page) => Promise<void>
+  enter?: (page: Page, site?: SiteServer) => Promise<void>
   /** Capture the whole scrolling page rather than the viewport. */
   fullPage?: boolean
 }
@@ -65,7 +75,12 @@ const STATES: ReadonlyArray<State> = [
     widths: [1440],
     fullPage: true,
   },
-  { name: "app-shell", path: "/app/", widths: [1440], enter: openProject },
+  {
+    name: "app-shell",
+    path: "/app/",
+    widths: [1440],
+    enter: (page) => openProject(page),
+  },
   {
     name: "canvas-person",
     path: "/app/",
@@ -329,6 +344,30 @@ const STATES: ReadonlyArray<State> = [
     },
   },
   {
+    name: "update-toast",
+    path: "/",
+    widths: [390, 1440],
+    ownSite: true,
+    enter: async (page, site) => {
+      await waitForOfflineCopy(page)
+      await page.reload()
+      await showUpdate(page, site)
+    },
+  },
+  {
+    name: "update-toast-app",
+    path: "/app/",
+    widths: [1440],
+    ownSite: true,
+    enter: async (page, site) => {
+      await expect(page).toHaveURL(PROJECT_URL)
+      await waitForOfflineCopy(page)
+      await page.reload()
+      await expectAppReady(page)
+      await showUpdate(page, site)
+    },
+  },
+  {
     name: "gate",
     path: "/app/",
     widths: [390],
@@ -338,7 +377,21 @@ const STATES: ReadonlyArray<State> = [
   },
 ]
 
+/** Deploy the next build to `site` and wait for the page to offer it. */
+async function showUpdate(page: Page, site: SiteServer | undefined) {
+  if (!site) throw new Error("an update state needs its own site")
+  await deployNextBuild(page, site)
+  await expect(page.getByText("A new version of Kul is ready")).toBeVisible()
+}
+
 const THEMES: ReadonlyArray<Theme> = ["light", "dark"]
+
+let ownSite: SiteServer | undefined
+
+test.afterEach(async () => {
+  await ownSite?.close()
+  ownSite = undefined
+})
 
 for (const state of STATES) {
   for (const theme of THEMES) {
@@ -346,9 +399,11 @@ for (const state of STATES) {
       test(`${state.name} ${theme} ${width}`, async ({ page }) => {
         await page.setViewportSize({ width, height: width < 768 ? 844 : 900 })
         await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" })
-        await page.goto(state.path)
+        const site = state.ownSite ? await startSite(BUILD_DIR) : undefined
+        ownSite = site
+        await page.goto(site ? `${site.origin}${state.path}` : state.path)
         await page.evaluate(() => document.fonts.ready)
-        await state.enter?.(page)
+        await state.enter?.(page, site)
         await expect(page.locator("html")).toHaveClass(
           theme === "dark" ? /\bdark\b/ : /^(?!.*\bdark\b)/
         )
