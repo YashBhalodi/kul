@@ -173,9 +173,9 @@ export async function editorSelection(page: Page): Promise<string> {
 
 /** Put the cursor at the end of the editor's text. */
 export async function goToEnd(page: Page) {
-  // Click near the start: the content is wider than the editor, and
-  // clicking its middle would scroll the editor sideways first.
-  await editorContent(page).click({ position: { x: 4, y: 4 } })
+  // Focus rather than click: the content is wider than the editor, so a
+  // click scrolls it sideways or lands under the line numbers.
+  await editorContent(page).focus()
   await pressEditorMod(page, "End")
 }
 

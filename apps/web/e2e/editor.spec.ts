@@ -27,7 +27,7 @@ async function openBlankProject(page: Page) {
   await openProject(page)
   await chooseFromSwitcher(page, ["New blank project"])
   await expect(activeTab(page)).toHaveAttribute("data-name", "family.kul")
-  await editorContent(page).click({ position: { x: 4, y: 4 } })
+  await editorContent(page).focus()
 }
 
 test("highlighting comes from the engine's tokens", async ({ page }) => {
@@ -160,7 +160,7 @@ test("F2 renames an id across files, and undo restores both", async ({
   await expect(page.getByTestId("problems-count")).toHaveText("No problems")
 
   // Undo in one file undoes the rename in both.
-  await editorContent(page).click({ position: { x: 4, y: 4 } })
+  await editorContent(page).focus()
   await pressEditorMod(page, "z")
   await expect.poll(() => editorText(page)).toContain("birth m_diego_carmen")
   await page
@@ -221,7 +221,7 @@ test("formatting rewrites the file in canonical form", async ({ page }) => {
 
 test("Mod+Shift+O lists the file's people and marriages", async ({ page }) => {
   await openProject(page)
-  await editorContent(page).click({ position: { x: 4, y: 4 } })
+  await editorContent(page).focus()
   await pressMod(page, "Shift+O")
   const list = page.getByTestId("symbol-list")
   await expect(list).toBeVisible()
@@ -259,7 +259,7 @@ test("tabs open, switch and close", async ({ page }) => {
   ])
   await page.getByRole("button", { name: "Close 03-grandchildren.kul" }).click()
   await expect(activeTab(page)).toHaveAttribute("data-name", "02-children.kul")
-  await editorContent(page).click({ position: { x: 4, y: 4 } })
+  await editorContent(page).focus()
   await pressMod(page, "W")
   await expect(page.getByTestId("editor-tab")).toHaveText(["01-founders.kul"])
 })
