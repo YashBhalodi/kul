@@ -1,11 +1,16 @@
 import { playwright } from "@vitest/browser-playwright"
 import { defineConfig } from "vitest/config"
 
+import { siteVersion } from "./scripts/site-version.mjs"
+
 // Two projects: pure logic in Node (`*.test.ts`, and the build scripts'
 // `scripts/*.test.mjs`), and code that needs a real browser (`*.browser.test.ts`:
 // workers, WASM, matchMedia, storage) in Chromium and WebKit.
 export default defineConfig({
   resolve: { tsconfigPaths: true },
+  define: {
+    "import.meta.env.KUL_SITE_VERSION": JSON.stringify(siteVersion()),
+  },
   test: {
     projects: [
       {

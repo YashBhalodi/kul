@@ -3,6 +3,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
+import { siteVersion } from "./scripts/site-version.mjs"
 import { docsPages, markdownPath } from "./src/docs/pages.ts"
 
 // The site is fully static (dist/client). The landing page, the docs, their
@@ -13,6 +14,9 @@ const SHELL_OUTPUT = "/_shell"
 
 export default defineConfig({
   resolve: { tsconfigPaths: true },
+  define: {
+    "import.meta.env.KUL_SITE_VERSION": JSON.stringify(siteVersion()),
+  },
   // The CSP allows fonts and scripts only from 'self', so no asset is ever
   // inlined as a data: URL.
   build: { assetsInlineLimit: 0 },
