@@ -127,14 +127,18 @@
   }
 }
 
-/* Motion is decoration only: honour the reader's setting everywhere. */
+/* Motion is decoration only: honour the reader's setting everywhere.
+   Transitions are switched off outright rather than shortened: every
+   element's transition-property defaults to `all`, so any duration at all
+   would turn every style change (the editor's font size, say) into a
+   transition, and code that measures the page would read the old value. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 0s !important;
     scroll-behavior: auto !important;
   }
 }
