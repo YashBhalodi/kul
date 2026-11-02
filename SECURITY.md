@@ -12,9 +12,10 @@ You'll get an acknowledgement within a few business days. Once the issue is unde
 
 In scope:
 
-- The `kul` CLI, `kul-lsp` language server, and the `@kullang/wasm` npm package
-- Anything that lets a malicious `.kul` document or LSP message exfiltrate data, escape the validator's strict-on-errors contract, or crash the server in a way that affects unrelated documents
-- The release pipeline (anything that lets an unauthorized party publish to npm or Open VSX under our names)
+- The web app at https://kullang.dev, its service worker, and the site's headers (`_headers`, `_redirects`)
+- Anything that makes the app send a request off its own origin, read or write another project or another site's data, or run script from a `.kul` file, an imported folder or `.zip`, a downloaded SVG, or a docs page
+- The `kul` CLI: anything that lets a malicious `.kul` project read or write outside its directory, or escape the strict-on-errors contract of `export` and `query`
+- The build and release pipeline: anything that lets an unauthorized party publish a GitHub Release, deploy the site, or change what the deploy serves
 
 Out of scope:
 

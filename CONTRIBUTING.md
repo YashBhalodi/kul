@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for the interest. Quick orientation on what's open right now:
+Thanks for the interest. Quick orientation on what's open right now. For how the repository is laid out and how to run its checks, see [AGENTS.md](AGENTS.md).
 
 ## v0.x: issues only, no external PRs
 
@@ -12,7 +12,8 @@ This will change once `v1.0.0` lands and the language surface stabilizes. Watch 
 
 - **Bug reports** — wrong behavior, crashes, confusing diagnostics. The issue templates ask for a minimal `.kul` reproducer; please include one.
 - **Feature requests / language proposals** — describe the use case, not just the syntax. The [language spec](spec/) and [vision](docs/vision.md) explain what the language is and isn't trying to do — proposals that align with that scope are easier to land.
-- **Editor / tooling reports** — VSCode extension issues, `kul-lsp` glitches, `@kullang/wasm` integration breakage in your bundler.
+- **App reports** — something in the editor, the tree, projects, import and export, or the docs at [kullang.dev](https://kullang.dev) that behaves wrongly. Say which browser and version; include the `.kul` files (or an exported project `.zip`) that show it.
+- **CLI reports** — `kul validate`, `format`, `export` or `query` giving a wrong answer, with the project directory that reproduces it.
 
 ## Security issues
 

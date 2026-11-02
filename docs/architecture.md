@@ -17,34 +17,39 @@ This document uses the architecture words consistently:
 
 ## Pipeline
 
-A project's manifest YAML plus its [`InputFile`](../CONTEXT.md#kulfile)s flow through the toolchain like this:
+A project is a flat set of named `.kul` files ([ADR-0048](./adr/0048-a-project-is-a-flat-set-of-kul-files.md)). In the browser, the set lives in the project store and reaches the canvas like this:
 
 ```
-(manifest_name, manifest_yaml, &[InputFile])
+project store (apps/web/src/store/, OPFS)        the CLI reads a directory's *.kul instead
+  │  the open project's files, by name
+  ▼  language client (main thread)                 every edit: the file's whole text + a version
+  │  Comlink
+  ▼  language worker → kul_wasm::Workspace         holds the files; caches one check per edit
   │
-  ▼  manifest::validate    produces typed Manifest + KUL-Mxx diagnostics
-  │                        (anchored at FileId::MANIFEST in kul.yml)
+  ▼  kul_core::check(&[InputFile])
+  │    puts the files in file order (byte-wise by name), then per file:
+  │    lexer.rs → tokens  →  parser.rs → statements (KulFile)
+  │    ast::Document       every file, FileId(i) = i-th in file order
+  │    semantic.rs         ResolvedDocument: one project-wide id index + children
+  │                        indexes; R01 (duplicate ids) inline
+  │    validator.rs        R02–R12 per file, then R13 (cycles) across the project
+  │  → CheckResult { resolved, diagnostics }
   │
-  ▼  lexer.rs              produces tokens per .kul file
+  ├─▶ kul_language_service::*   hover, completion, rename, tokens, details, …
+  │                             (byte offsets; the Workspace converts to UTF-16)
   │
-  ▼  parser.rs             produces statements per .kul file (KulFile)
+  ▼  kul_visual::render_from_check
+  │    export::export   → ExportEnvelope (kinship-native graph)
+  │    kul_render       → RenderShape (components, marriage branches, card slots, ghosts)
+  │    kul_layout       → PositionedShape (pixel coordinates)
+  │    kul_svg          → theme-agnostic SVG (kul-* classes, data-* attributes)
   │
-  ▼  ast::Document         multi-file container the rest of the pipeline
-  │                        operates on (manifest at FileId(0); .kul files
-  │                        at FileId(1..))
+  ▼  analyze() → { files: [{ name, version }], diagnostics, svg? }
   │
-  ▼  semantic.rs           produces ResolvedDocument (project-wide id + children indexes)
-  │                        emits rule 01 diagnostics inline (duplicate ids,
-  │                        scoped project-wide per ADR-0015)
-  │
-  ▼  validator.rs          runs rules 02–12 per file, then rule 13 once
-  │                        across the project; rule 13 delegates to cycles.rs
-  │                        which walks the project-wide parent graph
-  │
-  ▼  CheckResult { resolved, diagnostics, manifest }
+  ▼  canvas (apps/web/src/app/canvas/)           swaps the SVG in, paints it from the token sheet
 ```
 
-`kul_core::check(manifest_name, manifest_yaml, &[InputFile])` is the single entry point that runs the whole pipeline. The CLI calls it once per project: each subcommand is CWD-rooted (no positional `<file>`), discovers the manifest and every sibling `.kul` via the shared `kul-loader` crate, and hands the bytes off in one call. The browser `Workspace` (`kul-wasm`) calls it once per edit, lazily: it holds the project's files, and the first request after a change re-checks the whole set and caches the result for every request until the next change. The pipeline operates on `Document.kul_files` with `N>=1` consumers (per [ADR-0015](./adr/0015-global-project-namespace.md)): the resolver builds one project-wide id index, the validator threads file iteration through it, and R01/R02/R13 honour the global namespace.
+`kul_core::check(&[InputFile])` is the single entry point that runs the language pipeline, and it owns file order, so every caller sees the same `FileId`s and the same declaration order whatever order it passed the files in. The CLI calls it once per command over the `*.kul` files directly inside `[DIR]` (`crates/kul-cli/src/commands/project.rs`). The browser `Workspace` calls it lazily: the first request after a change re-checks the whole set and caches the result for every request until the next change. Resolution is project-wide ([ADR-0015](./adr/0015-global-project-namespace.md)): one id index, R01/R02/R13 across files.
 
 The shape is deliberately linear. Each pass produces a strictly richer artifact; nothing earlier in the pipeline ever consults something later. This is why:
 
@@ -60,11 +65,13 @@ kul-core   ── library (no_std-friendly intent, but uses std for now)
               CheckResult API plus the AST types, ResolvedDocument
               query methods, the formatter, the export module
               (kinship-native + cytoscape projections), and the query
-              module (the kinship-query seam: id → detail lookups and
-              lineal kin-set queries today, collateral kin and
-              relationship resolution later — one evaluation path over a
+              module (the kinship-query seam: id → detail lookups, the
+              batched detail lookup, kin-set queries, attribute filters
+              and relationship resolution — one evaluation path over a
               declarative Query value, layered over ResolvedDocument,
-              never over the export; ADR-0024/0025/0026).
+              never over the export; ADR-0024/0025/0026). The CLI is the
+              query engine's only caller outside tests; the language
+              service uses the batched detail lookup.
 
 kul-cli    ── thin binary `kul`
               Four subcommands over a project directory (`[DIR]`,
@@ -131,7 +138,28 @@ The editor features (hover, completion and its token-stream classifier, rename, 
 
 The browser cannot shell out to the `kul` binary; it needs a JS-callable surface, and compiling to WebAssembly with `wasm-bindgen` is the only viable path. The bridge has its own concerns — `cdylib` crate type, `wasm-bindgen` derives, `console_error_panic_hook` registration, the workspace's cached state, UTF-16 offsets, the `--target web` build — that have no place in `kul-core`, the language service or the CLI. The deletion test passes: removing `kul-wasm` would either reproduce the JS adapter elsewhere, or eliminate the browser app. The `tsify` features of `kul-core` and `kul-language-service` exist exactly so the WASM crate can derive accurate `.d.ts` from the Rust source of truth without forcing tsify onto the CLI's build graph (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)).
 
-## Language-feature request flow
+## The web app
+
+`apps/web` is one TanStack Start site with three parts ([ADR-0047](./adr/0047-the-browser-app-is-kuls-only-interactive-surface.md)):
+
+| Part | Routes (`apps/web/src/routes/`) | Built as |
+| --- | --- | --- |
+| Landing page | `index.tsx` (`/`) | prerendered HTML |
+| Docs | `docs/route.tsx`, `docs/$.tsx` (`/docs/…/`), `docs/{$}[.]md.ts`, `docs/search[.]json.ts`, `llms[.]txt.ts`, `llms-full[.]txt.ts` | prerendered HTML, plus server routes prerendered to files |
+| App | `app/route.tsx` (`/app`, the shell: top bar, palette, dialogs), `app/index.tsx` (`/app/`, opens the last or first project), `app/$projectId.tsx` (`/app/<id>/`) | client-only (`ssr: false`); every `/app/*` path is served `/_shell.html` |
+
+`vite.config.ts` lists the pages to prerender (`pagePaths()`: `/` and every docs page from `scripts/docs-pages.mjs`); the same list is the sitemap. After `vite build`, `scripts/build-sw.mjs` writes the service worker, `scripts/finalize-dist.mjs` writes `_headers` (a CSP per HTML file, hashing its inline scripts), and `scripts/check-dist.mjs` checks the output. The app's code is only loaded under `/app`; the landing page and docs never load the engine at run time.
+
+Inside the app, the pieces and their seams:
+
+- **Project session** (`src/app/project-session.ts`): the open project, its files and window state, and whether this tab owns it. Every edit goes through it to the [project store](../CONTEXT.md#project-store) (`src/store/`, debounced writes) and to the language client.
+- **Language client and worker** (`src/language/`): below.
+- **Editor window** (`src/app/editor/` over the CodeMirror extensions in `src/editor/`): one `EditorView`, one CodeMirror state per open file.
+- **Canvas** (`src/app/canvas/` over the pure modules in `src/canvas/`): below.
+- **Commands and shortcuts**: every palette command is registered with `useCommands` (`src/app/commands.ts`) while its component is mounted; every shortcut is declared once in `src/app/shortcuts.ts`, so the shortcuts dialog and the docs list them all.
+- **Tokens**: `src/styles/tokens.css` is the only place a colour is written (light on `:root`, dark on `.dark`), mapped into Tailwind by `src/styles/theme.css`.
+
+## Language features in the app
 
 A request from the editor lands here:
 
@@ -170,21 +198,21 @@ Four things make this work:
 3. `Node` is a typed enum, not a tag. Each feature pattern-matches the variants relevant to it; the compiler enforces exhaustiveness when a new variant lands.
 4. Offsets are converted in exactly one place. The service never sees UTF-16 and JavaScript never sees bytes.
 
-### The canvas
+## The canvas
 
-Each analysis that can draw the project carries the theme-agnostic SVG (`analyze().svg`); the canvas (`apps/web/src/app/canvas/`) swaps it into the page under a CSS-transform camera and paints it from the token sheet, reading only the `kul-svg` contract (the `kul-*` classes and `data-*` attributes, [ADR-0016](./adr/0016-visualization-pipeline-crate-boundaries.md), [ADR-0021](./adr/0021-language-properties-plumb-to-svg.md)). An analysis with errors has no SVG, so the canvas keeps the last one, dimmed. The canvas's own decisions — the camera's maths, the selection and linked marks re-applied by id after each swap, revealing an entity clear of the editor window and the details panel, the details panel's model and the legend's rows — are pure modules in `apps/web/src/canvas/`. The details panel asks the worker for `details(id)`, the link from the editor asks `entityAt(file, offset)` once the cursor rests, a selection asks `locate(id)` to move the editor's cursor, and the download asks `renderSvg("fileExport")`, the self-contained variant the CLI's `kul export --format=svg` writes ([ADR-0022](./adr/0022-svg-legend.md)).
+Each analysis that can draw the project carries the theme-agnostic SVG (`analyze().svg`); the canvas (`apps/web/src/app/canvas/`) swaps it into the page under a CSS-transform camera and paints it from the token sheet, reading only the `kul-svg` contract (the `kul-*` classes and `data-*` attributes, [ADR-0016](./adr/0016-visualization-pipeline-crate-boundaries.md), [ADR-0021](./adr/0021-language-properties-plumb-to-svg.md)). An analysis with errors has no SVG, so the canvas keeps the last one, dimmed. The canvas's own decisions — the camera's maths, the selection and linked marks re-applied by id after each swap, revealing an entity clear of the editor window and the details panel (by the least move, 24 px clear of each), the details panel's model and the legend's rows — are pure modules in `apps/web/src/canvas/` ([ADR-0052](./adr/0052-the-canvas-contract.md)). The details panel asks the worker for `details(id)`, the link from the editor asks `entityAt(file, offset)` once the cursor rests, a selection asks `locate(id)` to move the editor's cursor, and the download asks `renderSvg("fileExport")`, the self-contained variant the CLI's `kul export --format=svg` writes ([ADR-0022](./adr/0022-svg-legend.md)).
 
-### The docs
+## The docs
 
 The docs ("Learn Kul", `/docs/`) are MDX pages under `apps/web/content/docs/`, compiled at build time by Fumadocs MDX into a collection (`apps/web/src/docs/collection.ts`). The routes load it only from their loaders (`src/docs/pages.ts`): the collection awaits its entries at the top level, and a static import would split every page's shared code into many more files. The layout, navigation and code blocks are the site's own components (`src/docs/`); the navigation follows each folder's `meta.json`. `src/docs/source.ts` builds a Fumadocs source on the same collection for what is generated at prerender: the Markdown variants (`/docs/<slug>.md`), `llms.txt` and `llms-full.txt` (`src/docs/llms.ts`), and the search index (`/docs/search.json`, Fumadocs' built-in search exported statically). Search runs in the browser in Fumadocs UI's dialog, which loads the first time it opens. Everything is prerendered, and React with the router ships as one `framework` chunk (`vite.config.ts`), so a page's first load fetches a handful of files.
 
 Kul code on the site is coloured and checked by the engine itself, never by a grammar: `apps/web/src/highlight/` runs `kul-wasm` in Node at build time (`analyzeKul`: the lexical tokens with the semantic tokens over them, the diagnostics and the tree), and `rehype-kul` turns each ```kul block into a `<KulCode>` element. A block that doesn't check clean, or that is fenced `expect-error=KUL-…` and reports anything other than those codes, fails the build. A clean block's **Try it** leaves its files in `sessionStorage` (`src/store/try-it.ts`) and opens `/app/`, which makes them a new project. The diagnostics reference is held to `kul_core::diagnostic::DIAGNOSTIC_CODES` (exported as `diagnosticCodes()`) by a check in `vite.config.ts` and a unit test.
 
-### The landing page
+## The landing page
 
 The landing page (`/`, `apps/web/src/landing/`) shows Kul with the engine's own output, made at build time: `landing-content.ts` runs the same Node highlighter on an example from `examples/` (its comments left out) and on each "What the language handles" example, checked with the lines it hides, and the Vite plugin in `vite-plugin.ts` serves the result as `virtual:kul-landing`. The sample must draw the example's tree and keep the tokens its callouts point at, or the build fails. The same plugin writes `og.png` (the sample's tree as the downloaded SVG colours it, rasterised by resvg with Inter), `favicon.ico`, `apple-touch-icon.png` and `sitemap.xml`; `robots.txt` is static. `scripts/check-landing.mjs`, run by `check-dist`, holds the prerendered page to that content.
 
-### Offline
+## Offline
 
 The site works offline after one visit. `npm run build` ends by writing `/sw.js` (`apps/web/scripts/build-sw.mjs`): Vite bundles `apps/web/src/sw/sw.ts` into one classic script, and Workbox's `injectManifest` adds the precache manifest, which lists every file the build wrote, found by glob: the pages, the SPA shell, the Markdown and text files, the docs search index, scripts, styles, the `.wasm`, fonts and icons. Files under `/assets/` are content-hashed, so the precache answers them first. Everything else on the origin goes to the network first and falls back to the precached copy when the network fails or takes longer than 3 seconds; every `/app` path falls back to `/_shell.html`. The worker is served `no-cache` with the site's CSP, which governs its fetches as it does the pages'.
 
@@ -199,7 +227,7 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 | Seam                                  | File                                          | What's behind it                                                                                                |
 | ------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `kul_core::check`                    | `crates/kul-core/src/lib.rs`                 | The whole pipeline. The CLI and the browser `Workspace` both enter here. Takes `&[InputFile]` — the project's files, which it puts in [file order](../CONTEXT.md#file-order) itself (per [ADR-0014](./adr/0014-file-identity-and-per-file-namespaces.md)); returns a `CheckResult` whose `resolved: ResolvedDocument` field is the cached query view (per [ADR-0007](./adr/0007-resolved-document-owns-document.md)). |
-| `FileId` / `FileSpan`                 | `crates/kul-core/src/span.rs`                | Project-wide locators. `FileId` indexes into `Document.kul_files` (with `FileId::MANIFEST` = `FileId(0)`); `FileSpan` is the `(file, byte-range)` pair every diagnostic anchors on. AST nodes keep bare `ByteSpan` (per ADR-0014) — their owning `KulFile` provides file context implicitly. |
+| `FileId` / `FileSpan`                 | `crates/kul-core/src/span.rs`                | Project-wide locators. `FileId(i)` is the `i`-th file in [file order](../CONTEXT.md#file-order); `FileSpan` is the `(file, byte-range)` pair every diagnostic anchors on. AST nodes keep bare `ByteSpan` — their owning `KulFile` provides file context implicitly ([ADR-0048](./adr/0048-a-project-is-a-flat-set-of-kul-files.md)). |
 | `ResolvedDocument` query methods      | `crates/kul-core/src/semantic.rs`            | All kinship questions. ADR-0001 mandates queries go through this; raw AST iteration is the seam's job. Per-id lookups (`person`, `marriage`, `entity`) take a bare id (project-wide per [ADR-0015](./adr/0015-global-project-namespace.md)); per-file iteration helpers (`persons_in(file)`, etc.) keep the file parameter for per-file language features. One-hop parenthood: `parents_of`, `children_of`, `children_of_marriage` — inverse children indexes are built during `semantic::resolve` (owned statement-idx style, ADR-0007) so the query engine and detail lookup do not rebuild them. Owns its `Arc<Document>` so the resolved view can be cached alongside other artifacts (no self-referential lifetime). |
 | `ResolvedDocument::node_at`           | `crates/kul-core/src/node_at.rs`             | "What's at byte offset X?" Returns a typed `Node`. Foundation for hover, definition, completion.                |
 | `ResolvedDocument::statement_at`      | `crates/kul-core/src/semantic.rs`            | "What top-level statement encloses byte offset X?" Returns `&Statement`. Coarser than `node_at` — used by completion to know whether a cursor sitting on a fresh line is "still under" the previous statement. |
@@ -207,12 +235,15 @@ The most load-bearing interfaces in the codebase. Don't bypass these.
 | `Diagnostic` + `Severity` + code + `detail` | `crates/kul-core/src/diagnostic.rs`    | The error currency. Carries spans, codes (KUL-Rxx), related info, and (per ADR-0006) an optional sub-case tag. |
 | `field_meta::FieldMeta`               | `crates/kul-core/src/field_meta.rs`          | Per-field taxonomy: value shape, completion description, hover Markdown. Hover, completion, and semantic-tokens consume it (ADR-0005). |
 | `export::export`                      | `crates/kul-core/src/export.rs`              | Canonical JSON projection of a `CheckResult` into an `ExportEnvelope`. Strict on errors; format-dispatched (kinship-native or cytoscape). The deep module the CLI's `kul export` calls, and the render pipeline's input. Schema documented in [`spec/15-export-schema.md`](../spec/15-export-schema.md); shape, posture, and versioning settled in ADRs 0008–0010. Person/marriage/parenthood-link wire shapes are single-sourced with the `query` lookups via `projection::build_one_*` (`crates/kul-core/src/projection.rs`). |
-| `query::{person, marriage, details, evaluate, kin_query}` + `QueryEnvelope` | `crates/kul-core/src/query.rs` (+ `query/`) | The kinship-query seam. Id → detail lookups (`person(id)` / `marriage(id)`) return the same export shapes, `None` when absent (absence is the answer). `details(resolved, &[DetailTarget])` is the batched member of that family — one check, many targets, each answered with its own fields plus its relational neighbourhood, flat in the number of targets (ADR-0035, ADR-0037). `evaluate(resolved, &Query)` is the single evaluation path for kin-set queries over the declarative `Query` value; named sugar (`parents_of`, `ancestors_of(depth)`, …) desugars to it, and `kin_query` wraps it in the envelope (ADR-0025). Results carry the terminology-neutral `RelationshipDescriptor` (ADR-0026). `QueryEnvelope<T>` (gated on passing checks, strict per ADR-0009) single-sources the contract serialization the CLI `kul query` and the WASM query surface both emit. Layered over `ResolvedDocument`, never over the export; collateral kin, relationship resolution, and attribute filtering land here later (ADR-0024, PRD 0005). |
+| `query::{person, marriage, details, run_query, resolve}` + `QueryEnvelope` | `crates/kul-core/src/query.rs` (+ `query/`) | The kinship-query seam. Id → detail lookups (`person(id)` / `marriage(id)`) return the same export shapes, `None` when absent (absence is the answer). `details(resolved, &[DetailTarget])` is the batched member of that family — one check, many targets, each answered with its own fields plus its relational neighbourhood, flat in the number of targets ([ADR-0037](./adr/0037-batched-detail-lookup-shape.md)); the language service's `details` is its caller. `run_query(resolved, &Query)` is the single evaluation path for kin-set queries, attribute filters, sorts and counts over the declarative `Query` value; named sugar (`parents_of`, `ancestors_of(depth)`, …) desugars to it ([ADR-0025](./adr/0025-kinship-query-engine-contract-and-traversal.md)). Results carry the terminology-neutral `RelationshipDescriptor` ([ADR-0026](./adr/0026-relationship-descriptor-and-path-identity.md)); relationship resolution answers every way two people are related ([ADR-0028](./adr/0028-relationship-resolution-and-honest-emptiness.md)). `QueryEnvelope<T>` (gated on passing checks, strict per ADR-0009) is what `kul query --format json` prints. Layered over `ResolvedDocument`, never over the export. |
 | `kul_layout::layout`                  | `crates/kul-layout/src/lib.rs`               | `(RenderShape, LayoutConfig) -> PositionedShape`. Positioning pass for the canonical UI pattern. Wraps Walker's algorithm with the marriage-edge / ghost-slot / generation-row adapter. `PositionedShape` is an internal Rust seam — not Serialize, not schema-versioned (ADR-0016). |
 | `kul_svg::render`                     | `crates/kul-svg/src/lib.rs`                  | `(PositionedShape, ThemeConfig) -> String`. Theme-agnostic SVG emitter. Uses semantic CSS classes; consuming surfaces own theming via stylesheet (ADR-0016). |
 | `kul_language_service::*`             | `crates/kul-language-service/src/lib.rs`     | The language features, one pure function each over a `CheckResult`, a file name and a byte offset. Results are Kul-native: `Location { file, span }`, `TextEdit`, `FileEdit`, and enums for completion, symbol, token and diagnostic kinds. Hover, completion and highlighting read `field_meta` (ADR-0005); completion classifies tokens first (ADR-0002). |
 | `Utf16Index`                          | `crates/kul-wasm/src/utf16.rs`               | UTF-8 byte offset ↔ UTF-16 code-unit offset for one file's text, one per workspace file. The only place the two units meet. |
 | `kul_wasm::Workspace`                 | `crates/kul-wasm/src/lib.rs`                 | The WASM/JS surface: a stateful class holding a project's files and one cached check (per [ADR-0011](./adr/0011-wasm-surface-three-shapes-no-wrappers.md)). One method per language feature plus `analyze` and `renderSvg`, each a thin call that converts offsets at the boundary. No convenience layer and no kinship queries. |
+| `kul-svg` classes and `data-*` attributes | `crates/kul-svg/src/emit.rs`             | The output contract every consumer of the SVG reads: `kul-card`, `kul-edge`, … and `data-person-id`, `data-kind`, `data-ghost-reason`, … ([ADR-0021](./adr/0021-language-properties-plumb-to-svg.md)). The canvas styles, selects and links through these alone ([ADR-0052](./adr/0052-the-canvas-contract.md)); the exported SVG stays byte-stable. |
+| Language client                       | `apps/web/src/language/client.ts`            | The app's one way to the engine: `setFile` (answers with lexical tokens), the pushed analysis, and `query(feature, …)` for every other feature, each answer `undefined` when an edit overtook it. Owns versions, crash detection and the respawn ([ADR-0049](./adr/0049-the-language-service-and-the-workspace-in-a-worker.md)). |
+| `ProjectStore`                        | `apps/web/src/store/project-store.ts`        | Every read and write of a project, over a `StorageBackend` (OPFS or memory); the only code that touches browser storage, enforced by ESLint ([ADR-0051](./adr/0051-local-only-by-construction.md)). |
 
 If you find yourself reaching around one of these (e.g. iterating `document.statements` from a feature module), stop and consider extending the seam instead.
 
@@ -226,14 +257,30 @@ If you find yourself reaching around one of these (e.g. iterating `document.stat
 4. Add a test `rule_NN_<short_name>` in `crates/kul-core/tests/validator.rs` covering the positive case (rule fires) and negative case (rule doesn't fire). Snapshot the diagnostic output.
 5. If the rule needs a new kinship query ("does this person have any siblings?"), add it as a method on `ResolvedDocument` rather than walking the AST inline. ADR-0001.
 
-### A new language feature
+### A new language feature, end to end
 
-1. Read [ADR-0001](./adr/0001-resolved-document-as-query-seam.md) — your feature should phrase itself as a question against `ResolvedDocument`.
-2. Add a module under `crates/kul-language-service/src/` with one `pub fn` taking `(&CheckResult, file: &str, …)` and returning a Kul-native type (byte spans, files by name). Re-export it from `lib.rs`. Give its result types the `cfg_attr(feature = "tsify", …)` derive.
-3. Add inline tests, `insta` snapshots for structured output, in the same module; cover a cross-file case if the feature can reach another file.
-4. Add a `Workspace` method in `crates/kul-wasm/src/lib.rs` that converts input offsets to bytes, calls the feature, and converts every span in the result back to UTF-16 (destructure the result exhaustively, so a new span field cannot slip through unconverted).
-5. Cover the method in `crates/kul-wasm/tests/workspace.rs`, its offsets in `tests/utf16.rs`, and the built module in `tests/node/smoke.mjs`; run `just wasm` and commit the regenerated `.d.ts`.
-6. If the feature needs new "what's at the cursor?" information, extend the `Node` enum in `node_at.rs` (additively — don't rename existing variants). If it keys on "what entity is the cursor pointing at?", call `node.entity_reference()` instead of pattern-matching the four id-bearing `Node` variants by hand.
+A feature is written once, in Rust, and reaches the editor through four thin layers ([ADR-0049](./adr/0049-the-language-service-and-the-workspace-in-a-worker.md)).
+
+**The service** (`crates/kul-language-service`):
+
+1. Read [ADR-0001](./adr/0001-resolved-document-as-query-seam.md) — phrase the feature as a question against `ResolvedDocument`. If it keys on "what entity is the cursor on?", start from `entity_under`; if it needs new "what's at the cursor?" information, extend the `Node` enum in `node_at.rs` additively.
+2. Add a module under `src/` with one `pub fn` taking `(&CheckResult, file: &str, …)` with byte offsets, returning a Kul-native type (byte spans, files by name). Re-export it from `lib.rs`. Give new result types the `cfg_attr(feature = "tsify", …)` derive and rustdoc written for a TypeScript reader.
+3. Test it inline: `insta` snapshots for structured output, a cross-file case if the feature can reach another file. A perf-sensitive feature gets a gate in `tests/perf.rs`.
+
+**The WASM surface** (`crates/kul-wasm`):
+
+4. Add a `Workspace` method in `src/lib.rs` (`#[wasm_bindgen(js_name = "camelCase")]`): convert input offsets to bytes through the file's `Utf16Index`, call the feature on the cached check, and convert every span in the result back to UTF-16 — destructure the result exhaustively so a new span field cannot slip through.
+5. Cover the method in `tests/workspace.rs`, its offsets in `tests/utf16.rs`, the built module in `tests/node/smoke.mjs` and a consumer in `tests/typescript/usage.ts`. Run `just wasm` and commit the regenerated `types/kul_wasm.d.ts`.
+
+**The language worker** (`apps/web/src/language/`):
+
+6. Add the method to the worker's API in `worker.ts` as `name: (…) => answer((w) => w.name(…))`. `answer` runs any waiting analysis first and tags the result with the versions it was computed from. The client's `query("name", …)` picks it up from the worker's type, and returns `undefined` when an edit has overtaken the answer or the worker crashed — handle that.
+
+**The editor** (`apps/web/src/editor/`, `apps/web/src/app/editor/`):
+
+7. Map the answer onto CodeMirror. A feature CodeMirror asks for (hover, completion) goes into `KulFeatures` and the extension in `src/editor/kul-editor.ts`; a command (format, rename, references) goes into `src/app/editor/editor-controller.ts`, which applies edits through `applyFileEdits` (all files or none, one undo step).
+8. A shortcut is declared once in `src/app/shortcuts.ts` (scope `editor`) and a palette command registered in `src/app/editor/editor-commands.ts`. The keyboard-shortcuts docs page is checked against the shortcut table, so add the key there (`apps/web/content/docs/app/keyboard-shortcuts.mdx`), and describe the feature in `apps/web/content/docs/app/editor.mdx`.
+9. Cover what a user sees in `apps/web/e2e/editor.spec.ts`, and add a tour state in `e2e/tour.spec.ts` if the feature draws something new; open the screenshots.
 
 ### A new AST variant
 
@@ -269,6 +316,20 @@ Per ADR-0006 a single rule can carry multiple sub-cases on the same primary span
 1. Add a variant to `Command` in `crates/kul-cli/src/main.rs`.
 2. Add the implementation under `crates/kul-cli/src/commands/`.
 3. Add an end-to-end test in `crates/kul-cli/tests/` using `assert_cmd`.
+
+### A new route in the web app
+
+Routes are TanStack Router file routes under `apps/web/src/routes/` ([ADR-0047](./adr/0047-the-browser-app-is-kuls-only-interactive-surface.md)).
+
+- **A site page** (prerendered, readable without JavaScript):
+  1. Add the route file (`createFileRoute("/path/")`) with a `head()` that sets the title, description and canonical URL. Links use trailing slashes (`trailingSlash: "always"`), so a page is `/path/` and is written to `path/index.html`.
+  2. Add its path to `pagePaths()` in `apps/web/vite.config.ts`; the prerender and the sitemap both read it, and `check-landing` fails the build if the sitemap and the built pages disagree.
+  3. Keep the shared `SiteHeader` / `SiteFooter` (the footer's `Kul <version>` is read by the offline and update suites).
+  4. Nothing else for offline or headers: the service worker precaches every built file, and `finalize-dist.mjs` gives the new HTML its CSP. Run `just web-build`: `check-dist` and `check-links` must pass.
+  5. Add an e2e check (JavaScript off, in `e2e/site.spec.ts`, if the page must read without it) and a tour state at 390 and 1440 px.
+- **A docs page** is not a route: add an `.mdx` file under `apps/web/content/docs/` and list it in its folder's `meta.json`. `scripts/docs-pages.mjs` adds it and its `.md` variant to the prerender, and `llms.txt` / `llms-full.txt` pick it up.
+- **A non-HTML file** (like `llms.txt`) is a server route — `createFileRoute(...)({ server: { handlers: { GET } } })`, file name with the extension in brackets (`foo[.]txt.ts`) — and must be listed in the prerender's `pages` in `vite.config.ts`, since the crawler only follows `<a>` links. Give its type a `_headers` rule in `finalize-dist.mjs` if Netlify would guess it wrong.
+- **An app view** lives under `/app` and is client-only: add the file under `routes/app/`, with `ssr: false` inherited from `routes/app/route.tsx`. It is never prerendered (`_redirects` serves `/_shell.html` for every `/app/*` path, and the service worker falls back to the shell offline). Register its commands with `useCommands` and its shortcuts in `src/app/shortcuts.ts`, and cover it in `e2e/` on all three browsers.
 
 ### A new kinship-query capability (kin-set variant, projection, or filter)
 

@@ -62,7 +62,8 @@ Red flags:
 
 Mock at **system boundaries** only:
 
-- External processes — e.g. the LSP client driving the server in `crates/kul-lsp/tests/`, child processes the CLI spawns.
+- External processes — e.g. the `kul` binary the CLI tests drive through `assert_cmd`.
+- Browser and worker boundaries — e.g. the language client's `spawn` (Node tests pass a fake worker; `engine.browser.test.ts` runs the real one), the store's `StorageBackend` (the in-memory backend is a second real adapter, not a mock), injected timers in the analysis scheduler.
 - The file system at the edge, when the test's question is not about disk.
 - Time and clock, when behavior depends on them.
 
