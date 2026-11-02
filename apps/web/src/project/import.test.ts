@@ -19,7 +19,7 @@ const entry = (path: string, text: string): ImportEntry => ({
 describe("flattenImport", () => {
   it("keeps the .kul files from a folder, flattened to their names", () => {
     const batch = flattenImport([
-      entry("family/kul.yml", "kul: 0.1"),
+      entry("family/README.md", "# Family"),
       entry("family/a.kul", "person a"),
       entry("family/branch/b.kul", "person b"),
       entry("family/photo.png", "\u0089PNG"),

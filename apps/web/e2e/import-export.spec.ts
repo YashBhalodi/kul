@@ -57,7 +57,7 @@ test("importing a folder keeps only its .kul files", async ({ page }) => {
   await openProject(page)
   const dir = join(scratchDir(), "okeke-branch")
   mkdirSync(join(dir, "nested"), { recursive: true })
-  writeFileSync(join(dir, "kul.yml"), "kul: 0.1\n")
+  writeFileSync(join(dir, "README.md"), "# The Okeke branch\n")
   writeFileSync(join(dir, "photo.png"), new Uint8Array([0x89, 0x50, 0x4e]))
   writeFileSync(
     join(dir, "cousins.kul"),
