@@ -1,8 +1,7 @@
 name: Web
 
 # The web app's gates, the workflow lint and the release script's tests,
-# through the same `just` recipes `just check` and `just verify` run locally. The web recipes skip with a
-# message while apps/web has no package.json.
+# through the same `just` recipes `just check` and `just verify` run locally.
 
 on:
   push:
@@ -33,6 +32,8 @@ jobs:
       # links it into node_modules only when it exists, so build it first.
       - run: just wasm
       - run: npm ci
+      # Vitest's browser mode and the Playwright suites drive real browsers.
+      - run: npx playwright install --with-deps chromium webkit firefox
       - run: just web-check web-build
       - run: just e2e shots lighthouse
       - name: Upload the screenshot tour
