@@ -1,6 +1,12 @@
 {
   "include": ["**/*.ts", "**/*.tsx", "**/*.mjs"],
-  "exclude": ["node_modules", "dist", "test-results", ".lighthouseci"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test-results",
+    ".lighthouseci",
+    "src/sw"
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",

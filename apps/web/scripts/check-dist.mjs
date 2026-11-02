@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Checks the production build's static layout after `npm run build`: every
 // prerendered page, the SPA shell, the llms files, the docs' Markdown
-// variants, the search index and the Netlify config sit at their exact
-// paths, and nothing that must stay client-only was prerendered.
+// variants, the search index, the service worker and the Netlify config sit
+// at their exact paths, nothing that must stay client-only was prerendered,
+// and the service worker precaches every file the site serves.
 //
 //   node scripts/check-dist.mjs [--dir <dir>]
 //
@@ -13,6 +14,7 @@ import { join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { parseArgs } from "node:util"
 
+import { SW_FILE, precachedUrls } from "./build-sw.mjs"
 import { inlineScripts, listFiles, scriptHash } from "./finalize-dist.mjs"
 import { headersFor, parseHeaders, parseRedirects } from "./serve-dist.mjs"
 
@@ -67,6 +69,36 @@ export function checkDist(root) {
       requireFile(`docs/${slug}/index.html`, `the page of ${variant}`)
   }
 
+  // The service worker precaches every file the site serves: by name, the
+  // shell, the .wasm, the language worker's chunk and every docs page.
+  if (requireFile(SW_FILE, "the service worker")) {
+    const precached = new Set(precachedUrls(read(SW_FILE)))
+    const unserved = new Set([SW_FILE, "_headers", "_redirects"])
+    for (const file of files) {
+      if (unserved.has(file) || file.endsWith(".map")) continue
+      if (!precached.has(`/${file}`))
+        problems.push(`${SW_FILE} does not precache /${file}`)
+    }
+    for (const url of precached) {
+      if (!files.has(url.slice(1)))
+        problems.push(`${SW_FILE} precaches ${url}, which is not in the build`)
+    }
+    const named = [
+      ["the SPA shell", /^\/_shell\.html$/],
+      ["the .wasm", /^\/assets\/kul_wasm_bg-[\w-]+\.wasm$/],
+      ["the language worker", /^\/assets\/worker-[\w-]+\.js$/],
+      ["the docs search index", /^\/docs\/search\.json$/],
+    ]
+    for (const [what, pattern] of named) {
+      if (![...precached].some((url) => pattern.test(url)))
+        problems.push(`${SW_FILE} does not precache ${what}`)
+    }
+    for (const page of ["docs/index.html", ...docsPages]) {
+      if (!precached.has(`/${page}`))
+        problems.push(`${SW_FILE} does not precache the docs page /${page}`)
+    }
+  }
+
   // The app is client-only: only the shell renders it.
   for (const file of files) {
     if (file === "app/index.html" || file.startsWith("app/")) {
@@ -118,6 +150,14 @@ export function checkDist(root) {
         )
       }
     }
+  }
+  // Browsers revalidate the service worker on every check, under the CSP.
+  if (files.has("_headers") && files.has(SW_FILE)) {
+    const headers = headersFor(parseHeaders(read("_headers")), `/${SW_FILE}`)
+    if (headers.get("cache-control")?.value !== "no-cache")
+      problems.push(`/${SW_FILE} is not served with Cache-Control: no-cache`)
+    if (!headers.get("content-security-policy"))
+      problems.push(`/${SW_FILE} has no Content-Security-Policy`)
   }
   return problems
 }

@@ -14,7 +14,8 @@
 //   - HTML (and /app/*, which _redirects serves /_shell.html for): the CSP
 //     with that file's script hashes, and Cache-Control: no-cache;
 //   - other files outside /assets/ (llms.txt, the .md variants, the search
-//     index, the favicon, sw.js): Cache-Control: no-cache;
+//     index, the favicon, sw.js): Cache-Control: no-cache, and for a script
+//     (sw.js) the CSP, which governs everything the service worker fetches;
 //   - /assets/* (content-hashed by Vite): immutable for a year, and the CSP,
 //     which governs the language worker's script; *.wasm is application/wasm.
 
@@ -132,6 +133,8 @@ export function buildHeaders(files, read) {
       const extension = file.slice(file.lastIndexOf("."))
       const contentType = CONTENT_TYPES[extension]
       if (contentType) headers.push(["Content-Type", contentType])
+      if (extension === ".js")
+        headers.push(["Content-Security-Policy", contentSecurityPolicy()])
     }
     blocks.push(block(patterns, headers))
   }

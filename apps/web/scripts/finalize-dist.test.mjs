@@ -86,6 +86,13 @@ describe("buildHeaders", () => {
     }
   })
 
+  it("gives the service worker the policy without page hashes", () => {
+    expect(get("/sw.js", "content-security-policy")).toBe(
+      contentSecurityPolicy()
+    )
+    expect(get("/llms.txt", "content-security-policy")).toBeUndefined()
+  })
+
   it("serves the WASM as application/wasm and Markdown as text/markdown", () => {
     expect(get("/assets/kul_wasm_bg-abc.wasm", "content-type")).toBe(
       "application/wasm"
