@@ -40,7 +40,7 @@ There are no skipped or ignored tests anywhere in the workspace. If a test is br
 just check
 ```
 
-Runs fmt-check, clippy at deny-level, and the full test suite via `cargo nextest`. CI runs the same — local-green should imply CI-green. If you want only the test suite: `just test`.
+Runs fmt-check, clippy at deny-level, the full test suite via `cargo nextest`, the WASM build and its gates (`just wasm-check`), the TypeScript workspace gates and the web app's gates. CI runs the same recipes — local-green implies CI-green. If you want only the test suite: `just test`. `just verify` adds the browser suites, Lighthouse and actionlint (see [`AGENTS.md`](../AGENTS.md)).
 
 ## Snapshots (insta)
 
@@ -150,10 +150,10 @@ If a budget gets in the way of a legitimate change, *raise it deliberately*, wit
 
 The WASM artifact has two CI gates that aren't tests in the `cargo nextest` sense, but fail the build the same way:
 
-- **Bundle-size budget** — the `wasm-build` job in `.github/workflows/rust.yml` gzips the built `.wasm` and fails if size > 1 MB. Prevents silent regressions where a dependency bump bloats the artifact.
+- **Bundle-size budget** — `just wasm-check` (the `wasm-build` job in `.github/workflows/rust.yml`) gzips the built `.wasm` and fails if size > 1 MB. Prevents silent regressions where a dependency bump bloats the artifact.
 - **Generated TypeScript types diff** — the same job regenerates `crates/kul-wasm/types/kul_wasm.d.ts` via `wasm-pack build` and `git diff --exit-code`s against the committed snapshot. A Rust-side type change that crosses the WASM boundary fails the merge with a reviewable diff instead of landing as silent runtime drift on consumers (per [ADR-0012](./adr/0012-tsify-derived-types-committed-and-diffed.md)). Regenerate locally with `just wasm` and commit the diff.
 
-Both gates are part of `.github/workflows/rust.yml` (per-PR), not just `release.yml` — a Rust-side change that breaks WASM is caught at PR time, not at release tag.
+Both gates are part of `just check` and `.github/workflows/rust.yml` (per-PR), not just `release.yml` — a Rust-side change that breaks WASM is caught at PR time, not at release tag.
 
 ## What not to test
 

@@ -9,6 +9,8 @@ on:
       - "Cargo.lock"
       - "rustfmt.toml"
       - "justfile"
+      - "examples/**"
+      - ".nvmrc"
       - ".github/workflows/rust.yml"
   pull_request:
     paths:
@@ -17,6 +19,8 @@ on:
       - "Cargo.lock"
       - "rustfmt.toml"
       - "justfile"
+      - "examples/**"
+      - ".nvmrc"
       - ".github/workflows/rust.yml"
 
 env:
@@ -33,7 +37,10 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt
-      - run: cargo fmt --all -- --check
+      - uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3 # v2
+        with:
+          tool: just
+      - run: just fmt-check
 
   clippy:
     name: clippy
@@ -45,7 +52,10 @@ jobs:
           toolchain: stable
           components: clippy
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3 # v2
+        with:
+          tool: just
+      - run: just lint
 
   audit:
     name: cargo-audit
@@ -75,8 +85,8 @@ jobs:
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3 # v2
         with:
-          tool: nextest
-      - run: cargo nextest run --workspace --no-tests=pass
+          tool: nextest,just
+      - run: just test
 
   perf-release:
     name: perf (release)
@@ -89,12 +99,8 @@ jobs:
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3 # v2
         with:
-          tool: nextest
-      # The LSP server ships release-built, so the release wall-clock is the
-      # real per-edit cost a user feels. The `test` job already gates the
-      # debug ceiling via the workspace run; this enforces the tighter
-      # release ceiling on every PR (release compile scoped to kul-lsp + deps).
-      - run: cargo nextest run -p kul-lsp --release -E 'binary(perf)'
+          tool: nextest,just
+      - run: just perf-release
 
   wasm-build:
     name: wasm-build
@@ -110,43 +116,11 @@ jobs:
           key: wasm-build
       - uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3 # v2
         with:
-          tool: wasm-pack@0.13.1
+          tool: wasm-pack@0.13.1,just
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
-      - name: Build @kullang/wasm
-        run: |
-          wasm-pack build crates/kul-wasm --target bundler --out-dir pkg --out-name kul_wasm
-          node -e 'const fs=require("fs"),p="crates/kul-wasm/pkg/package.json";const j=JSON.parse(fs.readFileSync(p));j.name="@kullang/wasm";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")'
-      - name: Verify package.json shape
-        run: |
-          set -eu
-          name=$(node -p 'require("./crates/kul-wasm/pkg/package.json").name')
-          version=$(node -p 'require("./crates/kul-wasm/pkg/package.json").version')
-          ws_version=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
-          test "$name" = "@kullang/wasm" || { echo "::error::package name $name != @kullang/wasm"; exit 1; }
-          test "$version" = "$ws_version" || { echo "::error::package version $version != workspace $ws_version"; exit 1; }
-      - name: Bundle-size budget (gzipped .wasm ≤ 1 MB)
-        run: |
-          set -eu
-          size=$(gzip -c crates/kul-wasm/pkg/kul_wasm_bg.wasm | wc -c)
-          budget=$((1024 * 1024))
-          echo "gzipped .wasm: $size bytes (budget: $budget)"
-          if [ "$size" -gt "$budget" ]; then
-            echo "::error::wasm gzip size $size exceeds budget $budget"
-            exit 1
-          fi
-      - name: Refresh committed types and diff
-        run: |
-          set -eu
-          cp crates/kul-wasm/pkg/kul_wasm.d.ts crates/kul-wasm/types/kul_wasm.d.ts
-          git diff --exit-code -- crates/kul-wasm/types/ || {
-            echo "::error::generated kul_wasm.d.ts differs from committed snapshot — run \`just wasm\` and commit the diff"
-            exit 1
-          }
-      - name: Run Rust snapshot tests
-        run: cargo test -p kul-wasm
-      - name: Node smoke test
-        run: node --experimental-wasm-modules crates/kul-wasm/tests/node/smoke.mjs
-      - name: TypeScript compile-test
-        run: npx --yes -p typescript@5.6 tsc --project crates/kul-wasm/tests/typescript/tsconfig.json
+          node-version-file: .nvmrc
+      # `just wasm-check` builds both targets and runs every WASM gate: the
+      # committed .d.ts diff, package name and version, the gzipped size
+      # budget, the Node smoke test and the TypeScript compile-test.
+      - run: just wasm-check

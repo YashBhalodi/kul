@@ -55,7 +55,7 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 - [`just`](https://just.systems/) — task runner. `cargo install just --locked` or `brew install just`.
 - [`cargo-nextest`](https://nexte.st/) — test runner. `cargo install cargo-nextest --locked`.
 - [Node 22](https://nodejs.org/) with `npm ci` run once at the repo root — `just check`'s TypeScript gate and the VSCode extension build need it. The pinned version lives in `.nvmrc`.
-- [`wasm-pack`](https://rustwasm.github.io/wasm-pack/installer/) — for `just wasm`, and for **packaging the VSCode extension** (`just vscode`, `npm run package`). The preview's query engine runs in the webview and ships as a build asset rather than an npm dependency ([ADR-0040](./docs/adr/0040-engine-provenance-a-build-asset-not-a-registry-dependency.md)), so `just wasm` must have been run before the `.vsix` can be built. Not needed for `npm ci` or `just check`. `cargo install wasm-pack --locked` or the installer script.
+- [`wasm-pack`](https://rustwasm.github.io/wasm-pack/installer/) — `just check` builds the WASM and runs its gates (`just wasm-check`). The VSCode extension packages the `--target web` build as a build asset ([ADR-0040](./docs/adr/0040-engine-provenance-a-build-asset-not-a-registry-dependency.md)). `cargo install wasm-pack --locked` or the installer script.
 
 ### One command for green
 
@@ -63,7 +63,13 @@ CONTEXT.md     — domain glossary; canonical vocabulary for the project
 just check
 ```
 
-Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo nextest run --workspace`, then the TypeScript workspace tests (Vitest in `packages/preview` and `editor/vscode`) and finally the extension's preview build and bundle. That last step is not redundant with the tests: Vitest resolves `packages/preview/src`, while the extension bundles `dist` — only the bundle catches a module that never reached `dist`, which is the failure mode a new `src/` subdirectory introduces. Local-green should imply CI-green; the Rust gates run in `.github/workflows/rust.yml` and the same TypeScript suites run in `.github/workflows/vscode-extension.yml`.
+Runs `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo nextest run --workspace`; then `just wasm-check` (both WASM builds, the committed `.d.ts` diff, the package shape, the 1 MB gzipped budget, the Node smoke test and the TypeScript compile-test); then the TypeScript workspace tests (Vitest in `packages/preview` and `editor/vscode`) and the extension's preview build and bundle. That bundle step is not redundant with the tests: Vitest resolves `packages/preview/src`, while the extension bundles `dist` — only the bundle catches a module that never reached `dist`. Last come the web app's gates (`just web-check`, `just web-build`): the `apps/web/scripts/serve-dist.mjs` unit tests always, and the app's typecheck, lint, unit tests and production build once `apps/web/package.json` exists. Local-green implies CI-green: `.github/workflows/rust.yml`, `web.yml` and `vscode-extension.yml` run the same recipes.
+
+```sh
+just verify
+```
+
+Runs `just check`, then `just e2e` (Playwright against the built site served by `serve-dist`), `just shots` (the screenshot tour with axe), `just lighthouse`, the epic #343 harness (`just baseline-diff`, `just vestige-check`; see `scripts/pivot/`) and `just lint-workflows` (actionlint). The web recipes print a skip line while `apps/web/package.json` does not exist.
 
 Other recipes:
 
