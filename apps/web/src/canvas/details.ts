@@ -182,17 +182,12 @@ function marriageModel(
   }
 }
 
-/**
- * The panel's model for an answer from `details`, or undefined for an
- * answer the canvas never selects (an adoption, which has no id of its own).
- */
-export function detailsModel(detail: EntityDetail): DetailsModel | undefined {
+/** The panel's model for an answer from `details`. */
+export function detailsModel(detail: EntityDetail): DetailsModel {
   switch (detail.kind) {
     case "person":
       return personModel(detail)
     case "marriage":
       return marriageModel(detail)
-    case "adoption":
-      return undefined
   }
 }

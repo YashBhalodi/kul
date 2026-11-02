@@ -1,6 +1,6 @@
 # ADR 0037 — The batched detail lookup: a target list in, an entity-kind union out
 
-**Status:** Accepted; amended by [ADR-0049](./0049-the-language-service-and-the-workspace-in-a-worker.md) — the language service calls `details` directly; the query envelope around it and its WASM query function were removed.
+**Status:** Accepted; amended by [ADR-0049](./0049-the-language-service-and-the-workspace-in-a-worker.md) — the lookup answers one person or marriage by id; the target list, the adoption target and its variant were removed (see the amendment below).
 **Date:** 2026-07-26
 **Deciders:** owner
 
@@ -164,3 +164,12 @@ without reshaping the contract.
   regardless, which is the adjacency ADR-0025 already sanctions building per invocation.
 - **"Add `kul query detail` for symmetry."** It cannot be spelled without a CLI-only pair syntax and
   a CLI-only batch grammar. Symmetry is not worth a second address vocabulary.
+
+## Amendment (2026-11-02) — one entity by id
+
+The details panel is the lookup's only caller, and it asks about one entity at a time: the canvas selects a person card or a marriage line, never an adoption edge. So the lookup is now `query::detail(resolved, id) -> Option<EntityDetail>`, answering the person or marriage `id` names (they share one namespace), and these parts of the decision above no longer hold:
+
+- **The target list.** The batch existed so a stateless WASM call could pay the project check once for many targets. The browser `Workspace` caches one check per edit ([ADR-0049](./0049-the-language-service-and-the-workspace-in-a-worker.md)), so each call already reads a checked project; a list in and a list out only added a wrapper. The flatness perf test went with it; `detail(id)` sits in the query engine's per-operation budget instead.
+- **The adoption target and the `adoption` variant of `EntityDetail`.** No surface selects an adoption. An adoption's own dates still reach the panel on the adopted person's parent rows (`LinkedPerson.link`).
+
+What stands: the answer carries only export shapes, one row per link (path identity), a marriage per row with the spouse beside it, absence is `None`, and the CLI has no matching verb.

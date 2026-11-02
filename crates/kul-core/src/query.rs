@@ -23,10 +23,9 @@
 //! anchor* to a kin-set or relationship question rather than the subject of
 //! the question.)
 //!
-//! [`details`] is the **batched** member of the same family: one
-//! check, any number of [`DetailTarget`]s, each answered with the entity's
-//! own fields *plus* its relational neighbourhood. It exists because the
-//! single-entity lookups cannot answer a details panel (ADR-0037);
+//! [`detail`] is the third member of the same family: one person or marriage
+//! answered with its own fields *plus* its relational neighbourhood, because
+//! the plain lookups cannot answer a details panel (ADR-0037);
 //! [`EntityDetail`] carries the shape.
 //!
 //! The [`QueryEnvelope`] type is the CLI's contract: `kul query` wraps an
@@ -55,7 +54,7 @@ pub use descriptor::{
     Affinity, Classification, EdgeNature, Gender, HopEdge, LinealRole, MarriageStatus, PathHop,
     RelationshipDescriptor, Seniority, Sharing, Side,
 };
-pub use detail::{DetailTarget, EntityDetail, LinkedPerson, MarriageTie, details};
+pub use detail::{EntityDetail, LinkedPerson, MarriageTie, detail};
 pub use engine::{KinMember, QueryEvalError, evaluate, resolve, run_query};
 pub use filter::{FilterMode, PersonField, Predicate, SortDirection, SortSpec};
 pub use pattern::{

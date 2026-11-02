@@ -22,7 +22,7 @@ use crate::span::ByteSpan;
 
 /// Build the [`ExportedParenthoodLink`] for `child`'s `birth` sub-statement.
 /// The single source of a biological link's serialized shape: the graph
-/// export loop and the `query` module's batched detail lookup both call this,
+/// export loop and the `query` module's detail lookup both call this,
 /// so the two can never drift (same discipline as [`build_one_person`]).
 pub(crate) fn build_one_birth_link(
     child: &PersonStmt,

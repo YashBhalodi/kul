@@ -1,31 +1,22 @@
-//! The **batched detail lookup** — one check, any number of entities, each
-//! answered with its own fields *plus* its relational neighbourhood.
+//! The **detail lookup** — one entity's own fields *plus* its relational
+//! neighbourhood, for a details panel.
 //!
-//! The single-entity [`person`](super::person) / [`marriage`](super::marriage)
-//! lookups (ADR-0024) cannot answer a detail panel: `ExportedMarriage` carries
-//! no children, and no parenthood-link lookup exists at all. Composing them
-//! with kin-set queries would work, but every stateless call re-pays the
-//! project check — the dominant per-call cost — so a four-call composition
-//! costs ~4× a one-call answer and an N-row list costs ~N×. This operation
-//! pays the check **once** and answers every target off the same
-//! [`ResolvedDocument`], which is what makes its cost flat in the number of
-//! targets (ADR-0035, ADR-0037).
+//! The [`person`](super::person) / [`marriage`](super::marriage) lookups
+//! (ADR-0024) cannot answer a details panel: `ExportedMarriage` carries no
+//! children, and no parenthood-link lookup exists. [`detail`] answers a person
+//! or a marriage by id (they share one namespace) with its parents, marriages,
+//! spouses and children, read through [`ResolvedDocument`]'s one-hop seams
+//! (ADR-0001, ADR-0037).
 //!
-//! **Absence is the answer**, exactly as for the single-entity lookups: a
-//! target naming no entity yields `None` at its position, never an error. The
-//! target *is* the subject of the question (ADR-0024 draws that line against
-//! the anchor of a relationship question, which is a typed error).
+//! **Absence is the answer**, exactly as for the other lookups: an id naming
+//! no entity yields `None`, never an error.
 //!
 //! Every entity in the answer carries the **export shapes** —
 //! [`ExportedPerson`], [`ExportedMarriage`], [`ExportedParenthoodLink`] —
-//! single-sourced through `projection::build_one_*`. There is no second,
-//! leaner person shape; a consumer that needs a display name reads
-//! `person.name`, which is why this one operation also supplies a kin list's
-//! row labels.
+//! single-sourced through `projection::build_one_*`, so the panel and the
+//! export can never disagree about a person's shape.
 
-use std::collections::HashMap;
-
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
@@ -34,63 +25,7 @@ use crate::export::{ExportOptions, ExportedMarriage, ExportedParenthoodLink, Exp
 use crate::projection::{
     build_one_adoption_link, build_one_birth_link, build_one_marriage, build_one_person,
 };
-use crate::semantic::{ChildLink, ParentLinkKind, ResolvedDocument};
-
-/// What one entry of a batched detail lookup addresses.
-///
-/// Three entity kinds, because three things on a rendered tree are selectable:
-/// a person card, a marriage edge, and an adoption edge. An **adoption link
-/// has no id of its own** — it is a sub-statement of the child — so it is
-/// addressed by the `(childId, marriageId)` pair, the same pair the rendered
-/// adoption edge carries. Variants stay additive: a `birth` target would be a
-/// new variant, never a reshape.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
-pub enum DetailTarget {
-    /// A person, by id.
-    Person {
-        /// The person's id.
-        id: String,
-    },
-    /// A marriage, by id.
-    Marriage {
-        /// The marriage's id.
-        id: String,
-    },
-    /// One `adoption` sub-statement, addressed by the child it belongs to and
-    /// the marriage it adopts into.
-    #[serde(rename_all = "camelCase")]
-    Adoption {
-        /// Id of the adopted person.
-        child_id: String,
-        /// Id of the marriage adopted into.
-        marriage_id: String,
-    },
-}
-
-impl DetailTarget {
-    /// A person target.
-    #[must_use]
-    pub fn person(id: impl Into<String>) -> Self {
-        DetailTarget::Person { id: id.into() }
-    }
-
-    /// A marriage target.
-    #[must_use]
-    pub fn marriage(id: impl Into<String>) -> Self {
-        DetailTarget::Marriage { id: id.into() }
-    }
-
-    /// An adoption target: the `adoption` sub-statement on `child_id` that
-    /// names `marriage_id`.
-    #[must_use]
-    pub fn adoption(child_id: impl Into<String>, marriage_id: impl Into<String>) -> Self {
-        DetailTarget::Adoption {
-            child_id: child_id.into(),
-            marriage_id: marriage_id.into(),
-        }
-    }
-}
+use crate::semantic::{ChildLink, EntityKind, ParentLinkKind, ResolvedDocument};
 
 /// A neighbouring person plus the parenthood link that reaches them.
 ///
@@ -113,7 +48,7 @@ pub struct LinkedPerson {
 ///
 /// Each marriage is its own row rather than a joined spouse list, because the
 /// marriage's `start` / `end` / `endReason` are what explain a person's
-/// history (ADR-0035).
+/// history.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
@@ -127,10 +62,10 @@ pub struct MarriageTie {
     pub spouse: Option<ExportedPerson>,
 }
 
-/// One entity's own fields plus its relational neighbourhood — the answer to
-/// a single [`DetailTarget`].
+/// One entity's own fields plus its relational neighbourhood, as a details
+/// panel shows it.
 ///
-/// A tagged union over the three selectable entity kinds, so a consumer's
+/// A tagged union over the two entity kinds an id can name, so a consumer's
 /// panel variant maps 1:1 onto a variant here. Absent fields are **omitted**
 /// from the wire (the export shapes' `skip_serializing_if`), never sent as an
 /// empty placeholder.
@@ -164,40 +99,24 @@ pub enum EntityDetail {
         /// order, one row per link.
         children: Vec<LinkedPerson>,
     },
-    /// An adoption link: its own fields, the adopted child, and the adopting
-    /// couple.
-    Adoption {
-        /// The adoption link's own recorded fields (`start:` / `end:`).
-        adoption: ExportedParenthoodLink,
-        /// The adopted person.
-        child: ExportedPerson,
-        /// The adopting couple — the spouses of the marriage adopted into,
-        /// in declaration order.
-        parents: Vec<ExportedPerson>,
-    },
 }
 
-/// Answer every `target` off one [`ResolvedDocument`], in the order asked.
+/// The details of the person or marriage called `id`, or `None` when no
+/// entity has that id.
 ///
-/// Position `i` of the answer is the detail for `targets[i]`, or `None` when
-/// that target names no entity. The per-invocation spouse index is built
-/// **once** and shared by every target; children come from
-/// [`ResolvedDocument::children_of_marriage`] (the resolver-owned inverse
-/// index). The marginal cost of a target is its own neighbourhood — the batch
-/// is flat in the number of targets relative to the check that precedes it
-/// (ADR-0037).
+/// Children come from [`ResolvedDocument::children_of_marriage`] (the
+/// resolver-owned inverse index); a person's marriages are found by one pass
+/// over the project's marriages.
 #[must_use]
-pub fn details(resolved: &ResolvedDocument, targets: &[DetailTarget]) -> Vec<Option<EntityDetail>> {
-    let index = Adjacency::build(resolved);
-    targets
-        .iter()
-        .map(|target| index.detail(resolved, target))
-        .collect()
+pub fn detail(resolved: &ResolvedDocument, id: &str) -> Option<EntityDetail> {
+    match resolved.entity(id)?.kind {
+        EntityKind::Person => person_detail(resolved, id),
+        EntityKind::Marriage => marriage_detail(resolved, id),
+    }
 }
 
-/// One parenthood link, borrowed from the resolved document. Held by
-/// reference so building the adjacency never allocates a serialized link that
-/// no target asks for.
+/// One parenthood link, borrowed from the resolved document, projected only
+/// when a row needs it.
 enum LinkRef<'a> {
     Birth(&'a PersonStmt, &'a BirthSub),
     Adoption(&'a PersonStmt, &'a AdoptionSub),
@@ -254,146 +173,88 @@ fn parent_rows(
         .collect()
 }
 
-/// Per-invocation spouse index over the resolved project. Built once per
-/// batch; no cross-call cache (ADR-0029). Children come from
-/// [`ResolvedDocument::children_of_marriage`].
-struct Adjacency<'a> {
-    /// Person id → every marriage they are a spouse in, in declaration order.
-    marriages_of_spouse: HashMap<&'a str, Vec<&'a MarriageStmt>>,
+fn person_detail(resolved: &ResolvedDocument, id: &str) -> Option<EntityDetail> {
+    let options = ExportOptions::default();
+    let person = resolved.person(id)?;
+
+    let mut parents = Vec::new();
+    if let Some(birth) = &person.birth {
+        let link = LinkRef::Birth(person, birth);
+        parents.extend(parent_rows(
+            resolved,
+            &birth.marriage_ref.name,
+            &link,
+            &options,
+        ));
+    }
+    for adoption in &person.adoptions {
+        let link = LinkRef::Adoption(person, adoption);
+        parents.extend(parent_rows(
+            resolved,
+            &adoption.marriage_ref.name,
+            &link,
+            &options,
+        ));
+    }
+
+    let own_marriages: Vec<&MarriageStmt> = resolved
+        .marriages()
+        .filter(|marriage| {
+            resolved
+                .spouses_of(marriage)
+                .any(|spouse| spouse.id.name == person.id.name)
+        })
+        .collect();
+
+    let marriages = own_marriages
+        .iter()
+        .map(|marriage| MarriageTie {
+            marriage: build_one_marriage(marriage, &options),
+            spouse: resolved
+                .spouses_of(marriage)
+                .find(|s| s.id.name != person.id.name)
+                .map(|s| build_one_person(s, &options)),
+        })
+        .collect();
+
+    let children = own_marriages
+        .iter()
+        .flat_map(|marriage| child_rows(resolved, marriage, &options))
+        .collect();
+
+    Some(EntityDetail::Person {
+        person: build_one_person(person, &options),
+        parents,
+        marriages,
+        children,
+    })
 }
 
-impl<'a> Adjacency<'a> {
-    fn build(resolved: &'a ResolvedDocument) -> Self {
-        let mut marriages_of_spouse: HashMap<&str, Vec<&MarriageStmt>> = HashMap::new();
-        for marriage in resolved.marriages() {
-            for spouse in resolved.spouses_of(marriage) {
-                marriages_of_spouse
-                    .entry(spouse.id.name.as_str())
-                    .or_default()
-                    .push(marriage);
-            }
-        }
-
-        Adjacency {
-            marriages_of_spouse,
-        }
-    }
-
-    fn detail(
-        &self,
-        resolved: &'a ResolvedDocument,
-        target: &DetailTarget,
-    ) -> Option<EntityDetail> {
-        match target {
-            DetailTarget::Person { id } => self.person_detail(resolved, id),
-            DetailTarget::Marriage { id } => self.marriage_detail(resolved, id),
-            DetailTarget::Adoption {
-                child_id,
-                marriage_id,
-            } => self.adoption_detail(resolved, child_id, marriage_id),
-        }
-    }
-
-    fn person_detail(&self, resolved: &'a ResolvedDocument, id: &str) -> Option<EntityDetail> {
-        let options = ExportOptions::default();
-        let person = resolved.person(id)?;
-
-        let mut parents = Vec::new();
-        if let Some(birth) = &person.birth {
-            let link = LinkRef::Birth(person, birth);
-            parents.extend(parent_rows(
-                resolved,
-                &birth.marriage_ref.name,
-                &link,
-                &options,
-            ));
-        }
-        for adoption in &person.adoptions {
-            let link = LinkRef::Adoption(person, adoption);
-            parents.extend(parent_rows(
-                resolved,
-                &adoption.marriage_ref.name,
-                &link,
-                &options,
-            ));
-        }
-
-        let own_marriages = self
-            .marriages_of_spouse
-            .get(person.id.name.as_str())
-            .map_or(&[][..], Vec::as_slice);
-
-        let marriages = own_marriages
-            .iter()
-            .map(|marriage| MarriageTie {
-                marriage: build_one_marriage(marriage, &options),
-                spouse: resolved
-                    .spouses_of(marriage)
-                    .find(|s| s.id.name != person.id.name)
-                    .map(|s| build_one_person(s, &options)),
-            })
-            .collect();
-
-        let mut children = Vec::new();
-        for marriage in own_marriages {
-            for link in resolved.children_of_marriage(marriage) {
-                if let Some(link_ref) = link_ref_from_child_link(&link) {
-                    children.push(link_ref.child_row(&options));
-                }
-            }
-        }
-
-        Some(EntityDetail::Person {
-            person: build_one_person(person, &options),
-            parents,
-            marriages,
-            children,
-        })
-    }
-
-    fn marriage_detail(&self, resolved: &'a ResolvedDocument, id: &str) -> Option<EntityDetail> {
-        let options = ExportOptions::default();
-        let marriage = resolved.marriage(id)?;
-        let mut children = Vec::new();
-        for link in resolved.children_of_marriage(marriage) {
-            if let Some(link_ref) = link_ref_from_child_link(&link) {
-                children.push(link_ref.child_row(&options));
-            }
-        }
-        Some(EntityDetail::Marriage {
-            marriage: build_one_marriage(marriage, &options),
-            spouses: resolved
-                .spouses_of(marriage)
-                .map(|s| build_one_person(s, &options))
-                .collect(),
-            children,
-        })
-    }
-
-    fn adoption_detail(
-        &self,
-        resolved: &'a ResolvedDocument,
-        child_id: &str,
-        marriage_id: &str,
-    ) -> Option<EntityDetail> {
-        let options = ExportOptions::default();
-        let child = resolved.person(child_id)?;
-        let adoption = child
-            .adoptions
-            .iter()
-            .find(|a| a.marriage_ref.name == marriage_id)?;
-        let parents = resolved
-            .marriage(marriage_id)
-            .into_iter()
-            .flat_map(|m| resolved.spouses_of(m))
+fn marriage_detail(resolved: &ResolvedDocument, id: &str) -> Option<EntityDetail> {
+    let options = ExportOptions::default();
+    let marriage = resolved.marriage(id)?;
+    Some(EntityDetail::Marriage {
+        marriage: build_one_marriage(marriage, &options),
+        spouses: resolved
+            .spouses_of(marriage)
             .map(|s| build_one_person(s, &options))
-            .collect();
-        Some(EntityDetail::Adoption {
-            adoption: build_one_adoption_link(child, adoption, &options),
-            child: build_one_person(child, &options),
-            parents,
-        })
-    }
+            .collect(),
+        children: child_rows(resolved, marriage, &options),
+    })
+}
+
+/// Every child born or adopted into `marriage`, one row per link.
+fn child_rows(
+    resolved: &ResolvedDocument,
+    marriage: &MarriageStmt,
+    options: &ExportOptions,
+) -> Vec<LinkedPerson> {
+    resolved
+        .children_of_marriage(marriage)
+        .iter()
+        .filter_map(link_ref_from_child_link)
+        .map(|link| link.child_row(options))
+        .collect()
 }
 
 /// Project a resolver [`ChildLink`] to the export-facing [`LinkRef`].

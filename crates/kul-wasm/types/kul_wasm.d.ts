@@ -182,15 +182,15 @@ export interface DiagnosticCode {
 }
 
 /**
- * One entity\'s own fields plus its relational neighbourhood — the answer to
- * a single [`DetailTarget`].
+ * One entity\'s own fields plus its relational neighbourhood, as a details
+ * panel shows it.
  *
- * A tagged union over the three selectable entity kinds, so a consumer\'s
+ * A tagged union over the two entity kinds an id can name, so a consumer\'s
  * panel variant maps 1:1 onto a variant here. Absent fields are **omitted**
  * from the wire (the export shapes\' `skip_serializing_if`), never sent as an
  * empty placeholder.
  */
-export type EntityDetail = { kind: "person"; person: ExportedPerson; parents: LinkedPerson[]; marriages: MarriageTie[]; children: LinkedPerson[] } | { kind: "marriage"; marriage: ExportedMarriage; spouses: ExportedPerson[]; children: LinkedPerson[] } | { kind: "adoption"; adoption: ExportedParenthoodLink; child: ExportedPerson; parents: ExportedPerson[] };
+export type EntityDetail = { kind: "person"; person: ExportedPerson; parents: LinkedPerson[]; marriages: MarriageTie[]; children: LinkedPerson[] } | { kind: "marriage"; marriage: ExportedMarriage; spouses: ExportedPerson[]; children: LinkedPerson[] };
 
 /**
  * One highlighted token.
@@ -211,7 +211,7 @@ export interface Token {
  *
  * Each marriage is its own row rather than a joined spouse list, because the
  * marriage\'s `start` / `end` / `endReason` are what explain a person\'s
- * history (ADR-0035).
+ * history.
  */
 export interface MarriageTie {
     /**

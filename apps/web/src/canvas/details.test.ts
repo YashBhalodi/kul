@@ -86,8 +86,8 @@ describe("detailsModel", () => {
 
   it("lists birth parents apart from adoptive ones, with the adoption's dates", () => {
     const model = modelFor(EVERY_CATEGORY, "gus")
-    expect(model?.groups.map((group) => group.title)).toEqual(["Adopted by"])
-    expect(model?.groups[0]?.rows).toEqual([
+    expect(model.groups.map((group) => group.title)).toEqual(["Adopted by"])
+    expect(model.groups[0]?.rows).toEqual([
       {
         link: { entity: { kind: "person", id: "ana" }, label: "Ana" },
         note: "from 1990",
@@ -101,12 +101,12 @@ describe("detailsModel", () => {
 
   it("says how a marriage ended, and marks adopted children", () => {
     const ana = modelFor(EVERY_CATEGORY, "ana")
-    const marriages = ana?.groups.find((group) => group.title === "Marriages")
+    const marriages = ana.groups.find((group) => group.title === "Marriages")
     expect(marriages?.rows.map((row) => row.note)).toEqual([
       "married 1970, ended 1980 (divorce)",
       "married 1982",
     ])
-    const children = ana?.groups.find((group) => group.title === "Children")
+    const children = ana.groups.find((group) => group.title === "Children")
     expect(
       children?.rows.map((row) => [row.link.label, row.note ?? ""])
     ).toEqual([

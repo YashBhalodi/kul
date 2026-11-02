@@ -86,7 +86,7 @@ function refreshDetails() {
     .then((detail) => {
       if (request !== detailsRequest || !detail) return
       const model = detailsModel(detail)
-      if (model && sameEntity(model.entity, entity)) {
+      if (sameEntity(model.entity, entity)) {
         detailsStore.setState(() => model)
       }
     })

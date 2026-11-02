@@ -1,16 +1,15 @@
 //! Details: the read-only facts about one entity, for the canvas details
 //! panel.
 //!
-//! Answered by the batched detail lookup (`kul_core::query::details`, ADR-0037)
-//! over [`ResolvedDocument`](kul_core::semantic::ResolvedDocument)'s one-hop
+//! Answered by the detail lookup (`kul_core::query::detail`, ADR-0037) over
+//! [`ResolvedDocument`](kul_core::semantic::ResolvedDocument)'s one-hop
 //! seams — `parents_of`, `spouses_of`, `children_of_marriage` — never by the
 //! kinship query engine. Like the export it is strict on errors (ADR-0009):
 //! the facts are export shapes, which only a project that passes its checks
 //! can fill, so a failing project has no details.
 
 use kul_core::CheckResult;
-use kul_core::query::{DetailTarget, EntityDetail};
-use kul_core::semantic::EntityKind;
+use kul_core::query::EntityDetail;
 
 /// The facts about the person or marriage called `id`: a person's fields,
 /// parents, marriages with their spouses, and children (adoptions are the
@@ -21,14 +20,7 @@ pub fn details(check: &CheckResult, id: &str) -> Option<EntityDetail> {
     if check.has_errors() {
         return None;
     }
-    let target = match check.resolved().entity(id)?.kind {
-        EntityKind::Person => DetailTarget::person(id),
-        EntityKind::Marriage => DetailTarget::marriage(id),
-    };
-    kul_core::query::details(check.resolved(), &[target])
-        .into_iter()
-        .next()
-        .flatten()
+    kul_core::query::detail(check.resolved(), id)
 }
 
 #[cfg(test)]

@@ -127,8 +127,6 @@ function describe(detail: EntityDetail): string {
                 .join(', ')}, ${detail.children.length} children`;
         case 'marriage':
             return `${detail.spouses.map((p) => p.name).join(' & ')}, ${detail.marriage.endReason ?? 'ongoing'}`;
-        case 'adoption':
-            return `${detail.child.name} adopted ${detail.adoption.start?.value ?? ''}`;
     }
 }
 const panel: string = describe(ws.details('alice') ?? ws.details('m')!);
