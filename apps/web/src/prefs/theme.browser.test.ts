@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest"
 
-import themeInitSource from "@/theme-init.js?raw"
+import themeInitSource from "@/prefs/theme-init.js?raw"
 import {
   THEME_PREFERENCES,
   THEME_STORAGE_KEY,

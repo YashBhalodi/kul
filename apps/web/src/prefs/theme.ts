@@ -1,5 +1,5 @@
 // The theme preference: system, light or dark, remembered in localStorage.
-// src/theme-init.js applies it before the first paint; this module keeps it
+// theme-init.js applies it before the first paint; this module keeps it
 // applied afterwards, follows the system setting while the preference is
 // "system", and syncs across tabs.
 

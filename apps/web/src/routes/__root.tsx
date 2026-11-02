@@ -13,7 +13,7 @@ import { connectTheme } from "@/prefs/theme"
 import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url"
 
 import appCss from "@/styles.css?url"
-import themeScript from "@/theme-init.js?url&no-inline"
+import themeScript from "@/prefs/theme-init.js?url&no-inline"
 
 const RouterDevtools = import.meta.env.DEV
   ? lazy(() =>

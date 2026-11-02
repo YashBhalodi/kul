@@ -1,6 +1,6 @@
 // Runs in <head>, before the first paint, on every page: applies the saved
 // theme so the page never flashes the wrong one. It is a blocking external
-// script (the CSP allows no inline script). src/prefs/theme.ts owns the same
+// script (the CSP allows no inline script). theme.ts, beside it, owns the same
 // storage key and resolution rule at runtime; theme.browser.test.ts proves
 // the two agree.
 ;(function () {
