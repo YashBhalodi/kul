@@ -25,15 +25,20 @@ import { dismissReminder, durabilityStore } from "./durability-state"
  * Notices at the top of the canvas: that the tree on show is the last one
  * drawn before the project's errors, that this window can't store files,
  * or that the browser may clear them. (The editor window says when another
- * tab owns the project.)
+ * tab owns the project.) They stack as rows of one card, as wide as the
+ * widest of them.
  */
 export function ProjectBanners() {
   const { storageSaved, reminderVisible } = useSelector(durabilityStore)
+  const staleErrors = useStaleTreeErrors()
   const editorWindow = useSelector(
     sessionStore,
     (state) => state.status === "open" && state.ui.editorWindow
   )
   const canvas = useSelector(canvasSizeStore)
+  const storage = !storageSaved
+  const reminder = storageSaved && reminderVisible
+  if (staleErrors === 0 && !storage && !reminder) return null
   // Beside the editor window, never over it.
   const insets =
     editorWindow === false
@@ -42,50 +47,51 @@ export function ProjectBanners() {
   return (
     <div
       style={{ left: insets.left, right: insets.right }}
-      className="pointer-events-none absolute top-4 z-20 flex flex-col items-center gap-2 px-4"
+      className="pointer-events-none absolute top-4 z-20 flex justify-center px-4"
     >
-      <StaleTreeBanner />
-      {!storageSaved && (
-        <Banner
-          testId="storage-banner"
-          icon={<TriangleAlertIcon />}
-          actions={<BackupButton />}
-        >
-          This browser window can’t save files. Download a backup before you
-          close it.
-        </Banner>
-      )}
-      {storageSaved && reminderVisible && (
-        <Banner
-          testId="persistence-banner"
-          icon={<TriangleAlertIcon />}
-          actions={
-            <>
-              <BackupButton />
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Dismiss"
-                onClick={dismissReminder}
-              >
-                <XIcon />
-              </Button>
-            </>
-          }
-        >
-          Your browser may clear these files. Export a backup.
-        </Banner>
-      )}
+      <div className="pointer-events-auto flex max-w-2xl min-w-0 flex-col divide-y overflow-hidden rounded-xl border bg-popover text-sm text-popover-foreground shadow-lg">
+        {staleErrors > 0 && <StaleTreeBanner errors={staleErrors} />}
+        {storage && (
+          <Banner
+            testId="storage-banner"
+            icon={<TriangleAlertIcon />}
+            actions={<BackupButton />}
+          >
+            This browser window can’t save files. Download a backup before you
+            close it.
+          </Banner>
+        )}
+        {reminder && (
+          <Banner
+            testId="persistence-banner"
+            icon={<TriangleAlertIcon />}
+            actions={
+              <>
+                <BackupButton />
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Dismiss"
+                  onClick={dismissReminder}
+                >
+                  <XIcon />
+                </Button>
+              </>
+            }
+          >
+            Your browser may clear these files. Export a backup.
+          </Banner>
+        )}
+      </div>
     </div>
   )
 }
 
 /**
- * "3 errors — showing the last valid tree", while the project has errors
- * and the canvas still shows the tree from before them. It opens the
- * problems strip.
+ * The project's error count while the canvas still shows the tree from
+ * before those errors; 0 otherwise.
  */
-function StaleTreeBanner() {
+function useStaleTreeErrors(): number {
   const errors = useSelector(analysisStore, (state) =>
     state.report && state.report.svg === undefined
       ? countProblems(state.report.diagnostics).errors
@@ -95,22 +101,34 @@ function StaleTreeBanner() {
     analysisStore,
     (state) => state.lastSvg?.includes('class="kul-card"') ?? false
   )
-  if (errors === 0 || !showsTree) return null
+  return showsTree ? errors : 0
+}
+
+/** The shape every row shares: an icon, its words, and what it offers. */
+const ROW =
+  "flex min-h-12 items-center gap-3 py-2 pr-2 pl-3.5 [&>svg]:size-4 [&>svg]:shrink-0"
+
+/**
+ * "3 errors — showing the last valid tree". It opens the problems strip.
+ */
+function StaleTreeBanner({ errors }: { errors: number }) {
   return (
     <button
       type="button"
       data-testid="stale-tree-banner"
       onClick={showProblems}
-      className="pointer-events-auto flex items-center gap-2 rounded-full border bg-popover py-1.5 pr-2.5 pl-3 text-sm text-popover-foreground shadow-lg outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+      className={`${ROW} w-full text-left outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset`}
     >
-      <CircleAlertIcon className="size-4 text-destructive" aria-hidden />
-      <span>
+      <CircleAlertIcon className="text-destructive" aria-hidden />
+      <span className="flex-1">
         <span className="font-medium">
           {errors} {errors === 1 ? "error" : "errors"}
         </span>
         {" — showing the last valid tree"}
       </span>
-      <ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden />
+      <span className="flex size-8 shrink-0 items-center justify-center text-muted-foreground">
+        <ChevronRightIcon className="size-4" aria-hidden />
+      </span>
     </button>
   )
 }
@@ -139,7 +157,7 @@ function Banner({
     <div
       role="status"
       data-testid={testId}
-      className="pointer-events-auto flex max-w-2xl items-center gap-3 rounded-xl border bg-popover py-2 pr-2 pl-3.5 text-sm text-popover-foreground shadow-lg [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
+      className={`${ROW} [&>svg]:text-muted-foreground`}
     >
       {icon}
       <p className="flex-1">{children}</p>

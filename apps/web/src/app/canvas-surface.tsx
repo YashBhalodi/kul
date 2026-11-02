@@ -1,4 +1,5 @@
 import { useSelector } from "@tanstack/react-store"
+import { cn } from "cn"
 import { CircleAlertIcon, LoaderCircleIcon } from "lucide-react"
 import { useEffect } from "react"
 import type { ReactNode } from "react"
@@ -27,7 +28,7 @@ export function CanvasSurface({
       {children}
       {corner ?? (
         <div className="absolute right-4 bottom-4 z-10">
-          <EngineStatusBadge />
+          <EngineStatus className="rounded-full border bg-card/95 py-1 pr-3 pl-2.5 shadow-sm" />
         </div>
       )}
     </div>
@@ -67,8 +68,12 @@ export function CanvasMessage({
   )
 }
 
-/** Whether the Kul engine is starting, running or failed. */
-export function EngineStatusBadge() {
+/**
+ * Whether the Kul engine is starting, running or failed: one line of small
+ * text, framed by `className` (a pill of its own, or a row of the canvas's
+ * controls).
+ */
+export function EngineStatus({ className }: { className?: string }) {
   const status = useSelector(engineStatusStore)
   return (
     <div
@@ -76,7 +81,10 @@ export function EngineStatusBadge() {
       data-testid="engine-status"
       data-state={status.state}
       data-restarts={status.state === "ready" ? status.restarts : undefined}
-      className="pointer-events-auto flex items-center gap-2 rounded-full border bg-card/95 py-1 pr-3 pl-2.5 text-xs text-muted-foreground shadow-sm"
+      className={cn(
+        "pointer-events-auto flex items-center gap-2 text-xs text-muted-foreground",
+        className
+      )}
     >
       {status.state === "starting" && (
         <>

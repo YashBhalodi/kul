@@ -12,6 +12,7 @@ import {
   SearchDialogOverlay,
 } from "fumadocs-ui/components/dialog/search"
 import { useMemo } from "react"
+import { createPortal } from "react-dom"
 
 /** The prerendered search index (routes/docs/search[.]json.ts). */
 export const SEARCH_INDEX = "/docs/search.json"
@@ -38,7 +39,11 @@ export function DocsSearchDialog({
         onOpenChange={onOpenChange}
         dialogHandle={dialogHandle}
       >
-        <SearchDialogOverlay />
+        {/* Fumadocs leaves the scrim where the dialog is rendered: in the
+            site header, whose backdrop blur would make it the scrim's
+            containing block and shrink it to the header. On the body it
+            covers the page, under the dialog (z-50) and over the header. */}
+        {createPortal(<SearchDialogOverlay className="z-40" />, document.body)}
         <SearchDialogContent>
           <SearchDialogHeader>
             <SearchDialogIcon />

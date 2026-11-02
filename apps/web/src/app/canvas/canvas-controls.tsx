@@ -11,7 +11,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { EngineStatusBadge } from "../canvas-surface"
+import { EngineStatus } from "../canvas-surface"
 import { canvasSizeStore, currentLayout } from "../editor/editor-layout"
 import { sessionStore } from "../project-session"
 import { useCanvasCommands } from "./canvas-commands"
@@ -28,9 +28,10 @@ import {
 } from "./canvas-store"
 
 /**
- * The canvas's corner: the engine's status, the legend toggle and the
- * zoom controls, with the legend above them when it is open. It stays
- * clear of the details panel and of an editor docked on the right.
+ * The canvas's corner: one card holding the legend toggle and the zoom
+ * controls, with the engine's status along its foot, and the legend above
+ * it, as wide, when open. It stays clear of the details panel and of an
+ * editor docked on the right.
  */
 export function CanvasControls() {
   useCanvasCommands()
@@ -51,16 +52,23 @@ export function CanvasControls() {
   return (
     <div
       style={{ right }}
-      className="pointer-events-none absolute bottom-4 z-[5] flex flex-col items-end gap-2"
+      className="pointer-events-none absolute bottom-4 z-[5] flex flex-col gap-2"
     >
-      <EngineStatusBadge />
       <Legend />
-      <div className="flex items-center gap-2">
-        <LegendToggle />
-        <ZoomControls />
+      <div className="pointer-events-auto rounded-xl border bg-card text-card-foreground shadow-md">
+        <div className="flex items-center gap-0.5 p-0.5">
+          <LegendToggle />
+          <Divider />
+          <ZoomControls />
+        </div>
+        <EngineStatus className="border-t px-3 py-1.5" />
       </div>
     </div>
   )
+}
+
+function Divider() {
+  return <span className="mx-0.5 h-5 w-px shrink-0 bg-border" aria-hidden />
 }
 
 function ControlButton({
@@ -113,11 +121,7 @@ function ZoomControls() {
   const zoom = useSelector(cameraStore, (camera) => camera.zoom)
   const hasTree = useSelector(drawnTreeStore, (svg) => svg !== undefined)
   return (
-    <div
-      role="group"
-      aria-label="Zoom"
-      className="pointer-events-auto flex items-center gap-0.5 rounded-xl border bg-card p-0.5 text-card-foreground shadow-md"
-    >
+    <div role="group" aria-label="Zoom" className="flex items-center gap-0.5">
       <ControlButton
         label="Zoom out"
         iconOnly
@@ -141,7 +145,7 @@ function ZoomControls() {
       >
         <PlusIcon />
       </ControlButton>
-      <span className="mx-0.5 h-5 w-px bg-border" aria-hidden />
+      <Divider />
       <ControlButton
         label="Fit the tree"
         shortcut="0"
@@ -177,18 +181,16 @@ function LegendToggle() {
   const open = useSelector(legendStore, (state) => state.open)
   const rows = useLegendRows()
   return (
-    <div className="pointer-events-auto rounded-xl border bg-card p-0.5 text-card-foreground shadow-md">
-      <ControlButton
-        label={open ? "Hide the legend" : "Show the legend"}
-        onClick={toggleLegend}
-        pressed={open}
-        disabled={rows.length === 0}
-        testId="legend-toggle"
-      >
-        <ListIcon />
-        <span className="text-xs">Legend</span>
-      </ControlButton>
-    </div>
+    <ControlButton
+      label={open ? "Hide the legend" : "Show the legend"}
+      onClick={toggleLegend}
+      pressed={open}
+      disabled={rows.length === 0}
+      testId="legend-toggle"
+    >
+      <ListIcon />
+      <span className="text-xs">Legend</span>
+    </ControlButton>
   )
 }
 
@@ -200,7 +202,7 @@ function Legend() {
     <section
       aria-label="Legend"
       data-testid="legend"
-      className="pointer-events-auto w-48 rounded-xl border bg-card px-3 py-2.5 text-card-foreground shadow-md"
+      className="pointer-events-auto rounded-xl border bg-card px-3 py-2.5 text-card-foreground shadow-md"
     >
       <h2 className="mb-1.5 text-xs font-medium text-muted-foreground">
         Legend
