@@ -3,31 +3,13 @@
 default: check
 
 # Every gate that runs on each change: Rust format, clippy and tests, the
-# WASM build and its gates, the TypeScript workspace gates and the web app's
-# gates. Local-green implies CI-green: `.github/workflows/rust.yml`,
-# `web.yml` and `vscode-extension.yml` run these same recipes.
-check: fmt-check lint test wasm-check check-ts web-check web-build
+# WASM build and its gates, and the web app's gates. Local-green implies
+# CI-green: `.github/workflows/rust.yml` and `web.yml` run these same recipes.
+check: fmt-check lint test wasm-check web-check web-build
 
 # Everything `check` runs, plus the browser suites, Lighthouse, the epic #343
 # baseline diff and old-name search, and actionlint over the workflows.
 verify: check e2e shots lighthouse baseline-diff vestige-check lint-workflows
-
-# Run the TypeScript workspace gates (Vitest in packages/preview and
-# editor/vscode) — the same suites .github/workflows/vscode-extension.yml
-# runs per PR. Requires Node 22 and a prior `npm ci` at the repo root.
-#
-# The extension build runs too, and is not redundant with the tests: Vitest
-# resolves `packages/preview/src`, while the extension bundles `dist`. Only
-# the bundle catches a module that never reached `dist` — the failure mode a
-# `src/` subdirectory introduces, invisible to every test.
-#
-# The query engine is skipped here on purpose. ADR-0040 makes it a build asset
-# staged by `just wasm`, and promises this gate never needs a wasm toolchain;
-# packaging keeps the strict check, so a .vsix still cannot ship without it.
-check-ts:
-    npm test --workspaces --if-present
-    KUL_ALLOW_MISSING_ENGINE=1 npm run build:preview --workspace kul
-    npm run bundle --workspace kul
 
 # Run the full test suite via cargo-nextest.
 test:
