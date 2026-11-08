@@ -1,0 +1,12 @@
+# kul
+
+> Kul — a kinship description language. Small DSL for modeling families, marriages, births, and adoptions, with first-class chronology and an end-to-end Rust toolchain (parser, validator, LSP, WASM).
+
+## Core Resources
+
+- [GitHub Repository](https://github.com/YashBhalodi/kul): Source code, documentation, and issue tracker.
+
+## AI Agent & LLM Indexing
+
+- Structured following the standard /llms.txt specification for AI search engines and coding assistants.
+- Validated via [AccessGuard AI-Readiness Suite](https://ronanchnlps-bit.github.io/).
